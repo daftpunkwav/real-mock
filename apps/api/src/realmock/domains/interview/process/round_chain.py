@@ -12,7 +12,7 @@ the chain only decides what each round IS.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from realmock.domains.interview.constants import MAX_INTERVIEW_ROUNDS
 
@@ -67,7 +67,7 @@ def _technical_chain() -> list[RoundStep]:
               "motivation, career plan, and teamwork; keep it warm",
               "HR Round 1"),
         _step(4, KIND_HR_2, "hr", "professional", "continuous", 4,
-              "pressure handling, compensation expectations, and overall fit; final judgement",
+              "pressure handling, compensation expectations, and overall fit",
               "HR Round 2"),
         _step(5, KIND_TECH_DEEP, "technical", "expert", "challenging", 6,
               "cross-check round: verify earlier weak points from new angles",
@@ -102,8 +102,8 @@ def _hr_chain() -> list[RoundStep]:
               "leadership and decision-making cases",
               "Management Round"),
         _step(6, KIND_HR_2, "hr", "professional", "challenging", 5,
-              "final HR judgement: fit, stability, and offer expectations",
-              "HR Final"),
+              "fit, stability, and offer expectations",
+              "HR Round 3"),
         _step(7, KIND_CROSS, "management", "pressure", "challenging", 7,
               "senior loop: business sense and architecture leadership",
               "Final Loop"),
@@ -134,8 +134,8 @@ def _management_chain() -> list[RoundStep]:
               "executive round: strategy, ownership, and growth",
               "Executive Round"),
         _step(7, KIND_HR_2, "hr", "professional", "challenging", 5,
-              "final HR judgement: fit, stability, and offer expectations",
-              "HR Final"),
+              "fit, stability, and offer expectations",
+              "HR Judgement"),
         _step(8, KIND_TECH_DEEP, "technical", "pressure", "continuous", 8,
               "stress round: rapid deep probes with little think time",
               "Stress Round"),
@@ -155,7 +155,8 @@ def round_chain(base_workflow: str, max_rounds: int) -> list[RoundStep]:
     Unknown base workflows fall back to the technical chain (mirrors
     ``get_workflow``). ``max_rounds`` is clamped to the global round cap; the
     canonical chain always fills the budget (beyond the canonical length the
-    last step repeats unchanged).
+    last step repeats unchanged). Whatever the budget, the LAST round is
+    marked as the loop's final judgement — mid-chain steps never carry it.
     """
     budget = max(1, min(int(max_rounds or MAX_INTERVIEW_ROUNDS), MAX_INTERVIEW_ROUNDS))
     canonical = _CHAINS.get(str(base_workflow or ""), _technical_chain())
@@ -173,6 +174,15 @@ def round_chain(base_workflow: str, max_rounds: int) -> list[RoundStep]:
                 focus=base.focus,
                 label=base.label,
             )
+        )
+    last = steps[-1]
+    if "final" not in last.focus.lower():
+        steps[-1] = replace(
+            last,
+            focus=(
+                f"{last.focus}; as the final round of this loop, also deliver the "
+                "overall judgement (fit, level, hire recommendation)"
+            ),
         )
     return steps
 

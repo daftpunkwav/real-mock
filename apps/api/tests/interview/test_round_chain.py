@@ -83,3 +83,13 @@ def test_create_process_response_exposes_round_plan(db) -> None:
     assert [p.kind for p in response.round_plan] == ["tech_1", "tech_2", "hr_1", "hr_2"]
     assert response.round_plan[2].workflow_type == "hr"
     assert all(isinstance(p, ProcessRoundPlanItem) and p.focus for p in response.round_plan)
+
+
+def test_final_judgement_only_on_last_round():
+    """Mid-chain rounds never claim the final judgement; the budget's last one always does."""
+    for base in ("technical", "hr", "management"):
+        for budget in (2, 4, 5, 8):
+            steps = round_chain(base, budget)
+            for step in steps[:-1]:
+                assert "final" not in step.focus.lower(), (base, budget, step.round_no)
+            assert "final" in steps[-1].focus.lower(), (base, budget)
