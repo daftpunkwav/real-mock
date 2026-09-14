@@ -3,8 +3,9 @@
 The conversation layer extracted from the main ``agent`` file: ``run_chat`` /
 ``run_chat_stream`` drive tool rounds and replay the final answer. Persistence
 (``finalize``), the ``compaction``/``usage`` payloads, and cancel-time saves
-live in :mod:`persist`. The tool loop (``_run_tool_rounds``) and context
-assembly remain in :mod:`agent`.
+live in :mod:`persist`. The tool loop (``_run_tool_rounds``) remains in
+:mod:`agent`; turn context assembly and mid-turn compaction live in
+:mod:`round_compaction`, and the turn toolset policy in :mod:`turn_tools`.
 
 Usage contract (frontend depends on this): the ``usage`` event carries this turn's
 provider-reported DELTA (the per-request LLM client's accumulator, including turn

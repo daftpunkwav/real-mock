@@ -2,7 +2,8 @@
 
 Declared here so the model sees one tool schema source, but intentionally NOT
 in the registry: execution rewrites agent history and must run inside the turn
-loop (``PrepAgent._compact_current_round``), which plain handlers cannot reach.
+loop (:func:`round_compaction.compact_current_round`, reached via
+``PrepAgent._compact_current_round``), which plain handlers cannot reach.
 """
 
 from __future__ import annotations

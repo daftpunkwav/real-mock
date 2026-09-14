@@ -1,17 +1,24 @@
 """Interview-preparation Agent (function-calling think-then-act loop).
 
-- The tool loop is driven by :func:`run_agent_loop`; the streaming interface immediately pushes tool_step / thinking /
-  body-text tokens / search_results / ask_user / usage events to the frontend through ``asyncio.Queue``;
-- For chat orchestration (synchronous single round / event-stream final persistence), see :mod:`chat`;
-- For domain tools, see the :mod:`tools` package (assembled by :mod:`tools.registry`); ask_user is in :mod:`ask_user`, context in
-  :mod:`context`, streaming helpers in :mod:`streaming`, and tool execution in :mod:`tool_exec`.
-  This module retains only class state, message persistence, and tool-round control flow.
+``PrepAgent`` is per-request state (history, working memory, turn scratchpad)
+plus the think-then-act tool loop. Turn mechanics live in sibling modules so
+this file stays at orchestration level:
+
+- per-turn toolset policy (freeze/expand, memory-write budget): :mod:`turn_tools`;
+- working-context assembly and mid-turn compaction: :mod:`round_compaction`;
+- chat orchestration (single round / event-stream final persistence): :mod:`chat`;
+- domain tools: :mod:`tools` package (assembled by :mod:`tools.registry`);
+  ask_user is in :mod:`ask_user`, streaming helpers in :mod:`streaming`,
+  and tool execution in :mod:`tool_exec`.
+
+Underscore helpers kept here (``_tool_definitions``, ``_build_context``,
+``_compact_current_round``, …) are thin delegates preserving the historical
+call surface pinned by routes and tests; the logic lives in the modules above.
 """
 
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -23,30 +30,31 @@ from realmock.domains.prep.models import PrepSession
 from realmock.domains.prep.models import commit_session, utcnow
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
-from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
-from realmock.platform.capabilities.ai.llm.defaults import DEFAULT_CONTEXT_WINDOW
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
-from realmock.platform.core.security import redact_api_key
 
-from .ask_user import ASK_USER_TOOL
 from .ask_user import fallback_reply as _fallback_reply
 from .chat import run_chat, run_chat_stream
-from .context import PREP_SYSTEM, build_system_messages, build_working_context, normalize_ui_locale
+from .context import PREP_SYSTEM, build_system_messages, normalize_ui_locale
+from .round_compaction import (
+    FALLBACK_CONTEXT_TOKENS,
+    build_turn_context,
+    compact_current_round,
+    prefix_fingerprint,
+)
 from .streaming import event_loopbacks
 from .tool_exec import build_execute_callback
 from .turn_state import TurnState
 from .tools import execute_prep_tool
-from .tools import COMPACT_TOOL_DEFINITION as _COMPACT_TOOL_DEFINITION
-from .tools import PREP_TOOL_DEFINITIONS as _DOMAIN_TOOL_DEFS
-from .tools import SECONDARY_DEFINITIONS as _SECONDARY_DEFINITIONS
-from .tools import TOOL_REGISTRY as _TOOL_REGISTRY
-from .tools import TOOL_TIER_SECONDARY as _TIER_SECONDARY
-from .tools import tool_available as _tool_available
-from .tools import preload_secondary as _preload_secondary
+from .turn_tools import (
+    MAX_MEMORY_WRITES_PER_TURN,
+    PREP_TOOL_DEFINITIONS,
+    expand_turn_tools,
+    freeze_turn_tools,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +65,6 @@ logger = logging.getLogger(__name__)
 # Width stays at 3: wider parallel batches invite junk calls in chat context.
 _MAX_TOOL_ROUNDS = 12
 _MAX_TOOLS_PER_ROUND = 3
-# Fallback value when context window is unknown
-_FALLBACK_CONTEXT_TOKENS = DEFAULT_CONTEXT_WINDOW
 # Whole-turn budget: bounds worker + DB-session hold time. Worst case without
 # it is 12 rounds x (an LLM call + up to 3x18s tools + compression) — tens of
 # minutes. On timeout the tool loop aborts and the caller falls back to a
@@ -68,42 +74,7 @@ _TURN_TIMEOUT_SECONDS = 600.0
 # jobs; interactive chat converges to 30s so one slow blob cannot stall a turn.
 _COMPRESSION_TIMEOUT_SECONDS = 30.0
 
-# Complete toolset handed to the model = ask_user + domain tool registry.
-PREP_TOOL_DEFINITIONS: list[dict[str, Any]] = [ASK_USER_TOOL, *_DOMAIN_TOOL_DEFS]
-
-# Absolute usage floor below which the agent-invoked compact tool refuses to
-# run (tiny sessions have nothing worth an extra summarizer call).
-_COMPACT_TOOL_MIN_RATIO = 0.3
-# Per-turn memory_write budget: LLM owns dedup decisions, this only stops
-# runaway loops from spamming the store. Distinct facts should be batched
-# into fewer calls.
-_MAX_MEMORY_WRITES_PER_TURN = 2
-
-
-def _prefix_fingerprint(
-    working: list[dict[str, Any]], tool_definitions: list[dict[str, Any]]
-) -> str:
-    """Stable-prefix fingerprint for cache-hit measurement (never raises).
-
-    Covers the cacheable head only: leading system blocks plus sorted tool
-    names. Volatile tails (history, refs, lang hint) are excluded by design,
-    so equal fingerprints across turns mean the provider prefix cache can hit.
-    """
-    try:
-        parts: list[str] = []
-        for m in working or []:
-            if not isinstance(m, dict) or m.get("role") != "system":
-                break
-            parts.append(str(m.get("content") or ""))
-        names = sorted(
-            str(t.get("function", {}).get("name") or "")
-            for t in tool_definitions or []
-            if isinstance(t, dict)
-        )
-        parts.extend(n for n in names if n)
-        return hashlib.sha256("\n\x00".join(parts).encode("utf-8")).hexdigest()[:16]
-    except Exception:
-        return ""
+__all__ = ["PREP_TOOL_DEFINITIONS", "PrepAgent"]
 
 
 class PrepAgent:
@@ -120,7 +91,7 @@ class PrepAgent:
         self.session = session
         self.llm = llm
         # Context window for model entry declarations; falls back to old value when unknown
-        self.context_window = getattr(llm, "context_window", 0) or _FALLBACK_CONTEXT_TOKENS
+        self.context_window = getattr(llm, "context_window", 0) or FALLBACK_CONTEXT_TOKENS
         # Visible waiting-line locale (set on first turn; product default zh-CN).
         self.reply_locale = "zh-CN"
         self._load_messages()
@@ -221,158 +192,54 @@ class PrepAgent:
         provenance: dict[str, Any] | None = None,
         report: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Context assembly for the model: LLM-generated summary compaction + working-memory injection.
+        """Turn working context (delegates to :mod:`round_compaction`).
 
-        Compaction occurs only at the start of each conversation turn (and may trigger one LLM summary call); the persistence path
-        (chat.finalize) uses rule-based compaction and adds no latency while saving.
-        ``threshold`` carries the user's auto-compact setting (``None`` = agent-decided default);
-        ``force`` (manual ``/compact``) always attempts an LLM summary.
-        ``options`` carries intensity/directive/retain; ``keep_from`` pins the
-        verbatim cutoff for mid-turn agent-invoked compaction; ``provenance``
-        stamps the new summary trailer; ``report`` collects compaction cost
-        without raising.
+        Keeps the historical call surface used by chat orchestration and the
+        history route; refreshes the prefix fingerprint as before.
         """
-        working = await build_working_context(
-            self.messages, self.context_window, memory=self.memory, llm=self.llm,
+        working = await build_turn_context(
+            messages=self.messages, context_window=self.context_window,
+            memory=self.memory, llm=self.llm,
             reply_locale=self.reply_locale, threshold=threshold, force=force,
             options=options, keep_from=keep_from, provenance=provenance, report=report,
             default_focus=self._objective_line or None,
         )
-        self.last_prefix_fingerprint = _prefix_fingerprint(working, self._tool_definitions())
+        self.last_prefix_fingerprint = prefix_fingerprint(working, self._tool_definitions())
         return working
 
     def _tool_definitions(self, user_text: str = "") -> list[dict[str, Any]]:
-        """Per-turn model toolset: tier-1 + turn-relevant tools, then compact.
-
-        Secondary-tier specs stay out of the initial declarations UNLESS a
-        name-gated signal matches (repo talk preloads github tools) — decided
-        once at turn start, frozen for the round, so the cached prefix head
-        never reorders. Anything else secondary loads through ``search_tools``.
-        The returned list is stored as ``_turn_state.tools`` and handed to the
-        loop by reference — mid-turn expansion only appends.
-
-        Args:
-            user_text: Latest user input, used for name-gated tool signals.
-
-        Returns:
-            The frozen turn toolset (also stored on ``_turn_state``).
-        """
-        resume_id = getattr(self.session, "resume_id", None)
-        primary: list[dict[str, Any]] = []
-        preloaded: list[dict[str, Any]] = []
-        for item in [ASK_USER_TOOL, *_DOMAIN_TOOL_DEFS]:
-            name = ""
-            try:
-                name = str((item.get("function") or {}).get("name") or "")
-            except Exception:
-                name = ""
-            if not name:
-                continue
-            spec = _TOOL_REGISTRY.get(name)
-            if spec is not None and spec.tier == _TIER_SECONDARY:
-                # On-demand tier: preload only on a matched signal gate (repo
-                # talk); pure on-demand tools wait for search_tools.
-                if _preload_secondary(name, user_text, resume_id):
-                    preloaded.append(item)
-                continue
-            if not _tool_available(name, user_text, resume_id):
-                continue
-            primary.append(item)
-        declared = [*primary, *preloaded]
-        # Static compact-tool declaration: the live usage estimate moved to the
-        # per-turn [Context usage] system suffix (build_working_context) — a
-        # per-turn tool description would sit at the head of the provider
-        # request and invalidate the whole prompt-cache prefix every turn.
-        declared.append(_COMPACT_TOOL_DEFINITION)
-        self._turn_state.tools = declared
-        return declared
+        """Frozen turn toolset (delegates to :mod:`turn_tools`)."""
+        return freeze_turn_tools(
+            resume_id=getattr(self.session, "resume_id", None),
+            user_text=user_text,
+            turn_state=self._turn_state,
+        )
 
     def _expand_turn_tools(self, selected: list[str]) -> list[str]:
-        """Append on-demand schemas to the live turn toolset. Returns names added."""
-        added: list[str] = []
-        if self._turn_state.tools is None:
-            return added
-        try:
-            present = {
-                str((item.get("function") or {}).get("name") or "")
-                for item in self._turn_state.tools
-            }
-        except Exception:
-            present = set()
-        for name in selected:
-            if name in present or name not in _SECONDARY_DEFINITIONS:
-                continue
-            self._turn_state.tools.append(_SECONDARY_DEFINITIONS[name])
-            present.add(name)
-            added.append(name)
-        return added
+        """Append on-demand schemas to the live turn toolset (see :mod:`turn_tools`)."""
+        return expand_turn_tools(turn_state=self._turn_state, selected=selected)
 
     async def _compact_current_round(
         self, args: dict[str, Any], db: Session
     ) -> tuple[str, list[SearchHit]]:
-        """Agent-invoked mid-turn compaction (the ``compact_context`` tool body).
+        """Mid-turn compaction entry (body in :mod:`round_compaction`).
 
-        Folds everything before the current user message into an LLM summary
-        and persists immediately; the in-flight tool round continues on its
-        working copy and chat.finalize merges the new tail back on top (so
-        tool-call pairing never splits). Guarded: once per turn, and refused
-        below an absolute usage floor. Per-call ``focus``/``intensity`` args
-        override the turn policy for this run only (validated, never raising).
+        Adopts and persists the compacted messages when the outcome carries
+        any; ``compact_context`` bypasses the tool registry precisely because
+        it rewrites agent history here, which plain handlers cannot reach.
         """
-        call_args = args if isinstance(args, dict) else {}
-        if self._turn_state.compact_used:
-            return "Compaction already ran this turn; continuing with the compacted context.", []
-        window = self.context_window or _FALLBACK_CONTEXT_TOKENS
-        usage = estimate_messages_tokens(self.messages)
-        if window > 0 and usage <= window * _COMPACT_TOOL_MIN_RATIO:
-            return (
-                f"Compaction not needed yet (usage ~{usage} tokens is below the "
-                "minimum for a summarizer call); continuing with full history. "
-                "Do not call compact_context again this turn.",
-                [],
-            )
-        rest = [m for m in self.messages if isinstance(m, dict) and m.get("role") != "system"]
-        last_user = max(
-            (i for i, m in enumerate(rest) if m.get("role") == "user"),
-            default=-1,
+        outcome = await compact_current_round(
+            messages=self.messages, context_window=self.context_window,
+            memory=self.memory, llm=self.llm, reply_locale=self.reply_locale,
+            turn_state=self._turn_state, objective_line=self._objective_line,
+            resume_id=getattr(self.session, "resume_id", None), args=args,
         )
-        if last_user < 0:
-            return "No user turn to protect yet; compaction refused.", []
-        before = usage
-        report: dict[str, Any] = {}
-        policy = CompactionOptions.resolve(
-            intensity=call_args.get("intensity"),
-            directive=call_args.get("focus"),
-            default=self._turn_state.policy,
-        )
-        try:
-            compacted = await self._build_context(
-                force=True, options=policy, keep_from=last_user, report=report,
-            )
-        except Exception as e:
-            safe_detail = redact_api_key(str(e))[:200]
-            logger.warning("Agent-invoked compaction failed: %s", safe_detail)
-            return f"Compaction failed ({safe_detail}); continuing with full history.", []
-        self._turn_state.compact_used = True
-        self._turn_state.mid_turn_base = compacted
-        self.messages = compacted
-        self._save(db)
-        after = estimate_messages_tokens(self.messages)
-        self._turn_state.mid_turn_report = {
-            "before": before,
-            "after": after,
-            "summarized": True,
-            "prompt_tokens": int(report.get("prompt_tokens", 0)),
-            "completion_tokens": int(report.get("completion_tokens", 0)),
-            "latency_ms": round(float(report.get("latency_ms", 0.0)), 1),
-        }
-        return (
-            f"Context compacted by summarizer ({policy.intensity}"
-            + (f", focus: {policy.directive}" if policy.directive else "")
-            + f"): ~{before} → ~{after} tokens. "
-            "Older turns are now a sectioned summary; the current turn continues unchanged.",
-            [],
-        )
+        if outcome.messages is not None:
+            self.messages = outcome.messages
+            self._save(db)
+        if outcome.prefix_fingerprint is not None:
+            self.last_prefix_fingerprint = outcome.prefix_fingerprint
+        return outcome.text, outcome.hits
 
     async def _run_named_tool(
         self, name: str, args: dict[str, Any], db: Session
@@ -388,9 +255,9 @@ class PrepAgent:
         if name == "compact_context":
             return await self._compact_current_round(args, db)
         if name == "memory_write":
-            if self._turn_state.memory_writes >= _MAX_MEMORY_WRITES_PER_TURN:
+            if self._turn_state.memory_writes >= MAX_MEMORY_WRITES_PER_TURN:
                 return (
-                    f"memory_write budget exhausted this turn (max {_MAX_MEMORY_WRITES_PER_TURN}); "
+                    f"memory_write budget exhausted this turn (max {MAX_MEMORY_WRITES_PER_TURN}); "
                     "continue coaching without more writes.",
                     [],
                 )
