@@ -3,7 +3,8 @@
  * @description Module-level registry of in-flight prep streams, keyed by session id.
  * Module scope (not React state) keeps generations alive across session switches
  * and in-app navigation: only closing or refreshing the site drops them.
- * At most one stream per session; starting another queues behind it.
+ * At most one live stream per session (re-registering replaces the controller);
+ * queueing behind a live stream is owned by usePrepSend.
  * Subscribe for UI badges: listeners fire with the active id list on every change.
  */
 

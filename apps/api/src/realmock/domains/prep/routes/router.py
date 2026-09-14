@@ -7,11 +7,12 @@ reissue / purge-empty / purge-all, plus memory writes) require same-origin CSRF
 protection but no capability token, so orphans stay manageable.
 
 Handlers live in ``lists.py`` (read-only listing), ``create.py``
-(create+cookie), ``chat.py`` (message / stream / history / context / compact /
-summary / fork / truncate), ``manage.py`` (delete / purge / archive / link /
-reissue), and ``memories.py`` (long-term memories). This module mounts them on
-the same ``router`` (including their respective rate-limit dependencies), which
-``realmock.domains.prep.router`` mounts with ``prefix="/prep"``.
+(create+cookie), ``chat.py`` (message / stream / messages / context),
+``history.py`` (compact / summary / fork / truncate), ``manage.py`` (delete /
+purge / archive / link / reissue), and ``memories.py`` (long-term memories).
+This module mounts them on the same ``router`` (including their respective
+rate-limit dependencies), which ``realmock.domains.prep.router`` mounts with
+``prefix="/prep"``.
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ from realmock.platform.core.ratelimit import rate_limit_dep
 
 
 def _manage_limit() -> Depends:
-    """Shared guard for destructive management endpoints (purge/batch)."""
+    """Shared rate limit for purge endpoints and memory write endpoints."""
     return Depends(
         rate_limit_dep(key="manage", limit=DEFAULT_RATE_LIMIT_PER_MINUTE),
     )

@@ -27,7 +27,15 @@ def _get_detail_sync(memory_id: int) -> str:
 
 
 async def run_memory_get_detail(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """Load one memory by id; invalid ids yield a JSON error, never raise."""
+    """Load one memory by id; invalid ids yield a JSON error, never raise.
+
+    Args:
+        args: Tool arguments (``id`` memory id, positive).
+        memory: Unused (read-only detail lookup).
+
+    Returns:
+        ``(json_text, [])`` with the detail payload or an error object.
+    """
     del memory
     try:
         memory_id = int(args.get("id") or 0)

@@ -44,6 +44,15 @@ async def run_profile_or_resume(
 
     Only the ORM snapshot load runs in a worker thread; the bound handler
     itself works on detached in-memory data.
+
+    Args:
+        name: Tool name (profile_* or resume_* member of PROFILE_RESUME_NAMES).
+        args: Tool arguments forwarded to the bound platform handler.
+        resume_id: Bound resume for resume_* tools (None yields no_resume_bound).
+
+    Returns:
+        ``(observation_text, [])`` from the bound handler, or a JSON error
+        string when the tool or resume is unresolvable.
     """
     bound = await asyncio.to_thread(load_profile_or_resume_spec, name, resume_id)
     if isinstance(bound, str):

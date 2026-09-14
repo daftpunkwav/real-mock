@@ -2,10 +2,18 @@
 
 /**
  * @file useAskAutoSubmit.ts
- * @description Deadline auto-submit for single-question ask dialogs: fires the
- * recommended choice once when the countdown reaches zero. Deadline-based (not
+ * @description Deadline auto-submit for ask dialogs: fires the recommended
+ * choice once when the countdown reaches zero. Deadline-based (not
  * duration-based) so background tabs still expire on time. Skipped while the
- * user composes custom text and never for multi-question forms.
+ * user composes custom text. Callers pass a null choice for multi-question
+ * forms (see AskUserModal), which disables the timer.
+ *
+ * @param autoChoice Recommended choice to submit, or null to disable.
+ * @param isComposing True while the user types custom text (pauses firing).
+ * @param disabled True while the dialog is inactive (no deadline is armed).
+ * @param onFire Callback receiving the choice when the countdown elapses.
+ * @returns remainingMs countdown remainder (null when disabled) and a
+ *   mm:ss formatter for display.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";

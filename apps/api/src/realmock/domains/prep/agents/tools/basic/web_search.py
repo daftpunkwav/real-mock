@@ -16,7 +16,16 @@ _WEB_SEARCH_HARD_LIMIT = 5
 
 
 async def run_web_search(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """Search public material; returns (observation_text, search_hits)."""
+    """Search public material.
+
+    Args:
+        args: Tool arguments (``query`` required, ``max_results`` optional, clamped 1..5).
+        memory: Working memory (the query is noted for later turns).
+
+    Returns:
+        ``(observation_text, search_hits)``; unparseable upstream payloads
+        pass through as raw text with no hits.
+    """
     query = str(args.get("query", "") or "")
     if query:
         memory.remember("note", f"search:{query}")

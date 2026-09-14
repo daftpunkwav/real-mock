@@ -106,14 +106,24 @@ async def build_working_context(
 
     Compress only at the start of each chat turn (may trigger one summary LLM
     call). Persist paths (chat.finalize) use rule-based compression to avoid save latency.
-    ``threshold`` (fraction of the context window, e.g. 0.7) comes from the
-    user's auto-compact setting; ``None`` keeps the agent-decided default.
-    ``force`` (manual ``/compact``) always attempts an LLM summary.
-    ``options`` carries intensity/directive/retain; ``keep_from`` pins the
-    verbatim cutoff for mid-turn agent-invoked compaction; ``provenance``
-    stamps the new summary trailer; ``default_focus`` anchors the summary
-    when the run carries no explicit directive; ``report`` collects
-    compaction cost (tokens/latency) without raising.
+
+    Args:
+        messages: Persisted history to assemble from.
+        context_window: Model context window in tokens (budgets derive from it).
+        memory: Live working memory injected as a system block.
+        llm: LLM client used for the optional summary call.
+        reply_locale: UI locale hint for the reply-language suffix.
+        threshold: Auto-compact trigger fraction (e.g. 0.7); ``None`` keeps
+            the agent-decided default.
+        force: Manual ``/compact`` always attempts an LLM summary.
+        options: Compaction intensity/directive/retain policy.
+        keep_from: Verbatim cutoff for mid-turn agent-invoked compaction.
+        provenance: Trailer stamps for the new summary block.
+        default_focus: Summary anchor when the run carries no explicit directive.
+        report: Collects compaction cost (tokens/latency) without raising.
+
+    Returns:
+        The working message list for the model (with memory/lang/usage suffixes).
     """
     opts = options or CompactionOptions()
     compacted = await compact_with_summary(

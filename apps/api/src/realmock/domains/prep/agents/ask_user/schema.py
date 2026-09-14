@@ -68,7 +68,8 @@ ASK_USER_TOOL: dict[str, Any] = {
                     "items": {"type": "string"},
                     "description": (
                         "2–8 options for widget=options. Each must be a short plain-text label "
-                        "(≤40 chars) suitable for a clickable control; do not pass "
+                        "(aim ≤40 chars; longer labels render truncated at 80) suitable "
+                        "for a clickable control; do not pass "
                         "{description: ..., value: ...} objects or pseudo-JSON strings. "
                         "Ignored for slider/rating widgets."
                     ),

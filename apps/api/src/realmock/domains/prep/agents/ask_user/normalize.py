@@ -11,6 +11,8 @@ from typing import Any
 # Option-count bounds (the persistent free-text input is separate, not counted).
 _ASK_MIN_OPTIONS = 2
 _ASK_MAX_OPTIONS = 8
+# Safety-valve truncation for clickable labels (schema asks the model for
+# ≤40 chars; longer labels still render, truncated here instead of rejected).
 _ASK_OPT_MAX_CHARS = 80
 
 _ASK_SELECTIONS = ("single", "multi")

@@ -1,5 +1,6 @@
 /**
- * Interview prep quick-prompt keys.
+ * @file prepPrompts.ts
+ * @description Interview prep quick-prompt keys.
  *
  * Keys only; copy lives in `i18n/messages/<locale>/prep.ts`.
  * UI translates with the active locale before filling the input.

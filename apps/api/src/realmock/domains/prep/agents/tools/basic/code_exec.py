@@ -19,7 +19,17 @@ _CODE_MAX_CHARS = 20000
 
 
 async def run_code_exec(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """Run a short snippet; returns (observation_text, no_hits)."""
+    """Run a short snippet in the sandbox.
+
+    Args:
+        args: Tool arguments (``language`` python/javascript, ``code``
+            up to 20k chars, ``timeout`` seconds clamped 1..15).
+        memory: Unused (no turn state to record).
+
+    Returns:
+        ``(observation_text, [])`` with stdout/stderr/exit code; empty code
+        is refused without running.
+    """
     del memory
     language = str(args.get("language", "") or "")
     code = str(args.get("code", "") or "")

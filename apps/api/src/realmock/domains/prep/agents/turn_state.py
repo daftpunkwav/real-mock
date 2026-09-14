@@ -40,7 +40,11 @@ class TurnState:
     memory_writes: int = 0
 
     def reset(self, options: CompactionOptions | None = None) -> None:
-        """Reset all fields for a new turn; preserve nothing from the previous turn."""
+        """Reset all fields for a new turn; preserve nothing from the previous turn.
+
+        Args:
+            options: Turn compaction policy (None builds default options).
+        """
         self.policy = options or CompactionOptions()
         self.compact_used = False
         self.expanded = False

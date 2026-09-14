@@ -1,4 +1,4 @@
-/** . */
+/** resolveSelectedModel: id matching, null-default, unknown-id. */
 
 import { describe, expect, it } from "vitest";
 

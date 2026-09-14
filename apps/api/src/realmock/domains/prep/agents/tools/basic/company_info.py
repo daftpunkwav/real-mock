@@ -11,7 +11,15 @@ from realmock.platform.catalogs.company import get_company_context
 
 
 async def run_company_info(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """Look up company interview focus; returns (observation_text, no_hits)."""
+    """Look up company interview focus.
+
+    Args:
+        args: Tool arguments (``company`` id, e.g. bytedance / tencent).
+        memory: Unused (no turn state to record).
+
+    Returns:
+        ``(observation_text, [])``; unknown companies yield catalog fallback text.
+    """
     del memory
     company = str(args.get("company", "") or "")
     return await asyncio.to_thread(get_company_context, company), []

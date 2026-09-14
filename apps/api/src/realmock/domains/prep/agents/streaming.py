@@ -1,6 +1,6 @@
 """Prep streaming helpers: speculative content tokens, event queue for tool rounds, and early-body replay.
 
-The orchestration layer (``chat_stream`` in :mod:`agent`) uses :func:`stream_tool_rounds`
+The orchestration layer (``run_chat_stream`` in :mod:`chat`) uses :func:`stream_tool_rounds`
 to run tool rounds in the background and relay their event queue; :func:`event_loopbacks`
 builds the per-round callbacks (thinking deltas, tool progress, and display-filtered
 speculative content tokens); :func:`slice_stream` replays a fully buffered answer body

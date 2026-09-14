@@ -212,6 +212,21 @@ async def compact_prep_session(
     pre-compaction originals; the summary trailer links it for fork-from-point
     restores. Regeneration reuses this endpoint with ``backup=False``.
     Owner-level: CSRF-protected, no capability token (orphans must stay compactable).
+
+    Args:
+        session_id: Target session id.
+        request: Active request (used for CSRF validation).
+        db: Sessions database session (injected).
+        api_db: API database session for the summarizer LLM profile (injected).
+        body: Compaction parameters (intensity/directive/retain/backup/
+            expected_message_count); absent fields fall back to defaults.
+
+    Returns:
+        PrepCompactResponse describing the compaction outcome.
+
+    Raises:
+        ApiBusinessError: A3001 (missing session), A3002 (completed),
+            A3003 (history changed since the caller read it).
     """
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_writable_session(session_id, db)
@@ -390,7 +405,7 @@ async def fork_prep_session(
 
     Args:
         session_id: Source session id (capability-token gated).
-        body: Fork parameters (``up_to`` index plus optional concurrency guard).
+        body: Fork parameters (``up_to`` message index, inclusive).
         request: Active request (used for secure-cookie detection).
         response: Response used to seed the fork's capability cookie.
         db: Sessions database session (injected).

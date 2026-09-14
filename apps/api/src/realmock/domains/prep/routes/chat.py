@@ -259,6 +259,17 @@ def get_prep_context(
     Content-read path: requires the capability token. Bucket estimates use the
     same mechanical ratio as context budgeting; provider columns stay truthful
     (0 when the provider never reported) and the UI estimates the gap.
+
+    Args:
+        session_id: Target coaching session id.
+        db: Sessions database session (injected).
+        access: Capability token from header/cookie (injected).
+
+    Returns:
+        PrepContextResponse with per-bucket estimates plus provider totals.
+
+    Raises:
+        ApiBusinessError: A3001 (missing session), A0401 (token mismatch).
     """
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:

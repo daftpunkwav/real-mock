@@ -73,6 +73,17 @@ async def run_memory_write(args: dict[str, Any], memory: WorkingMemory) -> tuple
     summary match in the store short-circuits re-inserts (cross-turn retries).
     A process-wide lock serializes concurrent inserts from the same tool round
     (SQLite ``database is locked`` under parallel commits).
+
+    Args:
+        args: Tool arguments (``summary`` required one-line index;
+            ``user_input``/``agent_output`` source turns; ``tags`` list;
+            ``origin`` user_rating/user_emphasis/agent_note;
+            ``idempotency_key`` optional dedupe key).
+        memory: Working memory receiving the index note and key marker.
+
+    Returns:
+        ``(json_text, [])`` with the memory ``id`` (plus ``deduplicated``
+        when an existing row was reused).
     """
     summary = str(args.get("summary") or "").strip()
     if not summary:

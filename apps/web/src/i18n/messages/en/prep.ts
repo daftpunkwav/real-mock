@@ -1,4 +1,7 @@
-/** prep messages (en; key set must mirror zh-CN exactly). */
+/**
+ * @file prep.ts
+ * @description prep messages (en; key set must mirror zh-CN exactly).
+ */
 
 export const prep = {
   // Page header

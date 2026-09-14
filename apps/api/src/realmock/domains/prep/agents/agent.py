@@ -107,6 +107,15 @@ def _prefix_fingerprint(
 
 
 class PrepAgent:
+    """Interview-preparation coaching agent: per-session state, persistence, and tool-round control flow.
+
+    Rebuilt per request around one ``PrepSession`` row: loads message history,
+    derives working memory plus the session-objective anchor, and exposes
+    :meth:`chat` / :meth:`chat_stream` turn entry points (orchestrated by
+    :mod:`chat`). Chat turns mutate :attr:`messages` in place and persist via
+    :meth:`_save`.
+    """
+
     def __init__(self, session: PrepSession, llm: LLMClient):
         self.session = session
         self.llm = llm
@@ -239,8 +248,14 @@ class PrepAgent:
         name-gated signal matches (repo talk preloads github tools) — decided
         once at turn start, frozen for the round, so the cached prefix head
         never reorders. Anything else secondary loads through ``search_tools``.
-        The returned list is stored as ``_turn_tools`` and handed to the loop
-        by reference — mid-turn expansion only appends.
+        The returned list is stored as ``_turn_state.tools`` and handed to the
+        loop by reference — mid-turn expansion only appends.
+
+        Args:
+            user_text: Latest user input, used for name-gated tool signals.
+
+        Returns:
+            The frozen turn toolset (also stored on ``_turn_state``).
         """
         resume_id = getattr(self.session, "resume_id", None)
         primary: list[dict[str, Any]] = []
@@ -437,10 +452,19 @@ class PrepAgent:
         list[dict[str, Any]],
         str,
     ]:
-        """Tool loop. Returns ``(messages, early_content, search_groups, tool_steps, thinking)``.
+        """Think-then-act tool loop over the frozen turn toolset.
 
-        ``content_state`` (streaming path only) enables speculative content streaming;
-        the caller owns the dict and flushes the sanitizer's held-back tail afterwards.
+        Args:
+            working: Model input context for round one (loop appends in place).
+            db: Sessions database session handed to tool handlers.
+            events: Optional event queue for live thinking/tool/content callbacks.
+            asked_user: Optional one-dialog gate flag shared with the executor.
+            content_state: Optional caller-owned speculative-streaming state
+                (streaming path only); the caller flushes the sanitizer's
+                held-back tail afterwards.
+
+        Returns:
+            ``(messages, early_content, search_groups, tool_steps, thinking)``.
         """
         search_groups: list[dict[str, Any]] = []
         tool_steps: list[dict[str, Any]] = []
@@ -531,7 +555,20 @@ class PrepAgent:
         compact_threshold: float | None = None,
         compact_options: CompactionOptions | None = None,
     ) -> str:
-        """Synchronous single-round reply (see :mod:`chat` for arrangement and storage)."""
+        """Synchronous single-round reply (arrangement and storage in :mod:`chat`).
+
+        Args:
+            user_text: Latest user message content.
+            db: Sessions database session (turn persists through it).
+            drop_last_assistant: Regenerate support — drop the trailing reply first.
+            ui_locale: UI locale hint for the reply language (zh-CN/en).
+            context_session_ids: Per-turn referenced sessions (transient injection).
+            compact_threshold: Auto-compact trigger fraction (None = agent default).
+            compact_options: Compaction intensity/directive/retain policy.
+
+        Returns:
+            The sanitized final reply text.
+        """
         return await run_chat(
             self, user_text, db,
             drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
@@ -548,6 +585,15 @@ class PrepAgent:
         compact_options: CompactionOptions | None = None,
     ) -> AsyncIterator[str | dict[str, Any]]:
         """Think-then-act tool loop (events pushed immediately) → then stream the final answer (orchestration in :mod:`chat`).
+
+        Args:
+            user_text: Latest user message content.
+            db: Sessions database session (turn persists through it).
+            drop_last_assistant: Regenerate support — drop the trailing reply first.
+            ui_locale: UI locale hint for the reply language (zh-CN/en).
+            context_session_ids: Per-turn referenced sessions (transient injection).
+            compact_threshold: Auto-compact trigger fraction (None = agent default).
+            compact_options: Compaction intensity/directive/retain policy.
 
         Yields ``str`` (response-body token) or ``dict`` (``status`` / ``thinking`` /
         ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events).

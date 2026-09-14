@@ -3,8 +3,8 @@
 /**
  * @file PrepSidePanel.tsx
  * @description Prep right rail: linked resume summary, session history with
- * background-generation badges, per-turn "#" reference chips, and quick
- * prompts. Hidden below the lg breakpoint.
+ * background-generation badges, and quick prompts ("#" reference chips live
+ * in PrepComposer). Hidden below the lg breakpoint.
  */
 
 import { FileText, Zap } from "lucide-react";

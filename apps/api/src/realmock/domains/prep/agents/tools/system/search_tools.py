@@ -80,6 +80,14 @@ async def run_search_tools(args: dict[str, Any], memory: WorkingMemory) -> tuple
     Single-call semantics: ``select`` names full schemas for the loop, which
     appends them to this turn's toolset (next round callable). Unknown names
     are reported with the valid catalog instead of failing.
+
+    Args:
+        args: Tool arguments (``query`` keywords required, ``select``
+            candidate names to load now, at most once per turn).
+        memory: Unused (stateless catalog lookup).
+
+    Returns:
+        ``(json_text, [])`` with ``candidates``/``loaded``/``unknown``.
     """
     del memory
     try:

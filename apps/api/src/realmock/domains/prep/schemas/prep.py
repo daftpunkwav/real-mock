@@ -179,7 +179,8 @@ class PrepCompactResponse(BaseModel):
     summarized: bool = False
     estimate_before: int = 0
     estimate_after: int = 0
-    # Why the run ended: "summarized" | "nothing_to_fold" | "tool_pairs_only".
+    # Why the run ended: "summarized" | "nothing_to_fold" | "tool_pairs_only"
+    # (the summary-edit path returns "edited" instead).
     reason: str = ""
     # Full transparency for the compaction card: summary text (provenance
     # trailer stripped), its version, and the pre-compaction fork point.

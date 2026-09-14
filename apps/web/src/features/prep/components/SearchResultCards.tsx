@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @file SearchResultCards.tsx
+ * @description Collapsible web-search citation cards (one group per tool query).
+ */
+
 import { memo, useState } from "react";
 import { ChevronRight, ExternalLink, Search } from "lucide-react";
 import { useT } from "@/i18n";
@@ -20,6 +25,7 @@ export const SearchResultCards = memo(function SearchResultCards({
   defaultExpanded = false,
 }: {
   groups: PrepSearchGroup[];
+  /** Pre-expand on mount (collapsed by default; tests force it open). */
   defaultExpanded?: boolean;
 }) {
   const t = useT("prep");

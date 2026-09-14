@@ -20,7 +20,15 @@ def _list_tags_sync() -> str:
 
 
 async def run_memory_list_tags(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """List distinct memory tags (most-recently-used first)."""
+    """List distinct memory tags (most-recently-used first).
+
+    Args:
+        args: Unused (no parameters).
+        memory: Unused (read-only index lookup).
+
+    Returns:
+        ``(json_text, [])`` with the ``tags`` array.
+    """
     del args, memory
     return await asyncio.to_thread(_list_tags_sync), []
 

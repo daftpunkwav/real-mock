@@ -1,5 +1,6 @@
 /**
- * Prep HTTP client: REST + SSE for the /v1/prep.* backend routes.
+ * @file prepCoachHttp.ts
+ * @description Prep HTTP client: REST + SSE for the /v1/prep.* backend routes.
  * Named after the Prep Coach product surface; the backend package is `prep`.
  * A `prepHttp` alias is exported for call sites that prefer the short name.
  */

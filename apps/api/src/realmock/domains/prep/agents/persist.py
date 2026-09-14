@@ -120,7 +120,19 @@ def _build_assistant_message(
     stopped: bool = False,
     turn_id: str | None = None,
 ) -> dict[str, Any]:
-    """Build the persisted assistant message (string content + display metadata)."""
+    """Build the persisted assistant message (string content + display metadata).
+
+    Args:
+        final: Sanitized reply body ("", non-str coerced to "").
+        tool_steps: Display/persist tool progress cards (or None).
+        search_groups: Retrieval cards for the search_results event (or None).
+        thinking: Model reasoning text, truncated to 20k chars (or None).
+        stopped: True when the client disconnected mid-stream (partial turn).
+        turn_id: Correlation id stamped on the assistant message (or None).
+
+    Returns:
+        The assistant message dict (content always a string).
+    """
     # Guard against null finals (a provider may return an empty body): the
     # history contract requires string content; empty replies stay hidden.
     assistant_msg: dict[str, Any] = {"role": "assistant", "content": final if isinstance(final, str) else ""}
@@ -253,6 +265,21 @@ def finalize_with_delta(
     finalize accumulates it into session totals. Capturing first keeps the
     ``usage`` event (delta) and ``done`` envelope (totals) consistent even
     when persistence fails.
+
+    Args:
+        agent: Live PrepAgent (messages/memory/counters mutated in place).
+        working: Loop-end working copy (may include transient #ref blocks).
+        final: Sanitized reply body.
+        db: Session committed via PrepAgent._save (rollback on failure).
+        tool_steps: Display/persist tool progress cards (or None).
+        search_groups: Retrieval cards for the search_results event (or None).
+        thinking: Model reasoning text (or None).
+        compact_threshold: Persist-path budget (None = default).
+        compact_options: Verbatim-tail policy (or None for defaults).
+        turn_id: Correlation id stamped on the assistant message (or None).
+
+    Returns:
+        The usage-delta event, or None when the provider reported nothing.
     """
     delta = usage_event(agent)
     finalize(

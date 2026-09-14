@@ -73,7 +73,18 @@ async def execute_prep_tool(
     *,
     resume_id: int | None = None,
 ) -> tuple[str, SearchHits]:
-    """Dispatch tools through the registry; return ``(observation_text, search_hits)``."""
+    """Dispatch tools through the registry.
+
+    Args:
+        name: Tool name (profile/resume names bind live ORM rows per call).
+        args: Raw tool arguments (non-dict payloads are parsed first).
+        memory: Working memory handed to the handler.
+        resume_id: Bound resume for profile/resume inspection (or None).
+
+    Returns:
+        ``(observation_text, search_hits)``; unknown tools yield an error
+        observation instead of raising.
+    """
     if name in PROFILE_RESUME_NAMES:
         return await run_profile_or_resume(name, args, resume_id=resume_id)
     spec = TOOL_REGISTRY.get(name)

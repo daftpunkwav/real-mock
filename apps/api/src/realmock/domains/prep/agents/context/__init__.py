@@ -1,8 +1,9 @@
 """Prep context assembly: system prompt blocks, resume/profile/company context, memory inject.
 
-The orchestrator (agent) only calls build_system_messages (first-turn seed)
-and build_working_context (per-turn assembly); it does not know profile
-fields or compression details. Leaf modules: seed / linked / hints / working.
+The orchestrator (agent) mainly calls build_system_messages (first-turn seed)
+and build_working_context (per-turn assembly); it also reads PREP_SYSTEM and
+normalize_ui_locale directly, while chat routes use format_linked_sessions
+and strip_ref_blocks. Leaf modules: seed / linked / hints / working / markers.
 """
 
 from __future__ import annotations

@@ -28,7 +28,16 @@ def _list_summaries_sync(tag: str | None, limit: int) -> str:
 
 
 async def run_memory_list_summaries(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """List memory index entries (id/summary/tags, newest first)."""
+    """List memory index entries (id/summary/tags, newest first).
+
+    Args:
+        args: Tool arguments (``tag`` optional single-tag filter, ``limit``
+            clamped to the service list window).
+        memory: Unused (read-only index lookup).
+
+    Returns:
+        ``(json_text, [])`` with the ``memories`` array.
+    """
     del memory
     tag = str(args.get("tag") or "").strip() or None
     try:

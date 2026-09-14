@@ -13,7 +13,15 @@ _QUIZ_MAX_CHARS = 2000
 
 
 async def run_quiz(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """Record the quiz in working memory; the formal question renders in the reply."""
+    """Record the quiz in working memory; the formal question renders in the reply.
+
+    Args:
+        args: Tool arguments (``question`` up to 2000 chars, ``type`` open/choice).
+        memory: Working memory receiving the ``quiz`` note.
+
+    Returns:
+        ``(acknowledgement_text, [])``.
+    """
     question = str(args.get("question", "") or "")[:_QUIZ_MAX_CHARS]
     qtype = str(args.get("type", "open") or "open")
     memory.remember("quiz", f"{qtype}:{question}")

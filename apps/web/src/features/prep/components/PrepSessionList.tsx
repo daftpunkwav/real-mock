@@ -3,8 +3,9 @@
 /**
  * @file PrepSessionList.tsx
  * @description Conversation history grouped by resume: active sessions plus a
- * collapsed archive. Rows expose hover actions (archive/restore, clear, delete)
- * behind a shared confirm dialog.
+ * collapsed archive. Rows expose hover actions (stop generation while
+ * streaming, archive/restore, clear, delete) behind a shared confirm dialog
+ * (stopping applies immediately).
  */
 
 import { memo, useMemo, useState } from "react";

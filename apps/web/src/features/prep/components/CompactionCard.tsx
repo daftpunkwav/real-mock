@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * @file CompactionCard.tsx
  * @description Persisted compaction-summary record rendered as a centered
@@ -6,8 +8,6 @@
  * summary plus view/edit/regenerate/fork actions. Rule-fallback digests
  * (version 0) render read-only without edit/regenerate actions.
  */
-
-"use client";
 
 import { useState } from "react";
 import { ChevronRight, Shrink } from "lucide-react";

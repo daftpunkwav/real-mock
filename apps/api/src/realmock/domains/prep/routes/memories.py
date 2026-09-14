@@ -1,10 +1,11 @@
 """Prep long-term memory API: user-facing CRUD for rated turns and agent notes.
 
-Creation is intentionally narrow: memories are recorded by the agent (rating flow
-or memory_write tool), so there is no blank-create endpoint — the settings page
-can only edit or delete what the agent recorded. Single-user app: no capability
-token required (unlike per-session chat routes); mutating endpoints still
-require same-origin CSRF protection.
+Creation is intentionally narrow: memories are recorded from the rating flow
+or the agent's memory_write tool — there is no blank form that invents a
+memory from nothing (an empty summary falls back to the source turn text, or
+"User-rated turn"). Single-user app: no capability token required (unlike
+per-session chat routes); mutating endpoints still require same-origin CSRF
+protection.
 """
 
 from __future__ import annotations
@@ -59,6 +60,7 @@ async def create_memory_from_rating(
 
     Raises:
         ApiBusinessError: A0001 (user_rating without score).
+        ValueError: Out-of-range score rejected by the memory store.
     """
     # Owner-level write: same-origin CSRF protection, no capability token
     # (consistent with manage.py — orphans must stay manageable).
@@ -157,7 +159,7 @@ async def update_memory(
         The refreshed memory detail view.
 
     Raises:
-        ApiBusinessError: A0404 (unknown id).
+        ApiBusinessError: A0404 (unknown id), A0001 (empty summary).
     """
     assert_csrf_if_cookie_only(request, used_header=False)
     row = get_memory(db, memory_id)

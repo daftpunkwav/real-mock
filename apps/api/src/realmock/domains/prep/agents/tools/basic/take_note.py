@@ -13,7 +13,16 @@ _TAKE_NOTE_MAX_CHARS = 2000
 
 
 async def run_take_note(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
-    """Write weak spots / decisions into working memory for later turns."""
+    """Write weak spots / decisions into working memory for later turns.
+
+    Args:
+        args: Tool arguments (``kind`` note/weak_point, ``content`` up to
+            2000 chars; empty content records nothing).
+        memory: Working memory receiving the note.
+
+    Returns:
+        ``(acknowledgement_text, [])``.
+    """
     kind = str(args.get("kind", "note") or "note")
     content = str(args.get("content", "") or "").strip()[:_TAKE_NOTE_MAX_CHARS]
     if not content:

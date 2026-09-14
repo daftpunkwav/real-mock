@@ -3,8 +3,9 @@
 /**
  * @file AskMultiForm.tsx
  * @description Multi-question ask form: one section per question (options,
- * slider, rating, always-on custom input), answered and submitted as a whole.
- * Pure presentational; answer state lives in the owning modal.
+ * slider, rating, optional per-question custom input when allow_custom),
+ * answered and submitted as a whole. Pure presentational; answer state lives
+ * in the owning modal.
  */
 
 import { Check, Star } from "lucide-react";

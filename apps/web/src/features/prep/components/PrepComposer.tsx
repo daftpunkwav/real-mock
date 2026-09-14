@@ -2,7 +2,8 @@
 
 /**
  * @file PrepComposer.tsx
- * @description Prep composer: input, token gauge, model/effort selectors, and send.
+ * @description Prep composer: input, token gauge, model/effort selectors, send,
+ * slash-command menu, and "#" session-reference chips/menus.
  */
 
 import { Hash, Send, Square, X } from "lucide-react";

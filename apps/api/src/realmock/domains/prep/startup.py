@@ -7,7 +7,7 @@ in this package.
 
 from __future__ import annotations
 
-# Session-domain ORM the composition root registers for standalone runs.
+# Session-domain names the composition root registers for standalone runs.
 SESSION_DOMAINS: tuple[str, ...] = ("prep",)
 
 __all__ = [

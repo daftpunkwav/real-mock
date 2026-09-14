@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * Right hook
- * Use , .
+ * @file usePrepScroll.test.ts
+ * @description usePrepScroll: auto-follow on resize, jump-button visibility,
+ * stickToBottom recovery, and no-observer fallback.
  */
 
 import { act, renderHook } from "@testing-library/react";
@@ -39,7 +40,7 @@ function stubResizeObserver() {
   return () => vi.unstubAllGlobals();
 }
 
-/** in */
+/** Stub layout metrics jsdom does not compute. */
 function withLayout(el: HTMLElement, size: { scrollHeight: number; clientHeight: number }) {
   Object.defineProperty(el, "scrollHeight", {
     value: size.scrollHeight,
@@ -96,7 +97,7 @@ describe("usePrepScroll", () => {
     result.current.contentRef.current = document.createElement("div");
     rerender({ n: 1 });
 
-    // Note
+    // Manual scroll-up opts out of auto-follow until stickToBottom.
     act(() => {
       result.current.handleScroll();
     });
@@ -111,7 +112,7 @@ describe("usePrepScroll", () => {
     restore();
   });
 
-  it("stickToBottom", () => {
+  it("stickToBottom re-enables auto-follow", () => {
     const restore = stubResizeObserver();
     const { result, rerender } = renderHook(
       ({ n }) => usePrepScroll(n),
@@ -143,7 +144,7 @@ describe("usePrepScroll", () => {
     restore();
   });
 
-  it("ResizeObserver", () => {
+  it("starts settled without an observer", () => {
     const { result } = renderHook(({ n }) => usePrepScroll(n), {
       initialProps: { n: 1 },
     });

@@ -49,6 +49,12 @@ logger = logging.getLogger(__name__)
 def github_tool_spec(name: str) -> ToolSpec:
     """Build one GitHub ToolSpec from the shared platform spec.
 
+    Args:
+        name: Platform github tool name (member of GITHUB_TOOL_NAMES).
+
+    Returns:
+        The secondary-tier ToolSpec wrapping the platform handler.
+
     Raises:
         RuntimeError: When the platform no longer provides ``name``.
     """

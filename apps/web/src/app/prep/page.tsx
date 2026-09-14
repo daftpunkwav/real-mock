@@ -1,6 +1,9 @@
 "use client";
 
-/** AI prep-coach chat page; usePrepChat owns session state and streaming. */
+/**
+ * @file page.tsx
+ * @description AI prep-coach chat page; usePrepChat owns session state and streaming.
+ */
 
 import { useMemo } from "react";
 import { BookOpen, ArrowDown } from "lucide-react";

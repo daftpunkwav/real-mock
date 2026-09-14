@@ -1,10 +1,12 @@
-"""Prep session management: delete, archive, and cross-session linking.
+"""Prep session management: delete, archive, link, token recovery, and purges.
 
-Management operations (delete / archive / truncate / link / purge-empty) are
-owner-level: they require same-origin CSRF protection but NOT the per-session
-capability token. Rationale: the session list is unauthenticated single-user
-data, HttpOnly capability cookies are host-bound and expirable, and requiring
-the token here permanently locks orphans (listed but undeletable, A0401).
+Management operations (delete / archive / link / reissue / purge-empty /
+purge-all) are owner-level: they require same-origin CSRF protection but NOT
+the per-session capability token. Rationale: the session list is
+unauthenticated single-user data, HttpOnly capability cookies are host-bound
+and expirable, and requiring the token here permanently locks orphans (listed
+but undeletable, A0401). History surgery (truncate / compact / summary) lives
+in ``history.py`` under the same rule.
 
 Content-reading operations (GET messages / POST message+stream / fork source)
 still require the capability token.
@@ -114,9 +116,20 @@ async def purge_all_sessions(
     """Delete ALL coaching sessions permanently, with or without content.
 
     Owner-level: same-origin CSRF protection, no capability token (consistent
-    with delete/archive/truncate/link — orphans must stay manageable).
+    with delete/archive/link — orphans must stay manageable).
     The caller must confirm explicitly via ``{"confirm": true}``; anything
     else is rejected (A0001). This cannot be undone.
+
+    Args:
+        request: Active request (used for CSRF validation).
+        db: Sessions database session (injected).
+        body: Confirmation payload (``confirm`` must be True).
+
+    Returns:
+        Mapping with the deleted row count.
+
+    Raises:
+        ApiBusinessError: A0001 (missing confirmation).
     """
     assert_csrf_if_cookie_only(request, used_header=False)
     if body is None or body.confirm is not True:

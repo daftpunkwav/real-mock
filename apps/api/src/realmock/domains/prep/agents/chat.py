@@ -152,11 +152,24 @@ async def _prepare_turn(
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
 ) -> tuple[CompactionOptions, str, list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    """Shared turn setup for both channels; returns (policy, turn_id, working, pre_build, report).
+    """Shared turn setup for both channels.
 
     Appends the user message, builds working context (+ per-turn refs), and
     records pre_loop_len. The non-streaming caller ignores pre_build/report;
     the streaming caller diffs them into a compaction event.
+
+    Args:
+        agent: Live PrepAgent (messages/turn state mutated in place).
+        user_text: Latest user message content.
+        db: Sessions database session (context assembly may read linked sessions).
+        drop_last_assistant: Regenerate support — drop the trailing reply first.
+        ui_locale: UI locale hint for the reply language.
+        context_session_ids: Per-turn referenced sessions (transient injection).
+        compact_threshold: Auto-compact trigger fraction (None = agent default).
+        compact_options: Compaction intensity/directive/retain policy.
+
+    Returns:
+        ``(policy, turn_id, working, pre_build, build_report)``.
     """
     policy = _begin_turn(agent, compact_options)
     turn_id = agent.last_turn_id or uuid.uuid4().hex
@@ -185,6 +198,19 @@ async def run_chat(
 
     The turn-start compaction runs silently (no SSE compaction event on this
     channel); persistence and overflow-retry semantics match run_chat_stream.
+
+    Args:
+        agent: Live PrepAgent (messages/memory/counters mutated in place).
+        user_text: Latest user message content.
+        db: Sessions database session (turn persists through it).
+        drop_last_assistant: Regenerate support — drop the trailing reply first.
+        ui_locale: UI locale hint for the reply language.
+        context_session_ids: Per-turn referenced sessions (transient injection).
+        compact_threshold: Auto-compact trigger fraction (None = agent default).
+        compact_options: Compaction intensity/directive/retain policy.
+
+    Returns:
+        The sanitized final reply text.
     """
     policy, turn_id, working, _, _ = await _prepare_turn(
         agent, user_text, db,
@@ -252,12 +278,22 @@ async def run_chat_stream(
 ) -> AsyncIterator[str | dict[str, Any]]:
     """Think-then-act tool loop (events pushed immediately) → then stream the final answer.
 
+    When the client disconnects (stop button), the partial turn is still
+    persisted with ``stopped=True`` instead of being lost.
+
+    Args:
+        agent: Live PrepAgent (messages/memory/counters mutated in place).
+        user_text: Latest user message content.
+        db: Sessions database session (turn persists through it).
+        drop_last_assistant: Regenerate support — drop the trailing reply first.
+        ui_locale: UI locale hint for the reply language.
+        context_session_ids: Per-turn referenced sessions (transient injection).
+        compact_threshold: Auto-compact trigger fraction (None = agent default).
+        compact_options: Compaction intensity/directive/retain policy.
+
     Yields ``str`` (response-body token) or ``dict`` (``status`` / ``thinking`` /
     ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events,
     plus ``{"type": "token"}`` payloads streamed live from inside the tool rounds).
-
-    When the client disconnects (stop button), the partial turn is still
-    persisted with ``stopped=True`` instead of being lost.
     """
     policy, turn_id, working, pre_build, build_report = await _prepare_turn(
         agent, user_text, db,

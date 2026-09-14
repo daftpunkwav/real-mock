@@ -1,4 +1,7 @@
-/** prep 文案(zh-CN 为 key 源;key 用点分路径,zh 值从源码逐字迁移)。 */
+/**
+ * @file prep.ts
+ * @description prep 文案(zh-CN 为 key 源;key 用点分路径,zh 值从源码逐字迁移)。
+ */
 
 export const prep = {
   // 页面头部

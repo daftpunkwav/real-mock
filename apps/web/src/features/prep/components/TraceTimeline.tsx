@@ -2,9 +2,10 @@
 
 /**
  * @file TraceTimeline.tsx
- * @description Merged thinking/tool-execution timeline in true arrival order.
- * Collapsed by default; expands to interleaved thinking blocks and tool steps,
- * each thinking block and tool step collapsible on its own (collapsed by default).
+ * @description Merged thinking/tool-execution/compaction timeline in true
+ * arrival order. Collapsed by default; expands to interleaved thinking blocks,
+ * tool steps, and compaction events, each collapsible on its own (collapsed
+ * by default).
  */
 
 import { memo, useMemo, useState } from "react";

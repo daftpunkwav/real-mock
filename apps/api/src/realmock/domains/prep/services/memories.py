@@ -113,15 +113,18 @@ def create_memory(
         summary: One-line index, stripped and capped at 200 chars.
         user_input: Source user turn, capped at 8000 chars.
         agent_output: Source agent turn, capped at 8000 chars.
-        score: Optional 1-10 rating (caller validates range).
+        score: Optional 1-10 rating (validated here as well as in routes).
         reasons: Reason chips, cleaned to at most 10 items.
-        comment: Free-form note (Text column, no cap here; routes enforce 2000).
+        comment: Free-form note, truncated to 2000 chars here.
         tags: Topic tags, cleaned to at most 20 items.
         origin: One of user_rating | user_emphasis | agent_note.
         session_id: Origin session id, if any.
 
     Returns:
         The persisted PrepMemory row (refreshed).
+
+    Raises:
+        ValueError: When score is outside 1..10.
     """
     if score is not None and not 1 <= score <= 10:
         raise ValueError("score must be within 1..10")

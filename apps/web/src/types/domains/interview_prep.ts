@@ -1,5 +1,8 @@
-/** Interview-prep SSE events (REST contract SSOT is OpenAPI via `@/lib/api/contract`;
- *  SSE streams are not in OpenAPI — hand-written contract). */
+/**
+ * @file interview_prep.ts
+ * @description Interview-prep SSE events (REST contract SSOT is OpenAPI via
+ * `@/lib/api/contract`; SSE streams are not in OpenAPI — hand-written contract).
+ */
 
 import type { PrepSearchGroup, PrepToolStep } from "@/lib/api/contract";
 
@@ -105,7 +108,10 @@ export interface AskUserDialog {
    */
   questions?: AskUserDialog[];
   allow_custom: boolean;
-  /** Recommended auto-submit answer on UI timeout (options/slider only). */
+  /**
+   * Recommended auto-submit answer on UI timeout. The backend only sends it
+   * for options/slider widgets; rating dialogs carry null.
+   */
   suggested: string | null;
 }
 

@@ -1,4 +1,7 @@
-/** Tests for prep history normalizers. */
+/**
+ * @file history.test.ts
+ * @description Tests for prep history normalizers.
+ */
 
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +22,7 @@ describe("normalizeSteps", () => {
     expect(normalizeSteps("x")).toBeUndefined();
   });
 
-  it("name query", () => {
+  it("fills missing query/result with empty strings", () => {
     const steps = normalizeSteps([
       { name: "web_search", query: "Note" },
       { name: "quiz" },
@@ -52,12 +55,12 @@ describe("normalizeSearchGroups", () => {
 });
 
 describe("normalizeThinking", () => {
-  it("undefined", () => {
+  it("rejects non-string input", () => {
     expect(normalizeThinking(123)).toBeUndefined();
     expect(normalizeThinking(null)).toBeUndefined();
   });
 
-  it("undefined", () => {
+  it("trims text and drops blanks", () => {
     expect(normalizeThinking("   ")).toBeUndefined();
     expect(normalizeThinking("Note")).toBe("Note");
   });
@@ -70,7 +73,7 @@ describe("mapHistoryMessages", () => {
     expect(mapHistoryMessages(undefined as never, nextId)).toEqual([]);
   });
 
-  it("user/assistant and, content", () => {
+  it("keeps user/assistant text and drops system/empty rows", () => {
     const mapped = mapHistoryMessages(
       [
         { role: "user", content: "Note" },
@@ -83,7 +86,7 @@ describe("mapHistoryMessages", () => {
     expect(mapped[0]).toMatchObject({ role: "user", content: "Note" });
   });
 
-  it("steps/searchGroups/thinking", () => {
+  it("attaches steps, search groups, and thinking metadata", () => {
     const mapped = mapHistoryMessages(
       [
         {

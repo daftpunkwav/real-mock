@@ -27,6 +27,19 @@ async def dispatch_ask_user(
     ``ask_user`` event, and raise :class:`AgentHalt`. The event carries the flat
     fields of the FIRST question plus a ``questions`` list only when several
     survived, so the single-question contract stays unchanged.
+
+    Args:
+        args: Raw tool arguments (``questions`` array or flat shorthand).
+        memory: Working memory receiving the asked-questions note.
+        events: Optional event queue for the ``ask_user`` event (None emits nothing).
+        search_groups: Optional search cards re-emitted before the dialog for ordering.
+        asked_user: Optional one-dialog gate flag set when the dialog fires.
+
+    Returns:
+        Observation text (only when validation fails; otherwise raises).
+
+    Raises:
+        AgentHalt: Always on a valid dialog — ends the turn to await user input.
     """
     dialog_events = normalize_ask_questions(args)
     if not dialog_events:

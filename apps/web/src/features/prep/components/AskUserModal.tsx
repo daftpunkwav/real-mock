@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * @file AskUserModal.tsx
+ * @description Agent question dialog. A dialog carries 1-8 questions: the flat
+ * fields drive the single-question form (radio circles, checkbox squares,
+ * numeric slider, star rating, optional custom input when allow_custom,
+ * recommended-choice auto-submit); a `questions` array longer than one
+ * renders one multi-question form answered and submitted as a whole, each
+ * reply line formatted as "question: answer". Answers return as plain text
+ * via onAnswer.
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, HelpCircle, Send, Star } from "lucide-react";
@@ -15,16 +26,6 @@ interface AskUserModalProps {
   onAnswer: (text: string) => void;
   onClose: () => void;
 }
-
-/**
- * @file AskUserModal.tsx
- * @description Agent question dialog. A dialog carries 1-8 questions: the flat
- * fields drive the single-question form (radio circles, checkbox squares,
- * numeric slider, star rating, always-on custom input, recommended-choice
- * auto-submit); a `questions` array renders one multi-question form answered
- * and submitted as a whole, each reply line formatted as "question: answer".
- * Answers are returned as plain text via onAnswer.
- */
 
 export function AskUserModal({
   dialog,

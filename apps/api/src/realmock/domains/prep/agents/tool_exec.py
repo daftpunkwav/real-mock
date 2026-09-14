@@ -1,9 +1,9 @@
 """Build the Prep tool execution callback: ask_user dispatch, short-circuit for identical arguments,
 circuit breaker for repeated failures, and constraints for timeouts and retrieval failures.
 
-During tool rounds, the orchestration layer (:mod:`agent`) uses
+During tool rounds, the orchestration layer (:mod:`agents.agent`) uses
 :func:`build_execute_callback` to build the think-then-act ``execute`` callback; domain-tool definitions
-and execution remain in :mod:`tools`. Failures are persisted via ``log_agent_error`` scoped by
+and execution remain in :mod:`agents.tools`. Failures are persisted via ``log_agent_error`` scoped by
 ``error_context`` (``{"domain": ..., "session": ...}``).
 
 Error contract (mirrors :func:`run_agent_loop`): :class:`ApiBusinessError`
@@ -65,6 +65,20 @@ def build_execute_callback(
     failed/timed-out calls are not cached, allowing retries with different arguments, but a tool failing
     ``_TOOL_CIRCUIT_BREAKER_STREAK`` times in a row trips the circuit breaker and is refused without
     another call. ``error_context`` (``{"domain": ..., "session": ...}``) scopes persisted error records.
+
+    Args:
+        run_named_tool: Agent-owned dispatcher ``(name, args, db)`` actually running tools.
+        memory: Working memory handed to ask_user and domain handlers.
+        db: Sessions database session handed to the dispatcher.
+        search_groups: Mutable list collecting web-search cards for display.
+        events: Optional event queue for live thinking/tool/dialog callbacks
+            (None disables emission; the non-streaming channel passes None).
+        asked_user: Optional one-dialog gate flag (None disables the gate).
+        error_context: Optional ``{"domain": ..., "session": ...}`` scoping
+            persisted error records.
+
+    Returns:
+        The ``(name, args) -> observation`` executor for the ReAct loop.
     """
     attempted: dict[str, str] = {}
     error_streak: dict[str, int] = {}

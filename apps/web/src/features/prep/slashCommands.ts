@@ -1,8 +1,9 @@
 /**
  * @file slashCommands.ts
  * @description Prep composer slash commands: pure parsing/matching helpers.
- * Execution lives in usePrepChat (needs session state and HTTP); this module
- * stays UI-free and unit-testable.
+ * Execution is split: usePrepChat dispatches (needs session state) and
+ * usePrepCompact runs the HTTP call; this module stays UI-free and
+ * unit-testable.
  */
 
 /** Slash command names supported by the prep composer. */
