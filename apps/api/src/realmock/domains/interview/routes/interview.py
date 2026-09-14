@@ -17,13 +17,13 @@ from realmock.platform.core.constants import (
 from realmock.platform.core.ratelimit import rate_limit_dep
 from realmock.platform.schemas import ResumePickerItem
 # Direct submodule imports to avoid clashing with routes.__init__; no cycle.
-from realmock.domains.interview.routes.interview.processes import (
+from realmock.domains.interview.routes.processes import (
     create_process,
     create_round,
     get_process,
     list_process_routes,
 )
-from realmock.domains.interview.routes.interview.sessions import (
+from realmock.domains.interview.routes.sessions import (
     InterviewSessionResponse,
     create_session,
     get_messages,
@@ -31,7 +31,7 @@ from realmock.domains.interview.routes.interview.sessions import (
     list_resume_picker,
     list_sessions,
 )
-from realmock.domains.interview.routes.interview.turns import (
+from realmock.domains.interview.routes.turns import (
     FinishInterviewResponse,
     InterviewMessageResponse,
     finish_interview,

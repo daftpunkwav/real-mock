@@ -29,7 +29,7 @@ from realmock.platform.core.session_auth import (
     set_session_cookie,
 )
 from realmock.platform.database import get_sessions_db
-from realmock.domains.interview.routes.interview.sessions import to_session_response
+from realmock.domains.interview.routes.sessions import to_session_response
 
 
 def _issue_session_cookie(

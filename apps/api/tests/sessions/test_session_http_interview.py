@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 
-from realmock.domains.interview.routes.interview import turns as interview_api
+from realmock.domains.interview.routes import turns as interview_api
 from realmock.domains.interview.services.interview import session_state as agent_mod
 
 
