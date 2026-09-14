@@ -6,6 +6,7 @@ See :mod:`tts_queue` for the sentence-level TTS queue.
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from realmock.domains.interview.agents import strip_markers
@@ -97,6 +98,7 @@ class VoicePipelineMixin:
             tts_creds = self.ctx.tts_creds or TtsCredentials(
                 handler="edge", voice=p.voice
             )
+            synth_t0 = time.perf_counter()
             audio_b64 = await synthesize_speech(
                 clean,
                 creds=TtsCredentials(
@@ -122,6 +124,12 @@ class VoicePipelineMixin:
                 retryable=True,
             )
             return
+        logger.debug(
+            "tts_synth sid=%s ms=%.0f chars=%d",
+            self.ctx.session_id,
+            (time.perf_counter() - synth_t0) * 1000.0,
+            len(clean),
+        )
         if audio_b64:
             await self._tts_send("tts_audio", data=audio_b64, sentence=clean)
             self._mark_tts_sent()

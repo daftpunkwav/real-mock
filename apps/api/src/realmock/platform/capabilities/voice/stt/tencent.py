@@ -109,7 +109,7 @@ class TencentProvider:
         )
         try:
             async with make_pinned_async_client(
-                f"https://{_HOST}", timeout=45.0
+                f"https://{_HOST}", timeout=25.0
             ) as client:
                 resp = await client.post(
                     f"https://{_HOST}", headers=headers, content=payload

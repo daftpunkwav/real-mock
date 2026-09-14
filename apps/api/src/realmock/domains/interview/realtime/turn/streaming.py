@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -74,6 +75,8 @@ class TurnStreamingMixin:
         and TURN_COMPLETE carries control fields (emotion/wait_seconds/sources).
         """
         self._begin_playback_wait()
+        t0 = time.perf_counter()
+        first_token_ms: float | None = None
         sentence_buf = ""
         last: StreamEvent | None = None
         turn_emotion = "neutral"
@@ -85,6 +88,8 @@ class TurnStreamingMixin:
             if event.kind == EventKind.TOKEN:
                 visible = event.token or ""
                 if visible:
+                    if first_token_ms is None:
+                        first_token_ms = (time.perf_counter() - t0) * 1000.0
                     await self.send("assistant_token", token=visible)
                     sentence_buf += visible
                     if should_flush_sentence_buffer(sentence_buf, soft_min=soft_min):
@@ -128,6 +133,13 @@ class TurnStreamingMixin:
                 # Latest per-question wait estimate drives the silence timer
                 # (frontend waitMs + backend nudge cooldown, clamped 7-60s).
                 self.ctx.last_wait_seconds = float(event.wait_seconds or 0)
+                total_ms = (time.perf_counter() - t0) * 1000.0
+                logger.info(
+                    "turn_stream sid=%s first_token_ms=%s total_ms=%.0f",
+                    self.ctx.session_id,
+                    f"{first_token_ms:.0f}" if first_token_ms is not None else "-",
+                    total_ms,
+                )
                 if epoch != self.ctx.stream_epoch:
                     return None
                 if sentence_buf.strip():

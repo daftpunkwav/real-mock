@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -109,10 +110,19 @@ class TurnSttFinishMixin:
                 sample_rate = 16000
             if sample_rate < 8000 or sample_rate > 96000:
                 sample_rate = 16000
+            stt_t0 = time.perf_counter()
             stt_result = await transcribe_utterance_result(
                 pcm_b64,
                 sample_rate=sample_rate,
                 creds=self.ctx.stt_creds,
+            )
+            logger.info(
+                "stt sid=%s ms=%.0f provider=%s fallback=%s chars=%d",
+                self.ctx.session_id,
+                (time.perf_counter() - stt_t0) * 1000.0,
+                getattr(stt_result, "provider", "?"),
+                getattr(stt_result, "fallback", False),
+                len(getattr(stt_result, "text", "") or ""),
             )
             asr_text = stt_result.text
             if stt_result.fallback:
@@ -142,9 +152,18 @@ class TurnSttFinishMixin:
                 )
                 await self.set_turn(TurnState.USER_SPEAKING)
                 return
+            stt_t0 = time.perf_counter()
             stt_result = await transcribe_utterance_result(
                 pcm,
                 creds=self.ctx.stt_creds,
+            )
+            logger.info(
+                "stt sid=%s ms=%.0f provider=%s fallback=%s chars=%d",
+                self.ctx.session_id,
+                (time.perf_counter() - stt_t0) * 1000.0,
+                getattr(stt_result, "provider", "?"),
+                getattr(stt_result, "fallback", False),
+                len(getattr(stt_result, "text", "") or ""),
             )
             asr_text = stt_result.text
             if stt_result.fallback:

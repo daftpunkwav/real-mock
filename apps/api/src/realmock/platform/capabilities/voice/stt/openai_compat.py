@@ -54,7 +54,7 @@ class MimoAudioProvider:
                 api_base,
                 allow_local=settings.allow_local_llm,
                 require_https=bool(settings.is_prod),
-                timeout=60.0,
+                timeout=30.0,
             ) as client:
                 resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()

@@ -40,7 +40,7 @@ class AliyunProvider:
             "Content-Type": "application/octet-stream",
         }
         try:
-            async with make_pinned_async_client(url, timeout=45.0) as client:
+            async with make_pinned_async_client(url, timeout=25.0) as client:
                 resp = await client.post(url, headers=headers, content=wav)
                 resp.raise_for_status()
                 payload = resp.json()

@@ -57,7 +57,7 @@ class VolcengineProvider:
             },
         }
         try:
-            async with make_pinned_async_client(_URL, timeout=45.0) as client:
+            async with make_pinned_async_client(_URL, timeout=25.0) as client:
                 resp = await client.post(_URL, headers=headers, json=body)
                 resp.raise_for_status()
                 payload = resp.json()

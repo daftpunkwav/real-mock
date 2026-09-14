@@ -9,6 +9,7 @@ tool loop runs (produce/consume bridge, mirroring the prep chat pattern).
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
@@ -75,8 +76,10 @@ async def stream_turn(
         )
 
         outcome: dict[str, Any] = {}
+        t_tools = time.perf_counter()
         async for event in stream_tool_rounds(runner, outcome, api_messages, db, temperature=0.75):
             yield event
+        tools_ms = (time.perf_counter() - t_tools) * 1000.0
         error = outcome.get("error")
         if error is not None:
             # Business/orchestration failures surface as an SSE error event —
@@ -87,15 +90,19 @@ async def stream_turn(
             result = ToolRoundResult(api_messages, None)
 
         output: TurnOutput
+        t_say = time.perf_counter()
+        say_mode = "streamed"
         if result.streamed_output is not None:
             # Say tokens already streamed live during the tool loop; reuse the
             # streamed turn's control fields without re-emitting the text.
             output = result.streamed_output
         elif result.early:
+            say_mode = "early"
             output = parse_complete_output(result.early)
             if output.say:
                 yield StreamEvent.make_token(output.say)
         else:
+            say_mode = "regenerated"
             output = None
             async for item in stream_say_first(
                 runner.llm, runner.tools, result.messages, temperature=0.75
@@ -105,6 +112,14 @@ async def stream_turn(
                 else:
                     yield item
             output = output or parse_turn_output(None, say_text="", degraded=True)
+        say_ms = (time.perf_counter() - t_say) * 1000.0
+        logger.info(
+            "turn_llm sid=%s tools_ms=%.0f say_ms=%.0f say_mode=%s",
+            getattr(runner.session, "id", None),
+            tools_ms,
+            say_ms,
+            say_mode,
+        )
 
         runner.agent.record_assistant_text(output.say)
         runner.agent.note_turn_output(output)

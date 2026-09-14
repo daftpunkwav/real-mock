@@ -61,7 +61,7 @@ class BaiduProvider:
             "dev_pid": 1537,
         }
         try:
-            async with make_pinned_async_client(_ASR_URL, timeout=45.0) as client:
+            async with make_pinned_async_client(_ASR_URL, timeout=25.0) as client:
                 resp = await client.post(_ASR_URL, json=body)
                 resp.raise_for_status()
                 payload = resp.json()
