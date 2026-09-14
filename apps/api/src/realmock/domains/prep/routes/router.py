@@ -2,12 +2,15 @@
 
 SSE streaming errors return only a redacted user-facing message; the original exception goes to logger.exception.
 Content-reading operations (message / stream / messages / fork) require the capability token issued at creation (``X-Interview-Token``).
-Management operations (truncate / delete / archive / link / purge-empty) are owner-level: same-origin CSRF only, no token.
+Owner-level operations (truncate / compact / summary / delete / archive / link /
+reissue / purge-empty / purge-all, plus memory writes) require same-origin CSRF
+protection but no capability token, so orphans stay manageable.
 
-Handlers for read-only listing / create+cookie / session chat are defined in
-``lists.py`` / ``create.py`` / ``chat.py`` respectively, long-term memories in
-``memories.py``. This module
-mounts them on the same ``router`` (including their respective rate-limit dependencies), which
+Handlers live in ``lists.py`` (read-only listing), ``create.py``
+(create+cookie), ``chat.py`` (message / stream / history / context / compact /
+summary / fork / truncate), ``manage.py`` (delete / purge / archive / link /
+reissue), and ``memories.py`` (long-term memories). This module mounts them on
+the same ``router`` (including their respective rate-limit dependencies), which
 ``realmock.domains.prep.router`` mounts with ``prefix="/prep"``.
 """
 
@@ -15,7 +18,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from realmock.domains.prep.routes import chat, create, lists, manage, memories
+from realmock.domains.prep.routes import chat, create, history, lists, manage, memories
 from realmock.domains.prep.schemas import (
     PrepCompactResponse,
     PrepContextResponse,
@@ -30,9 +33,17 @@ from realmock.domains.prep.schemas import (
 )
 from realmock.platform.core.constants import (
     DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
+    DEFAULT_RATE_LIMIT_PER_MINUTE,
     DEFAULT_SESSION_CREATE_RATE_LIMIT_PER_MINUTE,
 )
 from realmock.platform.core.ratelimit import rate_limit_dep
+
+
+def _manage_limit() -> Depends:
+    """Shared guard for destructive management endpoints (purge/batch)."""
+    return Depends(
+        rate_limit_dep(key="manage", limit=DEFAULT_RATE_LIMIT_PER_MINUTE),
+    )
 
 router = APIRouter()
 
@@ -103,25 +114,43 @@ router.add_api_route(
 )
 router.add_api_route(
     "/sessions/{session_id}/compact",
-    chat.compact_prep_session,
+    history.compact_prep_session,
     methods=["POST"],
     response_model=PrepCompactResponse,
+    dependencies=[
+        Depends(
+            rate_limit_dep(
+                # Dedicated bucket (not the chat "llm" bucket): the summarizer
+                # call is expensive but must not starve normal turns.
+                key="compact",
+                limit=DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
+            )
+        )
+    ],
 )
 router.add_api_route(
     "/sessions/{session_id}/summary",
-    chat.update_prep_summary,
+    history.update_prep_summary,
     methods=["PATCH"],
     response_model=PrepCompactResponse,
 )
 router.add_api_route(
     "/sessions/{session_id}/fork",
-    chat.fork_prep_session,
+    history.fork_prep_session,
     methods=["POST"],
     response_model=PrepForkResponse,
+    dependencies=[
+        Depends(
+            rate_limit_dep(
+                key="session_create",
+                limit=DEFAULT_SESSION_CREATE_RATE_LIMIT_PER_MINUTE,
+            )
+        )
+    ],
 )
 router.add_api_route(
     "/sessions/{session_id}/messages/truncate",
-    chat.truncate_prep_messages,
+    history.truncate_prep_messages,
     methods=["POST"],
 )
 router.add_api_route(
@@ -133,11 +162,13 @@ router.add_api_route(
     "/sessions/purge-empty",
     manage.purge_empty_sessions,
     methods=["POST"],
+    dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/sessions/purge-all",
     manage.purge_all_sessions,
     methods=["POST"],
+    dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/sessions/{session_id}/archive",
@@ -160,6 +191,7 @@ router.add_api_route(
     memories.create_memory_from_rating,
     methods=["POST"],
     response_model=PrepMemoryDetail,
+    dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/memories",
@@ -176,6 +208,7 @@ router.add_api_route(
     "/memories/batch-delete",
     memories.batch_delete_memories,
     methods=["POST"],
+    dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/memories/{memory_id}",
@@ -188,9 +221,15 @@ router.add_api_route(
     memories.update_memory,
     methods=["PATCH"],
     response_model=PrepMemoryDetail,
+    dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/memories/{memory_id}",
     memories.delete_memory,
     methods=["DELETE"],
+    dependencies=[_manage_limit()],
 )
+
+__all__ = [
+    "router",
+]

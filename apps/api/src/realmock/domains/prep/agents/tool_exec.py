@@ -2,7 +2,7 @@
 circuit breaker for repeated failures, and constraints for timeouts and retrieval failures.
 
 During tool rounds, the orchestration layer (:mod:`agent`) uses
-:func:`build_execute_callback` to build the ReAct ``execute`` callback; domain-tool definitions
+:func:`build_execute_callback` to build the think-then-act ``execute`` callback; domain-tool definitions
 and execution remain in :mod:`tools`. Failures are persisted via ``log_agent_error`` scoped by
 ``error_context`` (``{"domain": ..., "session": ...}``).
 
@@ -28,6 +28,7 @@ from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
+from realmock.platform.core.security import redact_api_key
 
 from .ask_user import dispatch_ask_user
 
@@ -60,7 +61,7 @@ def build_execute_callback(
 ) -> ToolExecutor:
     """Build the tool execution callback; ``events``/``asked_user`` enable immediate reporting through the streaming channel.
 
-    Duplicate calls with identical arguments within the same turn are short-circuited (prevents ReAct spinning);
+    Duplicate calls with identical arguments within the same turn are short-circuited (prevents think-then-act spinning);
     failed/timed-out calls are not cached, allowing retries with different arguments, but a tool failing
     ``_TOOL_CIRCUIT_BREAKER_STREAK`` times in a row trips the circuit breaker and is refused without
     another call. ``error_context`` (``{"domain": ..., "session": ...}``) scopes persisted error records.
@@ -100,6 +101,8 @@ def build_execute_callback(
         return isinstance(asked_user, dict) and bool(asked_user.get("on"))
 
     async def execute(name: str, args: dict[str, Any]) -> str:
+        if not isinstance(args, dict):
+            args = {}
         if _dialog_already_shown():
             # One dialog per turn: refuse further calls without side effects.
             # Same-round parallel siblings may still race (the loop only stops
@@ -125,13 +128,18 @@ def build_execute_callback(
         header = f"[{name}] {query}".strip()
         if error_streak.get(name, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
             return f"{header}\n{_circuit_open_observation(name)}"
-        key = name + ":" + json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
-        if key in attempted:
+        try:
+            key = name + ":" + json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+        except (TypeError, ValueError):
+            # Non-serializable/circular args: skip dedup for this call only.
+            key = ""
+        if key and key in attempted:
             return (
                 "Duplicate call skipped (same args as an earlier call). "
                 "Continue from existing observations; change args if you truly need a retry."
             )
-        attempted[key] = ""
+        if key:
+            attempted[key] = ""
         domain, session = _scope()
         try:
             obs, hits = await asyncio.wait_for(
@@ -151,7 +159,8 @@ def build_execute_callback(
                 message=f"Tool exceeded {_TOOL_TIMEOUT_SEC:.0f}s",
             )
             error_streak[name] = error_streak.get(name, 0) + 1
-            attempted.pop(key, None)
+            if key:
+                attempted.pop(key, None)
             obs = (
                 "SEARCH_UNAVAILABLE\n"
                 + json.dumps(
@@ -171,17 +180,20 @@ def build_execute_callback(
             # Convert to a JSON observation (resume-executor contract) so the model
             # always sees the failure and the streak counts it; never propagate
             # (ApiBusinessError above is the only exception that propagates).
-            logger.warning("Tool failed %s: %s", name, exc, exc_info=True)
+            # Redact before exposing to the model: tracebacks may carry keys/paths.
+            safe_detail = redact_api_key(str(exc))[:400]
+            logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
             log_agent_error(
                 domain=domain, session=session, tool=name, kind="tool_failed",
-                message=str(exc),
+                message=safe_detail,
             )
             error_streak[name] = error_streak.get(name, 0) + 1
-            attempted.pop(key, None)
+            if key:
+                attempted.pop(key, None)
             return (
                 f"{header}\n"
                 + json.dumps(
-                    {"error": "tool_failed", "tool": name, "message": str(exc)[:400]},
+                    {"error": "tool_failed", "tool": name, "message": safe_detail},
                     ensure_ascii=False,
                 )
             )
@@ -189,7 +201,8 @@ def build_execute_callback(
             search_groups.append({"query": str(query or ""), "results": hits})
         if _is_retrieval_failure(obs):
             error_streak[name] = error_streak.get(name, 0) + 1
-            attempted.pop(key, None)
+            if key:
+                attempted.pop(key, None)
             log_agent_error(
                 domain=domain, session=session, tool=name, kind="retrieval_failed",
                 message=str(obs)[:400],
@@ -201,7 +214,8 @@ def build_execute_callback(
             )
             return f"{header}\n{obs}"
         error_streak.pop(name, None)
-        attempted[key] = f"{header}\n{obs}"
+        if key:
+            attempted[key] = f"{header}\n{obs}"
         return f"{header}\n{obs}"
 
     return execute

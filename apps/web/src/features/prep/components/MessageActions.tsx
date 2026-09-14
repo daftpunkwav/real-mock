@@ -18,42 +18,16 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
+import { copyTextToClipboard } from "@/lib/clipboard";
+import { downloadTextFile } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
-/** Copy text with a textarea fallback for non-secure contexts. */
-export async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // Fall through to the legacy path.
-  }
-  try {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.appendChild(area);
-    area.select();
-    const ok = document.execCommand("copy");
-    area.remove();
-    return ok;
-  } catch {
-    return false;
-  }
-}
+/** Copy text (shared helper; re-exported for backward compatibility). */
+export const copyText = copyTextToClipboard;
 
-/** Download text as a UTF-8 markdown file. */
+/** Download text as a UTF-8 markdown file (shared helper). */
 export function downloadMarkdown(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadTextFile(filename, text);
 }
 
 function ActionButton({

@@ -19,7 +19,7 @@
  * (applied via syncUsage as drift self-healing).
  */
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import { prepCoachHttp as api } from "@/lib/api/clients";
 import { getTranslator } from "@/i18n/resolve";
 import { readCompactThreshold, resolveCompactParams, toCompactThresholdParam } from "@/lib/compactThreshold";
@@ -43,6 +43,13 @@ interface QueuedSend {
   userBackendIndex?: number;
   snapshot: PrepSendSnapshot;
 }
+
+/** Max queued follow-ups per session: bounds memory and stop-time index math. */
+const MAX_QUEUED_PER_SESSION = 3;
+/** Backend indices reserved per fresh turn: user message + assistant reply. */
+const RESERVE_TURN_INDICES = 2;
+/** Backend indices reserved when regenerating (user message already counted). */
+const RESERVE_REGENERATE_INDICES = 1;
 
 export function usePrepSend(opts: {
   prepSessionId: number | null;
@@ -84,6 +91,10 @@ export function usePrepSend(opts: {
   isCompacting?: (sid: number) => boolean;
 }) {
   const queuesRef = useRef(new Map<number, QueuedSend[]>());
+  /** Background-turn usage deltas by session (applied when the session is viewed). */
+  const bgDeltaRef = useRef(new Map<number, PrepUsageStats>());
+  /** Background-turn server totals by session (supersede deltas when present). */
+  const bgTotalsRef = useRef(new Map<number, PrepUsageStats>());
   /** Guard delayed sends after unmount (streams themselves keep running). */
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -136,11 +147,28 @@ export function usePrepSend(opts: {
     };
   };
 
-  const enqueue = (sid: number, text: string, snapshot: PrepSendSnapshot, userBackendIndex?: number) => {
+  const enqueue = (sid: number, text: string, snapshot: PrepSendSnapshot, userBackendIndex?: number): boolean => {
     const queue = queuesRef.current.get(sid) ?? [];
+    if (queue.length >= MAX_QUEUED_PER_SESSION) return false;
     queue.push({ text, userBackendIndex, snapshot });
     queuesRef.current.set(sid, queue);
+    return true;
   };
+
+  /**
+   * Take (and clear) pending background usage for a session, recorded while it
+   * was not viewed. Server totals win over deltas when both exist.
+   */
+  const consumeBackgroundUsage = useCallback(
+    (sid: number): { deltas: PrepUsageStats | null; totals: PrepUsageStats | null } => {
+      const deltas = bgDeltaRef.current.get(sid) ?? null;
+      const totals = bgTotalsRef.current.get(sid) ?? null;
+      bgDeltaRef.current.delete(sid);
+      bgTotalsRef.current.delete(sid);
+      return { deltas, totals };
+    },
+    [],
+  );
 
   const sendMessage = async (
     text: string,
@@ -155,14 +183,14 @@ export function usePrepSend(opts: {
       /** "#" referenced session ids for this turn (folded into the snapshot). */
       contextSessionIds?: number[];
     },
-  ) => {
+  ): Promise<boolean> => {
     const sid = sessionId ?? prepSessionId;
-    if (!text.trim() || !sid) return;
+    if (!text.trim() || !sid) return false;
     // Manual compaction rewrites persisted history mid-flight: a turn sent
     // during it would finalize on top of stale agent state and drop the new
     // summary. The composer is disabled while compacting; this guard is the
-    // backstop for every other send entry point.
-    if (isCompacting?.(sid)) return;
+    // backstop for every other send entry point. False keeps caller refs.
+    if (isCompacting?.(sid)) return false;
     const userMsg = text.trim();
     const dropLast = sendOpts?.dropLastAssistant === true;
     const snapshot = sendOpts?.snapshot ?? resolveSnapshot(sendOpts?.contextSessionIds);
@@ -172,7 +200,9 @@ export function usePrepSend(opts: {
     if (hasActiveStream(sid)) {
       // Same session is generating: queue behind it (reserve indices now so the
       // bubble carries its backend index even when composed while streaming).
-      const queuedIndex = sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, 2);
+      // A full queue refuses the send and keeps the input so nothing is lost.
+      if ((queuesRef.current.get(sid) ?? []).length >= MAX_QUEUED_PER_SESSION) return false;
+      const queuedIndex = sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, RESERVE_TURN_INDICES);
       if (viewing && !skipUserMessage) {
         setMessages((m) => [
           ...m,
@@ -181,7 +211,7 @@ export function usePrepSend(opts: {
       }
       enqueue(sid, userMsg, snapshot, queuedIndex);
       setInput("");
-      return;
+      return true;
     }
     // Regenerate drops the stale assistant reply locally; the backend drops it too.
     if (viewing && dropLast) {
@@ -189,7 +219,8 @@ export function usePrepSend(opts: {
     }
     // Reserve backend indices: user + assistant (net +1 when regenerating).
     // Queued follow-ups reuse the index reserved when they were queued.
-    const userBackendIndex = sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, dropLast ? 1 : 2);
+    const userBackendIndex =
+      sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, dropLast ? RESERVE_REGENERATE_INDICES : RESERVE_TURN_INDICES);
     const assistantId = nextMsgId("a");
     if (viewing) {
       if (!skipUserMessage) {
@@ -260,7 +291,18 @@ export function usePrepSend(opts: {
         onAskUser?.(dialog);
       },
       onUsage: (u) => {
-        if (isViewing(sid)) mergeUsage(u);
+        // Background deltas accumulate per session and apply on switch; the
+        // done-totals entry (below) supersedes them when the turn completes.
+        if (isViewing(sid)) {
+          mergeUsage(u);
+          return;
+        }
+        const prev = bgDeltaRef.current.get(sid);
+        bgDeltaRef.current.set(sid, {
+          prompt_tokens: (prev?.prompt_tokens ?? 0) + u.prompt_tokens,
+          completion_tokens: (prev?.completion_tokens ?? 0) + u.completion_tokens,
+          cached_tokens: (prev?.cached_tokens ?? 0) + u.cached_tokens,
+        });
       },
     };
 
@@ -299,7 +341,17 @@ export function usePrepSend(opts: {
           setEstimatedPrompt(result.prompt_tokens_estimated);
         }
         patchMessage(assistantId, { streaming: false, statusText: "" });
+      } else if (result.prompt_tokens > 0 || result.completion_tokens > 0) {
+        // Background completion: server totals supersede stored deltas and
+        // apply when the session is viewed (see consumeBackgroundUsage).
+        bgDeltaRef.current.delete(sid);
+        bgTotalsRef.current.set(sid, {
+          prompt_tokens: result.prompt_tokens,
+          completion_tokens: result.completion_tokens,
+          cached_tokens: result.cached_tokens,
+        });
       }
+      return true;
     } catch (e) {
       flushPendingToken();
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -369,6 +421,8 @@ export function usePrepSend(opts: {
         }, 50);
       }
     }
+    // Dispatched (success, error, or abort): the input was consumed.
+    return true;
   };
 
   const handleSend = () => {
@@ -406,5 +460,5 @@ export function usePrepSend(opts: {
     await sendMessage(prompt);
   };
 
-  return { handleSend, handleStop, handleAskAnswer, handleQuickPrompt, sendMessage };
+  return { handleSend, handleStop, handleAskAnswer, handleQuickPrompt, sendMessage, consumeBackgroundUsage };
 }

@@ -202,9 +202,16 @@ def test_purge_all_deletes_everything_without_token(db) -> None:
     with TestClient(app) as client:
         denied = client.post("/api/v1/prep/sessions/purge-all")
         assert denied.status_code == 403
+        unconfirmed = client.post(
+            "/api/v1/prep/sessions/purge-all",
+            headers={"Origin": "http://localhost:8080"},
+            json={},
+        )
+        assert unconfirmed.status_code == 422, unconfirmed.text
         resp = client.post(
             "/api/v1/prep/sessions/purge-all",
             headers={"Origin": "http://localhost:8080"},
+            json={"confirm": True},
         )
     assert resp.status_code == 200, resp.text
     assert resp.json()["deleted"] >= 2

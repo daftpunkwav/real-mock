@@ -97,13 +97,32 @@ export const prepCoachHttp = {
   }> => {
     const { onToken, onThinking, onSearchResults, onStatus, onToolStep, onAskUser, onUsage, onCompaction } = callbacks;
     const url = resolveBackendUrl(`/api/v1/prep/sessions/${sessionId}/message/stream`);
+    // Idle watchdog: tool rounds emit events steadily, so a quiet stream is a
+    // half-open connection, not a thinking model. No auto-reconnect: a turn is
+    // non-idempotent (retrying would persist a duplicate turn server-side);
+    // surface a stall error and let the user resend explicitly.
+    const STREAM_IDLE_TIMEOUT_MS = 120_000;
+    let lastActivity = Date.now();
+    const touch = () => {
+      lastActivity = Date.now();
+    };
+    let stalled = false;
+    const watchdog = window.setInterval(() => {
+      if (!stalled && Date.now() - lastActivity > STREAM_IDLE_TIMEOUT_MS) {
+        stalled = true;
+        internal.abort();
+      }
+    }, 5000);
+    const internal = new AbortController();
+    const forwardUserAbort = () => internal.abort();
+    opts?.signal?.addEventListener("abort", forwardUserAbort, { once: true });
     let res: Response;
     try {
       res = await fetch(url, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        signal: opts?.signal,
+        signal: internal.signal,
         body: JSON.stringify({
           content,
           model_profile_id: opts?.modelProfileId ?? undefined,
@@ -122,11 +141,20 @@ export const prepCoachHttp = {
         }),
       });
     } catch (err) {
+      if (stalled) {
+        throw new ApiError(`Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`, 0, {
+          code: "NET0006",
+          params: { url },
+        });
+      }
       if (err instanceof DOMException && err.name === "AbortError") throw err;
       throw new ApiError(`Cannot reach the backend (stream ${url}). Confirm the backend is running`, 0, {
         code: "NET0000",
         params: { url },
       });
+    } finally {
+      window.clearInterval(watchdog);
+      opts?.signal?.removeEventListener("abort", forwardUserAbort);
     }
     if (!res.ok) {
       const error = await parseStructuredErrorResponse(res);
@@ -143,6 +171,7 @@ export const prepCoachHttp = {
     let messageCount = 0;
     let usage: PrepUsageStats | null = null;
     await consumeSSE<PrepSSEEvent>(res, (event) => {
+      touch();
       if (event.type === "token" && typeof event.content === "string") {
         onToken(event.content);
       } else if (event.type === "compaction") {
@@ -181,7 +210,7 @@ export const prepCoachHttp = {
         };
         onUsage?.(usage);
       } else if (event.type === "done") {
-        tokenUsage = event.token_usage;
+        tokenUsage = Number(event.token_usage) || 0;
         // Session-level provider totals (drift self-healing for usage merge).
         promptTokens = Number(event.prompt_tokens) || 0;
         completionTokens = Number(event.completion_tokens) || 0;
@@ -195,10 +224,12 @@ export const prepCoachHttp = {
         // Backend-truth length: tool/trim rounds make client +2 reservations drift.
         messageCount = Number(event.message_count) || 0;
       } else if (event.type === "error") {
-        // Backend error-event message is data — pass through; localize only when missing
+        // Backend error-event message is data — pass through; localize only when missing.
+        // NOTE: res.status is 200 here by construction (headers preceded the
+        // failure); it is threading, not the failure code.
         throw new ApiError(event.message || getTranslator("common")("stream.failed"), res.status);
       }
-    });
+    }, touch);
     return { token_usage: tokenUsage, prompt_tokens: promptTokens, completion_tokens: completionTokens, cached_tokens: cachedTokens, prompt_tokens_estimated: promptEstimated, turn_id: turnId, prefix_fingerprint: prefixFingerprint, message_count: messageCount, usage };
   },
   forkSession: (sessionId: number, upTo: number) =>
@@ -210,10 +241,13 @@ export const prepCoachHttp = {
     request<PrepSessionCreateResponse>(`/v1/prep/sessions/${sessionId}/reissue`, {
       method: "POST",
     }),
-  truncateMessages: (sessionId: number, fromIndex: number) =>
+  truncateMessages: (sessionId: number, fromIndex: number, expectedMessageCount?: number) =>
     request<{ message_count: number }>(`/v1/prep/sessions/${sessionId}/messages/truncate`, {
       method: "POST",
-      body: JSON.stringify({ from_index: fromIndex }),
+      body: JSON.stringify({
+        from_index: fromIndex,
+        ...(typeof expectedMessageCount === "number" ? { expected_message_count: expectedMessageCount } : {}),
+      }),
     }),
   deleteSession: (sessionId: number) =>
     request<{ deleted: number }>(`/v1/prep/sessions/${sessionId}`, { method: "DELETE" }),
@@ -230,7 +264,10 @@ export const prepCoachHttp = {
   purgeEmptySessions: () =>
     request<{ deleted: number }>("/v1/prep/sessions/purge-empty", { method: "POST" }),
   purgeAllSessions: () =>
-    request<{ deleted: number }>("/v1/prep/sessions/purge-all", { method: "POST" }),
+    request<{ deleted: number }>("/v1/prep/sessions/purge-all", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    }),
 };
 
 /** Short alias for the prep HTTP client (same object, same behavior). */

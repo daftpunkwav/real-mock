@@ -37,6 +37,16 @@ describe("sanitizeDiagramSvg", () => {
     expect(clean).not.toContain("onload");
     expect(clean).toContain("<rect");
   });
+
+  it("drops active embeds and javascript/data URLs, keeps safe links", () => {
+    const dirty =
+      '<svg><foreignObject><body>hi</body></foreignObject><embed src="x"/><a href="javascript:alert(1)">b</a><a href="https://example.com">ok</a></svg>';
+    const clean = sanitizeDiagramSvg(dirty);
+    expect(clean).not.toContain("foreignObject");
+    expect(clean).not.toContain("<embed");
+    expect(clean).not.toContain("javascript:");
+    expect(clean).toContain("https://example.com");
+  });
 });
 
 describe("fitDiagramSvg", () => {

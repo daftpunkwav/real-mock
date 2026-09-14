@@ -1,6 +1,4 @@
-"""
-@file quiz_render.py
-@description Prep-domain rendering of inline quiz tool-call drift.
+"""Prep-domain rendering of inline quiz tool-call drift.
 
 When the model emits ``<tool_call><invoke name="quiz">...<question>..</question>``
 inline in the body channel, the platform cleaner strips the XML and passes the

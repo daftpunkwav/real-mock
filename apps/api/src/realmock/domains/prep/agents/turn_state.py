@@ -1,8 +1,6 @@
-"""
-@file turn_state.py
-@description Per-turn mutable state for the prep agent.
+"""Per-turn mutable state for the prep agent.
 
-The prep agent is long-lived across requests, but each user turn resets its
+The prep agent is rebuilt per request, but each user turn resets its
 loop-local state. This value object isolates that state from the agent's
 session-level fields so the orchestration layer (chat.py) can reset and inspect
 it without reaching into private agent internals.
@@ -38,6 +36,8 @@ class TurnState:
     #: Length of the working message list at loop entry; used to splice the
     #: post-compaction tail back onto persisted history.
     pre_loop_len: int | None = None
+    #: Successful memory_write dispatches this turn (budget guard against spam).
+    memory_writes: int = 0
 
     def reset(self, options: CompactionOptions | None = None) -> None:
         """Reset all fields for a new turn; preserve nothing from the previous turn."""
@@ -48,3 +48,7 @@ class TurnState:
         self.mid_turn_base = None
         self.mid_turn_report = None
         self.pre_loop_len = None
+        self.memory_writes = 0
+
+
+__all__ = ["TurnState"]

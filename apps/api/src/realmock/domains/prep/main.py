@@ -30,3 +30,7 @@ app = create_service_app(
     service_name="prep-service",
     lifespan_startup=_bootstrap,
 )
+
+__all__ = [
+    "app",
+]

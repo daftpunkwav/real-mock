@@ -55,39 +55,57 @@ function textLen(value: unknown): number {
   return typeof value === "string" ? value.length : 0;
 }
 
-/** Reasoning/tool/search/status characters carried by one assistant message. */
-export function assistantMetaChars(m: PrepChatMessage): number {
-  let chars = textLen(m.statusText);
+/**
+ * Shared trace/steps/search walker: thinking text (trace wins over the flat
+ * field), tool calls, persisted steps, and search groups. The compaction
+ * branch carries a post-compaction token count (`after`) instead of text, so
+ * callers decide how to measure it via `onCompactionAfter`.
+ */
+function walkTraceMeta(
+  m: PrepChatMessage,
+  measure: (value: unknown) => number,
+  onCompactionAfter: (after: number) => number,
+): number {
+  let total = measure(m.statusText);
   const traceThinking = (m.trace ?? []).filter((i) => i.kind === "thinking");
   if (traceThinking.length > 0) {
-    for (const item of traceThinking) chars += textLen(item.text);
+    for (const item of traceThinking) total += measure(item.text);
   } else {
-    chars += textLen(m.thinking);
+    total += measure(m.thinking);
   }
   for (const item of m.trace ?? []) {
     if (item.kind === "thinking") {
       continue;
     } else if (item.kind === "tool") {
-      chars += textLen(item.name) + textLen(item.query);
+      total += measure(item.name) + measure(item.query);
       if (item.args) {
-        for (const [k, v] of Object.entries(item.args)) chars += k.length + textLen(v);
+        for (const [k, v] of Object.entries(item.args)) total += measure(k) + measure(v);
       }
-      chars += textLen(item.result);
+      total += measure(item.result);
+    } else {
+      total += onCompactionAfter(item.after);
     }
   }
   for (const step of m.steps ?? []) {
-    chars += textLen(step.name) + textLen(step.query) + textLen(step.result);
+    total += measure(step.name) + measure(step.query) + measure(step.result);
     if (step.args) {
-      for (const [k, v] of Object.entries(step.args)) chars += k.length + textLen(v);
+      for (const [k, v] of Object.entries(step.args)) total += measure(k) + measure(v);
     }
   }
   for (const group of m.searchGroups ?? []) {
-    chars += textLen(group.query);
+    total += measure(group.query);
     for (const hit of group.results ?? []) {
-      chars += textLen(hit.title) + textLen(hit.snippet);
+      total += measure(hit.title) + measure(hit.snippet);
     }
   }
-  return chars;
+  return total;
+}
+
+/** Reasoning/tool/search/status characters carried by one assistant message. */
+export function assistantMetaChars(m: PrepChatMessage): number {
+  // Character picture has no token count for compaction events: the folded
+  // text is gone, only the summary card remains (counted by the caller).
+  return walkTraceMeta(m, textLen, () => 0);
 }
 
 /**
@@ -128,37 +146,8 @@ export function estimatePrepContext(
 
 /** Token estimate of one assistant message's meta payload (thinking/tools/search). */
 function metaTokens(m: PrepChatMessage): number {
-  let total = estimateTextTokens(m.statusText);
-  const traceThinking = (m.trace ?? []).filter((i) => i.kind === "thinking");
-  if (traceThinking.length > 0) {
-    for (const item of traceThinking) total += estimateTextTokens(item.text);
-  } else {
-    total += estimateTextTokens(m.thinking);
-  }
-  for (const item of m.trace ?? []) {
-    if (item.kind === "thinking") {
-      continue;
-    } else if (item.kind === "tool") {
-      total += estimateTextTokens(item.name) + estimateTextTokens(item.query);
-      if (item.args) {
-        for (const [k, v] of Object.entries(item.args)) total += estimateTextTokens(k) + estimateTextTokens(v);
-      }
-      total += estimateTextTokens(item.result);
-    } else {
-      total += item.after;
-    }
-  }
-  for (const step of m.steps ?? []) {
-    total += estimateTextTokens(step.name) + estimateTextTokens(step.query) + estimateTextTokens(step.result);
-    if (step.args) {
-      for (const [k, v] of Object.entries(step.args)) total += estimateTextTokens(k) + estimateTextTokens(v);
-    }
-  }
-  for (const group of m.searchGroups ?? []) {
-    total += estimateTextTokens(group.query);
-    for (const hit of group.results ?? []) {
-      total += estimateTextTokens(hit.title) + estimateTextTokens(hit.snippet);
-    }
-  }
-  return total;
+  // Compaction events already carry a post-compaction token count (`after`,
+  // measured when the fold ran); reuse it instead of re-estimating text that
+  // no longer exists in context.
+  return walkTraceMeta(m, estimateTextTokens, (after) => after);
 }

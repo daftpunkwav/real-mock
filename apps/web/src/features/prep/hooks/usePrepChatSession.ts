@@ -136,6 +136,8 @@ export function usePrepChatSession({
 
   /** Guard against overlapping session restores. */
   const restoringRef = useRef(false);
+  /** Monotonic switch sequence: stale (superseded) switches never commit state. */
+  const switchSeqRef = useRef(0);
   /** Guard async restores after unmount. */
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -222,14 +224,18 @@ export function usePrepChatSession({
     [nextMsgId, setMessages, seedBackendCount, resetContext, refreshContext],
   );
 
-  const switchSession = useCallback(    async (id: number) => {
+  const switchSession = useCallback(
+    async (id: number) => {
       // Never blocked by generation: background streams keep running detached.
-      if (id === prepSessionId || restoringRef.current) return;
+      // Superseded switches never commit: each switch takes a sequence number
+      // and state writes are skipped when a newer switch has started since.
+      if (id === prepSessionId) return;
+      const seq = ++switchSeqRef.current;
       restoringRef.current = true;
       setRestoring(true);
       try {
         const list = await loadHistory(id);
-        if (!aliveRef.current) return;
+        if (!aliveRef.current || seq !== switchSeqRef.current) return;
         const restored = mapHistoryMessages(list, nextMsgId);
         if (restored.length === 0) {
           // Keep the current session when the target restores empty.
@@ -247,6 +253,7 @@ export function usePrepChatSession({
         setSwitchFailedId(null);
         window.localStorage.setItem(RESTORE_KEY, String(id));
       } catch (e) {
+        if (seq !== switchSeqRef.current) return;
         // Drop the stale saved session when nothing is open.
         if (!prepSessionId && aliveRef.current) {
           window.localStorage.removeItem(RESTORE_KEY);
@@ -263,8 +270,10 @@ export function usePrepChatSession({
           setSwitchFailedId(id);
         }
       } finally {
-        restoringRef.current = false;
-        setRestoring(false);
+        if (seq === switchSeqRef.current) {
+          restoringRef.current = false;
+          setRestoring(false);
+        }
       }
     },
     [prepSessionId, sessions, nextMsgId, setMessages, setAskDialog, seedBackendCount, resetContext, refreshContext],

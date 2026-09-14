@@ -1,4 +1,7 @@
-/** Selected chat model resolution helper. */
+/**
+ * @file modelChoice.ts
+ * @description Selected chat model resolution helper.
+ */
 
 import type { ModelProfile } from "@/types";
 

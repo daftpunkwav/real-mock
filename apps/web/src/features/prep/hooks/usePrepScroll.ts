@@ -1,6 +1,9 @@
 "use client";
 
-/** Prep chat auto-follow scroll state. */
+/**
+ * @file usePrepScroll.ts
+ * @description Prep chat auto-follow scroll state.
+ */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 

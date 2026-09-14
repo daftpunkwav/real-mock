@@ -1,9 +1,9 @@
-"""Interview-preparation Agent (OpenAI function calling, ReAct loop).
+"""Interview-preparation Agent (function-calling think-then-act loop).
 
 - The tool loop is driven by :func:`run_agent_loop`; the streaming interface immediately pushes tool_step / thinking /
   body-text tokens / search_results / ask_user / usage events to the frontend through ``asyncio.Queue``;
-- For chat orchestration (synchronous single round / SSE event stream / final persistence), see :mod:`chat`;
-- For domain tools, see :mod:`tools` (registry); ask_user is in :mod:`ask_user`, context in
+- For chat orchestration (synchronous single round / event-stream final persistence), see :mod:`chat`;
+- For domain tools, see the :mod:`tools` package (assembled by :mod:`tools.registry`); ask_user is in :mod:`ask_user`, context in
   :mod:`context`, streaming helpers in :mod:`streaming`, and tool execution in :mod:`tool_exec`.
   This module retains only class state, message persistence, and tool-round control flow.
 """
@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession
-from realmock.domains.prep.models import utcnow
+from realmock.domains.prep.models import commit_session, utcnow
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
@@ -30,11 +30,12 @@ from realmock.platform.capabilities.ai.llm.defaults import DEFAULT_CONTEXT_WINDO
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
+from realmock.platform.core.security import redact_api_key
 
 from .ask_user import ASK_USER_TOOL
 from .ask_user import fallback_reply as _fallback_reply
 from .chat import run_chat, run_chat_stream
-from .context import build_system_messages, build_working_context, normalize_ui_locale
+from .context import PREP_SYSTEM, build_system_messages, build_working_context, normalize_ui_locale
 from .streaming import event_loopbacks
 from .tool_exec import build_execute_callback
 from .turn_state import TurnState
@@ -73,6 +74,10 @@ PREP_TOOL_DEFINITIONS: list[dict[str, Any]] = [ASK_USER_TOOL, *_DOMAIN_TOOL_DEFS
 # Absolute usage floor below which the agent-invoked compact tool refuses to
 # run (tiny sessions have nothing worth an extra summarizer call).
 _COMPACT_TOOL_MIN_RATIO = 0.3
+# Per-turn memory_write budget: LLM owns dedup decisions, this only stops
+# runaway loops from spamming the store. Distinct facts should be batched
+# into fewer calls.
+_MAX_MEMORY_WRITES_PER_TURN = 2
 
 
 def _prefix_fingerprint(
@@ -134,15 +139,28 @@ class PrepAgent:
 
     def _load_messages(self) -> None:
         try:
-            self.messages: list[dict[str, Any]] = json.loads(self.session.messages or "[]")
-        except json.JSONDecodeError:
+            loaded = json.loads(self.session.messages or "[]")
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+            logger.warning(
+                "Prep history corrupt, resetting to empty sid=%s",
+                getattr(self.session, "id", ""),
+            )
+            self.messages: list[dict[str, Any]] = []
+            return
+        if not isinstance(loaded, list):
+            logger.warning(
+                "Prep history not a list, resetting to empty sid=%s",
+                getattr(self.session, "id", ""),
+            )
             self.messages = []
+            return
+        self.messages = loaded
 
     def _save(self, db: Session) -> None:
         self.session.messages = json.dumps(self.messages, ensure_ascii=False)
         # Conversation list sorted by most recently active
         self.session.updated_at = utcnow()
-        db.commit()
+        commit_session(db)
 
     async def _ensure_system(self, db: Session, ui_locale: str | None = None) -> None:
         # The agent is rebuilt per request: refresh the visible-copy locale every
@@ -156,16 +174,34 @@ class PrepAgent:
         # prompt-cache prefixes survive volatile tail-block churn. Existing
         # sessions keep their legacy single-string seed untouched. The seed
         # builders touch synchronous SQLite, so they run off the event loop.
-        self.messages = await asyncio.to_thread(
-            build_system_messages,
-            db, resume_id=self.session.resume_id,
-            target_company=self.session.target_company or "",
-            linked_session_id=getattr(self.session, "linked_session_id", None),
-        )
+        # Degraded seed: resume/profile/company lookups must never fail the
+        # turn — fall back to bare instructions (same never-raise policy as
+        # the memory-index block).
+        try:
+            self.messages = await asyncio.to_thread(
+                build_system_messages,
+                db, resume_id=self.session.resume_id,
+                target_company=self.session.target_company or "",
+                linked_session_id=getattr(self.session, "linked_session_id", None),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Prep system seed degraded sid=%s: %s",
+                getattr(self.session, "id", ""), exc,
+            )
+            log_agent_error(
+                domain="prep", session=str(getattr(self.session, "id", "") or ""),
+                kind="seed_degraded", message=str(exc)[:200],
+            )
+            self.messages = [{"role": "system", "content": PREP_SYSTEM}]
+
+    def pending_reply_text(self) -> str:
+        """Deferred-turn reply text in the turn's reply language (shown while awaiting user input)."""
+        return _fallback_reply(self.reply_locale)
 
     def waiting_line(self) -> str:
-        """Visible waiting copy in the turn's reply language."""
-        return _fallback_reply(self.reply_locale)
+        """Deprecated alias for :meth:`pending_reply_text`."""
+        return self.pending_reply_text()
 
     async def _build_context(
         self,
@@ -299,8 +335,9 @@ class PrepAgent:
                 force=True, options=policy, keep_from=last_user, report=report,
             )
         except Exception as e:
-            logger.warning("Agent-invoked compaction failed: %s", e)
-            return f"Compaction failed ({e}); continuing with full history.", []
+            safe_detail = redact_api_key(str(e))[:200]
+            logger.warning("Agent-invoked compaction failed: %s", safe_detail)
+            return f"Compaction failed ({safe_detail}); continuing with full history.", []
         self._turn_state.compact_used = True
         self._turn_state.mid_turn_base = compacted
         self.messages = compacted
@@ -335,6 +372,14 @@ class PrepAgent:
         """
         if name == "compact_context":
             return await self._compact_current_round(args, db)
+        if name == "memory_write":
+            if self._turn_state.memory_writes >= _MAX_MEMORY_WRITES_PER_TURN:
+                return (
+                    f"memory_write budget exhausted this turn (max {_MAX_MEMORY_WRITES_PER_TURN}); "
+                    "continue coaching without more writes.",
+                    [],
+                )
+            self._turn_state.memory_writes += 1
         if name == "search_tools":
             text, hits = await execute_prep_tool(
                 name, args, self.memory, resume_id=self.session.resume_id
@@ -502,7 +547,7 @@ class PrepAgent:
         compact_threshold: float | None = None,
         compact_options: CompactionOptions | None = None,
     ) -> AsyncIterator[str | dict[str, Any]]:
-        """ReAct tool loop (events pushed immediately) → then stream the final answer (orchestration in :mod:`chat`).
+        """Think-then-act tool loop (events pushed immediately) → then stream the final answer (orchestration in :mod:`chat`).
 
         Yields ``str`` (response-body token) or ``dict`` (``status`` / ``thinking`` /
         ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events).

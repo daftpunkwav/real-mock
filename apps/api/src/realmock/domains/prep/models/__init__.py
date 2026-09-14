@@ -11,15 +11,38 @@ from datetime import datetime, timezone
 from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from sqlalchemy.orm import Session
+
 from realmock.platform.database import SessionsBase
 
 
 def utcnow() -> datetime:
-    """Current UTC time shared by all prep persistence paths."""
+    """Current UTC time shared by all prep persistence paths.
+
+    The columns are naive ``DateTime`` (SQLite truncates tzinfo on storage,
+    same convention as ``platform.models``); do not compare the in-memory
+    aware value with reloaded naive values in Python — ordering stays in SQL.
+    """
     return datetime.now(timezone.utc)
 
 
-# Backward-compatible alias: older imports use the private name.
+def commit_session(db: Session) -> None:
+    """Commit, rolling back on failure so the Session stays usable.
+
+    Args:
+        db: Active SQLAlchemy Session to commit.
+
+    Raises:
+        Exception: Whatever ``db.commit()`` raised, after rollback.
+    """
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
+# Deprecated alias: kept for older imports; new code uses utcnow.
 _utcnow = utcnow
 
 
@@ -34,26 +57,28 @@ class PrepSession(SessionsBase):
     target_company: Mapped[str] = mapped_column(String(100), default="")
     messages: Mapped[str] = mapped_column(Text, default="[]")
     token_usage: Mapped[int] = mapped_column(Integer, default=0)
-    # Accumulation of real tokens returned by the supplier (when missing, migration will be filled in); cached is the hit input cache part
+    # Provider-reported totals accumulated across turns (0 until the provider
+    # reports usage); cached_tokens is the prompt-cache-hit subset.
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cached_tokens: Mapped[int] = mapped_column(Integer, default=0)
-    # Matches prep_sessions.status in prep/column_migrations.py SESSIONS_MIGRATIONS; the startup migration adds the column if it is missing
+    # Matches column_migrations.SESSIONS_MIGRATIONS["prep_sessions"]; the
+    # startup migration adds the column when missing on older databases.
     status: Mapped[str] = mapped_column(String(20), default="active")
-    # Capability token: issued when created, message/history must be verified
+    # Capability token issued at creation; content reads must present it.
     access_token: Mapped[str] = mapped_column(String(64), default="")
     # Linked session: its summary + recent turns are injected into this session's
     # context so the coach knows the linked conversation (single level, no chains).
     linked_session_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    # The time when the latest message was dropped into the database (the conversation list is sorted by active); if it is missing, it will be filled in when migration is started.
+    # Last activity time; the session list sorts by this (falls back to created_at).
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class PrepMemory(SessionsBase):
     """Long-term prep memories: user-rated turns, emphasized facts, and agent notes.
 
-    Index/detail split (claudecode-style): list views carry only id/summary/tags;
+    Index/detail split: list views carry only id/summary/tags;
     full user_input/agent_output load on demand via the detail path. Summaries and
     tags are maintained by the LLM (one line, topic-organized, no duplicates).
     """
@@ -80,4 +105,4 @@ class PrepMemory(SessionsBase):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-__all__ = ["PrepMemory", "PrepSession", "utcnow"]
+__all__ = ["PrepMemory", "PrepSession", "commit_session", "utcnow"]

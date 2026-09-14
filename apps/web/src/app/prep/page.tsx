@@ -79,7 +79,6 @@ export default function PrepPage() {
     messageActions,
     compactionActions,
     archiveGroups,
-    backendCount,
     rateTarget,
     rateBusy,
     closeRate,
@@ -196,9 +195,6 @@ export default function PrepPage() {
                           key={m.id}
                           msg={m}
                           sessionId={prepSessionId}
-                          messageCount={
-                            prepSessionId !== null ? (backendCount(prepSessionId) ?? null) : null
-                          }
                           actions={compactionActions}
                           disabled={loading || compacting}
                         />

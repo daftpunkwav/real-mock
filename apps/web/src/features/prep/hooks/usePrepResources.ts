@@ -1,6 +1,9 @@
 "use client";
 
-/** Prep resumes, sessions, and model resources. */
+/**
+ * @file usePrepResources.ts
+ * @description Prep resumes, sessions, and model resources.
+ */
 
 import { useCallback, useEffect, useState } from "react";
 import { prepCoachHttp, settingsHttp } from "@/lib/api/clients";

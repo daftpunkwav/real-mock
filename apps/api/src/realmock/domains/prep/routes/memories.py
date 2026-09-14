@@ -3,18 +3,19 @@
 Creation is intentionally narrow: memories are recorded by the agent (rating flow
 or memory_write tool), so there is no blank-create endpoint — the settings page
 can only edit or delete what the agent recorded. Single-user app: no capability
-token required (unlike per-session chat routes).
+token required (unlike per-session chat routes); mutating endpoints still
+require same-origin CSRF protection.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 
-from fastapi import Depends
+from fastapi import Depends, Query, Request
 from sqlalchemy.orm import Session
 
-from realmock.domains.prep.models import PrepSession, utcnow
+from realmock.domains.prep.models import commit_session
+from realmock.platform.core.session_auth.csrf import assert_csrf_if_cookie_only
 from realmock.domains.prep.schemas import (
     MEMORY_ORIGINS,
     PrepMemoryBatchDelete,
@@ -30,14 +31,11 @@ from realmock.domains.prep.services import (
     memory_tags,
     memory_to_detail,
     memory_to_summary,
+    note_rating_into_session,
     touch_memory,
 )
-from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.platform.capabilities.ai.context.manager import upsert_memory_block
 from realmock.platform.core.errors import raise_error
 from realmock.platform.database import get_sessions_db
-
-logger = logging.getLogger(__name__)
 
 
 def _not_found() -> None:
@@ -46,8 +44,27 @@ def _not_found() -> None:
 
 async def create_memory_from_rating(
     body: PrepMemoryCreate,
+    request: Request,
     db: Session = Depends(get_sessions_db),
 ):
+    """Record a long-term memory from the rating flow (or an agent note).
+
+    Args:
+        body: Validated memory payload (user/agent turns, score, tags, origin).
+        request: Active request (used for CSRF validation).
+        db: Sessions database session (injected).
+
+    Returns:
+        The persisted memory detail view.
+
+    Raises:
+        ApiBusinessError: A0001 (user_rating without score).
+    """
+    # Owner-level write: same-origin CSRF protection, no capability token
+    # (consistent with manage.py — orphans must stay manageable).
+    assert_csrf_if_cookie_only(request, used_header=False)
+    # Schema already restricts origin to MEMORY_ORIGINS; keep a defensive
+    # fallback so a future schema relaxation never writes an unknown origin.
     origin = body.origin if body.origin in MEMORY_ORIGINS else "user_rating"
     # Rating flow always carries a score; agent notes may omit it.
     if origin == "user_rating" and body.score is None:
@@ -65,48 +82,37 @@ async def create_memory_from_rating(
         session_id=body.session_id,
     )
     if body.session_id:
-        _note_rating_into_session(db, body.session_id, row.id, body.score)
+        note_rating_into_session(db, body.session_id, row.id, body.score)
     return memory_to_detail(row)
-
-
-def _note_rating_into_session(db: Session, session_id: int, memory_id: int, score: int | None) -> None:
-    """Mirror the rating into the session's working memory so the current session sees it immediately.
-
-    The long-term index is injected at session start only; without this note the
-    rating would stay invisible until a new session. Best-effort: never fail the request.
-    """
-    try:
-        session = db.get(PrepSession, session_id)
-        if session is None:
-            return
-        try:
-            messages = json.loads(session.messages or "[]")
-        except json.JSONDecodeError:
-            return
-        if not isinstance(messages, list):
-            return
-        memory = WorkingMemory.load_from_messages(messages)
-        memory.remember(
-            "note",
-            f"User rated a reply {score}/10 (long-term memory #{memory_id}); "
-            "honor this feedback in later turns.",
-        )
-        session.messages = json.dumps(upsert_memory_block(messages, memory), ensure_ascii=False)
-        session.updated_at = utcnow()
-        db.commit()
-    except Exception as exc:
-        logger.warning("Rating working-memory note failed sid=%s: %s", session_id, exc)
 
 
 async def list_memory_summaries(
     tag: str | None = None,
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_sessions_db),
 ):
+    """List memory index entries, newest first (clamped server-side to 1..50).
+
+    Args:
+        tag: Optional single-tag filter.
+        limit: Max entries requested (server clamps to the allowed window).
+        db: Sessions database session (injected).
+
+    Returns:
+        Index views (id/summary/tags only, no turn bodies).
+    """
     return [memory_to_summary(r) for r in list_memories(db, tag=tag or None, limit=limit)]
 
 
 async def list_memory_tags(db: Session = Depends(get_sessions_db)):
+    """List distinct memory tags, most-recently-used first.
+
+    Args:
+        db: Sessions database session (injected).
+
+    Returns:
+        Mapping with the tag list.
+    """
     return {"tags": memory_tags(db)}
 
 
@@ -114,6 +120,18 @@ async def get_memory_detail(
     memory_id: int,
     db: Session = Depends(get_sessions_db),
 ):
+    """Load one memory with its full turn bodies.
+
+    Args:
+        memory_id: Target memory id.
+        db: Sessions database session (injected).
+
+    Returns:
+        The full memory detail view.
+
+    Raises:
+        ApiBusinessError: A0404 (unknown id).
+    """
     row = get_memory(db, memory_id)
     if row is None:
         _not_found()
@@ -124,15 +142,34 @@ async def get_memory_detail(
 async def update_memory(
     memory_id: int,
     body: PrepMemoryUpdate,
+    request: Request,
     db: Session = Depends(get_sessions_db),
 ):
+    """Patch a memory's summary/tags/comment/score (CSRF-protected).
+
+    Args:
+        memory_id: Target memory id.
+        body: Partial update payload (only set fields are applied).
+        request: Active request (used for CSRF validation).
+        db: Sessions database session (injected).
+
+    Returns:
+        The refreshed memory detail view.
+
+    Raises:
+        ApiBusinessError: A0404 (unknown id).
+    """
+    assert_csrf_if_cookie_only(request, used_header=False)
     row = get_memory(db, memory_id)
     if row is None:
         _not_found()
         return None
     patch = body.model_dump(exclude_unset=True)
     if "summary" in patch and patch["summary"] is not None:
-        row.summary = str(patch["summary"]).strip()[:200]
+        cleaned_summary = str(patch["summary"]).strip()[:200]
+        if not cleaned_summary:
+            raise_error("A0001")
+        row.summary = cleaned_summary
     if "tags" in patch and patch["tags"] is not None:
         row.tags = json.dumps(clean_tags(patch["tags"]), ensure_ascii=False)
     if "comment" in patch and patch["comment"] is not None:
@@ -140,36 +177,73 @@ async def update_memory(
     if "score" in patch:
         row.score = patch["score"]
     touch_memory(row)
-    db.commit()
+    commit_session(db)
     db.refresh(row)
     return memory_to_detail(row)
 
 
 async def delete_memory(
     memory_id: int,
+    request: Request,
     db: Session = Depends(get_sessions_db),
 ):
+    """Delete one memory permanently (CSRF-protected).
+
+    Args:
+        memory_id: Target memory id.
+        request: Active request (used for CSRF validation).
+        db: Sessions database session (injected).
+
+    Returns:
+        Mapping with the deleted id.
+
+    Raises:
+        ApiBusinessError: A0404 (unknown id).
+    """
+    assert_csrf_if_cookie_only(request, used_header=False)
     row = get_memory(db, memory_id)
     if row is None:
         _not_found()
         return None
     db.delete(row)
-    db.commit()
+    commit_session(db)
     return {"deleted": memory_id}
 
 
 async def batch_delete_memories(
     body: PrepMemoryBatchDelete,
+    request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    ids = sorted({int(i) for i in body.ids if int(i) > 0})
+    """Delete up to 100 memories in one request (CSRF-protected, rate-limited).
+
+    Unknown ids are skipped silently; one malformed id never fails the batch.
+
+    Args:
+        body: Batch payload (1..100 ids).
+        request: Active request (used for CSRF validation).
+        db: Sessions database session (injected).
+
+    Returns:
+        Mapping with the deleted row count.
+    """
+    assert_csrf_if_cookie_only(request, used_header=False)
+    # Schema guarantees ints, but coerce defensively: one bad id must not 500 the batch.
+    ids: set[int] = set()
+    for raw in body.ids:
+        try:
+            value = int(raw)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            ids.add(value)
     deleted = 0
-    for memory_id in ids:
+    for memory_id in sorted(ids):
         row = get_memory(db, memory_id)
         if row is not None:
             db.delete(row)
             deleted += 1
-    db.commit()
+    commit_session(db)
     return {"deleted": deleted}
 
 

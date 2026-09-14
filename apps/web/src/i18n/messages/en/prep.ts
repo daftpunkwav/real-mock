@@ -77,12 +77,6 @@ export const prep = {
   "sessions.clearFailed": "Failed to clear messages",
   "sessions.cancelAction": "Cancel",
   "sessions.archivedTitle": "Archived · {count}",
-  "sessions.archivedBadge": "archived",
-  "sessions.linkTitle": "Linked session",
-  "sessions.linkDesc": "Pick a session; the coach reads its goal and recent turns on the first turn.",
-  "sessions.linkPlaceholder": "Pick a session to link…",
-  "sessions.unlink": "Unlink",
-  "sessions.linkFailed": "Failed to link session",
 
   // Search cards / resume loading
   "resources.sourcesSummary": "Sources · {total} results / {groups} groups",
@@ -168,12 +162,10 @@ export const prep = {
   "slash.help": "Help",
   "slash.helpDesc": "List available commands",
   "slash.helpBody": "Available commands:\n/compact [light|balanced|aggressive] [directive] - compact history and write a summary now\n/clear Clear messages - clear all messages in the current session\n/help Help - list available commands",
-  "slash.unknown": "Unknown command: {cmd}; type /help to list commands",
   "slash.noSession": "No active session; cannot run that command",
   "slash.compactDoneSummary": "Context compacted with summary: {before} → {after}",
   "slash.compactDonePruned": "Context tidied: {before} → {after}",
   "slash.compactDoneUnchanged": "Nothing to compact: {before} (no older turns to fold)",
-  "slash.compactDoneEdited": "Summary updated",
   "slash.compactFailed": "Compaction failed: {reason}",
   "slash.compactBusy": "Generation in progress; stop it before compacting",
 
@@ -181,8 +173,6 @@ export const prep = {
   "compactCard.title": "Context summary v{version}",
   "compactCard.digestTitle": "Context tidy-up record",
   "compactCard.tokens": "{before} → {after}",
-  "compactCard.viewFull": "View full text",
-  "compactCard.collapse": "Collapse",
   "compactCard.edit": "Correct summary",
   "compactCard.editPlaceholder": "Write the corrected summary…",
   "compactCard.save": "Save",
@@ -190,11 +180,8 @@ export const prep = {
   "compactCard.saved": "Summary updated",
   "compactCard.saveFailed": "Save failed",
   "compactCard.regenerate": "Regenerate",
-  "compactCard.regenerated": "Summary regenerated",
   "compactCard.forkFromPoint": "New session from pre-compaction content",
   "compactCard.viewBackup": "View pre-compaction record",
-  "compactCard.noBackup": "No backup (originals were not kept for this run)",
-  "compactCard.regenBusy": "Generation in progress; try again later",
 
   // Live compaction event (streamed like tool execution)
   "trace.compaction": "Context compacted {before} → {after}",
