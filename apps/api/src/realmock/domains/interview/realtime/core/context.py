@@ -15,8 +15,7 @@ from fastapi import WebSocket
 
 from realmock.domains.interview.realtime.nudge.orchestrator import InterviewOrchestrator
 from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.domains.interview.agents.session_state import InterviewSessionState
-from realmock.domains.interview.agents.runner import InterviewRunner
+from realmock.domains.interview.agents import InterviewRunner, InterviewSessionState
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.voice.stt import SttCredentials
 from realmock.platform.capabilities.voice.tts import TtsCredentials

@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from realmock.platform.config import get_settings
-from realmock.domains.interview.agents.agent_text import strip_markers
+from realmock.domains.interview.agents import strip_markers
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_speech
 from realmock.platform.capabilities.voice.tts.edge import (
     extract_emotion,

@@ -24,6 +24,15 @@ All mixins read/write state through `self.ctx: ConnectionContext`. **Do not** de
 
 See `core/context.py` for the field list; keep that dataclass and this document in sync when adding fields.
 
+## Cross-layer dependencies
+
+`realtime` and `routes` depend on the agent execution chain only through the
+`agents` package facade (`InterviewRunner`, `InterviewSessionState`,
+`run_finish_lifecycle`, `strip_markers`, `strip_think_blocks`) plus the event
+contract (`agents.events`, versioned via `schema_version`). Never import
+`agents` sibling modules directly — the facade is the seam that keeps
+internal refactors (e.g. splitting the runner) from rippling outward.
+
 ## Test patch convention
 
 Turn/STT tests should patch module-level symbols under `realmock.domains.interview.realtime.turn.coordinator.*`, not class methods.

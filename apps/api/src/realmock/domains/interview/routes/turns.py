@@ -22,10 +22,12 @@ from realmock.domains.interview.schemas import (
     InterviewMessageRequest,
     InterviewMessageResponse,
 )
+from realmock.domains.interview.agents import (
+    InterviewRunner,
+    InterviewSessionState,
+    run_finish_lifecycle,
+)
 from realmock.domains.interview.agents.events import EventKind
-from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
-from realmock.domains.interview.agents.runner import InterviewRunner
-from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.session_overrides import session_llm
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
