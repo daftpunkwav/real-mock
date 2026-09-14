@@ -4,11 +4,11 @@ overrides, and the round-identity prompt section."""
 from __future__ import annotations
 
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.services.process_service import (
+from realmock.domains.interview.process.process_service import (
     _session_from_process,
     create_process_with_first_round,
 )
-from realmock.domains.interview.services.round_chain import round_chain, step_for
+from realmock.domains.interview.process.round_chain import round_chain, step_for
 
 
 def _process(db, **overrides) -> InterviewProcess:
@@ -72,7 +72,7 @@ def test_create_process_response_exposes_round_plan(db) -> None:
         ProcessCreateRequest,
         ProcessRoundPlanItem,
     )
-    from realmock.domains.interview.services.process_service import _to_response
+    from realmock.domains.interview.process.process_service import _to_response
 
     req = ProcessCreateRequest(role="r", level="l", company="bytedance", max_rounds=4)
     process, session = create_process_with_first_round(db, req)

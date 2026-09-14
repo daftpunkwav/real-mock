@@ -14,8 +14,8 @@ from realmock.domains.interview.schemas.process import (
     ProcessCreateRequest,
     ProcessCreatedResponse,
 )
-from realmock.domains.interview.services.planning.planner import generate_plan_for_session
-from realmock.domains.interview.services.process_service import (
+from realmock.domains.interview.process.planning.planner import generate_plan_for_session
+from realmock.domains.interview.process.process_service import (
     ProcessRoundError,
     create_next_round,
     create_process_with_first_round,

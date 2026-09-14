@@ -44,7 +44,7 @@ def run_finish_lifecycle(
         ledger = freeze_ledger(db, session)
 
     # Fold the finished round into its process memory (no-op for standalone sessions).
-    from realmock.domains.interview.services.process_service import record_round_finished
+    from realmock.domains.interview.process.process_service import record_round_finished
 
     record_round_finished(db, session)
 

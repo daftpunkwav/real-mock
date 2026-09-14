@@ -92,7 +92,7 @@ def _wire_platform_contracts() -> None:
     """Composition-root wiring: catalog, score projection, insights, ingest hooks."""
     from realmock.domains.growth.column_migrations import ensure_growth_indexes
     from realmock.domains.growth.services.learning import get_system_insights
-    from realmock.domains.interview.services.catalog import register_interview_session_catalog
+    from realmock.domains.interview.process.catalog import register_interview_session_catalog
     from realmock.platform.contracts.lifecycle_hooks import (
         get_on_interview_finished,
         get_on_report_summary,

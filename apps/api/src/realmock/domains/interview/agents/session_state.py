@@ -28,7 +28,7 @@ from realmock.domains.interview.agents.agent_text import (
     strip_markers,
 )
 from realmock.domains.interview.agents.workflows import Workflow, get_workflow
-from realmock.domains.interview.services.planning.plan_schema import (
+from realmock.domains.interview.process.planning.plan_schema import (
     MAX_PLAN_STEPS,
     REVERSE_QA_KIND,
     InterviewPlan,

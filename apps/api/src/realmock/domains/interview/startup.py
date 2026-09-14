@@ -20,7 +20,7 @@ SESSION_DOMAINS: tuple[str, ...] = ("interview",)
 
 def wire_session_catalog() -> None:
     """Register interview catalog for standalone runs (no growth imports)."""
-    from realmock.domains.interview.services.catalog import register_interview_session_catalog
+    from realmock.domains.interview.process.catalog import register_interview_session_catalog
 
     register_interview_session_catalog()
 

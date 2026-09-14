@@ -28,7 +28,7 @@ from realmock.domains.interview.schemas import (
     InterviewConfig,
     InterviewSessionResponse,
 )
-from realmock.domains.interview.services.planning.planner import generate_plan_for_session
+from realmock.domains.interview.process.planning.planner import generate_plan_for_session
 from realmock.platform.services.resume_picker import list_resume_picker_items
 
 
@@ -125,7 +125,7 @@ def get_messages(
 def to_session_response(
     session: InterviewSession, *, include_token: bool = False
 ) -> InterviewSessionResponse:
-    from realmock.domains.interview.services.planning.plan_schema import (
+    from realmock.domains.interview.process.planning.plan_schema import (
         parse_plan,
         plan_step_views,
     )

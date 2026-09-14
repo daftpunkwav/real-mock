@@ -22,14 +22,14 @@ from realmock.domains.interview.schemas.process import (
     ProcessRoundItem,
     ProcessRoundPlanItem,
 )
-from realmock.domains.interview.services.process_memory import (
+from realmock.domains.interview.process.process_memory import (
     append_round,
     dump_memory,
     load_memory,
     mark_final,
 )
-from realmock.domains.interview.services.round_chain import round_chain, step_for
-from realmock.domains.interview.services.round_digest import build_round_digest
+from realmock.domains.interview.process.round_chain import round_chain, step_for
+from realmock.domains.interview.process.round_digest import build_round_digest
 
 logger = logging.getLogger(__name__)
 

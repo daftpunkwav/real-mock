@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from realmock.domains.interview.services.process_memory import _DIGEST_LIMITS
+from realmock.domains.interview.process.process_memory import _DIGEST_LIMITS
 
 
 def _load_agent_state(session: Any) -> dict[str, Any]:

@@ -56,7 +56,7 @@ class InterviewSessionCatalog:
     def get_process_context(self, db: Session, process_id: int) -> str:
         """Render a process's prior-round memory for cross-domain consumers."""
         from realmock.domains.interview.models import InterviewProcess
-        from realmock.domains.interview.services.process_memory import (
+        from realmock.domains.interview.process.process_memory import (
             load_memory,
             render_for_prompt,
         )

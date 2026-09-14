@@ -19,8 +19,8 @@ from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.domains.interview.agents.agent_prompts import build_system_prompt
 from realmock.domains.interview.agents.workflows import Workflow
-from realmock.domains.interview.services.process_memory import load_memory, render_for_prompt
-from realmock.domains.interview.services.round_chain import step_for
+from realmock.domains.interview.process.process_memory import load_memory, render_for_prompt
+from realmock.domains.interview.process.round_chain import step_for
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.session_state import InterviewSessionState
