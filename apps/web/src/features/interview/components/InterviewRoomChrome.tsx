@@ -12,6 +12,8 @@ export function InterviewRoomChrome({ room }: { room: InterviewRoomModel }) {
     sessionId,
     phaseLabels,
     currentPhase,
+    currentPhaseTitle,
+    planSteps,
     turnState,
     connected,
     connectionState,
@@ -24,6 +26,15 @@ export function InterviewRoomChrome({ room }: { room: InterviewRoomModel }) {
   } = room;
   const t = useT("interview");
   const turnLabel = turnLabelKey(turnState);
+  // Single current-step display (no plan disclosure, no step index):
+  // server-sent title (flow language) > plan step title > static phase label.
+  const planStepTitle = planSteps.find((s) => s.id === currentPhase)?.title;
+  const currentStepLabel =
+    currentPhaseTitle ||
+    planStepTitle ||
+    phaseLabels[currentPhase] ||
+    currentPhase ||
+    t("room.phase.preparing");
 
   return (
     <>
@@ -87,7 +98,7 @@ export function InterviewRoomChrome({ room }: { room: InterviewRoomModel }) {
         <div className="flex min-w-0 items-center gap-2 text-sm sm:gap-3">
           <span className="shrink-0 font-medium text-ink">{t("room.header.session", { id: sessionId })}</span>
           <span className="truncate rounded-full bg-[var(--info-soft)] px-2 py-0.5 text-xs text-[var(--info-ink)]">
-            {phaseLabels[currentPhase] || currentPhase || t("room.phase.preparing")}
+            {currentStepLabel}
           </span>
           <span
             className={cn(

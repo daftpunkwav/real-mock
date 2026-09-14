@@ -160,15 +160,13 @@ export const interview = {
   "video.face.unavailable": "面部分析暂时不可用",
   "video.face.noDetectorApi": "摄像头已开启（浏览器不支持人脸检测 API）",
 
-  // ---- 房间:参考提纲 ----
-  "room.outline.title": "参考提纲",
+  // ---- 房间:参考回答 ----
+  "room.outline.title": "参考回答",
   "room.outline.regenerateTitle": "根据面试官最近的问题重新生成参考回答",
   "room.outline.regenerate": "重新生成",
   "room.outline.toggle": "显示参考",
-  "room.outline.phaseLabel": "阶段",
   "room.outline.replyChars": "回复字数",
-  "room.outline.phaseEmpty": "—",
-  "room.outline.hidden": "参考提纲已隐藏 — 高难度模式,靠自己发挥",
+  "room.outline.hidden": "参考回答已隐藏 — 高难度模式,靠自己发挥",
   "room.outline.sourcesPrefix": "依据：",
   "room.outline.generating": "AI 正在生成参考回答…",
   "room.outline.forQuestion": "针对:{q}",

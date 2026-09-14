@@ -1,54 +1,11 @@
 "use client";
 
 import { useT } from "@/i18n";
-import { Check, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { AvatarStage } from "@/features/avatar";
 import type { InterviewRoomModel } from "../hooks/room";
 
-/** Agent-planned flow spine: done / active / pending steps. */
-function PlanSpine({ room }: { room: InterviewRoomModel }) {
-  const { planSteps, currentPhase } = room;
-  if (planSteps.length === 0) return null;
-  const activeIdx = Math.max(
-    0,
-    planSteps.findIndex((s) => s.id === currentPhase),
-  );
-  return (
-    <ol className="mb-3 grid gap-1 shrink-0">
-      {planSteps.map((step, i) => {
-        const done = i < activeIdx;
-        const active = i === activeIdx;
-        return (
-          <li
-            key={step.id}
-            className={`flex items-center gap-1.5 text-[11px] ${
-              active
-                ? "font-semibold text-ink"
-                : done
-                  ? "text-ink-subtle"
-                  : "text-ink-muted"
-            }`}
-          >
-            <span
-              className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                done
-                  ? "border-[var(--success)] bg-[var(--success)] text-white"
-                  : active
-                    ? "border-[var(--primary)] text-[var(--primary)] anim-pulse-dot"
-                    : "border-surface-border"
-              }`}
-            >
-              {done ? <Check size={9} strokeWidth={3} /> : i + 1}
-            </span>
-            <span className="truncate">{step.title}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/** Right column: AvatarStage + plan spine + reference outline card. */
+/** Right column: AvatarStage + reference answer card (no plan disclosure). */
 export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
   const {
     sessionMeta,
@@ -62,9 +19,6 @@ export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
     hintLoading,
     referenceHint,
     lastSources,
-    phaseLabels,
-    currentPhase,
-    currentPhaseTitle,
     tokenUsage,
   } = room;
   const t = useT("interview");
@@ -105,14 +59,7 @@ export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
             </label>
           </div>
         </div>
-        <PlanSpine room={room} />
-        <div className="grid grid-cols-2 gap-2 text-[11px] text-ink-muted mb-3 shrink-0">
-          <div className="kpi-card !p-2.5">
-            <span className="kpi-label">{t("room.outline.phaseLabel")}</span>
-            <p className="mt-1 truncate text-[13px] font-semibold text-ink">
-              {currentPhaseTitle || phaseLabels[currentPhase] || t("room.outline.phaseEmpty")}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-2 text-[11px] text-ink-muted mb-3 shrink-0">
           <div className="kpi-card !p-2.5">
             <span className="kpi-label">{t("room.outline.replyChars")}</span>
             <p className="mt-1 font-mono text-[13px] font-semibold text-ink num-tabular">

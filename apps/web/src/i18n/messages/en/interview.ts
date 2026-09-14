@@ -165,15 +165,13 @@ export const interview = {
   "video.face.unavailable": "Face analysis temporarily unavailable",
   "video.face.noDetectorApi": "Camera on (browser does not support the Face Detector API)",
 
-  // ---- Room: reference outline ----
-  "room.outline.title": "Reference outline",
+  // ---- Room: reference answer ----
+  "room.outline.title": "Reference answer",
   "room.outline.regenerateTitle": "Regenerate the reference answer for the interviewer's latest question",
   "room.outline.regenerate": "Regenerate",
   "room.outline.toggle": "Show reference",
-  "room.outline.phaseLabel": "Phase",
   "room.outline.replyChars": "Reply chars",
-  "room.outline.phaseEmpty": "—",
-  "room.outline.hidden": "Reference outline hidden — hard mode, you're on your own",
+  "room.outline.hidden": "Reference answer hidden — hard mode, you're on your own",
   "room.outline.sourcesPrefix": "Sources: ",
   "room.outline.generating": "AI is generating the reference answer…",
   "room.outline.forQuestion": "Regarding: {q}",
