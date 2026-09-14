@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="wall" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a2f45"/>
+      <stop offset="55%" stop-color="#243b55"/>
+      <stop offset="100%" stop-color="#152536"/>
+    </linearGradient>
+    <linearGradient id="window" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7eb8d8"/>
+      <stop offset="60%" stop-color="#4a7a9b"/>
+      <stop offset="100%" stop-color="#2d4a62"/>
+    </linearGradient>
+    <linearGradient id="table" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3d2b1f"/>
+      <stop offset="100%" stop-color="#1f1510"/>
+    </linearGradient>
+    <radialGradient id="lamp" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#fff4d6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="45%" r="70%">
+      <stop offset="60%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.45"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <rect width="1200" height="800" fill="url(#wall)"/>
+  <path d="M0 0 L1200 0 L1100 90 L100 90 Z" fill="#0f1c2a" opacity="0.85"/>
+  <rect x="40" y="110" width="320" height="380" rx="4" fill="url(#window)" opacity="0.9"/>
+  <g opacity="0.35" fill="#0b1220">
+    <rect x="60" y="280" width="40" height="200"/>
+    <rect x="110" y="220" width="50" height="260"/>
+    <rect x="170" y="250" width="35" height="230"/>
+    <rect x="215" y="190" width="55" height="290"/>
+    <rect x="280" y="260" width="45" height="220"/>
+  </g>
+  <line x1="200" y1="110" x2="200" y2="490" stroke="#cbd5e1" stroke-opacity="0.25" stroke-width="2"/>
+  <line x1="40" y1="300" x2="360" y2="300" stroke="#cbd5e1" stroke-opacity="0.2" stroke-width="2"/>
+  <rect x="820" y="140" width="300" height="200" rx="6" fill="#e2e8f0" opacity="0.88"/>
+  <rect x="835" y="160" width="180" height="6" rx="2" fill="#64748b" opacity="0.35"/>
+  <rect x="835" y="180" width="140" height="5" rx="2" fill="#64748b" opacity="0.25"/>
+  <rect x="835" y="200" width="200" height="5" rx="2" fill="#64748b" opacity="0.2"/>
+  <ellipse cx="600" cy="620" rx="420" ry="70" fill="#000" opacity="0.35" filter="url(#soft)"/>
+  <path d="M140 560 Q600 500 1060 560 L1020 640 Q600 700 180 640 Z" fill="url(#table)"/>
+  <path d="M180 560 Q600 520 1020 560" stroke="#6b4f3a" stroke-width="3" fill="none" opacity="0.5"/>
+  <ellipse cx="600" cy="575" rx="280" ry="18" fill="#fff" opacity="0.06"/>
+  <ellipse cx="600" cy="200" rx="360" ry="180" fill="url(#lamp)"/>
+  <ellipse cx="600" cy="720" rx="480" ry="55" fill="#1e293b" opacity="0.45"/>
+  <rect width="1200" height="800" fill="url(#vignette)"/>
+</svg>

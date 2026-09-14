@@ -1,0 +1,89 @@
+# RealMock backend package (realmock namespace, src layout)
+#
+# Layout under src/realmock/:
+#   platform (platform kernel) / bootstrap (composition-root wiring) /
+#   domains/{profile,resume,settings,prep,interview,records,growth}
+# Domains depend only on platform (no cross-domain business imports).
+# Single-process aggregate entry: realmock.asgi:app.
+# Local dev: pip install -e ./apps/api then uvicorn realmock.asgi:app --port 8081.
+#
+# Dependencies use >= lower bounds with next-major upper caps to avoid
+# silent breakage on major upgrades. chromadb 1.5.9 has known issue PYSEC-2026-311
+# (no fixed release yet). It is a required direct dependency (LocalEmbeddingRAG
+# uses PersistentClient embedded mode and does not expose a chroma server port,
+# so the attack surface is limited). Upgrade when upstream ships a fix.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "realmock-api"
+version = "1.0.0"
+description = "RealMock mock-interview platform API (modular FastAPI monolith)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0,<1",
+    "uvicorn[standard]>=0.32.0,<1",
+    "sqlalchemy>=2.0.36,<3",
+    "pydantic>=2.10.0,<3",
+    "pydantic-settings>=2.6.0,<3",
+    "httpx>=0.28.0,<1",
+    "python-multipart>=0.0.17,<1",
+    "pypdf>=5.1.0,<7",
+    # Image-PDF fallback: render pages to images for vision transcription (lazy-import path)
+    "pymupdf>=1.24.0,<2",
+    "python-docx>=1.1.2,<2",
+    "websockets>=12.0,<16",
+    "alembic>=1.14.0,<2",
+    "edge-tts>=6.1.0,<8",
+    "faster-whisper>=1.0.0,<2",
+    # Local RAG vector store (embedded PersistentClient; see header note on PYSEC-2026-311)
+    "chromadb>=1.5.0,<2",
+    # Search: ddgs is current; duckduckgo_search is a legacy fallback (dual import in web.py).
+    # 6.x is the last generation under that module name — pin upper bound to avoid incompatible 7.x+ (renamed to ddgs).
+    "duckduckgo-search>=6.0.0,<7",
+    "ddgs>=9.0.0,<10",
+    "cryptography>=42.0.0,<50",
+    # Tests (shared by local regression and CI)
+    "pytest>=8.3.0,<10",
+    "pytest-asyncio>=0.24.0,<2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-ra -q --strict-markers --import-mode=importlib"
+asyncio_mode = "auto"
+
+[tool.mypy]
+# Pin python_version to 3.12 (newer numpy stubs need 3.12+ syntax),
+# matching the CI python:3.12 image; requires-python remains >=3.11.
+python_version = "3.12"
+ignore_missing_imports = true
+no_incremental = true
+explicit_package_bases = true
+mypy_path = "src"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# Pin rule set (E/F baseline) to avoid CI drift from ruff 0.16+ default expansion
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+]
+ignore = [
+    "E501",  # line length handled by formatter; long strings/URLs stay as-is
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use looser assert/helper style
+"**/tests/**" = ["E712"]

@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Interview WebSocket Protocol",
+  "description": "Interview WS event SSOT; aligned with realmock.domains.interview.constants and frontend interview_ws.ts.",
+  "serverEventTypes": [
+    "turn_state",
+    "assistant_token",
+    "assistant_done",
+    "stt_partial",
+    "stt_final",
+    "tts_audio",
+    "tts_failed",
+    "tts_interrupted",
+    "silence_nudge",
+    "reference_hint_loading",
+    "reference_hint",
+    "phase_changed",
+    "interview_complete",
+    "server_ping",
+    "info",
+    "error"
+  ],
+  "clientEventTypes": [
+    "user_text",
+    "user_turn_end",
+    "stt_text",
+    "silence_timeout",
+    "barge_in",
+    "request_hint",
+    "request_finish",
+    "vision_update",
+    "tts_playback_done",
+    "pong"
+  ],
+  "serverEventPayloads": {
+    "turn_state": {
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "description": "IDLE | AI_SPEAKING | USER_SPEAKING | PROCESSING"
+        }
+      }
+    },
+    "assistant_token": {
+      "required": [
+        "token"
+      ],
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        }
+      }
+    },
+    "assistant_done": {
+      "required": [
+        "content",
+        "phase",
+        "is_complete"
+      ],
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "emotion": {
+          "type": "string"
+        },
+        "is_complete": {
+          "type": "boolean"
+        },
+        "audio_b64": {
+          "type": "string"
+        },
+        "playback_generation": {
+          "type": "number"
+        },
+        "wait_seconds": {
+          "type": "number"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "passed",
+            "failed",
+            null
+          ]
+        },
+        "phase_title": {
+          "type": "string"
+        }
+      }
+    },
+    "stt_partial": {
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "stt_final": {
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "tts_audio": {
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "sentence": {
+          "type": "string"
+        },
+        "playback_generation": {
+          "type": "number"
+        }
+      }
+    },
+    "tts_failed": {
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "tts_interrupted": {
+      "required": [],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "candidate_interrupts": {
+          "type": "number"
+        },
+        "playback_generation": {
+          "type": "number"
+        }
+      }
+    },
+    "silence_nudge": {
+      "required": [
+        "content"
+      ],
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "number"
+        },
+        "ai_interrupts": {
+          "type": "number"
+        }
+      }
+    },
+    "reference_hint_loading": {
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string"
+        }
+      }
+    },
+    "reference_hint": {
+      "required": [
+        "content",
+        "question"
+      ],
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        }
+      }
+    },
+    "phase_changed": {
+      "required": [
+        "phase"
+      ],
+      "properties": {
+        "phase": {
+          "type": "string"
+        },
+        "phase_title": {
+          "type": "string"
+        }
+      }
+    },
+    "interview_complete": {
+      "required": [],
+      "properties": {
+        "session_id": {
+          "type": "number"
+        },
+        "overall_score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "passed",
+            "failed",
+            null
+          ]
+        }
+      }
+    },
+    "server_ping": {
+      "required": [
+        "t"
+      ],
+      "properties": {
+        "t": {
+          "type": "number"
+        }
+      }
+    },
+    "info": {
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "fallback": {
+          "type": "boolean"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "requested_provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "error": {
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "clientEventPayloads": {
+    "user_text": {
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "face_analysis": {
+          "type": "object"
+        },
+        "image_base64": {
+          "type": "string"
+        }
+      }
+    },
+    "user_turn_end": {
+      "required": [
+        "pcm",
+        "sample_rate"
+      ],
+      "properties": {
+        "pcm": {
+          "type": "string"
+        },
+        "sample_rate": {
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        },
+        "face_analysis": {
+          "type": "object"
+        },
+        "image_base64": {
+          "type": "string"
+        }
+      }
+    },
+    "stt_text": {
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "silence_timeout": {
+      "required": [],
+      "properties": {}
+    },
+    "barge_in": {
+      "required": [],
+      "properties": {}
+    },
+    "request_hint": {
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string"
+        }
+      }
+    },
+    "request_finish": {
+      "required": [],
+      "properties": {}
+    },
+    "vision_update": {
+      "required": [
+        "face_analysis"
+      ],
+      "properties": {
+        "face_analysis": {
+          "type": "object"
+        }
+      }
+    },
+    "tts_playback_done": {
+      "required": [],
+      "properties": {
+        "generation": {
+          "type": "number"
+        }
+      }
+    },
+    "pong": {
+      "required": [
+        "t"
+      ],
+      "properties": {
+        "t": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

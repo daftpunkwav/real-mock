@@ -1,0 +1,388 @@
+"""Unit tests for resume assessment payload normalization."""
+
+from realmock.domains.resume.services.analysis_normalize import (
+    normalize_resume_analysis_payload,
+)
+from realmock.domains.resume.schemas.resume import ResumeAnalysis
+
+
+def test_normalize_basic():
+    raw = {
+        "score": 88,
+        "strengths": ["A"],
+        "weaknesses": ["B"],
+        "dimension_scores": {
+            "tech_depth": 90,
+            "role_fit": {"score": 80, "comment": "Match"},
+        },
+        "predicted_questions": ["Q1"],
+    }
+    data = normalize_resume_analysis_payload(raw)
+    analysis = ResumeAnalysis.model_validate(data)
+    assert analysis.score == 88
+    assert analysis.dimension_scores["tech_depth"].score == 90
+    assert analysis.dimension_scores["role_fit"].comment == "Match"
+
+
+def test_normalize_clamps_score():
+    data = normalize_resume_analysis_payload({"score": 150, "strengths": "bad"})
+    analysis = ResumeAnalysis.model_validate(data)
+    assert analysis.score == 100
+    assert analysis.strengths == []
+
+
+def test_normalize_empty():
+    data = normalize_resume_analysis_payload({})
+    analysis = ResumeAnalysis.model_validate(data)
+    assert analysis.score == 0
+
+
+def test_normalize_decimal_string_score_and_percentile():
+    """Decimal score strings truncate; percentile is derived from the total, not the LLM field."""
+    from realmock.domains.resume.services.analysis_normalize import (
+        benchmark_percentile_from_score,
+    )
+
+    data = normalize_resume_analysis_payload(
+        {"score": "88.7", "benchmark_percentile": "72.5"}
+    )
+    assert data["score"] == 88
+    assert data["benchmark_percentile"] == benchmark_percentile_from_score(88)
+
+
+def test_normalize_invalid_inputs_keep_semantics():
+    """Invalid score becomes 0; percentile still follows the fixed conversion."""
+    from realmock.domains.resume.services.analysis_normalize import (
+        benchmark_percentile_from_score,
+    )
+
+    data = normalize_resume_analysis_payload(
+        {"score": "abc", "benchmark_percentile": "abc"}
+    )
+    assert data["score"] == 0
+    assert data["benchmark_percentile"] == benchmark_percentile_from_score(0)
+    data = normalize_resume_analysis_payload({"benchmark_percentile": None})
+    assert data["benchmark_percentile"] == benchmark_percentile_from_score(0)
+
+
+def test_normalize_zh_cn_applies_fullwidth_punctuation():
+    """zh-CN locale converts half-width punctuation adjacent to CJK."""
+    data = normalize_resume_analysis_payload(
+        {"content_review": "项目不错,但缺少量化.", "score": 70},
+        locale="zh-CN",
+    )
+    assert "，" in data["content_review"]
+    assert "。" in data["content_review"]
+
+
+def test_normalize_en_skips_cn_punctuation():
+    """en locale must not rewrite English punctuation to full-width."""
+    text = "Strong projects, but missing metrics."
+    data = normalize_resume_analysis_payload(
+        {"content_review": text, "score": 70},
+        locale="en",
+    )
+    assert data["content_review"] == text
+
+
+def test_normalize_nested_review_blobs():
+    data = normalize_resume_analysis_payload(
+        {
+            "score": 40,
+            "rewrite_examples": [{"before": "old", "after": "new"}],
+            "section_reviews": [
+                {"section": "Projects", "score": 80, "verdict": "ok", "detail": "d"}
+            ],
+            "project_cards": [
+                {
+                    "name": "P",
+                    "score": 70,
+                    "one_line": "line",
+                    "highlights": ["h"],
+                    "risks": ["r"],
+                    "deep_questions": ["q"],
+                }
+            ],
+            "skill_trust": {"solid": ["Python"], "claimed": [], "missing": ["K8s"]},
+            "career_analysis": {"trajectory": "up", "stability_score": 60, "gaps": []},
+            "company_fit": [{"tier": "startup", "fit_score": 55, "reason": "match"}],
+            "repo_evidence": [
+                {
+                    "repo": "me/app",
+                    "url": "https://github.com/me/app",
+                    "stars": 4,
+                    "languages": ["Python"],
+                    "evidence_notes": ["ok"],
+                }
+            ],
+            "repo_verification": [
+                {"repo": "me/app", "verdict": "matches", "details": "commits exist"}
+            ],
+        }
+    )
+    analysis = ResumeAnalysis.model_validate(data)
+    assert analysis.rewrite_examples[0].after == "new"
+    assert analysis.section_reviews[0].section == "Projects"
+    assert analysis.project_cards[0].name == "P"
+    assert analysis.skill_trust is not None
+    assert analysis.skill_trust.solid == ["Python"]
+    assert analysis.career_analysis is not None
+    assert analysis.company_fit[0].tier == "startup"
+    assert analysis.repo_evidence[0].repo == "me/app"
+    assert analysis.repo_evidence[0].stars == 4
+    assert analysis.repo_verification[0].verdict == "matches"
+
+
+def test_normalize_skips_dimension_without_numeric_score():
+    data = normalize_resume_analysis_payload(
+        {
+            "dimension_scores": {
+                "role_fit": {"comment": "no score yet"},
+                "tech_depth": {"score": 80, "comment": "clear"},
+            }
+        }
+    )
+    assert "role_fit" not in data["dimension_scores"]
+    assert data["dimension_scores"]["tech_depth"]["score"] == 80
+
+
+def test_compute_score_from_dims_mean():
+    from realmock.domains.resume.schemas.analysis import DimensionScore
+    from realmock.domains.resume.services.analysis_normalize import compute_score_from_dims
+
+    dims = {
+        "a": DimensionScore(score=40, comment=""),
+        "b": DimensionScore(score=60, comment=""),
+    }
+    assert compute_score_from_dims(dims) == 50
+    assert compute_score_from_dims({}) is None
+
+
+def test_compute_score_from_dims_weighted(monkeypatch) -> None:
+    from realmock.domains.resume.schemas.analysis import DimensionScore
+    from realmock.domains.resume.services import analysis_normalize
+
+    monkeypatch.setattr(analysis_normalize, "DIMENSION_WEIGHTS", {"a": 3.0, "b": 1.0})
+    dims = {
+        "a": DimensionScore(score=40, comment=""),
+        "b": DimensionScore(score=60, comment=""),
+    }
+    assert analysis_normalize.compute_score_from_dims(dims) == 45
+
+
+def test_score_band_label_boundaries() -> None:
+    from realmock.domains.resume.schemas.limits import score_band_label
+
+    assert score_band_label(85) == "突出"
+    assert score_band_label(84) == "扎实"
+    assert score_band_label(70) == "扎实"
+    assert score_band_label(69) == "参差"
+    assert score_band_label(55) == "参差"
+    assert score_band_label(54) == "偏弱"
+    assert score_band_label(0) == "偏弱"
+    assert score_band_label(100) == "突出"
+    assert score_band_label(90, locale="en") == "standout"
+    assert score_band_label(60, locale="en") == "mixed"
+
+
+def test_benchmark_percentile_from_score_bounds():
+    from realmock.domains.resume.services.analysis_normalize import (
+        benchmark_percentile_from_score,
+    )
+
+    assert benchmark_percentile_from_score(0) == 8
+    assert benchmark_percentile_from_score(100) == 92
+    assert benchmark_percentile_from_score(50) == 50
+    assert benchmark_percentile_from_score(0) < benchmark_percentile_from_score(50)
+    assert benchmark_percentile_from_score(50) < benchmark_percentile_from_score(100)
+
+
+def test_normalize_non_dict_returns_empty():
+    assert normalize_resume_analysis_payload(["nope"]) == {}  # type: ignore[arg-type]
+
+
+def test_normalize_rewrite_arrow_keeps_latin_before_text():
+    """Arrow pairs must not treat ``[before change]`` as a character class."""
+    data = normalize_resume_analysis_payload({"rewrite_examples": ["foo -> bar"]})
+    assert data["rewrite_examples"] == [{"before": "foo", "after": "bar"}]
+
+
+def test_normalize_rewrite_strips_before_label_on_arrow():
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": ["before: old -> new"]}
+    )
+    assert data["rewrite_examples"] == [{"before": "old", "after": "new"}]
+
+
+def test_normalize_keeps_explicit_zero_score():
+    """An explicit 0 must not be overwritten by leftover alias totals."""
+    data = normalize_resume_analysis_payload({"score": 0, "overall_score": 72})
+    assert data["score"] == 0
+
+
+def test_normalize_salvages_overall_score_when_score_missing():
+    data = normalize_resume_analysis_payload({"overall_score": 72})
+    assert data["score"] == 72
+
+
+def test_normalize_accepts_dimension_score_list():
+    data = normalize_resume_analysis_payload(
+        {
+            "dimension_scores": [
+                {"dimension": "tech_depth", "score": 81, "comment": "ok"},
+            ]
+        }
+    )
+    assert data["dimension_scores"]["tech_depth"]["score"] == 81
+
+
+def test_clamp_score_bounds():
+    from realmock.domains.resume.services.analysis_normalize import _clamp_score
+
+    assert _clamp_score(-5) == 0
+    assert _clamp_score(0) == 0
+    assert _clamp_score(72) == 72
+    assert _clamp_score(100) == 100
+    assert _clamp_score(101) == 100
+
+
+def test_normalize_rewrite_dict_with_alias_keys():
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": [{"Before the change": "a", "After modification": "b"}]}
+    )
+    assert data["rewrite_examples"] == [{"before": "a", "after": "b"}]
+
+
+def test_normalize_rewrite_json_string():
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": ['{"before": "a", "after": "b"}']}
+    )
+    assert data["rewrite_examples"] == [{"before": "a", "after": "b"}]
+
+
+def test_normalize_rewrite_keyed_fallback_on_trailing_junk():
+    """Unparseable-as-dict but key-shaped text falls back to the key regex."""
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": ['{"before": "a", "after": "b"} trailing junk']}
+    )
+    assert data["rewrite_examples"] == [{"before": "a", "after": "b"}]
+
+
+def test_normalize_rewrite_labeled_markers():
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": ["改前：做了X after: did Y"]}
+    )
+    assert data["rewrite_examples"] == [{"before": "做了X", "after": "did Y"}]
+
+
+def test_normalize_rewrite_strips_heading_markers():
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": ["### Old -> New"]}
+    )
+    assert data["rewrite_examples"] == [{"before": "Old", "after": "New"}]
+
+
+def test_normalize_rewrite_drops_unmatched_text():
+    data = normalize_resume_analysis_payload(
+        {"rewrite_examples": ["just some text"]}
+    )
+    assert data["rewrite_examples"] == []
+
+
+def test_normalize_interviewer_comments_even_count():
+    data = normalize_resume_analysis_payload(
+        {"interviewer_comments": ["a", "b", "c", "d", "e"]}
+    )
+    assert data["interviewer_comments"] == ["a", "b", "c", "d"]
+    data = normalize_resume_analysis_payload(
+        {"interviewer_comments": ["a", "", "b", "c", "d", "e", "f", "g", "h", "i"]}
+    )
+    assert data["interviewer_comments"] == ["a", "b", "c", "d", "e", "f", "g", "h"]
+    # Fewer than 4 are kept as-is: never invent or destroy evidence.
+    data = normalize_resume_analysis_payload({"interviewer_comments": ["a", "b", "c"]})
+    assert data["interviewer_comments"] == ["a", "b", "c"]
+    data = normalize_resume_analysis_payload({"interviewer_comments": "nope"})
+    assert data["interviewer_comments"] == []
+
+
+def test_normalize_improvement_suggestions_dict_shapes():
+    data = normalize_resume_analysis_payload(
+        {
+            "improvement_suggestions": [
+                {
+                    "location": "顶部个人信息区",
+                    "current": "仅有姓名",
+                    "suggested": "新增目标岗位",
+                    "effect": "让HR第一眼锁定方向",
+                },
+                "{'location': '技能区', 'current': '三列平铺', 'suggested': '改为两列', 'effect': '降低堆砌感'}",
+                "plain readable suggestion",
+                42,
+            ]
+        }
+    )
+    items = data["improvement_suggestions"]
+    assert items[0] == "【顶部个人信息区】仅有姓名 → 新增目标岗位（让HR第一眼锁定方向）"
+    assert items[1] == "【技能区】三列平铺 → 改为两列（降低堆砌感）"
+    assert items[2] == "plain readable suggestion"
+    assert items[3] == "42"
+    assert all("{'location'" not in item for item in items)
+
+
+def test_normalize_improvement_suggestions_non_list():
+    assert normalize_resume_analysis_payload({"improvement_suggestions": "nope"})[
+        "improvement_suggestions"
+    ] == []
+
+
+def test_normalize_dimension_weights_clamped_to_range():
+    from realmock.domains.resume.schemas.limits import (
+        DIMENSION_WEIGHTS,
+        dimension_weight_range,
+    )
+    from realmock.domains.resume.services.analysis_normalize import (
+        _normalize_dimension_weights,
+    )
+
+    low, high = dimension_weight_range("role_fit")
+    weights = _normalize_dimension_weights(
+        {
+            "role_fit": high + 100.0,
+            "typography": -5.0,
+            "not_a_dimension": 9.0,
+            "tech_depth": "11",
+            "credibility": float("nan"),
+        }
+    )
+    assert weights["role_fit"] == high
+    assert weights["typography"] == dimension_weight_range("typography")[0]
+    assert "not_a_dimension" not in weights
+    assert weights["tech_depth"] == 11.0
+    assert weights["credibility"] == DIMENSION_WEIGHTS["credibility"]
+    assert set(weights) == set(DIMENSION_WEIGHTS)
+
+
+def test_normalize_dimension_weights_missing_block_falls_back_to_base():
+    from realmock.domains.resume.schemas.limits import DIMENSION_WEIGHTS
+    from realmock.domains.resume.services.analysis_normalize import (
+        _normalize_dimension_weights,
+    )
+
+    assert _normalize_dimension_weights(None) == DIMENSION_WEIGHTS
+    assert _normalize_dimension_weights({}) == DIMENSION_WEIGHTS
+    data = normalize_resume_analysis_payload({"dimension_scores": {}})
+    assert data["dimension_weights"] == DIMENSION_WEIGHTS
+
+
+def test_compute_score_uses_validated_weights():
+    from realmock.domains.resume.schemas.analysis import DimensionScore
+    from realmock.domains.resume.services.analysis_normalize import (
+        compute_score_from_dims,
+    )
+
+    dims = {
+        "role_fit": DimensionScore(score=100, comment=""),
+        "typography": DimensionScore(score=0, comment=""),
+    }
+    assert compute_score_from_dims(dims, {"role_fit": 18.0, "typography": 2.0}) == 90
+    assert compute_score_from_dims(dims, {"role_fit": 6.0, "typography": 6.0}) == 50

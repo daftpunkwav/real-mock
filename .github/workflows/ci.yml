@@ -1,0 +1,99 @@
+# CI: runs on push to main and all Pull Requests
+# Backend and frontend jobs run in parallel; commands match local verification
+# (toolchain versions are pinned — see backend step comments).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff / mypy / pytest / audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TEST_MODE: "1"
+      ENV: "dev"
+      LLM_API_KEY: "test-key"
+      LLM_API_BASE: "http://127.0.0.1:9999/v1"
+      CORS_ORIGINS: "http://localhost:8080"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      - name: Install deps and toolchain
+        # Pin toolchain (matches local verification): ruff 0.16 default rule expansion causes ~252 findings
+        run: |
+          pip install -q -e apps/api
+          pip install -q ruff==0.15.20 mypy==2.1.0 pytest-cov==7.1.0 pip-audit==2.10.1
+
+      - name: ruff static check
+        run: python -m ruff check apps/api
+
+      - name: mypy typecheck (per package)
+        # Existing type errors (~215, mostly Mixin cross-package attrs); non-blocking until fixed
+        continue-on-error: true
+        working-directory: apps/api
+        run: |
+          for pkg in src/realmock/platform src/realmock/domains/profile src/realmock/domains/resume src/realmock/domains/settings src/realmock/domains/prep src/realmock/domains/interview; do
+            python -m mypy $pkg/ --ignore-missing-imports
+          done
+
+      - name: pytest full regression + coverage gate (>=40%)
+        working-directory: apps/api
+        run: >
+          python -m pytest -q
+          --cov=realmock.platform --cov=realmock.domains.profile --cov=realmock.domains.resume
+          --cov=realmock.domains.settings --cov=realmock.domains.prep --cov=realmock.domains.interview
+          --cov-report=term-missing --cov-fail-under=40
+
+      - name: pip-audit dependency scan
+        # Audit the current env (including editable realmock-api deps)
+        # PYSEC-2026-311: chromadb 1.5.9 known issue, no fixed release yet (see pyproject comments)
+        run: pip-audit --ignore-vuln PYSEC-2026-311
+
+  frontend:
+    name: Frontend (tsc / lint / test / build / audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Dependency audit (fail on high+)
+        run: npm audit --audit-level=high

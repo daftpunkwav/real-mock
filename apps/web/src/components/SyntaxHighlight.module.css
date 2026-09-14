@@ -1,0 +1,109 @@
+/**
+ * Prism token colors for fenced code. Light theme by default, dark overrides
+ * under the app `.dark` class (class-based dark mode). Prism emits
+ * `span.token.<kind>`; unlisted kinds inherit the surrounding code color.
+ */
+
+.code :global(.token.comment),
+.code :global(.token.prolog),
+.code :global(.token.doctype),
+.code :global(.token.cdata) {
+  color: #6a737d;
+}
+
+.code :global(.token.punctuation),
+.code :global(.token.operator),
+.code :global(.token.entity),
+.code :global(.token.url) {
+  color: #24292e;
+}
+
+.code :global(.token.property),
+.code :global(.token.tag),
+.code :global(.token.boolean),
+.code :global(.token.number),
+.code :global(.token.constant),
+.code :global(.token.symbol),
+.code :global(.token.deleted),
+.code :global(.token.attr-name) {
+  color: #005cc5;
+}
+
+.code :global(.token.selector),
+.code :global(.token.inserted) {
+  color: #22863a;
+}
+
+.code :global(.token.string),
+.code :global(.token.char),
+.code :global(.token.attr-value),
+.code :global(.token.regex) {
+  color: #032f62;
+}
+
+.code :global(.token.atrule),
+.code :global(.token.keyword),
+.code :global(.token.important) {
+  color: #d73a49;
+}
+
+.code :global(.token.function),
+.code :global(.token.class-name) {
+  color: #6f42c1;
+}
+
+.code :global(.token.builtin) {
+  color: #e36209;
+}
+
+:global(.dark) .code :global(.token.comment),
+:global(.dark) .code :global(.token.prolog),
+:global(.dark) .code :global(.token.doctype),
+:global(.dark) .code :global(.token.cdata) {
+  color: #8b949e;
+}
+
+:global(.dark) .code :global(.token.punctuation),
+:global(.dark) .code :global(.token.operator),
+:global(.dark) .code :global(.token.entity),
+:global(.dark) .code :global(.token.url) {
+  color: #c9d1d9;
+}
+
+:global(.dark) .code :global(.token.property),
+:global(.dark) .code :global(.token.boolean),
+:global(.dark) .code :global(.token.number),
+:global(.dark) .code :global(.token.constant),
+:global(.dark) .code :global(.token.symbol),
+:global(.dark) .code :global(.token.deleted),
+:global(.dark) .code :global(.token.attr-name) {
+  color: #79c0ff;
+}
+
+:global(.dark) .code :global(.token.tag),
+:global(.dark) .code :global(.token.selector),
+:global(.dark) .code :global(.token.inserted) {
+  color: #7ee787;
+}
+
+:global(.dark) .code :global(.token.string),
+:global(.dark) .code :global(.token.char),
+:global(.dark) .code :global(.token.attr-value),
+:global(.dark) .code :global(.token.regex) {
+  color: #a5d6ff;
+}
+
+:global(.dark) .code :global(.token.atrule),
+:global(.dark) .code :global(.token.keyword),
+:global(.dark) .code :global(.token.important) {
+  color: #ff7b72;
+}
+
+:global(.dark) .code :global(.token.function),
+:global(.dark) .code :global(.token.class-name) {
+  color: #d2a8ff;
+}
+
+:global(.dark) .code :global(.token.builtin) {
+  color: #ffa657;
+}

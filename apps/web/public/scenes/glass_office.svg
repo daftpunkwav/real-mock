@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a2332"/>
+      <stop offset="50%" stop-color="#243044"/>
+      <stop offset="100%" stop-color="#152028"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#94a3b8" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#64748b" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#334155" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="plant" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#166534"/>
+    </linearGradient>
+    <linearGradient id="desk" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <!-- Open-office background -->
+  <rect x="0" y="120" width="1200" height="280" fill="#0f172a" opacity="0.35"/>
+  <g opacity="0.4">
+    <rect x="80" y="180" width="90" height="120" rx="4" fill="#334155"/>
+    <rect x="200" y="200" width="90" height="100" rx="4" fill="#334155"/>
+    <rect x="900" y="190" width="100" height="110" rx="4" fill="#334155"/>
+    <rect x="1030" y="175" width="90" height="125" rx="4" fill="#334155"/>
+  </g>
+  <!-- Glass partition -->
+  <rect x="180" y="100" width="840" height="520" rx="8" fill="url(#glass)" stroke="#94a3b8" stroke-opacity="0.35" stroke-width="2"/>
+  <line x1="600" y1="100" x2="600" y2="620" stroke="#cbd5e1" stroke-opacity="0.2" stroke-width="2"/>
+  <line x1="180" y1="360" x2="1020" y2="360" stroke="#cbd5e1" stroke-opacity="0.15" stroke-width="1.5"/>
+  <!-- Glass highlights -->
+  <path d="M220 120 L320 120 L260 600 L200 600 Z" fill="#fff" opacity="0.06"/>
+  <path d="M880 120 L980 120 L940 600 L860 600 Z" fill="#fff" opacity="0.04"/>
+  <!-- Desk -->
+  <path d="M280 560 L920 560 L960 640 L240 640 Z" fill="url(#desk)"/>
+  <rect x="300" y="520" width="200" height="40" rx="3" fill="#1e293b" opacity="0.8"/>
+  <rect x="700" y="525" width="160" height="8" rx="2" fill="#64748b" opacity="0.5"/>
+  <!-- Laptop -->
+  <rect x="520" y="500" width="140" height="55" rx="4" fill="#0f172a"/>
+  <rect x="530" y="508" width="120" height="38" rx="2" fill="#1e3a5f" opacity="0.9"/>
+  <rect x="510" y="552" width="160" height="8" rx="2" fill="#334155"/>
+  <!-- Plants -->
+  <ellipse cx="250" cy="480" rx="28" ry="50" fill="url(#plant)" opacity="0.85"/>
+  <ellipse cx="230" cy="460" rx="22" ry="40" fill="#22c55e" opacity="0.7"/>
+  <ellipse cx="270" cy="455" rx="20" ry="38" fill="#16a34a" opacity="0.75"/>
+  <rect x="240" y="520" width="24" height="40" rx="3" fill="#78716c"/>
+  <ellipse cx="960" cy="490" rx="24" ry="45" fill="url(#plant)" opacity="0.8"/>
+  <rect x="950" y="525" width="20" height="35" rx="3" fill="#78716c"/>
+  <!-- Floor -->
+  <rect x="0" y="640" width="1200" height="160" fill="#0b1220" opacity="0.55"/>
+  <ellipse cx="600" cy="680" rx="380" ry="40" fill="#000" opacity="0.3"/>
+  <!-- Vignette -->
+  <defs>
+    <radialGradient id="vig" cx="50%" cy="40%" r="72%">
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#vig)"/>
+</svg>

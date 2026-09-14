@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1c1917"/><stop offset="100%" stop-color="#292524"/></linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#57534e"/><stop offset="100%" stop-color="#292524"/></linearGradient>
+    <radialGradient id="glow" cx="50%" cy="30%" r="55%"><stop offset="0%" stop-color="#fef3c7" stop-opacity="0.35"/><stop offset="100%" stop-color="#fef3c7" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#w)"/>
+  <rect x="0" y="0" width="1200" height="70" fill="#0c0a09"/>
+  <rect x="80" y="120" width="420" height="280" rx="4" fill="#44403c" opacity="0.55"/>
+  <rect x="100" y="145" width="160" height="8" rx="2" fill="#a8a29e" opacity="0.4"/>
+  <rect x="100" y="170" width="220" height="6" rx="2" fill="#78716c" opacity="0.35"/>
+  <rect x="100" y="195" width="180" height="6" rx="2" fill="#78716c" opacity="0.3"/>
+  <rect x="700" y="110" width="420" height="300" fill="#0ea5e9" opacity="0.15"/>
+  <g opacity="0.25" fill="#0c0a09">
+    <rect x="740" y="260" width="40" height="140"/><rect x="800" y="220" width="50" height="180"/><rect x="870" y="240" width="45" height="160"/><rect x="940" y="200" width="55" height="200"/><rect x="1020" y="250" width="40" height="150"/>
+  </g>
+  <ellipse cx="600" cy="200" rx="280" ry="120" fill="url(#glow)"/>
+  <path d="M0 520 L1200 480 L1200 800 L0 800 Z" fill="url(#wood)"/>
+  <ellipse cx="600" cy="560" rx="380" ry="40" fill="#000" opacity="0.25"/>
+</svg>

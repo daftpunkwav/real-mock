@@ -1,0 +1,8 @@
+# Keep only backend build inputs; exclude everything else (faster builds, no local artifact leaks).
+*
+!requirements.txt
+!services/
+services/__pycache__/
+services/**/__pycache__/
+services/**/tests/
+services/shared/data/

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><title>avatar load test</title></div>
+<body>
+<div id="log" style="font:14px monospace;white-space:pre-wrap"></div>
+<div id="avatar" style="width:400px;height:400px;background:#111"></div>
+<script type="module">
+const log = (m) => { document.getElementById('log').textContent += m + '\n'; console.log(m); };
+try {
+  const mod = await import('/node_modules/@met4citizen/talkinghead/modules/talkinghead.mjs');
+  log('mod keys ' + Object.keys(mod));
+} catch (e) {
+  log('import fail: ' + e);
+}
+</script>
+</body>
+</html>

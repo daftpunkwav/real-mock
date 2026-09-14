@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Database (SQLite + WAL sidecar files)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+# Chroma leftovers from wrong cwd (any depth, including apps/api/ and repo root)
+chroma_*/
+
+# Runtime data dir (DB, Chroma, system_learning under platform/data).
+# Keep STT fixtures tracked for connectivity tests.
+apps/api/src/realmock/platform/data/**
+!apps/api/src/realmock/platform/data/stt_fixtures/
+!apps/api/src/realmock/platform/data/stt_fixtures/**
+apps/api/src/realmock/platform/capabilities/data/**
+
+# Master key under platform data
+apps/api/src/realmock/platform/data/.secret.key
+
+# Node
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.orig
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary .git backups (do not commit)
+.git.backup-*/
+
+# Uploads
+uploads/
+
+# Logs / PID files from scripts/dev.sh
+*.log
+*.log.bak
+logs/
+*.pid
+
+# Local agent session plans (not source)
+.zcode/
+
+# Local agent preference overlays
+AGENTS.local.md
+CLAUDE.local.md
+
+# Local agent CLI state
+.claude/
+
+# Local ad-hoc probe scripts
+_test_*.mjs
+
+# Local CJK translation / audit residue
+_cjk_*
+_tmp_*.py
+apps/api/_audit_cjk_*
+apps/api/_cjk_*
+apps/api/_translate_cjk_*
+
+# Local audit / Playwright captures
+.playwright-mcp/
+.playwright-cli/
+
+# Local docs (architecture reviews, collab notes, learning sites)
+/docs-local/
