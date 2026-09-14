@@ -20,6 +20,7 @@ from realmock.domains.interview.agents.tools import (
     execute_interview_tool,
     get_interview_tool_definitions,
 )
+from realmock.domains.interview.agents.tool_guard import ToolGuard
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,10 @@ async def _generate(
     tools = get_interview_tool_definitions(include_past_records=False)
     if not tools:
         return None
+    guard = ToolGuard(
+        state_fn=lambda: agent_state,
+        error_context={"domain": "interview", "session": getattr(session, "id", None)},
+    )
 
     messages: list[dict[str, Any]] = [
         {
@@ -124,15 +129,19 @@ async def _generate(
     ]
 
     async def execute(name: str, args: dict[str, Any]) -> str:
-        return await execute_interview_tool(
+        return await guard.run(
             name,
             args,
-            db=db,
-            resume_id=getattr(session, "resume_id", None),
-            profile_id=getattr(session, "profile_id", None),
-            agent_state=agent_state,
-            llm=llm,
-            session=session,
+            lambda: execute_interview_tool(
+                name,
+                args,
+                db=db,
+                resume_id=getattr(session, "resume_id", None),
+                profile_id=getattr(session, "profile_id", None),
+                agent_state=agent_state,
+                llm=llm,
+                session=session,
+            ),
         )
 
     def _note_tool(name: str, args: dict[str, Any], result: str) -> None:

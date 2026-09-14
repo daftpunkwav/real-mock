@@ -11,7 +11,7 @@ until a cluster passes ~400 lines in one file or gains 3+ files — see the
 architecture test holding the seams):
 
 - run: ``runner`` + ``runner_opening/turn/closing`` + ``finish_lifecycle``;
-- rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools`` + ``hint_answer``;
+- rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools`` + ``hint_answer`` + ``tool_guard``;
 - prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
 - state: ``session_state`` + ``session_overrides`` + ``past_records`` + ``history_compaction``;
 - protocol: ``turn_output`` (+ leaf contracts ``events`` / ``agent_text`` / ``workflows``);

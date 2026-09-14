@@ -33,6 +33,7 @@ from realmock.domains.interview.agents.tools import (
     execute_interview_tool,
     get_interview_tool_definitions,
 )
+from realmock.domains.interview.agents.tool_guard import ToolGuard
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.llm.client import LLMClient
@@ -78,6 +79,12 @@ class ToolRoundRunner:
         self.llm = llm
         self.agent = agent
         self.rag = rag
+        # One guard per session: breaker streaks persist in agent_state across
+        # turns, so a chronically broken tool stays open without re-burning.
+        self.guard = ToolGuard(
+            state_fn=lambda: self.agent.agent_state,
+            error_context={"domain": "interview", "session": getattr(session, "id", None)},
+        )
 
     async def maybe_retrieve_rag(
         self,
@@ -215,15 +222,19 @@ class ToolRoundRunner:
                 await content_sink(StreamEvent.make_token(chunk))
 
         async def execute(name: str, args: dict[str, Any]) -> str:
-            return await execute_interview_tool(
+            return await self.guard.run(
                 name,
                 args,
-                db=db,
-                resume_id=self.session.resume_id,
-                profile_id=self.session.profile_id,
-                agent_state=self.agent.agent_state,
-                llm=self.llm,
-                session=self.session,
+                lambda: execute_interview_tool(
+                    name,
+                    args,
+                    db=db,
+                    resume_id=self.session.resume_id,
+                    profile_id=self.session.profile_id,
+                    agent_state=self.agent.agent_state,
+                    llm=self.llm,
+                    session=self.session,
+                ),
             )
 
         async def on_tool(name: str, args: dict[str, Any], result: str, tc_id: str) -> None:
