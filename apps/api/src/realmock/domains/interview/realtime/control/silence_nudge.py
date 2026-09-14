@@ -18,6 +18,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from realmock.platform.database import SessionLocal
+from realmock.domains.interview.ledger.store import append_last_turn_flag
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.control.silence_probe import flow_language
 
@@ -143,6 +144,21 @@ question/follow-up plan/silence count.
             self._begin_playback_wait()
             await self._speak_one(probe_text)
             self._append_to_last_assistant(probe_text)
+            # The probe belongs to the current question's ledger turn; without
+            # this the report never sees the silence at all.
+            try:
+                append_last_turn_flag(
+                    db,
+                    session,
+                    "silence_probe",
+                    {"seq": self.ctx.silence_probe_seq, "text": probe_text},
+                )
+            except Exception:
+                logger.warning(
+                    "silence probe ledger write failed sid=%s",
+                    self.ctx.session_id,
+                    exc_info=True,
+                )
             # Short single-sentence prompt while the candidate is silent: wait the
             # playback out before reopening the mic.
             await self._open_mic_after_playback(wait_playback=True)
@@ -173,6 +189,32 @@ question/follow-up plan/silence count.
         self._begin_playback_wait()
         await self._speak_one(text)
         self._append_to_last_assistant(text)
+        db = SessionLocal()
+        try:
+            session = self._load_session(db)
+            if session is not None:
+                try:
+                    append_last_turn_flag(
+                        db,
+                        session,
+                        "silence_probe",
+                        {"seq": NUDGE_PROBE_CAP + 1, "type": "closing", "text": text},
+                    )
+                except Exception:
+                    logger.warning(
+                        "closing nudge ledger write failed sid=%s",
+                        self.ctx.session_id,
+                        exc_info=True,
+                    )
+        finally:
+            try:
+                db.close()
+            except Exception:
+                logger.debug(
+                    "closing nudge DB close failed sid=%s",
+                    self.ctx.session_id,
+                    exc_info=True,
+                )
         await self._open_mic_after_playback(wait_playback=True)
 
     def _last_assistant_text(self) -> str:

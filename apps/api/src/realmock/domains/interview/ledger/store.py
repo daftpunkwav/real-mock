@@ -168,6 +168,39 @@ def append_turn(
     return doc
 
 
+def append_last_turn_flag(
+    db: Session,
+    session: Any,
+    key: str,
+    value: Any,
+) -> None:
+    """Merge one flag into the newest ledger turn and persist.
+
+    Used by the realtime layer for events that happen against the current
+    question but outside the runner (e.g. silence probes), so the report
+    sees them against the turn they belong to. No-op when frozen or when
+    the ledger has no turns.
+    """
+    doc = load_ledger(session)
+    if doc.get("frozen"):
+        logger.warning(
+            "ledger frozen; skip append_last_turn_flag sid=%s key=%s",
+            getattr(session, "id", None),
+            key,
+        )
+        return
+    turns = doc.get("turns") or []
+    if not turns:
+        return
+    turn = turns[-1]
+    flags = turn.get("flags")
+    if not isinstance(flags, dict):
+        flags = {}
+    flags[key] = value
+    turn["flags"] = flags
+    save_ledger(db, session, doc)
+
+
 def freeze_ledger(db: Session, session: Any) -> dict[str, Any]:
     """Set ``frozen=true``, persist, and return the snapshot dict.
 
@@ -216,6 +249,7 @@ def build_tool_preview(
 
 __all__ = [
     "PENDING_TOOLS_KEY",
+    "append_last_turn_flag",
     "append_pending_tool",
     "append_turn",
     "begin_pending_tools",

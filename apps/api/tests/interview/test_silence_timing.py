@@ -80,6 +80,7 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
     mixin.send = send  # type: ignore[method-assign]
     mixin.set_turn = set_turn  # type: ignore[method-assign]
     mixin._begin_playback_wait = lambda: asyncio.sleep(0)  # type: ignore[method-assign]
+    mixin._load_session = lambda db: None  # type: ignore[method-assign]
     mixin._speak_one = lambda text: asyncio.sleep(0)  # type: ignore[method-assign]
     mixin._open_mic_after_playback = lambda **kw: asyncio.sleep(0)  # type: ignore[method-assign]
     return mixin
