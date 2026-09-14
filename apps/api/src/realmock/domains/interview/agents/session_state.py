@@ -266,6 +266,10 @@ class InterviewSessionState(SessionPromptMixin):
         self.questions_in_phase = 0
         if self.current_phase_idx < len(self.phases):
             phase = self.current_phase()
+            # Keep the frozen system head in sync: swap the candidate block
+            # for the compact card on non-questioning phases and refresh the
+            # stale "Current phase" lines (see SessionPromptMixin).
+            self.refresh_system_head(phase)
             content = self._phase_entry_message(phase)
             self.messages.append({
                 "role": "system",

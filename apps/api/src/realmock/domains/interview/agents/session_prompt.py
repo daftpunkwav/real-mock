@@ -17,7 +17,11 @@ from realmock.domains.interview.models import InterviewProcess
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.domains.interview.agents.agent_prompts import build_system_prompt
+from realmock.domains.interview.agents.agent_prompts import (
+    build_system_prompt,
+    compact_candidate_block,
+    needs_compact_candidate,
+)
 from realmock.domains.interview.agents.workflows import Workflow
 from realmock.domains.interview.process.process_memory import load_memory, render_for_prompt
 from realmock.domains.interview.process.round_chain import step_for
@@ -279,6 +283,17 @@ class SessionPromptMixin:
         )
         return full
 
+    @staticmethod
+    def _strip_memory_section(content: str) -> str:
+        """Drop the trailing structured-memory section (and blank lines before it)."""
+        for marker in (
+            _MEMORY_SECTION_MARKER,
+            "## Conversation structured memory (do not repeat questions that have been asked)",
+        ):
+            if marker in content:
+                return content.split(marker)[0].rstrip()
+        return content.rstrip()
+
     def refresh_system_memory(self) -> None:
         """Refresh the structured-memory section in the system prompt head.
 
@@ -294,18 +309,67 @@ class SessionPromptMixin:
         content = self.messages[0].get("content", "")
         if not isinstance(content, str):
             return
-        # Drop the old memory section (and blank lines before it), then append fresh
-        # Also strip the legacy Chinese marker so mid-session upgrades still refresh.
-        for marker in (
-            _MEMORY_SECTION_MARKER,
-            "## Conversation structured memory (do not repeat questions that have been asked)",
-        ):
-            if marker in content:
-                content = content.split(marker)[0].rstrip()
-                break
+        content = self._strip_memory_section(content)
         memory = self._memory_section()
         if memory:
             self.messages[0]["content"] = content + "\n\n" + memory
+
+    def refresh_system_head(self, phase, *, profile=None, candidate=None) -> None:
+        """Rebuild the phase-dependent sections of ``messages[0]`` on phase advance.
+
+        The opening system prompt freezes two sections that go stale as the
+        flow moves: the candidate block (rendered full for questioning phases)
+        and the ``## Current phase`` lines. Entering a phase that asks no
+        resume questions (reverse_qa / summary) swaps the block for the
+        compact identity card; every entry refreshes the phase lines so the
+        head no longer points at the opening phase.
+
+        ``profile`` / ``candidate`` are injected for tests; when omitted the
+        candidate rows are re-read (phase advances are rare, so one extra
+        lookup is fine). Unknown prompt shapes leave the head untouched.
+        """
+        if not self.messages or self.messages[0].get("role") != "system":
+            return
+        content = self.messages[0].get("content", "")
+        if not isinstance(content, str):
+            return
+        core = self._strip_memory_section(content)
+        phase_idx = core.find("## Current phase")
+        if phase_idx < 0:
+            return
+        head = core[:phase_idx]
+        tail = core[phase_idx:]
+        flow_idx = tail.find("## Full flow")
+        flow_tail = tail[flow_idx:] if flow_idx >= 0 else ""
+
+        middle = ""
+        if needs_compact_candidate(phase):
+            start = -1
+            for marker in ("## Candidate profile", "## Parsed resume", "## Candidate (compact"):
+                idx = head.find(marker)
+                if idx >= 0 and (start < 0 or idx < start):
+                    start = idx
+            if start >= 0:
+                head = head[:start]
+            if profile is None:
+                with api_db_session() as api_db:
+                    profile = get_user_profile(api_db, self.session.profile_id)
+            if candidate is None:
+                with api_db_session() as api_db:
+                    candidate = get_candidate_profile(api_db, self.session.resume_id)
+            middle = compact_candidate_block(profile, candidate) + "\n"
+
+        new_phase_block = (
+            "## Current phase\n"
+            f"Phase: {phase.name} ({phase.id})\n"
+            f"Goal: {phase.description}\n"
+            f"Ask {phase.min_questions}-{phase.max_questions} questions in this phase.\n\n"
+        )
+        updated = head + middle + new_phase_block + flow_tail
+        memory = self._memory_section()
+        if memory:
+            updated += "\n\n" + memory
+        self.messages[0]["content"] = updated
 
 
 __all__ = ["SessionPromptMixin"]

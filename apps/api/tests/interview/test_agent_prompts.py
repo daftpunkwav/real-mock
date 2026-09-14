@@ -190,3 +190,61 @@ def test_questioning_phase_keeps_full_candidate_block() -> None:
     )
     assert "Parsed resume" in prompt
     assert "MockInterviewApp" in prompt
+
+
+def test_refresh_system_head_swaps_candidate_and_phase() -> None:
+    """Phase advance rebuilds the frozen head: compact card + fresh phase lines."""
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
+
+    opening_prompt = build_system_prompt(
+        **_prompt_kwargs(candidate=_candidate()),
+    )
+    mixin = SessionPromptMixin()
+    mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="ByteDance")
+    mixin.agent_state = {"asked_questions": ["Old question"]}
+    mixin.messages = [{
+        "role": "system",
+        "content": (
+            opening_prompt
+            + "\n\n## Session structured memory (do not repeat asked questions)\n"
+            "Covered: Old question"
+        ),
+    }]
+    reverse_qa = next(p for p in get_workflow("technical").phases if p.id == "reverse_qa")
+    profile_stub = SimpleNamespace(
+        name="Zhang San", target_role="Backend", school="TSU", github_username="",
+    )
+
+    mixin.refresh_system_head(reverse_qa, profile=profile_stub, candidate=_candidate())
+
+    head = mixin.messages[0]["content"]
+    assert "Candidate (compact" in head  # resume dump swapped for the card
+    assert "Parsed resume" not in head
+    assert "Work experience" not in head  # dump detail gone (project names stay)
+    assert "Phase: Your questions (reverse_qa)" in head  # stale phase refreshed
+    assert "## Full flow" in head
+    assert "Covered: Old question" in head  # memory section survives
+
+
+def test_refresh_system_head_keeps_full_block_for_questioning_phase() -> None:
+    """Questioning-phase advances only refresh the phase lines, no DB lookup."""
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
+
+    opening_prompt = build_system_prompt(
+        **_prompt_kwargs(candidate=_candidate()),
+    )
+    mixin = SessionPromptMixin()
+    mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="")
+    mixin.agent_state = {}
+    mixin.messages = [{"role": "system", "content": opening_prompt}]
+    next_phase = get_workflow("technical").phases[2]  # basic_knowledge
+
+    mixin.refresh_system_head(next_phase, profile=object(), candidate=object())
+
+    head = mixin.messages[0]["content"]
+    assert "Parsed resume" in head
+    assert f"Phase: {next_phase.name}" in head

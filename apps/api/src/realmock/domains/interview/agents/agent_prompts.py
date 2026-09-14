@@ -41,7 +41,7 @@ SPOKEN_VOICE_SECTION = """## How you talk (you are SPEAKING, not writing — thi
 - English flow: identical rules in English — contractions, short sentences, no Firstly / Secondly / In conclusion."""
 
 
-def _needs_compact_candidate(current_phase: InterviewPhase) -> bool:
+def needs_compact_candidate(current_phase: InterviewPhase) -> bool:
     """Whether the turn needs only a compact candidate block.
 
     In reverse-QA the interviewer answers from company knowledge, and in
@@ -62,7 +62,7 @@ def _candidate_block(
 ) -> str:
     """Candidate grounding block (full resume detail, or a compact identity card)."""
     if compact:
-        return _compact_candidate_block(profile, candidate)
+        return compact_candidate_block(profile, candidate)
     info = ""
     if profile and (profile.name or profile.school or profile.self_intro or getattr(profile, "github_username", "")):
         github_u = getattr(profile, "github_username", "") or ""
@@ -123,7 +123,7 @@ Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)[:150
     return info
 
 
-def _compact_candidate_block(
+def compact_candidate_block(
     profile: Any | None,
     candidate: CandidateProfile | None,
 ) -> str:
@@ -177,7 +177,7 @@ def build_system_prompt(
     style = STYLE_PROMPTS.get(config.interview_style, STYLE_PROMPTS["deep_dive"])
     strictness = STRICTNESS_DESCRIPTIONS.get(config.strictness, STRICTNESS_DESCRIPTIONS[3])
 
-    candidate_info = _candidate_block(profile, candidate, compact=_needs_compact_candidate(current_phase))
+    candidate_info = _candidate_block(profile, candidate, compact=needs_compact_candidate(current_phase))
 
     phase_list = " → ".join(p.name for p in workflow.phases)
 
