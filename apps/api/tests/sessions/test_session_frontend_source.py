@@ -6,7 +6,8 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[4]  # Repository root
 # After frontend commit 0c14d0c consolidated code by domain, the hook moved from features/media/ to features/interview/hooks/.
-_WS_HOOK = _ROOT / "apps" / "web" / "src" / "features" / "interview" / "hooks" / "useInterviewWS.ts"
+# The room hooks were later grouped under features/interview/hooks/room/.
+_WS_HOOK = _ROOT / "apps" / "web" / "src" / "features" / "interview" / "hooks" / "room" / "useInterviewWS.ts"
 _ROOM = _ROOT / "apps" / "web" / "src" / "features" / "interview" / "hooks" / "room" / "useInterviewRoom.ts"
 _ACTIONS = _ROOT / "apps" / "web" / "src" / "features" / "interview" / "hooks" / "room" / "useInterviewRoomActions.ts"
 _EVENTS = _ROOT / "apps" / "web" / "src" / "features" / "interview" / "hooks" / "room" / "useInterviewRoomEvents.ts"

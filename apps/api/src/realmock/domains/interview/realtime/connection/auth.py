@@ -11,7 +11,11 @@ from realmock.platform.config import get_settings
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.session_auth import tokens_match
 from realmock.platform.database import api_db_session
-from realmock.domains.interview.agents.session_overrides import session_llm, session_stt_credentials, session_tts_credentials
+from realmock.domains.interview.agents import (
+    session_llm,
+    session_stt_credentials,
+    session_tts_credentials,
+)
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.core.session_registry import claim_session_connection

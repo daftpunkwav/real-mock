@@ -28,7 +28,7 @@ from realmock.domains.interview.process.process_memory import (
     load_memory,
     render_for_prompt,
 )
-from realmock.domains.interview.agents.session_overrides import session_llm
+from realmock.domains.interview.agents import session_llm
 from realmock.domains.interview.agents.workflows import get_workflow
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session, sessions_db_session

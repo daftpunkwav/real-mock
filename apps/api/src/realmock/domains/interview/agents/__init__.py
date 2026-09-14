@@ -6,10 +6,25 @@ pipeline live in :mod:`realtime`; silence-nudge templates live in
 :mod:`realtime.nudge`; pluggable perception capabilities live in
 :mod:`capabilities`.
 
-External layers (``realtime``, ``routes``) must depend only on this facade plus
-the event contract (:mod:`agents.events`, versioned via ``schema_version``) —
-never on sibling modules directly. Internal modules keep importing each other
-by submodule path.
+File clusters (new files take the matching prefix; do NOT add subpackages
+until a cluster passes ~400 lines in one file or gains 3+ files — see the
+architecture test holding the seams):
+
+- run: ``runner`` + ``runner_opening/turn/closing`` + ``finish_lifecycle``;
+- rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools``;
+- prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
+- state: ``session_state`` + ``session_overrides`` + ``past_records``;
+- protocol: ``turn_output`` (+ leaf contracts ``events`` / ``agent_text`` / ``workflows``);
+- followup: ``followup`` + ``followup_inject``.
+
+External layers (``realtime``, ``routes``, ``process``) must depend only on
+this facade plus the leaf contracts below — never on sibling modules directly:
+
+- ``agents.events`` — WS event contract (versioned via ``schema_version``);
+- ``agents.workflows`` — phase SSOT (read-only data);
+- ``agents.agent_text`` — text filters (pure functions).
+
+Internal modules keep importing each other by submodule path.
 
 The re-exports below are lazy (PEP 562): resolving them imports the owning
 submodule on first use, so importing this package (or a leaf such as
@@ -27,6 +42,9 @@ _LAZY_EXPORTS: dict[str, str] = {
     "InterviewRunner": ".runner",
     "InterviewSessionState": ".session_state",
     "run_finish_lifecycle": ".finish_lifecycle",
+    "session_llm": ".session_overrides",
+    "session_stt_credentials": ".session_overrides",
+    "session_tts_credentials": ".session_overrides",
     "strip_markers": ".agent_text",
     "strip_think_blocks": ".agent_text",
 }
@@ -35,6 +53,9 @@ __all__ = [
     "InterviewRunner",
     "InterviewSessionState",
     "run_finish_lifecycle",
+    "session_llm",
+    "session_stt_credentials",
+    "session_tts_credentials",
     "strip_markers",
     "strip_think_blocks",
 ]
