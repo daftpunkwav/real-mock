@@ -28,7 +28,7 @@ from realmock.domains.interview.agents import (
     run_finish_lifecycle,
 )
 from realmock.domains.interview.agents.events import EventKind
-from realmock.domains.interview.session_overrides import session_llm
+from realmock.domains.interview.agents.session_overrides import session_llm
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
 from realmock.platform.core.session_auth import assert_session_token, extract_token

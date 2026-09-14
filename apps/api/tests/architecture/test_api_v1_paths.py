@@ -51,7 +51,7 @@ def test_interview_style_options_match_schema(monkeypatch) -> None:
     Regression S-05: options once exposed four choices while the schema allowed only two, causing a 422 submission after the frontend
     selected guided/continuous/challenging.
     """
-    from realmock.domains.interview.options_data import INTERVIEW_STYLES
+    from realmock.domains.interview.routes.options_data import INTERVIEW_STYLES
     from realmock.domains.interview.schemas import InterviewConfig
 
     option_ids = {s["id"] for s in INTERVIEW_STYLES}

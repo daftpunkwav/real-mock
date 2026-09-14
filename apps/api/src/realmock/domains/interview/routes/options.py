@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from realmock.domains.interview.options_data import build_options_payload
+from realmock.domains.interview.routes.options_data import build_options_payload
 from realmock.domains.interview.schemas import OptionsResponse
 
 router = APIRouter()
