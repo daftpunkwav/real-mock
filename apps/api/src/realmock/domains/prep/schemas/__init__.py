@@ -5,11 +5,7 @@ from __future__ import annotations
 from realmock.platform.schemas import ResumePickerItem
 
 from realmock.domains.prep.schemas.prep import (
-    COMPACTION_INTENSITIES,
-    DIRECTIVE_MAX_CHARS,
     MEMORY_ORIGINS,
-    RETAIN_MAX,
-    RETAIN_MIN,
     PrepArchiveRequest,
     PrepCompactRequest,
     PrepCompactResponse,
@@ -34,11 +30,7 @@ from realmock.domains.prep.schemas.prep import (
 )
 
 __all__ = [
-    "COMPACTION_INTENSITIES",
-    "DIRECTIVE_MAX_CHARS",
     "MEMORY_ORIGINS",
-    "RETAIN_MAX",
-    "RETAIN_MIN",
     "PrepArchiveRequest",
     "PrepCompactRequest",
     "PrepCompactResponse",

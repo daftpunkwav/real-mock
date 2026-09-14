@@ -6,6 +6,7 @@ List endpoints do not include message bodies or capability tokens.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from fastapi import Depends
 from sqlalchemy import func
@@ -43,12 +44,18 @@ def list_prep_sessions(
             msgs = json.loads(s.messages or "[]")
         except json.JSONDecodeError:
             msgs = []
+        def _is_user_text(m: Any) -> bool:
+            return isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str)
+
+        def _is_countable(m: Any) -> bool:
+            return (
+                isinstance(m, dict)
+                and m.get("role") in ("user", "assistant")
+                and isinstance(m.get("content"), str)
+            )
+
         summary = next(
-            (
-                str(m.get("content") or "").strip()
-                for m in msgs
-                if m.get("role") == "user" and m.get("content")
-            ),
+            (str(m.get("content") or "").strip() for m in msgs if _is_user_text(m)),
             "",
         )
         items.append(
@@ -57,11 +64,7 @@ def list_prep_sessions(
                 resume_id=s.resume_id,
                 resume_filename=names.get(s.resume_id) if s.resume_id else None,
                 summary=summary[:48],
-                message_count=sum(
-                    1
-                    for m in msgs
-                    if m.get("role") in ("user", "assistant") and m.get("content")
-                ),
+                message_count=sum(1 for m in msgs if _is_countable(m)),
                 status=getattr(s, "status", "") or "active",
                 linked_session_id=getattr(s, "linked_session_id", None),
                 token_usage=s.token_usage or 0,

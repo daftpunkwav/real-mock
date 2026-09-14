@@ -68,8 +68,8 @@ from realmock.platform.database import get_api_db, get_sessions_db
 
 logger = logging.getLogger(__name__)
 
-# Unified copywriting of SSE error events (preventing upstream exception text from leaking API Key/internal details)
-_SSE_ERR_GENERIC = "Tutorial generation failed, please try again later"
+# Redacted user-facing SSE error copy (upstream exception text is logged only).
+_SSE_ERR_GENERIC = "Coaching response failed, please try again later"
 _PREP_FORBIDDEN = "Don't have access to this coaching session"
 
 
@@ -206,17 +206,23 @@ def get_prep_messages(
     if not session:
         raise_error("A3001")
     assert_session_token(session, access, detail=_PREP_FORBIDDEN)
-    messages = json.loads(session.messages or "[]")
-    # Historical messages may contain leaks of template tokens before the purifier was launched: Clean before display (without changing the library)
+    messages = _load_session_messages(session)
+    # Historical messages may contain leaked template tokens from before the
+    # sanitizer was in place: clean before display without mutating the store.
+    cleaned: list[dict[str, Any]] = []
     for m in messages:
-        if not isinstance(m.get("content"), str):
+        if not isinstance(m, dict):
+            continue
+        content = m.get("content")
+        if not isinstance(content, str):
             # Loop-internal rows (assistant tool_calls with null content) predate
             # read-time coercion: normalize so the string contract holds and
             # history indices stay stable (tool_calls keys are kept for pairing).
             m["content"] = ""
         if m.get("role") == "assistant":
             m["content"] = sanitize_special_tokens(m["content"])
-    return [PrepHistoryMessage.model_validate(m) for m in messages]
+        cleaned.append(m)
+    return [PrepHistoryMessage.model_validate(m) for m in cleaned]
 
 
 def _load_session_messages(session: PrepSession) -> list[dict]:
