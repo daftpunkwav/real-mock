@@ -139,7 +139,11 @@ export function localizeOptions(
   };
 }
 
-/** Map workflow phase ids to localized labels for the preview process line. */
+/**
+ * @deprecated Static workflow arrow lines are no longer shown in setup preview.
+ * The interview flow is agent-planned per session (resume/role/company/round);
+ * workflow phases are only a baseline coverage reference. Kept for tests only.
+ */
 export function workflowProcessLine(
   phaseIds: readonly string[],
   phaseLabels: Record<string, string>,

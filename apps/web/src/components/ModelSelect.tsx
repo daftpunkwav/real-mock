@@ -56,27 +56,32 @@ export const ModelSelect = memo(function ModelSelect({
 });
 
 /** Effort select; hidden when the model lacks reasoning and forceVisible is false.
- * forceVisible keeps selector for default-model config; unsupported effort sent as null (see usePrepSend). */
+ * forceVisible keeps selector for default-model config; unsupported effort sent as null (see usePrepSend).
+ * hideIcon drops the leading Brain (labeled forms already name the field; the toolbar keeps it). */
 export const EffortSelect = memo(function EffortSelect({
   model,
   value,
   onChange,
   disabled,
   forceVisible = false,
+  hideIcon = false,
+  className,
 }: {
   model: ModelProfile | null;
   value: ReasoningEffort;
   onChange: (e: ReasoningEffort) => void;
   disabled?: boolean;
   forceVisible?: boolean;
+  hideIcon?: boolean;
+  className?: string;
 }) {
   const t = useT("common");
   if (!forceVisible && !model?.capabilities.reasoning) return null;
   return (
-    <div className="flex items-center gap-1">
-      <Brain size={14} className="shrink-0 text-ink-subtle" />
+    <div className="flex w-full items-center gap-1.5">
+      {!hideIcon && <Brain size={14} className="shrink-0 text-ink-subtle" />}
       <Select
-        className="w-auto !py-0 text-[12px]"
+        className={`w-auto flex-1 !py-0 text-[12px] ${className ?? ""}`}
         ariaLabel={t("model.effort.aria")}
         value={value}
         options={EFFORT_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}

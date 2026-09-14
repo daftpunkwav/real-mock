@@ -77,55 +77,57 @@ export function ProcessorCard({
 }) {
   const t = useT("interview");
   return (
-    <div className="rounded-lg border border-surface-border p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink">
+    <div className="surface-card p-3.5">
+      <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
         <Mic size={13} className="text-[var(--primary)]" />
         {t("setup.processor.title")}
       </p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("setup.processor.chatModel")}</label>
+          <label className="field-label !mb-1 !text-xs">{t("setup.processor.chatModel")}</label>
           <ModelSelect
             models={chatModels}
             value={chatModelId}
             onChange={setChatModelId}
             disabled={disabled}
             ariaLabel={t("setup.processor.chatModel")}
-            className="!w-full"
+            className="!w-full !max-w-none"
             defaultProfile={defaultBindings?.chat?.profile ?? null}
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("setup.processor.effort")}</label>
+          <label className="field-label !mb-1 !text-xs">{t("setup.processor.effort")}</label>
           <EffortSelect
             model={chatModels.find((m) => m.id === chatModelId) ?? null}
             value={effort}
             onChange={setEffort}
             disabled={disabled}
             forceVisible
+            hideIcon
+            className="!w-full"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("setup.processor.stt")}</label>
+          <label className="field-label !mb-1 !text-xs">{t("setup.processor.stt")}</label>
           <ModelSelect
             models={sttModels}
             value={sttModelId}
             onChange={setSttModelId}
             disabled={disabled}
             ariaLabel={t("setup.processor.sttAria")}
-            className="!w-full"
+            className="!w-full !max-w-none"
             defaultProfile={defaultBindings?.stt?.profile ?? null}
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("setup.processor.tts")}</label>
+          <label className="field-label !mb-1 !text-xs">{t("setup.processor.tts")}</label>
           <ModelSelect
             models={ttsModels}
             value={ttsModelId}
             onChange={setTtsModelId}
             disabled={disabled}
             ariaLabel={t("setup.processor.ttsAria")}
-            className="!w-full"
+            className="!w-full !max-w-none"
             defaultProfile={defaultBindings?.tts?.profile ?? null}
           />
         </div>

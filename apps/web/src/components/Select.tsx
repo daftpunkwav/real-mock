@@ -76,7 +76,9 @@ export function Select<T extends string | number>({
     const needed = options.length * OPTION_ROW_HEIGHT + POPOVER_CHROME_HEIGHT;
     const spaceBelow = window.innerHeight - rect.bottom - POPOVER_GAP;
     const spaceAbove = rect.top - POPOVER_GAP;
-    const width = Math.min(rect.width, window.innerWidth - 16);
+    // Narrow triggers (e.g. effort "中") would otherwise get a clipped popover;
+    // keep it at least wide enough for a short label + check icon.
+    const width = Math.min(Math.max(rect.width, 120), window.innerWidth - 16);
     const left = Math.min(rect.left, Math.max(8, window.innerWidth - width - 8));
     if (spaceBelow >= needed || spaceBelow >= spaceAbove) {
       return {

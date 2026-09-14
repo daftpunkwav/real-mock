@@ -48,11 +48,30 @@ export const interview = {
   "preview.row.interviewer": "Interviewer",
   "preview.row.avatar": "Avatar",
   "preview.row.resume": "Resume",
+  "preview.row.resumeEmpty": "Not linked (generic questions, weaker deep dives)",
   "preview.voice": "Voice {name}",
-  "preview.companyQuestions": "{name} interview insights",
-  "preview.process": "Process",
+  "preview.companyQuestions": "{name} · Question style",
+  "preview.style": "Style",
+  "preview.focus": "Focus areas",
+  "preview.process": "Smart flow",
+  "preview.flow.badge": "AI planned",
+  "preview.flow.desc":
+    "Fixed opening and closing; middle blocks are planned by AI from resume projects, role/level, company style, and prior rounds (8–30 themed blocks, not a fixed order).",
+  "preview.flow.opening": "Fixed opening",
+  "preview.flow.openingDesc": "Identity · Self intro",
+  "preview.flow.custom": "AI planned",
+  "preview.flow.customDesc": "Project dives · technical probes",
+  "preview.flow.coverage": "Baseline coverage (actual outline appears after kickoff)",
+  "preview.flow.closing": "Q&A · Wrap-up",
+  "preview.flow.closingDesc": "Your questions · verdict",
+  "preview.flow.note":
+    "At least one deep-dive block per resume project; later rounds skip covered topics. Falls back to the baseline when planning fails.",
+  "preview.flow.noResume":
+    "No resume linked: AI falls back to generic questions with weaker deep dives. Link a resume first.",
+  "preview.sampleLabel": "Sample probe",
   "preview.samplePrefix": "Sample:",
-  "preview.tip": "Questions fit your projects better with a resume linked; finish BYOK setup first.",
+  "preview.tip":
+    "Link a resume for at least one deep dive per project; multi-round flows skip already-covered topics.",
 
   // ---- Room: turn states ----
   "status.turn.aiSpeaking": "Interviewer speaking",

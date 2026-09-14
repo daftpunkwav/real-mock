@@ -212,24 +212,24 @@ export function SetupFields({
           ) : (
             <ResumeWarning />
           )}
-
-          <ProcessorCard
-            chatModels={chatModels}
-            sttModels={sttModels}
-            ttsModels={ttsModels}
-            chatModelId={chatModelId}
-            sttModelId={sttModelId}
-            ttsModelId={ttsModelId}
-            effort={effort}
-            setChatModelId={setChatModelId}
-            setSttModelId={setSttModelId}
-            setTtsModelId={setTtsModelId}
-            setEffort={setEffort}
-            defaultBindings={defaultBindings}
-            disabled={creating}
-          />
         </div>
       </div>
+
+      <ProcessorCard
+        chatModels={chatModels}
+        sttModels={sttModels}
+        ttsModels={ttsModels}
+        chatModelId={chatModelId}
+        sttModelId={sttModelId}
+        ttsModelId={ttsModelId}
+        effort={effort}
+        setChatModelId={setChatModelId}
+        setSttModelId={setSttModelId}
+        setTtsModelId={setTtsModelId}
+        setEffort={setEffort}
+        defaultBindings={defaultBindings}
+        disabled={creating}
+      />
 
       {footer}
     </div>
