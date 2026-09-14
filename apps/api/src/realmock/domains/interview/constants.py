@@ -92,7 +92,7 @@ DEFAULT_INTERVIEW_STYLE = InterviewStyle.DEEP_DIVE
 
 
 class FollowupCategory(StrEnum):
-    """Followup signal classification (with ``services/interview/followup`` single source of truth)."""
+    """Followup signal classification (with ``realmock.domains.interview.agents.followup`` single source of truth)."""
 
     VAGUE = "vague"
     MISSING_DATA = "missing_data"

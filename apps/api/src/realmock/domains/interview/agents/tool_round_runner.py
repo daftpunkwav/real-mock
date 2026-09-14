@@ -45,8 +45,9 @@ logger = logging.getLogger(__name__)
 
 # Whole-loop wall-clock budget: bounds worst case (N rounds x an LLM call plus
 # tool execution time) so one turn cannot hold the request-scoped DB session
-# for tens of minutes. Individual tools have no per-call timeout here; the
-# platform loop converts tool exceptions into observations.
+# for tens of minutes. Per-tool timeout/retry/circuit-breaking lives in
+# :mod:`tool_guard`; the platform loop still converts tool exceptions into
+# observations.
 _TOOL_ROUND_BUDGET_SECONDS = 600.0
 
 
