@@ -40,6 +40,10 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 logger = logging.getLogger(__name__)
 
 
+#: Interview-age marks (minutes) that trigger a one-shot pacing hint.
+_PACE_THRESHOLDS = (30, 45, 60)
+
+
 def _is_summary_phase(phase: Any) -> bool:
     """Whether this flow step is the wrap-up/verdict step."""
     for value in (getattr(phase, "id", ""), getattr(phase, "kind", "")):
@@ -173,6 +177,30 @@ class InterviewSessionState(SessionPromptMixin):
         if verdict not in ("passed", "failed"):
             return
         self.session.result = verdict
+
+    def pace_message(self) -> str | None:
+        """One-shot pacing system message when the interview crosses a time mark.
+
+        The flow has a question budget but no sense of wall-clock time, so a
+        talkative candidate can silently overrun. Fires once per threshold
+        (30/45/60 min, tracked in agent_state) and returns None otherwise.
+        """
+        started = getattr(self.session, "started_at", None)
+        if started is None:
+            return None
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        minutes = int((datetime.now(timezone.utc) - started).total_seconds() // 60)
+        marks = self.agent_state.setdefault("pace_marks", [])
+        for threshold in _PACE_THRESHOLDS:
+            if minutes >= threshold and threshold not in marks:
+                marks.append(threshold)
+                return (
+                    f"[Pace: the interview has been running about {minutes} minutes. "
+                    "Tighten probes, skip what is already demonstrated, and steer "
+                    "toward the summary phase once this phase's material is covered.]"
+                )
+        return None
 
     # ---- Phase Queries -----------------------------------------------------------
 

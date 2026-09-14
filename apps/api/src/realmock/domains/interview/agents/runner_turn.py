@@ -71,6 +71,9 @@ async def stream_turn(
         )
 
         context_window = runner.prompter.get_context_window(db)
+        pace_msg = runner.agent.pace_message()
+        if pace_msg:
+            runner.agent.messages.append({"role": "system", "content": pace_msg})
         api_messages = await runner.prompter.build_api_messages(
             user_text, face, image_b64, context_window=context_window
         )

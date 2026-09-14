@@ -126,3 +126,35 @@ def test_non_summary_phase_entry_has_no_trajectory():
     phase.max_questions = 4
     message = agent._phase_entry_message(phase)
     assert "score trajectory" not in message
+
+
+def test_pace_message_fires_once_per_threshold():
+    from datetime import datetime, timedelta, timezone
+
+    agent = _state_with_agent_state({})
+    agent.session.started_at = datetime.now(timezone.utc) - timedelta(minutes=31)
+
+    first = agent.pace_message()
+    assert first is not None and "31 minutes" in first
+    assert agent.pace_message() is None  # same mark never repeats
+    assert agent.agent_state["pace_marks"] == [30]
+
+
+def test_pace_message_below_threshold_is_silent():
+    from datetime import datetime, timedelta, timezone
+
+    agent = _state_with_agent_state({})
+    agent.session.started_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+    assert agent.pace_message() is None
+
+
+def test_pace_message_naive_started_at_treated_as_utc():
+    from datetime import datetime, timedelta, timezone
+
+    agent = _state_with_agent_state({})
+    agent.session.started_at = (datetime.now(timezone.utc) - timedelta(minutes=50)).replace(tzinfo=None)
+    first = agent.pace_message()
+    assert first is not None  # 50 min crosses the 30 mark...
+    second = agent.pace_message()
+    assert second is not None  # ...then the 45 mark (60 not reached yet)
+    assert agent.agent_state["pace_marks"] == [30, 45]
