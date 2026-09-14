@@ -51,11 +51,14 @@ class WorkingMemory:
         asked = [str(x) for x in (raw.get("asked_questions") or []) if x]
         weak = [str(x) for x in (raw.get("weak_points") or []) if x]
         findings: list[str] = []
-        for f in raw.get("github_findings") or []:
-            if isinstance(f, dict):
-                findings.append(_clip(f"{f.get('tool', '')}: {f.get('preview', '')}"))
-            elif f:
-                findings.append(_clip(str(f)))
+        # github_* keeps its own trail; interview company/resume lookups share
+        # company_findings so verified local knowledge survives compaction.
+        for source in ("github_findings", "company_findings"):
+            for f in raw.get(source) or []:
+                if isinstance(f, dict):
+                    findings.append(_clip(f"{f.get('tool', '')}: {f.get('preview', '')}"))
+                elif f:
+                    findings.append(_clip(str(f)))
         notes = [str(x) for x in (raw.get("memory_notes") or []) if x]
         quiz = str(raw.get("pending_quiz") or "")
         return cls(

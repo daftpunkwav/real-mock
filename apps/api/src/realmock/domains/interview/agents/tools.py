@@ -160,6 +160,27 @@ async def _cap_result(text: str, llm: Any | None) -> str:
     )
 
 
+def _note_company_finding(
+    agent_state: dict[str, Any] | None,
+    *,
+    tool: str,
+    subject: str,
+    result: str,
+) -> None:
+    """Persist a local-knowledge tool result into structured memory.
+
+    Compaction folds old tool pairs away, so company/resume lookups would
+    otherwise vanish and get re-issued every few turns; github_* already
+    keeps its own findings list — this mirrors it for local lookups.
+    """
+    if agent_state is None:
+        return
+    findings = agent_state.setdefault("company_findings", [])
+    findings.append({"tool": tool, "args": subject, "preview": result[:500]})
+    if len(findings) > 10:
+        del findings[:-10]
+
+
 async def execute_interview_tool(
     name: str,
     arguments: dict[str, Any],
@@ -216,7 +237,9 @@ async def execute_interview_tool(
     if name == "lookup_company_profile":
         company_id = str(arguments.get("company_id") or "")
         ctx = get_company_context(company_id)
-        return await _cap_result(ctx or f"No company knowledge found: {company_id}", llm)
+        result = await _cap_result(ctx or f"No company knowledge found: {company_id}", llm)
+        _note_company_finding(agent_state, tool=name, subject=company_id, result=result)
+        return result
 
     if name == "lookup_resume_projects":
         if not resume_id:
@@ -242,7 +265,9 @@ async def execute_interview_tool(
             "projects": projects[:15],
             "summary": (profile.get("summary") or "")[:800],
         }
-        return await _cap_result(json.dumps(payload, ensure_ascii=False), llm)
+        result = await _cap_result(json.dumps(payload, ensure_ascii=False), llm)
+        _note_company_finding(agent_state, tool=name, subject=focus or "*", result=result)
+        return result
 
     if name == "web_search_interview_exp":
         query = str(arguments.get("query") or "")
