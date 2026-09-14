@@ -74,6 +74,10 @@ class ConnectionContext:
     awaiting_playback_gen: int = 0
     playback_wait_timeout_sec: float = 45.0
     tts_sent_this_turn: bool = False
+    #: Loop-clock stamp of the last tts_audio send; lets the silence-nudge
+    #: guard detect a lost client tts_playback_done instead of staying
+    #: silent forever.
+    last_tts_sent_at: float = 0.0
 
     # ── Interruption ────────────────────────────────────
     candidate_interrupts: int = 0

@@ -52,6 +52,7 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
         turn_state=TurnState.USER_SPEAKING,
         tts_sent_this_turn=False,
         playback_done=SimpleNamespace(is_set=lambda: True),
+        last_tts_sent_at=now,
         speech_end_at=now - 100.0,
         mic_opened_at=now - 100.0,
         nudge_grace_sec=5.0,
@@ -92,6 +93,20 @@ def test_audio_in_flight_suppresses_nudge():
     )
     asyncio.run(mixin._on_silence_nudge())
     assert mixin.sent == []
+
+
+def test_stale_playback_report_releases_nudge():
+    """A lost client tts_playback_done must not silence nudges forever."""
+    mixin = _mixin(
+        tts_sent_this_turn=True,
+        playback_done=SimpleNamespace(is_set=lambda: False),
+        last_tts_sent_at=_now() - 200.0,  # far past NUDGE_PLAYBACK_STALE_SEC
+        silence_probe_question="Q?",
+        silence_probe_seq=2,  # closing-nudge path (no probe LLM needed)
+    )
+    asyncio.run(mixin._on_silence_nudge())
+    assert [e for e, _ in mixin.sent] == ["silence_nudge"]
+    assert mixin.ctx.silence_capped is True
 
 
 def test_grace_counts_from_speech_end_not_mic_reentry():

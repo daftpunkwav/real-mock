@@ -34,6 +34,11 @@ NUDGE_WAIT_MAX_SECONDS = 60.0
 #: Max LLM probes for one question before the closing nudge takes over.
 NUDGE_PROBE_CAP = 2
 
+#: Fallback when the client's tts_playback_done never arrives: after this
+#: long since the last tts_audio send, treat playback as finished (lost
+#: frame or dead client) and let the nudge guards proceed normally.
+NUDGE_PLAYBACK_STALE_SEC = 90.0
+
 _CLOSING_NUDGE = {
     "zh": "我这边一直听不到你的声音，可能是麦克风没收到。你可以直接在下方打字回答，我们继续。",
     "en": "I still can't hear you — your mic may not be picking up. Feel free to type your answer below and we'll carry on.",
@@ -78,11 +83,14 @@ question/follow-up plan/silence count.
         """
         if self.ctx.turn_state != TurnState.USER_SPEAKING:
             return
-        # Guard: interviewer audio still in flight (client hasn't reported
-        # playback done) — never nudge over our own voice.
-        if self.ctx.tts_sent_this_turn and not self.ctx.playback_done.is_set():
-            return
         now = asyncio.get_event_loop().time()
+        # Guard: interviewer audio still in flight (client hasn't reported
+        # playback done) — never nudge over our own voice. A lost playback
+        # report must not silence nudges forever: once the last audio send is
+        # stale beyond NUDGE_PLAYBACK_STALE_SEC, treat playback as done.
+        if self.ctx.tts_sent_this_turn and not self.ctx.playback_done.is_set():
+            if now - self.ctx.last_tts_sent_at < NUDGE_PLAYBACK_STALE_SEC:
+                return
         anchor = self.ctx.speech_end_at or self.ctx.mic_opened_at
         if anchor and now - anchor < self.ctx.nudge_grace_sec:
             return
@@ -191,4 +199,11 @@ question/follow-up plan/silence count.
                 return
 
 
-__all__ = ["NUDGE_PROBE_CAP", "NUDGE_WAIT_MAX_SECONDS", "NUDGE_WAIT_MIN_SECONDS", "SilenceNudgeMixin", "clamp_nudge_wait"]
+__all__ = [
+    "NUDGE_PLAYBACK_STALE_SEC",
+    "NUDGE_PROBE_CAP",
+    "NUDGE_WAIT_MAX_SECONDS",
+    "NUDGE_WAIT_MIN_SECONDS",
+    "SilenceNudgeMixin",
+    "clamp_nudge_wait",
+]

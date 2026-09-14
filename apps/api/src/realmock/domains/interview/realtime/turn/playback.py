@@ -25,6 +25,7 @@ class TurnPlaybackMixin:
 
     def _mark_tts_sent(self) -> None:
         self.ctx.tts_sent_this_turn = True
+        self.ctx.last_tts_sent_at = asyncio.get_event_loop().time()
 
     def _begin_playback_wait(self) -> None:
         """A new round begins: raise the generation and clear the completion signal."""
