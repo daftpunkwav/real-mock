@@ -124,6 +124,7 @@ async def generate_plan_for_session(session_id: int) -> None:
                 profile=profile,
                 process_section=_process_section(db, session),
                 company_context=get_company_context(session.company or ""),
+                ui_locale=getattr(session, "ui_locale", None) or None,
             )
             try:
                 raw = await asyncio.wait_for(
@@ -177,7 +178,6 @@ class _ConfigShim:
         self.personality = session.personality or "professional"
         self.strictness = int(session.strictness or 3)
         self.interview_style = session.interview_style or "deep_dive"
-
 
 def _config_shim(session: InterviewSession) -> _ConfigShim:
     return _ConfigShim(session)

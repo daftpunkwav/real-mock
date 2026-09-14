@@ -1,5 +1,6 @@
 /** Mock interview REST client. */
 
+import { getLocale } from "@/i18n";
 import type {
   ChatMessage,
   FinishInterviewResponse,
@@ -29,7 +30,8 @@ export const interviewHttp = {
   ) =>
     request<InterviewSession>("/v1/interview/sessions", {
       method: "POST",
-      body: JSON.stringify({ ...config, ai_overrides: ai ?? undefined }),
+      // UI locale is a planner signal for the interview working language.
+      body: JSON.stringify({ ...config, ui_locale: getLocale(), ai_overrides: ai ?? undefined }),
     }),
   listSessions: () => request<InterviewSession[]>("/v1/interview/sessions"),
   getSession: (id: number) => request<InterviewSession>(`/v1/interview/sessions/${id}`),
@@ -45,7 +47,7 @@ export const interviewHttp = {
   createProcess: (config: ProcessCreateRequest) =>
     request<ProcessCreatedResponse>("/v1/interview/processes", {
       method: "POST",
-      body: JSON.stringify(config),
+      body: JSON.stringify({ ...config, ui_locale: getLocale() }),
     }),
   createNextRound: (processId: number) =>
     request<InterviewSession>(`/v1/interview/processes/${processId}/rounds`, {

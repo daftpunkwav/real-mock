@@ -32,6 +32,8 @@ class InterviewConfig(BaseModel):
     avatar_id: str = Field(default="professional_male", max_length=MAX_CONFIG_STR_CHARS)
     scene_id: str = Field(default="meeting_room", max_length=MAX_CONFIG_STR_CHARS)
     ai_overrides: "AiOverrides | None" = None
+    # UI locale ("zh-CN" / "en-US" ...): one signal for the flow-language decision.
+    ui_locale: str | None = Field(default=None, max_length=10)
 
 
 class PlanStepView(BaseModel):

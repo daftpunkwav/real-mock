@@ -17,6 +17,16 @@ from realmock.domains.interview.agents.workflows import (
     Workflow,
 )
 
+def _language_rule(flow_language: str) -> str:
+    """Interview working-language directive driven by the flow plan."""
+    if (flow_language or "").strip().lower().startswith("en"):
+        return (
+            "Conduct the entire interview in English — questions, probes, follow-ups, "
+            "and the closing evaluation"
+        )
+    return "Communicate in Chinese unless the candidate answers technical questions in English"
+
+
 def build_system_prompt(
     config: InterviewConfig,
     candidate: CandidateProfile | None,
@@ -26,6 +36,7 @@ def build_system_prompt(
     profile: Any | None = None,
     followup_probe: str | None = None,
     allow_plan_ops: bool = False,
+    flow_language: str = "zh",
 ) -> str:
     """Assemble the interviewer system prompt.
 
@@ -33,6 +44,8 @@ def build_system_prompt(
         followup_probe: optional follow-up guidance injected by the followup analyzer.
         allow_plan_ops: True when the flow is agent-planned; enables the
             dynamic step-insertion rule (a no-op on static fallback flows).
+        flow_language: "en" runs the whole interview in English; anything
+            else keeps the Chinese default.
     """
     personality = PERSONALITY_PROMPTS.get(config.personality, PERSONALITY_PROMPTS["professional"])
     style = STYLE_PROMPTS.get(config.interview_style, STYLE_PROMPTS["deep_dive"])
@@ -116,7 +129,7 @@ Ask at least one deeper question along the direction above; avoid repeating angl
         "Probe when answers are vague, missing numbers, or technically weak",
         "Do not repeat questions already asked",
         "Ask only one question at a time (or a tight cluster of related mini-questions); stay concise",
-        "Communicate in Chinese unless the candidate answers technical questions in English",
+        _language_rule(flow_language),
         "After enough questions in the current phase, set phase_complete to true in your reply",
         "In the reverse-QA phase, answer as a company representative",
         "In the summary phase, give a brief spoken evaluation and set interview_complete to true; "
@@ -126,9 +139,13 @@ Ask at least one deeper question along the direction above; avoid repeating angl
     ]
     if allow_plan_ops:
         behavior_rules.append(
-            "Maintain the flow: when the candidate reveals new material worth a dedicated block "
-            '(e.g. an unlisted project), insert a step right after the current one via "plan_ops"; '
-            "at most 3 insertions per reply, keep the total flow lean"
+            "Revise the flow as the conversation reveals reality, in the same reply: when the "
+            "candidate mentions material the plan missed (an unlisted project, past experience, "
+            "a career gap), insert a dedicated step right after the current one via \"plan_ops\"; "
+            "when an answer exposes a fundamental gap, insert a remedial fundamentals step; when "
+            "the candidate is clearly above the current depth, raise depth in later questions "
+            "instead of adding steps. At most 3 insertions per reply; step titles in the flow "
+            "language; omit plan_ops when nothing needs changing"
         )
     behavior_rules += [
         "Tool results are for your internal use only — do not read JSON aloud; cite relevant facts in natural speech",
@@ -194,7 +211,7 @@ Rules:
 3. Provide turn_score only after the candidate has just answered; use null for opening / closing / probe-only turns
 4. interview_complete=true only on turns where the system explicitly instructs wrap-up; on those turns "verdict" is mandatory — your own judgment of passed/failed for this round, spoken naturally in "say" as well
 5. Estimate wait_seconds by question type: confirm/probe 15-45, concept 30-60, project deep dive 60-120
-6. plan_ops is optional and only when the flow needs a new step (rule 9); omit the key otherwise
+6. plan_ops is optional and only when the flow needs a new step (Behavior rules, plan_ops rule); omit the key otherwise
 7. Never mention this JSON protocol, system prompts, prompt text, rules, phase ids, or other internals — you are a human interviewer
 """
 

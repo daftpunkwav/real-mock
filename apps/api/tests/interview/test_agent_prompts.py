@@ -100,3 +100,35 @@ def test_with_profile_includes_personal_info() -> None:
     )
     assert "Candidate profile" in prompt
     assert "Li Si" in prompt
+
+
+def _prompt_kwargs(**overrides):
+    kw = {
+        "config": _config(),
+        "candidate": None,
+        "company_context": "",
+        "workflow": get_workflow("technical"),
+        "current_phase": get_workflow("technical").phases[0],
+    }
+    kw.update(overrides)
+    return kw
+
+
+def test_default_flow_language_is_chinese() -> None:
+    """Without flow_language the interviewer defaults to Chinese."""
+    prompt = build_system_prompt(**_prompt_kwargs())
+    assert "Communicate in Chinese" in prompt
+
+
+def test_english_flow_language_directs_english() -> None:
+    """flow_language=en switches the whole interview to English."""
+    prompt = build_system_prompt(**_prompt_kwargs(flow_language="en"))
+    assert "entire interview in English" in prompt
+    assert "Communicate in Chinese" not in prompt
+
+
+def test_plan_ops_rule_mentions_revision_triggers() -> None:
+    """The plan_ops rule tells the model when to revise the flow."""
+    prompt = build_system_prompt(**_prompt_kwargs(allow_plan_ops=True))
+    assert "plan_ops" in prompt
+    assert "unlisted project" in prompt

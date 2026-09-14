@@ -25,6 +25,43 @@ STEP_FOCUS_MAX_CHARS = 400
 #: Marker kind for the "candidate asks questions" step (special prompt rules).
 REVERSE_QA_KIND = "reverse_qa"
 
+#: Allowed opening styles (planner rule 3). Unknown values degrade to identity.
+OPENING_STYLE_IDENTITY = "identity_confirm"
+OPENING_STYLE_RESUME_ACK = "resume_ack"
+OPENING_STYLE_WARMUP = "casual_warmup"
+OPENING_STYLES = frozenset({OPENING_STYLE_IDENTITY, OPENING_STYLE_RESUME_ACK, OPENING_STYLE_WARMUP})
+
+#: Fallback interview language for legacy plans without a language field.
+DEFAULT_FLOW_LANGUAGE = "zh"
+
+
+@dataclass
+class PlanOpening:
+    """How this session starts (planner rule 3; randomized per session)."""
+
+    style: str = OPENING_STYLE_IDENTITY
+    note: str = ""  # one-line personalization: name + one resume fact
+
+    def to_dict(self) -> dict:
+        """JSON-ready opening projection."""
+        return {"style": self.style, "note": self.note}
+
+
+def _clean_opening(raw: object) -> PlanOpening:
+    """Validate the plan-level opening block; unknown styles degrade to identity."""
+    if not isinstance(raw, dict):
+        return PlanOpening()
+    style = str(raw.get("style") or "").strip()[:30]
+    if style not in OPENING_STYLES:
+        style = OPENING_STYLE_IDENTITY
+    return PlanOpening(style=style, note=str(raw.get("note") or "").strip()[:200])
+
+
+def _clean_language(raw: object) -> str:
+    """Normalize the plan-level flow language to "en" or "zh"."""
+    text = str(raw or "").strip().lower()
+    return "en" if text.startswith("en") else DEFAULT_FLOW_LANGUAGE
+
 
 @dataclass
 class PlanStep:
@@ -67,12 +104,16 @@ class InterviewPlan:
     steps: list[PlanStep] = field(default_factory=list)
     round_note: str = ""  # positioning of this round, e.g. "Round 1: fundamentals and project overview"
     source: str = "agent"  # "agent" | "fallback"
+    language: str = DEFAULT_FLOW_LANGUAGE  # "zh" | "en": interview working language
+    opening: PlanOpening = field(default_factory=PlanOpening)
 
     def to_dict(self) -> dict:
         """JSON-ready plan document (steps + round note + source)."""
         return {
             "round_note": self.round_note,
             "source": self.source,
+            "language": self.language,
+            "opening": self.opening.to_dict(),
             "steps": [s.to_dict() for s in self.steps],
         }
 
@@ -144,6 +185,8 @@ def parse_plan(data: object) -> InterviewPlan | None:
         steps=steps,
         round_note=str(data.get("round_note") or "").strip()[:200],
         source=str(data.get("source") or "agent").strip()[:20] or "agent",
+        language=_clean_language(data.get("language")),
+        opening=_clean_opening(data.get("opening")),
     )
 
 
@@ -185,7 +228,13 @@ __all__ = [
     "STEP_FOCUS_MAX_CHARS",
     "STEP_QUESTIONS_MAX",
     "STEP_TITLE_MAX_CHARS",
+    "DEFAULT_FLOW_LANGUAGE",
+    "OPENING_STYLES",
+    "OPENING_STYLE_IDENTITY",
+    "OPENING_STYLE_RESUME_ACK",
+    "OPENING_STYLE_WARMUP",
     "InterviewPlan",
+    "PlanOpening",
     "PlanStep",
     "parse_plan",
     "plan_from_workflow",

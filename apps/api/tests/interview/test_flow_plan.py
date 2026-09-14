@@ -78,6 +78,63 @@ def test_plan_from_workflow_preserves_static_ids():
     assert restored.steps[0].id == "identity_check"
 
 
+def test_parse_plan_language_and_opening_defaults():
+    """Legacy plans without language/opening degrade to zh + identity_confirm."""
+    plan = parse_plan(_agent_plan_dict(8))
+    assert plan is not None
+    assert plan.language == "zh"
+    assert plan.opening.style == "identity_confirm"
+    assert plan.opening.note == ""
+
+
+def test_parse_plan_language_and_opening_round_trip():
+    """Planner-chosen language/opening survive a parse/dump cycle."""
+    raw = _agent_plan_dict(8)
+    raw["language"] = "en"
+    raw["opening"] = {"style": "resume_ack", "note": "Xiao Guoqiang, 5y backend"}
+    plan = parse_plan(raw)
+    assert plan is not None
+    assert plan.language == "en"
+    assert plan.opening.style == "resume_ack"
+    assert plan.opening.note == "Xiao Guoqiang, 5y backend"
+    restored = parse_plan(plan.to_dict())
+    assert restored is not None
+    assert restored.language == "en"
+    assert restored.opening.style == "resume_ack"
+
+
+def test_parse_plan_opening_degrades_unknown_style():
+    """Unknown opening styles fall back to identity_confirm (never crash)."""
+    raw = _agent_plan_dict(8)
+    raw["opening"] = {"style": "rap_battle", "note": "x"}
+    plan = parse_plan(raw)
+    assert plan is not None
+    assert plan.opening.style == "identity_confirm"
+    raw2 = _agent_plan_dict(8)
+    raw2["language"] = "ENGLISH"
+    plan2 = parse_plan(raw2)
+    assert plan2 is not None
+    assert plan2.language == "en"
+
+
+def test_plan_user_message_carries_locale_signal():
+    """The planner sees the UI locale so it can judge the flow language."""
+    from realmock.domains.interview.process.planning.plan_prompts import build_plan_user_message
+    from realmock.domains.interview.schemas import InterviewConfig
+
+    config = InterviewConfig(role="Backend", level="Senior", company="Acme")
+    msg = build_plan_user_message(
+        config,
+        resume_payload=None,
+        profile=None,
+        process_section="",
+        company_context="",
+        ui_locale="en-US",
+    )
+    assert "en-US" in msg
+    assert "Language signals" in msg
+
+
 # ---- plan_ops (turn protocol + state machine) ----------------------------------
 
 

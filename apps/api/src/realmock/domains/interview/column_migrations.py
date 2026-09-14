@@ -21,9 +21,11 @@ SESSIONS_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE interview_sessions ADD COLUMN result VARCHAR(20)",
         "ALTER TABLE interview_sessions ADD COLUMN plan TEXT",
         "ALTER TABLE interview_sessions ADD COLUMN plan_status VARCHAR(20) DEFAULT ''",
+        "ALTER TABLE interview_sessions ADD COLUMN ui_locale VARCHAR(10) DEFAULT ''",
     ],
     "interview_processes": [
         "ALTER TABLE interview_processes ADD COLUMN round_plan TEXT DEFAULT '{}'",
         "ALTER TABLE interview_processes ADD COLUMN round_plan_status VARCHAR(20) DEFAULT ''",
+        "ALTER TABLE interview_processes ADD COLUMN ui_locale VARCHAR(10) DEFAULT ''",
     ],
 }

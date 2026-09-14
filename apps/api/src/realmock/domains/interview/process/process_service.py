@@ -187,6 +187,7 @@ def _session_from_process(process: InterviewProcess, round_no: int) -> Interview
         interview_style=step.interview_style if step else process.interview_style,
         avatar_id=process.avatar_id,
         scene_id=process.scene_id,
+        ui_locale=process.ui_locale or "",
         status="pending",
         current_phase="identity_check",
         access_token="",
@@ -211,6 +212,7 @@ def create_process_with_first_round(
         interview_style=req.interview_style,
         avatar_id=req.avatar_id,
         scene_id=req.scene_id,
+        ui_locale=(req.ui_locale or "")[:10],
         # Text column: persist as a JSON string (a raw dict cannot bind on SQLite).
         ai_overrides=(
             json.dumps(req.ai_overrides.model_dump(exclude_none=True), ensure_ascii=False)

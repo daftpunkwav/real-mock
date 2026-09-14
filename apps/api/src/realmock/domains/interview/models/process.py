@@ -31,6 +31,8 @@ class InterviewProcess(SessionsBase):
     interview_style: Mapped[str] = mapped_column(String(50), default="deep_dive")
     avatar_id: Mapped[str] = mapped_column(String(50), default="professional_male")
     scene_id: Mapped[str] = mapped_column(String(50), default="meeting_room")
+    # UI locale at process creation; round sessions inherit it for flow-language planning.
+    ui_locale: Mapped[str] = mapped_column(String(10), default="")
     ai_overrides: Mapped[str] = mapped_column(Text, default="{}")
     max_rounds: Mapped[int] = mapped_column(Integer, default=5)
     current_round: Mapped[int] = mapped_column(Integer, default=0)

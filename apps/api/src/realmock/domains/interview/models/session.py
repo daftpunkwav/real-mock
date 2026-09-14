@@ -31,6 +31,9 @@ class InterviewSession(SessionsBase):
     interview_style: Mapped[str] = mapped_column(String(50), default="deep_dive")
     avatar_id: Mapped[str] = mapped_column(String(50), default="professional_male")
     scene_id: Mapped[str] = mapped_column(String(50), default="meeting_room")
+    # UI locale at creation ("zh-CN" / "en-US" ...); the flow planner uses it
+    # as one signal when deciding the interview working language.
+    ui_locale: Mapped[str] = mapped_column(String(10), default="")
     status: Mapped[str] = mapped_column(String(30), default="pending")
     current_phase: Mapped[str] = mapped_column(String(50), default="identity_check")
     agent_state: Mapped[str] = mapped_column(Text, default="{}")

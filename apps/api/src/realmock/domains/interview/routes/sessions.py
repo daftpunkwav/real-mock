@@ -70,6 +70,7 @@ def create_session(
         resume_id=config.resume_id,
         avatar_id=config.avatar_id,
         scene_id=config.scene_id,
+        ui_locale=(config.ui_locale or "")[:10],
         status=SessionStatus.PENDING.value,
         current_phase="identity_check",
         access_token=token,

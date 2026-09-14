@@ -208,6 +208,40 @@ class SessionPromptMixin:
             "angles, and calibrate difficulty for this round."
         ) + identity
 
+    def _flow_language(self) -> str:
+        """Working language decided by the flow planner ("en" or "zh")."""
+        plan = getattr(self, "plan", None)
+        if plan is not None and getattr(plan, "source", "") == "agent":
+            return getattr(plan, "language", "zh") or "zh"
+        return "zh"
+
+    def _opening_section(self) -> str:
+        """Opening-style directive from the flow plan (randomized per session)."""
+        plan = getattr(self, "plan", None)
+        opening = getattr(plan, "opening", None) if plan is not None else None
+        style = getattr(opening, "style", "") or "identity_confirm"
+        note = getattr(opening, "note", "") or ""
+        guides = {
+            "identity_confirm": (
+                "Confirm identity briefly (candidate name + applied role), one short "
+                "exchange, then move into the first topic. Do not interrogate."
+            ),
+            "resume_ack": (
+                "State that you have read the resume, recap the candidate by name plus "
+                "one concrete resume fact, confirm everything is OK, and go straight "
+                "into the opening topic. Skip any identity interrogation."
+            ),
+            "casual_warmup": (
+                "Open with at most two sentences of warm small talk (greeting, audio "
+                "check), then start the interview."
+            ),
+        }
+        guide = guides.get(style, guides["identity_confirm"])
+        section = f"\n\n## Opening style for this session: {style}\n{guide}"
+        if note:
+            section += f"\nPersonalization (use these facts): {note}"
+        return section
+
     def build_opening_prompt(self, db: Session) -> str:
         """Build the opening-turn system prompt."""
         config = self.get_config()
@@ -223,10 +257,12 @@ class SessionPromptMixin:
             phase,
             profile,
             allow_plan_ops=self._plan_is_agent_authored(),
+            flow_language=self._flow_language(),
         )
         # System learning (stable for the session) + prior rounds + structured memory (refreshed each turn)
         return (
             prompt
+            + self._opening_section()
             + self._system_learning_section()
             + self._process_round_section()
             + self._memory_section()

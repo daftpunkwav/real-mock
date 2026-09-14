@@ -26,6 +26,8 @@ class ProcessCreateRequest(BaseModel):
     scene_id: str = Field(default="meeting_room", max_length=50)
     max_rounds: int = Field(default=MAX_INTERVIEW_ROUNDS, ge=1, le=MAX_INTERVIEW_ROUNDS)
     ai_overrides: AiOverrides | None = None
+    # UI locale ("zh-CN" / "en-US" ...): inherited by round sessions for flow-language planning.
+    ui_locale: str | None = Field(default=None, max_length=10)
 
 
 class ProcessRoundItem(BaseModel):
