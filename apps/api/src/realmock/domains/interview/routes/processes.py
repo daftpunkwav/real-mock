@@ -34,11 +34,17 @@ from realmock.domains.interview.routes.sessions import to_session_response
 
 
 def _issue_session_cookie(
-    session, request: Request, response: Response
+    session, request: Request, response: Response, db: Session
 ) -> None:
-    """Attach a fresh access token + HttpOnly cookie to a newly created session."""
+    """Attach a fresh access token + HttpOnly cookie to a newly created session.
+
+    The token MUST be committed before the response goes out: the room loads
+    the session with the cookie on the next request, and an uncommitted token
+    fails closed with 403 (observed: multi-round room entry rejected).
+    """
     token = new_access_token()
     session.access_token = token
+    db.commit()
     set_session_cookie(
         response,
         scope="iv",
@@ -57,7 +63,7 @@ def create_process(
 ):
     """Start a multi-round process together with its round-1 session."""
     process, session = create_process_with_first_round(db, config)
-    _issue_session_cookie(session, request, response)
+    _issue_session_cookie(session, request, response, db)
     background_tasks.add_task(generate_plan_for_session, session.id)
     # HR coordinator plans the round program (count/kinds/pass bars) in the
     # background; round creation degrades to the static chain until ready.
@@ -91,7 +97,7 @@ def create_round(
         session = create_next_round(db, process_id)
     except ProcessRoundError as e:
         raise_error(e.code)
-    _issue_session_cookie(session, request, response)
+    _issue_session_cookie(session, request, response, db)
     background_tasks.add_task(generate_plan_for_session, session.id)
     return to_session_response(session)
 

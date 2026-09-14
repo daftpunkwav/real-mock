@@ -293,3 +293,40 @@ def test_process_round_response_carries_lineage(db):
     assert row["process_id"] == body["process"]["id"]
     assert row["round_no"] == 1
     assert row["result"] is None
+
+
+def test_process_issues_committed_session_token(db):
+    """Round sessions must open in the room: the issued token is committed.
+
+    Regression: ``_issue_session_cookie`` used to set the token in memory
+    only, so room entry failed closed with 403 (invalid session / no access).
+    """
+    client = _client()
+    body = client.post(
+        "/api/v1/interview/processes",
+        json={"role": "Backend", "level": "junior", "company": "acme", "max_rounds": 2},
+    ).json()
+    session_id = body["session_id"]
+    process_id = body["process"]["id"]
+
+    db.expire_all()
+    row = db.get(InterviewSession, session_id)
+    assert row is not None and row.access_token, "token must be committed, not just cookied"
+    assert client.cookies.get(f"iv_{session_id}") == row.access_token
+    # The room entry request authenticates with the cookie.
+    got = client.get(f"/api/v1/interview/sessions/{session_id}")
+    assert got.status_code == 200, got.text
+
+    # Round 2 shares the same issue path: pass round 1, then verify again.
+    row.status = "completed"
+    row.result = "passed"
+    db.commit()
+    nxt = client.post(f"/api/v1/interview/processes/{process_id}/rounds")
+    assert nxt.status_code == 200
+    round2_id = nxt.json()["id"]
+    db.expire_all()
+    row2 = db.get(InterviewSession, round2_id)
+    assert row2 is not None and row2.access_token
+    assert client.cookies.get(f"iv_{round2_id}") == row2.access_token
+    got2 = client.get(f"/api/v1/interview/sessions/{round2_id}")
+    assert got2.status_code == 200, got2.text
