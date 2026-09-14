@@ -26,6 +26,7 @@ const DEFAULT_CONFIG: InterviewConfig = {
   resume_id: null,
   avatar_id: "professional_male",
   scene_id: "meeting_room",
+  reference_detail: "outline",
 };
 
 export function useInterviewSetup() {
