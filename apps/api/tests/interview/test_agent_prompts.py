@@ -134,6 +134,35 @@ def test_plan_ops_rule_mentions_revision_triggers() -> None:
     assert "unlisted project" in prompt
 
 
+def test_spoken_voice_section_present() -> None:
+    """The interviewer gets spoken-voice constraints outranking written style."""
+    prompt = build_system_prompt(**_prompt_kwargs())
+    assert "How you talk" in prompt
+    # Ban list is spelled out (written scaffolding + hollow meta-questions).
+    assert "综上所述" in prompt
+    assert "首先" in prompt
+    assert "能详细说说吗" in prompt
+
+
+def test_personality_carries_spoken_flavor() -> None:
+    """Persona prompts include a spoken delivery clause."""
+    gentle = build_system_prompt(**_prompt_kwargs(config=_config(personality="gentle")))
+    assert "别急" in gentle
+    pressure = build_system_prompt(**_prompt_kwargs(config=_config(personality="pressure")))
+    assert "Clipped" in pressure
+
+
+def test_probe_system_prompt_differs_by_attempt() -> None:
+    """Silence probes: check-in first, concrete sub-question second."""
+    from realmock.domains.interview.realtime.control.silence_probe import probe_system_prompt
+
+    first = probe_system_prompt(attempt=1)
+    second = probe_system_prompt(attempt=2)
+    assert first != second
+    assert "综上所述" in first  # written scaffolding banned
+    assert "能详细说说吗" in second  # hollow prompts banned on the 2nd attempt
+
+
 def test_reverse_qa_uses_compact_candidate_block() -> None:
     """Non-questioning phases skip the resume dump (context savings)."""
     workflow = get_workflow("technical")

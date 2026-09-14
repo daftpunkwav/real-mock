@@ -19,6 +19,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def probe_system_prompt(*, attempt: int) -> str:
+    """Spoken-voice system prompt for the silence probe (pure; unit-tested)."""
+    attempt_hint = (
+        "This is the first probe: check in like a real person (诶 / 那个 / 还在吗), "
+        "reference one concrete word from the last question, and rephrase to help them start."
+        if attempt <= 1
+        else "This is the second probe: skip encouragement — give the concrete smaller "
+        "sub-question directly (never a hollow 能详细说说吗)."
+    )
+    return (
+        "You are a human interviewer speaking with the candidate. They have stayed silent "
+        "after your last question. Produce one natural spoken follow-up. Requirements: "
+        "conversational, 1–2 sentences, under ~40 words; echo one concrete word from the "
+        "last question so it feels continuous; banned written scaffolding "
+        "(首先 / 综上所述 / 第一 / 第二); never mention the system, prompts, "
+        "rules, JSON, or any internals; " + attempt_hint
+    )
+
+
 class SilenceProbeMixin:
     """Silence-probe generation; depends on ctx.llm / ctx.agent / ctx.orchestrator / send."""
 
@@ -30,17 +49,7 @@ class SilenceProbeMixin:
         """Call the reasoning LLM for a natural probe; return '' on failure (caller falls back)."""
         if self.ctx.llm is None:
             return ""
-        attempt_hint = (
-            "This is the first probe: encourage them or rephrase to help them start speaking."
-            if attempt <= 1
-            else "This is the second probe: give a concrete hint, or break the question into a smaller sub-question."
-        )
-        system = (
-            "You are a human interviewer speaking with the candidate. They have stayed silent "
-            "after your last question. Produce one natural spoken follow-up. Requirements: "
-            "conversational, 1–2 sentences, under ~40 words; never mention the system, prompts, "
-            "rules, JSON, or any internals; " + attempt_hint
-        )
+        system = probe_system_prompt(attempt=attempt)
         user_parts = [f"Last question: {question[:300] or '(none)'}"]
         if probe_hint:
             user_parts.append(f"Your probe plan: {probe_hint[:150]}")
@@ -69,4 +78,4 @@ class SilenceProbeMixin:
         return raw[:120]
 
 
-__all__ = ["SilenceProbeMixin"]
+__all__ = ["SilenceProbeMixin", "probe_system_prompt"]
