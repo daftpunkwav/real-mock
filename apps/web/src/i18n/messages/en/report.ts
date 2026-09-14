@@ -91,6 +91,8 @@ export const report = {
   "qa.problems": "What went wrong",
   "qa.reference": "Reference answer",
   "qa.howToAnswer": "How to answer",
+  "qa.brushup": "Knowledge brush-up",
+  "qa.exercises": "Practice drills",
   "qa.followup": "Follow-up handling",
   "live.title": "Generating your report",
   "live.starting": "Starting the report agent…",

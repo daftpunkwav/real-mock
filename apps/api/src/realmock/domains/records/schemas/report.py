@@ -53,6 +53,10 @@ class TurnNote(BaseModel):
     reference_answer: str = ""
     how_to_answer: str = ""
     knowledge_points: list[str] = Field(default_factory=list)
+    # Focused brush-up on this turn's weak spots (prose, not a topic list).
+    knowledge_brushup: str = ""
+    # Consolidation drills for this turn (each item: prompt + solving direction).
+    exercises: list[str] = Field(default_factory=list)
     followup_quality: str = ""
     # Legacy review blocks (pre-ReAct payloads); new agents leave them empty.
     user_review: TurnNoteUserReview = Field(default_factory=TurnNoteUserReview)

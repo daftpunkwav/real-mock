@@ -60,6 +60,26 @@ def test_normalize_turn_note_aliases_and_clamps():
     assert normalize_turn_note("garbage") is None
 
 
+def test_normalize_turn_note_brushup_and_exercises():
+    note = normalize_turn_note({
+        "turn_id": "t-2",
+        "知识精讲": "布隆过滤器用多个哈希判不存在，而空值缓存直接存 NULL 标记",
+        "exercises": ["写出缓存穿透的三种解法及取舍（方向：从成本与误判率对比）", "", 42],
+    })
+    assert note is not None
+    assert "布隆过滤器" in note.knowledge_brushup
+    assert note.exercises == ["写出缓存穿透的三种解法及取舍（方向：从成本与误判率对比）", "42"]
+
+    capped = normalize_turn_note({
+        "turn_id": "t-3",
+        "knowledge_brushup": "x" * 900,
+        "exercises": ["e1", "e2", "e3", "e4", "e5"],
+    })
+    assert capped is not None
+    assert len(capped.knowledge_brushup) == 800
+    assert len(capped.exercises) == 4
+
+
 def test_normalize_report_payload_verdict_and_breakdown():
     report = normalize_report_payload({
         "overall_score": "83",

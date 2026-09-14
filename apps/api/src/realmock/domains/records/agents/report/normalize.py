@@ -20,6 +20,7 @@ from realmock.domains.records.schemas.report import (
 _NOTE_LIST_CAPS = {
     "problems": 6,
     "knowledge_points": 8,
+    "exercises": 4,
 }
 _TOP_LIST_CAP = 10
 
@@ -60,6 +61,7 @@ _NOTE_ALIASES = {
     "answer_summary": ("answer_summary", "answer", "summary", "回答摘要"),
     "reference_answer": ("reference_answer", "reference", "参考答案"),
     "how_to_answer": ("how_to_answer", "how_to_improve", "答题思路", "该如何回答"),
+    "knowledge_brushup": ("knowledge_brushup", "brushup", "知识巩固", "知识精讲", "查漏补缺"),
     "followup_quality": ("followup_quality", "followup", "追问表现"),
     "phase": ("phase", "stage", "阶段"),
 }
@@ -92,6 +94,8 @@ def normalize_turn_note(raw: object) -> TurnNote | None:
         knowledge_points=_clip_list_str(
             raw.get("knowledge_points"), _NOTE_LIST_CAPS["knowledge_points"]
         ),
+        knowledge_brushup=str(_alias_get(raw, "knowledge_brushup") or "").strip()[:800],
+        exercises=_clip_list_str(raw.get("exercises"), _NOTE_LIST_CAPS["exercises"]),
         followup_quality=str(_alias_get(raw, "followup_quality") or "").strip()[:400],
     )
     if isinstance(raw.get("user_review"), dict):

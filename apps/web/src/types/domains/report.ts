@@ -36,6 +36,8 @@ export type TurnNote = {
   reference_answer?: string;
   how_to_answer?: string;
   knowledge_points?: string[];
+  knowledge_brushup?: string;
+  exercises?: string[];
   followup_quality?: string;
   user_review?: TurnNoteUserReview;
   interviewer_review?: TurnNoteInterviewerReview;

@@ -4671,6 +4671,13 @@ export interface components {
             /** Knowledge Points */
             knowledge_points?: string[];
             /**
+             * Knowledge Brushup
+             * @default
+             */
+            knowledge_brushup: string;
+            /** Exercises */
+            exercises?: string[];
+            /**
              * Followup Quality
              * @default
              */

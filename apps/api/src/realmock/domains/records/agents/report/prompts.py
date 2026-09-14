@@ -23,6 +23,8 @@ _TURN_NOTE_CONTRACT = """{
       "reference_answer": "<a strong model answer for this question, grounded in the resume/JD>",
       "how_to_answer": "<actionable framework for answering this kind of question>",
       "knowledge_points": ["<topic to review>", "..."],
+      "knowledge_brushup": "<focused mini-lesson on THIS turn's weak spots: the concept, why the reply fell short, the correct mental model>",
+      "exercises": ["<consolidation drill tied to this turn, each with a solving direction>", "... (2-4 items)"],
       "followup_quality": "<how the candidate handled follow-up probes; empty if none>"
     }
   ]
@@ -39,7 +41,9 @@ Rules:
 3. reference_answer must be technically correct and specific to this question; use resume context when the question is about the candidate's own project.
 4. problems must quote or point at the actual weakness (vagueness, wrong claim, missing metrics); no generic filler.
 5. Strict interviewer probing is expected behavior — never frame it as unfair.
-6. No emoji in any text field. Return JSON only.""")  # noqa: E501
+6. knowledge_brushup teaches the missing concept behind problems (concise, no repetition of reference_answer); leave empty when the reply had no material gap.
+7. exercises has 2-4 drills targeting THIS turn's gaps (question stem plus one line of solving direction each); skip only when the reply was already strong.
+8. No emoji in any text field. Return JSON only.""")  # noqa: E501
 
 _SYNTHESIS_CONTRACT = """{
   "overall_score": 82,

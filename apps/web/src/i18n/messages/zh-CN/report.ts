@@ -90,6 +90,8 @@ export const report = {
   "qa.problems": "问题所在",
   "qa.reference": "参考答案",
   "qa.howToAnswer": "该如何回答",
+  "qa.brushup": "知识巩固",
+  "qa.exercises": "巩固练习",
   "qa.followup": "追问表现",
   "live.title": "报告生成中",
   "live.starting": "正在启动报告 agent…",

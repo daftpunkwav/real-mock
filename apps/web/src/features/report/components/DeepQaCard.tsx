@@ -1,7 +1,8 @@
 "use client";
 
 /** One deep per-turn analysis card: question, intent, your answer, score,
- * problems, reference answer (collapsible), how to answer, knowledge points. */
+ * problems, reference answer (collapsible), how to answer, knowledge points,
+ * knowledge brush-up, practice drills. */
 
 import { useState } from "react";
 import { useT } from "@/i18n";
@@ -23,7 +24,8 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
     Boolean(note.user_review?.summary) || Boolean(note.interviewer_review?.intent);
   const hasDeep =
     Boolean(note.question || note.reference_answer || note.how_to_answer ||
-      (note.problems ?? []).length > 0 || (note.knowledge_points ?? []).length > 0);
+      (note.problems ?? []).length > 0 || (note.knowledge_points ?? []).length > 0 ||
+      note.knowledge_brushup || (note.exercises ?? []).length > 0);
 
   return (
     <li className="eval-qa-card">
@@ -102,6 +104,28 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
               {k}
             </span>
           ))}
+        </div>
+      )}
+
+      {note.knowledge_brushup && (
+        <p className="mt-2.5 text-[12px] leading-relaxed text-ink">
+          <span className="font-medium text-[var(--info-ink)]">{t("qa.brushup")}: </span>
+          {note.knowledge_brushup}
+        </p>
+      )}
+
+      {(note.exercises ?? []).length > 0 && (
+        <div className="mt-2.5">
+          <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-[var(--info-ink)]">
+            {t("qa.exercises")}
+          </p>
+          <ol className="list-decimal space-y-1 pl-4">
+            {(note.exercises ?? []).map((e, i) => (
+              <li key={i} className="text-[12px] leading-relaxed text-ink">
+                {e}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 
