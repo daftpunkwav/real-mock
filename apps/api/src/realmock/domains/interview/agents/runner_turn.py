@@ -141,6 +141,18 @@ async def stream_turn(
         runner.agent.save_state(db)
 
         try:
+            ts = output.turn_score
+            score_flags = (
+                {
+                    "turn_score": {
+                        "brief": ts.brief,
+                        "rating": ts.rating,
+                        "weak_points": list(ts.weak_points),
+                    }
+                }
+                if ts is not None
+                else None
+            )
             append_turn(
                 db,
                 runner.session,
@@ -149,6 +161,7 @@ async def stream_turn(
                 user_text=user_text,
                 user_source="text",
                 tools=tools,
+                flags=score_flags,
             )
         except Exception:
             logger.exception(

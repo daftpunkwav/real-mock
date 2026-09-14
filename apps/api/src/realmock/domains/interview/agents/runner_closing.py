@@ -59,6 +59,21 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
                 api_messages, context_window, llm=runner.llm, keep_recent=24
             )
         api_messages = api_messages + [
+            {"role": "system", "content": closing_system_prompt(style_hint)},
+        ]
+        # Ground the wrap-up and verdict in the whole round's score trajectory
+        # (last_turn_score alone only ever carried the final judged turn).
+        score_section = runner.agent._score_section()
+        if score_section:
+            api_messages.append({
+                "role": "system",
+                "content": (
+                    score_section
+                    + "\nGround the wrap-up evaluation and the passed/failed verdict "
+                    "in this trajectory."
+                ),
+            })
+        api_messages = api_messages + [
             {"role": "user", "content": "(system) Complete the spoken wrap-up and evaluation as instructed."},
         ]
 

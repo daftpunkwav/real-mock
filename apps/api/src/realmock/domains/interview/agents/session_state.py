@@ -40,6 +40,14 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 logger = logging.getLogger(__name__)
 
 
+def _is_summary_phase(phase: Any) -> bool:
+    """Whether this flow step is the wrap-up/verdict step."""
+    for value in (getattr(phase, "id", ""), getattr(phase, "kind", "")):
+        if "summary" in str(value or "").lower():
+            return True
+    return False
+
+
 class InterviewSessionState(SessionPromptMixin):
     """Interview conversation state machine: message history, stage index, state persistence, prompt word construction.
 
@@ -147,6 +155,16 @@ class InterviewSessionState(SessionPromptMixin):
                 "rating": ts.rating,
                 "weak_points": list(ts.weak_points),
             }
+            # Full per-question trajectory: feeds the summary/verdict prompt
+            # and the ledger turn flags (last_turn_score alone gets overwritten).
+            scores = self.agent_state.setdefault("turn_scores", [])
+            scores.append({
+                "brief": ts.brief,
+                "rating": ts.rating,
+                "weak_points": list(ts.weak_points),
+            })
+            if len(scores) > 40:
+                del scores[:-40]
             for p in ts.weak_points:
                 self.note_weak_point(p)
 
@@ -281,6 +299,8 @@ class InterviewSessionState(SessionPromptMixin):
 
         reverse_qa uses a dedicated company-representative prompt (answer from
         company knowledge; admit gaps honestly). Other phases use a generic cue.
+        The summary phase carries the per-question score trajectory so the
+        wrap-up verdict is grounded in the whole session, not just the tail.
         """
         if phase.id == "reverse_qa" or getattr(phase, "kind", "") == REVERSE_QA_KIND:
             company_ctx = get_company_context(self.session.company or "")
@@ -297,10 +317,19 @@ class InterviewSessionState(SessionPromptMixin):
                 "3. You may still use web_search_interview_exp for public info\n"
                 "4. Do not use emoji in replies"
             )
-        return (
+        message = (
             f"Entering new phase: {phase.name} ({phase.description}). "
             "Begin asking questions for this phase. Do not use emoji in replies."
         )
+        if _is_summary_phase(phase):
+            scores = self._score_section()
+            if scores:
+                message += (
+                    scores
+                    + "\nGround your wrap-up evaluation and the passed/failed verdict "
+                    "in this trajectory, not just the last answer."
+                )
+        return message
 
 
 __all__ = ["InterviewSessionState"]

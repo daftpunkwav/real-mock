@@ -148,6 +148,32 @@ class SessionPromptMixin:
             return ""
         return f"\n\n{_MEMORY_SECTION_MARKER}\n" + text
 
+    def _score_section(self) -> str:
+        """Render the per-question score trajectory (empty when no scores yet).
+
+        Turn scores otherwise survive only as ``last_turn_score`` (one entry,
+        overwritten each turn); this gives the summary/verdict turns a
+        calibrated view of the whole session.
+        """
+        scores = self.agent_state.get("turn_scores") or []
+        lines: list[str] = []
+        for i, s in enumerate(scores[-20:], start=1):
+            if not isinstance(s, dict):
+                continue
+            rating = s.get("rating") or 0
+            brief = str(s.get("brief") or "").strip()
+            weak = "; ".join(str(w) for w in (s.get("weak_points") or [])[:2])
+            line = f"{i}. {rating}/5" + (f" — {brief}" if brief else "")
+            if weak:
+                line += f" (weak: {weak})"
+            lines.append(line)
+        if not lines:
+            return ""
+        return (
+            "\n\n## Per-question score trajectory (rating 1-5, this round)\n"
+            + "\n".join(lines)
+        )
+
     def _flow_view(self) -> Any:
         """Workflow-like object for prompt assembly: plan steps when planned."""
         plan = getattr(self, "plan", None)
