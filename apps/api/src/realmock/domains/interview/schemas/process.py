@@ -28,6 +28,8 @@ class ProcessCreateRequest(BaseModel):
     ai_overrides: AiOverrides | None = None
     # UI locale ("zh-CN" / "en-US" ...): inherited by round sessions for flow-language planning.
     ui_locale: str | None = Field(default=None, max_length=10)
+    # Reference-answer depth for all rounds ("outline" default / "full").
+    reference_detail: Literal["outline", "full"] = "outline"
 
 
 class ProcessRoundItem(BaseModel):

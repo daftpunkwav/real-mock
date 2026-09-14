@@ -123,6 +123,9 @@ export type TaskBindings = Record<"chat" | "stt" | "tts", TaskBindingInfo>;
 /** Reasoning effort (only profiles with capabilities.reasoning === true) */
 export type ReasoningEffort = "low" | "medium" | "high" | "max";
 
+/** Reference-answer depth: fast outline bullets (default) or tool-grounded full model answer */
+export type ReferenceDetail = "outline" | "full";
+
 export interface LLMTestResponse {
   success: boolean;
   message: string;

@@ -12,7 +12,7 @@ import type {
   ProcessCreatedResponse,
   ResumePickerItem,
 } from "@/lib/api/contract";
-import type { ReasoningEffort } from "@/types";
+import type { ReasoningEffort, ReferenceDetail } from "@/types";
 import { request, LLM_HEAVY_TIMEOUT_MS } from "@/lib/api/base";
 
 export const interviewHttp = {
@@ -27,11 +27,17 @@ export const interviewHttp = {
       tts_profile_id?: number | null;
       reasoning_effort?: ReasoningEffort | null;
     } | null,
+    opts?: { reference_detail?: ReferenceDetail },
   ) =>
     request<InterviewSession>("/v1/interview/sessions", {
       method: "POST",
       // UI locale is a planner signal for the interview working language.
-      body: JSON.stringify({ ...config, ui_locale: getLocale(), ai_overrides: ai ?? undefined }),
+      body: JSON.stringify({
+        ...config,
+        ui_locale: getLocale(),
+        reference_detail: opts?.reference_detail ?? "outline",
+        ai_overrides: ai ?? undefined,
+      }),
     }),
   listSessions: () => request<InterviewSession[]>("/v1/interview/sessions"),
   getSession: (id: number) => request<InterviewSession>(`/v1/interview/sessions/${id}`),
@@ -44,10 +50,14 @@ export const interviewHttp = {
 
   // Multi-round interview processes (round 1..5)
   listProcesses: () => request<InterviewProcessResponse[]>("/v1/interview/processes"),
-  createProcess: (config: ProcessCreateRequest) =>
+  createProcess: (config: ProcessCreateRequest, opts?: { reference_detail?: ReferenceDetail }) =>
     request<ProcessCreatedResponse>("/v1/interview/processes", {
       method: "POST",
-      body: JSON.stringify({ ...config, ui_locale: getLocale() }),
+      body: JSON.stringify({
+        ...config,
+        ui_locale: getLocale(),
+        reference_detail: opts?.reference_detail ?? "outline",
+      }),
     }),
   createNextRound: (processId: number) =>
     request<InterviewSession>(`/v1/interview/processes/${processId}/rounds`, {

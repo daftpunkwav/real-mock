@@ -123,7 +123,9 @@ class MessageDispatcherMixin:
 
     async def _start_request_hint(self, data: dict[str, Any]) -> None:
         if self._llm_rate_limited(limit=max(5, _WS_LLM_RATE_LIMIT // 2)):
-            await self._send_rate_limited()
+            # Terminal event (not the generic error): the room clears its
+            # loading state instead of hanging until the client timeout.
+            await self._hint_rate_limited(data)
             return
         self._spawn(self._on_request_hint(data))
 

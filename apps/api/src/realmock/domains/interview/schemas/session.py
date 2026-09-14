@@ -34,6 +34,9 @@ class InterviewConfig(BaseModel):
     ai_overrides: "AiOverrides | None" = None
     # UI locale ("zh-CN" / "en-US" ...): one signal for the flow-language decision.
     ui_locale: str | None = Field(default=None, max_length=10)
+    # Reference-answer depth: "outline" (fast single-shot bullets, default) or
+    # "full" (multi-round agent loop with profile/resume/GitHub grounding).
+    reference_detail: Literal["outline", "full"] = "outline"
 
 
 class PlanStepView(BaseModel):

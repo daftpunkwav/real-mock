@@ -39,6 +39,9 @@ export const interview = {
   "setup.processor.tts": "语音输出（播报）",
   "setup.processor.sttAria": "语音输入模型",
   "setup.processor.ttsAria": "语音输出模型",
+  "setup.processor.referenceDetail": "参考回答",
+  "setup.processor.referenceOutline": "提纲速览（快）",
+  "setup.processor.referenceFull": "完整示范（慢，更真）",
 
   // ---- 配置页:预览栏 ----
   "preview.title": "配置预览",
@@ -175,6 +178,7 @@ export const interview = {
   "room.source.github": "GitHub",
   "room.source.companyKb": "企业知识库",
   "room.hint.timeout": "生成较慢或已超时。可先按 STAR：情境 → 任务 → 行动 → 结果（尽量量化）自行组织。",
+  "room.hint.timeoutDetailed": "完整版生成超时，可点“重新生成”再试一次。",
 
   // ---- 房间:toast / 语音状态(非渲染路径) ----
   "room.toast.audioEnabled": "声音已启用",

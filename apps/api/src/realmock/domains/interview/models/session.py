@@ -34,6 +34,8 @@ class InterviewSession(SessionsBase):
     # UI locale at creation ("zh-CN" / "en-US" ...); the flow planner uses it
     # as one signal when deciding the interview working language.
     ui_locale: Mapped[str] = mapped_column(String(10), default="")
+    # Reference-answer depth ("outline" fast bullets / "full" agent-loop answer).
+    reference_detail: Mapped[str] = mapped_column(String(10), default="outline")
     status: Mapped[str] = mapped_column(String(30), default="pending")
     current_phase: Mapped[str] = mapped_column(String(50), default="identity_check")
     agent_state: Mapped[str] = mapped_column(Text, default="{}")

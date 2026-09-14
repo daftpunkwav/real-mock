@@ -118,6 +118,7 @@ class WSServerEvent(StrEnum):
     SILENCE_NUDGE = "silence_nudge"
     REFERENCE_HINT_LOADING = "reference_hint_loading"
     REFERENCE_HINT = "reference_hint"
+    REFERENCE_HINT_ERROR = "reference_hint_error"
     PHASE_CHANGED = "phase_changed"
     INTERVIEW_COMPLETE = "interview_complete"
     SERVER_PING = "server_ping"

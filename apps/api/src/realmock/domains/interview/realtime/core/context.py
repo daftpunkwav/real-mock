@@ -90,6 +90,8 @@ class ConnectionContext:
 
     # ── Tips/Reports ─────────────────────────────
     hint_inflight: str | None = None
+    #: Reference-answer depth snapshot from the session row ("outline" | "full").
+    reference_detail: str = "outline"
     report_task: asyncio.Task[Any] | None = None
 
     # ── Background tasks ────────────────────────────────

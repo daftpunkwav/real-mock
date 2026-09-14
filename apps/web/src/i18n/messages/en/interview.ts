@@ -39,6 +39,9 @@ export const interview = {
   "setup.processor.tts": "Voice output (playback)",
   "setup.processor.sttAria": "Voice input model",
   "setup.processor.ttsAria": "Voice output model",
+  "setup.processor.referenceDetail": "Reference answer",
+  "setup.processor.referenceOutline": "Outline (fast)",
+  "setup.processor.referenceFull": "Full answer (slower, richer)",
 
   // ---- Setup: preview column ----
   "preview.title": "Preview",
@@ -181,6 +184,8 @@ export const interview = {
   "room.source.companyKb": "Company KB",
   "room.hint.timeout":
     "Generation is slow or timed out. Try STAR: Situation → Task → Action → Result (quantify where possible).",
+  "room.hint.timeoutDetailed":
+    "Full-answer generation timed out. Tap regenerate to retry the full version.",
 
   // ---- Room: toasts / voice status (non-render paths) ----
   "room.toast.audioEnabled": "Audio enabled",

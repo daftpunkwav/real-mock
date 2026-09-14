@@ -8,7 +8,7 @@ import { getTranslator } from "@/i18n/resolve";
 import { interviewHttp as api, settingsHttp } from "@/lib/api/clients";
 import { toast } from "@/components/Toast";
 import type { InterviewConfig, Options, ResumePickerItem } from "@/lib/api/contract";
-import type { ModelProfile, ReasoningEffort, TaskBindings } from "@/types";
+import type { ModelProfile, ReasoningEffort, ReferenceDetail, TaskBindings } from "@/types";
 import {
   CUSTOM_ROLE_ID,
   isPresetRole,
@@ -46,6 +46,8 @@ export function useInterviewSetup() {
   const [sttModelId, setSttModelId] = useState<number | null>(null);
   const [ttsModelId, setTtsModelId] = useState<number | null>(null);
   const [effort, setEffort] = useState<ReasoningEffort>("medium");
+  /** Reference-answer depth: fast outline (default) or tool-grounded full answer. */
+  const [referenceDetail, setReferenceDetail] = useState<ReferenceDetail>("outline");
   const [defaultBindings, setDefaultBindings] = useState<TaskBindings | null>(null);
 
   const loadData = () => {
@@ -106,19 +108,23 @@ export function useInterviewSetup() {
         reasoning_effort: effort,
       };
       if (multiRound) {
-        const created = await api.createProcess({
-          ...config,
-          role: labels.role,
-          level: labels.level,
-          max_rounds: 5,
-          ai_overrides: ai,
-        });
+        const created = await api.createProcess(
+          {
+            ...config,
+            role: labels.role,
+            level: labels.level,
+            max_rounds: 5,
+            ai_overrides: ai,
+          },
+          { reference_detail: referenceDetail },
+        );
         router.push(`/interview/${created.session_id}`);
         return;
       }
       const session = await api.createSessionWithAI(
         { ...config, role: labels.role, level: labels.level },
         ai,
+        { reference_detail: referenceDetail },
       );
       router.push(`/interview/${session.id}`);
     } catch (e) {
@@ -143,6 +149,7 @@ export function useInterviewSetup() {
     sttModelId,
     ttsModelId,
     effort,
+    referenceDetail,
     defaultBindings,
     set,
     setMultiRound,
@@ -150,6 +157,7 @@ export function useInterviewSetup() {
     setSttModelId,
     setTtsModelId,
     setEffort,
+    setReferenceDetail,
     reload: loadData,
     start,
   };

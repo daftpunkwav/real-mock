@@ -30,6 +30,7 @@ export default function InterviewSetupPage() {
     sttModelId,
     ttsModelId,
     effort,
+    referenceDetail,
     defaultBindings,
     set,
     setMultiRound,
@@ -37,6 +38,7 @@ export default function InterviewSetupPage() {
     setSttModelId,
     setTtsModelId,
     setEffort,
+    setReferenceDetail,
     reload,
     start,
   } = useInterviewSetup();
@@ -89,12 +91,14 @@ export default function InterviewSetupPage() {
               sttModelId={sttModelId}
               ttsModelId={ttsModelId}
               effort={effort}
+              referenceDetail={referenceDetail}
               defaultBindings={defaultBindings}
               onConfig={set}
               setChatModelId={setChatModelId}
               setSttModelId={setSttModelId}
               setTtsModelId={setTtsModelId}
               setEffort={setEffort}
+              setReferenceDetail={setReferenceDetail}
               footer={
                 <div className="sticky bottom-0 shrink-0 bg-[var(--background)]/90 pb-1 pt-1 backdrop-blur-sm sm:hidden">
                   {startButton(true)}

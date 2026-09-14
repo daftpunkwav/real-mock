@@ -85,6 +85,7 @@ class ConnectionAuthMixin:
             self.ctx.stt_creds = session_stt_credentials(api_db, session)
             self.ctx.tts_creds = session_tts_credentials(api_db, session)
         self.ctx.agent = InterviewSessionState(session, self.ctx.llm)
+        self.ctx.reference_detail = getattr(session, "reference_detail", None) or "outline"
 
         rag = None
         try:

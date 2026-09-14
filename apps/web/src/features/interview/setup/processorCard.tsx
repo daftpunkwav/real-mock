@@ -4,8 +4,9 @@
 
 import { useT } from "@/i18n";
 import { Mic } from "lucide-react";
-import type { ModelProfile, ReasoningEffort, TaskBindings } from "@/types";
+import type { ModelProfile, ReasoningEffort, ReferenceDetail, TaskBindings } from "@/types";
 import { EffortSelect, ModelSelect } from "@/components/ModelControls";
+import { Select as CustomSelect } from "@/components/Select";
 
 export function ProcessorCard({
   chatModels,
@@ -15,10 +16,12 @@ export function ProcessorCard({
   sttModelId,
   ttsModelId,
   effort,
+  referenceDetail,
   setChatModelId,
   setSttModelId,
   setTtsModelId,
   setEffort,
+  setReferenceDetail,
   defaultBindings,
   disabled,
 }: {
@@ -29,10 +32,12 @@ export function ProcessorCard({
   sttModelId: number | null;
   ttsModelId: number | null;
   effort: ReasoningEffort;
+  referenceDetail: ReferenceDetail;
   setChatModelId: (v: number | null) => void;
   setSttModelId: (v: number | null) => void;
   setTtsModelId: (v: number | null) => void;
   setEffort: (v: ReasoningEffort) => void;
+  setReferenceDetail: (v: ReferenceDetail) => void;
   defaultBindings: TaskBindings | null;
   disabled: boolean;
 }) {
@@ -43,7 +48,7 @@ export function ProcessorCard({
         <Mic size={13} className="text-[var(--primary)]" />
         {t("setup.processor.title")}
       </p>
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <label className="field-label !mb-1 !text-xs">{t("setup.processor.chatModel")}</label>
           <ModelSelect
@@ -90,6 +95,20 @@ export function ProcessorCard({
             ariaLabel={t("setup.processor.ttsAria")}
             className="!w-full !max-w-none"
             defaultProfile={defaultBindings?.tts?.profile ?? null}
+          />
+        </div>
+        <div>
+          <label className="field-label !mb-1 !text-xs">{t("setup.processor.referenceDetail")}</label>
+          <CustomSelect
+            className="!h-9 !w-full !text-xs"
+            ariaLabel={t("setup.processor.referenceDetail")}
+            value={referenceDetail}
+            options={[
+              { value: "outline", label: t("setup.processor.referenceOutline") },
+              { value: "full", label: t("setup.processor.referenceFull") },
+            ]}
+            onChange={(v) => setReferenceDetail(v as ReferenceDetail)}
+            disabled={disabled}
           />
         </div>
       </div>

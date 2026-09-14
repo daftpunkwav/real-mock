@@ -72,6 +72,8 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       d.setReferenceHint("");
       d.setLastQuestion(question);
       clearHintTimeout();
+      // Outline resolves in seconds; detailed (agent-loop) mode gets a longer
+      // budget — the server re-announces loading with the mode on every path.
       d.hintTimeoutRef.current = setTimeout(() => {
         d.setHintLoading(false);
         d.setReferenceHint((prev) =>
@@ -206,7 +208,31 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       d.lastAssistantTextRef.current = msg.content || "";
     });
 
-    on("reference_hint_loading", () => d.setHintLoading(true));
+    on("reference_hint_loading", (msg) => {
+      d.setHintLoading(true);
+      // The server announces the true budget: detailed (agent-loop) mode gets
+      // 90s, outline keeps 25s. Reset the provisional timeout from requestHint.
+      clearHintTimeout();
+      const budgetMs = msg.detailed ? 90_000 : 25_000;
+      d.hintTimeoutRef.current = setTimeout(() => {
+        d.setHintLoading(false);
+        d.setReferenceHint((prev) =>
+          prev.trim()
+            ? prev
+            : getTranslator("interview")(
+                msg.detailed ? "room.hint.timeoutDetailed" : "room.hint.timeout",
+              ),
+        );
+      }, budgetMs);
+    });
+
+    on("reference_hint_error", (msg) => {
+      // Terminal failure (e.g. rate-limited): resolve loading with the message.
+      clearHintTimeout();
+      d.setReferenceHint(msg.message || "");
+      d.setLastQuestion(msg.question || "");
+      d.setHintLoading(false);
+    });
 
     on("reference_hint", (msg) => {
       const cleaned = msg.content

@@ -14,6 +14,7 @@
     "silence_nudge",
     "reference_hint_loading",
     "reference_hint",
+    "reference_hint_error",
     "phase_changed",
     "interview_complete",
     "server_ping",
@@ -193,6 +194,9 @@
       "properties": {
         "question": {
           "type": "string"
+        },
+        "detailed": {
+          "type": "boolean"
         }
       }
     },
@@ -203,6 +207,20 @@
       ],
       "properties": {
         "content": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        }
+      }
+    },
+    "reference_hint_error": {
+      "required": [
+        "message",
+        "question"
+      ],
+      "properties": {
+        "message": {
           "type": "string"
         },
         "question": {

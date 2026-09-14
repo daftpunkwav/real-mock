@@ -50,8 +50,9 @@ export type ServerEvent =
   | { type: "tts_failed"; message: string }
   | { type: "tts_interrupted"; reason?: string; candidate_interrupts?: number; playback_generation?: number }
   | { type: "silence_nudge"; content: string; seq?: number; ai_interrupts?: number }
-  | { type: "reference_hint_loading"; question: string }
+  | { type: "reference_hint_loading"; question: string; detailed?: boolean }
   | { type: "reference_hint"; content: string; question: string }
+  | { type: "reference_hint_error"; message: string; question: string }
   | { type: "phase_changed"; phase: string; phase_title?: string | null }
   | {
       type: "interview_complete";

@@ -71,6 +71,7 @@ def create_session(
         avatar_id=config.avatar_id,
         scene_id=config.scene_id,
         ui_locale=(config.ui_locale or "")[:10],
+        reference_detail=config.reference_detail or "outline",
         status=SessionStatus.PENDING.value,
         current_phase="identity_check",
         access_token=token,

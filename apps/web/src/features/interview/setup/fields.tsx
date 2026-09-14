@@ -11,6 +11,7 @@ import type {
 import type {
   ModelProfile,
   ReasoningEffort,
+  ReferenceDetail,
   TaskBindings,
 } from "@/types";
 import { ChoiceGroup, CompanyGrid, ResumeWarning, Select } from "./controls";
@@ -81,12 +82,14 @@ export function SetupFields({
   sttModelId,
   ttsModelId,
   effort,
+  referenceDetail,
   defaultBindings,
   onConfig,
   setChatModelId,
   setSttModelId,
   setTtsModelId,
   setEffort,
+  setReferenceDetail,
   footer,
 }: {
   options: Options;
@@ -102,12 +105,14 @@ export function SetupFields({
   sttModelId: number | null;
   ttsModelId: number | null;
   effort: ReasoningEffort;
+  referenceDetail: ReferenceDetail;
   defaultBindings: TaskBindings | null;
   onConfig: (patch: Partial<InterviewConfig>) => void;
   setChatModelId: (v: number | null) => void;
   setSttModelId: (v: number | null) => void;
   setTtsModelId: (v: number | null) => void;
   setEffort: (v: ReasoningEffort) => void;
+  setReferenceDetail: (v: ReferenceDetail) => void;
   footer?: React.ReactNode;
 }) {
   const t = useT("interview");
@@ -261,10 +266,12 @@ export function SetupFields({
         sttModelId={sttModelId}
         ttsModelId={ttsModelId}
         effort={effort}
+        referenceDetail={referenceDetail}
         setChatModelId={setChatModelId}
         setSttModelId={setSttModelId}
         setTtsModelId={setTtsModelId}
         setEffort={setEffort}
+        setReferenceDetail={setReferenceDetail}
         defaultBindings={defaultBindings}
         disabled={creating}
       />
