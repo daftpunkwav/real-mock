@@ -145,7 +145,8 @@ def test_run_migrations_stamps_alembic_version() -> None:
 def test_session_ddl_ownership_by_domain() -> None:
     """Session-business DDL belongs to business packages and is not owned by the shared platform layer (changing or deleting a business does not change the platform).
 
-    - ``realmock.domains.prep`` / ``realmock.domains.interview`` each declare only their own session tables;
+    - ``realmock.domains.prep`` / ``realmock.domains.interview`` each declare only
+      tables of their own domain (interview owns the session and process tables);
     - The source of ``platform/core/migrate.py`` no longer contains any session-business table names;
     - ``API_MIGRATIONS`` must not include session-business tables.
     """
@@ -156,13 +157,15 @@ def test_session_ddl_ownership_by_domain() -> None:
     from realmock.domains.prep.column_migrations import SESSIONS_MIGRATIONS as PREP_MIGRATIONS
 
     assert set(PREP_MIGRATIONS) == {"prep_sessions"}
-    assert set(INTERVIEW_MIGRATIONS) == {"interview_sessions"}
+    assert set(INTERVIEW_MIGRATIONS) == {"interview_sessions", "interview_processes"}
 
     source = Path(realmock.platform.core.migrate.__file__).read_text(encoding="utf-8")
     assert "prep_sessions" not in source
     assert "interview_sessions" not in source
+    assert "interview_processes" not in source
 
     assert "interview_sessions" not in API_MIGRATIONS
+    assert "interview_processes" not in API_MIGRATIONS
     assert "prep_sessions" not in API_MIGRATIONS
 
 

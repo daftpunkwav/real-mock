@@ -1,7 +1,8 @@
 """Interview-domain sessions.db column backfill DDL.
 
-Schema ownership stays in the business package: this module only declares
-``interview_sessions`` ALTER statements. Composition root
+Schema ownership stays in the business package: this module declares ALTER
+statements for the interview tables living in sessions.db
+(``interview_sessions`` and ``interview_processes``). Composition root
 ``realmock.bootstrap.sessions_orm.sessions_column_migrations`` assembles them for
 :func:`realmock.platform.core.migrate.apply_column_migrations`.
 """
