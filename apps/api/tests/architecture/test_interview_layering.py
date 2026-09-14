@@ -7,6 +7,9 @@ these tests hold the seams instead of directories:
 - external layers (realtime/routes/process) reach ``agents`` internals only
   through the facade or the three leaf contracts;
 - ``agents`` never imports upward (realtime/routes);
+- the WS entry (``routes/ws``) is the single wire into ``realtime``;
+- ``agents`` may use the frozen shared-kernel allowlist under ``process``
+  (plan protocol + read-only process views) — nothing else;
 - the facade export list stays in sync with its resolver map.
 """
 
@@ -19,6 +22,23 @@ INTERVIEW_ROOT = Path("src/realmock/domains/interview")
 
 #: Deep ``agents.<leaf>`` imports allowed outside ``agents`` (contracts/SSOT).
 AGENTS_LEAF_ALLOWLIST = frozenset({"events", "workflows", "agent_text"})
+
+#: ``process.*`` modules ``agents`` may import (frozen shared kernel: the plan
+#: protocol hosted under process/planning plus read-only process views, plus
+#: the finish-path subscriber below). These are mis-homed but load-bearing —
+#: moving them means updating every importer plus the stored plan JSON
+#: readers, so the seam is locked instead: any NEW agents→process edge fails
+#: this test and forces the discussion.
+AGENTS_PROCESS_ALLOWLIST = frozenset({
+    "realmock.domains.interview.process.planning.plan_schema",
+    "realmock.domains.interview.process.planning.planner",
+    "realmock.domains.interview.process.process_memory",
+    "realmock.domains.interview.process.round_chain",
+    # finish_lifecycle → record_round_finished: completion subscriber (never
+    # raises, never calls back into agents — verified acyclic). Splitting it
+    # across the 4 finish call sites would scatter the guarantee instead.
+    "realmock.domains.interview.process.process_service",
+})
 
 
 def _api_root() -> Path:
@@ -85,6 +105,63 @@ def test_interview_agents_no_upward_imports() -> None:
                 )
     assert not violations, (
         "agents must not depend on upper layers (dependency: realtime/routes → agents):\n"
+        + "\n".join(violations)
+    )
+
+
+def test_interview_agents_process_seam_frozen() -> None:
+    """agents→process stays within the shared-kernel allowlist (no new edges)."""
+    api_root = _api_root()
+    base = api_root / INTERVIEW_ROOT / "agents"
+    violations: list[str] = []
+    for path in sorted(base.rglob("*.py")):
+        for module, lineno in _from_imports(path):
+            if not module:
+                continue
+            parts = module.split(".")
+            if (
+                len(parts) >= 5
+                and parts[:4] == ["realmock", "domains", "interview", "process"]
+                and module not in AGENTS_PROCESS_ALLOWLIST
+            ):
+                violations.append(
+                    f"{path.relative_to(api_root)}:{lineno}: new agents→process edge "
+                    f"'{module}' — extend AGENTS_PROCESS_ALLOWLIST deliberately or move the module"
+                )
+    assert not violations, (
+        "agents→process seam is frozen to the shared-kernel allowlist:\n"
+        + "\n".join(violations)
+    )
+
+
+def test_interview_routes_realtime_single_wire() -> None:
+    """Only the WS entry (routes/ws) may wire into realtime (the handler)."""
+    api_root = _api_root()
+    violations: list[str] = []
+    for layer in ("routes",):
+        base = api_root / INTERVIEW_ROOT / layer
+        for path in sorted(base.rglob("*.py")):
+            in_ws_entry = "routes/ws" in path.as_posix().replace("\\", "/")
+            for module, lineno in _from_imports(path):
+                if not module:
+                    continue
+                parts = module.split(".")
+                if not (
+                    len(parts) >= 5
+                    and parts[:4] == ["realmock", "domains", "interview", "realtime"]
+                ):
+                    continue
+                allowed = (
+                    in_ws_entry
+                    and module == "realmock.domains.interview.realtime.ws_handler"
+                )
+                if not allowed:
+                    violations.append(
+                        f"{path.relative_to(api_root)}:{lineno}: routes→realtime edge "
+                        f"'{module}' outside the WS entry wire"
+                    )
+    assert not violations, (
+        "routes must not reach into realtime except via routes/ws → ws_handler:\n"
         + "\n".join(violations)
     )
 

@@ -88,6 +88,8 @@ class ConnectionAuthMixin:
 
         rag = None
         try:
+            # Function-level import: RAG is optional — an import-time failure
+            # must degrade to RAG-less mode here, not break pipeline assembly.
             from realmock.domains.interview.capabilities.rag.company_rag import CompanyKnowledgeRAG
 
             rag = CompanyKnowledgeRAG(self.ctx.llm)

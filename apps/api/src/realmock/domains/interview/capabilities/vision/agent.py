@@ -8,6 +8,15 @@ class VisionAgent:
 
     @staticmethod
     def summarize(face_analysis: dict[str, Any] | None) -> str:
+        """Compress one face-analysis frame into a short English state line.
+
+        Args:
+            face_analysis: Raw frame dict (``face_detected`` / ``looking_away`` /
+                ``nervousness`` / ``face_count``); None or empty yields ``""``.
+
+        Returns:
+            Semicolon-joined hints, or a normal-state sentence when unremarkable.
+        """
         if not face_analysis:
             return ""
         hints: list[str] = []

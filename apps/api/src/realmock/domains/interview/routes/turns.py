@@ -73,6 +73,10 @@ async def start_interview(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_token),
 ):
+    """Run the opening turn over SSE-less HTTP (text-fallback path).
+
+    Only PENDING/ACTIVE sessions; requires a configured chat model.
+    """
     session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
     if not session:
         raise_error("A2001")
@@ -101,6 +105,11 @@ async def send_message(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_token),
 ):
+    """Run one candidate turn over HTTP (text-fallback path).
+
+    Rejects finished sessions; finish-lifecycle side effects run inside the
+    runner, never doubled here.
+    """
     session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
     if not session:
         raise_error("A2001")

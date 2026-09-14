@@ -155,6 +155,11 @@ def list_processes(db: Session) -> list[InterviewProcessResponse]:
 
 
 def get_process_detail(db: Session, process_id: int) -> InterviewProcessResponse:
+    """One process with round lineage and next-round eligibility.
+
+    Raises:
+        ProcessRoundError: ``A2001`` when the process id is unknown.
+    """
     process = db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
     if process is None:
         raise ProcessRoundError("A2001", "Interview process not found")

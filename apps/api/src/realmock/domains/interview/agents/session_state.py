@@ -59,11 +59,13 @@ class InterviewSessionState(SessionPromptMixin):
         try:
             self.agent_state: dict[str, Any] = json.loads(self.session.agent_state or "{}")
         except json.JSONDecodeError:
+            logger.debug("corrupt agent_state JSON sid=%s; start fresh", getattr(self.session, "id", None))
             self.agent_state = {}
 
         try:
             self.messages: list[dict[str, Any]] = json.loads(self.session.messages or "[]")
         except json.JSONDecodeError:
+            logger.debug("corrupt messages JSON sid=%s; start fresh", getattr(self.session, "id", None))
             self.messages = []
 
         self.workflow: Workflow = get_workflow(self.session.workflow_type)
@@ -163,6 +165,7 @@ class InterviewSessionState(SessionPromptMixin):
         return self.phases[-1]
 
     def phases_remaining(self) -> list[str]:
+        """Display names of the current and all later phases/steps."""
         return [p.name for p in self.phases[self.current_phase_idx:]]
 
     def phase_title_for_display(self) -> str:
@@ -231,6 +234,7 @@ class InterviewSessionState(SessionPromptMixin):
         self.messages = []
 
     def set_questions_in_phase(self, value: int) -> None:
+        """Reset the per-phase question counter (used on start)."""
         self.questions_in_phase = value
 
     def advance_phase_if_needed(

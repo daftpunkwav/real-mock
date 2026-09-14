@@ -15,6 +15,11 @@ async def interview_websocket(
     session_id: int,
     token: str = Query(default="", description="Session Capability Token (compatible; preferred subprotocol)"),
 ):
+    """Realtime interview socket: origin-guarded handshake, then room loop.
+
+    FastAPI dependencies cannot run on WS scopes, so origin + capability-token
+    checks happen inline before delegating to :class:`InterviewWSHandler`.
+    """
     # Dependency guards cannot run on WS scopes: reject browser-driven
     # cross-site handshakes here instead (capability token still applies).
     if not await guard_ws_origin(websocket):

@@ -71,6 +71,7 @@ class PlannedRound:
     pass_criteria: str = ""
 
     def to_dict(self) -> dict:
+        """JSON-ready round projection (stable key order for storage)."""
         return {
             "round_no": self.round_no,
             "kind": self.kind,
@@ -106,6 +107,7 @@ class RoundPlan:
     source: str = "agent"  # "agent" (LLM-authored)
 
     def to_dict(self) -> dict:
+        """JSON-ready program document (``realmock.round_plan.v1``)."""
         return {
             "schema": SCHEMA,
             "note": self.note,
@@ -166,6 +168,7 @@ def parse_round_plan(data: object) -> RoundPlan | None:
         try:
             data = json.loads(data or "{}")
         except json.JSONDecodeError:
+            logger.debug("round-plan JSON unparsable; caller falls back")
             return None
     if not isinstance(data, dict):
         return None

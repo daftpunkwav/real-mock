@@ -40,13 +40,16 @@ class PlanStep:
     # PhaseDef compatibility: the state machine reads .name / .description.
     @property
     def name(self) -> str:
+        """PhaseDef-compatible display name."""
         return self.title
 
     @property
     def description(self) -> str:
+        """PhaseDef-compatible assessment focus."""
         return self.focus
 
     def to_dict(self) -> dict:
+        """JSON-ready step projection (stable key order for storage)."""
         return {
             "id": self.id,
             "title": self.title,
@@ -66,6 +69,7 @@ class InterviewPlan:
     source: str = "agent"  # "agent" | "fallback"
 
     def to_dict(self) -> dict:
+        """JSON-ready plan document (steps + round note + source)."""
         return {
             "round_note": self.round_note,
             "source": self.source,
@@ -120,6 +124,7 @@ def parse_plan(data: object) -> InterviewPlan | None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
+            logger.debug("plan JSON unparsable; caller falls back")
             return None
     if not isinstance(data, dict):
         return None

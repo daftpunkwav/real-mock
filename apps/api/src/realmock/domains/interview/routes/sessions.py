@@ -29,6 +29,10 @@ from realmock.domains.interview.schemas import (
     InterviewSessionResponse,
 )
 from realmock.domains.interview.process.planning.planner import generate_plan_for_session
+from realmock.domains.interview.process.planning.plan_schema import (
+    parse_plan,
+    plan_step_views,
+)
 from realmock.platform.services.resume_picker import list_resume_picker_items
 
 
@@ -48,6 +52,12 @@ def create_session(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_sessions_db),
 ):
+    """Create a PENDING session, issue its capability token, and plan the flow.
+
+    The flow planner runs in the background; the opening turn waits for it
+    (bounded) and degrades to the static workflow on failure. The token is
+    issued via HttpOnly cookie only, never in the response body.
+    """
     token = new_access_token()
     session = InterviewSession(
         role=config.role,
@@ -96,6 +106,7 @@ def get_session(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_token),
 ):
+    """Fetch one session view; 404 when missing, 403 on token mismatch."""
     session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
     if not session:
         raise_error("A2001")
@@ -108,6 +119,11 @@ def get_messages(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_token),
 ):
+    """Return the session transcript as validated chat messages.
+
+    Dirty historical rows validate to an empty list rather than leaking
+    internal errors to the client.
+    """
     session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
     if not session:
         raise_error("A2001")
@@ -125,11 +141,13 @@ def get_messages(
 def to_session_response(
     session: InterviewSession, *, include_token: bool = False
 ) -> InterviewSessionResponse:
-    from realmock.domains.interview.process.planning.plan_schema import (
-        parse_plan,
-        plan_step_views,
-    )
+    """Project a session row onto the API response (plan steps included).
 
+    Args:
+        session: Interview session row.
+        include_token: When True, embed the capability token; list views
+            must leave it False to prevent token enumeration.
+    """
     plan = parse_plan(getattr(session, "plan", None))
     return InterviewSessionResponse(
         id=session.id,

@@ -25,6 +25,7 @@ class SessionSnapshot:
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def merge_face(self, face: dict[str, Any] | None) -> None:
+        """Fold one face-analysis frame into the snapshot (no-op on empty)."""
         if not face:
             return
         self.face_analysis = face

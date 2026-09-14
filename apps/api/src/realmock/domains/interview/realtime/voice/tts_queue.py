@@ -108,6 +108,12 @@ class _SentenceTTSQueue:
             logger.info("TTS queue discards %d sentences (exceeds the upper limit)", self._dropped_count)
 
     async def enqueue(self, sentence: str, emotion: str | None = None) -> None:
+        """Queue one sentence for serial synthesis (drops oldest past 50).
+
+        Args:
+            sentence: Raw sentence text (marker-stripped; empties skipped).
+            emotion: Prosody hint; auto-detected from the text when omitted.
+        """
         emo = (emotion or extract_emotion(sentence) or "neutral").strip().lower()
         clean = _plain_text_for_tts(strip_markers(sentence)).strip()
         if not clean:

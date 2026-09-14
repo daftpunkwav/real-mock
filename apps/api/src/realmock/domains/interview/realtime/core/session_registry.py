@@ -184,14 +184,17 @@ def reset_ws_connection_registry(registry: WsConnectionRegistry | None = None) -
 
 # ── Module-level thin packaging (keep existing import paths)────────────────────────
 async def verify_connection_lease(handler: SessionConnection) -> bool:
+    """Check the handler still holds its session lease (single-tab guard)."""
     return await get_ws_connection_registry().verify_lease(handler)
 
 
 async def claim_session_connection(handler: SessionConnection) -> None:
+    """Take the session lease for a handler, evicting any previous holder."""
     await get_ws_connection_registry().claim(handler)
 
 
 async def release_session_connection(handler: SessionConnection) -> None:
+    """Release the lease only if still held by this handler."""
     await get_ws_connection_registry().release(handler)
 
 

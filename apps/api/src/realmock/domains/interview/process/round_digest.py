@@ -9,15 +9,19 @@ frozen ledger for phase coverage.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from realmock.domains.interview.process.process_memory import _DIGEST_LIMITS
+
+logger = logging.getLogger(__name__)
 
 
 def _load_agent_state(session: Any) -> dict[str, Any]:
     try:
         state = json.loads(getattr(session, "agent_state", None) or "{}")
     except (json.JSONDecodeError, TypeError):
+        logger.debug("corrupt agent_state JSON; digest from defaults")
         return {}
     return state if isinstance(state, dict) else {}
 

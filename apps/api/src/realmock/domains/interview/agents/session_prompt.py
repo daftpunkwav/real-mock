@@ -52,6 +52,7 @@ class SessionPromptMixin:
     # ---- Config / context lookups (read-only) --------------------------------
 
     def get_config(self) -> InterviewConfig:
+        """Validated interview config from the session row (legacy free-form tolerated)."""
         # DB fields are free-form str and may hold legacy values; cast to Literal
         # and let Pydantic validate.
         return InterviewConfig(
@@ -75,10 +76,12 @@ class SessionPromptMixin:
         )
 
     def get_user_profile(self, db: Session):
+        """Candidate profile row for prompt grounding (None when absent)."""
         with api_db_session() as api_db:
             return get_user_profile(api_db, self.session.profile_id)
 
     def get_candidate(self, db: Session):
+        """Candidate resume payload for prompt grounding (None when absent)."""
         with api_db_session() as api_db:
             return get_candidate_profile(api_db, self.session.resume_id)
 

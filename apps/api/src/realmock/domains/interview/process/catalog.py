@@ -28,10 +28,12 @@ class InterviewSessionCatalog:
     """Read-only catalog backed by interview_sessions."""
 
     def list_sessions(self, db: Session) -> list[SessionCatalogItem]:
+        """Newest-first session metadata (no transcript payloads)."""
         rows = db.query(InterviewSession).order_by(InterviewSession.created_at.desc()).all()
         return [self._to_item(s) for s in rows]
 
     def get_session(self, db: Session, session_id: int) -> SessionSnapshot | None:
+        """One session snapshot; None when the id is unknown."""
         session = (
             db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         )
@@ -40,12 +42,14 @@ class InterviewSessionCatalog:
         return self._to_snapshot(session)
 
     def get_session_snapshot(self, db: Session, session_id: int) -> dict[str, Any] | None:
+        """JSON-serializable snapshot dict; None when the id is unknown."""
         snap = self.get_session(db, session_id)
         if snap is None:
             return None
         return snap.model_dump(mode="json")
 
     def get_ledger(self, db: Session, session_id: int) -> dict[str, Any] | None:
+        """Raw ledger document for a session; None when the id is unknown."""
         session = (
             db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         )
@@ -85,6 +89,7 @@ class InterviewSessionCatalog:
             try:
                 duration_seconds = (ended - started).total_seconds()
             except TypeError:
+                logger.debug("non-datetime bounds sid=%s; duration unknown", session.id)
                 duration_seconds = None
         return len(messages), duration_seconds
 

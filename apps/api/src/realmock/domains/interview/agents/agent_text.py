@@ -58,6 +58,12 @@ class ThinkStreamFilter:
         self._buf = ""
 
     def feed(self, token: str) -> str:
+        """Consume one stream token; return the visible (non-think) delta.
+
+        Tag fragments split across tokens are buffered, never emitted: an
+        unfinished ``<think`` tail stays in ``_buf`` until the tag completes
+        or is disproven by more input.
+        """
         if not token:
             return ""
         self._buf += token
@@ -114,6 +120,7 @@ class ThinkStreamFilter:
         return "".join(out)
 
     def flush(self) -> str:
+        """Drain buffered text at stream end (discarded when inside a think block)."""
         if self._in_think:
             self._buf = ""
             return ""

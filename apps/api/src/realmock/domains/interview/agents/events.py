@@ -38,6 +38,7 @@ class StreamEvent:
 
     @classmethod
     def make_token(cls, token: str) -> "StreamEvent":
+        """One plaintext say delta for live streaming."""
         return cls(kind=EventKind.TOKEN, token=token)
 
     @classmethod
@@ -54,6 +55,7 @@ class StreamEvent:
         result: str | None = None,
         phase_title: str = "",
     ) -> "StreamEvent":
+        """Terminal event of one turn (spoken content + control fields)."""
         return cls(
             kind=EventKind.TURN_COMPLETE,
             content=content,

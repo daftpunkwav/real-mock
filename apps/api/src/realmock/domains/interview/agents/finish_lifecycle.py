@@ -54,6 +54,7 @@ def run_finish_lifecycle(
         if isinstance(messages, list):
             messages_count = len(messages)
     except (json.JSONDecodeError, TypeError):
+        logger.debug("corrupt messages JSON sid=%s; count unknown", getattr(session, "id", None))
         messages_count = None
 
     payload = InterviewFinishedPayload(

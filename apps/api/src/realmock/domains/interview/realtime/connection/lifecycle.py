@@ -34,6 +34,7 @@ class ConnectionLifecycleMixin:
     ctx: "ConnectionContext"
 
     async def send(self, msg_type: str, **payload: Any) -> None:
+        """Send one JSON event on the room socket (``{"type": msg_type, ...}``)."""
         await self.ctx.ws.send_json({"type": msg_type, **payload})
 
     async def _tts_send(self, msg_type: str, **payload: Any) -> None:
@@ -43,6 +44,11 @@ class ConnectionLifecycleMixin:
         await self.send(msg_type, **payload)
 
     async def set_turn(self, state: TurnState) -> None:
+        """Move the room turn-state machine and notify the client.
+
+        Entering ``USER_SPEAKING`` also stamps ``mic_opened_at`` (silence-nudge
+        grace counts from text-complete, not playback-complete).
+        """
         self.ctx.turn_state = state
         if state == TurnState.USER_SPEAKING:
             self.ctx.mic_opened_at = asyncio.get_event_loop().time()
@@ -83,6 +89,12 @@ class ConnectionLifecycleMixin:
     # ------------------------------------------------------------------
 
     async def handle(self) -> None:
+        """Own the socket lifetime: handshake → pipeline bind → message loop.
+
+        The opening flow runs before the loop; each later turn builds a
+        short-lived DB session (never reuse the loop's). Any unexpected error
+        restores ``USER_SPEAKING`` and reports it instead of dropping the room.
+        """
         accept_kwargs: dict[str, str] = {}
         if self.ctx.ws_subprotocol:
             accept_kwargs["subprotocol"] = self.ctx.ws_subprotocol

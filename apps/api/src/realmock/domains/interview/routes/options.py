@@ -10,4 +10,5 @@ router = APIRouter()
 
 @router.get("", response_model=OptionsResponse)
 def get_options():
+    """Setup-page dropdown payload (workflows / personalities / voices / avatars)."""
     return OptionsResponse(**build_options_payload())

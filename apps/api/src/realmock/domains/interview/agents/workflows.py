@@ -138,6 +138,14 @@ STRICTNESS_DESCRIPTIONS = {
 
 
 def get_workflow(workflow_id: str) -> Workflow:
+    """Look up a static interview workflow; unknown ids fall back to technical.
+
+    Args:
+        workflow_id: Workflow key (``technical`` | ``hr`` | ``management``).
+
+    Returns:
+        The matching workflow, or the technical workflow for legacy/unknown ids.
+    """
     return WORKFLOWS.get(workflow_id, TECHNICAL_WORKFLOW)
 
 

@@ -99,6 +99,7 @@ def build_round_plan_user_message(
 
 
 def hr_planner_system_prompt() -> str:
+    """HR coordinator system prompt with the round-program JSON contract filled in."""
     return _HR_PLANNER_SYSTEM.format(contract=ROUND_PLAN_JSON_CONTRACT)
 
 

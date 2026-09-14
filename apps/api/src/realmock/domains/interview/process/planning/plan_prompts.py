@@ -85,6 +85,7 @@ def build_plan_user_message(
 
 
 def planner_system_prompt() -> str:
+    """Flow-designer system prompt with the plan JSON contract filled in."""
     return _PLANNER_SYSTEM.format(contract=PLAN_JSON_CONTRACT)
 
 

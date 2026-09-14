@@ -27,6 +27,7 @@ def _load_ledger(session: InterviewSession) -> list[dict[str, Any]]:
     try:
         ledger = json.loads(session.ledger or "{}")
     except (json.JSONDecodeError, TypeError):
+        logger.debug("corrupt ledger JSON sid=%s; no turns", getattr(session, "id", None))
         return []
     turns = ledger.get("turns") if isinstance(ledger, dict) else None
     return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []
@@ -53,6 +54,7 @@ def prior_round_sessions(
 
 
 def has_prior_rounds(db: Session, session: InterviewSession) -> bool:
+    """Whether the session has any completed earlier round in its process."""
     return bool(prior_round_sessions(db, session))
 
 

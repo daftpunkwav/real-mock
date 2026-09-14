@@ -71,6 +71,7 @@ async def maybe_fold_history(
     try:
         window = int(context_window or 0)
     except (TypeError, ValueError):
+        logger.debug("unparsable context_window=%r; skip fold", context_window)
         window = 0
     if window <= 0:
         return False

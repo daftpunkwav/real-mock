@@ -58,18 +58,23 @@ class CompanyKnowledgeRAG:
 
     @property
     def kind(self) -> Any:
+        """Backend kind id (``local`` | ``stepfun`` | ``none``)."""
         return self._impl.kind
 
     async def ensure_index(self) -> None:
+        """Build/refresh the company knowledge index (no-op when empty/disabled)."""
         await self._impl.ensure_index()
 
     def is_empty(self) -> bool:
+        """Whether the knowledge index has no documents to retrieve."""
         return self._impl.is_empty()
 
     async def query(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        """Retrieve generic hits (backend-shaped ``query`` passthrough)."""
         return await self._impl.query(*args, **kwargs)
 
     async def query_for_company(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        """Retrieve hits scoped to one company (backend-shaped passthrough)."""
         return await self._impl.query_for_company(*args, **kwargs)
 
 

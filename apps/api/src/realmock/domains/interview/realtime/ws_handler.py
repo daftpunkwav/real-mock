@@ -71,10 +71,12 @@ class InterviewWSHandler(
 
     @property
     def session_id(self) -> int:
+        """Room's interview session id (delegated to the connection context)."""
         return self.ctx.session_id
 
     @property
     def ws(self) -> WebSocket:
+        """Underlying socket (delegated to the connection context)."""
         return self.ctx.ws
 
     @property
@@ -87,6 +89,7 @@ class InterviewWSHandler(
 
     @property
     def lease_token(self) -> str:
+        """Single-tab lease token identifying this connection holder."""
         return self.ctx.lease_token
 
     def _spawn(self, coro) -> asyncio.Task[Any]:
