@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.services.interview.agent_text import strip_markers
-from realmock.domains.interview.services.interview.events import EventKind, StreamEvent
+from realmock.domains.interview.agents.agent_text import strip_markers
+from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.platform.capabilities.voice.tts.edge import (
     next_soft_min,
     should_flush_sentence_buffer,

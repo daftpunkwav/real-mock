@@ -20,7 +20,7 @@ import pytest
 
 from realmock.domains.interview.realtime import ws_handler
 from realmock.domains.interview.realtime.core.events import SessionEvent, TurnState
-from realmock.domains.interview.services.interview.events import EventKind, StreamEvent
+from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.platform.capabilities.voice.stt import SttCredentials, SttResult
 
 

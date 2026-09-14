@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 
 from realmock.domains.interview.routes import turns as interview_api
-from realmock.domains.interview.services.interview import session_state as agent_mod
+from realmock.domains.interview.agents import session_state as agent_mod
 
 
 def test_interview_agent_has_no_start_or_respond() -> None:
@@ -33,7 +33,7 @@ def test_phases_remaining_is_callable_list() -> None:
     """Prevent phases_remaining from being treated as a property again and causing TypeError."""
     from unittest.mock import MagicMock
 
-    from realmock.domains.interview.services.interview.session_state import InterviewSessionState
+    from realmock.domains.interview.agents.session_state import InterviewSessionState
 
     session = MagicMock()
     session.role = "Backend"

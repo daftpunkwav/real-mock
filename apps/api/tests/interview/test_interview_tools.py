@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from realmock.domains.interview.services.interview import tools as interview_tools
+from realmock.domains.interview.agents import tools as interview_tools
 
 
 def test_web_search_interview_exp_uses_shared_execute(monkeypatch) -> None:

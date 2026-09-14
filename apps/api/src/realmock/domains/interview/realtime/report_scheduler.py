@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from realmock.domains.interview.ledger.store import is_frozen
 from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.services.interview.finish_lifecycle import run_finish_lifecycle
+from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
 

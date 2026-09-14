@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.services.interview.past_records import (
+from realmock.domains.interview.agents.past_records import (
     prior_round_sessions,
     read_past_round,
     search_past_interviews,
 )
-from realmock.domains.interview.services.interview.session_state import InterviewSessionState
-from realmock.domains.interview.services.interview.turn_output import parse_turn_output
+from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.agents.turn_output import parse_turn_output
 from realmock.domains.interview.services.planning.plan_schema import (
     MAX_PLAN_STEPS,
     MIN_PLAN_STEPS,
@@ -23,7 +23,7 @@ from realmock.domains.interview.services.planning.planner import (
     ensure_plan,
     fallback_plan_for,
 )
-from realmock.domains.interview.services.interview.workflows import get_workflow
+from realmock.domains.interview.agents.workflows import get_workflow
 from tests.fakes import FakeLLMClient
 
 

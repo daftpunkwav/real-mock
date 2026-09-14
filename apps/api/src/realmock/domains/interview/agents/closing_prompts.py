@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from realmock.domains.interview.services.interview.session_state import InterviewSessionState
+from realmock.domains.interview.agents.session_state import InterviewSessionState
 
 # Closing tone hints by personality (preserve prior intent)
 CLOSING_BY_PERSONALITY: dict[str, str] = {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from realmock.domains.interview.agents.orchestrator import InterviewOrchestrator
+from realmock.domains.interview.realtime.nudge.orchestrator import InterviewOrchestrator
 
 
 def test_silence_nudge_strict_branch_uses_strict_templates() -> None:

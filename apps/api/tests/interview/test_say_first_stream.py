@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser
-from realmock.domains.interview.services.interview.turn_output import parse_turn_output
+from realmock.domains.interview.agents.turn_output import parse_turn_output
 
 
 def feed_all(parser: SayFirstStreamParser, text: str, chunk: int) -> str:

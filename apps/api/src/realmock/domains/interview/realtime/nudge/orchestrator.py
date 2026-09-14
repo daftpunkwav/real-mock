@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from realmock.domains.interview.agents.snapshot import SessionSnapshot
+from realmock.domains.interview.realtime.nudge.snapshot import SessionSnapshot
 
 
 class InterviewOrchestrator:

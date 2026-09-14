@@ -11,7 +11,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from realmock.domains.interview.services.interview.agent_text import strip_think_blocks
+from realmock.domains.interview.agents.agent_text import strip_think_blocks
 
 if TYPE_CHECKING:
     from realmock.domains.interview.realtime.core.context import ConnectionContext

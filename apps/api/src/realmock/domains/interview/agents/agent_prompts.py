@@ -9,7 +9,7 @@ from typing import Any
 from realmock.platform.core.prompts import with_agent_output_rules
 from realmock.platform.schemas import CandidateProfile
 from realmock.domains.interview.schemas import InterviewConfig
-from realmock.domains.interview.services.interview.workflows import (
+from realmock.domains.interview.agents.workflows import (
     PERSONALITY_PROMPTS,
     STRICTNESS_DESCRIPTIONS,
     STYLE_PROMPTS,

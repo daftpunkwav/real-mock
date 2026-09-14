@@ -1,6 +1,6 @@
 """say-first protocol parsing: non-streaming parsing of early tool-round text + streaming incremental parsing.
 
-Extracted from :mod:`realmock.domains.interview.services.interview.runner` and shared by all three
+Extracted from :mod:`realmock.domains.interview.agents.runner` and shared by all three
 streaming entry points. think stripping comes first and protocol parsing second, with the two layers
 independent; on fallback (output does not follow the protocol), ``TurnOutput.say`` contains all visible
 text and control fields use their defaults.
@@ -12,12 +12,12 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any
 
-from realmock.domains.interview.services.interview.agent_text import (
+from realmock.domains.interview.agents.agent_text import (
     ThinkStreamFilter,
     strip_think_blocks,
 )
-from realmock.domains.interview.services.interview.events import StreamEvent
-from realmock.domains.interview.services.interview.turn_output import TurnOutput, parse_turn_output
+from realmock.domains.interview.agents.events import StreamEvent
+from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser
 

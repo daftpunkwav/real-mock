@@ -2,7 +2,7 @@
 
 Note ``SessionEvent.schema_version``: increment it whenever the event protocol changes; the frontend
 can use it for compatibility checks. ``SessionSnapshot`` now belongs to
-:mod:``realmock.domains.interview.agents.snapshot`` and is only re-exported here for backward compatibility.
+:mod:``realmock.domains.interview.realtime.nudge.snapshot`` and is only re-exported here for backward compatibility.
 """
 
 from dataclasses import dataclass, field
@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from realmock.domains.interview.agents.snapshot import SessionSnapshot
+from realmock.domains.interview.realtime.nudge.snapshot import SessionSnapshot
 
 
 class TurnState(str, Enum):
@@ -31,6 +31,6 @@ class SessionEvent:
 
 __all__ = ["TurnState", "SessionEvent", "SessionSnapshot"]
 
-# SessionSnapshot has moved to realmock.domains.interview.agents.snapshot; it is re-exported here only for backward compatibility.
+# SessionSnapshot has moved to realmock.domains.interview.realtime.nudge.snapshot; it is re-exported here only for backward compatibility.
 # The legacy import from realmock.domains.interview.realtime.core.events import SessionSnapshot still works; new code should directly
-# Reference it from realmock.domains.interview.agents.snapshot (dependency direction: realtime → agents only).
+# Reference it from realmock.domains.interview.realtime.nudge.snapshot.

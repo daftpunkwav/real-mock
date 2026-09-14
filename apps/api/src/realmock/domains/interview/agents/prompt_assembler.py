@@ -1,6 +1,6 @@
 """Interview turn: message assembly and context lookup.
 
-Split from :class:`realmock.domains.interview.services.interview.runner.InterviewRunner`:
+Split from :class:`realmock.domains.interview.agents.runner.InterviewRunner`:
 - Assemble final LLM messages (face-analysis hints / image modality / long-context compaction);
 - Read-only lookups for candidate profile and LLM settings.
 
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.context.summarize import compact_with_summary
-from realmock.domains.interview.services.interview.session_state import InterviewSessionState
+from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.platform.database import api_db_session
 from realmock.platform.services.pipeline.config import get_stage_config_for_runtime
 

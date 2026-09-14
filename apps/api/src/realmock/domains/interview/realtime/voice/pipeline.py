@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from realmock.domains.interview.services.interview.agent_text import strip_markers
+from realmock.domains.interview.agents.agent_text import strip_markers
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_speech
 from realmock.platform.capabilities.voice.tts.edge import (
     extract_emotion,

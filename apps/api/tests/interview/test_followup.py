@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from realmock.domains.interview.services.interview.followup import analyze
+from realmock.domains.interview.agents.followup import analyze
 
 
 def test_empty_answer_triggers_missing_data() -> None:

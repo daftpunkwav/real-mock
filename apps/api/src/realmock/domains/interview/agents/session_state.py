@@ -20,14 +20,14 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.models import InterviewSession
 from realmock.platform.catalogs.company import get_company_context
-from realmock.domains.interview.services.interview.session_prompt import SessionPromptMixin
-from realmock.domains.interview.services.interview.turn_output import TurnOutput
-from realmock.domains.interview.services.interview.agent_text import (
+from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
+from realmock.domains.interview.agents.turn_output import TurnOutput
+from realmock.domains.interview.agents.agent_text import (
     PHASE_COMPLETE_MARKER,
     has_marker,
     strip_markers,
 )
-from realmock.domains.interview.services.interview.workflows import Workflow, get_workflow
+from realmock.domains.interview.agents.workflows import Workflow, get_workflow
 from realmock.domains.interview.services.planning.plan_schema import (
     MAX_PLAN_STEPS,
     REVERSE_QA_KIND,

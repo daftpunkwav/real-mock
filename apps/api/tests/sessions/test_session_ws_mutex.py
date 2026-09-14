@@ -42,7 +42,7 @@ async def test_claim_kicks_old_connection() -> None:
 async def test_image_base64_oversize_dropped() -> None:
     """Oversized image_base64 is discarded at the WS turn entry point (aligned with the HTTP max_length)."""
     from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler, _IMAGE_BASE64_MAX_LEN
-    from realmock.domains.interview.services.interview.events import EventKind, StreamEvent
+    from realmock.domains.interview.agents.events import EventKind, StreamEvent
 
     handler = InterviewWSHandler(_mock_ws(), session_id=1)
     captured: dict = {}

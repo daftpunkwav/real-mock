@@ -258,7 +258,7 @@ async def execute_interview_tool(
         return await _cap_result(text, llm)
 
     if name == "search_past_interviews" or name == "read_past_round":
-        from realmock.domains.interview.services.interview import past_records
+        from realmock.domains.interview.agents import past_records
 
         if session is None:
             return json.dumps({"error": "no_process_context"}, ensure_ascii=False)

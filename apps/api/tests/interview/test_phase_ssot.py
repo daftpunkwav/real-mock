@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from realmock.domains.interview.constants import InterviewPhaseId
-from realmock.domains.interview.services.interview.workflows import WORKFLOWS, phase_label_map, technical_phase_order
+from realmock.domains.interview.agents.workflows import WORKFLOWS, phase_label_map, technical_phase_order
 
 
 ROOT = Path(__file__).resolve().parents[4]  # repo root (tests/interview/ -> apps/api -> apps -> repo)

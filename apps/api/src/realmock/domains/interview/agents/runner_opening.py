@@ -13,18 +13,18 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
-from realmock.domains.interview.services.interview.events import StreamEvent
-from realmock.domains.interview.services.interview.say_first import (
+from realmock.domains.interview.agents.events import StreamEvent
+from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
 )
-from realmock.domains.interview.services.interview.tool_round_runner import ToolRoundResult
-from realmock.domains.interview.services.interview.tool_round_stream import stream_tool_rounds
-from realmock.domains.interview.services.interview.turn_output import TurnOutput, parse_turn_output
+from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
+from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
+from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 from realmock.domains.interview.services.planning.planner import ensure_plan
 
 if TYPE_CHECKING:
-    from realmock.domains.interview.services.interview.runner import InterviewRunner
+    from realmock.domains.interview.agents.runner import InterviewRunner
 
 logger = logging.getLogger(__name__)
 

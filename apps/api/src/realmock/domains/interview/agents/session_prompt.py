@@ -1,6 +1,6 @@
 """Session prompt builder mixin: profile lookup, company context, structured memory.
 
-Split from :class:`realmock.domains.interview.services.interview.session_state.InterviewSessionState`.
+Split from :class:`realmock.domains.interview.agents.session_state.InterviewSessionState`.
 Single responsibility: build the system prompt and the per-turn memory section.
 """
 
@@ -17,13 +17,13 @@ from realmock.domains.interview.models import InterviewProcess
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.domains.interview.services.interview.agent_prompts import build_system_prompt
-from realmock.domains.interview.services.interview.workflows import Workflow
+from realmock.domains.interview.agents.agent_prompts import build_system_prompt
+from realmock.domains.interview.agents.workflows import Workflow
 from realmock.domains.interview.services.process_memory import load_memory, render_for_prompt
 from realmock.domains.interview.services.round_chain import step_for
 
 if TYPE_CHECKING:
-    from realmock.domains.interview.services.interview.session_state import InterviewSessionState
+    from realmock.domains.interview.agents.session_state import InterviewSessionState
 
 logger = logging.getLogger(__name__)
 

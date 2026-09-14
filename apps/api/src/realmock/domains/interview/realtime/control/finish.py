@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
 from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.domains.interview.services.interview.events import EventKind
+from realmock.domains.interview.agents.events import EventKind
 
 if TYPE_CHECKING:
     from realmock.domains.interview.realtime.core.context import ConnectionContext

@@ -25,15 +25,15 @@ from realmock.domains.interview.capabilities.rag.company_rag import (
     format_context as format_rag_context,
 )
 from realmock.domains.interview.ledger.store import append_pending_tool, begin_pending_tools, build_tool_preview
-from realmock.domains.interview.services.interview.agent_text import ThinkStreamFilter
-from realmock.domains.interview.services.interview.events import StreamEvent
-from realmock.domains.interview.services.interview.session_state import InterviewSessionState
-from realmock.domains.interview.services.interview.tools import (
+from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
+from realmock.domains.interview.agents.events import StreamEvent
+from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.agents.tools import (
     MAX_TOOL_ROUNDS,
     execute_interview_tool,
     get_interview_tool_definitions,
 )
-from realmock.domains.interview.services.interview.turn_output import TurnOutput, parse_turn_output
+from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser
@@ -139,7 +139,7 @@ class ToolRoundRunner:
                     tools.append(tool)
         settings = get_settings()
         if include_function_tools and settings.interview_tools_enabled:
-            from realmock.domains.interview.services.interview.past_records import has_prior_rounds
+            from realmock.domains.interview.agents.past_records import has_prior_rounds
             from realmock.platform.database import sessions_db_session
 
             with sessions_db_session() as sessions_db:

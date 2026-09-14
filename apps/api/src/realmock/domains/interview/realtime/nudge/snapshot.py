@@ -1,8 +1,7 @@
-"""Session snapshot: container for the latest state written by each sub-Agent.
+"""Session snapshot: container for the latest state written by each turn participant.
 
-Owned by the agents layer (the owner is :class:`realmock.domains.interview.agents.orchestrator.InterviewOrchestrator`).
-The realtime layer only writes (vision/STT data) and reads it, preserving the one-way dependency
-realtime → agents.
+Owned by the realtime nudge layer (the owner is :class:`realmock.domains.interview.realtime.nudge.orchestrator.InterviewOrchestrator`).
+The realtime layer only writes (vision/STT data) and reads it.
 """
 
 from __future__ import annotations

@@ -15,8 +15,8 @@ from realmock.domains.interview.session_overrides import session_llm, session_st
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.core.session_registry import claim_session_connection
-from realmock.domains.interview.services.interview.session_state import InterviewSessionState
-from realmock.domains.interview.services.interview.runner import InterviewRunner
+from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.agents.runner import InterviewRunner
 from realmock.platform.capabilities.voice.stt import warmup_whisper
 from realmock.platform.capabilities.voice.stt.cloud import is_local_stt_model
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody, resolve_prosody

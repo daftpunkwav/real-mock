@@ -9,7 +9,7 @@ import pytest
 
 from realmock.platform.capabilities.integrations.github.client import GitHubClient
 from realmock.platform.capabilities.integrations.github.tools import GITHUB_TOOL_DEFINITIONS, execute_github_tool
-from realmock.domains.interview.services.interview.tools import (
+from realmock.domains.interview.agents.tools import (
     get_interview_tool_definitions,
     parse_tool_arguments,
 )

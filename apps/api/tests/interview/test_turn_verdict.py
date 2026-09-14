@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from realmock.domains.interview.services.interview.turn_output import parse_turn_output
-from realmock.domains.interview.services.interview.session_state import InterviewSessionState
+from realmock.domains.interview.agents.turn_output import parse_turn_output
+from realmock.domains.interview.agents.session_state import InterviewSessionState
 
 
 def test_verdict_parsed_from_controls():

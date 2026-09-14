@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from realmock.domains.interview.schemas import WorkflowTypeOption
 from realmock.platform.catalogs.company import get_all_companies
-from realmock.domains.interview.services.interview.workflows import WORKFLOWS, phase_label_map
+from realmock.domains.interview.agents.workflows import WORKFLOWS, phase_label_map
 from realmock.platform.capabilities.voice.tts.options import AVATARS, TTS_VOICES
 
 # Stable role / level ids — UI labels come from frontend i18n.
