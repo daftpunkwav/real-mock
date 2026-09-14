@@ -144,6 +144,14 @@ def test_spoken_voice_section_present() -> None:
     assert "能详细说说吗" in prompt
 
 
+def test_turn_openings_rotate_not_template() -> None:
+    """Openers must rotate (straight-in default); standalone 嗯/对/好 banned."""
+    prompt = build_system_prompt(**_prompt_kwargs())
+    assert "STRAIGHT" in prompt
+    assert "很好的问题" in prompt  # named as forbidden
+    assert "Three gears" in prompt
+
+
 def test_personality_carries_spoken_flavor() -> None:
     """Persona prompts include a spoken delivery clause."""
     gentle = build_system_prompt(**_prompt_kwargs(config=_config(personality="gentle")))
