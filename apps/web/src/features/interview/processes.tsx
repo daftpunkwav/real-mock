@@ -88,6 +88,17 @@ export function planStepLabel(
   return t(key);
 }
 
+/** Hover detail for one planned round: focus + HR pass bar (empty when none). */
+export function planStepTitle(
+  plan: InterviewProcessResponse["round_plan"],
+  roundNo: number,
+): string {
+  const step = (plan ?? []).find((p) => p.round_no === roundNo);
+  if (!step) return "";
+  const pass = step.pass_criteria?.trim() ? `\n${step.pass_criteria.trim()}` : "";
+  return `${step.focus}${pass}`.trim();
+}
+
 export function ContinueProcessRow({
   process,
   starting,
@@ -105,7 +116,7 @@ export function ContinueProcessRow({
         <span className="truncate font-medium">{process.role}</span>
         <span className="shrink-0 text-ink-muted">·</span>
         <span className="shrink-0 text-ink-muted">{process.company}</span>
-        <span className="chip chip-blue shrink-0">
+        <span className="chip chip-blue shrink-0" title={planStepTitle(process.round_plan, process.current_round) || undefined}>
           {planStepLabel(t, process.round_plan, process.current_round)}
         </span>
       </div>

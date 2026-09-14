@@ -47,6 +47,8 @@ class ProcessRoundPlanItem(BaseModel):
     workflow_type: str
     label: str
     focus: str
+    # HR-planned pass bar (candidate-visible); empty on the static chain.
+    pass_criteria: str = ""
 
 
 class InterviewProcessResponse(BaseModel):

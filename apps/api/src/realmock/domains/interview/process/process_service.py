@@ -28,8 +28,9 @@ from realmock.domains.interview.process.process_memory import (
     load_memory,
     mark_final,
 )
-from realmock.domains.interview.process.round_chain import round_chain, step_for
+from realmock.domains.interview.process.round_chain import RoundStep, round_chain, step_for
 from realmock.domains.interview.process.round_digest import build_round_digest
+from realmock.domains.interview.process.round_plan_schema import load_round_plan
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,41 @@ def is_next_round_eligible(
     return True, next_no
 
 
+def _planned_step(process: InterviewProcess, round_no: int) -> RoundStep | None:
+    """HR-planned step for a round (None when the program is not ready).
+
+    The LLM program rules while ready; anything missing (pending / failed /
+    short program) degrades to the static chain at the call site.
+    """
+    plan = load_round_plan(process)
+    if plan is None:
+        return None
+    budget = max(1, process.max_rounds or 1)
+    for planned in plan.rounds[:budget]:
+        if planned.round_no == round_no:
+            return planned.to_step()
+    return None
+
+
+def _planned_round_plan(process: InterviewProcess) -> list[ProcessRoundPlanItem] | None:
+    """LLM-authored round program for the response (None when not ready)."""
+    plan = load_round_plan(process)
+    if plan is None:
+        return None
+    budget = max(1, process.max_rounds or 1)
+    return [
+        ProcessRoundPlanItem(
+            round_no=planned.round_no,
+            kind=planned.kind,
+            workflow_type=planned.workflow_type,
+            label=planned.label,
+            focus=planned.focus,
+            pass_criteria=planned.pass_criteria,
+        )
+        for planned in plan.rounds[:budget]
+    ]
+
+
 def _to_response(process: InterviewProcess, rounds: list[InterviewSession]) -> InterviewProcessResponse:
     eligible, next_no = is_next_round_eligible(process, rounds)
     return InterviewProcessResponse(
@@ -95,16 +131,19 @@ def _to_response(process: InterviewProcess, rounds: list[InterviewSession]) -> I
             )
             for s in rounds
         ],
-        round_plan=[
-            ProcessRoundPlanItem(
-                round_no=step.round_no,
-                kind=step.kind,
-                workflow_type=step.workflow_type,
-                label=step.label,
-                focus=step.focus,
-            )
-            for step in round_chain(process.workflow_type, process.max_rounds)
-        ],
+        round_plan=(
+            _planned_round_plan(process)
+            or [
+                ProcessRoundPlanItem(
+                    round_no=step.round_no,
+                    kind=step.kind,
+                    workflow_type=step.workflow_type,
+                    label=step.label,
+                    focus=step.focus,
+                )
+                for step in round_chain(process.workflow_type, process.max_rounds)
+            ]
+        ),
         created_at=process.created_at,
     )
 
@@ -125,9 +164,12 @@ def get_process_detail(db: Session, process_id: int) -> InterviewProcessResponse
 def _session_from_process(process: InterviewProcess, round_no: int) -> InterviewSession:
     # Realistic-chain round: each round is a DIFFERENT interviewer type
     # (technical 1 → technical 2 → HR 1 → HR 2 ...), driven by the chain's
-    # workflow/personality/style overrides. Falls back to the process defaults
-    # when the chain lookup misses (defensive; chains cover the full budget).
-    step = step_for(process.workflow_type, round_no, process.max_rounds)
+    # workflow/personality/style overrides. The HR-planned program rules while
+    # ready; otherwise the static chain decides. Falls back to the process
+    # defaults when both lookups miss (defensive).
+    step = _planned_step(process, round_no) or step_for(
+        process.workflow_type, round_no, process.max_rounds
+    )
     return InterviewSession(
         profile_id=process.profile_id,
         resume_id=process.resume_id,

@@ -35,6 +35,12 @@ class InterviewProcess(SessionsBase):
     max_rounds: Mapped[int] = mapped_column(Integer, default=5)
     current_round: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(30), default="in_progress")
+    # HR-planner round program (realmock.round_plan.v1 JSON document): the LLM
+    # decides round count/kinds/pass criteria within the max_rounds budget.
+    # Empty status = pending; "ready" | "failed" (failed degrades to the
+    # static round_chain everywhere).
+    round_plan: Mapped[str] = mapped_column(Text, default="{}")
+    round_plan_status: Mapped[str] = mapped_column(String(20), default="")
     # Long-term memory across rounds (realmock.process_memory.v1 JSON document).
     memory: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

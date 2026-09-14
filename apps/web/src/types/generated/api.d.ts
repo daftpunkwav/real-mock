@@ -3996,6 +3996,8 @@ export interface components {
             label: string;
             /** Focus */
             focus: string;
+            /** Pass Criteria */
+            pass_criteria: string;
         };
         /**
          * ProjectCard

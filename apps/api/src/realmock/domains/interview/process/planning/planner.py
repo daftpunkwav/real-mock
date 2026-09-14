@@ -24,6 +24,7 @@ from realmock.domains.interview.process.planning.plan_schema import (
     parse_plan,
     plan_from_workflow,
 )
+from realmock.domains.interview.process.round_plan_schema import load_round_plan
 from realmock.domains.interview.process.process_memory import (
     load_memory,
     render_for_prompt,
@@ -63,8 +64,26 @@ def _process_section(db: Session, session: InterviewSession) -> str:
         f"This is round {session.round_no} of up to {process.max_rounds} "
         f"({process.role} @ {process.company})."
     )
+    pass_line = _round_pass_criteria(process, session.round_no)
     rendered = render_for_prompt(load_memory(process.memory))
-    return round_line + ("\n" + rendered if rendered else "")
+    section = round_line
+    if pass_line:
+        section += f"\nPass bar for THIS round (steer questions toward it): {pass_line}"
+    return section + ("\n" + rendered if rendered else "")
+
+
+def _round_pass_criteria(process: InterviewProcess, round_no: int | None) -> str:
+    """This round's HR-set pass bar (empty when the program is not ready)."""
+    try:
+        plan = load_round_plan(process)
+        if plan is None:
+            return ""
+        for planned in plan.rounds:
+            if planned.round_no == (round_no or 0) and planned.pass_criteria:
+                return planned.pass_criteria
+    except Exception:
+        logger.debug("round pass criteria lookup failed", exc_info=True)
+    return ""
 
 
 def _resume_summary(resume_payload: dict[str, Any] | None) -> dict[str, Any] | None:

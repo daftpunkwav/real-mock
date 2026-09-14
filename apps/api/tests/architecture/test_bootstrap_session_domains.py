@@ -86,7 +86,7 @@ def test_sessions_column_migrations_follow_domains() -> None:
     assert set(prep_only) == {"prep_sessions"}
 
     interview_only = sessions_column_migrations(("interview",))
-    assert set(interview_only) == {"interview_sessions"}
+    assert set(interview_only) == {"interview_sessions", "interview_processes"}
 
     records_only = sessions_column_migrations(("records",))
     assert set(records_only) == set()  # create_all owns new table; no ALTER yet
@@ -95,7 +95,7 @@ def test_sessions_column_migrations_follow_domains() -> None:
     assert set(growth_only) == set()  # create_all owns new table; no ALTER yet
 
     all_domains = sessions_column_migrations(None)
-    assert set(all_domains) == {"prep_sessions", "interview_sessions"}
+    assert set(all_domains) == {"prep_sessions", "interview_sessions", "interview_processes"}
 
 
 def test_sessions_column_migrations_unknown_domain_raises() -> None:

@@ -15,6 +15,7 @@ from realmock.domains.interview.schemas.process import (
     ProcessCreatedResponse,
 )
 from realmock.domains.interview.process.planning.planner import generate_plan_for_session
+from realmock.domains.interview.process.round_planner import generate_round_plan_for_process
 from realmock.domains.interview.process.process_service import (
     ProcessRoundError,
     create_next_round,
@@ -58,6 +59,9 @@ def create_process(
     process, session = create_process_with_first_round(db, config)
     _issue_session_cookie(session, request, response)
     background_tasks.add_task(generate_plan_for_session, session.id)
+    # HR coordinator plans the round program (count/kinds/pass bars) in the
+    # background; round creation degrades to the static chain until ready.
+    background_tasks.add_task(generate_round_plan_for_process, process.id)
     detail = get_process_detail(db, process.id)
     return ProcessCreatedResponse(process=detail, session_id=session.id)
 

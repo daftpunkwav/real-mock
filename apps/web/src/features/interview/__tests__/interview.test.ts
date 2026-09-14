@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { isLikelyEchoOfAssistant, normalizeEchoText } from "../echo";
 import { toVisibleChatMessages } from "../messages";
+import { planStepTitle } from "../processes";
 
 describe("echo", () => {
   it("normalizeEchoText strips punctuation and whitespace", () => {
@@ -28,5 +29,22 @@ describe("toVisibleChatMessages", () => {
       { role: "assistant", content: "开场" },
       { role: "user", content: "你好" },
     ]);
+  });
+});
+
+describe("planStepTitle", () => {
+  const plan = [
+    { round_no: 1, kind: "tech_1", workflow_type: "technical", label: "Tech 1", focus: "baseline", pass_criteria: "answer basics" },
+    { round_no: 2, kind: "hr_1", workflow_type: "hr", label: "HR 1", focus: "motivation", pass_criteria: "" },
+  ];
+  it("joins focus and pass criteria", () => {
+    expect(planStepTitle(plan, 1)).toBe("baseline\nanswer basics");
+  });
+  it("falls back to focus alone without a pass bar", () => {
+    expect(planStepTitle(plan, 2)).toBe("motivation");
+  });
+  it("returns empty for unknown rounds", () => {
+    expect(planStepTitle(plan, 9)).toBe("");
+    expect(planStepTitle(undefined, 1)).toBe("");
   });
 });
