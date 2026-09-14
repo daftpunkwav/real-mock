@@ -45,7 +45,10 @@ def append_followup_and_rag(
             "role": "system",
             "content": f"[Follow-up guidance: {signal.category}] {signal.suggested_probe}",
         })
-        state.note_weak_point(f"[{signal.category}] {signal.suggested_probe}")
+        # The guidance wording is an examiner instruction, not a candidate
+        # weakness fact — keep it out of weak_points so prompts and
+        # cross-round digests stay factual. The category lands in
+        # followup_clues for the growth learning loop.
         clues = state.agent_state.setdefault("followup_clues", [])
         clues.append(signal.category)
         if len(clues) > 60:

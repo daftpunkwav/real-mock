@@ -565,7 +565,7 @@ def test_refresh_system_memory_replaces_old_memory(db) -> None:
 
 
 def test_stream_turn_records_weak_point_on_followup(db) -> None:
-    """When follow-up fires, weak-spot clues should be recorded on agent_state.weak_points."""
+    """Follow-up firing records the category in followup_clues but must NOT pollute weak_points with examiner guidance."""
     session = _make_session(db)
     session.messages = json.dumps([
         {"role": "system", "content": "You are the interviewer"},
@@ -587,10 +587,10 @@ def test_stream_turn_records_weak_point_on_followup(db) -> None:
 
     db.refresh(session)
     state = json.loads(session.agent_state)
+    # Guidance wording stays out of weak_points (it is an examiner instruction,
+    # not a candidate weakness fact; digests and later prompts read that list).
     weak = state.get("weak_points") or []
-    # After follow-up, at least one weak-spot clue with a category
-    assert weak, f"weak_points should not be empty: {state}"
-    assert any("vague" in w for w in weak)
+    assert not any("[vague]" in w for w in weak), f"weak_points polluted: {weak}"
     # Real follow-up categories land in followup_clues (for system-learning stats)
     clues = state.get("followup_clues") or []
     assert "vague" in clues, f"followup_clues should contain vague: {clues}"
