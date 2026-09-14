@@ -71,7 +71,7 @@ export function RadarChart({
             strokeWidth={1}
           />
         ))}
-        {/* Note */}
+        {/* Spokes / axes. */}
         {dims.map((d, i) => {
           const [x, y] = pointAt(i, n, 1);
           return (

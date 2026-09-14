@@ -3,8 +3,8 @@
  * @description Client-side resume file precheck mirroring the backend contract.
  *
  * Responsibilities:
- * - Reject unsupported extensions (A1002), oversize files (A0413), empty files (A0005)
- *   before any bandwidth is spent
+ * - Reject unsupported extensions (A1002), oversize files (A0413), empty files (A0005),
+ *   overlong filenames (A0003) before any bandwidth is spent
  *
  * Throws ApiError with catalog codes so callers localize via formatApiError,
  * exactly as if the backend had rejected the upload.

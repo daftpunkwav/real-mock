@@ -1,3 +1,8 @@
+/**
+ * @file reviewProgress.test.ts
+ * @description Tests for reviewProgress: plan folding, timeline rows, and notices.
+ */
+
 import { describe, expect, it } from "vitest";
 
 import { applyAnalyzeEvent, type ReviewLiveState } from "../reviewProgress";

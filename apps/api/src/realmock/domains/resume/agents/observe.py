@@ -15,7 +15,15 @@ _SECRET_ARG_KEYS = frozenset({"api_key", "token", "authorization", "secret", "pa
 
 
 def search_hosts_from_observation(name: str, result: str) -> list[str]:
-    """Hostnames from a web_search observation, unique, first-seen order."""
+    """Hostnames from a web_search observation, unique, first-seen order, capped at 12.
+
+    Args:
+        name: Tool name (only web_search observations are parsed).
+        result: Observation payload (JSON with a ``results`` url list).
+
+    Returns:
+        Up to 12 unique hostnames ([] for other tools or unparsable payloads).
+    """
     if name not in _SEARCH_TOOL_NAMES:
         return []
     try:

@@ -5,8 +5,8 @@
  * @description Live review desk: plan spine on the left, execution log on the right.
  *
  * Row rendering lives in ./analysis-progress (PlanSpine / ThinkingRow /
- * ToolRow); this module only owns open-row state, the ticking clock, and
- * layout. Order matches SSE occurrence, not a fake carousel.
+ * ToolRow / NoticeRow); this module only owns open-row state, the ticking
+ * clock, and layout. Order matches SSE occurrence, not a fake carousel.
  */
 
 import { useEffect, useState } from "react";

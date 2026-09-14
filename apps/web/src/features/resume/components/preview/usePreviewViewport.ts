@@ -53,7 +53,7 @@ export function usePreviewViewport() {
     });
   }, []);
 
-  // Note
+  // Track container width for preview sizing.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -94,7 +94,7 @@ export function usePreviewViewport() {
   }, [zoomAt]);
 
   const onPointerDown = (e: ReactPointerEvent) => {
-    // Left
+    // Left-button mouse drag only.
     if (e.pointerType !== "mouse" || e.button !== 0) return;
     const el = scrollerRef.current;
     if (!el) return;

@@ -8,7 +8,7 @@
 import { FileText } from "lucide-react";
 import { useT } from "@/i18n";
 
-/** . */
+/** Resume page title block (eyebrow + title). */
 export function ResumePageHead() {
   const t = useT("resume");
   return (

@@ -2,7 +2,7 @@
 
 /**
  * @file ToolRow
- * @description Collapsible tool-call row (history, arguments, results, hosts).
+ * @description Collapsible tool-call row (arguments, results, hosts).
  */
 
 import { ChevronRight, Globe, Plug } from "lucide-react";

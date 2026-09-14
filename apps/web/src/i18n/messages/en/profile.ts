@@ -1,4 +1,7 @@
-/** profile messages (en mirrors the zh-CN key set exactly). */
+/**
+ * @file profile.ts
+ * @description profile messages (en mirrors the zh-CN key set exactly).
+ */
 
 export const profile = {
   // Page skeleton (PageHead / header button / loading state)

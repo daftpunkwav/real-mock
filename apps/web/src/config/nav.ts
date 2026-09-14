@@ -1,5 +1,6 @@
 /**
- * Frontend route / navigation config.
+ * @file nav.ts
+ * @description Frontend route / navigation config.
  *
  * Keep every menu item here so adding/removing pages is a single edit.
  *

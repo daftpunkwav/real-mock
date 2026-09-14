@@ -2,7 +2,8 @@
 
 /**
  * @file useInViewReveal.ts
- * @description One-shot in-view flag for score ring / radar enter animation.
+ * @description One-shot in-view flag for reveal animations (score ring, radar,
+ * fit bars, percentile bars).
  */
 
 import { useEffect, useRef, useState } from "react";

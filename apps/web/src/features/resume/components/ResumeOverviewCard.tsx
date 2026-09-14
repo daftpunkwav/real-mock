@@ -9,7 +9,7 @@ import { Gauge } from "lucide-react";
 import type { Resume } from "../types";
 import { useT } from "@/i18n";
 
-/** right : / / . */
+/** Sticky KPI card (resume/uploaded/scored counts, active file). */
 export function ResumeOverviewCard({ resumes }: { resumes: Resume[] }) {
   const t = useT("resume");
   const activeResume = resumes.find((r) => r.is_active);

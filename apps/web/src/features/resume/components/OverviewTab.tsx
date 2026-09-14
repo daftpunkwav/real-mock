@@ -2,7 +2,8 @@
 
 /**
  * @file OverviewTab.tsx
- * @description Analysis overview: narrative, role fit, radar, tables, notes.
+ * @description Analysis overview: narrative, role fit, radar, tables, notes,
+ * version compare, percentile.
  */
 
 import type { ResumeAnalysis } from "../types";

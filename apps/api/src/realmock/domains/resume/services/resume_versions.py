@@ -29,6 +29,15 @@ def _in_family(family_id: int):
 
 
 def family_count(db: Session, family_id: int) -> int:
+    """Count rows in the family, including the legacy family_id=0 ancestor.
+
+    Args:
+        db: API database session (injected).
+        family_id: Resolved family id (see :func:`family_id_of`).
+
+    Returns:
+        Row count (0 when the family has no rows).
+    """
     return int(db.query(func.count(Resume.id)).filter(_in_family(family_id)).scalar() or 0)
 
 
@@ -40,6 +49,17 @@ def max_version_n(db: Session, family_id: int) -> int:
 def latest_in_family(
     db: Session, family_id: int, *, exclude_id: int | None = None
 ) -> Resume | None:
+    """Newest row in the family (version_n desc, id desc).
+
+    Args:
+        db: API database session (injected).
+        family_id: Resolved family id (see :func:`family_id_of`).
+        exclude_id: Optional row id to skip (used after deleting the active
+            row to find its successor).
+
+    Returns:
+        The newest row, or None when the family is empty.
+    """
     q = db.query(Resume).filter(_in_family(family_id))
     if exclude_id is not None:
         q = q.filter(Resume.id != exclude_id)
@@ -47,7 +67,11 @@ def latest_in_family(
 
 
 def previous_scored_row(db: Session, row: Resume) -> Resume | None:
-    """Nearest lower version in the family that already has analysis JSON."""
+    """Nearest lower version with dimension coverage >= MIN_SCORED_DIMENSIONS.
+
+    Rows whose analysis JSON is missing or covers too few dimensions are
+    skipped, so calibration never anchors on a thin prior review.
+    """
     fid = family_id_of(row)
     if not fid:
         return None

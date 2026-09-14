@@ -17,7 +17,7 @@ const BAND_LABEL_KEYS: Record<ScoreBandId, `overview.band.${ScoreBandId}`> = {
   weak: "overview.band.weak",
 };
 
-/** 0 , Press . */
+/** Animated score ring (0-100, clamped); reveals on first in-view. */
 export function ScoreRing({ score, size = 112 }: { score: number; size?: number }) {
   const t = useT("resume");
   const { ref, shown } = useInViewReveal();

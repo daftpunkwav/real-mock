@@ -1,5 +1,6 @@
 /**
- * Page layout metadata.
+ * @file pageLayout.ts
+ * @description Page layout metadata.
  *
  * AppShell chooses layout shape from this table; add/adjust page layout here so the
  * shell never owns concrete business paths.

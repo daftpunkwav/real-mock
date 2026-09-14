@@ -2,7 +2,8 @@
 
 /**
  * @file ImpressionCards.tsx
- * @description Headline, first-impression, and interviewer-comment cards.
+ * @description Headline, first-impression, and interviewer-comment cards,
+ * plus the percentile bar.
  */
 
 import { MessagesSquare, Quote, ScanFace } from "lucide-react";

@@ -48,6 +48,7 @@ class ProcessStep:
     mode: str = "serial"
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize the step (id/title/status/note/mode) for SSE payloads."""
         return {
             "id": self.id,
             "title": self.title,
@@ -88,6 +89,7 @@ class ReviewProcess:
     on_change: OnPlanChange | None = None
 
     def snapshot(self) -> list[dict[str, Any]]:
+        """Return a detached copy of the current steps for event payloads."""
         return [step.as_dict() for step in self.steps]
 
     async def _notify(self) -> None:
@@ -124,6 +126,14 @@ class ReviewProcess:
         return titles
 
     async def set_plan(self, titles: list[str]) -> str:
+        """Replace the plan with fresh pending steps and notify watchers.
+
+        Args:
+            titles: Step titles (length already validated by ``_parse_titles``).
+
+        Returns:
+            JSON observation with ``ok`` and the new snapshot.
+        """
         self.steps = [
             ProcessStep(id=str(index + 1), title=title)
             for index, title in enumerate(titles)
@@ -132,6 +142,18 @@ class ReviewProcess:
         return json.dumps({"ok": True, "steps": self.snapshot()}, ensure_ascii=False)
 
     async def update_step(self, step_id: str, status: str, note: str, mode: str = "serial") -> str:
+        """Advance one step by id or title; the final step cannot be skipped.
+
+        Args:
+            step_id: Step id or exact title to update.
+            status: New status (must be a member of STATUSES).
+            note: Optional reviewer note (escape-decoded, capped at 240 chars).
+            mode: Execution mode (must be a member of MODES).
+
+        Returns:
+            JSON observation with ``ok`` and the snapshot, or an ``error``
+            object (invalid_status/invalid_mode/unknown_step/last_step_cannot_skip).
+        """
         if status not in STATUSES:
             return json.dumps(
                 {"error": "invalid_status", "allowed": list(STATUSES)},

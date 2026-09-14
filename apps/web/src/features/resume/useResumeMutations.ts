@@ -8,7 +8,8 @@
  * - Activate / delete then silently reload the collection
  * - On reload failure, toast listRefreshFailed only (write already succeeded)
  *
- * Must not own list loading or preview selection. Dialogs stay on list items.
+ * Must not own list loading; may set preview to the newly uploaded version
+ * only. Dialogs stay on list items.
  */
 
 "use client";

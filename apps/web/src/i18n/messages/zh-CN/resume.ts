@@ -1,4 +1,7 @@
-/** resume 文案(简历管理:上传 / 列表 / 深度评价 / 原文件预览;key 用点分路径,zh-CN 为 key 源)。 */
+/**
+ * @file resume.ts
+ * @description resume 文案(简历管理:上传 / 列表 / 深度评价 / 原文件预览;key 用点分路径,zh-CN 为 key 源)。
+ */
 
 export const resume = {
   // 页面骨架

@@ -8,7 +8,7 @@
 import { Lightbulb } from "lucide-react";
 import { useT } from "@/i18n";
 
-/** right . */
+/** Sticky writing-tips card (title + three tips). */
 export function ResumeTipsCard() {
   const t = useT("resume");
   return (

@@ -105,7 +105,11 @@ def _extract_docx_structured(file_path: Path) -> str:
 
 
 def extract_text_from_file(file_path: Path, file_type: str) -> str:
-    """Extract plain text from PDF/DOC/DOCX/MD/TXT."""
+    """Extract plain text from PDF/DOCX/MD/TXT.
+
+    A ``doc`` suffix is attempted via the OOXML path defensively (legacy
+    mislabeled files); the upload allowlist admits only pdf/docx/md/txt.
+    """
     suffix = file_type.lower()
 
     if suffix == "pdf":

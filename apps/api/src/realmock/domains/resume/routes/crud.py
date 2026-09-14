@@ -26,10 +26,30 @@ def get_resume_limits() -> ResumeDomainLimits:
 
 
 def list_resumes(db: Session = Depends(get_db)):
+    """List all resume rows, newest first.
+
+    Args:
+        db: API database session (injected).
+
+    Returns:
+        Response payloads for every row.
+    """
     return [resume_mappers.to_response(row) for row in store.list_rows(db)]
 
 
 def get_resume(resume_id: int, db: Session = Depends(get_db)):
+    """Get one resume row.
+
+    Args:
+        resume_id: Target resume id.
+        db: API database session (injected).
+
+    Returns:
+        The resume response payload.
+
+    Raises:
+        ApiBusinessError: A1005 (unknown resume).
+    """
     row = store.get_row(db, resume_id)
     if not row:
         raise_error("A1005")
@@ -37,6 +57,18 @@ def get_resume(resume_id: int, db: Session = Depends(get_db)):
 
 
 def activate_resume(resume_id: int, db: Session = Depends(get_db)):
+    """Mark one resume row active (deactivates the rest).
+
+    Args:
+        resume_id: Target resume id.
+        db: API database session (injected).
+
+    Returns:
+        The activated resume response payload.
+
+    Raises:
+        ApiBusinessError: A1005 (unknown resume).
+    """
     row = store.activate_row(db, resume_id)
     if not row:
         raise_error("A1005")

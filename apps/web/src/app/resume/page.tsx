@@ -96,7 +96,7 @@ export default function ResumePage() {
             />
           </div>
 
-          {/* ===== Right:Compact sticky TRAILER ===== */}
+          {/* ===== Right: compact sticky preview ===== */}
           <aside className="space-y-3 xl:sticky xl:top-6">
             <ResumePreviewCard resume={previewResume} />
             <ResumeOverviewCard resumes={resumes} />

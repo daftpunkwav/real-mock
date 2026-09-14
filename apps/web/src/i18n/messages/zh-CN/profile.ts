@@ -1,4 +1,7 @@
-/** profile 文案(zh-CN 为 key 源;en 同 key 集合)。 */
+/**
+ * @file profile.ts
+ * @description profile 文案(zh-CN 为 key 源;en 同 key 集合)。
+ */
 
 export const profile = {
   // 页面骨架(PageHead / 页头按钮 / 加载态)

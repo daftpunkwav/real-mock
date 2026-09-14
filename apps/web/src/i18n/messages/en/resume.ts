@@ -1,4 +1,7 @@
-/** resume messages (resume management: upload / list / deep review / file preview; keys mirror zh-CN). */
+/**
+ * @file resume.ts
+ * @description resume messages (resume management: upload / list / deep review / file preview; keys mirror zh-CN).
+ */
 
 export const resume = {
   // Page shell

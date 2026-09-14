@@ -3,7 +3,8 @@
  * @description Pure helpers for score series, dimension deltas, and radar overlays.
  *
  * Two series shapes: ``ScoredVersion`` (complete dimension map, radar overlays)
- * and ``ScorePoint`` (overall score only, version-compare view).
+ * and ``ScorePoint`` (overall score required, dimensions optional — null for
+ * older runs, version-compare view).
  *
  * Must not import React, HTTP, or i18n.
  */

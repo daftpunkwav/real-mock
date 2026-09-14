@@ -66,6 +66,15 @@ def compact_score_anchor(analysis: dict[str, Any] | None) -> dict[str, Any] | No
 
 
 def format_prior_version_calibration(anchor: dict[str, Any], *, version_n: int) -> str:
+    """Render a prior scored version as reference-only calibration text.
+
+    Args:
+        anchor: Compacted score anchor (totals, dimension scores, strengths/weaknesses).
+        version_n: Prior version number cited in the header.
+
+    Returns:
+        Prompt text marking prior scores reference-only, never a target.
+    """
     return (
         f"Prior scored version in this family: v{version_n} (a different file). "
         "Scores below are reference ONLY for explaining what changed between versions — "

@@ -2,7 +2,8 @@
 
 /**
  * @file AdviceTab.tsx
- * @description Resume advice tab: strengths, weaknesses, rewrites, edits, keywords, skill trust.
+ * @description Resume advice tab: strengths, weaknesses, red flags, improvement
+ * suggestions, rewrites, keywords, skill trust.
  */
 
 import { AlertTriangle } from "lucide-react";

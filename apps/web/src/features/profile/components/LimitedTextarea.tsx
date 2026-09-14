@@ -11,7 +11,8 @@
  * - Surface required and validation error states for accessibility
  *
  * Counter uses string.length (UTF-16 code units). Backend max_length is Python
- * code points; HTML maxLength is the tighter cap for BMP/emoji, which is safe.
+ * code points; HTML maxLength is equal for BMP and the tighter cap for
+ * astral/emoji, which is safe.
  */
 
 import { useId } from "react";

@@ -75,6 +75,14 @@ async def gather_resume_market_context(
     as extra unique hits so site filters cannot empty the result set.
     ``search_queries`` only contains queries that actually returned evidence,
     so downstream audit fields are not polluted by failed fetches.
+
+    Args:
+        r: Source resume (kept for signature compatibility; unused — only
+            ``queries`` drive retrieval).
+        queries: Search queries to run (one open-web + one job-board fetch each).
+
+    Returns:
+        ``(market_context_text, evidenced_queries)``.
     """
     del r
     from realmock.platform.capabilities.knowledge.search.web import web_search_with_hits
