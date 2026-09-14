@@ -131,11 +131,14 @@ describe("usePrepChatSession.switchSession", () => {
     expect(window.localStorage.getItem(RESTORE_KEY)).toBe("5");
   });
 
-  it("cancels an in-flight switch when a newer switch starts", async () => {
+  it("lets the newest switch win when switches overlap", async () => {
     let resolveFirst!: (v: never) => void;
     mockedPrepMessages.mockImplementationOnce(
       () => new Promise((resolve) => (resolveFirst = resolve)),
     );
+    mockedPrepMessages.mockResolvedValue([
+      { role: "user", content: "fresh" },
+    ] as never);
     const { result } = renderSessionHook(makeOptions());
 
     let first!: Promise<void>;
@@ -150,9 +153,10 @@ describe("usePrepChatSession.switchSession", () => {
       await first;
     });
 
-    expect(mockedPrepMessages).toHaveBeenCalledTimes(1);
-    expect(mockedPrepMessages).toHaveBeenCalledWith(3);
-    expect(result.current.prepSessionId).toBe(3);
+    expect(mockedPrepMessages).toHaveBeenCalledTimes(2);
+    expect(mockedPrepMessages).toHaveBeenNthCalledWith(1, 3);
+    expect(mockedPrepMessages).toHaveBeenNthCalledWith(2, 4);
+    expect(result.current.prepSessionId).toBe(4);
   });
 
   it("switches sessions without blocking on generation", async () => {

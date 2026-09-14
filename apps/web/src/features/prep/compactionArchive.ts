@@ -6,6 +6,10 @@
  * Groups persist per session in localStorage (bounded, best-effort) so a
  * refresh restores them; each group links the backup session that holds the
  * verbatim originals for fork-from-point restores.
+ *
+ * Privacy note: folded turns are user conversation text in plaintext. Entries
+ * are removed on session delete/clear via clearArchive; no cross-device sync
+ * is performed. A future logout flow should sweep ARCHIVE_KEY_PREFIX keys.
  */
 
 import type { PrepChatMessage } from "./types";

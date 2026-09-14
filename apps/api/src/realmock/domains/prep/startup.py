@@ -9,3 +9,7 @@ from __future__ import annotations
 
 # Session-domain ORM the composition root registers for standalone runs.
 SESSION_DOMAINS: tuple[str, ...] = ("prep",)
+
+__all__ = [
+    "SESSION_DOMAINS",
+]

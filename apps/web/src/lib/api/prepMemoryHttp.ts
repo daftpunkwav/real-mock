@@ -25,11 +25,20 @@ export interface PrepMemoryUpdateBody {
   score?: number | null;
 }
 
+/** Client-side mirror of the server list window (server clamps 1..50). */
+const MEMORY_LIST_LIMIT = 50;
+const MEMORY_LIST_DEFAULT = 20;
+
 export const prepMemoryHttp = {
   listMemories: (tag?: string, limit?: number) => {
     const params = new URLSearchParams();
     if (tag) params.set("tag", tag);
-    if (limit) params.set("limit", String(limit));
+    // Falsy/over-range limits fall back to the default (server clamps anyway).
+    const clamped =
+      typeof limit === "number" && Number.isFinite(limit)
+        ? Math.min(Math.max(Math.floor(limit), 1), MEMORY_LIST_LIMIT)
+        : MEMORY_LIST_DEFAULT;
+    params.set("limit", String(clamped));
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     return request<PrepMemorySummary[]>(`/v1/prep/memories${suffix}`);
   },

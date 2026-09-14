@@ -11,9 +11,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/i18n";
 import { getTranslator } from "@/i18n/resolve";
-import { formatTokens } from "@/components/ModelControls";
-import { prepCoachHttp as api } from "@/lib/api/clients";
-import { ApiError, formatApiError } from "@/lib/api/base";
 import type { PrepSessionSummary } from "@/lib/api/contract";
 import type { AskUserDialog, PrepUsageStats } from "@/types";
 import type { PrepChatMessage } from "../types";
@@ -21,9 +18,10 @@ import type { RateSubmit } from "../components/RateModal";
 import type { SlashName } from "../slashCommands";
 import { parseCompactArgs } from "../slashCommands";
 import { resolveCompactParams } from "@/lib/compactThreshold";
-import { loadArchive, pushArchivedGroup, toArchivedCopy, type ArchivedGroup } from "../compactionArchive";
+import { type ArchivedGroup } from "../compactionArchive";
 import type { PendingSessionRef } from "../sessionRefs";
-import { activeStreamIds, hasActiveStream, subscribeStreams } from "../streamRegistry";
+import { activeStreamIds, subscribeStreams } from "../streamRegistry";
+import { usePrepCompact } from "./usePrepCompact";
 import { usePrepResources } from "./usePrepResources";
 import { usePrepScroll } from "./usePrepScroll";
 import { usePrepSend } from "./usePrepSend";
@@ -110,6 +108,7 @@ interface UsePrepChat {
   compactionActions: {
     onForkFromPoint: (backupSessionId: number, upTo: number) => void;
     onOpenBackup: (backupSessionId: number) => void;
+    onSaveEdit: (sessionId: number, text: string) => Promise<void>;
     onReload: () => void;
     onRegenerate: () => void;
   };
@@ -134,12 +133,6 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   const [askDialog, setAskDialog] = useState<AskUserDialog | null>(null);
   /** Slash-/clear confirmation dialog owned by the page. */
   const [slashClearOpen, setSlashClearOpen] = useState(false);
-  /** Display-only archive of folded turns (backend keeps only the summary). */
-  const [archiveGroups, setArchiveGroups] = useState<ArchivedGroup[]>([]);
-  /** Session with a manual compaction in flight (blocks sends + shows progress). */
-  const [compactingSid, setCompactingSid] = useState<number | null>(null);
-  /** Ref mirror of compactingSid: stable guard for callbacks without re-binding. */
-  const compactingRef = useRef<Set<number>>(new Set());
 
   const msgSeqRef = useRef(0);
   /** Backend message-list lengths per session, for fork/retract indices. */
@@ -172,6 +165,14 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)));
   }, []);
 
+  /** Append a local-only notice (never persisted, never in context). */
+  const pushNotice = useCallback(
+    (text: string) => {
+      setMessages((m) => [...m, { id: nextMsgId("n"), role: "assistant", content: text, localOnly: true }]);
+    },
+    [nextMsgId],
+  );
+
   const session = usePrepChatSession({
     setMessages,
     setAskDialog,
@@ -185,17 +186,22 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   viewingRef.current = session.prepSessionId;
   const loading = busySid !== null && busySid === session.prepSessionId;
 
-  // Display archive follows the viewed session (loaded once per switch).
-  useEffect(() => {
-    const id = session.prepSessionId;
-    if (id === null) {
-      setArchiveGroups([]);
-      return;
-    }
-    setArchiveGroups(loadArchive(id)?.groups ?? []);
-  }, [session.prepSessionId]);
+  const {
+    archiveGroups,
+    compactingSid,
+    isCompacting: isCompactingSession,
+    runCompact,
+    saveSummaryEdit,
+  } = usePrepCompact({
+    viewedId: session.prepSessionId,
+    messages,
+    pushNotice,
+    backendCount,
+    refreshSessions: resources.refreshSessions,
+    reloadMessages: session.reloadMessages,
+  });
 
-  const { handleStop, handleAskAnswer, handleQuickPrompt, sendMessage } = usePrepSend({
+  const { handleStop, handleAskAnswer, handleQuickPrompt, sendMessage, consumeBackgroundUsage } = usePrepSend({
     prepSessionId: session.prepSessionId,
     restoring: session.restoring,
     input,
@@ -224,7 +230,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     viewingRef,
     takeBackendIndex,
     syncBackendCount,
-    isCompacting: (sid: number) => compactingRef.current.has(sid),
+    isCompacting: isCompactingSession,
   });
 
   const actions = usePrepMessageActions({
@@ -235,6 +241,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     sendMessage,
     switchSession: session.switchSession,
     setBackendCount,
+    backendCount,
     refreshSessions: resources.refreshSessions,
   });
 
@@ -263,117 +270,26 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     const text = input.trim();
     if (!text || !session.prepSessionId) return;
     const ids = pendingRefs.map((r) => r.id);
-    setPendingRefs([]);
-    await sendMessage(text, undefined, false, ids.length > 0 ? { contextSessionIds: ids } : undefined);
+    const accepted = await sendMessage(text, undefined, false, ids.length > 0 ? { contextSessionIds: ids } : undefined);
+    // A refused send (compacting guard or full queue) keeps both the input
+    // and the chips, so the references survive until the next accepted send.
+    if (accepted) setPendingRefs([]);
   }, [input, pendingRefs, sendMessage, session.prepSessionId]);
 
-  /** Append a local-only notice (never persisted, never in context). */
-  const pushNotice = useCallback(
-    (text: string) => {
-      setMessages((m) => [...m, { id: nextMsgId("n"), role: "assistant", content: text, localOnly: true }]);
-    },
-    [nextMsgId],
-  );
-
-  /**
-   * Archive-aware manual compaction shared by /compact and card regenerate:
-   * fold the reported range into a display group, reload backend truth
-   * (indices shift on rewrite), and bring the newest card into view.
-   */
-  const runCompactAttempt = useCallback(
-    async (sid: number, params: { intensity: "light" | "balanced" | "aggressive"; directive?: string; retain: number; backup?: boolean }) => {
-      const t = getTranslator("prep");
-      const attempt = async (retried: boolean): Promise<void> => {
-        try {
-          const result = await api.compactSession(sid, {
-            ...params,
-            expected_message_count: backendCount(sid) ?? undefined,
-          });
-          // Archive the folded turns for display (backend keeps only the summary).
-          if (
-            typeof result.kept_from === "number" &&
-            typeof result.backup_session_id === "number"
-          ) {
-            const folded = messages.filter(
-              (m) =>
-                !m.localOnly &&
-                (m.role === "user" || m.role === "assistant") &&
-                m.backendIndex !== undefined &&
-                m.backendIndex < (result.kept_from as number),
-            );
-            if (folded.length > 0) {
-              const next = pushArchivedGroup(sid, {
-                version: result.summary_version,
-                forkPoint: result.fork_point ?? 0,
-                backupSessionId: result.backup_session_id,
-                staleBackup: false,
-                messages: folded.map(toArchivedCopy),
-              });
-              setArchiveGroups(next.groups);
-            }
-          }
-          const key =
-            result.reason === "nothing_to_fold"
-              ? "slash.compactDoneUnchanged"
-              : result.summarized
-                ? "slash.compactDoneSummary"
-                : "slash.compactDonePruned";
-          pushNotice(
-            t(key, {
-              before: formatTokens(result.estimate_before),
-              after: formatTokens(result.estimate_after),
-            }),
-          );
-          resources.refreshSessions();
-          // Reload backend truth so retained-tail indices match the rewrite.
-          await session.reloadMessages(sid);
-          requestAnimationFrame(() => {
-            const cards = document.querySelectorAll("[data-compaction-card]");
-            cards[cards.length - 1]?.scrollIntoView({ block: "center" });
-          });
-        } catch (e) {
-          // Stale count guard fired (background/stopped turns moved history):
-          // resync once from the backend and retry once, then report.
-          if (!retried && e instanceof ApiError && e.code === "A3003") {
-            await session.reloadMessages(sid);
-            await attempt(true);
-            return;
-          }
-          pushNotice(
-            t("slash.compactFailed", {
-              reason: e instanceof Error ? formatApiError(e) : String(e),
-            }),
-          );
-        }
-      };
-      await attempt(false);
-    },
-    [backendCount, messages, pushNotice, resources, session],
-  );
-
-  const runCompact = useCallback(
-    async (sid: number, params: { intensity: "light" | "balanced" | "aggressive"; directive?: string; retain: number; backup?: boolean }) => {
-      const t = getTranslator("prep");
-      // Compact rewrites persisted history: refuse while this session has any
-      // live stream — viewed or background (the in-flight turn would overwrite
-      // the compaction on finalize) — or while another compaction of the same
-      // session is already running.
-      if (hasActiveStream(sid)) {
-        pushNotice(t("slash.compactBusy"));
-        return;
-      }
-      if (compactingRef.current.has(sid)) return;
-      compactingRef.current.add(sid);
-      setCompactingSid(sid);
-      try {
-        await runCompactAttempt(sid, params);
-      } finally {
-        compactingRef.current.delete(sid);
-        setCompactingSid((prev) => (prev === sid ? null : prev));
-      }
-    },
-    [pushNotice, runCompactAttempt],
-  );
+  // Background-turn usage catch-up: turns finalized while away recorded their
+  // deltas/totals off-view; apply them once when the session is viewed.
+  // Server totals win; deltas only cover turns without a done envelope.
+  const viewedId = session.prepSessionId;
+  useEffect(() => {
+    if (viewedId === null) return;
+    const pending = consumeBackgroundUsage(viewedId);
+    if (pending.totals) {
+      session.syncUsage(pending.totals);
+    } else if (pending.deltas) {
+      session.mergeUsage(pending.deltas);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedId]);
 
   const handleSlashCommand = useCallback(
     async (cmd: SlashName, rawArgs: string) => {
@@ -487,6 +403,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     compactionActions: {
       onForkFromPoint: actions.handleCompactionFork,
       onOpenBackup: actions.handleCompactionOpen,
+      onSaveEdit: saveSummaryEdit,
       onReload: () => {
         const id = session.prepSessionId;
         if (id !== null) void session.reloadMessages(id);

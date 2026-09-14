@@ -19,13 +19,21 @@ export function isErrorDiagramSvg(svg: string): boolean {
 }
 
 /**
- * Defense in depth under securityLevel strict: drop script elements and
- * inline event handlers from generated SVG before injecting it.
+ * Defense in depth under securityLevel strict: drop active elements
+ * (script/foreignObject/embed/object/iframe/link/meta), inline event
+ * handlers, and javascript:/data: URLs from generated SVG before injecting
+ * it. Regex-based by design (no extra dependency for a second-layer filter);
+ * the primary boundary is mermaid's own strict mode plus a same-origin,
+ * non-navigable render container — this pass only shrinks the residue.
  */
 export function sanitizeDiagramSvg(svg: string): string {
   return svg
     .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, "")
+    .replace(/<(embed|object|iframe|link|meta)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1\s*>)/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+(?:href|xlink:href)\s*=\s*("|\')\s*javascript:[^"']*\1/gi, "")
+    .replace(/\s+(?:href|xlink:href)\s*=\s*("|\')\s*data:text\/html[^"']*\1/gi, "");
 }
 
 /**

@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import logging
+
 from fastapi import Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -17,10 +19,36 @@ from realmock.domains.prep.schemas import PrepSessionSummary
 from realmock.platform.database import get_api_db, get_sessions_db
 from realmock.platform.services.resume_picker import list_resume_picker_items
 
+logger = logging.getLogger(__name__)
+
+
+# Newest-first cap: the list parses message JSON per row, so bound rows to
+# avoid loading unbounded Text bodies into memory (single-user scale).
+SESSION_LIST_LIMIT = 500
+
 
 def list_resume_picker(db: Session = Depends(get_api_db)):
-    """Return dropdown summaries only; exclude analysis text."""
+    """Return dropdown summaries only; exclude analysis text.
+
+    Args:
+        db: API database session (injected).
+
+    Returns:
+        Resume picker items (id/filename pairs, no analysis payloads).
+    """
     return list_resume_picker_items(db)
+
+
+def _is_user_text(m: Any) -> bool:
+    return isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str)
+
+
+def _is_countable(m: Any) -> bool:
+    return (
+        isinstance(m, dict)
+        and m.get("role") in ("user", "assistant")
+        and isinstance(m.get("content"), str)
+    )
 
 
 def list_prep_sessions(
@@ -31,28 +59,33 @@ def list_prep_sessions(
 
     Returns summaries only (first question + message count + associated resume),
     without message bodies or capability tokens—opening a specific session still uses the original token validation.
+    Newest-first, capped at SESSION_LIST_LIMIT rows.
+
+    Args:
+        db: Sessions database session (injected).
+        api_db: API database session for resume filenames (injected).
+
+    Returns:
+        Newest-first session summaries (corrupt histories surface as empty summaries, never errors).
     """
     rows = (
         db.query(PrepSession)
         .order_by(func.coalesce(PrepSession.updated_at, PrepSession.created_at).desc())
+        .limit(SESSION_LIST_LIMIT)
         .all()
     )
     names = {p.id: p.filename for p in list_resume_picker_items(api_db)}
     items: list[PrepSessionSummary] = []
     for s in rows:
         try:
-            msgs = json.loads(s.messages or "[]")
-        except json.JSONDecodeError:
-            msgs = []
-        def _is_user_text(m: Any) -> bool:
-            return isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str)
-
-        def _is_countable(m: Any) -> bool:
-            return (
-                isinstance(m, dict)
-                and m.get("role") in ("user", "assistant")
-                and isinstance(m.get("content"), str)
-            )
+            loaded = json.loads(s.messages or "[]")
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+            logger.warning("Prep list skipping unreadable history sid=%s", s.id)
+            loaded = []
+        if not isinstance(loaded, list):
+            logger.warning("Prep list skipping non-list history sid=%s", s.id)
+            loaded = []
+        msgs = loaded
 
         summary = next(
             (str(m.get("content") or "").strip() for m in msgs if _is_user_text(m)),
@@ -76,3 +109,9 @@ def list_prep_sessions(
             )
         )
     return items
+
+__all__ = [
+    "SESSION_LIST_LIMIT",
+    "list_prep_sessions",
+    "list_resume_picker",
+]

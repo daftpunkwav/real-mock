@@ -10,12 +10,12 @@ import { useState } from "react";
 import { toast } from "@/components/Toast";
 import { prepCoachHttp as api } from "@/lib/api/clients";
 import { prepMemoryHttp } from "@/lib/api/prepMemoryHttp";
-import { formatApiError } from "@/lib/api/base";
+import { ApiError, formatApiError } from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
 import type { PrepChatMessage } from "../types";
-import { downloadMarkdown } from "../components/MessageActions";
+import { downloadTextFile } from "@/lib/download";
 import type { RateSubmit } from "../components/RateModal";
-import { STREAM_STOP_GRACE_MS } from "../streamRegistry";
+
 import type { PrepSendSnapshot } from "./usePrepSend";
 
 export function usePrepMessageActions(opts: {
@@ -29,9 +29,11 @@ export function usePrepMessageActions(opts: {
     sessionId?: number,
     skipUserMessage?: boolean,
     sendOpts?: { dropLastAssistant?: boolean; reservedUserIndex?: number; snapshot?: PrepSendSnapshot; contextSessionIds?: number[] },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   switchSession: (id: number) => Promise<void>;
   setBackendCount: (sid: number, n: number) => void;
+  /** Tracked backend length (optimistic-concurrency guard source). */
+  backendCount?: (sid: number) => number | undefined;
   refreshSessions: () => void;
 }) {
   const {
@@ -42,6 +44,7 @@ export function usePrepMessageActions(opts: {
     sendMessage,
     switchSession,
     setBackendCount,
+    backendCount,
     refreshSessions,
   } = opts;
   const [rateTarget, setRateTarget] = useState<PrepChatMessage | null>(null);
@@ -61,8 +64,32 @@ export function usePrepMessageActions(opts: {
     toast.error(err instanceof Error ? formatApiError(err) : t(key));
   };
 
+  /**
+   * Wait for a stopped stream's server-side persist to land: poll history
+   * until two consecutive reads agree (or the budget runs out), instead of a
+   * fixed grace delay that either wastes time or loses to a slow persist.
+   */
+  const waitForStoppedPersist = async (sid: number) => {
+    const deadline = Date.now() + 2500;
+    let prev = -1;
+    while (Date.now() < deadline) {
+      try {
+        const list = await api.prepMessages(sid);
+        const n = Array.isArray(list) ? list.length : 0;
+        if (n === prev) {
+          setBackendCount(sid, n);
+          return;
+        }
+        prev = n;
+      } catch {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  };
+
   const handleExport = (msg: PrepChatMessage) => {
-    downloadMarkdown(`prep-${prepSessionId ?? "chat"}-${msg.id}.md`, msg.content);
+    downloadTextFile(`prep-${prepSessionId ?? "chat"}-${msg.id}.md`, msg.content);
   };
 
   const handleFork = async (msg: PrepChatMessage) => {
@@ -120,25 +147,37 @@ export function usePrepMessageActions(opts: {
     }
     // Stop the live stream first so its stopped partial lands before the rerun.
     stopStream();
-    await new Promise((resolve) => setTimeout(resolve, STREAM_STOP_GRACE_MS));
+    if (prepSessionId != null) await waitForStoppedPersist(prepSessionId);
     setMessages((m) => m.filter((x) => x.id !== msg.id));
     void sendMessage(input, undefined, true, { dropLastAssistant: true });
   };
 
-  const handleRetract = async (msg: PrepChatMessage) => {
+  const handleRetract = async (msg: PrepChatMessage, retried = false) => {
     if (!prepSessionId || msg.backendIndex === undefined) return;
     const cut = msg.backendIndex;
     try {
       // Retracting under a live stream would resurrect the stopped partial
       // after the cut: stop first, then truncate once it has landed.
       stopStream();
-      await new Promise((resolve) => setTimeout(resolve, STREAM_STOP_GRACE_MS));
-      await api.truncateMessages(prepSessionId, cut);
+      await waitForStoppedPersist(prepSessionId);
+      await api.truncateMessages(prepSessionId, cut, backendCount?.(prepSessionId));
       const idx = messages.findIndex((m) => m.id === msg.id);
       setMessages((m) => (idx < 0 ? m : m.slice(0, idx)));
       setBackendCount(prepSessionId, cut);
       refreshSessions();
     } catch (err) {
+      // Stale count guard fired (a background turn landed mid-retract):
+      // resync once from the backend and retry once, then report.
+      if (!retried && err instanceof ApiError && err.code === "A3003") {
+        try {
+          const list = await api.prepMessages(prepSessionId);
+          setBackendCount(prepSessionId, Array.isArray(list) ? list.length : 0);
+        } catch {
+          // Resync failure surfaces via the retry below.
+        }
+        await handleRetract(msg, true);
+        return;
+      }
       toastFailure("actions.retractFailed", err);
     }
   };

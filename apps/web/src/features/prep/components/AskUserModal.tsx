@@ -1,26 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, HelpCircle, Send, Star } from "lucide-react";
 import { useT } from "@/i18n";
 import type { AskUserDialog } from "@/types";
 import { formatAskAnswer, formatSliderValue } from "@/lib/askDialog";
-import { readAskTimeoutSec } from "@/lib/askTimeout";
+import { useAskAutoSubmit } from "../hooks/useAskAutoSubmit";
+import { MultiQuestionForm, type MultiAnswer } from "./AskMultiForm";
 
 interface AskUserModalProps {
   dialog: AskUserDialog;
   disabled?: boolean;
   onAnswer: (text: string) => void;
   onClose: () => void;
-}
-
-/** One question's pending answer inside a multi-question form. */
-interface MultiAnswer {
-  custom?: string;
-  picked?: string[];
-  slider?: string;
-  rating?: number;
 }
 
 /**
@@ -54,12 +47,11 @@ export function AskUserModal({
 
   useEffect(() => {
     // A new dialog may arrive while the modal stays mounted: drop stale picks
-    // and re-arm the deadline auto-fire guard.
+    // (the auto-submit guard re-arms inside useAskAutoSubmit).
     setCustom("");
     setChecked([]);
     setAnswers({});
     setSliderValue(String(sliderMin));
-    autoFiredRef.current = false;
   }, [dialog, sliderMin]);
 
   useEffect(() => {
@@ -90,30 +82,12 @@ export function AskUserModal({
   // Skipped while the user is composing custom text. Single-question dialogs
   // only: a multi-question form implies the user is present and answering.
   const autoChoice = !isMulti && suggested && !disabled ? suggested : null;
-  const timeoutSec = useMemo(() => readAskTimeoutSec(), []);
-  const deadline = useMemo(
-    () => (timeoutSec > 0 && autoChoice ? Date.now() + timeoutSec * 1000 : null),
-    [timeoutSec, autoChoice],
+  const { remainingMs, formatRemaining } = useAskAutoSubmit(
+    autoChoice,
+    custom.trim() !== "",
+    Boolean(disabled),
+    answer,
   );
-  const [now, setNow] = useState(() => Date.now());
-  const autoFiredRef = useRef(false);
-  useEffect(() => {
-    if (deadline === null) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [deadline]);
-  const remainingMs = deadline === null ? null : Math.max(0, deadline - now);
-  useEffect(() => {
-    if (remainingMs === 0 && autoChoice && !autoFiredRef.current && !custom.trim()) {
-      autoFiredRef.current = true;
-      answer(autoChoice);
-    }
-  });
-
-  const formatRemaining = (ms: number): string => {
-    const total = Math.ceil(ms / 1000);
-    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-  };
 
   const toggle = (opt: string) => {
     if (disabled) return;
@@ -163,135 +137,6 @@ export function AskUserModal({
       .map(({ q, text }) => `${q.question}: ${text}`);
     if (lines.length === 0) return;
     onAnswer(lines.join("\n"));
-  };
-
-  const multiQuestion = (q: AskUserDialog, idx: number) => {
-    const a = answers[idx] ?? {};
-    const qMax = Math.min(10, Math.max(3, Math.round(q.scale?.max ?? 5)));
-    const qMin = q.scale?.min ?? 0;
-    const qMaxRange = q.scale?.max ?? 10;
-    const qStep = q.scale?.step && q.scale.step > 0 ? q.scale.step : 1;
-    return (
-      <div key={idx} className="space-y-2">
-        <p className="text-[13px] font-medium leading-relaxed text-ink">
-          <span className="mr-1.5 text-ink-subtle">{idx + 1}.</span>
-          {q.question}
-        </p>
-        {q.widget === "slider" && (
-          <div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-ink-subtle">{qMin}</span>
-              <span className="text-[16px] font-semibold text-ink">
-                {formatSliderValue(a.slider ?? String(qMin), q.scale?.unit ?? "")}
-              </span>
-              <span className="text-[11px] text-ink-subtle">{qMaxRange}</span>
-            </div>
-            <input
-              type="range"
-              className="mt-1 w-full"
-              min={qMin}
-              max={qMaxRange}
-              step={qStep}
-              value={a.slider ?? String(qMin)}
-              disabled={disabled}
-              onChange={(e) => setAnswer(idx, { slider: e.target.value })}
-              aria-label={q.question}
-            />
-          </div>
-        )}
-        {q.widget === "rating" && (
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: qMax }, (_, i) => i + 1).map((star) => (
-              <button
-                key={star}
-                type="button"
-                disabled={disabled}
-                onClick={() => setAnswer(idx, { rating: star })}
-                aria-label={`${q.question} ${star}/${qMax}`}
-                className={`rounded p-1 transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  (a.rating ?? 0) >= star ? "text-[var(--warning)]" : "text-ink-subtle"
-                }`}
-              >
-                <Star size={22} fill="currentColor" strokeWidth={0} />
-              </button>
-            ))}
-          </div>
-        )}
-        {q.widget === "options" &&
-          (q.selection === "multi" ? (
-            <div className="space-y-1.5">
-              {q.options.map((opt) => {
-                const on = (a.picked ?? []).includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() =>
-                      setAnswer(idx, {
-                        picked: on
-                          ? (a.picked ?? []).filter((o) => o !== opt)
-                          : [...(a.picked ?? []), opt],
-                      })
-                    }
-                    aria-pressed={on}
-                    className="flex w-full items-center gap-2.5 rounded-md border border-surface-border bg-surface-alt px-3 py-2 text-left text-[13px] text-ink transition-colors hover:border-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span
-                      className={`flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[4px] border transition-colors ${
-                        on
-                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                          : "border-ink-subtle text-transparent"
-                      }`}
-                    >
-                      <Check size={12} strokeWidth={3} />
-                    </span>
-                    <span className="min-w-0 flex-1">{opt}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {q.options.map((opt) => {
-                const on = (a.picked ?? [])[0] === opt;
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setAnswer(idx, { picked: [opt] })}
-                    aria-pressed={on}
-                    className={`flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-[13px] text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      on
-                        ? "border-[var(--primary)] bg-[var(--info-soft)]"
-                        : "border-surface-border bg-surface-alt hover:border-[var(--primary)]"
-                    }`}
-                  >
-                    <span
-                      className={`h-[14px] w-[14px] shrink-0 rounded-full border-2 ${
-                        on ? "border-[var(--primary)] bg-[var(--primary)]" : "border-ink-subtle"
-                      }`}
-                    />
-                    <span className="min-w-0 flex-1">{opt}</span>
-                    {q.widget === "options" && q.suggested !== null && opt === q.suggested && recommendBadge}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        {q.allow_custom && (
-          <input
-            className="field-input w-full"
-            value={a.custom ?? ""}
-            onChange={(e) => setAnswer(idx, { custom: e.target.value })}
-            placeholder={t("ask.customPlaceholder")}
-            disabled={disabled}
-            aria-label={q.question}
-          />
-        )}
-      </div>
-    );
   };
 
   const renderBody = () => {
@@ -440,7 +285,7 @@ export function AskUserModal({
 
         {isMulti && multiQuestions ? (
           <div className="mt-4 space-y-5">
-            {multiQuestions.map((q, idx) => multiQuestion(q, idx))}
+            <MultiQuestionForm questions={multiQuestions} answers={answers} disabled={disabled} onPatch={setAnswer} />
             <div>
               <p className="mb-2 text-center text-[11px] text-ink-subtle">
                 {t("ask.progress", {

@@ -1,9 +1,10 @@
-"""Prep chat orchestration: synchronous single turn, SSE event stream, and persistence finalization.
+"""Prep chat orchestration: synchronous single turn and event-stream answers.
 
-The "conversation layer" extracted from the main ``agent`` file: ``run_chat`` / ``run_chat_stream``
-drive tool rounds and replay the final answer, ``compaction_event`` builds the SSE compaction
-payload, and ``finalize`` / ``polish_final`` / ``usage_event`` handle persistence sanitization.
-The tool loop (``_run_tool_rounds``) and context assembly remain in :mod:`agent`.
+The conversation layer extracted from the main ``agent`` file: ``run_chat`` /
+``run_chat_stream`` drive tool rounds and replay the final answer. Persistence
+(``finalize``), the ``compaction``/``usage`` payloads, and cancel-time saves
+live in :mod:`persist`. The tool loop (``_run_tool_rounds``) and context
+assembly remain in :mod:`agent`.
 
 Usage contract (frontend depends on this): the ``usage`` event carries this turn's
 provider-reported DELTA (the per-request LLM client's accumulator, including turn
@@ -21,15 +22,6 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.capabilities.ai.context.compress import (
-    COMPACTION_DIGEST_MARKER,
-    COMPACTION_SUMMARY_MARKER,
-)
-from realmock.platform.capabilities.ai.context.manager import (
-    estimate_tokens,
-    prepare_llm_context,
-)
-from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
 from realmock.platform.capabilities.ai.context.options import (
     DEFAULT_AUTO_COMPACT_THRESHOLD,
     CompactionOptions,
@@ -38,7 +30,14 @@ from realmock.platform.capabilities.ai.llm.provider_errors import is_context_ove
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
 from .ask_user import extract_inline_ask_user
-from .context import format_linked_sessions, strip_ref_blocks
+from .context import format_linked_sessions
+from .persist import (
+    compaction_event,
+    finalize,
+    finalize_with_delta,
+    persist_cancel,
+    usage_event,
+)
 from .quiz_render import prep_quiz_renderer
 from .streaming import make_display_filter, slice_stream, stream_tool_rounds
 
@@ -47,9 +46,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# The upper limit of the length of the persisted thinking (metadata for display)
-_MAX_PERSISTED_THINKING_CHARS = 20_000
-# SSE event-queue bound: tool rounds await ``put`` past this depth.
+# Event-queue bound: tool rounds await ``put`` past this depth.
 _EVENT_QUEUE_MAXSIZE = 256
 
 # Pre-loop status line per UI locale (streamed visibly before the tool loop).
@@ -60,156 +57,19 @@ _THINKING_STATUS = {
 }
 
 
-def _summary_markers(messages: list[dict[str, Any]]) -> set[str]:
-    """Fingerprints of compaction record blocks — LLM minutes and rule digests (turn-start vs post-build diffing)."""
-    marks: set[str] = set()
-    for m in messages or []:
-        if not isinstance(m, dict) or m.get("role") != "system":
-            continue
-        content = str(m.get("content") or "")
-        if content.startswith((COMPACTION_SUMMARY_MARKER, COMPACTION_DIGEST_MARKER)):
-            marks.add(content[:200])
-    return marks
-
-
-def compaction_event(
-    before_messages: list[dict[str, Any]],
-    after_messages: list[dict[str, Any]],
-    report: dict[str, Any] | None = None,
-    *,
-    context_window: int = 0,
-    threshold: float | None = None,
-) -> dict[str, Any] | None:
-    """Build the ``compaction`` SSE payload only when a real compaction record appeared.
-
-    A new minutes/digest block means history was genuinely folded. Routine
-    turn-start churn — stale tool-pair collapse, memory/lang-hint re-render —
-    shifts the token estimate without writing any record, so it stays quiet
-    instead of crying "compaction" every turn.
-    """
-    before = estimate_messages_tokens(before_messages)
-    after = estimate_messages_tokens(after_messages)
-    summarized = bool(_summary_markers(after_messages) - _summary_markers(before_messages))
-    if not summarized:
-        return None
-    report = report or {}
-    event: dict[str, Any] = {
-        "type": "compaction",
-        "before": before,
-        "after": after,
-        "summarized": summarized,
-        "prompt_tokens": int(report.get("prompt_tokens", 0)),
-        "completion_tokens": int(report.get("completion_tokens", 0)),
-        "latency_ms": round(float(report.get("latency_ms", 0.0)), 1),
-    }
-    if context_window > 0:
-        event["context_window"] = context_window
-    if isinstance(threshold, (int, float)) and 0 < threshold < 1:
-        event["threshold"] = threshold
-    return event
-
-
-def finalize(
-    agent: "PrepAgent",
-    working: list[dict[str, Any]],
-    final: str,
-    db: Session,
-    *,
-    tool_steps: list[dict[str, Any]] | None = None,
-    search_groups: list[dict[str, Any]] | None = None,
-    thinking: str | None = None,
-    stopped: bool = False,
-    compact_threshold: float | None = None,
-    compact_options: CompactionOptions | None = None,
-    turn_id: str | None = None,
-) -> None:
-    """Persist: append the assistant message (including steps/retrieval cards/thinking metadata), apply rule-based compaction, and update token statistics."""
-    # Per-turn # references are transient prompt material: measure them, then
-    # strip before persisting so stored history stays clean.
-    agent.last_prompt_estimate = estimate_messages_tokens(working)
-    options = compact_options or CompactionOptions()
-    if agent._turn_state.mid_turn_base is not None and agent._turn_state.pre_loop_len is not None:
-        # Agent-invoked mid-turn compaction rewrote persisted history while the
-        # loop ran on: merge the loop's new tail (current round, pairing intact)
-        # back on top of the compacted base instead of clobbering it.
-        tail_new = working[agent._turn_state.pre_loop_len :] if len(working) >= (agent._turn_state.pre_loop_len or 0) else []
-        agent.messages = strip_ref_blocks(agent._turn_state.mid_turn_base) + list(tail_new)
-        agent._turn_state.mid_turn_base = None
-    else:
-        agent.messages = strip_ref_blocks(working)
-    # Guard against null finals (a provider may return an empty body): the
-    # history contract requires string content; empty replies stay hidden.
-    assistant_msg: dict[str, Any] = {"role": "assistant", "content": final if isinstance(final, str) else ""}
-    if stopped:
-        assistant_msg["stopped"] = True
-    if turn_id:
-        assistant_msg["turn_id"] = turn_id
-    # Only metadata for display; LLM client only takes role/content and will not enter the model context.
-    if tool_steps:
-        assistant_msg["steps"] = tool_steps
-    if search_groups:
-        assistant_msg["search_groups"] = search_groups
-    combined = (thinking or "").strip()
-    if combined:
-        assistant_msg["thinking"] = combined[:_MAX_PERSISTED_THINKING_CHARS]
-    agent.messages.append(assistant_msg)
-    if final:
-        agent.memory.remember("asked", final)
-    agent.messages = prepare_llm_context(
-        agent.messages, agent.context_window, memory=agent.memory,
-        # Persist-path bound follows the same auto-compact setting as the
-        # turn-start LLM compaction, so a user threshold is honored, not
-        # silently undercut by the default. The verbatim tail matches the
-        # turn-start policy too: retain raised by the intensity floor,
-        # floored at the latest exchange.
-        threshold=(
-            compact_threshold
-            if isinstance(compact_threshold, (int, float)) and 0 < compact_threshold < 1
-            else DEFAULT_AUTO_COMPACT_THRESHOLD
-        ),
-        keep_recent=max(options.keep_window(), 2),
-    )
-    # Session ring estimate: text-content estimate only (tool-call argument
-    # payloads excluded by design; provider-reported columns are authoritative).
-    agent.session.token_usage = sum(
-        estimate_tokens(str(m.get("content") or "")) for m in agent.messages
-    )
-    # Accumulated actual usage (available when the supplier returns; the estimated value is only used for the ring proportion)
-    usage = getattr(agent.llm, "usage", None)
-    if usage is not None:
-        agent.session.prompt_tokens = (agent.session.prompt_tokens or 0) + usage.prompt_tokens
-        agent.session.completion_tokens = (
-            agent.session.completion_tokens or 0
-        ) + usage.completion_tokens
-        agent.session.cached_tokens = (agent.session.cached_tokens or 0) + usage.cached_tokens
-    # Backend-truth message count for the stream envelope: tool/trim rounds
-    # make client-side +2-per-turn reservations drift, so every turn reports
-    # its real length and the client resyncs instead of guessing.
-    agent.last_message_count = len(agent.messages)
-    agent._save(db)
-
-
 def polish_final(text: str) -> tuple[str, dict[str, Any] | None]:
     """Outbound sanitization: recover inline ask_user calls + strip special tokens/inline tool blocks. Returns ``(body, ask event or None)``."""
     cleaned, ask_event = extract_inline_ask_user(text or "")
     return sanitize_special_tokens(cleaned, quiz_renderer=prep_quiz_renderer).strip(), ask_event
 
 
-def usage_event(agent: "PrepAgent") -> dict[str, Any] | None:
-    """This turn's LLM usage delta; absent when the provider reported none.
-
-    The frontend adds each turn delta into its session totals (additive merge);
-    on session restore it reseeds from the summary columns instead.
-    """
-    usage = getattr(agent.llm, "usage", None)
-    if usage is None or not (usage.prompt_tokens or usage.completion_tokens):
-        return None
-    return {"type": "usage", **usage.to_dict()}
-
-
 def _drop_trailing_assistant(agent: "PrepAgent") -> None:
     """Regenerate support: remove the last assistant reply so the turn can rerun."""
-    if agent.messages and agent.messages[-1].get("role") == "assistant":
+    if (
+        agent.messages
+        and isinstance(agent.messages[-1], dict)
+        and agent.messages[-1].get("role") == "assistant"
+    ):
         agent.messages.pop()
 
 
@@ -246,6 +106,23 @@ def _begin_turn(agent: "PrepAgent", options: CompactionOptions | None) -> Compac
     return agent._turn_state.policy
 
 
+async def _force_compact_context(
+    agent: "PrepAgent",
+    policy: CompactionOptions,
+    db: Session,
+    context_session_ids: list[int] | None,
+) -> list[dict[str, Any]]:
+    """Force-compact working context once (overflow path, shared by both channels).
+
+    The rebuilt context already contains any mid-turn compaction result, so
+    the finalize merge (indexed against the old loop copy) must not run.
+    """
+    emergency = CompactionOptions(intensity="aggressive", directive=policy.directive, retain=0)
+    agent._turn_state.mid_turn_base = None
+    working = await agent._build_context(force=True, options=emergency)
+    return await _inject_refs(agent, working, db, context_session_ids)
+
+
 async def _final_answer_with_overflow_retry(
     agent: "PrepAgent",
     working: list[dict[str, Any]],
@@ -260,68 +137,26 @@ async def _final_answer_with_overflow_retry(
         if not is_context_overflow(e):
             raise
         logger.warning("Prep final answer overflowed; force-compacting and retrying once")
-        emergency = CompactionOptions(intensity="aggressive", directive=policy.directive, retain=0)
-        # The rebuilt context already contains any mid-turn compaction result, so
-        # the finalize merge (indexed against the old loop copy) must not run.
-        agent._turn_state.mid_turn_base = None
-        working = await agent._build_context(force=True, options=emergency)
-        working = await _inject_refs(agent, working, db, context_session_ids)
+        working = await _force_compact_context(agent, policy, db, context_session_ids)
         return await agent.llm.chat(working, temperature=0.7)
 
 
-async def run_chat(
-    agent: "PrepAgent", user_text: str, db: Session, *,
-    drop_last_assistant: bool = False, ui_locale: str | None = None,
+async def _prepare_turn(
+    agent: "PrepAgent",
+    user_text: str,
+    db: Session,
+    *,
+    drop_last_assistant: bool = False,
+    ui_locale: str | None = None,
     context_session_ids: list[int] | None = None,
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
-) -> str:
-    policy = _begin_turn(agent, compact_options)
-    turn_id = agent.last_turn_id or uuid.uuid4().hex
-    await agent._ensure_system(db, ui_locale)
-    if drop_last_assistant:
-        _drop_trailing_assistant(agent)
-    agent.messages.append({"role": "user", "content": user_text})
-    working = await agent._build_context(threshold=compact_threshold, options=policy)
-    working = await _inject_refs(agent, working, db, context_session_ids)
-    agent._turn_state.pre_loop_len = len(working)
+) -> tuple[CompactionOptions, str, list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Shared turn setup for both channels; returns (policy, turn_id, working, pre_build, report).
 
-    asked_user: dict[str, bool] = {"on": False}
-    working, early, groups, steps, thinking = await agent._run_tool_rounds(
-        working, db, asked_user=asked_user
-    )
-    if asked_user["on"]:
-        # The pop-up window has been displayed: consistent with the streaming path, waiting for the user to answer, no more fabricated answers
-        final = agent.waiting_line()
-    elif early:
-        # The text at the end of the model is the final answer; pop-up events cannot be sent to non-streaming channels, and only purification is done.
-        final, _ = polish_final(early)
-        final = final or agent.waiting_line()
-    else:
-        final = await _final_answer_with_overflow_retry(agent, working, policy, db, context_session_ids)
-
-    finalize(
-        agent, working, final, db, tool_steps=steps, search_groups=groups, thinking=thinking,
-        compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
-    )
-    return final if isinstance(final, str) else ""
-
-
-async def run_chat_stream(
-    agent: "PrepAgent", user_text: str, db: Session, *,
-    drop_last_assistant: bool = False, ui_locale: str | None = None,
-    context_session_ids: list[int] | None = None,
-    compact_threshold: float | None = None,
-    compact_options: CompactionOptions | None = None,
-) -> AsyncIterator[str | dict[str, Any]]:
-    """ReAct tool loop (events pushed immediately) → then stream the final answer.
-
-    Yields ``str`` (response-body token) or ``dict`` (``status`` / ``thinking`` /
-    ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events,
-    plus ``{"type": "token"}`` payloads streamed live from inside the tool rounds).
-
-    When the client disconnects (stop button), the partial turn is still
-    persisted with ``stopped=True`` instead of being lost.
+    Appends the user message, builds working context (+ per-turn refs), and
+    records pre_loop_len. The non-streaming caller ignores pre_build/report;
+    the streaming caller diffs them into a compaction event.
     """
     policy = _begin_turn(agent, compact_options)
     turn_id = agent.last_turn_id or uuid.uuid4().hex
@@ -336,6 +171,101 @@ async def run_chat_stream(
     )
     working = await _inject_refs(agent, working, db, context_session_ids)
     agent._turn_state.pre_loop_len = len(working)
+    return policy, turn_id, working, pre_build, build_report
+
+
+async def run_chat(
+    agent: "PrepAgent", user_text: str, db: Session, *,
+    drop_last_assistant: bool = False, ui_locale: str | None = None,
+    context_session_ids: list[int] | None = None,
+    compact_threshold: float | None = None,
+    compact_options: CompactionOptions | None = None,
+) -> str:
+    """Synchronous single-round reply (non-streaming channel).
+
+    The turn-start compaction runs silently (no SSE compaction event on this
+    channel); persistence and overflow-retry semantics match run_chat_stream.
+    """
+    policy, turn_id, working, _, _ = await _prepare_turn(
+        agent, user_text, db,
+        drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+        context_session_ids=context_session_ids,
+        compact_threshold=compact_threshold,
+        compact_options=compact_options,
+    )
+
+    asked_user: dict[str, bool] = {"on": False}
+    working, early, groups, steps, thinking = await agent._run_tool_rounds(
+        working, db, asked_user=asked_user
+    )
+    if asked_user["on"]:
+        # The pop-up window has been displayed: consistent with the streaming path, waiting for the user to answer, no more fabricated answers
+        final = agent.pending_reply_text()
+    elif early:
+        # The text at the end of the model is the final answer; pop-up events cannot be sent to non-streaming channels, and only purification is done.
+        final, _ = polish_final(early)
+        final = final or agent.pending_reply_text()
+    else:
+        final = await _final_answer_with_overflow_retry(agent, working, policy, db, context_session_ids)
+
+    finalize(
+        agent, working, final, db, tool_steps=steps, search_groups=groups, thinking=thinking,
+        compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
+    )
+    return final if isinstance(final, str) else ""
+
+
+def _new_content_state() -> dict[str, Any]:
+    """Fresh speculative-streaming state (caller-owned; flushed after the loop)."""
+    return {
+        "streamed": False,
+        "status_cleared": False,
+        "filtered_text": "",
+        "filter": make_display_filter(),
+    }
+
+
+def _take_mid_turn_report_event(agent: "PrepAgent") -> dict[str, Any] | None:
+    """Consume the mid-turn compaction report as an SSE event (or None)."""
+    report = agent._turn_state.mid_turn_report
+    if report is None:
+        return None
+    agent._turn_state.mid_turn_report = None
+    return {
+        "type": "compaction",
+        "before": report.get("before", 0),
+        "after": report.get("after", 0),
+        "summarized": True,
+        "prompt_tokens": report.get("prompt_tokens", 0),
+        "completion_tokens": report.get("completion_tokens", 0),
+        "latency_ms": report.get("latency_ms", 0.0),
+        "context_window": agent.context_window,
+    }
+
+
+async def run_chat_stream(
+    agent: "PrepAgent", user_text: str, db: Session, *,
+    drop_last_assistant: bool = False, ui_locale: str | None = None,
+    context_session_ids: list[int] | None = None,
+    compact_threshold: float | None = None,
+    compact_options: CompactionOptions | None = None,
+) -> AsyncIterator[str | dict[str, Any]]:
+    """Think-then-act tool loop (events pushed immediately) → then stream the final answer.
+
+    Yields ``str`` (response-body token) or ``dict`` (``status`` / ``thinking`` /
+    ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events,
+    plus ``{"type": "token"}`` payloads streamed live from inside the tool rounds).
+
+    When the client disconnects (stop button), the partial turn is still
+    persisted with ``stopped=True`` instead of being lost.
+    """
+    policy, turn_id, working, pre_build, build_report = await _prepare_turn(
+        agent, user_text, db,
+        drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+        context_session_ids=context_session_ids,
+        compact_threshold=compact_threshold,
+        compact_options=compact_options,
+    )
 
     start_event = compaction_event(
         pre_build, working, build_report,
@@ -358,12 +288,7 @@ async def run_chat_stream(
     # Speculative content-streaming state: one display filter held across rounds
     # so its rules (the display mirror of polish_final) apply across chunk and
     # round boundaries; the loop-end flush releases any held-back tail.
-    content_state: dict[str, Any] = {
-        "streamed": False,
-        "status_cleared": False,
-        "filtered_text": "",
-        "filter": make_display_filter(),
-    }
+    content_state: dict[str, Any] = _new_content_state()
     outcome: dict[str, Any] = {}
     early: str | None = None
     search_groups: list[dict[str, Any]] = []
@@ -388,6 +313,8 @@ async def run_chat_stream(
         value = outcome.get("value")
         if isinstance(value, tuple) and len(value) == 5:
             working, early, search_groups, tool_steps, thinking = value
+        elif value is not None:
+            logger.warning("Prep unexpected tool outcome shape: %r", type(value))
 
         # Release the display filter's held-back tail (a partial special token,
         # partial block opening, or unterminated block at stream end).
@@ -398,31 +325,24 @@ async def run_chat_stream(
 
         # Agent-invoked mid-turn compaction ran inside the loop: surface it
         # like any other tool-driven step before the final answer streams.
-        if agent._turn_state.mid_turn_report is not None:
-            report = agent._turn_state.mid_turn_report
-            agent._turn_state.mid_turn_report = None
-            yield {
-                "type": "compaction",
-                "before": report.get("before", 0),
-                "after": report.get("after", 0),
-                "summarized": True,
-                "prompt_tokens": report.get("prompt_tokens", 0),
-                "completion_tokens": report.get("completion_tokens", 0),
-                "latency_ms": report.get("latency_ms", 0.0),
-                "context_window": agent.context_window,
-            }
+        mid_event = _take_mid_turn_report_event(agent)
+        if mid_event is not None:
+            yield mid_event
 
         if asked_user["on"]:
             # Pop-up events and search cards have been pushed immediately when the tool is executed; here only the status line is cleared at the end
             yield {"type": "status", "text": ""}
-            final = agent.waiting_line()
+            final = agent.pending_reply_text()
             async for piece in slice_stream(final):
                 yield piece
-            finalize(agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups, thinking=thinking, compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id)
+            delta = finalize_with_delta(
+                agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
+                thinking=thinking, compact_threshold=compact_threshold,
+                compact_options=policy, turn_id=turn_id,
+            )
             finalized = True
-            event = usage_event(agent)
-            if event:
-                yield event
+            if delta:
+                yield delta
             return
 
         if search_groups:
@@ -467,47 +387,41 @@ async def run_chat_stream(
                     # Overflow before any token: force-compact and retry the final
                     # answer once instead of failing the turn.
                     logger.warning("Prep stream final overflowed; force-compacting and retrying once")
-                    emergency = CompactionOptions(intensity="aggressive", directive=policy.directive, retain=0)
-                    # The rebuilt context already contains any mid-turn compaction
-                    # result, so the finalize merge must not run (see finalize).
-                    agent._turn_state.mid_turn_base = None
-                    working = await agent._build_context(force=True, options=emergency)
-                    working = await _inject_refs(agent, working, db, context_session_ids)
+                    working = await _force_compact_context(agent, policy, db, context_session_ids)
                     async for token in agent.llm.chat_stream(working, temperature=0.7):
                         final += token
                         yield token
         elif not final:
             # Dialog rescued from an otherwise-empty body: keep the waiting line.
-            final = agent.waiting_line()
+            final = agent.pending_reply_text()
             async for piece in slice_stream(final):
                 yield piece
 
-        event = usage_event(agent)
-        finalize(agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups, thinking=thinking, compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id)
+        delta = finalize_with_delta(
+            agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
+            thinking=thinking, compact_threshold=compact_threshold,
+            compact_options=policy, turn_id=turn_id,
+        )
         finalized = True
-        if event:
-            yield event
+        if delta:
+            yield delta
     except (asyncio.CancelledError, GeneratorExit):
         # Client stopped the stream: persist the partial turn so the question
         # and whatever was produced survive a refresh. Never yield here, and
         # never let a persistence failure mask the cancellation itself.
+        # Note: the blocking commit is intentional here — the turn must land
+        # before the generator closes, or the question is lost on refresh.
         if not finalized:
-            try:
-                finalize(
-                    agent, working, final or str(content_state.get("filtered_text") or ""), db,
-                    tool_steps=tool_steps, search_groups=search_groups,
-                    thinking=thinking, stopped=True,
-                    compact_threshold=compact_threshold, compact_options=policy,
-                    turn_id=turn_id,
-                )
-            except Exception as persist_exc:
-                logger.warning("Prep cancel-time persist failed: %s", persist_exc)
+            persist_cancel(
+                agent, working, final, content_state, db,
+                tool_steps=tool_steps, search_groups=search_groups,
+                thinking=thinking, compact_threshold=compact_threshold,
+                compact_options=policy, turn_id=turn_id,
+            )
         raise
 
 
 __all__ = [
-    "_EVENT_QUEUE_MAXSIZE",
-    "_MAX_PERSISTED_THINKING_CHARS",
     "compaction_event",
     "finalize",
     "polish_final",

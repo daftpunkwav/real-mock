@@ -11,8 +11,9 @@ from realmock.platform.core.constants import MAX_USER_TEXT_CHARS
 
 class PrepCreateRequest(BaseModel):
     resume_id: int | None = None
-    target_role: str = ""
-    target_company: str = ""
+    # Matches PrepSession String(100): longer values 422 here instead of DB error.
+    target_role: str = Field(default="", max_length=100)
+    target_company: str = Field(default="", max_length=100)
 
 
 class PrepSessionCreateResponse(BaseModel):
@@ -94,7 +95,8 @@ class PrepMessageRequest(BaseModel):
     # history). At most 5 are honored; unknown ids resolve to nothing.
     context_session_ids: list[int] | None = Field(default=None, max_length=5)
     # Auto-compact trigger as a fraction of the model's context window
-    # (0.5–0.9 from the prep settings UI); None = agent-decided default.
+    # (accepted 0.1–0.95; the prep settings UI typically sends 0.5–0.9);
+    # None = agent-decided default.
     compact_threshold: float | None = Field(default=None, ge=0.1, le=0.95)
     # Compaction parameters for this turn's auto-compact (intensity/directive/
     # retain from the prep settings UI); absent fields fall back to defaults.
@@ -136,6 +138,9 @@ class PrepForkRequest(BaseModel):
 class PrepTruncateRequest(BaseModel):
     # Drop backend messages[from_index:] (retract a user message and all replies after it).
     from_index: int = Field(..., ge=0)
+    # Optimistic-concurrency guard: 409 when the persisted history changed
+    # since the caller read it (same semantics as compact/summary edits).
+    expected_message_count: int | None = Field(default=None, ge=0)
 
 
 class PrepContextBucket(BaseModel):
@@ -201,6 +206,12 @@ class PrepArchiveRequest(BaseModel):
     archived: bool = True
 
 
+class PrepPurgeAllRequest(BaseModel):
+    # Explicit confirmation for the irreversible purge-all operation;
+    # requests without confirm=True are rejected (A0001).
+    confirm: bool = False
+
+
 class PrepLinkRequest(BaseModel):
     # Link another session into this one's context; null unlinks.
     linked_session_id: int | None = None
@@ -220,7 +231,7 @@ class PrepMemoryCreate(BaseModel):
     reasons: list[str] = Field(default_factory=list, max_length=10)
     comment: str = Field(default="", max_length=2000)
     tags: list[str] = Field(default_factory=list, max_length=20)
-    origin: str = "user_rating"
+    origin: str = Field(default="user_rating", pattern="^(user_rating|user_emphasis|agent_note)$")
 
 
 class PrepMemorySummary(BaseModel):
@@ -250,3 +261,34 @@ class PrepMemoryUpdate(BaseModel):
 
 class PrepMemoryBatchDelete(BaseModel):
     ids: list[int] = Field(default_factory=list, min_length=1, max_length=100)
+
+
+__all__ = [
+    "COMPACTION_INTENSITIES",
+    "DIRECTIVE_MAX_CHARS",
+    "MEMORY_ORIGINS",
+    "RETAIN_MAX",
+    "RETAIN_MIN",
+    "PrepArchiveRequest",
+    "PrepCompactRequest",
+    "PrepCompactResponse",
+    "PrepContextBucket",
+    "PrepContextResponse",
+    "PrepCreateRequest",
+    "PrepForkRequest",
+    "PrepForkResponse",
+    "PrepHistoryMessage",
+    "PrepLinkRequest",
+    "PrepMemoryBatchDelete",
+    "PrepMemoryCreate",
+    "PrepMemoryDetail",
+    "PrepMemorySummary",
+    "PrepMemoryUpdate",
+    "PrepMessageRequest",
+    "PrepMessageResponse",
+    "PrepPurgeAllRequest",
+    "PrepSessionCreateResponse",
+    "PrepSessionSummary",
+    "PrepSummaryUpdateRequest",
+    "PrepTruncateRequest",
+]

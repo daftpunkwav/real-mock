@@ -18,3 +18,7 @@ SESSIONS_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE prep_sessions ADD COLUMN linked_session_id INTEGER DEFAULT NULL",
     ],
 }
+
+__all__ = [
+    "SESSIONS_MIGRATIONS",
+]

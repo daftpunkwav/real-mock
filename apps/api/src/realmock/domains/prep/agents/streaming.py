@@ -281,8 +281,8 @@ async def stream_tool_rounds(
 
 
 __all__ = [
-    "_PRODUCE_DONE",
     "event_loopbacks",
+    "make_display_filter",
     "slice_stream",
     "stream_tool_rounds",
 ]

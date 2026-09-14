@@ -47,10 +47,16 @@ def test_history_coerces_null_content_rows(db) -> None:
 
 # --- memories ---
 
+_CSRF = {"Origin": "http://localhost:8080"}
+
 
 def test_memory_rating_create_requires_score() -> None:
     with TestClient(app) as client:
-        resp = client.post("/api/v1/prep/memories", json={"user_input": "q"})
+        resp = client.post(
+            "/api/v1/prep/memories",
+            headers=dict(_CSRF),
+            json={"user_input": "q"},
+        )
     assert resp.status_code == 422
 
 
@@ -58,6 +64,7 @@ def test_memory_crud_and_batch_delete() -> None:
     with TestClient(app) as client:
         created = client.post(
             "/api/v1/prep/memories",
+            headers=dict(_CSRF),
             json={
                 "user_input": "Explain Raft?",
                 "agent_output": "Raft is ...",
@@ -86,6 +93,7 @@ def test_memory_crud_and_batch_delete() -> None:
 
         patched = client.patch(
             f"/api/v1/prep/memories/{mid}",
+            headers=dict(_CSRF),
             json={"summary": "Edited summary", "tags": ["后端"]},
         )
         assert patched.status_code == 200
@@ -94,12 +102,15 @@ def test_memory_crud_and_batch_delete() -> None:
 
         second = client.post(
             "/api/v1/prep/memories",
+            headers=dict(_CSRF),
             json={"user_input": "q2", "agent_output": "a2", "score": 5},
         )
         second_id = second.json()["id"]
 
         batch = client.post(
-            "/api/v1/prep/memories/batch-delete", json={"ids": [mid, second_id]}
+            "/api/v1/prep/memories/batch-delete",
+            headers=dict(_CSRF),
+            json={"ids": [mid, second_id]},
         )
         assert batch.json() == {"deleted": 2}
         assert client.get(f"/api/v1/prep/memories/{mid}").status_code == 404
@@ -116,8 +127,20 @@ def test_rating_mirrors_note_into_session_working_memory(db) -> None:
         {"role": "assistant", "content": "a1"},
     ])
     with TestClient(app) as client:
+        denied = client.post(
+            "/api/v1/prep/memories",
+            json={
+                "session_id": session.id,
+                "user_input": "q1",
+                "agent_output": "a1",
+                "score": 4,
+                "tags": ["后端"],
+            },
+        )
+        assert denied.status_code == 403
         resp = client.post(
             "/api/v1/prep/memories",
+            headers=dict(_CSRF),
             json={
                 "session_id": session.id,
                 "user_input": "q1",
@@ -328,6 +351,9 @@ def test_context_endpoint_reports_breakdown_and_usage(db) -> None:
 def test_compact_single_exchange_folds_whole(db, monkeypatch) -> None:
     """Single-exchange /compact is user-decided: it folds the whole exchange into an LLM summary."""
     from realmock.platform.capabilities.ai.llm.client import LLMClient
+    from realmock.platform.core.ratelimit import reset_rate_limit
+
+    reset_rate_limit("compact")
 
     class _SummaryLLM:
         context_window = 128000

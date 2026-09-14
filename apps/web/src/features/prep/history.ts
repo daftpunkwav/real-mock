@@ -1,4 +1,7 @@
-/** Prep history normalizers into chat messages. */
+/**
+ * @file history.ts
+ * @description Prep history normalizers into chat messages.
+ */
 
 import type { PrepHistoryMessage, PrepSearchGroup, PrepToolStep } from "@/lib/api/contract";
 import type { PrepChatMessage, PrepTraceItem } from "./types";
@@ -186,6 +189,9 @@ export function mapHistoryMessages(
         continue;
       }
     }
+    // Unknown roles and empty bodies are display-dropped (never rendered),
+    // but backendIndex still advances above: indices must mirror server
+    // positions for fork/retract/concurrency guards, not visible rows.
     if (!((m.role === "user" || m.role === "assistant") && m.content)) continue;
     const thinking = normalizeThinking(m.thinking);
     const steps = normalizeSteps(m.steps);

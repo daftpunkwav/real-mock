@@ -16,6 +16,8 @@ from fastapi.testclient import TestClient
 
 from realmock.asgi import app
 from realmock.domains.prep.agents import tools as prep_tools
+from realmock.domains.prep.agents.tools.basic import company_info as company_info_tool
+from realmock.domains.prep.agents.tools.basic import web_search as web_search_tool
 from realmock.domains.prep.agents.agent import PrepAgent
 from realmock.domains.prep.agents.tool_exec import build_execute_callback
 from realmock.domains.prep.models import PrepSession
@@ -142,7 +144,7 @@ async def test_web_search_empty_query_skips_memory(
         assert args["query"] == ""
         return json.dumps({"results": [], "text": "nothing"})
 
-    monkeypatch.setattr(prep_tools, "execute_web_search", fake_search)
+    monkeypatch.setattr(web_search_tool, "execute_web_search", fake_search)
     memory = _memory()
     text, hits = await prep_tools.execute_prep_tool("web_search", {"query": ""}, memory)
     assert (text, hits) == ("nothing", [])
@@ -153,7 +155,7 @@ async def test_web_search_remembers_query(monkeypatch: pytest.MonkeyPatch) -> No
     async def fake_search(args: dict, **kwargs) -> str:
         return json.dumps({"results": [{"title": "t"}], "text": "body"})
 
-    monkeypatch.setattr(prep_tools, "execute_web_search", fake_search)
+    monkeypatch.setattr(web_search_tool, "execute_web_search", fake_search)
     memory = _memory()
     text, hits = await prep_tools.execute_prep_tool(
         "web_search", {"query": "raft consensus"}, memory
@@ -169,7 +171,7 @@ async def test_web_search_non_json_passthrough(
     async def fake_search(args: dict, **kwargs) -> str:
         return "RAW-UPSTREAM"
 
-    monkeypatch.setattr(prep_tools, "execute_web_search", fake_search)
+    monkeypatch.setattr(web_search_tool, "execute_web_search", fake_search)
     text, hits = await prep_tools.execute_prep_tool(
         "web_search", {"query": "x"}, _memory()
     )
@@ -180,7 +182,7 @@ async def test_web_search_non_list_results(monkeypatch: pytest.MonkeyPatch) -> N
     async def fake_search(args: dict, **kwargs) -> str:
         return json.dumps({"results": "nope", "text": "T"})
 
-    monkeypatch.setattr(prep_tools, "execute_web_search", fake_search)
+    monkeypatch.setattr(web_search_tool, "execute_web_search", fake_search)
     text, hits = await prep_tools.execute_prep_tool(
         "web_search", {"query": "x"}, _memory()
     )
@@ -191,7 +193,7 @@ async def test_company_info_returns_catalog_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        prep_tools, "get_company_context", lambda company: f"CTX:{company}"
+        company_info_tool, "get_company_context", lambda company: f"CTX:{company}"
     )
     text, hits = await prep_tools.execute_prep_tool(
         "company_info", {"company": "bytedance"}, _memory()
@@ -697,6 +699,20 @@ async def test_memory_write_idempotency_key_survives_retries(db) -> None:
     second, _ = await prep_tools.execute_prep_tool("memory_write", args, memory)
     assert json.loads(first)["id"] == json.loads(second)["id"]
     assert json.loads(second).get("deduplicated") is True
+
+
+async def test_memory_write_per_turn_budget(db) -> None:
+    """At most 2 memory_write dispatches per turn; the 3rd is refused without side effects."""
+    agent = _agent()
+    kw = {"db": db}
+    first, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact one"}, **kw)
+    second, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact two"}, **kw)
+    assert "budget exhausted" not in first + second
+    third, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact three"}, **kw)
+    assert "budget exhausted" in third
+    agent._turn_state.reset()
+    fourth, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact four"}, **kw)
+    assert "budget exhausted" not in fourth
 
 
 # --- Context cache layout ---

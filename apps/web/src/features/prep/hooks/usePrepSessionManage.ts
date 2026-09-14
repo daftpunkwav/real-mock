@@ -16,9 +16,6 @@ import { abortStream, hasActiveStream, STREAM_STOP_GRACE_MS } from "../streamReg
 import { clearArchive } from "../compactionArchive";
 import type { PrepChatMessage } from "../types";
 
-/** Re-exported for call sites that need the same stop-then-mutate pacing. */
-export { STREAM_STOP_GRACE_MS as PREP_STOP_GRACE_MS };
-
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function usePrepSessionManage(opts: {

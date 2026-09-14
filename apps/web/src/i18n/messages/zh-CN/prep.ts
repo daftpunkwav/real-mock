@@ -77,12 +77,6 @@ export const prep = {
   "sessions.clearFailed": "清空消息失败",
   "sessions.cancelAction": "取消",
   "sessions.archivedTitle": "已归档 · {count}",
-  "sessions.archivedBadge": "已归档",
-  "sessions.linkTitle": "关联会话",
-  "sessions.linkDesc": "选择一个会话,教练将在首轮读到它的目标与最近对话。",
-  "sessions.linkPlaceholder": "选择要关联的会话…",
-  "sessions.unlink": "取消关联",
-  "sessions.linkFailed": "关联会话失败",
 
   // 检索卡片 / 简历加载
   "resources.sourcesSummary": "检索来源 · {total} 条 / {groups} 组",
@@ -168,12 +162,10 @@ export const prep = {
   "slash.help": "帮助",
   "slash.helpDesc": "查看可用命令",
   "slash.helpBody": "可用命令:\n/compact [轻度|标准|重度] [压缩指令] - 立即压缩历史并写入摘要\n/clear 清空消息 - 清空当前会话的全部消息\n/help 帮助 - 查看可用命令",
-  "slash.unknown": "未知命令:{cmd},输入 /help 查看可用命令",
   "slash.noSession": "没有活动会话,无法执行该命令",
   "slash.compactDoneSummary": "上下文已压缩并写入摘要:{before} → {after}",
   "slash.compactDonePruned": "上下文已整理:{before} → {after}",
   "slash.compactDoneUnchanged": "无需压缩:{before}(没有可折叠的旧轮次)",
-  "slash.compactDoneEdited": "摘要已更新",
   "slash.compactFailed": "压缩失败:{reason}",
   "slash.compactBusy": "正在生成中,停止后再压缩",
 
@@ -181,8 +173,6 @@ export const prep = {
   "compactCard.title": "上下文摘要 v{version}",
   "compactCard.digestTitle": "上下文整理记录",
   "compactCard.tokens": "{before} → {after}",
-  "compactCard.viewFull": "查看全文",
-  "compactCard.collapse": "收起",
   "compactCard.edit": "修正摘要",
   "compactCard.editPlaceholder": "写入更正后的摘要…",
   "compactCard.save": "保存",
@@ -190,11 +180,8 @@ export const prep = {
   "compactCard.saved": "摘要已更新",
   "compactCard.saveFailed": "保存失败",
   "compactCard.regenerate": "重新生成",
-  "compactCard.regenerated": "摘要已重新生成",
   "compactCard.forkFromPoint": "以压缩前内容新建会话",
   "compactCard.viewBackup": "查看压缩前完整记录",
-  "compactCard.noBackup": "无备份(本次压缩未保留原文)",
-  "compactCard.regenBusy": "正在生成中,稍后再试",
 
   // 压缩实时事件(随流展示,如工具执行过程)
   "trace.compaction": "上下文压缩 {before} → {after}",

@@ -14,7 +14,7 @@ function hostOf(url: string): string {
   }
 }
 
-/** . */
+/** Collapsible web-search citation cards (one group per tool query). */
 export const SearchResultCards = memo(function SearchResultCards({
   groups,
   defaultExpanded = false,

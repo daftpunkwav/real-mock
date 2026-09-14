@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from realmock.domains.prep.models import PrepMemory, utcnow
+from realmock.domains.prep.models import PrepMemory, commit_session, utcnow
 from realmock.domains.prep.schemas import (
     PrepMemoryDetail,
     PrepMemorySummary,
@@ -25,6 +25,9 @@ MEMORY_TAG_MAX_CHARS = 30
 MEMORY_TAGS_MAX_COUNT = 20
 MEMORY_LIST_DEFAULT_LIMIT = 20
 MEMORY_LIST_MAX_LIMIT = 50
+# Scan window for newest-first listing/tag aggregation (single-user scale;
+# tag filtering stays Python-side because tags are JSON text).
+MEMORY_SCAN_LIMIT = 500
 
 
 def clean_tags(raw: Any) -> list[str]:
@@ -103,29 +106,56 @@ def create_memory(
     origin: str = "agent_note",
     session_id: int | None = None,
 ) -> PrepMemory:
-    """Insert one memory row with bounds applied; caller commits via session flush."""
+    """Insert one memory row with bounds applied and commit it.
+
+    Args:
+        db: Active Session; committed (or rolled back on failure) here.
+        summary: One-line index, stripped and capped at 200 chars.
+        user_input: Source user turn, capped at 8000 chars.
+        agent_output: Source agent turn, capped at 8000 chars.
+        score: Optional 1-10 rating (caller validates range).
+        reasons: Reason chips, cleaned to at most 10 items.
+        comment: Free-form note (Text column, no cap here; routes enforce 2000).
+        tags: Topic tags, cleaned to at most 20 items.
+        origin: One of user_rating | user_emphasis | agent_note.
+        session_id: Origin session id, if any.
+
+    Returns:
+        The persisted PrepMemory row (refreshed).
+    """
+    if score is not None and not 1 <= score <= 10:
+        raise ValueError("score must be within 1..10")
     row = PrepMemory(
         summary=str(summary or "").strip()[:MEMORY_SUMMARY_MAX_CHARS],
         user_input=str(user_input or "")[:MEMORY_BODY_MAX_CHARS],
         agent_output=str(agent_output or "")[:MEMORY_BODY_MAX_CHARS],
         score=score,
-        comment=str(comment or ""),
+        comment=str(comment or "")[:2000],
         reasons=json.dumps(clean_reasons(reasons), ensure_ascii=False),
         tags=json.dumps(clean_tags(tags), ensure_ascii=False),
         origin=origin,
         session_id=session_id,
     )
     db.add(row)
-    db.commit()
+    commit_session(db)
     db.refresh(row)
     return row
 
 
 def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LIST_DEFAULT_LIMIT) -> list[PrepMemory]:
-    """Newest-first memory rows, optionally filtered by one tag (Python-side match)."""
+    """Newest-first memory rows, optionally filtered by one tag (Python-side match).
+
+    Args:
+        db: Read Session (no commit).
+        tag: Optional single-tag filter; unknown tags yield [].
+        limit: Max rows returned, clamped to 1..MEMORY_LIST_MAX_LIMIT.
+
+    Returns:
+        At most ``limit`` rows from the newest MEMORY_SCAN_LIMIT scan window.
+    """
     limit = max(1, min(MEMORY_LIST_MAX_LIMIT, limit or MEMORY_LIST_DEFAULT_LIMIT))
     rows = db.execute(
-        select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(500)
+        select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
     ).scalars().all()
     if tag:
         rows = [r for r in rows if tag in _decode_list(r.tags)]
@@ -134,20 +164,43 @@ def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LI
 
 def memory_tags(db: Session) -> list[str]:
     """Distinct tags across all memories, most-recently-used first."""
-    seen: list[str] = []
+    seen: set[str] = set()
+    ordered: list[str] = []
     rows = db.execute(
-        select(PrepMemory.tags, PrepMemory.updated_at).order_by(desc(PrepMemory.updated_at)).limit(500)
+        select(PrepMemory.tags, PrepMemory.updated_at).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
     ).all()
     for raw_tags, _ in rows:
         for tag in _decode_list(raw_tags):
             if tag not in seen:
-                seen.append(tag)
-    return seen
+                seen.add(tag)
+                ordered.append(tag)
+    return ordered
 
 
 def get_memory(db: Session, memory_id: int) -> PrepMemory | None:
     """Fetch one memory row by id."""
     return db.get(PrepMemory, memory_id)
+
+
+def find_memory_by_summary(db: Session, summary: str) -> PrepMemory | None:
+    """Fetch the newest memory with an exact summary match (cross-turn dedupe).
+
+    Args:
+        db: Read Session (no commit).
+        summary: Stripped one-line index to match exactly.
+
+    Returns:
+        The newest matching row, or None.
+    """
+    text = str(summary or "").strip()
+    if not text:
+        return None
+    return (
+        db.query(PrepMemory)
+        .filter(PrepMemory.summary == text)
+        .order_by(desc(PrepMemory.id))
+        .first()
+    )
 
 
 def touch_memory(row: PrepMemory) -> None:
@@ -159,12 +212,14 @@ __all__ = [
     "MEMORY_BODY_MAX_CHARS",
     "MEMORY_LIST_DEFAULT_LIMIT",
     "MEMORY_LIST_MAX_LIMIT",
+    "MEMORY_SCAN_LIMIT",
     "MEMORY_SUMMARY_MAX_CHARS",
     "MEMORY_TAGS_MAX_COUNT",
     "MEMORY_TAG_MAX_CHARS",
     "clean_reasons",
     "clean_tags",
     "create_memory",
+    "find_memory_by_summary",
     "get_memory",
     "list_memories",
     "memory_tags",

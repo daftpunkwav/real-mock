@@ -14,7 +14,6 @@ import { ChevronRight, Shrink } from "lucide-react";
 import { useT } from "@/i18n";
 import { toast } from "@/components/Toast";
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { prepCoachHttp as api } from "@/lib/api/clients";
 import { formatApiError } from "@/lib/api/base";
 import { formatTokens } from "@/components/ModelControls";
 import { cn } from "@/lib/utils";
@@ -25,6 +24,8 @@ export interface CompactionCardActions {
   onForkFromPoint: (backupSessionId: number, upTo: number) => void;
   /** Open the archived pre-compaction backup session. */
   onOpenBackup: (backupSessionId: number) => void;
+  /** Persist an edited summary (with one concurrency retry), then reload. */
+  onSaveEdit: (sessionId: number, text: string) => Promise<void>;
   /** Reload history after an edit. */
   onReload: () => void;
   /** Archive-aware regeneration with fresh settings params. */
@@ -34,14 +35,11 @@ export interface CompactionCardActions {
 export function CompactionCard({
   msg,
   sessionId,
-  messageCount,
   actions,
   disabled,
 }: {
   msg: PrepChatMessage;
   sessionId: number | null;
-  /** Backend message count for the optimistic-concurrency guard. */
-  messageCount: number | null;
   actions: CompactionCardActions;
   /** True while the session streams (regeneration would clobber the turn). */
   disabled?: boolean;
@@ -60,11 +58,7 @@ export function CompactionCard({
     if (sessionId === null || !draft.trim()) return;
     setBusy(true);
     try {
-      await api.updateSummary(
-        sessionId,
-        draft.trim(),
-        typeof messageCount === "number" ? messageCount : undefined,
-      );
+      await actions.onSaveEdit(sessionId, draft.trim());
       toast.success(t("compactCard.saved"));
       setEditing(false);
       actions.onReload();

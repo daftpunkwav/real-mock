@@ -3415,6 +3415,14 @@ export interface components {
              */
             archived: boolean;
         };
+        /** PrepPurgeAllRequest */
+        PrepPurgeAllRequest: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
         /** PrepCompactRequest */
         PrepCompactRequest: {
             /** Intensity */
@@ -3890,6 +3898,8 @@ export interface components {
         PrepTruncateRequest: {
             /** From Index */
             from_index: number;
+            /** Expected Message Count */
+            expected_message_count?: number | null;
         };
         /**
          * ProcessCreateRequest
@@ -6485,7 +6495,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PrepPurgeAllRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

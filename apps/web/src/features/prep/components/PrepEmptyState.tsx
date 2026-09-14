@@ -1,6 +1,9 @@
 "use client";
 
-/** Prep empty state with resume picker and start action. */
+/**
+ * @file PrepEmptyState.tsx
+ * @description Prep empty state with resume picker and start action.
+ */
 
 import { Sparkles } from "lucide-react";
 import { useT } from "@/i18n";
