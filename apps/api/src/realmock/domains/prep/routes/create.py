@@ -22,17 +22,7 @@ async def create_prep_session(
     response: Response,
     db: Session = Depends(get_sessions_db),
 ):
-    """Create an active coaching session and seed its capability cookie.
-
-    Args:
-        body: Creation parameters (optional resume link, target role/company).
-        request: Active request (used for secure-cookie detection).
-        response: Response used to seed the HttpOnly capability cookie.
-        db: Sessions database session (injected).
-
-    Returns:
-        PrepSessionCreateResponse carrying the new session id.
-    """
+    """Create an active coaching session and seed its capability cookie."""
     token = new_access_token()
     session = PrepSession(
         resume_id=body.resume_id,

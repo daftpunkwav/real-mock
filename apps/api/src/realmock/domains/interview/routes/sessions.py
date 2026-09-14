@@ -143,13 +143,7 @@ def get_messages(
 def to_session_response(
     session: InterviewSession, *, include_token: bool = False
 ) -> InterviewSessionResponse:
-    """Project a session row onto the API response (plan steps included).
-
-    Args:
-        session: Interview session row.
-        include_token: When True, embed the capability token; list views
-            must leave it False to prevent token enumeration.
-    """
+    """Project a session row onto the API response (plan steps included)."""
     plan = parse_plan(getattr(session, "plan", None))
     return InterviewSessionResponse(
         id=session.id,

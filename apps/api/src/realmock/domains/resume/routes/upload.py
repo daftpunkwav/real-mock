@@ -75,15 +75,7 @@ async def upload_resume(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Upload a resume file as a new family (v1).
-
-    Args:
-        file: Uploaded file (extension/size/magic validated in ingest).
-        db: API database session (injected).
-
-    Returns:
-        The created resume row payload.
-    """
+    """Upload a resume file as a new family (v1)."""
     return await ingest_uploaded_file(file, db)
 
 
@@ -92,22 +84,7 @@ async def upload_resume_version(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Append a file as a new version of an existing family.
-
-    Pre-checks the family version cap here (A1008); the store re-enforces it
-    at insert time, so a race between the check and the write still fails safe.
-
-    Args:
-        resume_id: Any row of the target family (missing rows yield A1005).
-        file: Uploaded file (validated in ingest).
-        db: API database session (injected).
-
-    Returns:
-        The created version row payload.
-
-    Raises:
-        ApiBusinessError: A1005 (unknown resume), A1008 (family version cap).
-    """
+    """Append a file as a new version of an existing family."""
     row = store.get_row(db, resume_id)
     if not row:
         raise_error("A1005")

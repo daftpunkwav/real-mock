@@ -78,21 +78,7 @@ async def prep_message(
     api_db: Session = Depends(get_api_db),
     access: str | None = Depends(extract_prep_token),
 ):
-    """Run one synchronous coaching turn.
-
-    Args:
-        session_id: Target coaching session id.
-        body: Validated turn parameters (content, model overrides, compaction policy).
-        db: Sessions database session (injected).
-        api_db: API database session for LLM profile lookup (injected).
-        access: Capability token from header/cookie (injected).
-
-    Returns:
-        PrepMessageResponse with the reply, session usage totals, and backend-truth message count.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A0401 (token mismatch), A3002 (completed).
-    """
+    """Run one synchronous coaching turn."""
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
@@ -131,23 +117,7 @@ async def prep_message_stream(
     api_db: Session = Depends(get_api_db),
     access: str | None = Depends(extract_prep_token),
 ):
-    """Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done).
-
-    Args:
-        session_id: Target coaching session id.
-        body: Validated turn parameters (same contract as the sync endpoint).
-        request: Active request (used for client-disconnect detection).
-        db: Sessions database session (injected).
-        api_db: API database session for LLM profile lookup (injected).
-        access: Capability token from header/cookie (injected).
-
-    Returns:
-        StreamingResponse with ``text/event-stream`` framing; failures surface
-        as redacted ``error`` events (original exception is logged only).
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A0401 (token mismatch), A3002 (completed).
-    """
+    """Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done)."""
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
@@ -214,19 +184,7 @@ def get_prep_messages(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_prep_token),
 ):
-    """Return sanitized message history for display (store is never mutated).
-
-    Args:
-        session_id: Target coaching session id.
-        db: Sessions database session (injected).
-        access: Capability token from header/cookie (injected).
-
-    Returns:
-        Display-ready history (legacy template tokens stripped, null content coerced).
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A0401 (token mismatch).
-    """
+    """Return sanitized message history for display (store is never mutated)."""
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
@@ -254,23 +212,7 @@ def get_prep_context(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_prep_token),
 ):
-    """Measured context breakdown of persisted history plus provider usage totals.
-
-    Content-read path: requires the capability token. Bucket estimates use the
-    same mechanical ratio as context budgeting; provider columns stay truthful
-    (0 when the provider never reported) and the UI estimates the gap.
-
-    Args:
-        session_id: Target coaching session id.
-        db: Sessions database session (injected).
-        access: Capability token from header/cookie (injected).
-
-    Returns:
-        PrepContextResponse with per-bucket estimates plus provider totals.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A0401 (token mismatch).
-    """
+    """Measured context breakdown of persisted history plus provider usage totals."""
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")

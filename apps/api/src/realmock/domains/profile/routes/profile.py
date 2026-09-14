@@ -25,28 +25,13 @@ router = APIRouter()
 
 @router.get("", response_model=UserProfileResponse)
 def get_profile(db: Session = Depends(get_db)) -> UserProfileResponse:
-    """Read the sole profile row (get-or-create).
-
-    Args:
-        db: API database session (injected).
-
-    Returns:
-        The profile read response.
-    """
+    """Read the sole profile row (get-or-create)."""
     return UserProfileResponse.model_validate(store.get_or_create_profile(db))
 
 
 @router.put("", response_model=UserProfileResponse)
 def update_profile(body: UserProfileUpdate, db: Session = Depends(get_db)) -> UserProfileResponse:
-    """Full PUT update of the sole profile row.
-
-    Args:
-        body: Validated full update payload.
-        db: API database session (injected).
-
-    Returns:
-        The updated profile read response.
-    """
+    """Full PUT update of the sole profile row."""
     return UserProfileResponse.model_validate(store.apply_profile_update(db, body))
 
 

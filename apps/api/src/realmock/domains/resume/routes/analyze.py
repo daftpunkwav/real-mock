@@ -71,23 +71,7 @@ async def analyze_resume(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Analyze one resume with the LLM and return the stored analysis.
-
-    The request body is optional: absent/empty bodies analyze with defaults,
-    and ``locale`` (when present) steers the analysis language. Concurrency
-    is bounded by the analyze slot semaphore (same as the stream endpoint).
-
-    Args:
-        resume_id: Target resume id.
-        request: Active request (optional JSON body with ``locale``).
-        db: API database session (injected).
-
-    Returns:
-        The persisted ``ResumeAnalysis`` payload.
-
-    Raises:
-        ApiBusinessError: A1005 (unknown resume), A0001 (malformed body).
-    """
+    """Analyze one resume with the LLM and return the stored analysis."""
     row = store.get_row(db, resume_id)
     if not row:
         raise_error("A1005")

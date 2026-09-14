@@ -50,21 +50,7 @@ async def delete_prep_session(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Delete a session and its history permanently.
-
-    Owner-level: CSRF-protected, no capability token (orphans must stay deletable).
-
-    Args:
-        session_id: Target session id.
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the deleted session id.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session).
-    """
+    """Delete a session and its history permanently."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_session(session_id, db)
     db.delete(session)
@@ -76,19 +62,7 @@ async def purge_empty_sessions(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Delete sessions that never accumulated user/assistant content.
-
-    No capability token: contentless rows carry no information, and orphans
-    (lost tokens) would otherwise be undeletable clutter. Same-origin CSRF
-    protection still applies, so random websites cannot trigger this.
-
-    Args:
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the deleted row count.
-    """
+    """Delete sessions that never accumulated user/assistant content."""
     assert_csrf_if_cookie_only(request, used_header=False)
     rows = db.query(PrepSession).all()
     deleted = 0
@@ -113,24 +87,7 @@ async def purge_all_sessions(
     db: Session = Depends(get_sessions_db),
     body: PrepPurgeAllRequest | None = None,
 ):
-    """Delete ALL coaching sessions permanently, with or without content.
-
-    Owner-level: same-origin CSRF protection, no capability token (consistent
-    with delete/archive/link — orphans must stay manageable).
-    The caller must confirm explicitly via ``{"confirm": true}``; anything
-    else is rejected (A0001). This cannot be undone.
-
-    Args:
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-        body: Confirmation payload (``confirm`` must be True).
-
-    Returns:
-        Mapping with the deleted row count.
-
-    Raises:
-        ApiBusinessError: A0001 (missing confirmation).
-    """
+    """Delete ALL coaching sessions permanently, with or without content."""
     assert_csrf_if_cookie_only(request, used_header=False)
     if body is None or body.confirm is not True:
         raise_error("A0001")
@@ -149,22 +106,7 @@ async def archive_prep_session(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Archive (or restore) a session; archived sessions stay fully usable.
-
-    Owner-level: CSRF-protected, no capability token (orphans must stay manageable).
-
-    Args:
-        session_id: Target session id.
-        body: Archive flag (True archives, False restores).
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the session id and resulting status.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session).
-    """
+    """Archive (or restore) a session; archived sessions stay fully usable."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_session(session_id, db)
     session.status = (
@@ -181,27 +123,7 @@ async def reissue_prep_token(
     response: Response,
     db: Session = Depends(get_sessions_db),
 ):
-    """Mint a fresh capability token for a listed session (owner-level recovery).
-
-    Capability cookies are host-bound and expirable; rows created without a
-    browser round-trip (compaction backups carry a token in the row but never
-    seed a cookie, cross-device sessions likewise) are listed but unreadable
-    (A0401) until recovery. Rotation reseeds the HttpOnly cookie.
-    CSRF-protected, no old token required: same trust basis as
-    delete/archive in this single-user session list.
-
-    Args:
-        session_id: Target session id.
-        request: Active request (used for CSRF validation).
-        response: Response used to reseed the HttpOnly capability cookie.
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the recovered session id.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session).
-    """
+    """Mint a fresh capability token for a listed session (owner-level recovery)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_session(session_id, db)
     session.access_token = new_access_token()
@@ -223,26 +145,7 @@ async def link_prep_session(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Link another session's summary + recent turns into this session's context.
-
-    Only one direct level is injected (no chains); self-links are refused.
-    Owner-level: CSRF-protected, no capability token (same-origin trusted).
-
-    Prefer per-turn ``#`` references (``context_session_ids``) for transient
-    links; this endpoint persists the default linked session for compatibility.
-
-    Args:
-        session_id: Target session id.
-        body: Link parameters (``linked_session_id`` or null to unlink).
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the session id and effective link target.
-
-    Raises:
-        ApiBusinessError: A0001 (self-link), A3001 (missing session/link target).
-    """
+    """Link another session's summary + recent turns into this session's context."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_session(session_id, db)
     target = body.linked_session_id

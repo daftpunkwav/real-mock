@@ -48,20 +48,7 @@ async def create_memory_from_rating(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Record a long-term memory from the rating flow (or an agent note).
-
-    Args:
-        body: Validated memory payload (user/agent turns, score, tags, origin).
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        The persisted memory detail view.
-
-    Raises:
-        ApiBusinessError: A0001 (user_rating without score).
-        ValueError: Out-of-range score rejected by the memory store.
-    """
+    """Record a long-term memory from the rating flow (or an agent note)."""
     # Owner-level write: same-origin CSRF protection, no capability token
     # (consistent with manage.py — orphans must stay manageable).
     assert_csrf_if_cookie_only(request, used_header=False)
@@ -93,28 +80,12 @@ async def list_memory_summaries(
     limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_sessions_db),
 ):
-    """List memory index entries, newest first (clamped server-side to 1..50).
-
-    Args:
-        tag: Optional single-tag filter.
-        limit: Max entries requested (server clamps to the allowed window).
-        db: Sessions database session (injected).
-
-    Returns:
-        Index views (id/summary/tags only, no turn bodies).
-    """
+    """List memory index entries, newest first (clamped server-side to 1..50)."""
     return [memory_to_summary(r) for r in list_memories(db, tag=tag or None, limit=limit)]
 
 
 async def list_memory_tags(db: Session = Depends(get_sessions_db)):
-    """List distinct memory tags, most-recently-used first.
-
-    Args:
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the tag list.
-    """
+    """List distinct memory tags, most-recently-used first."""
     return {"tags": memory_tags(db)}
 
 
@@ -122,18 +93,7 @@ async def get_memory_detail(
     memory_id: int,
     db: Session = Depends(get_sessions_db),
 ):
-    """Load one memory with its full turn bodies.
-
-    Args:
-        memory_id: Target memory id.
-        db: Sessions database session (injected).
-
-    Returns:
-        The full memory detail view.
-
-    Raises:
-        ApiBusinessError: A0404 (unknown id).
-    """
+    """Load one memory with its full turn bodies."""
     row = get_memory(db, memory_id)
     if row is None:
         _not_found()
@@ -147,20 +107,7 @@ async def update_memory(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Patch a memory's summary/tags/comment/score (CSRF-protected).
-
-    Args:
-        memory_id: Target memory id.
-        body: Partial update payload (only set fields are applied).
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        The refreshed memory detail view.
-
-    Raises:
-        ApiBusinessError: A0404 (unknown id), A0001 (empty summary).
-    """
+    """Patch a memory's summary/tags/comment/score (CSRF-protected)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     row = get_memory(db, memory_id)
     if row is None:
@@ -189,19 +136,7 @@ async def delete_memory(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Delete one memory permanently (CSRF-protected).
-
-    Args:
-        memory_id: Target memory id.
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the deleted id.
-
-    Raises:
-        ApiBusinessError: A0404 (unknown id).
-    """
+    """Delete one memory permanently (CSRF-protected)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     row = get_memory(db, memory_id)
     if row is None:
@@ -217,18 +152,7 @@ async def batch_delete_memories(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Delete up to 100 memories in one request (CSRF-protected, rate-limited).
-
-    Unknown ids are skipped silently; one malformed id never fails the batch.
-
-    Args:
-        body: Batch payload (1..100 ids).
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the deleted row count.
-    """
+    """Delete up to 100 memories in one request (CSRF-protected, rate-limited)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     # Schema guarantees ints, but coerce defensively: one bad id must not 500 the batch.
     ids: set[int] = set()

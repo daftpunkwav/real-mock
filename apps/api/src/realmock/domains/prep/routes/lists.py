@@ -28,14 +28,7 @@ SESSION_LIST_LIMIT = 500
 
 
 def list_resume_picker(db: Session = Depends(get_api_db)):
-    """Return dropdown summaries only; exclude analysis text.
-
-    Args:
-        db: API database session (injected).
-
-    Returns:
-        Resume picker items (id/filename pairs, no analysis payloads).
-    """
+    """Return dropdown summaries only; exclude analysis text."""
     return list_resume_picker_items(db)
 
 
@@ -55,19 +48,7 @@ def list_prep_sessions(
     db: Session = Depends(get_sessions_db),
     api_db: Session = Depends(get_api_db),
 ) -> list[PrepSessionSummary]:
-    """List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).
-
-    Returns summaries only (first question + message count + associated resume),
-    without message bodies or capability tokens—opening a specific session still uses the original token validation.
-    Newest-first, capped at SESSION_LIST_LIMIT rows.
-
-    Args:
-        db: Sessions database session (injected).
-        api_db: API database session for resume filenames (injected).
-
-    Returns:
-        Newest-first session summaries (corrupt histories surface as empty summaries, never errors).
-    """
+    """List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume)."""
     rows = (
         db.query(PrepSession)
         .order_by(func.coalesce(PrepSession.updated_at, PrepSession.created_at).desc())

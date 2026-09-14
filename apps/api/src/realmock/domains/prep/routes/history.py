@@ -195,39 +195,7 @@ async def compact_prep_session(
     api_db: Session = Depends(get_api_db),
     body: PrepCompactRequest | None = None,
 ):
-    """Run turn-start compaction now (the ``/compact`` slash command).
-
-    Manual compaction is user-decided: it always attempts an LLM summary
-    (never a silent truncation), folding to the latest turn regardless of
-    the retain window — a lone remaining exchange folds whole, so any
-    history produces a summary. The summary keeps session objectives,
-    confirmed decisions, user weaknesses/requirements, findings, and
-    to-dos, steered by the optional intensity/directive/retain parameters
-    (``/compact`` slash args or the prep settings defaults). The LLM
-    failure propagates as an error instead of falling back to truncation.
-    When the summarizer fails, the just-created backup is deleted again so no
-    orphan archive survives the failed run.
-    Only a truly empty history reports ``summarized=False``.
-    A rolling backup fork (archived, at most one per session) preserves the
-    pre-compaction originals; the summary trailer links it for fork-from-point
-    restores. Regeneration reuses this endpoint with ``backup=False``.
-    Owner-level: CSRF-protected, no capability token (orphans must stay compactable).
-
-    Args:
-        session_id: Target session id.
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-        api_db: API database session for the summarizer LLM profile (injected).
-        body: Compaction parameters (intensity/directive/retain/backup/
-            expected_message_count); absent fields fall back to defaults.
-
-    Returns:
-        PrepCompactResponse describing the compaction outcome.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A3002 (completed),
-            A3003 (history changed since the caller read it).
-    """
+    """Run turn-start compaction now (the ``/compact`` slash command)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_writable_session(session_id, db)
     params = body or PrepCompactRequest()
@@ -327,26 +295,7 @@ async def update_prep_summary(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Replace the current compaction summary text (user-edited correction).
-
-    The provenance trailer is managed server-side: version increments, the
-    backup/fork-point linkage carries over. 404 (A3004) when no summary exists
-    yet; 409 (A3003) on a concurrent history change.
-    Owner-level: CSRF-protected, no capability token.
-
-    Args:
-        session_id: Target session id.
-        body: Edited summary text plus optional concurrency guard.
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Compaction-shaped response describing the edited summary.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A3002 (completed),
-            A3003 (history changed), A3004 (no summary yet).
-    """
+    """Replace the current compaction summary text (user-edited correction)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_writable_session(session_id, db)
     agent = PrepAgent(session, llm=None)  # type: ignore[arg-type]
@@ -397,26 +346,7 @@ async def fork_prep_session(
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_prep_token),
 ):
-    """Branch a new active session copying history through ``up_to`` (inclusive).
-
-    ``up_to`` normalization: any negative keeps everything; positives clamp to
-    the last message. The fork starts with zeroed usage counters (fresh branch
-    accounting) but inherits resume/role/company/linked context.
-
-    Args:
-        session_id: Source session id (capability-token gated).
-        body: Fork parameters (``up_to`` message index, inclusive).
-        request: Active request (used for secure-cookie detection).
-        response: Response used to seed the fork's capability cookie.
-        db: Sessions database session (injected).
-        access: Source session capability token (injected).
-
-    Returns:
-        Mapping with the fork id and copied message count.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A0401 (token mismatch).
-    """
+    """Branch a new active session copying history through ``up_to`` (inclusive)."""
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
@@ -444,22 +374,7 @@ async def truncate_prep_messages(
     request: Request,
     db: Session = Depends(get_sessions_db),
 ):
-    """Retract a user message: drop backend history from ``from_index`` on.
-
-    Owner-level: CSRF-protected, no capability token (orphans must stay clearable).
-
-    Args:
-        session_id: Target session id.
-        body: Truncation parameters (``from_index`` plus optional concurrency guard).
-        request: Active request (used for CSRF validation).
-        db: Sessions database session (injected).
-
-    Returns:
-        Mapping with the remaining backend-truth message count.
-
-    Raises:
-        ApiBusinessError: A3001 (missing session), A3002 (completed), A3003 (history changed).
-    """
+    """Retract a user message: drop backend history from ``from_index`` on."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_writable_session(session_id, db)
     messages = _load_session_messages(session)
