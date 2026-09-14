@@ -23,6 +23,10 @@ class UserTextControlMixin:
         self, text: str, data: dict[str, Any], db: Session, session: InterviewSession
     ) -> None:
         assert self.ctx.runner is not None
+        # The candidate may reply while the previous turn's TTS audio is still
+        # playing (the mic opens at text-complete now): stop the stale audio so
+        # the new turn's audio does not overlap it.
+        await self._cancel_pending_playback()
         start_epoch = self.ctx.stream_epoch
         await self.set_turn(TurnState.PROCESSING)
         await self.set_turn(TurnState.AI_SPEAKING)

@@ -134,9 +134,14 @@ class TurnStreamingMixin:
                     sentence_buf = ""
                 if epoch != self.ctx.stream_epoch:
                     return None
-                await self.ctx.tts_queue.flush_remainder("", emotion=turn_emotion)
-                if epoch != self.ctx.stream_epoch:
-                    return None
+                # Drain the TTS queue in the background: the mic opens as soon as the
+                # text is complete (assistant_done above), without waiting for every
+                # sentence to be synthesized or played. Pending audio keeps playing;
+                # a user reply cancels it via _cancel_pending_playback, and barge-in
+                # clears the queue, so the stale drain just joins an empty queue.
+                self._spawn(
+                    self.ctx.tts_queue.flush_remainder("", emotion=turn_emotion)
+                )
                 last = event
             elif event.kind == EventKind.ERROR:
                 await self.send(

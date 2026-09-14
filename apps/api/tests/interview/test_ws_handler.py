@@ -419,8 +419,47 @@ class TestBargeEpoch:
 
         h._wait_client_playback = wait_then_barge  # type: ignore[method-assign]
         h.set_turn = AsyncMock()
-        await h._open_mic_after_playback()
+        await h._open_mic_after_playback(wait_playback=True)
         h.set_turn.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_open_mic_by_default_skips_playback_wait(self) -> None:
+        """Mic opens at text-complete: no playback wait on the default path."""
+        h = _make_handler()
+        h.ctx.tts_sent_this_turn = True
+        h.ctx.turn_state = TurnState.AI_SPEAKING
+        h._wait_client_playback = AsyncMock()  # type: ignore[method-assign]
+        h.set_turn = AsyncMock()
+        await h._open_mic_after_playback()
+        h._wait_client_playback.assert_not_awaited()
+        h.set_turn.assert_awaited_once_with(TurnState.USER_SPEAKING)
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_playback_interrupts_stale_audio(self) -> None:
+        """A text reply while TTS is in flight stops the stale audio."""
+        h = _make_handler()
+        h.ctx.tts_sent_this_turn = True
+        h.ctx.playback_done.clear()
+        h.ctx.tts_queue.clear = AsyncMock()
+        gen = h.ctx.playback_generation
+        await h._cancel_pending_playback()
+        h.ctx.tts_queue.clear.assert_awaited()
+        assert h.ctx.playback_generation == gen + 1
+        assert h.ctx.tts_sent_this_turn is False
+        sent = [c.args[0] for c in h.ws.send_json.call_args_list]
+        interrupted = [e for e in sent if e.get("type") == "tts_interrupted"]
+        assert len(interrupted) == 1
+        assert interrupted[0].get("reason") == "candidate_text_reply"
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_playback_noop_when_idle(self) -> None:
+        """No TTS in flight: no clear, no event, nothing sent."""
+        h = _make_handler()
+        h.ctx.tts_sent_this_turn = False
+        h.ctx.tts_queue.clear = AsyncMock()
+        await h._cancel_pending_playback()
+        h.ctx.tts_queue.clear.assert_not_awaited()
+        h.ws.send_json.assert_not_called()
 
 
 class TestSttAlwaysRuns:

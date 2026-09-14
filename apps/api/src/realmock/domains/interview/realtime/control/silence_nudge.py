@@ -83,7 +83,9 @@ question/follow-up plan/silence count.
             self._begin_playback_wait()
             await self._speak_one(probe_text)
             self._append_to_last_assistant(probe_text)
-            await self._open_mic_after_playback()
+            # Short single-sentence prompt while the candidate is silent: wait the
+            # playback out before reopening the mic.
+            await self._open_mic_after_playback(wait_playback=True)
         finally:
             try:
                 db.close()

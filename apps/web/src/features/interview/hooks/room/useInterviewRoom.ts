@@ -45,7 +45,10 @@ export function useInterviewRoom(sessionId: number) {
 
   const micEnabled =
     connected && (turnState === "USER_SPEAKING" || turnState === "AI_SPEAKING") && !st.finishingUi;
-  const captureEnabled = turnState === "USER_SPEAKING" && !st.finishingUi;
+  // Voice capture stays muted while AI audio is still playing (the mic now opens
+  // at text-complete, ahead of the playback): typing is available immediately,
+  // but PCM capture waits so the speaker output is not transcribed as the user.
+  const captureEnabled = turnState === "USER_SPEAKING" && !st.finishingUi && !st.aiSpeaking;
   const canInput = turnState === "USER_SPEAKING" && !st.finishingUi;
 
   useInterviewRoomSilenceTimer({

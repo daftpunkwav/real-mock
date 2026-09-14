@@ -55,15 +55,45 @@ class TurnPlaybackMixin:
             self.ctx.tts_sent_this_turn = False
             self.ctx.playback_done.clear()
 
-    async def _open_mic_after_playback(self) -> None:
-        """After the server-side synthesis is completed, wait for the client to finish broadcasting (or timeout) before switching USER_SPEAKING to prevent mining."""
+    async def _open_mic_after_playback(self, *, wait_playback: bool = False) -> None:
+        """Open the mic for the candidate.
+
+        The default no longer waits for TTS synthesis/playback: the text
+        (assistant_done) is complete, so the candidate may type immediately
+        while pending audio keeps playing in the background. Pass
+        ``wait_playback=True`` only for short single-sentence prompts that
+        exist because the candidate is silent (silence nudge), where waiting
+        out the playback is the point.
+        """
         wait_epoch = self.ctx.stream_epoch
-        await self._wait_client_playback()
-        if wait_epoch != self.ctx.stream_epoch:
-            return
+        if wait_playback:
+            await self._wait_client_playback()
+            if wait_epoch != self.ctx.stream_epoch:
+                return
         if self.ctx.turn_state == TurnState.USER_SPEAKING:
             return
         await self.set_turn(TurnState.USER_SPEAKING)
+
+    async def _cancel_pending_playback(self) -> None:
+        """Stop audio still playing from the previous assistant turn.
+
+        Called when the candidate replies by text while TTS audio may still
+        be in flight: drop unsent sentences, invalidate in-progress synthesis
+        (generation bump), and tell the client to stop playing so the new
+        turn's audio does not overlap the old. No-op when nothing is pending.
+        """
+        if not self.ctx.tts_sent_this_turn or self.ctx.playback_done.is_set():
+            return
+        await self.ctx.tts_queue.clear()
+        self.ctx.playback_generation += 1
+        self.ctx.awaiting_playback_gen = self.ctx.playback_generation
+        self.ctx.tts_sent_this_turn = False
+        self.ctx.playback_done.set()
+        await self.send(
+            "tts_interrupted",
+            reason="candidate_text_reply",
+            playback_generation=self.ctx.awaiting_playback_gen,
+        )
 
 
 __all__ = ["TurnPlaybackMixin"]
