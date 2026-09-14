@@ -260,13 +260,24 @@ class SessionPromptMixin:
             flow_language=self._flow_language(),
         )
         # System learning (stable for the session) + prior rounds + structured memory (refreshed each turn)
-        return (
+        full = (
             prompt
             + self._opening_section()
             + self._system_learning_section()
             + self._process_round_section()
             + self._memory_section()
         )
+        try:
+            from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
+
+            system_tokens = estimate_messages_tokens([{"role": "system", "content": full}])
+        except Exception:
+            system_tokens = -1
+        logger.debug(
+            "opening system prompt sid=%s tokens~%s lang=%s",
+            getattr(self.session, "id", None), system_tokens, self._flow_language(),
+        )
+        return full
 
     def refresh_system_memory(self) -> None:
         """Refresh the structured-memory section in the system prompt head.

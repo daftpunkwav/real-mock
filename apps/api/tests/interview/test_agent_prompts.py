@@ -132,3 +132,24 @@ def test_plan_ops_rule_mentions_revision_triggers() -> None:
     prompt = build_system_prompt(**_prompt_kwargs(allow_plan_ops=True))
     assert "plan_ops" in prompt
     assert "unlisted project" in prompt
+
+
+def test_reverse_qa_uses_compact_candidate_block() -> None:
+    """Non-questioning phases skip the resume dump (context savings)."""
+    workflow = get_workflow("technical")
+    phase = next(p for p in workflow.phases if p.id == "reverse_qa")
+    prompt = build_system_prompt(
+        **_prompt_kwargs(current_phase=phase, candidate=_candidate()),
+    )
+    assert "compact" in prompt
+    assert "Parsed resume" not in prompt
+    assert "Zhang San" in prompt  # identity kept
+
+
+def test_questioning_phase_keeps_full_candidate_block() -> None:
+    """Questioning phases keep full resume grounding."""
+    prompt = build_system_prompt(
+        **_prompt_kwargs(candidate=_candidate()),
+    )
+    assert "Parsed resume" in prompt
+    assert "MockInterviewApp" in prompt

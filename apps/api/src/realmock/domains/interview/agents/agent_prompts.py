@@ -27,6 +27,118 @@ def _language_rule(flow_language: str) -> str:
     return "Communicate in Chinese unless the candidate answers technical questions in English"
 
 
+def _needs_compact_candidate(current_phase: InterviewPhase) -> bool:
+    """Whether the turn needs only a compact candidate block.
+
+    In reverse-QA the interviewer answers from company knowledge, and in
+    summary it evaluates from memory/scores — neither asks resume questions,
+    so the full resume dump (~3k chars every turn) is dropped in favor of a
+    one-screen identity block. Works for static phases and plan steps alike.
+    """
+    if getattr(current_phase, "kind", "") == "reverse_qa":
+        return True
+    return getattr(current_phase, "id", "") in ("reverse_qa", "summary")
+
+
+def _candidate_block(
+    profile: Any | None,
+    candidate: CandidateProfile | None,
+    *,
+    compact: bool,
+) -> str:
+    """Candidate grounding block (full resume detail, or a compact identity card)."""
+    if compact:
+        return _compact_candidate_block(profile, candidate)
+    info = ""
+    if profile and (profile.name or profile.school or profile.self_intro or getattr(profile, "github_username", "")):
+        github_u = getattr(profile, "github_username", "") or ""
+        portfolio = getattr(profile, "portfolio_url", "") or ""
+        linkedin = getattr(profile, "linkedin_url", "") or ""
+        city = getattr(profile, "city", "") or ""
+        langs = getattr(profile, "preferred_languages", "") or ""
+        highlights = getattr(profile, "career_highlights", "") or ""
+        education_level = getattr(profile, "education_level", "") or ""
+        expected_city = getattr(profile, "expected_city", "") or ""
+        email = getattr(profile, "email", "") or ""
+        phone = getattr(profile, "phone", "") or ""
+        certificates = getattr(profile, "certificates", "") or ""
+        english_level = getattr(profile, "english_level", "") or ""
+        signature_projects = getattr(profile, "signature_projects", "") or ""
+        strengths = getattr(profile, "strengths", "") or ""
+        weaknesses = getattr(profile, "weaknesses", "") or ""
+        work_detail = getattr(profile, "work_years_detail", "") or ""
+        info += f"""
+## Candidate profile
+Name: {profile.name}
+Gender / identity: {profile.gender or '—'} / {profile.identity or '—'}
+School / major: {profile.school or '—'} / {profile.major or '—'}
+Education level: {education_level or '—'}
+Graduation year: {profile.graduation_year or '—'}
+City / preferred city: {city or '—'} / {expected_city or '—'}
+Email / phone or WeChat: {email or '—'} / {phone or '—'}
+Job direction: {profile.job_direction}
+Target role: {profile.target_role}
+Years of experience: {profile.experience_years}{f' ({work_detail})' if work_detail else ''}
+Current company: {profile.current_company or '—'}
+Expected salary: {profile.expected_salary or '—'}
+Tech domains: {', '.join(profile.tech_domains_list)}
+English level: {english_level or '—'}
+Certificates: {(certificates or '—')[:200]}
+GitHub: {github_u or '—'}
+Portfolio / blog: {portfolio or '—'}
+LinkedIn: {linkedin or '—'}
+Preferred languages: {langs or '—'}
+Signature projects: {(signature_projects or '—')[:600]}
+Strengths / gaps: {(strengths or '—')[:200]} / {(weaknesses or '—')[:200]}
+Career highlights: {(highlights or '')[:300]}
+Self introduction: {(profile.self_intro or '')[:500]}
+"""
+        if github_u:
+            info += (
+                f"\nNote: the candidate listed GitHub username '{github_u}'; "
+                "during project deep dive, use github_* tools to verify.\n"
+            )
+    if candidate:
+        info += f"""
+## Parsed resume
+Name: {candidate.name}
+Skills: {', '.join(candidate.skills)}
+Projects: {json.dumps(candidate.projects, ensure_ascii=False)[:2000]}
+Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)[:1500]}
+"""
+    return info
+
+
+def _compact_candidate_block(
+    profile: Any | None,
+    candidate: CandidateProfile | None,
+) -> str:
+    """One-screen identity card for non-questioning phases (no resume dump)."""
+    lines = ["## Candidate (compact: this phase asks no resume questions)"]
+    name = (getattr(profile, "name", "") or "") or (getattr(candidate, "name", "") or "—")
+    lines.append(f"Name: {name}")
+    if profile is not None:
+        lines.append(f"Target role: {getattr(profile, 'target_role', '') or '—'}")
+        lines.append(f"School: {getattr(profile, 'school', '') or '—'}")
+        github_u = getattr(profile, "github_username", "") or ""
+        if github_u:
+            lines.append(f"GitHub: {github_u}")
+    if candidate is not None:
+        skills = list(getattr(candidate, "skills", []) or [])[:20]
+        if skills:
+            lines.append(f"Skills: {', '.join(skills)}")
+        projects = getattr(candidate, "projects", []) or []
+        names = [
+            str(p.get("name") or p.get("title") or "").strip()
+            for p in projects[:8]
+            if isinstance(p, dict)
+        ]
+        names = [n for n in names if n]
+        if names:
+            lines.append(f"Projects: {'; '.join(names)}")
+    return "\n".join(lines) + "\n"
+
+
 def build_system_prompt(
     config: InterviewConfig,
     candidate: CandidateProfile | None,
@@ -51,63 +163,7 @@ def build_system_prompt(
     style = STYLE_PROMPTS.get(config.interview_style, STYLE_PROMPTS["deep_dive"])
     strictness = STRICTNESS_DESCRIPTIONS.get(config.strictness, STRICTNESS_DESCRIPTIONS[3])
 
-    candidate_info = ""
-    if profile and (profile.name or profile.school or profile.self_intro or getattr(profile, "github_username", "")):
-        github_u = getattr(profile, "github_username", "") or ""
-        portfolio = getattr(profile, "portfolio_url", "") or ""
-        linkedin = getattr(profile, "linkedin_url", "") or ""
-        city = getattr(profile, "city", "") or ""
-        langs = getattr(profile, "preferred_languages", "") or ""
-        highlights = getattr(profile, "career_highlights", "") or ""
-        education_level = getattr(profile, "education_level", "") or ""
-        expected_city = getattr(profile, "expected_city", "") or ""
-        email = getattr(profile, "email", "") or ""
-        phone = getattr(profile, "phone", "") or ""
-        certificates = getattr(profile, "certificates", "") or ""
-        english_level = getattr(profile, "english_level", "") or ""
-        signature_projects = getattr(profile, "signature_projects", "") or ""
-        strengths = getattr(profile, "strengths", "") or ""
-        weaknesses = getattr(profile, "weaknesses", "") or ""
-        work_detail = getattr(profile, "work_years_detail", "") or ""
-        candidate_info += f"""
-## Candidate profile
-Name: {profile.name}
-Gender / identity: {profile.gender or '—'} / {profile.identity or '—'}
-School / major: {profile.school or '—'} / {profile.major or '—'}
-Education level: {education_level or '—'}
-Graduation year: {profile.graduation_year or '—'}
-City / preferred city: {city or '—'} / {expected_city or '—'}
-Email / phone or WeChat: {email or '—'} / {phone or '—'}
-Job direction: {profile.job_direction}
-Target role: {profile.target_role}
-Years of experience: {profile.experience_years}{f' ({work_detail})' if work_detail else ''}
-Current company: {profile.current_company or '—'}
-Expected salary: {profile.expected_salary or '—'}
-Tech domains: {', '.join(profile.tech_domains_list)}
-English level: {english_level or '—'}
-Certificates: {(certificates or '—')[:300]}
-GitHub: {github_u or '—'}
-Portfolio / blog: {portfolio or '—'}
-LinkedIn: {linkedin or '—'}
-Preferred languages: {langs or '—'}
-Signature projects: {(signature_projects or '—')[:600]}
-Strengths / gaps: {(strengths or '—')[:300]} / {(weaknesses or '—')[:300]}
-Career highlights: {(highlights or '')[:500]}
-Self introduction: {(profile.self_intro or '')[:800]}
-"""
-        if github_u:
-            candidate_info += (
-                f"\nNote: the candidate listed GitHub username '{github_u}'; "
-                "during project deep dive, use github_* tools to verify.\n"
-            )
-    if candidate:
-        candidate_info += f"""
-## Parsed resume
-Name: {candidate.name}
-Skills: {', '.join(candidate.skills)}
-Projects: {json.dumps(candidate.projects, ensure_ascii=False)[:2000]}
-Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)[:1500]}
-"""
+    candidate_info = _candidate_block(profile, candidate, compact=_needs_compact_candidate(current_phase))
 
     phase_list = " → ".join(p.name for p in workflow.phases)
 

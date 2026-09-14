@@ -54,6 +54,32 @@ FOLD_FOCUS = (
 #: Cap on the compactions audit log kept in agent_state (observability only).
 MAX_COMPACTION_LOG = 20
 
+#: Window bands (tokens) for adaptive fold thresholds.
+_SMALL_WINDOW_TOKENS = 16_000
+_LARGE_WINDOW_TOKENS = 64_000
+
+
+def adaptive_fold_thresholds(window: int) -> tuple[float, float]:
+    """Ephemeral/persist fold ratios scaled to the context window.
+
+    Small windows fill up fast (a fat system prompt alone can take a third
+    of 8k), so both layers fold earlier; large windows can afford to lag and
+    keep more verbatim history. Mid-band matches the historic 0.3/0.5.
+
+    Returns:
+        (ephemeral_ratio, persist_ratio) for ``compact_with_summary`` and
+        :func:`maybe_fold_history`.
+    """
+    try:
+        window = int(window)
+    except (TypeError, ValueError):
+        window = 0
+    if window > 0 and window < _SMALL_WINDOW_TOKENS:
+        return 0.25, 0.40
+    if window >= _LARGE_WINDOW_TOKENS:
+        return 0.40, 0.60
+    return 0.30, 0.50
+
 
 async def maybe_fold_history(
     agent: "InterviewSessionState",
@@ -75,11 +101,12 @@ async def maybe_fold_history(
         window = 0
     if window <= 0:
         return False
+    _, persist_ratio = adaptive_fold_thresholds(window)
     messages = getattr(agent, "messages", None)
     if not messages or len(messages) <= keep_recent + 1:
         return False
     try:
-        if estimate_messages_tokens(messages) <= window * PERSIST_FOLD_RATIO:
+        if estimate_messages_tokens(messages) <= window * persist_ratio:
             return False
     except Exception:
         logger.debug("history fold estimate failed; skip", exc_info=True)
@@ -98,7 +125,7 @@ async def maybe_fold_history(
             memory=memory,
             llm=llm,
             keep_recent=keep_recent,
-            threshold=PERSIST_FOLD_RATIO,
+            threshold=persist_ratio,
             default_focus=FOLD_FOCUS,
         )
     except Exception:
@@ -131,4 +158,4 @@ async def maybe_fold_history(
     return True
 
 
-__all__ = ["FOLD_FOCUS", "FOLD_KEEP_RECENT", "PERSIST_FOLD_RATIO", "maybe_fold_history"]
+__all__ = ["FOLD_FOCUS", "FOLD_KEEP_RECENT", "PERSIST_FOLD_RATIO", "adaptive_fold_thresholds", "maybe_fold_history"]

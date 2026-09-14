@@ -135,6 +135,16 @@ def test_plan_user_message_carries_locale_signal():
     assert "Language signals" in msg
 
 
+def test_adaptive_fold_thresholds_bands():
+    """Small windows fold earlier, large windows lag; mid-band keeps history."""
+    from realmock.domains.interview.agents.history_compaction import adaptive_fold_thresholds
+
+    assert adaptive_fold_thresholds(8_000) == (0.25, 0.40)
+    assert adaptive_fold_thresholds(32_000) == (0.30, 0.50)
+    assert adaptive_fold_thresholds(128_000) == (0.40, 0.60)
+    assert adaptive_fold_thresholds(0) == (0.30, 0.50)
+
+
 # ---- plan_ops (turn protocol + state machine) ----------------------------------
 
 
