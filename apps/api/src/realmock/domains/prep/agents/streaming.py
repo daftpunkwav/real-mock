@@ -19,6 +19,8 @@ from realmock.platform.capabilities.ai.llm.stream_filters import (
     SpecialTokenFilter,
 )
 
+from .quiz_render import prep_quiz_renderer
+
 logger = logging.getLogger(__name__)
 
 # Early content slice playback: simulate segment-by-segment output to avoid instantaneous display of the entire segment
@@ -60,7 +62,7 @@ class DisplayTextFilter:
       retracted live — polish strips it at persist and HTML renders it away.
 
     Output is display-only: the persisted message always comes from
-    ``polish_final`` on the raw final text (which also rescues buildable
+    ``polish_final`` on the unpolished final text (which also rescues buildable
     ask_user blocks into dialog events).
     """
 
@@ -72,7 +74,7 @@ class DisplayTextFilter:
         self._in_block = False
         self._emitted = False
         self._tokens = SpecialTokenFilter()
-        self._tool_calls = InlineToolCallCleaner()
+        self._tool_calls = InlineToolCallCleaner(quiz_renderer=prep_quiz_renderer)
 
     def feed(self, chunk: str) -> str:
         if not chunk:
@@ -114,7 +116,7 @@ class DisplayTextFilter:
             if "ask_user" not in block:
                 out.append(self._OPEN + block + self._CLOSE)
             # ask_user blocks are dropped: the dialog event (when the args are
-            # buildable) is produced by polish_final on the raw final text.
+            # buildable) is produced by polish_final on the unpolished final text.
         return self._emit_downstream("".join(out))
 
     def flush(self) -> str:
@@ -149,10 +151,10 @@ def event_loopbacks(
 
     ``on_tool_step`` is optional: when tool progress arrives, record it synchronously (for example,
     in a ``tool_steps`` list for persistence). ``content_state`` enables speculative streaming:
-    raw body-text deltas from every round pass through the caller-owned ``filter``
+    body-text deltas from every round pass through the caller-owned ``filter``
     (:class:`DisplayTextFilter`, the display mirror of ``polish_final``) and are relayed as
     ``token`` events; the first delta also clears the status line. The caller owns the dict
-    (``streamed`` / ``status_cleared`` / ``raw`` plus the ``filter``) so it can flush the
+    (``streamed`` / ``status_cleared`` / ``filtered_text`` plus the ``filter``) so it can flush the
     held-back tail after the loop returns. Returns ``(on_thinking, on_tool, on_content)``;
     when ``events`` is None, the callbacks are no-ops (the non-streaming channel need not
     emit events).
@@ -192,7 +194,7 @@ def event_loopbacks(
         cleaned = content_state["filter"].feed(text)
         if cleaned:
             content_state["streamed"] = True
-            content_state["raw"] = str(content_state.get("raw") or "") + cleaned
+            content_state["filtered_text"] = str(content_state.get("filtered_text") or "") + cleaned
             await events.put({"type": "token", "content": cleaned})
 
     return on_thinking, on_tool, on_content

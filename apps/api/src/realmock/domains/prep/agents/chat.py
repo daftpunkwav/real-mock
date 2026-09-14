@@ -39,6 +39,7 @@ from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_specia
 
 from .ask_user import extract_inline_ask_user
 from .context import format_linked_sessions, strip_ref_blocks
+from .quiz_render import prep_quiz_renderer
 from .streaming import make_display_filter, slice_stream, stream_tool_rounds
 
 if TYPE_CHECKING:
@@ -127,13 +128,13 @@ def finalize(
     # strip before persisting so stored history stays clean.
     agent.last_prompt_estimate = estimate_messages_tokens(working)
     options = compact_options or CompactionOptions()
-    if agent._mid_turn_base is not None and agent._pre_loop_len is not None:
+    if agent._turn_state.mid_turn_base is not None and agent._turn_state.pre_loop_len is not None:
         # Agent-invoked mid-turn compaction rewrote persisted history while the
         # loop ran on: merge the loop's new tail (current round, pairing intact)
         # back on top of the compacted base instead of clobbering it.
-        tail_new = working[agent._pre_loop_len :] if len(working) >= (agent._pre_loop_len or 0) else []
-        agent.messages = strip_ref_blocks(agent._mid_turn_base) + list(tail_new)
-        agent._mid_turn_base = None
+        tail_new = working[agent._turn_state.pre_loop_len :] if len(working) >= (agent._turn_state.pre_loop_len or 0) else []
+        agent.messages = strip_ref_blocks(agent._turn_state.mid_turn_base) + list(tail_new)
+        agent._turn_state.mid_turn_base = None
     else:
         agent.messages = strip_ref_blocks(working)
     # Guard against null finals (a provider may return an empty body): the
@@ -191,7 +192,7 @@ def finalize(
 def polish_final(text: str) -> tuple[str, dict[str, Any] | None]:
     """Outbound sanitization: recover inline ask_user calls + strip special tokens/inline tool blocks. Returns ``(body, ask event or None)``."""
     cleaned, ask_event = extract_inline_ask_user(text or "")
-    return sanitize_special_tokens(cleaned).strip(), ask_event
+    return sanitize_special_tokens(cleaned, quiz_renderer=prep_quiz_renderer).strip(), ask_event
 
 
 def usage_event(agent: "PrepAgent") -> dict[str, Any] | None:
@@ -235,27 +236,22 @@ async def _inject_refs(
 
 
 def _begin_turn(agent: "PrepAgent", options: CompactionOptions | None) -> CompactionOptions:
-    """Reset per-turn compaction state and stash the turn policy on the agent."""
-    policy = options or CompactionOptions()
-    agent._turn_policy = policy
-    agent._compact_used_this_turn = False
-    agent._expanded_this_turn = False
-    agent._turn_tools = None
-    agent._mid_turn_base = None
-    agent._mid_turn_report = None
-    agent._pre_loop_len = None
+    """Reset per-turn state and stash the turn policy on the agent."""
+    agent._turn_state.reset(options)
     # A quiz posed last turn is no longer pending: the question lives in the
     # verbatim tail of the history, and a stale reminder would otherwise sit in
     # the working-memory block for the rest of the session.
     agent.memory.pending_quiz = ""
     agent.last_turn_id = uuid.uuid4().hex
-    return policy
+    return agent._turn_state.policy
 
 
 async def _final_answer_with_overflow_retry(
     agent: "PrepAgent",
     working: list[dict[str, Any]],
     policy: CompactionOptions,
+    db: Session,
+    context_session_ids: list[int] | None,
 ) -> str:
     """Non-streaming final answer; on context overflow, force-compact and retry once."""
     try:
@@ -267,8 +263,9 @@ async def _final_answer_with_overflow_retry(
         emergency = CompactionOptions(intensity="aggressive", directive=policy.directive, retain=0)
         # The rebuilt context already contains any mid-turn compaction result, so
         # the finalize merge (indexed against the old loop copy) must not run.
-        agent._mid_turn_base = None
+        agent._turn_state.mid_turn_base = None
         working = await agent._build_context(force=True, options=emergency)
+        working = await _inject_refs(agent, working, db, context_session_ids)
         return await agent.llm.chat(working, temperature=0.7)
 
 
@@ -281,13 +278,13 @@ async def run_chat(
 ) -> str:
     policy = _begin_turn(agent, compact_options)
     turn_id = agent.last_turn_id or uuid.uuid4().hex
-    agent._ensure_system(db, ui_locale)
+    await agent._ensure_system(db, ui_locale)
     if drop_last_assistant:
         _drop_trailing_assistant(agent)
     agent.messages.append({"role": "user", "content": user_text})
     working = await agent._build_context(threshold=compact_threshold, options=policy)
     working = await _inject_refs(agent, working, db, context_session_ids)
-    agent._pre_loop_len = len(working)
+    agent._turn_state.pre_loop_len = len(working)
 
     asked_user: dict[str, bool] = {"on": False}
     working, early, groups, steps, thinking = await agent._run_tool_rounds(
@@ -301,7 +298,7 @@ async def run_chat(
         final, _ = polish_final(early)
         final = final or agent.waiting_line()
     else:
-        final = await _final_answer_with_overflow_retry(agent, working, policy)
+        final = await _final_answer_with_overflow_retry(agent, working, policy, db, context_session_ids)
 
     finalize(
         agent, working, final, db, tool_steps=steps, search_groups=groups, thinking=thinking,
@@ -328,7 +325,7 @@ async def run_chat_stream(
     """
     policy = _begin_turn(agent, compact_options)
     turn_id = agent.last_turn_id or uuid.uuid4().hex
-    agent._ensure_system(db, ui_locale)
+    await agent._ensure_system(db, ui_locale)
     if drop_last_assistant:
         _drop_trailing_assistant(agent)
     agent.messages.append({"role": "user", "content": user_text})
@@ -338,7 +335,7 @@ async def run_chat_stream(
         threshold=compact_threshold, options=policy, report=build_report,
     )
     working = await _inject_refs(agent, working, db, context_session_ids)
-    agent._pre_loop_len = len(working)
+    agent._turn_state.pre_loop_len = len(working)
 
     start_event = compaction_event(
         pre_build, working, build_report,
@@ -364,7 +361,7 @@ async def run_chat_stream(
     content_state: dict[str, Any] = {
         "streamed": False,
         "status_cleared": False,
-        "raw": "",
+        "filtered_text": "",
         "filter": make_display_filter(),
     }
     outcome: dict[str, Any] = {}
@@ -401,9 +398,9 @@ async def run_chat_stream(
 
         # Agent-invoked mid-turn compaction ran inside the loop: surface it
         # like any other tool-driven step before the final answer streams.
-        if agent._mid_turn_report is not None:
-            report = agent._mid_turn_report
-            agent._mid_turn_report = None
+        if agent._turn_state.mid_turn_report is not None:
+            report = agent._turn_state.mid_turn_report
+            agent._turn_state.mid_turn_report = None
             yield {
                 "type": "compaction",
                 "before": report.get("before", 0),
@@ -449,8 +446,8 @@ async def run_chat_stream(
                 # Speculative tokens already reached the user (loop exhausted or
                 # failed mid-stream). Regenerating would repeat on screen and
                 # fork from persisted history — finish with the streamed text.
-                raw = str(content_state.get("raw") or "")
-                final = polish_final(raw)[0].strip()
+                filtered = str(content_state.get("filtered_text") or "")
+                final = polish_final(filtered)[0].strip()
                 if not final:
                     # Streamed text sanitized to nothing: fall through to the
                     # live closing stream below.
@@ -473,7 +470,7 @@ async def run_chat_stream(
                     emergency = CompactionOptions(intensity="aggressive", directive=policy.directive, retain=0)
                     # The rebuilt context already contains any mid-turn compaction
                     # result, so the finalize merge must not run (see finalize).
-                    agent._mid_turn_base = None
+                    agent._turn_state.mid_turn_base = None
                     working = await agent._build_context(force=True, options=emergency)
                     working = await _inject_refs(agent, working, db, context_session_ids)
                     async for token in agent.llm.chat_stream(working, temperature=0.7):
@@ -497,7 +494,7 @@ async def run_chat_stream(
         if not finalized:
             try:
                 finalize(
-                    agent, working, final or str(content_state.get("raw") or ""), db,
+                    agent, working, final or str(content_state.get("filtered_text") or ""), db,
                     tool_steps=tool_steps, search_groups=search_groups,
                     thinking=thinking, stopped=True,
                     compact_threshold=compact_threshold, compact_options=policy,

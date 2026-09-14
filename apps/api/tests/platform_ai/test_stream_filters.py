@@ -99,10 +99,9 @@ def test_bracket_form_separator_leak_stripped() -> None:
     assert "minimax" not in r
     assert "<tool_call>" not in r
     assert "<invoke" not in r
-    # The quiz question is converted into readable body text instead of being discarded
-    # NOTE: expectation paraphrases input question ("Explain ... workflow." vs "Please explain ... flow."); quiz block is rendered to readable text.
-    assert "Please explain the Function Calling flow." in r
-    assert "Practice question" in r
+    # The neutral default renderer keeps the extracted question text as body.
+    assert "Explain the Function Calling workflow." in r
+    assert "Practice question" not in r
 
 
 def test_inline_tool_call_block_cross_chunk() -> None:
@@ -110,9 +109,10 @@ def test_inline_tool_call_block_cross_chunk() -> None:
     chunks = ["Earlier text<tool_call><invoke name=", "\"quiz\"><question>question text", "</question></invoke></tool_call>trailing text"]
     r = "".join(s.feed_content(c) for c in chunks) + s.flush()
     assert "<tool_call>" not in r and "<invoke" not in r
-    # NOTE: expectations paraphrase chunk inputs ("Earlier/trailing/question text" vs "Previous/Following/Question stem"); quiz block is rendered, not just stripped.
-    assert "Previous text" in r and "Following text" in r
-    assert "Question stem" in r
+    # Surrounding body text passes through unchanged; the neutral default
+    # renderer keeps the extracted question text.
+    assert "Earlier text" in r and "trailing text" in r
+    assert "question text" in r
 
 
 def test_inline_xml_without_question_dropped() -> None:

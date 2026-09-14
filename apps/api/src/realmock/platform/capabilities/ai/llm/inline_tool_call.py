@@ -1,13 +1,13 @@
 """Clean XML tool-call blocks inlined in text (function-calling protocol drift).
 
-The model occasionally emits ``<tool_call><invoke name="quiz">…</tool_call>`` in the body
+The model occasionally emits ``<tool_call><invoke name="quiz">…</invoke></tool_call>`` in the body
 instead of using the tools channel. Such blocks are pure noise to the user: remove the entire block; the quiz
 ``<question>`` is valid content, so convert it to question text and let it through, avoiding a promise to ask a question with no question shown.
 Streaming-safe: once a block begins, buffer through its closing tag (or end of stream) before processing it; pass through an oversized unclosed block as body text.
 
-The block rendering strategy is injected through the :class:`InlineToolCallCleaner` constructor argument ``quiz_renderer``;
-the default renderer serves the only currently known drift form (the prep-domain quiz tool),
-while business code can supply its own implementation—the mechanism layer itself carries no business-specific wording.
+The block rendering strategy is injected through the :class:`InlineToolCallCleaner` constructor argument ``quiz_renderer``.
+The default renderer is deliberately neutral (question text passes through unchanged): business-specific
+copy belongs to the calling domain, which supplies its own renderer.
 """
 
 from __future__ import annotations
@@ -18,17 +18,14 @@ from collections.abc import Callable
 # Extraction of text inline XML tool call blocks (for quiz question conversion)
 _INLINE_QUESTION_RE = re.compile(r"<question>(.*?)</question>", re.S)
 
-# Default quiz block renderer (current source of truth for prep-domain product copy; override via ``quiz_renderer``)
-DEFAULT_QUIZ_BLOCK_TEMPLATE = "**Practice questions**: {question}\n\nPlease answer directly and I will comment on them sentence by sentence."
-
 QuizBlockRenderer = Callable[[str], str]
 
 
 def _default_quiz_renderer(question: str) -> str:
-    """Default rendering: When there are questions, the copy of the practice questions is output; when there are no questions, it returns empty (removed entirely)."""
+    """Neutral fallback: keep the extracted question text; drop empty blocks."""
     if not question:
         return ""
-    return DEFAULT_QUIZ_BLOCK_TEMPLATE.format(question=question)
+    return question
 
 
 class InlineToolCallCleaner:

@@ -21,7 +21,7 @@ Implementation layers:
 
 from __future__ import annotations
 
-from .inline_tool_call import InlineToolCallCleaner
+from .inline_tool_call import InlineToolCallCleaner, QuizBlockRenderer
 from .special_token_filter import SpecialTokenFilter, _SPECIAL_RE
 from .stream_sanitizer import StreamSanitizer
 
@@ -33,9 +33,13 @@ __all__ = [
 ]
 
 
-def sanitize_special_tokens(text: str) -> str:
-    """One-time purification of non-streaming text (used for the entire text)."""
+def sanitize_special_tokens(text: str, *, quiz_renderer: QuizBlockRenderer | None = None) -> str:
+    """One-time purification of non-streaming text (used for the entire text).
+
+    ``quiz_renderer`` lets a domain inject its own copy for inline quiz
+    tool-call blocks; the default is the platform's neutral question-text pass-through.
+    """
     if not text:
         return text
-    cleaner = InlineToolCallCleaner()
+    cleaner = InlineToolCallCleaner(quiz_renderer=quiz_renderer)
     return cleaner.feed(_SPECIAL_RE.sub("", text)) + cleaner.flush()

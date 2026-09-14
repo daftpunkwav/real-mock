@@ -1,7 +1,7 @@
 """Prep-domain tool registry: definitions and execution are colocated; adding a tool changes only this file.
 
 Each long-lived tool has one :class:`ToolSpec` (OpenAI tools schema + handler).
-:data:`TOOL_REGISTRY` is the single source of truth for dispatch; :data:`PREP_TOOL_DEFINITIONS`
+:data:`TOOL_REGISTRY` is the single source of truth for dispatch; :data:`DOMAIN_TOOL_DEFINITIONS`
 is derived from the same :data:`_TOOL_SPECS` plus per-call-bound profile/resume
 definitions (those four are intentionally *not* in the registry: their schemas
 are snapshots, while execution rebinds live ORM rows on every call — see
@@ -795,7 +795,7 @@ COMPACT_TOOL_DEFINITION: dict[str, Any] = {
 
 COMPACT_TOOL_NAME = _COMPACT_TOOL_SPEC.name
 
-PREP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+DOMAIN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -806,6 +806,11 @@ PREP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     }
     for spec in _TOOL_SPECS
 ] + _profile_resume_definitions()
+
+# Backward-compatible alias; prefer :data:`DOMAIN_TOOL_DEFINITIONS` for the
+# registry subset and :data:`realmock.domains.prep.agents.agent.PREP_TOOL_DEFINITIONS`
+# for the complete turn-start set including ``ask_user``.
+PREP_TOOL_DEFINITIONS = DOMAIN_TOOL_DEFINITIONS
 
 #: Full OpenAI declarations of on-demand tools, keyed for mid-turn expansion.
 #: The turn toolset only ever grows by appending these (never reordered),
