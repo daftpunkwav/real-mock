@@ -84,6 +84,9 @@ class DebriefReport(BaseModel):
     face_analysis_summary: str = ""
     presence_moments: list[str] = Field(default_factory=list)
     rounds_context: str = ""  # prior-round digests when part of a process
+    # External verification notes from the synthesis agent's web tools
+    # (claim → finding → source URL); empty when nothing was checked.
+    external_notes: list[str] = Field(default_factory=list)
     turn_notes: list[TurnNote] = Field(default_factory=list)
 
 

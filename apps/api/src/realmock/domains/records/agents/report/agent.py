@@ -22,7 +22,9 @@ from realmock.platform.capabilities.ai.agent.tools import (
     profile_from_orm,
     profile_tool_specs,
     resume_tool_specs,
+    search_tool_spec,
     snapshot_from_payload,
+    web_fetch_tool_spec,
 )
 from realmock.platform.database import api_db_session
 from realmock.platform.services.candidate_read import (
@@ -124,6 +126,15 @@ class DeepReportAgent:
             notes = await self._run_batches(ledger, batches, role, level, company, specs)
             if self._on_event is not None:
                 await self._on_event({"type": "stage", "stage": "synthesis", "status": "running"})
+            # Synthesis alone gets the public-web tools: it is the single loop
+            # that calibrates against company/industry context, and giving the
+            # parallel stage-1 batches live search would multiply latency and
+            # search-engine rate limits.
+            synthesis_specs = [
+                *specs,
+                search_tool_spec(),
+                web_fetch_tool_spec(),
+            ]
             payload = await run_synthesis(
                 self._llm,
                 ledger=ledger,
@@ -136,7 +147,7 @@ class DeepReportAgent:
                 interview_style=interview_style,
                 session_result=session_result,
                 process_context=process_context,
-                context_specs=specs,
+                context_specs=synthesis_specs,
                 on_event=self._on_event,
             )
             if payload is None:

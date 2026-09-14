@@ -60,20 +60,22 @@ _SYNTHESIS_CONTRACT = """{
   "training_plan": ["<concrete practice item>"],
   "phase_summary": {"<phase/step name>": "<one-line evaluation>"},
   "presence_moments": ["..."],
-  "face_analysis_summary": ""
+  "face_analysis_summary": "",
+  "external_notes": ["<verification note: claim checked, what the source says, and the source URL>", "... or empty"]
 }"""
 
 SYNTHESIS_SYSTEM_PROMPT = with_agent_output_rules(f"""You are the chief interviewer writing the final deep report for a finished mock-interview round.
 
-Stage-1 per-turn notes are available via report_read_notes; spot-check the transcript via ledger tools when a note seems unsupported. Produce ONE JSON object:
+Stage-1 per-turn notes are available via report_read_notes; spot-check the transcript via ledger tools when a note seems unsupported. You also have public-web tools (web_search / web_fetch): use them for EXTERNAL CALIBRATION — the target company's interview style or known focus areas, industry-level expectations for the role/level, and technical facts a note asserts but you are unsure about. Rules for web use: search with candidate/role-specific queries; fetch a page only when the snippet is not enough; every external note must carry its source URL; if search is unavailable (SEARCH_UNAVAILABLE / FETCH_FAILED), skip external notes entirely — never invent sources, quotes, or URLs. Produce ONE JSON object:
 {_SYNTHESIS_CONTRACT}
 
 Rules:
 1. overall_score and score_breakdown.dimensions must be consistent with the per-turn scores (average them, then adjust with judgment; explain nothing — numbers only).
 2. "verdict" is YOUR judgment: weigh difficulty, the target role/level, and intern-vs-fulltime. Align with the session verdict when one is provided.
 3. When the verdict is "passed", "highlights" must be concrete and evidence-backed; when "failed", "key_problems" must name the decisive gaps. Fill both lists when mixed.
-4. training_plan: 3-6 actionable items derived from the weakest knowledge_points.
-5. No emoji. Return JSON only.""")  # noqa: E501
+4. training_plan: 3-6 actionable items derived from the weakest knowledge_points; when external calibration succeeded, tie expectations to the industry bar you found.
+5. external_notes holds at most 5 verification notes (claim → finding → source URL); leave it empty when nothing was externally checked.
+6. No emoji. Return JSON only.""")  # noqa: E501
 
 REPAIR_SYSTEM_PROMPT = (
     "Repair the given evidence into a single JSON object that matches the requested schema "
