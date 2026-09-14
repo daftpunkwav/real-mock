@@ -30,7 +30,7 @@ export interface PrepChatMessage {
   streaming?: boolean;
   searchGroups?: PrepSearchGroup[];
   steps?: PrepToolStep[];
-  /** (reasoning / ) */
+  /** Non-streaming reasoning text captured from a tool-round think block. */
   thinking?: string;
   statusText?: string;
   /** Merged thinking/tool timeline in true arrival order. */

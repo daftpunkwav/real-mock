@@ -116,10 +116,12 @@ export const prep = {
   "agent.tool.githubListRepos": "View GitHub repos",
   "agent.tool.githubGetReadme": "Read repo README",
   "agent.tool.githubGetRepo": "View repo details",
+  "agent.tool.githubGetFile": "Read repo file",
   "agent.tool.githubListCommits": "View commits",
   "agent.tool.githubGetUser": "View GitHub user",
   "agent.tool.compactContext": "Compact context",
   "agent.tool.searchTools": "Search tools",
+  "agent.tool.codeExec": "Run code",
 
   // Agent question modal
   "ask.title": "Coach wants to confirm",

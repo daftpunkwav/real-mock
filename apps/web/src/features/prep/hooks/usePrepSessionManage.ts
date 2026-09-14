@@ -13,6 +13,7 @@ import { formatApiError } from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
 import type { AskUserDialog } from "@/types";
 import { abortStream, hasActiveStream, STREAM_STOP_GRACE_MS } from "../streamRegistry";
+import { clearArchive } from "../compactionArchive";
 import type { PrepChatMessage } from "../types";
 
 /** Re-exported for call sites that need the same stop-then-mutate pacing. */
@@ -59,6 +60,7 @@ export function usePrepSessionManage(opts: {
     try {
       await haltSession(id);
       await api.deleteSession(id);
+      clearArchive(id);
       refreshSessions();
       if (id === prepSessionId) {
         setAskDialog(null);
@@ -83,6 +85,7 @@ export function usePrepSessionManage(opts: {
     try {
       await haltSession(id);
       await api.truncateMessages(id, 0);
+      clearArchive(id);
       refreshSessions();
       if (id === prepSessionId) {
         setBackendCount(id, 0);

@@ -116,10 +116,12 @@ export const prep = {
   "agent.tool.githubListRepos": "查看 GitHub 仓库",
   "agent.tool.githubGetReadme": "读取仓库 README",
   "agent.tool.githubGetRepo": "查看仓库详情",
+  "agent.tool.githubGetFile": "读取仓库文件",
   "agent.tool.githubListCommits": "查看提交记录",
   "agent.tool.githubGetUser": "查看 GitHub 用户",
   "agent.tool.compactContext": "压缩上下文",
   "agent.tool.searchTools": "搜索工具",
+  "agent.tool.codeExec": "运行代码",
 
   // Agent 提问弹窗
   "ask.title": "教练想确认",

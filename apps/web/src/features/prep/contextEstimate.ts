@@ -57,10 +57,16 @@ function textLen(value: unknown): number {
 
 /** Reasoning/tool/search/status characters carried by one assistant message. */
 export function assistantMetaChars(m: PrepChatMessage): number {
-  let chars = textLen(m.thinking) + textLen(m.statusText);
+  let chars = textLen(m.statusText);
+  const traceThinking = (m.trace ?? []).filter((i) => i.kind === "thinking");
+  if (traceThinking.length > 0) {
+    for (const item of traceThinking) chars += textLen(item.text);
+  } else {
+    chars += textLen(m.thinking);
+  }
   for (const item of m.trace ?? []) {
     if (item.kind === "thinking") {
-      chars += textLen(item.text);
+      continue;
     } else if (item.kind === "tool") {
       chars += textLen(item.name) + textLen(item.query);
       if (item.args) {
@@ -122,10 +128,16 @@ export function estimatePrepContext(
 
 /** Token estimate of one assistant message's meta payload (thinking/tools/search). */
 function metaTokens(m: PrepChatMessage): number {
-  let total = estimateTextTokens(m.thinking) + estimateTextTokens(m.statusText);
+  let total = estimateTextTokens(m.statusText);
+  const traceThinking = (m.trace ?? []).filter((i) => i.kind === "thinking");
+  if (traceThinking.length > 0) {
+    for (const item of traceThinking) total += estimateTextTokens(item.text);
+  } else {
+    total += estimateTextTokens(m.thinking);
+  }
   for (const item of m.trace ?? []) {
     if (item.kind === "thinking") {
-      total += estimateTextTokens(item.text);
+      continue;
     } else if (item.kind === "tool") {
       total += estimateTextTokens(item.name) + estimateTextTokens(item.query);
       if (item.args) {

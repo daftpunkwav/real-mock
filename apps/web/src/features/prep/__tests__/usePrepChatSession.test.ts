@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * hook
- * in , and, .
+ * @file usePrepChatSession.test.ts
+ * @description Tests for usePrepChatSession: session restore, switching,
+ * creation, race handling, and backend-outage retries.
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -41,7 +42,6 @@ function makeOptions(overrides: Partial<Parameters<typeof usePrepChatSession>[0]
 
 type HookOptions = ReturnType<typeof makeOptions>;
 
-/** props hook: options, effect Use */
 function renderSessionHook(options: HookOptions) {
   return renderHook((opts: HookOptions) => usePrepChatSession(opts), {
     initialProps: options,
@@ -58,10 +58,10 @@ afterEach(() => {
 });
 
 describe("usePrepChatSession.switchSession", () => {
-  it("Note", async () => {
+  it("loads messages and persists the chosen session", async () => {
     mockedPrepMessages.mockResolvedValue([
-      { role: "user", content: "Note" },
-      { role: "assistant", content: "Note" },
+      { role: "user", content: "hello" },
+      { role: "assistant", content: "hi" },
     ] as never);
     const options = makeOptions();
     const { result } = renderSessionHook(options);
@@ -78,8 +78,8 @@ describe("usePrepChatSession.switchSession", () => {
     expect(result.current.restoring).toBe(false);
   });
 
-  it("Note", async () => {
-    mockedPrepMessages.mockRejectedValue(new Error("Note"));
+  it("clears session state when history load fails", async () => {
+    mockedPrepMessages.mockRejectedValue(new Error("load failed"));
     const { result } = renderSessionHook(makeOptions());
 
     await act(async () => {
@@ -87,13 +87,13 @@ describe("usePrepChatSession.switchSession", () => {
     });
 
     expect(result.current.prepSessionId).toBeNull();
-    expect(result.current.switchError).toContain("Note");
+    expect(result.current.switchError).toContain("load failed");
     expect(window.localStorage.getItem(RESTORE_KEY)).toBeNull();
   });
 
-  it("and", async () => {
+  it("keeps the fallback session when explicit switch fails", async () => {
     mockedCreatePrepSession.mockResolvedValue({ id: 5 } as never);
-    mockedPrepMessages.mockRejectedValue(new Error("Note"));
+    mockedPrepMessages.mockRejectedValue(new Error("switch failed"));
     const { result } = renderSessionHook(makeOptions());
 
     await act(async () => {
@@ -106,11 +106,11 @@ describe("usePrepChatSession.switchSession", () => {
     });
 
     expect(result.current.prepSessionId).toBe(5);
-    expect(result.current.switchError).toContain("Note");
+    expect(result.current.switchError).toContain("switch failed");
     expect(window.localStorage.getItem(RESTORE_KEY)).toBe("5");
   });
 
-  it("( )", async () => {
+  it("ignores empty history without replacing messages", async () => {
     mockedCreatePrepSession.mockResolvedValue({ id: 5 } as never);
     mockedPrepMessages.mockResolvedValue([] as never);
     const options = makeOptions();
@@ -131,7 +131,7 @@ describe("usePrepChatSession.switchSession", () => {
     expect(window.localStorage.getItem(RESTORE_KEY)).toBe("5");
   });
 
-  it("in", async () => {
+  it("cancels an in-flight switch when a newer switch starts", async () => {
     let resolveFirst!: (v: never) => void;
     mockedPrepMessages.mockImplementationOnce(
       () => new Promise((resolve) => (resolveFirst = resolve)),
@@ -145,7 +145,7 @@ describe("usePrepChatSession.switchSession", () => {
     await act(async () => {
       await result.current.switchSession(4);
     });
-    resolveFirst([{ role: "user", content: "Note" }] as never);
+    resolveFirst([{ role: "user", content: "stale" }] as never);
     await act(async () => {
       await first;
     });
@@ -157,7 +157,7 @@ describe("usePrepChatSession.switchSession", () => {
 
   it("switches sessions without blocking on generation", async () => {
     mockedPrepMessages.mockResolvedValue([
-      { role: "user", content: "Note" },
+      { role: "user", content: "hello" },
     ] as never);
     const { result } = renderSessionHook(makeOptions());
 
@@ -172,7 +172,7 @@ describe("usePrepChatSession.switchSession", () => {
   it("retries history load once on transport failure", async () => {
     mockedPrepMessages
       .mockRejectedValueOnce(new ApiError("unreachable", 0, { code: "NET0000" }))
-      .mockResolvedValueOnce([{ role: "user", content: "Note" }] as never);
+      .mockResolvedValueOnce([{ role: "user", content: "hello" }] as never);
     const { result } = renderSessionHook(makeOptions());
 
     await act(async () => {
@@ -201,11 +201,11 @@ describe("usePrepChatSession.switchSession", () => {
   }, 15000);
 });
 
-describe("usePrepChatSession", () => {
-  it("and", async () => {
+describe("usePrepChatSession.restore", () => {
+  it("restores the persisted session on mount", async () => {
     window.localStorage.setItem(RESTORE_KEY, "9");
     mockedPrepMessages.mockResolvedValue([
-      { role: "user", content: "Note" },
+      { role: "user", content: "hello" },
     ] as never);
     const options = makeOptions();
     renderSessionHook(options);
@@ -216,9 +216,9 @@ describe("usePrepChatSession", () => {
     expect(mockedPrepMessages).toHaveBeenCalledWith(9);
   });
 
-  it("Note", async () => {
+  it("clears invalid stored session on load failure", async () => {
     window.localStorage.setItem(RESTORE_KEY, "9");
-    mockedPrepMessages.mockRejectedValue(new Error("Note"));
+    mockedPrepMessages.mockRejectedValue(new Error("load failed"));
     const { result } = renderSessionHook(makeOptions());
 
     await waitFor(() => {
@@ -228,7 +228,7 @@ describe("usePrepChatSession", () => {
     expect(result.current.restoring).toBe(false);
   });
 
-  it("Note", async () => {
+  it("clears stored session when backend returns empty history", async () => {
     window.localStorage.setItem(RESTORE_KEY, "9");
     mockedPrepMessages.mockResolvedValue([] as never);
     const { result } = renderSessionHook(makeOptions());
@@ -240,8 +240,8 @@ describe("usePrepChatSession", () => {
   });
 });
 
-describe("usePrepChatSession", () => {
-  it("Note", async () => {
+describe("usePrepChatSession.startPrep", () => {
+  it("creates a new session and seeds a welcome message", async () => {
     mockedCreatePrepSession.mockResolvedValue({ id: 11 } as never);
     const options = makeOptions();
     const { result } = renderSessionHook(options);
@@ -259,8 +259,8 @@ describe("usePrepChatSession", () => {
     ]);
   });
 
-  it("Note", async () => {
-    mockedCreatePrepSession.mockRejectedValue(new Error("Note"));
+  it("surfaces creation errors without persisting a session", async () => {
+    mockedCreatePrepSession.mockRejectedValue(new Error("creation failed"));
     const { result } = renderSessionHook(makeOptions());
 
     let created: number | null = null;
@@ -269,7 +269,7 @@ describe("usePrepChatSession", () => {
     });
 
     expect(created).toBeNull();
-    expect(result.current.prepError).toContain("Note");
+    expect(result.current.prepError).toContain("creation failed");
     expect(window.localStorage.getItem(RESTORE_KEY)).toBeNull();
   });
 });

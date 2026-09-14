@@ -53,11 +53,13 @@ export function AskUserModal({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // A new dialog may arrive while the modal stays mounted: drop stale picks.
+    // A new dialog may arrive while the modal stays mounted: drop stale picks
+    // and re-arm the deadline auto-fire guard.
     setCustom("");
     setChecked([]);
     setAnswers({});
     setSliderValue(String(sliderMin));
+    autoFiredRef.current = false;
   }, [dialog, sliderMin]);
 
   useEffect(() => {

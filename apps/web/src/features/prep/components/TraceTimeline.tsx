@@ -27,10 +27,12 @@ const TOOL_LABEL_KEYS: Record<string, MessageKey<"prep">> = {
   github_list_repos: "agent.tool.githubListRepos",
   github_get_readme: "agent.tool.githubGetReadme",
   github_get_repo: "agent.tool.githubGetRepo",
+  github_get_file: "agent.tool.githubGetFile",
   github_list_commits: "agent.tool.githubListCommits",
   github_get_user: "agent.tool.githubGetUser",
   compact_context: "agent.tool.compactContext",
   search_tools: "agent.tool.searchTools",
+  code_exec: "agent.tool.codeExec",
 };
 
 function toolLabel(t: ReturnType<typeof useT>, name: string): string {

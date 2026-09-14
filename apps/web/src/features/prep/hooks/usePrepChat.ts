@@ -259,11 +259,13 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   }, []);
 
   /** Main send: consumes pending "#" refs into the snapshot, then clears them. */
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || !session.prepSessionId) return;
     const ids = pendingRefs.map((r) => r.id);
     setPendingRefs([]);
-    void sendMessage(input, undefined, false, ids.length > 0 ? { contextSessionIds: ids } : undefined);
-  }, [input, pendingRefs, sendMessage]);
+    await sendMessage(text, undefined, false, ids.length > 0 ? { contextSessionIds: ids } : undefined);
+  }, [input, pendingRefs, sendMessage, session.prepSessionId]);
 
   /** Append a local-only notice (never persisted, never in context). */
   const pushNotice = useCallback(
