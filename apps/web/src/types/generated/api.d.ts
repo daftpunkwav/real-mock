@@ -3082,6 +3082,8 @@ export interface components {
              * @default
              */
             rounds_context: string;
+            /** External Notes */
+            external_notes?: string[];
             /** Turn Notes */
             turn_notes?: components["schemas"]["TurnNote"][];
         };

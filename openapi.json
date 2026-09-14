@@ -7847,6 +7847,13 @@
             "title": "Rounds Context",
             "default": ""
           },
+          "external_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "External Notes"
+          },
           "turn_notes": {
             "items": {
               "$ref": "#/components/schemas/TurnNote"

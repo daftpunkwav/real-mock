@@ -26,6 +26,8 @@ import { ActionLinks } from "@/features/report/components/ActionLinks";
 import { VerdictBanner } from "@/features/report/components/VerdictBanner";
 import { TurnDeepNotes } from "@/features/report/components/TurnDeepNotes";
 import { ReportLiveProgress } from "@/features/report/components/ReportLiveProgress";
+import { PhaseOverviewCard } from "@/features/report/components/PhaseOverviewCard";
+import { ExternalNotesCard } from "@/features/report/components/ExternalNotesCard";
 
 export default function ReportPage() {
   const params = useParams();
@@ -113,6 +115,7 @@ export default function ReportPage() {
           <ScoreRadar scores={scores} />
           <Section title={t("sections.strengths")} items={report.strengths} tone="success" />
           <Section title={t("sections.weaknesses")} items={report.weaknesses} tone="danger" />
+          <PhaseOverviewCard summary={report.phase_summary} />
         </div>
       )}
 
@@ -149,6 +152,7 @@ export default function ReportPage() {
           {report.face_analysis_summary && (
             <FaceAnalysisCard summary={report.face_analysis_summary} />
           )}
+          <ExternalNotesCard notes={report.external_notes} />
         </div>
       )}
 
