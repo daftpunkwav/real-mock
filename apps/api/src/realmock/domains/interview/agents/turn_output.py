@@ -5,7 +5,7 @@ this module only validates the control dict into strong types and fills defaults
 degrades only that field and does not affect the say voice channel.
 
 ``wait_seconds`` semantics: 0 means the model did not provide a value, so the consumer uses the default for the question type/phase;
-all other values are clamped to 0-120 (the consumer applies the lower bound for "wait" scenarios; a closing turn does not need to wait).
+all other values are clamped to 0-60 (silence-nudge window: the consumer clamps the lower bound to 7s; a closing turn does not need to wait).
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ _PROTOCOL_VERSION = 1
 _EMOTIONS = ("neutral", "smile", "serious")
 _SOURCE_VALUES = ("resume", "github", "company_kb", "none")
 _VERDICT_VALUES = ("passed", "failed")
-_WAIT_MAX = 120
+_WAIT_MAX = 60
 # Single source for step-field clamps: planning.plan_schema.
 _PLAN_OPS_MAX_INSERTS = 3
 

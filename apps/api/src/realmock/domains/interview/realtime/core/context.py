@@ -82,11 +82,23 @@ class ConnectionContext:
 
     # ── Questioning silently ────────────────────────────────
     last_nudge_at: float = 0.0
-    nudge_cooldown_sec: float = 25.0
-    nudge_grace_sec: float = 15.0
+    nudge_cooldown_sec: float = 10.0
+    nudge_grace_sec: float = 5.0
+    #: Anchored when the interviewer's speech actually ends (client
+    #: tts_playback_done, or mic-open with no audio pending) — silence timing
+    #: counts from here, NOT from text-complete (mic_opened_at), so long TTS
+    #: playback never eats the candidate's thinking time.
+    speech_end_at: float = 0.0
+    #: Latest LLM per-question wait estimate (seconds, 0 = not provided).
+    last_wait_seconds: float = 0.0
+    #: Last C2001 error frame sent (STT-failure errors back off to avoid spam).
+    last_stt_error_at: float = 0.0
     silence_probe_seq: int = 0          # Silence probes sent for current question (0=none yet; max 2).
     silence_probe_question: str = ""    # The question corresponding to the current follow-up question (changing the question means counting again)
     last_silence_probe: str = ""        # Content of the previous question (to avoid repeated questions)
+    #: Closing nudge already spoken for the current question (after the probe
+    #: cap): further silence stays quiet instead of looping probes or errors.
+    silence_capped: bool = False
 
     # ── Tips/Reports ─────────────────────────────
     hint_inflight: str | None = None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from types import MappingProxyType
@@ -139,6 +140,8 @@ class MessageDispatcherMixin:
         client_gen = data.get("generation")
         if client_gen is None or client_gen == self.ctx.awaiting_playback_gen:
             self.ctx.playback_done.set()
+            # The interviewer's voice just finished: silence timing starts here.
+            self.ctx.speech_end_at = asyncio.get_event_loop().time()
 
     async def _send_rate_limited(self) -> None:
         await self.send(

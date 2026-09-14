@@ -8,6 +8,7 @@ and finally share ``_pick_stt_text`` → loopback-capture detection → ``_proce
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -27,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 # Single source: canonical value lives in platform.core.constants.
 _AUDIO_BUFFER_MAX_BYTES: int = AUDIO_BUFFER_MAX_BYTES
+
+#: Minimum gap between two C2001 "not recognized" frames on one connection.
+_STT_ERROR_RESEND_SECONDS = 10.0
 
 
 class TurnSttFinishMixin:
@@ -161,12 +165,18 @@ class TurnSttFinishMixin:
             await self.send("stt_final", text=text)
         else:
             self.ctx.stt_fail_streak += 1
-            await self.send(
-                "error",
-                message="Could not recognize the speech; speak again or type instead",
-                code="C2001",
-                retryable=True,
-            )
+            # Back off the error frame: the candidate is silent (not deaf) —
+            # the silence nudge owns follow-ups, so don't spam C2001. The turn
+            # still returns to USER_SPEAKING either way.
+            now = asyncio.get_event_loop().time()
+            if now - self.ctx.last_stt_error_at >= _STT_ERROR_RESEND_SECONDS:
+                self.ctx.last_stt_error_at = now
+                await self.send(
+                    "error",
+                    message="Could not recognize the speech; speak again or type instead",
+                    code="C2001",
+                    retryable=True,
+                )
             await self.set_turn(TurnState.USER_SPEAKING)
             return
 

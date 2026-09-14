@@ -66,6 +66,11 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   const lastPlaybackDoneGenRef = useRef<number | null>(null);
   /** Server-provided response window in milliseconds; 0 uses the default. */
   const waitMsRef = useRef(0);
+  /** True while the silence timer waits for the interviewer's speech to end
+   * (playback done) instead of starting at text-complete. */
+  const awaitingSpeechEndRef = useRef(false);
+  /** Fallback bump when speech-end never arrives (text-only / TTS failed). */
+  const speechFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const showOutlineRef = useRef(showOutline);
   const sendRef = useRef<(p: ClientEvent) => boolean>(() => false);
@@ -76,6 +81,11 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       clearTimeout(hintTimeoutRef.current);
       hintTimeoutRef.current = null;
     }
+    if (speechFallbackRef.current) {
+      clearTimeout(speechFallbackRef.current);
+      speechFallbackRef.current = null;
+    }
+    awaitingSpeechEndRef.current = false;
     setStreamingText("");
     setFinishingUi(false);
     setTokenUsage(0);
@@ -187,6 +197,8 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       localBargeStopRef,
       lastPlaybackDoneGenRef,
       waitMsRef,
+      awaitingSpeechEndRef,
+      speechFallbackRef,
       chatEndRef,
       showOutlineRef,
       sendRef,

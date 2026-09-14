@@ -46,8 +46,9 @@ class ConnectionLifecycleMixin:
     async def set_turn(self, state: TurnState) -> None:
         """Move the room turn-state machine and notify the client.
 
-        Entering ``USER_SPEAKING`` also stamps ``mic_opened_at`` (silence-nudge
-        grace counts from text-complete, not playback-complete).
+        Entering ``USER_SPEAKING`` stamps ``mic_opened_at`` (mic semantics
+        only). Silence-nudge timing anchors on ``ctx.speech_end_at`` instead,
+        so mic re-entries (e.g. STT-failure recovery) never reset the clock.
         """
         self.ctx.turn_state = state
         if state == TurnState.USER_SPEAKING:

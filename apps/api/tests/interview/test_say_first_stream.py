@@ -107,7 +107,7 @@ def test_parse_turn_output_full() -> None:
     # NOTE: expectation paraphrases say_text ("let us ... systems." vs "let's ... system"); parser only validates fields.
     assert out.say.startswith("Okay, let's discuss the flash-sale system")
     assert out.protocol_version == 1
-    assert out.wait_seconds == 90
+    assert out.wait_seconds == 60  # clamped to the 7-60s nudge window
     assert out.emotion == "serious"
     assert out.phase_complete is False
     assert out.interview_complete is False
@@ -162,7 +162,7 @@ def test_parse_turn_output_type_drift_is_safe() -> None:
 
 def test_wait_seconds_clamped() -> None:
     assert parse_turn_output({"wait_seconds": -5}, say_text="s").wait_seconds == 0
-    assert parse_turn_output({"wait_seconds": 9999}, say_text="s").wait_seconds == 120
+    assert parse_turn_output({"wait_seconds": 9999}, say_text="s").wait_seconds == 60
 
 
 def test_turn_score_partial_and_empty() -> None:

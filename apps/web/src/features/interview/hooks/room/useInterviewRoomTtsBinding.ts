@@ -10,6 +10,9 @@ interface InterviewRoomTtsBindingDeps {
   playbackGenRef: AnyRef<number>;
   lastPlaybackDoneGenRef: AnyRef<number | null>;
   sendRef: AnyRef<(p: ClientEvent) => boolean>;
+  bumpSilenceTimerRef: AnyRef<() => void>;
+  awaitingSpeechEndRef: AnyRef<boolean>;
+  speechFallbackRef: AnyRef<ReturnType<typeof setTimeout> | null>;
   setAiSpeaking: Dispatch<SetStateAction<boolean>>;
   setAudioLevel: Dispatch<SetStateAction<number>>;
   setAudioBlocked: Dispatch<SetStateAction<boolean>>;
@@ -41,6 +44,16 @@ export function useInterviewRoomTtsBinding(deps: InterviewRoomTtsBindingDeps) {
       if (deps.lastPlaybackDoneGenRef.current === g) return;
       deps.lastPlaybackDoneGenRef.current = g;
       deps.sendRef.current({ type: "tts_playback_done", generation: g });
+      // The interviewer's speech just ended: the silence timer starts now
+      // (not at text-complete). No-op unless a turn armed the watch.
+      if (deps.awaitingSpeechEndRef.current) {
+        deps.awaitingSpeechEndRef.current = false;
+        if (deps.speechFallbackRef.current) {
+          clearTimeout(deps.speechFallbackRef.current);
+          deps.speechFallbackRef.current = null;
+        }
+        deps.bumpSilenceTimerRef.current();
+      }
     });
   }, [
     setOnSpeakingChange,
@@ -53,6 +66,9 @@ export function useInterviewRoomTtsBinding(deps: InterviewRoomTtsBindingDeps) {
     deps.playbackGenRef,
     deps.lastPlaybackDoneGenRef,
     deps.sendRef,
+    deps.bumpSilenceTimerRef,
+    deps.awaitingSpeechEndRef,
+    deps.speechFallbackRef,
   ]);
 
   useEffect(() => {

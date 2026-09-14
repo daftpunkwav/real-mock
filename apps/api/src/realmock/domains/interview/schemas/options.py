@@ -48,4 +48,4 @@ class OptionsResponse(BaseModel):
     avatars: list[AvatarOption] = Field(default_factory=list)
     scenes: list[CatalogOption] = Field(default_factory=list)
     tts_voices: list[CatalogOption] = Field(default_factory=list)
-    silence_nudge_seconds: int = 25
+    silence_nudge_seconds: int = 10

@@ -32,6 +32,8 @@ interface InterviewRoomEventsDeps {
   waitMsRef: AnyRef<number>;
   lastAssistantTextRef: AnyRef<string>;
   hintTimeoutRef: AnyRef<ReturnType<typeof setTimeout> | null>;
+  awaitingSpeechEndRef: AnyRef<boolean>;
+  speechFallbackRef: AnyRef<ReturnType<typeof setTimeout> | null>;
   finishingRef: AnyRef<boolean>;
   navigatingRef: AnyRef<boolean>;
   bumpSilenceTimerRef: AnyRef<() => void>;
@@ -64,6 +66,37 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
     }
   }, []);
 
+  /** Cancel the speech-end watch (user active / turn over / session reset). */
+  const disarmSpeechWatch = useCallback(() => {
+    const d = depsRef.current;
+    d.awaitingSpeechEndRef.current = false;
+    if (d.speechFallbackRef.current) {
+      clearTimeout(d.speechFallbackRef.current);
+      d.speechFallbackRef.current = null;
+    }
+  }, []);
+
+  /** Fire the silence timer now that the interviewer's speech has ended. */
+  const fireSpeechEndBump = useCallback(() => {
+    const d = depsRef.current;
+    if (!d.awaitingSpeechEndRef.current) return;
+    disarmSpeechWatch();
+    d.bumpSilenceTimerRef.current();
+  }, [disarmSpeechWatch]);
+
+  /** Watch for speech-end, then start the silence timer (text-complete is NOT the anchor). */
+  const armSpeechWatch = useCallback(() => {
+    const d = depsRef.current;
+    d.awaitingSpeechEndRef.current = true;
+    if (d.speechFallbackRef.current) clearTimeout(d.speechFallbackRef.current);
+    // Fallback for turns with no speech-end signal (text-only / TTS failed):
+    // cancelled by the real playback-done on audio turns.
+    d.speechFallbackRef.current = setTimeout(
+      () => fireSpeechEndBump(),
+      (d.waitMsRef.current || 10_000) + 5_000,
+    );
+  }, [fireSpeechEndBump]);
+
   const requestHint = useCallback(
     (question: string) => {
       const d = depsRef.current;
@@ -87,7 +120,13 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
     [clearHintTimeout],
   );
 
-  useEffect(() => () => clearHintTimeout(), [clearHintTimeout]);
+  useEffect(
+    () => () => {
+      clearHintTimeout();
+      disarmSpeechWatch();
+    },
+    [clearHintTimeout, disarmSpeechWatch],
+  );
 
   const { on, playBase64Mp3, router, sessionId, stopTTS } = deps;
 
@@ -109,6 +148,7 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       d.navigatingRef.current = true;
       d.finishingRef.current = true;
       d.setFinishingUi(true);
+      disarmSpeechWatch();
       // A non-silent stop invokes onPlaybackDone; the explicit send would duplicate this generation.
       d.stopTTS({ silent: true });
       d.sendRef.current({
@@ -136,11 +176,14 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
           msg.playback_generation,
         );
       }
-      // Use the server estimate to tailor the silence timer to the question.
+      // Use the server estimate to tailor the silence timer to the question
+      // (7-60s window, set by the interviewer's personality/strictness/style
+      // and question difficulty). The timer itself starts when the
+      // interviewer's SPEECH ends, not here at text-complete.
       if (typeof msg.wait_seconds === "number" && msg.wait_seconds > 0) {
-        d.waitMsRef.current = Math.min(120, Math.max(15, msg.wait_seconds)) * 1000;
-        d.bumpSilenceTimerRef.current();
+        d.waitMsRef.current = Math.min(60, Math.max(7, msg.wait_seconds)) * 1000;
       }
+      armSpeechWatch();
       if (!msg.is_complete) {
         requestHint(msg.content);
       }
@@ -174,9 +217,14 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
         type: "tts_playback_done",
         generation: d.playbackGenRef.current,
       });
+      // No audio will play: speech is already "over", start the timer now.
+      fireSpeechEndBump();
     });
 
     on("tts_interrupted", (msg) => {
+      // Speech was cut off (usually the candidate barging in): the old watch
+      // is stale; user activity re-arms the timer from here.
+      disarmSpeechWatch();
       if (typeof msg.playback_generation === "number") {
         d.expectedPlaybackGenRef.current = Math.max(
           d.expectedPlaybackGenRef.current,
@@ -206,6 +254,9 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       // Show LLM silence nudges as normal interviewer lines (no hint prefix)
       d.setMessages((prev) => [...prev, { role: "assistant", content: msg.content }]);
       d.lastAssistantTextRef.current = msg.content || "";
+      // A spoken probe restarts the watch: the next timer starts when THIS
+      // probe's speech ends (drives probe 2 / the closing nudge).
+      armSpeechWatch();
     });
 
     on("reference_hint_loading", (msg) => {
@@ -282,7 +333,7 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
         }
       }
     });
-  }, [on, playBase64Mp3, router, sessionId, requestHint, stopTTS, clearHintTimeout]);
+  }, [on, playBase64Mp3, router, sessionId, requestHint, stopTTS, clearHintTimeout, armSpeechWatch, disarmSpeechWatch, fireSpeechEndBump]);
 
-  return { requestHint, clearHintTimeout };
+  return { requestHint, clearHintTimeout, fireSpeechEndBump, disarmSpeechWatch };
 }

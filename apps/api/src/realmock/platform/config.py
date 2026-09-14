@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     # Prefer local faster-whisper when filling in tiny/base/small/....
     whisper_model: str = "whisper-1"
     tts_voice: str = "zh-CN-XiaoxiaoNeural"
-    silence_nudge_seconds: int = Field(default=25, ge=1, le=600)
+    silence_nudge_seconds: int = Field(default=10, ge=1, le=600)
 
     # GitHub (interview verification tool; optional PAT, increase API quota)
     github_token: str = ""

@@ -39,6 +39,7 @@ interface InterviewRoomActionsDeps {
   faceRef: AnyRef<FaceAnalysis>;
   seedCaptureFromRingRef: AnyRef<() => void>;
   bumpSilenceTimerRef: AnyRef<() => void>;
+  disarmSpeechWatch: () => void;
   sendRef: AnyRef<(p: ClientEvent) => boolean>;
   recorderRef: AnyRef<RecorderBridge>;
   send: (p: ClientEvent) => boolean;
@@ -117,12 +118,14 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
       d.sttThrottleRef.current = now;
       d.sendRef.current({ type: "stt_text", text });
     }
+    d.disarmSpeechWatch();
     d.bumpSilenceTimerRef.current();
   }, []);
 
   const onSpeechActivity = useCallback(() => {
     const d = depsRef.current;
     if (d.turnStateRef.current !== "USER_SPEAKING") return;
+    d.disarmSpeechWatch();
     d.bumpSilenceTimerRef.current();
   }, []);
 
@@ -130,6 +133,7 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
     const d = depsRef.current;
     if (d.turnStateRef.current !== "AI_SPEAKING" || d.bargeLockRef.current) return;
     if (Date.now() - d.aiSpeakStartedAtRef.current < 900) return;
+    d.disarmSpeechWatch();
     d.bargeLockRef.current = true;
     d.expectedPlaybackGenRef.current =
       Math.max(d.expectedPlaybackGenRef.current, d.playbackGenRef.current) + 1;

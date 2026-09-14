@@ -65,7 +65,7 @@ class InterviewWSHandler(
             tts_voice=cfg.tts_voice,
             session_prosody=VoiceProsody(voice=cfg.tts_voice),
             whisper_model=cfg.whisper_model,
-            nudge_cooldown_sec=float(max(5, int(getattr(cfg, "silence_nudge_seconds", 25) or 25))),
+            nudge_cooldown_sec=float(max(5, int(getattr(cfg, "silence_nudge_seconds", 10) or 10))),
             tts_queue=_SentenceTTSQueue(),
         )
 

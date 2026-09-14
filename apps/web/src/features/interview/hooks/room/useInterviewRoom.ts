@@ -38,6 +38,9 @@ export function useInterviewRoom(sessionId: number) {
       playbackGenRef: rf.playbackGenRef,
       lastPlaybackDoneGenRef: rf.lastPlaybackDoneGenRef,
       sendRef: rf.sendRef,
+      bumpSilenceTimerRef: rf.bumpSilenceTimerRef,
+      awaitingSpeechEndRef: rf.awaitingSpeechEndRef,
+      speechFallbackRef: rf.speechFallbackRef,
       setAiSpeaking: setSt.setAiSpeaking,
       setAudioLevel: setSt.setAudioLevel,
       setAudioBlocked: setSt.setAudioBlocked,
@@ -60,7 +63,7 @@ export function useInterviewRoom(sessionId: number) {
     bumpSilenceTimerRef: rf.bumpSilenceTimerRef,
   });
 
-  const { requestHint } = useInterviewRoomEvents({
+  const { requestHint, disarmSpeechWatch } = useInterviewRoomEvents({
     setStreamingText: setSt.setStreamingText,
     setMessages: setSt.setMessages,
     setCurrentPhase: setSt.setCurrentPhase,
@@ -81,6 +84,8 @@ export function useInterviewRoom(sessionId: number) {
     waitMsRef: rf.waitMsRef,
     lastAssistantTextRef: rf.lastAssistantTextRef,
     hintTimeoutRef: rf.hintTimeoutRef,
+    awaitingSpeechEndRef: rf.awaitingSpeechEndRef,
+    speechFallbackRef: rf.speechFallbackRef,
     finishingRef: rf.finishingRef,
     navigatingRef: rf.navigatingRef,
     bumpSilenceTimerRef: rf.bumpSilenceTimerRef,
@@ -117,6 +122,7 @@ export function useInterviewRoom(sessionId: number) {
     faceRef: rf.faceRef,
     seedCaptureFromRingRef: rf.seedCaptureFromRingRef,
     bumpSilenceTimerRef: rf.bumpSilenceTimerRef,
+    disarmSpeechWatch,
     sendRef: rf.sendRef,
     recorderRef,
     send,

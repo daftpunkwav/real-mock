@@ -125,6 +125,9 @@ class TurnStreamingMixin:
                     and clean.strip()
                 ):
                     self._spawn(self._on_request_hint({"question": clean}))
+                # Latest per-question wait estimate drives the silence timer
+                # (frontend waitMs + backend nudge cooldown, clamped 7-60s).
+                self.ctx.last_wait_seconds = float(event.wait_seconds or 0)
                 if epoch != self.ctx.stream_epoch:
                     return None
                 if sentence_buf.strip():

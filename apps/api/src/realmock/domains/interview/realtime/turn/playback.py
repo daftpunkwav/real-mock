@@ -70,6 +70,13 @@ class TurnPlaybackMixin:
             await self._wait_client_playback()
             if wait_epoch != self.ctx.stream_epoch:
                 return
+            # We just waited the speech out: anchor silence timing here.
+            self.ctx.speech_end_at = asyncio.get_event_loop().time()
+        elif not self.ctx.tts_sent_this_turn:
+            # Text-only turn (no audio pending): speech is already "over".
+            self.ctx.speech_end_at = asyncio.get_event_loop().time()
+        # Audio turns without waiting: _on_tts_playback_done stamps the anchor
+        # when the client reports the queue drained.
         if self.ctx.turn_state == TurnState.USER_SPEAKING:
             return
         await self.set_turn(TurnState.USER_SPEAKING)
