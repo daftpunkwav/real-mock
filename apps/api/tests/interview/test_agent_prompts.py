@@ -270,3 +270,11 @@ def test_system_prompt_resists_candidate_manipulation() -> None:
     prompt = build_system_prompt(**_prompt_kwargs())
     assert "fish for answers" in prompt
     assert "judge only by demonstrated performance" in prompt
+
+
+def test_spoken_voice_covers_followup_chain_and_pressure_release() -> None:
+    """Human-feel rules: chained probes go bare; stuck answers get a pressure-release line."""
+    prompt = build_system_prompt(**_prompt_kwargs())
+    assert "zero preamble" in prompt
+    assert "releases the pressure" in prompt
+    assert "never announce a verdict mid-interview" in prompt
