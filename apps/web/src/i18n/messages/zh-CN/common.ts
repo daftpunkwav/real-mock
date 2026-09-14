@@ -47,6 +47,7 @@ export const common = {
   "model.effort.max": "最高",
   "model.effort.aria": "思考强度",
   "model.notSet": "未设置",
+  "model.useDefault": "默认（{label}）",
 
   // ContextGauge
   "context.usage": "上下文使用 {percent}",

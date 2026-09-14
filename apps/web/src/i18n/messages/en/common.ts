@@ -47,6 +47,7 @@ export const common = {
   "model.effort.max": "Max",
   "model.effort.aria": "Reasoning effort",
   "model.notSet": "Not set",
+  "model.useDefault": "Default ({label})",
 
   // ContextGauge
   "context.usage": "Context usage {percent}",

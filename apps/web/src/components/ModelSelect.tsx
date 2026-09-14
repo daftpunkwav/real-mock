@@ -38,15 +38,22 @@ export const ModelSelect = memo(function ModelSelect({
   defaultProfile?: ModelProfile | null;
 }) {
   const t = useT("common");
-  const effectiveValue =
-    value ?? (defaultProfile && models.some((m) => m.id === defaultProfile.id) ? defaultProfile.id : "");
+  const boundDefault =
+    defaultProfile && models.some((m) => m.id === defaultProfile.id) ? defaultProfile : null;
+  const effectiveValue = value ?? boundDefault?.id ?? "";
+  // The empty option is always offered: null means "follow the default binding"
+  // (task binding → legacy stage config → local/edge fallback), so clearing back
+  // to default must stay reachable even when a default profile exists.
+  const emptyLabel = boundDefault
+    ? t("model.useDefault", { label: boundDefault.label })
+    : t("model.notSet");
   return (
     <Select
       className={`w-auto max-w-[210px] !py-0 text-[12px] ${className ?? ""}`}
       ariaLabel={ariaLabel}
       value={effectiveValue}
       options={[
-        ...(!defaultProfile ? [{ value: "" as const, label: t("model.notSet") }] : []),
+        { value: "" as const, label: emptyLabel },
         ...models.map((m) => ({ value: m.id, label: m.label })),
       ]}
       onChange={(v) => onChange(v === "" ? null : Number(v))}
