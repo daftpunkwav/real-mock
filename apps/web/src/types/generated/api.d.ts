@@ -11,9 +11,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Profile */
+        /**
+         * Get Profile
+         * @description Read the sole profile row (get-or-create).
+         */
         get: operations["get_profile_api_v1_profile_get"];
-        /** Update Profile */
+        /**
+         * Update Profile
+         * @description Full PUT update of the sole profile row.
+         */
         put: operations["update_profile_api_v1_profile_put"];
         post?: never;
         delete?: never;
@@ -51,7 +57,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload Resume */
+        /**
+         * Upload Resume
+         * @description Upload a resume file as a new family (v1).
+         */
         post: operations["upload_resume_api_v1_resume_upload_post"];
         delete?: never;
         options?: never;
@@ -86,7 +95,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Resumes */
+        /**
+         * List Resumes
+         * @description List all resume rows, newest first.
+         */
         get: operations["list_resumes_api_v1_resume_list_get"];
         put?: never;
         post?: never;
@@ -143,7 +155,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Resume */
+        /**
+         * Get Resume
+         * @description Get one resume row.
+         */
         get: operations["get_resume_api_v1_resume__resume_id__get"];
         put?: never;
         post?: never;
@@ -226,7 +241,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload Resume Version */
+        /**
+         * Upload Resume Version
+         * @description Append a file as a new version of an existing family.
+         */
         post: operations["upload_resume_version_api_v1_resume__resume_id__versions_post"];
         delete?: never;
         options?: never;
@@ -243,7 +261,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Activate Resume */
+        /**
+         * Activate Resume
+         * @description Mark one resume row active (deactivates the rest).
+         */
         post: operations["activate_resume_api_v1_resume__resume_id__activate_post"];
         delete?: never;
         options?: never;
@@ -280,7 +301,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Analyze Resume */
+        /**
+         * Analyze Resume
+         * @description Analyze one resume with the LLM and return the stored analysis.
+         */
         post: operations["analyze_resume_api_v1_resume__resume_id__analyze_post"];
         delete?: never;
         options?: never;
@@ -593,13 +617,13 @@ export interface paths {
         /**
          * List Prep Sessions
          * @description List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).
-         *
-         *     Returns summaries only (first question + message count + associated resume),
-         *     without message bodies or capability tokens—opening a specific session still uses the original token validation.
          */
         get: operations["list_prep_sessions_api_v1_prep_sessions_get"];
         put?: never;
-        /** Create Prep Session */
+        /**
+         * Create Prep Session
+         * @description Create an active coaching session and seed its capability cookie.
+         */
         post: operations["create_prep_session_api_v1_prep_sessions_post"];
         delete?: never;
         options?: never;
@@ -616,7 +640,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Prep Message */
+        /**
+         * Prep Message
+         * @description Run one synchronous coaching turn.
+         */
         post: operations["prep_message_api_v1_prep_sessions__session_id__message_post"];
         delete?: never;
         options?: never;
@@ -633,7 +660,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Prep Message Stream */
+        /**
+         * Prep Message Stream
+         * @description Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done).
+         */
         post: operations["prep_message_stream_api_v1_prep_sessions__session_id__message_stream_post"];
         delete?: never;
         options?: never;
@@ -648,7 +678,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Prep Messages */
+        /**
+         * Get Prep Messages
+         * @description Return sanitized message history for display (store is never mutated).
+         */
         get: operations["get_prep_messages_api_v1_prep_sessions__session_id__messages_get"];
         put?: never;
         post?: never;
@@ -668,10 +701,6 @@ export interface paths {
         /**
          * Get Prep Context
          * @description Measured context breakdown of persisted history plus provider usage totals.
-         *
-         *     Content-read path: requires the capability token. Bucket estimates use the
-         *     same mechanical ratio as context budgeting; provider columns stay truthful
-         *     (0 when the provider never reported) and the UI estimates the gap.
          */
         get: operations["get_prep_context_api_v1_prep_sessions__session_id__context_get"];
         put?: never;
@@ -694,20 +723,6 @@ export interface paths {
         /**
          * Compact Prep Session
          * @description Run turn-start compaction now (the ``/compact`` slash command).
-         *
-         *     Manual compaction is user-decided: it always attempts an LLM summary
-         *     (never a silent truncation), folding to the latest turn regardless of
-         *     the retain window — a lone remaining exchange folds whole, so any
-         *     history produces a summary. The summary keeps session objectives,
-         *     confirmed decisions, user weaknesses/requirements, findings, and
-         *     to-dos, steered by the optional intensity/directive/retain parameters
-         *     (``/compact`` slash args or the prep settings defaults). The LLM
-         *     failure propagates as an error instead of falling back to truncation.
-         *     Only a truly empty history reports ``summarized=False``.
-         *     A rolling backup fork (archived, at most one per session) preserves the
-         *     pre-compaction originals; the summary trailer links it for fork-from-point
-         *     restores. Regeneration reuses this endpoint with ``backup=False``.
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay compactable).
          */
         post: operations["compact_prep_session_api_v1_prep_sessions__session_id__compact_post"];
         delete?: never;
@@ -732,11 +747,6 @@ export interface paths {
         /**
          * Update Prep Summary
          * @description Replace the current compaction summary text (user-edited correction).
-         *
-         *     The provenance trailer is managed server-side: version increments, the
-         *     backup/fork-point linkage carries over. 404 (A3004) when no summary exists
-         *     yet; 409 (A3003) on a concurrent history change.
-         *     Owner-level: CSRF-protected, no capability token.
          */
         patch: operations["update_prep_summary_api_v1_prep_sessions__session_id__summary_patch"];
         trace?: never;
@@ -753,10 +763,6 @@ export interface paths {
         /**
          * Fork Prep Session
          * @description Branch a new active session copying history through ``up_to`` (inclusive).
-         *
-         *     ``up_to`` normalization: any negative keeps everything; positives clamp to
-         *     the last message. The fork starts with zeroed usage counters (fresh branch
-         *     accounting) but inherits resume/role/company/linked context.
          */
         post: operations["fork_prep_session_api_v1_prep_sessions__session_id__fork_post"];
         delete?: never;
@@ -777,8 +783,6 @@ export interface paths {
         /**
          * Truncate Prep Messages
          * @description Retract a user message: drop backend history from ``from_index`` on.
-         *
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay clearable).
          */
         post: operations["truncate_prep_messages_api_v1_prep_sessions__session_id__messages_truncate_post"];
         delete?: never;
@@ -800,8 +804,6 @@ export interface paths {
         /**
          * Delete Prep Session
          * @description Delete a session and its history permanently.
-         *
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay deletable).
          */
         delete: operations["delete_prep_session_api_v1_prep_sessions__session_id__delete"];
         options?: never;
@@ -821,10 +823,6 @@ export interface paths {
         /**
          * Purge Empty Sessions
          * @description Delete sessions that never accumulated user/assistant content.
-         *
-         *     No capability token: contentless rows carry no information, and orphans
-         *     (lost tokens) would otherwise be undeletable clutter. Same-origin CSRF
-         *     protection still applies, so random websites cannot trigger this.
          */
         post: operations["purge_empty_sessions_api_v1_prep_sessions_purge_empty_post"];
         delete?: never;
@@ -845,10 +843,6 @@ export interface paths {
         /**
          * Purge All Sessions
          * @description Delete ALL coaching sessions permanently, with or without content.
-         *
-         *     Owner-level: same-origin CSRF protection, no capability token (consistent
-         *     with delete/archive/truncate/link — orphans must stay manageable).
-         *     The caller must confirm explicitly; this cannot be undone.
          */
         post: operations["purge_all_sessions_api_v1_prep_sessions_purge_all_post"];
         delete?: never;
@@ -873,8 +867,6 @@ export interface paths {
         /**
          * Archive Prep Session
          * @description Archive (or restore) a session; archived sessions stay fully usable.
-         *
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay manageable).
          */
         patch: operations["archive_prep_session_api_v1_prep_sessions__session_id__archive_patch"];
         trace?: never;
@@ -890,12 +882,6 @@ export interface paths {
         /**
          * Link Prep Session
          * @description Link another session's summary + recent turns into this session's context.
-         *
-         *     Only one direct level is injected (no chains); self-links are refused.
-         *     Owner-level: CSRF-protected, no capability token (same-origin trusted).
-         *
-         *     Superseded by per-turn ``#`` references (``context_session_ids``): the UI
-         *     no longer calls this, but the endpoint stays for API compatibility.
          */
         put: operations["link_prep_session_api_v1_prep_sessions__session_id__link_put"];
         post?: never;
@@ -917,12 +903,6 @@ export interface paths {
         /**
          * Reissue Prep Token
          * @description Mint a fresh capability token for a listed session (owner-level recovery).
-         *
-         *     Capability cookies are host-bound and expirable, and server-side copies
-         *     (compaction backups, cross-device sessions) never receive one — without
-         *     recovery those rows are listed but permanently locked (A0401). Rotation
-         *     reseeds the HttpOnly cookie. CSRF-protected, no old token required: same
-         *     trust basis as delete/archive in this single-user session list.
          */
         post: operations["reissue_prep_token_api_v1_prep_sessions__session_id__reissue_post"];
         delete?: never;
@@ -938,10 +918,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Memory Summaries */
+        /**
+         * List Memory Summaries
+         * @description List memory index entries, newest first (clamped server-side to 1..50).
+         */
         get: operations["list_memory_summaries_api_v1_prep_memories_get"];
         put?: never;
-        /** Create Memory From Rating */
+        /**
+         * Create Memory From Rating
+         * @description Record a long-term memory from the rating flow (or an agent note).
+         */
         post: operations["create_memory_from_rating_api_v1_prep_memories_post"];
         delete?: never;
         options?: never;
@@ -956,7 +942,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Memory Tags */
+        /**
+         * List Memory Tags
+         * @description List distinct memory tags, most-recently-used first.
+         */
         get: operations["list_memory_tags_api_v1_prep_memories_tags_get"];
         put?: never;
         post?: never;
@@ -975,7 +964,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Batch Delete Memories */
+        /**
+         * Batch Delete Memories
+         * @description Delete up to 100 memories in one request (CSRF-protected, rate-limited).
+         */
         post: operations["batch_delete_memories_api_v1_prep_memories_batch_delete_post"];
         delete?: never;
         options?: never;
@@ -990,15 +982,24 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Memory Detail */
+        /**
+         * Get Memory Detail
+         * @description Load one memory with its full turn bodies.
+         */
         get: operations["get_memory_detail_api_v1_prep_memories__memory_id__get"];
         put?: never;
         post?: never;
-        /** Delete Memory */
+        /**
+         * Delete Memory
+         * @description Delete one memory permanently (CSRF-protected).
+         */
         delete: operations["delete_memory_api_v1_prep_memories__memory_id__delete"];
         options?: never;
         head?: never;
-        /** Update Memory */
+        /**
+         * Update Memory
+         * @description Patch a memory's summary/tags/comment/score (CSRF-protected).
+         */
         patch: operations["update_memory_api_v1_prep_memories__memory_id__patch"];
         trace?: never;
     };
@@ -1099,7 +1100,14 @@ export interface paths {
          */
         get: operations["list_sessions_api_v1_interview_sessions_get"];
         put?: never;
-        /** Create Session */
+        /**
+         * Create Session
+         * @description Create a PENDING session, issue its capability token, and plan the flow.
+         *
+         *     The flow planner runs in the background; the opening turn waits for it
+         *     (bounded) and degrades to the static workflow on failure. The token is
+         *     issued via HttpOnly cookie only, never in the response body.
+         */
         post: operations["create_session_api_v1_interview_sessions_post"];
         delete?: never;
         options?: never;
@@ -1114,7 +1122,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Session */
+        /**
+         * Get Session
+         * @description Fetch one session view; 404 when missing, 403 on token mismatch.
+         */
         get: operations["get_session_api_v1_interview_sessions__session_id__get"];
         put?: never;
         post?: never;
@@ -1131,7 +1142,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Messages */
+        /**
+         * Get Messages
+         * @description Return the session transcript as validated chat messages.
+         *
+         *     Dirty historical rows validate to an empty list rather than leaking
+         *     internal errors to the client.
+         */
         get: operations["get_messages_api_v1_interview_sessions__session_id__messages_get"];
         put?: never;
         post?: never;
@@ -1150,7 +1167,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start Interview */
+        /**
+         * Start Interview
+         * @description Run the opening turn over SSE-less HTTP (text-fallback path).
+         *
+         *     Only PENDING/ACTIVE sessions; requires a configured chat model.
+         */
         post: operations["start_interview_api_v1_interview_sessions__session_id__start_post"];
         delete?: never;
         options?: never;
@@ -1167,7 +1189,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send Message */
+        /**
+         * Send Message
+         * @description Run one candidate turn over HTTP (text-fallback path).
+         *
+         *     Rejects finished sessions; finish-lifecycle side effects run inside the
+         *     runner, never doubled here.
+         */
         post: operations["send_message_api_v1_interview_sessions__session_id__message_post"];
         delete?: never;
         options?: never;
@@ -1202,7 +1230,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Options */
+        /**
+         * Get Options
+         * @description Setup-page dropdown payload (workflows / personalities / voices / avatars).
+         */
         get: operations["get_options_api_v1_options_get"];
         put?: never;
         post?: never;
@@ -1376,9 +1407,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Profile */
+        /**
+         * Get Profile
+         * @description Read the sole profile row (get-or-create).
+         */
         get: operations["get_profile_api_profile_get"];
-        /** Update Profile */
+        /**
+         * Update Profile
+         * @description Full PUT update of the sole profile row.
+         */
         put: operations["update_profile_api_profile_put"];
         post?: never;
         delete?: never;
@@ -1416,7 +1453,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload Resume */
+        /**
+         * Upload Resume
+         * @description Upload a resume file as a new family (v1).
+         */
         post: operations["upload_resume_api_resume_upload_post"];
         delete?: never;
         options?: never;
@@ -1451,7 +1491,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Resumes */
+        /**
+         * List Resumes
+         * @description List all resume rows, newest first.
+         */
         get: operations["list_resumes_api_resume_list_get"];
         put?: never;
         post?: never;
@@ -1508,7 +1551,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Resume */
+        /**
+         * Get Resume
+         * @description Get one resume row.
+         */
         get: operations["get_resume_api_resume__resume_id__get"];
         put?: never;
         post?: never;
@@ -1591,7 +1637,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload Resume Version */
+        /**
+         * Upload Resume Version
+         * @description Append a file as a new version of an existing family.
+         */
         post: operations["upload_resume_version_api_resume__resume_id__versions_post"];
         delete?: never;
         options?: never;
@@ -1608,7 +1657,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Activate Resume */
+        /**
+         * Activate Resume
+         * @description Mark one resume row active (deactivates the rest).
+         */
         post: operations["activate_resume_api_resume__resume_id__activate_post"];
         delete?: never;
         options?: never;
@@ -1645,7 +1697,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Analyze Resume */
+        /**
+         * Analyze Resume
+         * @description Analyze one resume with the LLM and return the stored analysis.
+         */
         post: operations["analyze_resume_api_resume__resume_id__analyze_post"];
         delete?: never;
         options?: never;
@@ -1958,13 +2013,13 @@ export interface paths {
         /**
          * List Prep Sessions
          * @description List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).
-         *
-         *     Returns summaries only (first question + message count + associated resume),
-         *     without message bodies or capability tokens—opening a specific session still uses the original token validation.
          */
         get: operations["list_prep_sessions_api_prep_sessions_get"];
         put?: never;
-        /** Create Prep Session */
+        /**
+         * Create Prep Session
+         * @description Create an active coaching session and seed its capability cookie.
+         */
         post: operations["create_prep_session_api_prep_sessions_post"];
         delete?: never;
         options?: never;
@@ -1981,7 +2036,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Prep Message */
+        /**
+         * Prep Message
+         * @description Run one synchronous coaching turn.
+         */
         post: operations["prep_message_api_prep_sessions__session_id__message_post"];
         delete?: never;
         options?: never;
@@ -1998,7 +2056,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Prep Message Stream */
+        /**
+         * Prep Message Stream
+         * @description Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done).
+         */
         post: operations["prep_message_stream_api_prep_sessions__session_id__message_stream_post"];
         delete?: never;
         options?: never;
@@ -2013,7 +2074,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Prep Messages */
+        /**
+         * Get Prep Messages
+         * @description Return sanitized message history for display (store is never mutated).
+         */
         get: operations["get_prep_messages_api_prep_sessions__session_id__messages_get"];
         put?: never;
         post?: never;
@@ -2033,10 +2097,6 @@ export interface paths {
         /**
          * Get Prep Context
          * @description Measured context breakdown of persisted history plus provider usage totals.
-         *
-         *     Content-read path: requires the capability token. Bucket estimates use the
-         *     same mechanical ratio as context budgeting; provider columns stay truthful
-         *     (0 when the provider never reported) and the UI estimates the gap.
          */
         get: operations["get_prep_context_api_prep_sessions__session_id__context_get"];
         put?: never;
@@ -2059,20 +2119,6 @@ export interface paths {
         /**
          * Compact Prep Session
          * @description Run turn-start compaction now (the ``/compact`` slash command).
-         *
-         *     Manual compaction is user-decided: it always attempts an LLM summary
-         *     (never a silent truncation), folding to the latest turn regardless of
-         *     the retain window — a lone remaining exchange folds whole, so any
-         *     history produces a summary. The summary keeps session objectives,
-         *     confirmed decisions, user weaknesses/requirements, findings, and
-         *     to-dos, steered by the optional intensity/directive/retain parameters
-         *     (``/compact`` slash args or the prep settings defaults). The LLM
-         *     failure propagates as an error instead of falling back to truncation.
-         *     Only a truly empty history reports ``summarized=False``.
-         *     A rolling backup fork (archived, at most one per session) preserves the
-         *     pre-compaction originals; the summary trailer links it for fork-from-point
-         *     restores. Regeneration reuses this endpoint with ``backup=False``.
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay compactable).
          */
         post: operations["compact_prep_session_api_prep_sessions__session_id__compact_post"];
         delete?: never;
@@ -2097,11 +2143,6 @@ export interface paths {
         /**
          * Update Prep Summary
          * @description Replace the current compaction summary text (user-edited correction).
-         *
-         *     The provenance trailer is managed server-side: version increments, the
-         *     backup/fork-point linkage carries over. 404 (A3004) when no summary exists
-         *     yet; 409 (A3003) on a concurrent history change.
-         *     Owner-level: CSRF-protected, no capability token.
          */
         patch: operations["update_prep_summary_api_prep_sessions__session_id__summary_patch"];
         trace?: never;
@@ -2118,10 +2159,6 @@ export interface paths {
         /**
          * Fork Prep Session
          * @description Branch a new active session copying history through ``up_to`` (inclusive).
-         *
-         *     ``up_to`` normalization: any negative keeps everything; positives clamp to
-         *     the last message. The fork starts with zeroed usage counters (fresh branch
-         *     accounting) but inherits resume/role/company/linked context.
          */
         post: operations["fork_prep_session_api_prep_sessions__session_id__fork_post"];
         delete?: never;
@@ -2142,8 +2179,6 @@ export interface paths {
         /**
          * Truncate Prep Messages
          * @description Retract a user message: drop backend history from ``from_index`` on.
-         *
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay clearable).
          */
         post: operations["truncate_prep_messages_api_prep_sessions__session_id__messages_truncate_post"];
         delete?: never;
@@ -2165,8 +2200,6 @@ export interface paths {
         /**
          * Delete Prep Session
          * @description Delete a session and its history permanently.
-         *
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay deletable).
          */
         delete: operations["delete_prep_session_api_prep_sessions__session_id__delete"];
         options?: never;
@@ -2186,10 +2219,6 @@ export interface paths {
         /**
          * Purge Empty Sessions
          * @description Delete sessions that never accumulated user/assistant content.
-         *
-         *     No capability token: contentless rows carry no information, and orphans
-         *     (lost tokens) would otherwise be undeletable clutter. Same-origin CSRF
-         *     protection still applies, so random websites cannot trigger this.
          */
         post: operations["purge_empty_sessions_api_prep_sessions_purge_empty_post"];
         delete?: never;
@@ -2210,10 +2239,6 @@ export interface paths {
         /**
          * Purge All Sessions
          * @description Delete ALL coaching sessions permanently, with or without content.
-         *
-         *     Owner-level: same-origin CSRF protection, no capability token (consistent
-         *     with delete/archive/truncate/link — orphans must stay manageable).
-         *     The caller must confirm explicitly; this cannot be undone.
          */
         post: operations["purge_all_sessions_api_prep_sessions_purge_all_post"];
         delete?: never;
@@ -2238,8 +2263,6 @@ export interface paths {
         /**
          * Archive Prep Session
          * @description Archive (or restore) a session; archived sessions stay fully usable.
-         *
-         *     Owner-level: CSRF-protected, no capability token (orphans must stay manageable).
          */
         patch: operations["archive_prep_session_api_prep_sessions__session_id__archive_patch"];
         trace?: never;
@@ -2255,12 +2278,6 @@ export interface paths {
         /**
          * Link Prep Session
          * @description Link another session's summary + recent turns into this session's context.
-         *
-         *     Only one direct level is injected (no chains); self-links are refused.
-         *     Owner-level: CSRF-protected, no capability token (same-origin trusted).
-         *
-         *     Superseded by per-turn ``#`` references (``context_session_ids``): the UI
-         *     no longer calls this, but the endpoint stays for API compatibility.
          */
         put: operations["link_prep_session_api_prep_sessions__session_id__link_put"];
         post?: never;
@@ -2282,12 +2299,6 @@ export interface paths {
         /**
          * Reissue Prep Token
          * @description Mint a fresh capability token for a listed session (owner-level recovery).
-         *
-         *     Capability cookies are host-bound and expirable, and server-side copies
-         *     (compaction backups, cross-device sessions) never receive one — without
-         *     recovery those rows are listed but permanently locked (A0401). Rotation
-         *     reseeds the HttpOnly cookie. CSRF-protected, no old token required: same
-         *     trust basis as delete/archive in this single-user session list.
          */
         post: operations["reissue_prep_token_api_prep_sessions__session_id__reissue_post"];
         delete?: never;
@@ -2303,10 +2314,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Memory Summaries */
+        /**
+         * List Memory Summaries
+         * @description List memory index entries, newest first (clamped server-side to 1..50).
+         */
         get: operations["list_memory_summaries_api_prep_memories_get"];
         put?: never;
-        /** Create Memory From Rating */
+        /**
+         * Create Memory From Rating
+         * @description Record a long-term memory from the rating flow (or an agent note).
+         */
         post: operations["create_memory_from_rating_api_prep_memories_post"];
         delete?: never;
         options?: never;
@@ -2321,7 +2338,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Memory Tags */
+        /**
+         * List Memory Tags
+         * @description List distinct memory tags, most-recently-used first.
+         */
         get: operations["list_memory_tags_api_prep_memories_tags_get"];
         put?: never;
         post?: never;
@@ -2340,7 +2360,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Batch Delete Memories */
+        /**
+         * Batch Delete Memories
+         * @description Delete up to 100 memories in one request (CSRF-protected, rate-limited).
+         */
         post: operations["batch_delete_memories_api_prep_memories_batch_delete_post"];
         delete?: never;
         options?: never;
@@ -2355,15 +2378,24 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Memory Detail */
+        /**
+         * Get Memory Detail
+         * @description Load one memory with its full turn bodies.
+         */
         get: operations["get_memory_detail_api_prep_memories__memory_id__get"];
         put?: never;
         post?: never;
-        /** Delete Memory */
+        /**
+         * Delete Memory
+         * @description Delete one memory permanently (CSRF-protected).
+         */
         delete: operations["delete_memory_api_prep_memories__memory_id__delete"];
         options?: never;
         head?: never;
-        /** Update Memory */
+        /**
+         * Update Memory
+         * @description Patch a memory's summary/tags/comment/score (CSRF-protected).
+         */
         patch: operations["update_memory_api_prep_memories__memory_id__patch"];
         trace?: never;
     };
@@ -2464,7 +2496,14 @@ export interface paths {
          */
         get: operations["list_sessions_api_interview_sessions_get"];
         put?: never;
-        /** Create Session */
+        /**
+         * Create Session
+         * @description Create a PENDING session, issue its capability token, and plan the flow.
+         *
+         *     The flow planner runs in the background; the opening turn waits for it
+         *     (bounded) and degrades to the static workflow on failure. The token is
+         *     issued via HttpOnly cookie only, never in the response body.
+         */
         post: operations["create_session_api_interview_sessions_post"];
         delete?: never;
         options?: never;
@@ -2479,7 +2518,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Session */
+        /**
+         * Get Session
+         * @description Fetch one session view; 404 when missing, 403 on token mismatch.
+         */
         get: operations["get_session_api_interview_sessions__session_id__get"];
         put?: never;
         post?: never;
@@ -2496,7 +2538,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Messages */
+        /**
+         * Get Messages
+         * @description Return the session transcript as validated chat messages.
+         *
+         *     Dirty historical rows validate to an empty list rather than leaking
+         *     internal errors to the client.
+         */
         get: operations["get_messages_api_interview_sessions__session_id__messages_get"];
         put?: never;
         post?: never;
@@ -2515,7 +2563,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start Interview */
+        /**
+         * Start Interview
+         * @description Run the opening turn over SSE-less HTTP (text-fallback path).
+         *
+         *     Only PENDING/ACTIVE sessions; requires a configured chat model.
+         */
         post: operations["start_interview_api_interview_sessions__session_id__start_post"];
         delete?: never;
         options?: never;
@@ -2532,7 +2585,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send Message */
+        /**
+         * Send Message
+         * @description Run one candidate turn over HTTP (text-fallback path).
+         *
+         *     Rejects finished sessions; finish-lifecycle side effects run inside the
+         *     runner, never doubled here.
+         */
         post: operations["send_message_api_interview_sessions__session_id__message_post"];
         delete?: never;
         options?: never;
@@ -2567,7 +2626,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Options */
+        /**
+         * Get Options
+         * @description Setup-page dropdown payload (workflows / personalities / voices / avatars).
+         */
         get: operations["get_options_api_options_get"];
         put?: never;
         post?: never;
@@ -3104,6 +3166,14 @@ export interface components {
              */
             scene_id: string;
             ai_overrides?: components["schemas"]["AiOverrides"] | null;
+            /** Ui Locale */
+            ui_locale?: string | null;
+            /**
+             * Reference Detail
+             * @default outline
+             * @enum {string}
+             */
+            reference_detail: "outline" | "full";
         };
         /** InterviewMessageRequest */
         InterviewMessageRequest: {
@@ -3384,7 +3454,7 @@ export interface components {
             tts_voices?: components["schemas"]["CatalogOption"][];
             /**
              * Silence Nudge Seconds
-             * @default 25
+             * @default 10
              */
             silence_nudge_seconds: number;
         };
@@ -3414,14 +3484,6 @@ export interface components {
              * @default true
              */
             archived: boolean;
-        };
-        /** PrepPurgeAllRequest */
-        PrepPurgeAllRequest: {
-            /**
-             * Confirm
-             * @default false
-             */
-            confirm: boolean;
         };
         /** PrepCompactRequest */
         PrepCompactRequest: {
@@ -3776,6 +3838,14 @@ export interface components {
              */
             prompt_tokens_estimated: number;
         };
+        /** PrepPurgeAllRequest */
+        PrepPurgeAllRequest: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
         /** PrepSearchGroup */
         PrepSearchGroup: {
             /**
@@ -3953,6 +4023,14 @@ export interface components {
              */
             max_rounds: number;
             ai_overrides?: components["schemas"]["AiOverrides"] | null;
+            /** Ui Locale */
+            ui_locale?: string | null;
+            /**
+             * Reference Detail
+             * @default outline
+             * @enum {string}
+             */
+            reference_detail: "outline" | "full";
         };
         /**
          * ProcessCreatedResponse
@@ -3996,7 +4074,10 @@ export interface components {
             label: string;
             /** Focus */
             focus: string;
-            /** Pass Criteria */
+            /**
+             * Pass Criteria
+             * @default
+             */
             pass_criteria: string;
         };
         /**
@@ -4713,7 +4794,10 @@ export interface components {
             /** Suggestions */
             suggestions?: string[];
         };
-        /** UserProfileResponse */
+        /**
+         * UserProfileResponse
+         * @description Profile read response, built from an ORM row plus id/updated_at.
+         */
         UserProfileResponse: {
             /** Id */
             id: number;
@@ -6506,7 +6590,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PrepPurgeAllRequest"];
+                "application/json": components["schemas"]["PrepPurgeAllRequest"] | null;
             };
         };
         responses: {
@@ -6517,6 +6601,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8929,7 +9022,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PrepPurgeAllRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -8938,6 +9035,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -12,6 +12,7 @@
           "profile"
         ],
         "summary": "Get Profile",
+        "description": "Read the sole profile row (get-or-create).",
         "operationId": "get_profile_api_v1_profile_get",
         "responses": {
           "200": {
@@ -31,6 +32,7 @@
           "profile"
         ],
         "summary": "Update Profile",
+        "description": "Full PUT update of the sole profile row.",
         "operationId": "update_profile_api_v1_profile_put",
         "requestBody": {
           "content": {
@@ -94,6 +96,7 @@
           "resume"
         ],
         "summary": "Upload Resume",
+        "description": "Upload a resume file as a new family (v1).",
         "operationId": "upload_resume_api_v1_resume_upload_post",
         "requestBody": {
           "content": {
@@ -157,6 +160,7 @@
           "resume"
         ],
         "summary": "List Resumes",
+        "description": "List all resume rows, newest first.",
         "operationId": "list_resumes_api_v1_resume_list_get",
         "responses": {
           "200": {
@@ -222,6 +226,7 @@
           "resume"
         ],
         "summary": "Get Resume",
+        "description": "Get one resume row.",
         "operationId": "get_resume_api_v1_resume__resume_id__get",
         "parameters": [
           {
@@ -445,6 +450,7 @@
           "resume"
         ],
         "summary": "Upload Resume Version",
+        "description": "Append a file as a new version of an existing family.",
         "operationId": "upload_resume_version_api_v1_resume__resume_id__versions_post",
         "parameters": [
           {
@@ -497,6 +503,7 @@
           "resume"
         ],
         "summary": "Activate Resume",
+        "description": "Mark one resume row active (deactivates the rest).",
         "operationId": "activate_resume_api_v1_resume__resume_id__activate_post",
         "parameters": [
           {
@@ -580,6 +587,7 @@
           "resume"
         ],
         "summary": "Analyze Resume",
+        "description": "Analyze one resume with the LLM and return the stored analysis.",
         "operationId": "analyze_resume_api_v1_resume__resume_id__analyze_post",
         "parameters": [
           {
@@ -1378,7 +1386,7 @@
           "prep"
         ],
         "summary": "List Prep Sessions",
-        "description": "List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).\n\nReturns summaries only (first question + message count + associated resume),\nwithout message bodies or capability tokens—opening a specific session still uses the original token validation.",
+        "description": "List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).",
         "operationId": "list_prep_sessions_api_v1_prep_sessions_get",
         "responses": {
           "200": {
@@ -1402,6 +1410,7 @@
           "prep"
         ],
         "summary": "Create Prep Session",
+        "description": "Create an active coaching session and seed its capability cookie.",
         "operationId": "create_prep_session_api_v1_prep_sessions_post",
         "requestBody": {
           "content": {
@@ -1443,6 +1452,7 @@
           "prep"
         ],
         "summary": "Prep Message",
+        "description": "Run one synchronous coaching turn.",
         "operationId": "prep_message_api_v1_prep_sessions__session_id__message_post",
         "parameters": [
           {
@@ -1529,6 +1539,7 @@
           "prep"
         ],
         "summary": "Prep Message Stream",
+        "description": "Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done).",
         "operationId": "prep_message_stream_api_v1_prep_sessions__session_id__message_stream_post",
         "parameters": [
           {
@@ -1613,6 +1624,7 @@
           "prep"
         ],
         "summary": "Get Prep Messages",
+        "description": "Return sanitized message history for display (store is never mutated).",
         "operationId": "get_prep_messages_api_v1_prep_sessions__session_id__messages_get",
         "parameters": [
           {
@@ -1693,7 +1705,7 @@
           "prep"
         ],
         "summary": "Get Prep Context",
-        "description": "Measured context breakdown of persisted history plus provider usage totals.\n\nContent-read path: requires the capability token. Bucket estimates use the\nsame mechanical ratio as context budgeting; provider columns stay truthful\n(0 when the provider never reported) and the UI estimates the gap.",
+        "description": "Measured context breakdown of persisted history plus provider usage totals.",
         "operationId": "get_prep_context_api_v1_prep_sessions__session_id__context_get",
         "parameters": [
           {
@@ -1770,7 +1782,7 @@
           "prep"
         ],
         "summary": "Compact Prep Session",
-        "description": "Run turn-start compaction now (the ``/compact`` slash command).\n\nManual compaction is user-decided: it always attempts an LLM summary\n(never a silent truncation), folding to the latest turn regardless of\nthe retain window — a lone remaining exchange folds whole, so any\nhistory produces a summary. The summary keeps session objectives,\nconfirmed decisions, user weaknesses/requirements, findings, and\nto-dos, steered by the optional intensity/directive/retain parameters\n(``/compact`` slash args or the prep settings defaults). The LLM\nfailure propagates as an error instead of falling back to truncation.\nOnly a truly empty history reports ``summarized=False``.\nA rolling backup fork (archived, at most one per session) preserves the\npre-compaction originals; the summary trailer links it for fork-from-point\nrestores. Regeneration reuses this endpoint with ``backup=False``.\nOwner-level: CSRF-protected, no capability token (orphans must stay compactable).",
+        "description": "Run turn-start compaction now (the ``/compact`` slash command).",
         "operationId": "compact_prep_session_api_v1_prep_sessions__session_id__compact_post",
         "parameters": [
           {
@@ -1830,7 +1842,7 @@
           "prep"
         ],
         "summary": "Update Prep Summary",
-        "description": "Replace the current compaction summary text (user-edited correction).\n\nThe provenance trailer is managed server-side: version increments, the\nbackup/fork-point linkage carries over. 404 (A3004) when no summary exists\nyet; 409 (A3003) on a concurrent history change.\nOwner-level: CSRF-protected, no capability token.",
+        "description": "Replace the current compaction summary text (user-edited correction).",
         "operationId": "update_prep_summary_api_v1_prep_sessions__session_id__summary_patch",
         "parameters": [
           {
@@ -1883,7 +1895,7 @@
           "prep"
         ],
         "summary": "Fork Prep Session",
-        "description": "Branch a new active session copying history through ``up_to`` (inclusive).\n\n``up_to`` normalization: any negative keeps everything; positives clamp to\nthe last message. The fork starts with zeroed usage counters (fresh branch\naccounting) but inherits resume/role/company/linked context.",
+        "description": "Branch a new active session copying history through ``up_to`` (inclusive).",
         "operationId": "fork_prep_session_api_v1_prep_sessions__session_id__fork_post",
         "parameters": [
           {
@@ -1970,7 +1982,7 @@
           "prep"
         ],
         "summary": "Truncate Prep Messages",
-        "description": "Retract a user message: drop backend history from ``from_index`` on.\n\nOwner-level: CSRF-protected, no capability token (orphans must stay clearable).",
+        "description": "Retract a user message: drop backend history from ``from_index`` on.",
         "operationId": "truncate_prep_messages_api_v1_prep_sessions__session_id__messages_truncate_post",
         "parameters": [
           {
@@ -2021,7 +2033,7 @@
           "prep"
         ],
         "summary": "Delete Prep Session",
-        "description": "Delete a session and its history permanently.\n\nOwner-level: CSRF-protected, no capability token (orphans must stay deletable).",
+        "description": "Delete a session and its history permanently.",
         "operationId": "delete_prep_session_api_v1_prep_sessions__session_id__delete",
         "parameters": [
           {
@@ -2062,7 +2074,7 @@
           "prep"
         ],
         "summary": "Purge Empty Sessions",
-        "description": "Delete sessions that never accumulated user/assistant content.\n\nNo capability token: contentless rows carry no information, and orphans\n(lost tokens) would otherwise be undeletable clutter. Same-origin CSRF\nprotection still applies, so random websites cannot trigger this.",
+        "description": "Delete sessions that never accumulated user/assistant content.",
         "operationId": "purge_empty_sessions_api_v1_prep_sessions_purge_empty_post",
         "responses": {
           "200": {
@@ -2082,14 +2094,41 @@
           "prep"
         ],
         "summary": "Purge All Sessions",
-        "description": "Delete ALL coaching sessions permanently, with or without content.\n\nOwner-level: same-origin CSRF protection, no capability token (consistent\nwith delete/archive/truncate/link — orphans must stay manageable).\nThe caller must confirm explicitly; this cannot be undone.",
+        "description": "Delete ALL coaching sessions permanently, with or without content.",
         "operationId": "purge_all_sessions_api_v1_prep_sessions_purge_all_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PrepPurgeAllRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2102,7 +2141,7 @@
           "prep"
         ],
         "summary": "Archive Prep Session",
-        "description": "Archive (or restore) a session; archived sessions stay fully usable.\n\nOwner-level: CSRF-protected, no capability token (orphans must stay manageable).",
+        "description": "Archive (or restore) a session; archived sessions stay fully usable.",
         "operationId": "archive_prep_session_api_v1_prep_sessions__session_id__archive_patch",
         "parameters": [
           {
@@ -2153,7 +2192,7 @@
           "prep"
         ],
         "summary": "Link Prep Session",
-        "description": "Link another session's summary + recent turns into this session's context.\n\nOnly one direct level is injected (no chains); self-links are refused.\nOwner-level: CSRF-protected, no capability token (same-origin trusted).\n\nSuperseded by per-turn ``#`` references (``context_session_ids``): the UI\nno longer calls this, but the endpoint stays for API compatibility.",
+        "description": "Link another session's summary + recent turns into this session's context.",
         "operationId": "link_prep_session_api_v1_prep_sessions__session_id__link_put",
         "parameters": [
           {
@@ -2204,7 +2243,7 @@
           "prep"
         ],
         "summary": "Reissue Prep Token",
-        "description": "Mint a fresh capability token for a listed session (owner-level recovery).\n\nCapability cookies are host-bound and expirable, and server-side copies\n(compaction backups, cross-device sessions) never receive one — without\nrecovery those rows are listed but permanently locked (A0401). Rotation\nreseeds the HttpOnly cookie. CSRF-protected, no old token required: same\ntrust basis as delete/archive in this single-user session list.",
+        "description": "Mint a fresh capability token for a listed session (owner-level recovery).",
         "operationId": "reissue_prep_token_api_v1_prep_sessions__session_id__reissue_post",
         "parameters": [
           {
@@ -2247,6 +2286,7 @@
           "prep"
         ],
         "summary": "Create Memory From Rating",
+        "description": "Record a long-term memory from the rating flow (or an agent note).",
         "operationId": "create_memory_from_rating_api_v1_prep_memories_post",
         "requestBody": {
           "required": true,
@@ -2286,6 +2326,7 @@
           "prep"
         ],
         "summary": "List Memory Summaries",
+        "description": "List memory index entries, newest first (clamped server-side to 1..50).",
         "operationId": "list_memory_summaries_api_v1_prep_memories_get",
         "parameters": [
           {
@@ -2310,6 +2351,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
               "default": 20,
               "title": "Limit"
             }
@@ -2349,6 +2392,7 @@
           "prep"
         ],
         "summary": "List Memory Tags",
+        "description": "List distinct memory tags, most-recently-used first.",
         "operationId": "list_memory_tags_api_v1_prep_memories_tags_get",
         "responses": {
           "200": {
@@ -2368,6 +2412,7 @@
           "prep"
         ],
         "summary": "Batch Delete Memories",
+        "description": "Delete up to 100 memories in one request (CSRF-protected, rate-limited).",
         "operationId": "batch_delete_memories_api_v1_prep_memories_batch_delete_post",
         "requestBody": {
           "content": {
@@ -2407,6 +2452,7 @@
           "prep"
         ],
         "summary": "Get Memory Detail",
+        "description": "Load one memory with its full turn bodies.",
         "operationId": "get_memory_detail_api_v1_prep_memories__memory_id__get",
         "parameters": [
           {
@@ -2447,6 +2493,7 @@
           "prep"
         ],
         "summary": "Update Memory",
+        "description": "Patch a memory's summary/tags/comment/score (CSRF-protected).",
         "operationId": "update_memory_api_v1_prep_memories__memory_id__patch",
         "parameters": [
           {
@@ -2497,6 +2544,7 @@
           "prep"
         ],
         "summary": "Delete Memory",
+        "description": "Delete one memory permanently (CSRF-protected).",
         "operationId": "delete_memory_api_v1_prep_memories__memory_id__delete",
         "parameters": [
           {
@@ -2739,6 +2787,7 @@
           "interview"
         ],
         "summary": "Create Session",
+        "description": "Create a PENDING session, issue its capability token, and plan the flow.\n\nThe flow planner runs in the background; the opening turn waits for it\n(bounded) and degrades to the static workflow on failure. The token is\nissued via HttpOnly cookie only, never in the response body.",
         "operationId": "create_session_api_v1_interview_sessions_post",
         "requestBody": {
           "content": {
@@ -2780,6 +2829,7 @@
           "interview"
         ],
         "summary": "Get Session",
+        "description": "Fetch one session view; 404 when missing, 403 on token mismatch.",
         "operationId": "get_session_api_v1_interview_sessions__session_id__get",
         "parameters": [
           {
@@ -2856,6 +2906,7 @@
           "interview"
         ],
         "summary": "Get Messages",
+        "description": "Return the session transcript as validated chat messages.\n\nDirty historical rows validate to an empty list rather than leaking\ninternal errors to the client.",
         "operationId": "get_messages_api_v1_interview_sessions__session_id__messages_get",
         "parameters": [
           {
@@ -2930,6 +2981,7 @@
           "interview"
         ],
         "summary": "Start Interview",
+        "description": "Run the opening turn over SSE-less HTTP (text-fallback path).\n\nOnly PENDING/ACTIVE sessions; requires a configured chat model.",
         "operationId": "start_interview_api_v1_interview_sessions__session_id__start_post",
         "parameters": [
           {
@@ -3004,6 +3056,7 @@
           "interview"
         ],
         "summary": "Send Message",
+        "description": "Run one candidate turn over HTTP (text-fallback path).\n\nRejects finished sessions; finish-lifecycle side effects run inside the\nrunner, never doubled here.",
         "operationId": "send_message_api_v1_interview_sessions__session_id__message_post",
         "parameters": [
           {
@@ -3167,6 +3220,7 @@
           "options"
         ],
         "summary": "Get Options",
+        "description": "Setup-page dropdown payload (workflows / personalities / voices / avatars).",
         "operationId": "get_options_api_v1_options_get",
         "responses": {
           "200": {
@@ -3592,6 +3646,7 @@
           "profile"
         ],
         "summary": "Get Profile",
+        "description": "Read the sole profile row (get-or-create).",
         "operationId": "get_profile_api_profile_get",
         "responses": {
           "200": {
@@ -3611,6 +3666,7 @@
           "profile"
         ],
         "summary": "Update Profile",
+        "description": "Full PUT update of the sole profile row.",
         "operationId": "update_profile_api_profile_put",
         "requestBody": {
           "content": {
@@ -3674,6 +3730,7 @@
           "resume"
         ],
         "summary": "Upload Resume",
+        "description": "Upload a resume file as a new family (v1).",
         "operationId": "upload_resume_api_resume_upload_post",
         "requestBody": {
           "content": {
@@ -3737,6 +3794,7 @@
           "resume"
         ],
         "summary": "List Resumes",
+        "description": "List all resume rows, newest first.",
         "operationId": "list_resumes_api_resume_list_get",
         "responses": {
           "200": {
@@ -3802,6 +3860,7 @@
           "resume"
         ],
         "summary": "Get Resume",
+        "description": "Get one resume row.",
         "operationId": "get_resume_api_resume__resume_id__get",
         "parameters": [
           {
@@ -4025,6 +4084,7 @@
           "resume"
         ],
         "summary": "Upload Resume Version",
+        "description": "Append a file as a new version of an existing family.",
         "operationId": "upload_resume_version_api_resume__resume_id__versions_post",
         "parameters": [
           {
@@ -4077,6 +4137,7 @@
           "resume"
         ],
         "summary": "Activate Resume",
+        "description": "Mark one resume row active (deactivates the rest).",
         "operationId": "activate_resume_api_resume__resume_id__activate_post",
         "parameters": [
           {
@@ -4160,6 +4221,7 @@
           "resume"
         ],
         "summary": "Analyze Resume",
+        "description": "Analyze one resume with the LLM and return the stored analysis.",
         "operationId": "analyze_resume_api_resume__resume_id__analyze_post",
         "parameters": [
           {
@@ -4958,7 +5020,7 @@
           "prep"
         ],
         "summary": "List Prep Sessions",
-        "description": "List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).\n\nReturns summaries only (first question + message count + associated resume),\nwithout message bodies or capability tokens—opening a specific session still uses the original token validation.",
+        "description": "List coaching sessions (shown in the frontend's “Conversation History,” grouped by resume).",
         "operationId": "list_prep_sessions_api_prep_sessions_get",
         "responses": {
           "200": {
@@ -4982,6 +5044,7 @@
           "prep"
         ],
         "summary": "Create Prep Session",
+        "description": "Create an active coaching session and seed its capability cookie.",
         "operationId": "create_prep_session_api_prep_sessions_post",
         "requestBody": {
           "content": {
@@ -5023,6 +5086,7 @@
           "prep"
         ],
         "summary": "Prep Message",
+        "description": "Run one synchronous coaching turn.",
         "operationId": "prep_message_api_prep_sessions__session_id__message_post",
         "parameters": [
           {
@@ -5109,6 +5173,7 @@
           "prep"
         ],
         "summary": "Prep Message Stream",
+        "description": "Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done).",
         "operationId": "prep_message_stream_api_prep_sessions__session_id__message_stream_post",
         "parameters": [
           {
@@ -5193,6 +5258,7 @@
           "prep"
         ],
         "summary": "Get Prep Messages",
+        "description": "Return sanitized message history for display (store is never mutated).",
         "operationId": "get_prep_messages_api_prep_sessions__session_id__messages_get",
         "parameters": [
           {
@@ -5273,7 +5339,7 @@
           "prep"
         ],
         "summary": "Get Prep Context",
-        "description": "Measured context breakdown of persisted history plus provider usage totals.\n\nContent-read path: requires the capability token. Bucket estimates use the\nsame mechanical ratio as context budgeting; provider columns stay truthful\n(0 when the provider never reported) and the UI estimates the gap.",
+        "description": "Measured context breakdown of persisted history plus provider usage totals.",
         "operationId": "get_prep_context_api_prep_sessions__session_id__context_get",
         "parameters": [
           {
@@ -5350,7 +5416,7 @@
           "prep"
         ],
         "summary": "Compact Prep Session",
-        "description": "Run turn-start compaction now (the ``/compact`` slash command).\n\nManual compaction is user-decided: it always attempts an LLM summary\n(never a silent truncation), folding to the latest turn regardless of\nthe retain window — a lone remaining exchange folds whole, so any\nhistory produces a summary. The summary keeps session objectives,\nconfirmed decisions, user weaknesses/requirements, findings, and\nto-dos, steered by the optional intensity/directive/retain parameters\n(``/compact`` slash args or the prep settings defaults). The LLM\nfailure propagates as an error instead of falling back to truncation.\nOnly a truly empty history reports ``summarized=False``.\nA rolling backup fork (archived, at most one per session) preserves the\npre-compaction originals; the summary trailer links it for fork-from-point\nrestores. Regeneration reuses this endpoint with ``backup=False``.\nOwner-level: CSRF-protected, no capability token (orphans must stay compactable).",
+        "description": "Run turn-start compaction now (the ``/compact`` slash command).",
         "operationId": "compact_prep_session_api_prep_sessions__session_id__compact_post",
         "parameters": [
           {
@@ -5410,7 +5476,7 @@
           "prep"
         ],
         "summary": "Update Prep Summary",
-        "description": "Replace the current compaction summary text (user-edited correction).\n\nThe provenance trailer is managed server-side: version increments, the\nbackup/fork-point linkage carries over. 404 (A3004) when no summary exists\nyet; 409 (A3003) on a concurrent history change.\nOwner-level: CSRF-protected, no capability token.",
+        "description": "Replace the current compaction summary text (user-edited correction).",
         "operationId": "update_prep_summary_api_prep_sessions__session_id__summary_patch",
         "parameters": [
           {
@@ -5463,7 +5529,7 @@
           "prep"
         ],
         "summary": "Fork Prep Session",
-        "description": "Branch a new active session copying history through ``up_to`` (inclusive).\n\n``up_to`` normalization: any negative keeps everything; positives clamp to\nthe last message. The fork starts with zeroed usage counters (fresh branch\naccounting) but inherits resume/role/company/linked context.",
+        "description": "Branch a new active session copying history through ``up_to`` (inclusive).",
         "operationId": "fork_prep_session_api_prep_sessions__session_id__fork_post",
         "parameters": [
           {
@@ -5550,7 +5616,7 @@
           "prep"
         ],
         "summary": "Truncate Prep Messages",
-        "description": "Retract a user message: drop backend history from ``from_index`` on.\n\nOwner-level: CSRF-protected, no capability token (orphans must stay clearable).",
+        "description": "Retract a user message: drop backend history from ``from_index`` on.",
         "operationId": "truncate_prep_messages_api_prep_sessions__session_id__messages_truncate_post",
         "parameters": [
           {
@@ -5601,7 +5667,7 @@
           "prep"
         ],
         "summary": "Delete Prep Session",
-        "description": "Delete a session and its history permanently.\n\nOwner-level: CSRF-protected, no capability token (orphans must stay deletable).",
+        "description": "Delete a session and its history permanently.",
         "operationId": "delete_prep_session_api_prep_sessions__session_id__delete",
         "parameters": [
           {
@@ -5642,7 +5708,7 @@
           "prep"
         ],
         "summary": "Purge Empty Sessions",
-        "description": "Delete sessions that never accumulated user/assistant content.\n\nNo capability token: contentless rows carry no information, and orphans\n(lost tokens) would otherwise be undeletable clutter. Same-origin CSRF\nprotection still applies, so random websites cannot trigger this.",
+        "description": "Delete sessions that never accumulated user/assistant content.",
         "operationId": "purge_empty_sessions_api_prep_sessions_purge_empty_post",
         "responses": {
           "200": {
@@ -5662,14 +5728,41 @@
           "prep"
         ],
         "summary": "Purge All Sessions",
-        "description": "Delete ALL coaching sessions permanently, with or without content.\n\nOwner-level: same-origin CSRF protection, no capability token (consistent\nwith delete/archive/truncate/link — orphans must stay manageable).\nThe caller must confirm explicitly; this cannot be undone.",
+        "description": "Delete ALL coaching sessions permanently, with or without content.",
         "operationId": "purge_all_sessions_api_prep_sessions_purge_all_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PrepPurgeAllRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -5682,7 +5775,7 @@
           "prep"
         ],
         "summary": "Archive Prep Session",
-        "description": "Archive (or restore) a session; archived sessions stay fully usable.\n\nOwner-level: CSRF-protected, no capability token (orphans must stay manageable).",
+        "description": "Archive (or restore) a session; archived sessions stay fully usable.",
         "operationId": "archive_prep_session_api_prep_sessions__session_id__archive_patch",
         "parameters": [
           {
@@ -5733,7 +5826,7 @@
           "prep"
         ],
         "summary": "Link Prep Session",
-        "description": "Link another session's summary + recent turns into this session's context.\n\nOnly one direct level is injected (no chains); self-links are refused.\nOwner-level: CSRF-protected, no capability token (same-origin trusted).\n\nSuperseded by per-turn ``#`` references (``context_session_ids``): the UI\nno longer calls this, but the endpoint stays for API compatibility.",
+        "description": "Link another session's summary + recent turns into this session's context.",
         "operationId": "link_prep_session_api_prep_sessions__session_id__link_put",
         "parameters": [
           {
@@ -5784,7 +5877,7 @@
           "prep"
         ],
         "summary": "Reissue Prep Token",
-        "description": "Mint a fresh capability token for a listed session (owner-level recovery).\n\nCapability cookies are host-bound and expirable, and server-side copies\n(compaction backups, cross-device sessions) never receive one — without\nrecovery those rows are listed but permanently locked (A0401). Rotation\nreseeds the HttpOnly cookie. CSRF-protected, no old token required: same\ntrust basis as delete/archive in this single-user session list.",
+        "description": "Mint a fresh capability token for a listed session (owner-level recovery).",
         "operationId": "reissue_prep_token_api_prep_sessions__session_id__reissue_post",
         "parameters": [
           {
@@ -5827,6 +5920,7 @@
           "prep"
         ],
         "summary": "Create Memory From Rating",
+        "description": "Record a long-term memory from the rating flow (or an agent note).",
         "operationId": "create_memory_from_rating_api_prep_memories_post",
         "requestBody": {
           "required": true,
@@ -5866,6 +5960,7 @@
           "prep"
         ],
         "summary": "List Memory Summaries",
+        "description": "List memory index entries, newest first (clamped server-side to 1..50).",
         "operationId": "list_memory_summaries_api_prep_memories_get",
         "parameters": [
           {
@@ -5890,6 +5985,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
               "default": 20,
               "title": "Limit"
             }
@@ -5929,6 +6026,7 @@
           "prep"
         ],
         "summary": "List Memory Tags",
+        "description": "List distinct memory tags, most-recently-used first.",
         "operationId": "list_memory_tags_api_prep_memories_tags_get",
         "responses": {
           "200": {
@@ -5948,6 +6046,7 @@
           "prep"
         ],
         "summary": "Batch Delete Memories",
+        "description": "Delete up to 100 memories in one request (CSRF-protected, rate-limited).",
         "operationId": "batch_delete_memories_api_prep_memories_batch_delete_post",
         "requestBody": {
           "content": {
@@ -5987,6 +6086,7 @@
           "prep"
         ],
         "summary": "Get Memory Detail",
+        "description": "Load one memory with its full turn bodies.",
         "operationId": "get_memory_detail_api_prep_memories__memory_id__get",
         "parameters": [
           {
@@ -6027,6 +6127,7 @@
           "prep"
         ],
         "summary": "Update Memory",
+        "description": "Patch a memory's summary/tags/comment/score (CSRF-protected).",
         "operationId": "update_memory_api_prep_memories__memory_id__patch",
         "parameters": [
           {
@@ -6077,6 +6178,7 @@
           "prep"
         ],
         "summary": "Delete Memory",
+        "description": "Delete one memory permanently (CSRF-protected).",
         "operationId": "delete_memory_api_prep_memories__memory_id__delete",
         "parameters": [
           {
@@ -6319,6 +6421,7 @@
           "interview"
         ],
         "summary": "Create Session",
+        "description": "Create a PENDING session, issue its capability token, and plan the flow.\n\nThe flow planner runs in the background; the opening turn waits for it\n(bounded) and degrades to the static workflow on failure. The token is\nissued via HttpOnly cookie only, never in the response body.",
         "operationId": "create_session_api_interview_sessions_post",
         "requestBody": {
           "content": {
@@ -6360,6 +6463,7 @@
           "interview"
         ],
         "summary": "Get Session",
+        "description": "Fetch one session view; 404 when missing, 403 on token mismatch.",
         "operationId": "get_session_api_interview_sessions__session_id__get",
         "parameters": [
           {
@@ -6436,6 +6540,7 @@
           "interview"
         ],
         "summary": "Get Messages",
+        "description": "Return the session transcript as validated chat messages.\n\nDirty historical rows validate to an empty list rather than leaking\ninternal errors to the client.",
         "operationId": "get_messages_api_interview_sessions__session_id__messages_get",
         "parameters": [
           {
@@ -6510,6 +6615,7 @@
           "interview"
         ],
         "summary": "Start Interview",
+        "description": "Run the opening turn over SSE-less HTTP (text-fallback path).\n\nOnly PENDING/ACTIVE sessions; requires a configured chat model.",
         "operationId": "start_interview_api_interview_sessions__session_id__start_post",
         "parameters": [
           {
@@ -6584,6 +6690,7 @@
           "interview"
         ],
         "summary": "Send Message",
+        "description": "Run one candidate turn over HTTP (text-fallback path).\n\nRejects finished sessions; finish-lifecycle side effects run inside the\nrunner, never doubled here.",
         "operationId": "send_message_api_interview_sessions__session_id__message_post",
         "parameters": [
           {
@@ -6747,6 +6854,7 @@
           "options"
         ],
         "summary": "Get Options",
+        "description": "Setup-page dropdown payload (workflows / personalities / voices / avatars).",
         "operationId": "get_options_api_options_get",
         "responses": {
           "200": {
@@ -7936,6 +8044,27 @@
                 "type": "null"
               }
             ]
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          },
+          "reference_detail": {
+            "type": "string",
+            "enum": [
+              "outline",
+              "full"
+            ],
+            "title": "Reference Detail",
+            "default": "outline"
           }
         },
         "type": "object",
@@ -8662,7 +8791,7 @@
           "silence_nudge_seconds": {
             "type": "integer",
             "title": "Silence Nudge Seconds",
-            "default": 25
+            "default": 10
           }
         },
         "type": "object",
@@ -8943,11 +9072,13 @@
           },
           "target_role": {
             "type": "string",
+            "maxLength": 100,
             "title": "Target Role",
             "default": ""
           },
           "target_company": {
             "type": "string",
+            "maxLength": 100,
             "title": "Target Company",
             "default": ""
           }
@@ -9151,6 +9282,7 @@
           },
           "origin": {
             "type": "string",
+            "pattern": "^(user_rating|user_emphasis|agent_note)$",
             "title": "Origin",
             "default": "user_rating"
           }
@@ -9522,6 +9654,17 @@
         ],
         "title": "PrepMessageResponse"
       },
+      "PrepPurgeAllRequest": {
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "title": "Confirm",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "PrepPurgeAllRequest"
+      },
       "PrepSearchGroup": {
         "properties": {
           "query": {
@@ -9728,6 +9871,18 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "From Index"
+          },
+          "expected_message_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Message Count"
           }
         },
         "type": "object",
@@ -9832,6 +9987,27 @@
                 "type": "null"
               }
             ]
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          },
+          "reference_detail": {
+            "type": "string",
+            "enum": [
+              "outline",
+              "full"
+            ],
+            "title": "Reference Detail",
+            "default": "outline"
           }
         },
         "type": "object",
@@ -9940,6 +10116,11 @@
           "focus": {
             "type": "string",
             "title": "Focus"
+          },
+          "pass_criteria": {
+            "type": "string",
+            "title": "Pass Criteria",
+            "default": ""
           }
         },
         "type": "object",
@@ -11247,6 +11428,18 @@
             "type": "array",
             "title": "Knowledge Points"
           },
+          "knowledge_brushup": {
+            "type": "string",
+            "title": "Knowledge Brushup",
+            "default": ""
+          },
+          "exercises": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Exercises"
+          },
           "followup_quality": {
             "type": "string",
             "title": "Followup Quality",
@@ -11486,7 +11679,8 @@
           "tech_domains",
           "target_role"
         ],
-        "title": "UserProfileResponse"
+        "title": "UserProfileResponse",
+        "description": "Profile read response, built from an ORM row plus id/updated_at."
       },
       "UserProfileUpdate": {
         "properties": {
