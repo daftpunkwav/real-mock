@@ -1,11 +1,76 @@
 "use client";
 
-/** Recent passed processes with a "start next round" action (round 1 -> round 2 -> ...). */
+/** Multi-round process continuation: eligible-process helpers, continuation hook, and entry UI. */
 
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useT, type Translator } from "@/i18n";
+import { getTranslator } from "@/i18n/resolve";
 import { ArrowRight, GitBranch } from "lucide-react";
+import { toast } from "@/components/Toast";
+import { interviewHttp as api } from "@/lib/api/clients";
 import type { InterviewProcessResponse } from "@/lib/api/contract";
-import type { EligibleProcess } from "./eligibility";
+
+/** A process whose latest round passed and with rounds remaining. */
+export type EligibleProcess = InterviewProcessResponse & {
+  next_round_no: number;
+};
+
+/** Pure helpers for multi-round process continuation (no React / no API). */
+export function selectEligibleProcesses(
+  processes: InterviewProcessResponse[],
+): EligibleProcess[] {
+  return processes
+    .filter((p) => p.next_round_eligible && p.next_round_no != null)
+    .map((p) => ({ ...p, next_round_no: p.next_round_no as number }))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+}
+
+/** process_id → eligible next-round process (history detail actions). */
+export function buildNextRoundIndex(
+  processes: EligibleProcess[],
+): Record<number, EligibleProcess> {
+  const index: Record<number, EligibleProcess> = {};
+  for (const p of processes) index[p.id] = p;
+  return index;
+}
+
+/** Continue-process data domain: eligible multi-round processes + next-round creation. */
+export function useProcessContinuation() {
+  const router = useRouter();
+  const [processes, setProcesses] = useState<EligibleProcess[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [startingId, setStartingId] = useState<number | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api
+      .listProcesses()
+      .then((rows) => setProcesses(selectEligibleProcesses(rows)))
+      .catch(() => setProcesses([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const startNext = async (process: EligibleProcess) => {
+    const t = getTranslator("interview");
+    setStartingId(process.id);
+    try {
+      const session = await api.createNextRound(process.id);
+      router.push(`/interview/${session.id}`);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : t("process.nextFailed"),
+      );
+      setStartingId(null);
+    }
+  };
+
+  return { processes, loading, startingId, startNext, reload: load };
+}
 
 export function roundLabel(t: Translator<"interview">, n: number) {
   return t("process.roundN", { n });
@@ -63,6 +128,7 @@ export function ContinueProcessRow({
   );
 }
 
+/** Recent passed processes with a "start next round" action (round 1 -> round 2 -> ...). */
 export function ContinueProcesses({
   processes,
   loading,

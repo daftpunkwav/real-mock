@@ -1,50 +1,11 @@
 "use client";
 
-/** Interview setup selectors: strictness labels, resume, and processor cards. */
+/** Interview setup model config: reasoning/voice processor card (change axis: model bindings, not interview content). */
 
 import { useT } from "@/i18n";
 import { Mic } from "lucide-react";
-import type { ModelProfile, ReasoningEffort, ResumePickerItem } from "@/types";
+import type { ModelProfile, ReasoningEffort, TaskBindings } from "@/types";
 import { EffortSelect, ModelSelect } from "@/components/ModelControls";
-import { Select } from "./controls";
-
-export type StrictnessLabelKey =
-  | "setup.strictness.friendly"
-  | "setup.strictness.normal"
-  | "setup.strictness.high"
-  | "setup.strictness.extreme";
-
-/** Map a strictness score to its label key. */
-export function strictnessLabelKey(strictness: number): StrictnessLabelKey {
-  return strictness <= 3
-    ? "setup.strictness.friendly"
-    : strictness <= 6
-      ? "setup.strictness.normal"
-      : strictness <= 8
-        ? "setup.strictness.high"
-        : "setup.strictness.extreme";
-}
-
-export function ResumeSelect({
-  resumes,
-  value,
-  onChange,
-}: {
-  resumes: ResumePickerItem[];
-  value: number | null;
-  onChange: (v: number | null) => void;
-}) {
-  const t = useT("interview");
-  return (
-    <Select
-      label={t("setup.resume.label")}
-      value={String(value)}
-      options={resumes.map((r) => String(r.id))}
-      labels={resumes.map((r) => (r.is_active ? t("setup.resume.activeItem", { name: r.filename }) : r.filename))}
-      onChange={(v) => onChange(Number(v))}
-    />
-  );
-}
 
 export function ProcessorCard({
   chatModels,
@@ -72,7 +33,7 @@ export function ProcessorCard({
   setSttModelId: (v: number | null) => void;
   setTtsModelId: (v: number | null) => void;
   setEffort: (v: ReasoningEffort) => void;
-  defaultBindings: import("@/types").TaskBindings | null;
+  defaultBindings: TaskBindings | null;
   disabled: boolean;
 }) {
   const t = useT("interview");

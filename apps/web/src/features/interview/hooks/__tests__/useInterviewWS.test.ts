@@ -11,7 +11,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useInterviewWS, type WSHandlers } from "../useInterviewWS";
+import { useInterviewWS, type WSHandlers } from "../room/useInterviewWS";
 
 vi.mock("@/lib/env", () => ({
   getEnv: () => ({

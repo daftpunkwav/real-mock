@@ -3,7 +3,7 @@
 import { useT } from "@/i18n";
 import { Flag, Radio, Volume2, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { turnLabelKey } from "../hooks/turnLabels";
+import { turnLabelKey } from "../turnLabels";
 import type { InterviewRoomModel } from "../hooks/room";
 
 /** Audio Unlock Mask / Broken Bar / Silent Bar / Top Bar (Conversation Info + Talk Wheel + End Button). */

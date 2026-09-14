@@ -16,7 +16,7 @@ import {
   Video,
 } from "lucide-react";
 import type { InterviewConfig, Options, ResumePickerItem } from "@/lib/api/contract";
-import { strictnessLabelKey } from "./form";
+import { strictnessLabelKey } from "./fields";
 import {
   avatarLabel,
   companyDisplay,

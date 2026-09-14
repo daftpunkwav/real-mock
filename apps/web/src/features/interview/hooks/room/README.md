@@ -9,7 +9,7 @@
 | Hook | Responsibility |
 | --- | --- |
 | `useInterviewRoomBootstrap` | Session metadata, history messages, phase restore |
-| `useInterviewWS` | WebSocket connection and `TurnState` (parent dir) |
+| `useInterviewWS` | WebSocket connection and `TurnState` |
 | `useInterviewRoomState` | UI state + ref container |
 | `useInterviewRoomTtsBinding` | TTS playback and generation alignment |
 | `useInterviewRoomSilenceTimer` | Silence timeout / nudge |

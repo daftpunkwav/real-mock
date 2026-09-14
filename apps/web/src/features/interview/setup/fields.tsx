@@ -14,7 +14,7 @@ import type {
   TaskBindings,
 } from "@/types";
 import { ChoiceGroup, CompanyGrid, ResumeWarning, Select } from "./controls";
-import { ProcessorCard, ResumeSelect, strictnessLabelKey } from "./form";
+import { ProcessorCard } from "./processorCard";
 import {
   CUSTOM_ROLE_ID,
   avatarLabel,
@@ -28,6 +28,44 @@ import {
   voiceLabel,
   workflowLabel,
 } from "./optionLabels";
+
+export type StrictnessLabelKey =
+  | "setup.strictness.friendly"
+  | "setup.strictness.normal"
+  | "setup.strictness.high"
+  | "setup.strictness.extreme";
+
+/** Map a strictness score to its label key. */
+export function strictnessLabelKey(strictness: number): StrictnessLabelKey {
+  return strictness <= 3
+    ? "setup.strictness.friendly"
+    : strictness <= 6
+      ? "setup.strictness.normal"
+      : strictness <= 8
+        ? "setup.strictness.high"
+        : "setup.strictness.extreme";
+}
+
+export function ResumeSelect({
+  resumes,
+  value,
+  onChange,
+}: {
+  resumes: ResumePickerItem[];
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const t = useT("interview");
+  return (
+    <Select
+      label={t("setup.resume.label")}
+      value={String(value)}
+      options={resumes.map((r) => String(r.id))}
+      labels={resumes.map((r) => (r.is_active ? t("setup.resume.activeItem", { name: r.filename }) : r.filename))}
+      onChange={(v) => onChange(Number(v))}
+    />
+  );
+}
 
 export function SetupFields({
   options,

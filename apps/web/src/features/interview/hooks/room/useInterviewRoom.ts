@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useInterviewWS } from "../useInterviewWS";
+import { useInterviewWS } from "./useInterviewWS";
 import { useInterviewRoomBootstrap } from "./useInterviewRoomBootstrap";
 import { useInterviewRoomState } from "./useInterviewRoomState";
 import { useInterviewRoomTtsBinding } from "./useInterviewRoomTtsBinding";
