@@ -263,3 +263,10 @@ def test_probe_system_prompt_follows_flow_language() -> None:
     # Chinese flow keeps its idiomatic wording.
     zh_first = probe_system_prompt(attempt=1, lang="zh")
     assert "还在吗" in zh_first
+
+
+def test_system_prompt_resists_candidate_manipulation() -> None:
+    """Behavior rules cover fishing for answers / a favorable verdict."""
+    prompt = build_system_prompt(**_prompt_kwargs())
+    assert "fish for answers" in prompt
+    assert "judge only by demonstrated performance" in prompt
