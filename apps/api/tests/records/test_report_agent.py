@@ -225,3 +225,31 @@ async def test_coverage_padding_when_synthesis_drops_notes():
     agent = DeepReportAgent(llm, context_specs=[])
     report = await agent.run(role="r", level="l", company="c", ledger=_ledger())
     assert [n.turn_id for n in report.turn_notes] == [f"t-{i:04d}" for i in range(1, 6)]
+
+
+def test_normalize_report_payload_keeps_external_notes():
+    payload = {
+        "overall_score": 80,
+        "external_notes": [
+            "ByteDance tech rounds focus on system design trade-offs — confirmed "
+            "against https://example.com/byte-interview (fetched).",
+            "",  # dropped by clipping
+        ],
+        "turn_notes": [],
+    }
+    report = normalize_report_payload(payload)
+    assert len(report.external_notes) == 1
+    assert "https://example.com/byte-interview" in report.external_notes[0]
+
+
+def test_synthesis_specs_include_web_tools():
+    """Synthesis is the external-calibration loop: web_search + web_fetch present."""
+    from realmock.domains.records.agents.report.agent import build_context_specs
+    from realmock.platform.capabilities.ai.agent.tools import (
+        search_tool_spec,
+        web_fetch_tool_spec,
+    )
+
+    specs = [*build_context_specs(None, None), search_tool_spec(), web_fetch_tool_spec()]
+    names = {s.name for s in specs}
+    assert {"web_search", "web_fetch", "github_get_user"} <= names
