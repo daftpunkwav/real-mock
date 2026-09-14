@@ -128,3 +128,55 @@ def test_full_mode_failure_yields_none_for_outline_degrade():
 def test_reference_detail_defaults_to_outline():
     config = InterviewConfig(role="Backend", level="Senior", company="Acme")
     assert config.reference_detail == "outline"
+
+
+def test_full_hint_reuses_loop_answer_without_writer_call(monkeypatch):
+    """When the tool loop already produced the answer, skip the second LLM call."""
+    import realmock.domains.interview.agents.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    calls = {"chat": 0}
+
+    class CountingLLM:
+        async def chat(self, *args, **kwargs):
+            calls["chat"] += 1
+            return "fallback answer"
+
+    async def fake_loop(llm, messages, **kwargs):
+        return NS(
+            final_content="I designed the rate limiter using a token bucket...",
+            tool_used=True,
+            messages=[],
+            thinking="",
+        )
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            CountingLLM(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
+            "讲讲限流？", "", "zh",
+        )
+    )
+    assert result.startswith("I designed the rate limiter")
+    assert calls["chat"] == 0  # writer pass skipped entirely
+
+
+def test_full_hint_falls_back_to_writer_without_loop_content(monkeypatch):
+    import realmock.domains.interview.agents.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    class WriterLLM:
+        async def chat(self, *args, **kwargs):
+            return "writer answer"
+
+    async def fake_loop(llm, messages, **kwargs):
+        return NS(final_content=None, tool_used=True, messages=[{"role": "user", "content": "q"}], thinking="")
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            WriterLLM(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
+            "Q?", "", "zh",
+        )
+    )
+    assert result == "writer answer"

@@ -163,16 +163,19 @@ async def _generate(
         temperature=0.4,
         on_tool=on_tool,
     )
-    evidence_messages = loop.messages
-    if loop.final_content and not loop.tool_used:
-        # No tools were needed; still pass through the writer for the
-        # first-person copy-ready shape.
-        evidence_messages = [*loop.messages]
+    # The loop's own closing content already IS the evidence-grounded answer —
+    # reuse it instead of a second synthesis call (the full hint is on the
+    # room's critical path; this roughly halves its latency). The writer pass
+    # only runs as a fallback when the loop ended on tool calls with no text.
+    if loop.final_content and loop.final_content.strip():
+        cleaned = strip_markers(strip_think_blocks(loop.final_content)).strip()
+        if cleaned:
+            return cleaned
 
     writer_messages = [
         {"role": "system", "content": _WRITER_SYSTEM.format(lang_name=lang_name)},
         *[
-            m for m in evidence_messages
+            m for m in loop.messages
             if m.get("role") in ("user", "assistant", "tool", "system")
         ],
         {
