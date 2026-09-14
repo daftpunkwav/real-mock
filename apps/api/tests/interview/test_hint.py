@@ -38,6 +38,29 @@ def test_extract_hint_question_picks_last_question():
     assert extract("no question here\nstill none") == "still none"
 
 
+_PROMPT_SHAPE = (
+    "You are the AI interviewer...\n{persona}\n\n"
+    "## Interview setup\nRole: Backend\n\n"
+    "## Candidate profile\nName: Ada\nSkills: Redis, Kafka\n\n"
+    "## Current phase\nPhase: project_deep_dive\n\n"
+    "## Behavior rules\n1. x\n"
+)
+
+
+def test_candidate_slice_cuts_grounding_not_persona():
+    content = _PROMPT_SHAPE.format(persona="## How you talk\n- be brief")
+    sl = ReferenceHintMixin._candidate_slice(content, limit=1200)
+    assert "Candidate profile" in sl
+    assert "Ada" in sl
+    assert "How you talk" not in sl
+    assert "Behavior rules" not in sl
+
+
+def test_candidate_slice_falls_back_to_head_without_markers():
+    sl = ReferenceHintMixin._candidate_slice("no recognizable sections", limit=10)
+    assert sl == "no recogni"
+
+
 def test_hint_language_defaults_to_zh():
     assert _mixin()._hint_language() == "zh"
 

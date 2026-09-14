@@ -71,13 +71,40 @@ class ReferenceHintMixin:
         return "zh"
 
     def _hint_background(self) -> str:
-        """Candidate background slice from the in-memory system prompt."""
+        """Candidate material slice from the in-memory system prompt.
+
+        The system prompt opens with persona/spoken-voice rules, so a raw
+        head slice carries no resume content; cut the interview-setup and
+        candidate grounding area instead (falls back to the head when the
+        prompt shape is unrecognized).
+        """
         agent = self.ctx.agent
         messages = getattr(agent, "messages", None) or []
         for m in messages:
             if isinstance(m, dict) and m.get("role") == "system":
-                return str(m.get("content", ""))[: self._HINT_CTX_CHARS]
+                content = str(m.get("content", ""))
+                return self._candidate_slice(content)
         return ""
+
+    @staticmethod
+    def _candidate_slice(content: str, limit: int = _HINT_CTX_CHARS) -> str:
+        """Cut the setup/company/candidate area out of the system prompt."""
+        start = -1
+        for marker in (
+            "## Interview setup",
+            "## Candidate profile",
+            "## Parsed resume",
+            "## Candidate (compact",
+        ):
+            idx = content.find(marker)
+            if idx >= 0 and (start < 0 or idx < start):
+                start = idx
+        if start < 0:
+            return content[:limit]
+        end = content.find("## Current phase")
+        if end <= start:
+            return content[start : start + limit]
+        return content[start:end][:limit]
 
     # -- entry -----------------------------------------------------------
 
