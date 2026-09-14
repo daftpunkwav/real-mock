@@ -233,9 +233,14 @@ class SessionPromptMixin:
             f"\n\n## Prior rounds memory (this process; round "
             f"{getattr(self.session, 'round_no', '?')} of max {process.max_rounds})\n"
             f"{rendered}\n"
-            "Hand over like a real loop: greet briefly as a NEW interviewer, do not "
-            "repeat what already went well, probe the weak points above from new "
-            "angles, and calibrate difficulty for this round."
+            "Handover: you have READ the earlier rounds' feedback above — like a "
+            "real interviewer who reviewed notes before the call. Open with one "
+            "natural line that shows it (mention the candidate's stated focus or "
+            "one concrete claim from a previous round), then interview from there. "
+            "Never re-ask a covered question: a repeat is allowed only as a harder "
+            "variant or a genuinely new angle. Start this round's probing from the "
+            "weak points listed above, and calibrate difficulty to this round's "
+            "position in the loop."
         ) + identity
 
     def _flow_language(self) -> str:

@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 MEMORY_SCHEMA = "realmock.process_memory.v1"
 
 _DIGEST_LIMITS = {
-    "topics": 12,
+    # Questions asked per round feed the next round's anti-repeat list; a
+    # 30+ question round truncated to 12 left the interviewer blind to most
+    # of what was already covered, so repeats slipped through.
+    "topics": 20,
     "weak_points": 8,
     "strengths": 6,
     "summary_chars": 400,
