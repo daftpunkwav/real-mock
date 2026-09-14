@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 from realmock.platform.database import SessionLocal
 from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.domains.interview.realtime.control.silence_probe import flow_language
 
 if TYPE_CHECKING:
     from realmock.domains.interview.realtime.core.context import ConnectionContext
@@ -65,12 +66,7 @@ class SilenceNudgeMixin:
 
     def _nudge_language(self) -> str:
         """Closing-nudge language from the flow plan ("en" or "zh")."""
-        agent = self.ctx.agent
-        plan = getattr(agent, "plan", None) if agent is not None else None
-        if plan is not None and getattr(plan, "source", "") == "agent":
-            lang = str(getattr(plan, "language", "zh") or "zh")
-            return "en" if lang.strip().lower().startswith("en") else "zh"
-        return "zh"
+        return flow_language(getattr(self.ctx, "agent", None))
 
     async def _on_silence_nudge(self) -> None:
         """Realistic silence follow-up: use the reasoning LLM to generate one in real time from the current

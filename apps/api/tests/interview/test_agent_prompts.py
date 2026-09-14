@@ -248,3 +248,18 @@ def test_refresh_system_head_keeps_full_block_for_questioning_phase() -> None:
     head = mixin.messages[0]["content"]
     assert "Parsed resume" in head
     assert f"Phase: {next_phase.name}" in head
+
+
+def test_probe_system_prompt_follows_flow_language() -> None:
+    """English-flow probes must not embed Chinese filler words."""
+    from realmock.domains.interview.realtime.control.silence_probe import probe_system_prompt
+
+    en_first = probe_system_prompt(attempt=1, lang="en")
+    en_second = probe_system_prompt(attempt=2, lang="en")
+    for prompt in (en_first, en_second):
+        assert "诶" not in prompt and "还在吗" not in prompt
+    assert "hey, still there?" in en_first
+    assert "elaborate" in en_second
+    # Chinese flow keeps its idiomatic wording.
+    zh_first = probe_system_prompt(attempt=1, lang="zh")
+    assert "还在吗" in zh_first
