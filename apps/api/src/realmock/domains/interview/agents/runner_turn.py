@@ -18,6 +18,7 @@ from realmock.domains.interview.ledger.store import append_turn, take_pending_to
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
+from realmock.domains.interview.agents.history_compaction import maybe_fold_history
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
@@ -119,6 +120,9 @@ async def stream_turn(
             runner.agent.note_verdict(output.verdict)
             runner.agent.mark_completed()
         tools = take_pending_tools(runner.agent.agent_state)
+        # Persist the history fold before save_state so the DB row stops
+        # growing once past half the context window (ledger keeps verbatim).
+        await maybe_fold_history(runner.agent, llm=runner.llm, context_window=context_window)
         runner.agent.save_state(db)
 
         try:

@@ -21,6 +21,7 @@ from realmock.domains.interview.agents.closing_prompts import (
 )
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
+from realmock.domains.interview.agents.history_compaction import maybe_fold_history
 from realmock.domains.interview.agents.say_first import stream_say_first
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 
@@ -83,6 +84,7 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
         runner.agent.note_verdict(output.verdict)
         runner.agent.mark_completed()
         tools = take_pending_tools(runner.agent.agent_state)
+        await maybe_fold_history(runner.agent, llm=runner.llm, context_window=context_window)
         runner.agent.save_state(db)
 
         try:

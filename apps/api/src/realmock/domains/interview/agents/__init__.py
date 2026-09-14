@@ -13,7 +13,7 @@ architecture test holding the seams):
 - run: ``runner`` + ``runner_opening/turn/closing`` + ``finish_lifecycle``;
 - rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools``;
 - prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
-- state: ``session_state`` + ``session_overrides`` + ``past_records``;
+- state: ``session_state`` + ``session_overrides`` + ``past_records`` + ``history_compaction``;
 - protocol: ``turn_output`` (+ leaf contracts ``events`` / ``agent_text`` / ``workflows``);
 - followup: ``followup`` + ``followup_inject``.
 
