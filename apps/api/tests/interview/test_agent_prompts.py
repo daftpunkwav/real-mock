@@ -250,6 +250,51 @@ def test_refresh_system_head_keeps_full_block_for_questioning_phase() -> None:
     assert f"Phase: {next_phase.name}" in head
 
 
+def test_refresh_system_head_restores_full_block_after_compact_phase() -> None:
+    """Leaving reverse_qa/summary for a questioning phase must bring resume grounding back."""
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
+
+    opening_prompt = build_system_prompt(
+        **_prompt_kwargs(candidate=_candidate()),
+    )
+    mixin = SessionPromptMixin()
+    mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="")
+    mixin.agent_state = {}
+    mixin.messages = [{"role": "system", "content": opening_prompt}]
+    reverse_qa = next(p for p in get_workflow("technical").phases if p.id == "reverse_qa")
+    next_phase = get_workflow("technical").phases[2]  # basic_knowledge
+
+    # First enter the compact phase.
+    profile_stub = _profile_stub()
+
+    mixin.refresh_system_head(reverse_qa, profile=profile_stub, candidate=_candidate())
+    compact_head = mixin.messages[0]["content"]
+    assert "Candidate (compact" in compact_head
+    assert "Parsed resume" not in compact_head
+
+    # Then advance to a questioning phase: full resume block must be restored.
+    mixin.refresh_system_head(next_phase, profile=profile_stub, candidate=_candidate())
+    restored_head = mixin.messages[0]["content"]
+    assert "Candidate (compact" not in restored_head
+    assert "Parsed resume" in restored_head
+    assert f"Phase: {next_phase.name}" in restored_head
+
+
+def _profile_stub():
+    """Minimal profile that satisfies the full candidate block renderer."""
+    from realmock.platform.models import UserProfile
+
+    return UserProfile(
+        name="Zhang San",
+        target_role="Backend",
+        school="TSU",
+        job_direction="Backend",
+        tech_domains='["Python"]',
+    )
+
+
 def test_probe_system_prompt_follows_flow_language() -> None:
     """English-flow probes must not embed Chinese filler words."""
     from realmock.domains.interview.realtime.control.silence_probe import probe_system_prompt

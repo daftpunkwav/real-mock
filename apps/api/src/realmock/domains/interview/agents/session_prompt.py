@@ -18,6 +18,7 @@ from realmock.domains.interview.schemas import InterviewConfig
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.domains.interview.agents.agent_prompts import (
+    _candidate_block,
     build_system_prompt,
     compact_candidate_block,
     needs_compact_candidate,
@@ -373,8 +374,13 @@ class SessionPromptMixin:
         flow_idx = tail.find("## Full flow")
         flow_tail = tail[flow_idx:] if flow_idx >= 0 else ""
 
+        needs_compact = needs_compact_candidate(phase)
+        is_currently_compact = "## Candidate (compact" in core
         middle = ""
-        if needs_compact_candidate(phase):
+        if needs_compact or is_currently_compact:
+            # Only strip the candidate block when we are about to replace it.
+            # Normal questioning-phase advances keep the full block and only
+            # refresh the phase lines below.
             start = -1
             for marker in ("## Candidate profile", "## Parsed resume", "## Candidate (compact"):
                 idx = head.find(marker)
@@ -388,7 +394,13 @@ class SessionPromptMixin:
             if candidate is None:
                 with api_db_session() as api_db:
                     candidate = get_candidate_profile(api_db, self.session.resume_id)
-            middle = compact_candidate_block(profile, candidate) + "\n"
+            if needs_compact:
+                middle = compact_candidate_block(profile, candidate) + "\n"
+            else:
+                # Leaving a compact-only phase (reverse_qa/summary) for a
+                # questioning phase: restore the full candidate block so the
+                # model keeps resume grounding for the rest of the interview.
+                middle = _candidate_block(profile, candidate, compact=False)
 
         new_phase_block = (
             "## Current phase\n"
