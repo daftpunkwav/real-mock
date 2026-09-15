@@ -228,6 +228,18 @@ class TestIsSafeHttpUrl:
             "https://api.example.com:8443", allow_local=False, allowed_ports=allowed
         ) is True
 
+    def test_explicit_port_whitelist_applies_to_loopback(self) -> None:
+        """An explicit whitelist is enforced even when loopback is allowed."""
+        allowed = frozenset({80, 443})
+        assert is_safe_http_url(
+            "http://127.0.0.1:11434/x", allow_local=True, allowed_ports=allowed
+        ) is False
+        assert is_safe_http_url(
+            "http://127.0.0.1/x", allow_local=True, allowed_ports=allowed
+        ) is True
+        # Without an explicit whitelist the dev behaviour is unchanged.
+        assert is_safe_http_url("http://127.0.0.1:11434/x", allow_local=True) is True
+
     def test_ipv6_literal_loopback_rejected(self) -> None:
         """The IPv6 literal [::1] is also strictly rejected."""
         assert is_safe_http_url("http://[::1]", allow_local=False) is False
@@ -244,6 +256,15 @@ class TestPinSafeHttpUrl:
     def test_pin_rejects_unsafe(self) -> None:
         with pytest.raises(UnsafeURLError):
             pin_safe_http_url("http://127.0.0.1:11434/v1", allow_local=False)
+
+    def test_pin_enforces_explicit_whitelist_on_loopback(self) -> None:
+        """Pinning must not skip the port discipline just because loopback is allowed."""
+        with pytest.raises(UnsafeURLError):
+            pin_safe_http_url(
+                "http://127.0.0.1:11434/v1",
+                allow_local=True,
+                allowed_ports=frozenset({80, 443}),
+            )
 
     def test_pin_public_hostname(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import ipaddress
