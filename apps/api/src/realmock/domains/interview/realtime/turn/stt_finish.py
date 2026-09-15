@@ -45,11 +45,29 @@ class TurnSttFinishMixin:
     ) -> None:
         epoch = self._begin_user_turn()
         if epoch is None:
+            logger.info(
+                "user_turn_end lock busy sid=%s turn_busy=%s busy_epoch=%s stream_epoch=%s",
+                self.ctx.session_id,
+                self.ctx.turn_busy,
+                self.ctx.busy_epoch,
+                self.ctx.stream_epoch,
+            )
+            await self.send(
+                "info",
+                message="The interviewer is still responding to the previous turn; please wait a moment",
+            )
             return
         db = SessionLocal()
         try:
             session = self._load_session(db)
             if not session:
+                logger.warning("user_turn_end session missing sid=%s", self.ctx.session_id)
+                await self.send(
+                    "error",
+                    message="Interview session not found; please re-enter the interview",
+                    code="A2001",
+                    retryable=False,
+                )
                 return
             self.rebind_runtime_session(session)
             await self._on_user_turn_end(data, db, session)
@@ -58,6 +76,12 @@ class TurnSttFinishMixin:
             try:
                 if epoch == self.ctx.stream_epoch:
                     await self.set_turn(TurnState.USER_SPEAKING)
+                    await self.send(
+                        "error",
+                        message="AI interviewer temporarily unavailable; please retry later",
+                        code="C0001",
+                        retryable=True,
+                    )
             except Exception:
                 logger.debug(
                     "user_turn_end restore USER_SPEAKING failed sid=%s",

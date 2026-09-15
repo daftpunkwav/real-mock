@@ -122,6 +122,6 @@ class TencentProvider:
 
         resp_obj = payload_json.get("Response") or {}
         if resp_obj.get("Error"):
-            logger.error("Tencent Cloud ASR Error: %s", resp_obj["Error"])
+            logger.error("Tencent Cloud ASR Error: %s", str(resp_obj["Error"]))
             return ""
         return str(resp_obj.get("Result") or "").strip()

@@ -106,7 +106,20 @@ class MessageDispatcherMixin:
             self.ctx.orchestrator.snapshot.vision_summary = VisionAgent.summarize(face)
 
     async def _start_user_turn_end(self, data: dict[str, Any]) -> None:
+        if self.ctx.closing:
+            return
         if not self._can_start_user_turn():
+            logger.info(
+                "user_turn_end busy sid=%s turn_busy=%s busy_epoch=%s stream_epoch=%s",
+                self.ctx.session_id,
+                self.ctx.turn_busy,
+                self.ctx.busy_epoch,
+                self.ctx.stream_epoch,
+            )
+            await self.send(
+                "info",
+                message="The interviewer is still responding to the previous turn; please wait a moment",
+            )
             return
         if self._llm_rate_limited(limit=_WS_LLM_RATE_LIMIT):
             await self._send_rate_limited()
@@ -191,15 +204,34 @@ class MessageDispatcherMixin:
                 code="A0003",
             )
             return
+        if not text or self.ctx.closing:
+            return
         if (
-            text
-            and self.ctx.turn_state == TurnState.USER_SPEAKING
-            and self._can_start_user_turn()
+            self.ctx.turn_state != TurnState.USER_SPEAKING
+            or not self._can_start_user_turn()
         ):
-            if self._llm_rate_limited(limit=_WS_LLM_RATE_LIMIT):
-                await self._send_rate_limited()
-                return
-            self._spawn(self._run_user_text(text, data))
+            # Never drop silently: the client cleared its input on send, so a
+            # quiet drop looks like "sent but the interviewer never replies"
+            # and the next message appears to "unblock" it. A light info toast
+            # tells the candidate to wait instead of resending.
+            logger.info(
+                "user_text dropped sid=%s state=%s turn_busy=%s busy_epoch=%s stream_epoch=%s len=%d",
+                self.ctx.session_id,
+                self.ctx.turn_state,
+                self.ctx.turn_busy,
+                self.ctx.busy_epoch,
+                self.ctx.stream_epoch,
+                len(text),
+            )
+            await self.send(
+                "info",
+                message="The interviewer is still responding to the previous turn; please wait a moment",
+            )
+            return
+        if self._llm_rate_limited(limit=_WS_LLM_RATE_LIMIT):
+            await self._send_rate_limited()
+            return
+        self._spawn(self._run_user_text(text, data))
 
     async def _on_coding_code_update(self, data: dict[str, Any]) -> None:
         try:
@@ -240,14 +272,35 @@ class MessageDispatcherMixin:
                 return
             agent = getattr(runner, "agent", None)
             turn_index = len(agent.agent_state.get("asked_questions", [])) if agent and hasattr(agent, "agent_state") else 0
-            report = await runner.coding_examiner.evaluate_submission(
-                code=code,
-                test_output=test_output,
-                turn_index=turn_index,
+            # Bounded so one slow LLM evaluation cannot hold the WS message
+            # loop (and with it user_text/playback_done) for minutes.
+            report = await asyncio.wait_for(
+                runner.coding_examiner.evaluate_submission(
+                    code=code,
+                    test_output=test_output,
+                    turn_index=turn_index,
+                ),
+                timeout=90.0,
             )
             await self.send("coding_eval_report", report=report.to_dict())
+        except asyncio.TimeoutError:
+            logger.warning(
+                "coding submit evaluation timed out sid=%s", self.ctx.session_id
+            )
+            await self.send(
+                "error",
+                message="Code evaluation timed out; please try again later",
+                code="C0001",
+                retryable=True,
+            )
         except Exception as exc:
             logger.warning("Failed to process coding submit request: %s", exc)
+            await self.send(
+                "error",
+                message="Code evaluation failed; please try again later",
+                code="C0001",
+                retryable=True,
+            )
 
 
 __all__ = ["MessageDispatcherMixin", "AUDIO_BUFFER_MAX_BYTES"]

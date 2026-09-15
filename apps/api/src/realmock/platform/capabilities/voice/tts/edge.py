@@ -24,7 +24,7 @@ VOICE_PRESETS = {
 DEFAULT_VOICE = VOICE_PRESETS["xiaoxiao"]
 
 # Hard segmentation point at the end of the sentence (aligned with the streaming enqueue strategy)
-_HARD_END = frozenset("。！？!?；;…\n")
+_HARD_END = frozenset("。！？!?；;…\n.")
 # Soft segmentation of long sentences (after the word count reaches the target)
 _SOFT_BREAK = frozenset("，、,")
 # The soft-cut word count rotates between short/medium/long to avoid sentences that are equal in length and unrealistic.

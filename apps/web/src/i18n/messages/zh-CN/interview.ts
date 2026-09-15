@@ -147,6 +147,7 @@ export const interview = {
   "chat.bubble.interviewer": "面试官",
   "chat.bubble.interviewerNudge": "面试官 · 追问",
   "chat.bubble.streamingSuffix": " · 输入中",
+  "chat.thinking": "面试官正在思考…",
 
   // ---- 房间:视频面板 / 人脸状态 ----
   "video.mic.off": "未开启",

@@ -184,33 +184,107 @@ async def stream_turn(
             )
             raise
 
-        # Asynchronously trigger Shadow Evaluator and periodic reflection
+        # Background agents (never gate the reply): Shadow evaluates the turn,
+        # periodic reflection consolidates memory, and the Process Orchestrator
+        # advises macro pacing. Each is bounded by a timeout so a slow LLM
+        # cannot pile up tasks or starve the main loop's rate budget.
         turn_index = len(runner.agent.agent_state.get("asked_questions", []))
-        try:
-            asyncio.create_task(
-                runner.shadow_evaluator.evaluate_turn(
-                    question=last_question,
-                    user_text=user_text,
-                    current_phase=turn_phase,
-                    turn_index=turn_index,
+
+        async def _bounded_shadow() -> None:
+            try:
+                await asyncio.wait_for(
+                    runner.shadow_evaluator.evaluate_turn(
+                        question=last_question,
+                        user_text=user_text,
+                        current_phase=turn_phase,
+                        turn_index=turn_index,
+                    ),
+                    timeout=45.0,
                 )
-            )
-            if turn_index > 0 and turn_index % 4 == 0:
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "shadow evaluation timed out sid=%s turn=%s",
+                    getattr(runner.session, "id", None),
+                    turn_index,
+                )
+            except Exception:
+                logger.debug("background shadow evaluation failed", exc_info=True)
+
+        async def _bounded_reflection() -> None:
+            try:
                 recent_turns = [
                     {"assistant": m.get("content", ""), "user": user_text}
                     for m in runner.agent.messages[-4:]
                     if isinstance(m, dict)
                 ]
-                asyncio.create_task(
+                await asyncio.wait_for(
                     reflect_on_dialogue(
                         runner.llm,
                         runner.agent.cognitive_memory,
                         recent_turns,
                         turn_index,
-                    )
+                    ),
+                    timeout=60.0,
                 )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "reflection timed out sid=%s turn=%s",
+                    getattr(runner.session, "id", None),
+                    turn_index,
+                )
+            except Exception:
+                logger.debug("background reflection failed", exc_info=True)
+
+        async def _bounded_orchestrator() -> None:
+            try:
+                from datetime import datetime, timezone as _tz
+
+                from realmock.domains.interview.agents.topology.process_orchestrator import (
+                    OrchestrationDirective,
+                )
+
+                started = getattr(runner.session, "started_at", None)
+                now = datetime.now(_tz.utc)
+                if started is not None:
+                    if started.tzinfo is None:
+                        started = started.replace(tzinfo=_tz.utc)
+                    elapsed_minutes = max(0.0, (now - started).total_seconds() / 60.0)
+                else:
+                    elapsed_minutes = float(turn_index * 2)
+                advice = await asyncio.wait_for(
+                    runner.process_orchestrator.decide_next_step(
+                        current_phase=turn_phase,
+                        turn_index=turn_index,
+                        elapsed_minutes=elapsed_minutes,
+                    ),
+                    timeout=20.0,
+                )
+                # Advisory only: persisted for observability, never gates reply.
+                runner.agent.agent_state["_orchestrator_advice"] = {
+                    "directive": advice.directive.value
+                    if isinstance(advice.directive, OrchestrationDirective)
+                    else str(advice.directive),
+                    "reason": advice.reason,
+                    "target_topic": advice.target_topic,
+                    "turn_index": turn_index,
+                }
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "orchestrator advice timed out sid=%s turn=%s",
+                    getattr(runner.session, "id", None),
+                    turn_index,
+                )
+            except Exception:
+                logger.debug("background orchestrator advice failed", exc_info=True)
+
+        try:
+            asyncio.create_task(_bounded_shadow())
+            if turn_index > 0 and turn_index % 4 == 0:
+                asyncio.create_task(_bounded_reflection())
+            if turn_index > 0 and turn_index % 6 == 0:
+                asyncio.create_task(_bounded_orchestrator())
         except Exception:
-            logger.debug("background shadow evaluation trigger failed", exc_info=True)
+            logger.debug("background agent trigger failed", exc_info=True)
 
         if output.interview_complete:
             run_finish_lifecycle(db, runner.session, mark_completed=False)

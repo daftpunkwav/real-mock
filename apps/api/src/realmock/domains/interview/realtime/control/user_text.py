@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -12,6 +13,8 @@ from realmock.domains.interview.agents.events import EventKind
 
 if TYPE_CHECKING:
     from realmock.domains.interview.realtime.core.context import ConnectionContext
+
+logger = logging.getLogger(__name__)
 
 
 class UserTextControlMixin:
@@ -38,6 +41,17 @@ class UserTextControlMixin:
             auto_hint=True,
         )
         if start_epoch != self.ctx.stream_epoch:
+            # Superseded by barge-in or a newer turn: the newer owner drives
+            # the mic. Defensive recovery: if no newer turn actually holds
+            # the lock (e.g. the barge path failed before set_turn), do not
+            # leave the room stuck in PROCESSING/AI_SPEAKING forever.
+            if not self.ctx.turn_busy and self.ctx.turn_state != TurnState.USER_SPEAKING:
+                logger.warning(
+                    "user_text superseded without owner sid=%s state=%s; reopening mic",
+                    self.ctx.session_id,
+                    self.ctx.turn_state,
+                )
+                await self._open_mic_after_playback()
             return
         if self.ctx.turn_state == TurnState.USER_SPEAKING:
             return

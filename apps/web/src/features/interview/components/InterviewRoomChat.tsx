@@ -18,6 +18,7 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
     canSend,
     handleSend,
     isRecording,
+    turnState,
   } = room;
   const t = useT("interview");
 
@@ -33,6 +34,9 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
           <ChatBubble key={i} role={m.role} content={m.content} />
         ))}
         {streamingText && <ChatBubble role="assistant" content={streamingText} streaming />}
+        {!streamingText && (turnState === "PROCESSING" || turnState === "AI_SPEAKING") && (
+          <ChatBubble role="assistant" content={t("chat.thinking")} streaming />
+        )}
         <div ref={chatEndRef} />
       </div>
 

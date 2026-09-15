@@ -152,6 +152,7 @@ export const interview = {
   "chat.bubble.interviewer": "Interviewer",
   "chat.bubble.interviewerNudge": "Interviewer · follow-up",
   "chat.bubble.streamingSuffix": " · typing",
+  "chat.thinking": "The interviewer is thinking…",
 
   // ---- Room: video panel / face status ----
   "video.mic.off": "Mic off",
