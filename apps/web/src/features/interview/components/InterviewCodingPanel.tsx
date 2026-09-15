@@ -87,21 +87,21 @@ export function InterviewCodingPanel() {
 
     try {
       if (language === "python") {
-        const res = await runPython(code);
-        if (res.outcome === "ok") {
-          setConsoleOutput(res.stdout || "Execution finished with no output.");
+        const res = await runPython(code).done;
+        if (res.status === "ok") {
+          setConsoleOutput(res.output || "Execution finished with no output.");
           setRunStatus("success");
         } else {
-          setConsoleOutput(`[Error] ${res.message}\n${res.stderr}`);
+          setConsoleOutput(`[Error] ${res.error ?? "Execution failed."}\n${res.stderr ?? ""}`);
           setRunStatus("error");
         }
       } else {
-        const res = await runJavascript(code);
-        if (res.outcome === "ok") {
-          setConsoleOutput(res.stdout || "Execution finished with no output.");
+        const res = await runJavascript(code).done;
+        if (res.status === "ok") {
+          setConsoleOutput(res.output || "Execution finished with no output.");
           setRunStatus("success");
         } else {
-          setConsoleOutput(`[Error] ${res.message}\n${res.stderr}`);
+          setConsoleOutput(`[Error] ${res.error ?? "Execution failed."}\n${res.stderr ?? ""}`);
           setRunStatus("error");
         }
       }
