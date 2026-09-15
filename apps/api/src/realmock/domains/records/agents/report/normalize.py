@@ -23,6 +23,7 @@ _NOTE_LIST_CAPS = {
     "exercises": 4,
 }
 _TOP_LIST_CAP = 10
+_EXTERNAL_NOTES_CAP = 5
 
 
 def _clip_list_str(value: Any, cap: int) -> list[str]:
@@ -158,7 +159,7 @@ def normalize_report_payload(data: dict[str, Any]) -> DebriefReport:
         face_analysis_summary=str(data.get("face_analysis_summary") or "").strip()[:600],
         presence_moments=_clip_list_str(data.get("presence_moments"), _TOP_LIST_CAP),
         rounds_context=str(data.get("rounds_context") or "").strip()[:2000],
-        external_notes=_clip_list_str(data.get("external_notes"), 6),
+        external_notes=_clip_list_str(data.get("external_notes"), _EXTERNAL_NOTES_CAP),
         turn_notes=notes,
     )
 

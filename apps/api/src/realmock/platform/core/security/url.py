@@ -148,8 +148,11 @@ def is_safe_http_url(
 
     - Allow only the http(s) schemes; reject http when ``require_https=True``;
     - Multiple A records: reject if **any** address is unsafe;
-    - When ``allow_local=False``, reject nonstandard ports (only 80/443 by default);
-    - When ``allow_local=True``, allow loopback while still rejecting private networks/metadata endpoints.
+    - Reject nonstandard ports (only 80/443 by default). An explicit
+      ``allowed_ports`` is enforced regardless of ``allow_local``: permitting
+      loopback must not silently drop the port discipline;
+    - ``allow_local=True`` additionally permits loopback hosts while still
+      rejecting private networks/metadata endpoints.
     """
     if not url:
         return False
@@ -165,7 +168,7 @@ def is_safe_http_url(
     if not parsed.hostname:
         return False
 
-    if not allow_local:
+    if allowed_ports is not None or not allow_local:
         port = parsed.port
         if port is not None and port not in (allowed_ports or _DEFAULT_ALLOWED_PORTS):
             return False
@@ -228,7 +231,7 @@ def pin_safe_http_url(
     if not hostname:
         raise UnsafeURLError(f"URL is missing hostname: {url!r}")
 
-    if not allow_local:
+    if allowed_ports is not None or not allow_local:
         port = parsed.port
         if port is not None and port not in (allowed_ports or _DEFAULT_ALLOWED_PORTS):
             raise UnsafeURLError(f"URL port is not allowed: {url!r}")

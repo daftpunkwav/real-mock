@@ -181,13 +181,19 @@ def parse_plan(data: object) -> InterviewPlan | None:
     if len(steps) < MIN_PLAN_STEPS:
         logger.info("plan rejected: only %d usable steps (need %d)", len(steps), MIN_PLAN_STEPS)
         return None
-    return InterviewPlan(
+    plan = InterviewPlan(
         steps=steps,
         round_note=str(data.get("round_note") or "").strip()[:200],
         source=str(data.get("source") or "agent").strip()[:20] or "agent",
         language=_clean_language(data.get("language")),
         opening=_clean_opening(data.get("opening")),
     )
+    if plan.steps and plan.steps[-1].kind != REVERSE_QA_KIND:
+        # The closing step is always the summary/verdict phase (planner
+        # contract rule 3) — whatever kind the model filled in. Tagging it lets
+        # the state machine inject the per-question score trajectory there.
+        plan.steps[-1].kind = "summary"
+    return plan
 
 
 def plan_from_workflow(workflow: Workflow) -> InterviewPlan:

@@ -281,7 +281,9 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       // Terminal failure (e.g. rate-limited): resolve loading with the message.
       clearHintTimeout();
       d.setReferenceHint(msg.message || "");
-      d.setLastQuestion(msg.question || "");
+      // Preserve the existing question if the error frame arrives malformed;
+      // otherwise the re-generate button would become permanently disabled.
+      d.setLastQuestion((prev) => msg.question || prev || "");
       d.setHintLoading(false);
     });
 

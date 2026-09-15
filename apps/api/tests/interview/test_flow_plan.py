@@ -78,6 +78,31 @@ def test_plan_from_workflow_preserves_static_ids():
     assert restored.steps[0].id == "identity_check"
 
 
+def test_parse_plan_tags_final_step_as_summary():
+    """The closing step is marked summary so the verdict turn receives score trajectory."""
+    plan = parse_plan(_agent_plan_dict(MIN_PLAN_STEPS))
+    assert plan is not None
+    assert plan.steps[-1].kind == "summary"
+
+
+def test_parse_plan_overrides_model_supplied_closing_kind():
+    """A non-empty 'wrap_up'-style closing kind must not defeat the summary tag."""
+    raw = _agent_plan_dict(MIN_PLAN_STEPS)
+    raw["steps"][-1]["kind"] = "wrap_up"
+    plan = parse_plan(raw)
+    assert plan is not None
+    assert plan.steps[-1].kind == "summary"
+
+
+def test_parse_plan_preserves_reverse_qa_on_closing_step():
+    """An explicit reverse_qa marker on the last step is a model-side choice we do not clobber."""
+    raw = _agent_plan_dict(MIN_PLAN_STEPS)
+    raw["steps"][-1]["kind"] = "reverse_qa"
+    plan = parse_plan(raw)
+    assert plan is not None
+    assert plan.steps[-1].kind == "reverse_qa"
+
+
 def test_parse_plan_language_and_opening_defaults():
     """Legacy plans without language/opening degrade to zh + identity_confirm."""
     plan = parse_plan(_agent_plan_dict(8))

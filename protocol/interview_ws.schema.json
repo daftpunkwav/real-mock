@@ -19,7 +19,10 @@
     "interview_complete",
     "server_ping",
     "info",
-    "error"
+    "error",
+    "coding_challenge_open",
+    "coding_test_result",
+    "coding_eval_report"
   ],
   "clientEventTypes": [
     "user_text",
@@ -31,7 +34,10 @@
     "request_finish",
     "vision_update",
     "tts_playback_done",
-    "pong"
+    "pong",
+    "coding_code_update",
+    "coding_run_request",
+    "coding_submit_request"
   ],
   "serverEventPayloads": {
     "turn_state": {
@@ -313,6 +319,45 @@
           "type": "boolean"
         }
       }
+    },
+    "coding_challenge_open": {
+      "required": [
+        "challenge"
+      ],
+      "properties": {
+        "challenge": {
+          "type": "object"
+        }
+      }
+    },
+    "coding_test_result": {
+      "required": [
+        "passed"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "test_results": {
+          "type": "array"
+        },
+        "stdout": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    },
+    "coding_eval_report": {
+      "required": [
+        "report"
+      ],
+      "properties": {
+        "report": {
+          "type": "object"
+        }
+      }
     }
   },
   "clientEventPayloads": {
@@ -412,6 +457,48 @@
       "properties": {
         "t": {
           "type": "number"
+        }
+      }
+    },
+    "coding_code_update": {
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        }
+      }
+    },
+    "coding_run_request": {
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        }
+      }
+    },
+    "coding_submit_request": {
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "test_output": {
+          "type": "string"
         }
       }
     }

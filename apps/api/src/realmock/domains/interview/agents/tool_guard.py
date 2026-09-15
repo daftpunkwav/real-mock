@@ -50,7 +50,22 @@ GUARD_STATE_KEY = "_tool_guard"
 
 
 class ToolGuardError(Exception):
-    """Terminal tool-guard failure (timeout-exhausted or circuit open)."""
+    """Terminal tool-guard failure (timeout-exhausted or circuit open).
+
+    Carries ``error_kind`` and ``already_logged`` so the platform loop can
+    avoid double-counting the same guard failure in agent-error logs.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: str = "tool_failed",
+        already_logged: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.error_kind = kind
+        self.already_logged = already_logged
 
 
 def _scope(error_context: dict[str, Any] | None) -> tuple[str, Any]:
@@ -80,6 +95,7 @@ class ToolGuard:
         self._scratch: dict[str, Any] = {}
         self._state_fn = state_fn
         self._error_context = error_context
+        self._lock = asyncio.Lock()
 
     def _box(self, *, create: bool = False) -> MutableMapping[str, Any]:
         """Streak store: shared agent_state when wired, else instance-local.
@@ -142,10 +158,13 @@ class ToolGuard:
         now = time.time()
         if streak >= self.circuit_streak and isinstance(opened_at, (int, float)):
             if now - opened_at < self.circuit_ttl_sec:
+                # The call never ran, so this refusal is not logged here; the
+                # loop records it once with the "circuit_open" kind.
                 raise ToolGuardError(
                     f"[{name}] unavailable: failed {streak} times in a row; "
                     "further calls are blocked for a while. Continue with other "
-                    f"tools or general knowledge; do not invent {name} results."
+                    f"tools or general knowledge; do not invent {name} results.",
+                    kind="circuit_open",
                 )
             # TTL expired: half-open trial (streak reset, this call decides).
             streak = 0
@@ -190,28 +209,37 @@ class ToolGuard:
                 )
                 return result
 
-        streak += 1
-        opened = streak >= self.circuit_streak
-        box = self._box(create=True)
-        box[name] = {
-            "streak": streak,
-            "opened_at": now if opened else None,
-        }
+        # Failure bookkeeping: re-read the shared entry under the lock so
+        # concurrent failures cannot overwrite each other's increment. The
+        # critical section must stay await-free (single-threaded asyncio makes
+        # it atomic); two guard instances may share one agent_state box, and
+        # the lock only serializes calls on this instance.
+        async with self._lock:
+            box = self._box(create=True)
+            entry = self._entry(box, name)
+            streak = entry.get("streak", 0) + 1
+            opened = streak >= self.circuit_streak
+            entry["streak"] = streak
+            entry["opened_at"] = now if opened else None
+            box[name] = entry
         domain, session = _scope(self._error_context)
         log_agent_error(
             domain=domain, session=session, tool=name, kind=fail_kind,
             message=f"{fail_msg} (attempts={attempts} streak={streak})",
         )
+        suffix = " Further calls are blocked for a while." if opened else ""
         if fail_kind == "timeout":
             raise ToolGuardError(
                 f"[{name}] {fail_msg}. Continue without it or retry later with "
-                "narrower args; do not invent results."
-                + (" Further calls are blocked for a while." if opened else "")
+                "narrower args; do not invent results." + suffix,
+                kind=fail_kind,
+                already_logged=True,
             )
         raise ToolGuardError(
             f"[{name}] {fail_msg}. Continue with other tools or general "
-            "knowledge; do not invent results."
-            + (" Further calls are blocked for a while." if opened else "")
+            "knowledge; do not invent results." + suffix,
+            kind=fail_kind,
+            already_logged=True,
         )
 
 

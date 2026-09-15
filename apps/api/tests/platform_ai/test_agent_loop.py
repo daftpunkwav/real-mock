@@ -558,3 +558,83 @@ async def test_agent_loop_drift_hint_quotes_narration() -> None:
     hint = llm.seen_messages[1][-1]
     assert hint["role"] == "system" and "called no tool" in hint["content"]
     assert preamble in hint["content"], "the unacted announcement must be quoted back"
+
+
+@pytest.mark.asyncio
+async def test_already_logged_tool_error_is_not_logged_again(monkeypatch) -> None:
+    """A guard that persisted its own failure must not be double-counted here."""
+    llm = _FakeLLM([
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "lookup", "arguments": "{}"},
+            }],
+        },
+        {"role": "assistant", "content": "Recovered." * 60, "tool_calls": None},
+    ])
+    logged: list[dict] = []
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.agent.loop.log_agent_error",
+        lambda **kwargs: logged.append(kwargs),
+    )
+
+    class _GuardedFailure(Exception):
+        def __init__(self) -> None:
+            super().__init__("timed out after 30s")
+            self.error_kind = "timeout"
+            self.already_logged = True
+
+    async def execute(name: str, args: dict) -> str:
+        raise _GuardedFailure()
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+    )
+    assert logged == []  # the guard owns that record
+    tool_msg = next(m for m in result.messages if m.get("role") == "tool")
+    assert tool_msg["content"].startswith("Tool execution failed:")
+
+
+@pytest.mark.asyncio
+async def test_plain_tool_error_is_logged_once(monkeypatch) -> None:
+    """An unmarked tool exception produces exactly one error record."""
+    llm = _FakeLLM([
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "lookup", "arguments": "{}"},
+            }],
+        },
+        {"role": "assistant", "content": "Recovered." * 60, "tool_calls": None},
+    ])
+    logged: list[dict] = []
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.agent.loop.log_agent_error",
+        lambda **kwargs: logged.append(kwargs),
+    )
+
+    async def execute(name: str, args: dict) -> str:
+        raise RuntimeError("boom")
+
+    await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+        error_context={"domain": "interview", "session": "7"},
+    )
+    assert len(logged) == 1
+    assert logged[0]["kind"] == "tool_failed"
+    assert logged[0]["tool"] == "lookup"
+    assert logged[0]["domain"] == "interview"

@@ -8,6 +8,7 @@ tool loop runs (produce/consume bridge, mirroring the prep chat pattern).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -20,6 +21,7 @@ from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
 from realmock.domains.interview.agents.history_compaction import maybe_fold_history
+from realmock.domains.interview.agents.memory.reflection import reflect_on_dialogue
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
@@ -55,6 +57,10 @@ async def stream_turn(
         runner.agent.record_user_text(user_text)
 
         last_question = runner.prompter.last_assistant_question()
+        pending_probe = None
+        if runner.agent.cognitive_memory.working_memory.pending_probes:
+            pending_probe = runner.agent.cognitive_memory.working_memory.pending_probes.pop(0)
+
         rag_msg = await runner.tools.maybe_retrieve_rag(
             query=f"{last_question} {user_text}".strip(),
         )
@@ -68,15 +74,20 @@ async def stream_turn(
             face=face,
             build_user_content=runner.prompter.build_user_content,
             session_id=runner.session.id,
+            pending_probe=pending_probe,
         )
 
         context_window = runner.prompter.get_context_window(db)
         pace_msg = runner.agent.pace_message()
-        if pace_msg:
-            runner.agent.messages.append({"role": "system", "content": pace_msg})
         api_messages = await runner.prompter.build_api_messages(
             user_text, face, image_b64, context_window=context_window
         )
+        # Pace is a transient, one-shot hint for this LLM call only. Do not
+        # persist it in message history: it would make messages[-1] a system
+        # message and break the "user message is last" invariant, and on
+        # image turns it would be replaced by the multimodal user content.
+        if pace_msg:
+            api_messages = [{"role": "system", "content": pace_msg}, *api_messages]
 
         outcome: dict[str, Any] = {}
         t_tools = time.perf_counter()
@@ -172,6 +183,34 @@ async def stream_turn(
                 getattr(runner.session, "id", None),
             )
             raise
+
+        # Asynchronously trigger Shadow Evaluator and periodic reflection
+        turn_index = len(runner.agent.agent_state.get("asked_questions", []))
+        try:
+            asyncio.create_task(
+                runner.shadow_evaluator.evaluate_turn(
+                    question=last_question,
+                    user_text=user_text,
+                    current_phase=turn_phase,
+                    turn_index=turn_index,
+                )
+            )
+            if turn_index > 0 and turn_index % 4 == 0:
+                recent_turns = [
+                    {"assistant": m.get("content", ""), "user": user_text}
+                    for m in runner.agent.messages[-4:]
+                    if isinstance(m, dict)
+                ]
+                asyncio.create_task(
+                    reflect_on_dialogue(
+                        runner.llm,
+                        runner.agent.cognitive_memory,
+                        recent_turns,
+                        turn_index,
+                    )
+                )
+        except Exception:
+            logger.debug("background shadow evaluation trigger failed", exc_info=True)
 
         if output.interview_complete:
             run_finish_lifecycle(db, runner.session, mark_completed=False)

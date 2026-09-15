@@ -96,10 +96,14 @@ question/follow-up plan/silence count.
         )
         if now - self.ctx.last_nudge_at < cooldown:
             return
-        # New question resets the probe budget (memory-only, no DB needed).
-        question = self._last_assistant_text()
-        if question != self.ctx.silence_probe_question:
-            self.ctx.silence_probe_question = question
+        # A new assistant question opens a new probe window. Counting assistant
+        # messages is exact: probes and the closing nudge are appended to the
+        # same message, so they never look like a new question (see
+        # _assistant_message_count).
+        count = self._assistant_message_count()
+        if count != self.ctx.silence_probe_msg_count:
+            self.ctx.silence_probe_msg_count = count
+            self.ctx.silence_probe_question = self._last_assistant_text().rstrip()
             self.ctx.silence_probe_seq = 0
             self.ctx.silence_capped = False
         if self.ctx.silence_capped:
@@ -122,7 +126,7 @@ question/follow-up plan/silence count.
             silent_sec = int(now - anchor) if anchor else 0
 
             probe_text = await self._generate_silence_probe(
-                question=question,
+                question=self.ctx.silence_probe_question,
                 probe_hint=probe_hint,
                 attempt=self.ctx.silence_probe_seq,
                 silent_sec=silent_sec,
@@ -225,6 +229,17 @@ question/follow-up plan/silence count.
             if m.get("role") == "assistant":
                 return str(m.get("content") or "")
         return ""
+
+    def _assistant_message_count(self) -> int:
+        """Number of assistant messages in history — the probe-window key.
+
+        Probes and the closing nudge are merged into the last assistant message
+        to keep alternating roles, so the count only grows when the interviewer
+        actually asks something new.
+        """
+        if not self.ctx.agent:
+            return 0
+        return sum(1 for m in self.ctx.agent.messages if m.get("role") == "assistant")
 
     def _append_to_last_assistant(self, text: str) -> None:
         """Merge the follow-up question into the latest assistant statement to avoid consecutive assistants in the message history."""

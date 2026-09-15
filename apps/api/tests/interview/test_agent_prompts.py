@@ -192,6 +192,18 @@ def test_questioning_phase_keeps_full_candidate_block() -> None:
     assert "MockInterviewApp" in prompt
 
 
+def test_needs_compact_candidate_covers_agent_plan_steps() -> None:
+    """Plan steps are matched by kind as well as static phases by id."""
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.agent_prompts import needs_compact_candidate
+
+    assert needs_compact_candidate(SimpleNamespace(id="s12", kind="summary")) is True
+    assert needs_compact_candidate(SimpleNamespace(id="s03", kind="reverse_qa")) is True
+    assert needs_compact_candidate(SimpleNamespace(id="summary", kind="")) is True
+    assert needs_compact_candidate(SimpleNamespace(id="s03", kind="")) is False
+
+
 def test_refresh_system_head_swaps_candidate_and_phase() -> None:
     """Phase advance rebuilds the frozen head: compact card + fresh phase lines."""
     from types import SimpleNamespace
@@ -248,6 +260,83 @@ def test_refresh_system_head_keeps_full_block_for_questioning_phase() -> None:
     head = mixin.messages[0]["content"]
     assert "Parsed resume" in head
     assert f"Phase: {next_phase.name}" in head
+
+
+def test_refresh_system_head_restores_full_block_after_compact_phase() -> None:
+    """Leaving reverse_qa/summary for a questioning phase must bring resume grounding back."""
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
+
+    opening_prompt = build_system_prompt(
+        **_prompt_kwargs(candidate=_candidate()),
+    )
+    mixin = SessionPromptMixin()
+    mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="")
+    mixin.agent_state = {}
+    mixin.messages = [{"role": "system", "content": opening_prompt}]
+    reverse_qa = next(p for p in get_workflow("technical").phases if p.id == "reverse_qa")
+    next_phase = get_workflow("technical").phases[2]  # basic_knowledge
+
+    # First enter the compact phase.
+    profile_stub = _profile_stub()
+
+    mixin.refresh_system_head(reverse_qa, profile=profile_stub, candidate=_candidate())
+    compact_head = mixin.messages[0]["content"]
+    assert "Candidate (compact" in compact_head
+    assert "Parsed resume" not in compact_head
+
+    # Then advance to a questioning phase: full resume block must be restored.
+    mixin.refresh_system_head(next_phase, profile=profile_stub, candidate=_candidate())
+    restored_head = mixin.messages[0]["content"]
+    assert "Candidate (compact" not in restored_head
+    assert "Parsed resume" in restored_head
+    assert f"Phase: {next_phase.name}" in restored_head
+
+
+def _profile_stub():
+    """Minimal profile that satisfies the full candidate block renderer."""
+    from realmock.platform.models import UserProfile
+
+    return UserProfile(
+        name="Zhang San",
+        target_role="Backend",
+        school="TSU",
+        job_direction="Backend",
+        tech_domains='["Python"]',
+    )
+
+
+def test_refresh_system_head_keeps_compact_card_without_candidate_data(
+    monkeypatch,
+) -> None:
+    """No profile/resume data: the compact card must survive, not become an empty section."""
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
+
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.session_prompt.get_candidate_profile",
+        lambda db, resume_id: None,
+    )
+    empty_profile = SimpleNamespace(
+        name="", school="", self_intro="", github_username="",
+    )
+    opening_prompt = build_system_prompt(**_prompt_kwargs(candidate=None))
+    mixin = SessionPromptMixin()
+    mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="")
+    mixin.agent_state = {}
+    mixin.messages = [{"role": "system", "content": opening_prompt}]
+    reverse_qa = next(p for p in get_workflow("technical").phases if p.id == "reverse_qa")
+    next_phase = get_workflow("technical").phases[2]  # basic_knowledge
+
+    mixin.refresh_system_head(reverse_qa, profile=empty_profile, candidate=None)
+    assert "Candidate (compact" in mixin.messages[0]["content"]
+
+    mixin.refresh_system_head(next_phase, profile=empty_profile, candidate=None)
+    restored_head = mixin.messages[0]["content"]
+    assert "Candidate (compact" in restored_head  # card kept as the fallback
+    assert f"Phase: {next_phase.name}" in restored_head
 
 
 def test_probe_system_prompt_follows_flow_language() -> None:

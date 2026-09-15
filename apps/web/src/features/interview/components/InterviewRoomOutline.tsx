@@ -1,12 +1,25 @@
 "use client";
 
+/**
+ * @file InterviewRoomOutline.tsx
+ * @description Right-hand container hosting avatar display, reference outline, and live coding whiteboard.
+ *
+ * Responsibilities:
+ * - Render the interactive 3D avatar stage and emotional state indicators.
+ * - Provide tab navigation between question outline and live coding sandbox.
+ * - Surface reference hints, source attributions, and token metrics.
+ */
+
+import { useState } from "react";
 import { useT } from "@/i18n";
-import { RefreshCw } from "lucide-react";
+import { Code2, FileText, RefreshCw } from "lucide-react";
 import { AvatarStage } from "@/features/avatar";
+import { InterviewCodingPanel } from "./InterviewCodingPanel";
 import type { InterviewRoomModel } from "../hooks/room";
 
-/** Right column: AvatarStage + reference answer card (no plan disclosure). */
+/** Right column: AvatarStage + reference answer card or Live Coding Sandbox. */
 export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
+  const [activeTab, setActiveTab] = useState<"outline" | "coding">("outline");
   const {
     sessionMeta,
     emotion,
@@ -32,9 +45,33 @@ export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
         speaking={aiSpeaking}
         audioLevel={audioLevel}
       />
-      <div className="rounded-lg border border-surface-border bg-surface-card p-3.5 sm:p-4 overflow-y-auto flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
-          <h3 className="text-[13px] font-medium text-ink">{t("room.outline.title")}</h3>
+      {activeTab === "coding" ? (
+        <div className="flex flex-col min-h-0 relative">
+          <div className="absolute top-2 right-2 z-10">
+            <button
+              type="button"
+              onClick={() => setActiveTab("outline")}
+              className="rounded border border-surface-border bg-surface px-2 py-0.5 text-[10px] font-medium text-ink-muted hover:text-ink shadow-sm"
+            >
+              返回面试参考
+            </button>
+          </div>
+          <InterviewCodingPanel />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-surface-border bg-surface-card p-3.5 sm:p-4 overflow-y-auto flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[13px] font-medium text-ink">{t("room.outline.title")}</h3>
+              <button
+                type="button"
+                onClick={() => setActiveTab("coding")}
+                className="inline-flex items-center gap-1 rounded border border-[var(--primary)]/30 bg-[var(--primary-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)] hover:opacity-80 transition-opacity"
+              >
+                <Code2 size={11} />
+                代码白板
+              </button>
+            </div>
           <div className="flex items-center gap-2">
             {showOutline && (
               <button
@@ -114,6 +151,7 @@ export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

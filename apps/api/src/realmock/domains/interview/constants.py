@@ -124,6 +124,9 @@ class WSServerEvent(StrEnum):
     SERVER_PING = "server_ping"
     INFO = "info"
     ERROR = "error"
+    CODING_CHALLENGE_OPEN = "coding_challenge_open"
+    CODING_TEST_RESULT = "coding_test_result"
+    CODING_EVAL_REPORT = "coding_eval_report"
 
 
 class WSClientEvent(StrEnum):
@@ -139,3 +142,6 @@ class WSClientEvent(StrEnum):
     VISION_UPDATE = "vision_update"
     TTS_PLAYBACK_DONE = "tts_playback_done"
     PONG = "pong"
+    CODING_CODE_UPDATE = "coding_code_update"
+    CODING_RUN_REQUEST = "coding_run_request"
+    CODING_SUBMIT_REQUEST = "coding_submit_request"

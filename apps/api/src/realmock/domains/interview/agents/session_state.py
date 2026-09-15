@@ -27,6 +27,7 @@ from realmock.domains.interview.agents.agent_text import (
     has_marker,
     strip_markers,
 )
+from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
 from realmock.domains.interview.agents.workflows import Workflow, get_workflow
 from realmock.domains.interview.process.planning.plan_schema import (
     MAX_PLAN_STEPS,
@@ -95,6 +96,9 @@ class InterviewSessionState(SessionPromptMixin):
         self.agent_state.setdefault("github_findings", [])
         self.agent_state.setdefault("tool_trace", [])
         self.agent_state.setdefault("asked_questions", [])
+        self.cognitive_memory: CognitiveMemoryGraph = CognitiveMemoryGraph.from_dict(
+            self.agent_state.get("cognitive_memory")
+        )
 
     def _load_plan(self) -> InterviewPlan | None:
         try:
@@ -115,6 +119,7 @@ class InterviewSessionState(SessionPromptMixin):
             "phase_idx": self.current_phase_idx,
             "questions_in_phase": self.questions_in_phase,
             "asked_topics": self.asked_topics,
+            "cognitive_memory": self.cognitive_memory.to_dict(),
         })
         self.session.agent_state = json.dumps(self.agent_state, ensure_ascii=False)
         self.session.messages = json.dumps(self.messages, ensure_ascii=False)

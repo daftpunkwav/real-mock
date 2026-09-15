@@ -94,6 +94,39 @@ _LOCAL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "issue_coding_challenge",
+            "description": "Activate the Coding Examiner to generate and issue a live coding challenge to the candidate.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Algorithmic topic or focus area, e.g. LRU cache, two pointers, binary search tree",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Preferred language: python, javascript, typescript",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "inspect_candidate_code",
+            "description": "Inspect the candidate's current code in the sandbox and latest test run outputs.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
 ]
 
 # Cross-round memory tools (only offered inside a multi-round process that has
@@ -297,6 +330,51 @@ async def execute_interview_tool(
                 int(arguments.get("offset") or 0),
             )
         return await _cap_result(raw, llm)
+
+    if name == "issue_coding_challenge":
+        from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
+        from realmock.domains.interview.agents.topology.coding_examiner import CodingExaminerAgent
+
+        raw_mem = agent_state.get("cognitive_memory")
+        if isinstance(raw_mem, CognitiveMemoryGraph):
+            mem_graph = raw_mem
+        elif isinstance(raw_mem, dict):
+            mem_graph = CognitiveMemoryGraph.from_dict(raw_mem)
+        else:
+            mem_graph = CognitiveMemoryGraph()
+
+        examiner = CodingExaminerAgent(llm, mem_graph)
+        lang = str(arguments.get("language") or "python")
+        challenge = await examiner.create_challenge(preferred_language=lang)
+        agent_state["active_coding_challenge"] = challenge.to_dict()
+        agent_state["cognitive_memory"] = mem_graph.to_dict()
+        return json.dumps({
+            "status": "challenge_issued",
+            "title": challenge.title,
+            "description": challenge.description,
+            "language": challenge.language,
+        }, ensure_ascii=False)
+
+    if name == "inspect_candidate_code":
+        raw_mem = agent_state.get("cognitive_memory")
+        if hasattr(raw_mem, "working_memory"):
+            code = getattr(raw_mem.working_memory, "candidate_code", "")
+            test_out = getattr(raw_mem.working_memory, "last_test_output", "")
+        elif isinstance(raw_mem, dict):
+            wm = raw_mem.get("working_memory", {}) if isinstance(raw_mem.get("working_memory"), dict) else {}
+            code = str(wm.get("candidate_code", ""))
+            test_out = str(wm.get("last_test_output", ""))
+        else:
+            code = ""
+            test_out = ""
+
+        if not code:
+            return json.dumps({"status": "no_code_submitted_yet"}, ensure_ascii=False)
+        return json.dumps({
+            "status": "code_available",
+            "candidate_code": code[:2000],
+            "last_test_output": test_out[:1000],
+        }, ensure_ascii=False)
 
     return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
 

@@ -1,7 +1,9 @@
-"""Structured follow-up signal analyzer.
+"""Structured follow-up signal analyzer with semantic probe support.
 
-Without calling an LLM, rules determine whether a candidate's answer needs a follow-up and the issue category,
-then generate a one-sentence follow-up cue and inject it into the system prompt to guide the interviewer.
+Responsibilities:
+- Determine whether candidate answers require follow-up probing.
+- Prioritize semantic probing directives from the Shadow Evaluator when available.
+- Fallback to rule-based analysis (vague, off_topic, missing_data, tech_hole) when no semantic probe exists.
 """
 
 from __future__ import annotations
@@ -10,7 +12,6 @@ import re
 from dataclasses import dataclass
 
 from realmock.domains.interview.constants import FollowupCategory
-
 
 # Vague fillers (Chinese colloquial + common English hedges) for bilingual answers
 VAGUE_TERMS: tuple[str, ...] = (
@@ -56,17 +57,19 @@ def analyze(
     tech_domains: list[str] | None = None,
     *,
     phase_id: str = "",
+    pending_probe: str | None = None,
 ) -> FollowupSignal:
     """Determine a follow-up signal from the answer content, current question, and candidate's tech stack.
 
-    Priority: vague > off_topic > missing_data > tech_hole.
-
-    Args:
-        phase_id: ID of the current interview phase. During candidate-questions/summary/small-talk phases, technical follow-up rules
-            (missing_data / tech_hole) are skipped to avoid inappropriate guidance such as
-            asking the candidate to "provide quantified data" during their question period. vague / off_topic
-            remain active because ambiguity or digression merits guidance in any phase.
+    Priority: pending_probe (semantic LLM) > vague > off_topic > missing_data > tech_hole.
     """
+    if pending_probe and pending_probe.strip():
+        return FollowupSignal(
+            True,
+            FollowupCategory.TECH_HOLE,
+            pending_probe.strip(),
+        )
+
     text = (answer or "").strip()
     if not text:
         return FollowupSignal(

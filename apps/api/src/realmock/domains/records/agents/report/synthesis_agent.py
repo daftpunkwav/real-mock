@@ -26,6 +26,33 @@ from realmock.platform.capabilities.ai.agent.tools import invoke_with_timeout
 
 SYNTHESIS_MAX_ROUNDS = 10
 _TOOL_TIMEOUT_SECONDS = 30.0
+# Web tools are the slowest and most rate-limited part of synthesis. Cap them
+# so the whole report stays inside the 480s wall-clock budget.
+_WEB_SEARCH_BUDGET = 4
+_WEB_FETCH_BUDGET = 4
+#: Exhaustion must speak the tools' own failure markers: the synthesis prompt
+#: keys its "skip external notes" rule on these exact tokens.
+_WEB_BUDGET_MARKERS = {
+    "web_search": "SEARCH_UNAVAILABLE",
+    "web_fetch": "FETCH_FAILED",
+}
+
+
+def _consume_web_budget(budget: dict[str, int], name: str) -> str | None:
+    """Charge one web-tool call; returns the exhaustion observation when spent.
+
+    Charging happens before the call, so failed or timed-out attempts count
+    too — retries must not multiply the worst-case time budget.
+    """
+    if name not in budget:
+        return None
+    if budget[name] <= 0:
+        return (
+            f"{_WEB_BUDGET_MARKERS[name]}\n"
+            f"{name} budget exhausted for this report; skip external notes."
+        )
+    budget[name] -= 1
+    return None
 
 
 async def run_synthesis(
@@ -51,7 +78,12 @@ async def run_synthesis(
     if context_specs:
         bundle.extend(context_specs)
 
+    web_budget = {"web_search": _WEB_SEARCH_BUDGET, "web_fetch": _WEB_FETCH_BUDGET}
+
     async def execute(name: str, args: dict[str, Any]) -> str:
+        exhausted = _consume_web_budget(web_budget, name)
+        if exhausted is not None:
+            return exhausted
         raw, _status = await invoke_with_timeout(
             bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS
         )
