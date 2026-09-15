@@ -18,8 +18,8 @@ from realmock.domains.interview.schemas import InterviewConfig
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.domains.interview.agents.agent_prompts import (
-    _candidate_block,
     build_system_prompt,
+    candidate_block,
     compact_candidate_block,
     needs_compact_candidate,
 )
@@ -400,7 +400,11 @@ class SessionPromptMixin:
                 # Leaving a compact-only phase (reverse_qa/summary) for a
                 # questioning phase: restore the full candidate block so the
                 # model keeps resume grounding for the rest of the interview.
-                middle = _candidate_block(profile, candidate, compact=False)
+                # With no profile/resume data the full block renders empty —
+                # keep the compact identity card rather than dropping the
+                # section entirely.
+                restored = candidate_block(profile, candidate, compact=False)
+                middle = (restored or compact_candidate_block(profile, candidate)) + "\n"
 
         new_phase_block = (
             "## Current phase\n"
