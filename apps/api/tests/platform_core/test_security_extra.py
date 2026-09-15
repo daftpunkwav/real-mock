@@ -61,7 +61,7 @@ class TestPortAndUrl:
 
     def test_assert_safe_raises_clear_error(self) -> None:
         """For an unsafe URL, ``assert_safe_http_url`` raises a clear exception containing the original URL."""
-        with pytest.raises(UnsafeURLError, match="URL rejected by policy") as exc:
+        with pytest.raises(UnsafeURLError, match="URL denied by policy") as exc:
             assert_safe_http_url("http://127.0.0.1:9999")
         # The original URL should appear in the error message
         assert "127.0.0.1:9999" in str(exc.value)

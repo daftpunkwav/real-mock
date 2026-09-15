@@ -8,8 +8,19 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+import pytest
+
 from realmock.asgi import app
 from realmock.platform.models import Resume
+
+
+@pytest.fixture(autouse=True)
+def _reset_analyze_rate_limit():
+    from realmock.platform.core.ratelimit import reset_rate_limit
+
+    reset_rate_limit()
+    yield
+    reset_rate_limit()
 
 
 def _seed_resume(api_db) -> Resume:

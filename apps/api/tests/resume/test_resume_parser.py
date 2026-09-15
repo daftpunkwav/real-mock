@@ -1,6 +1,14 @@
-"""Parser / file-lookup helpers that do not need an LLM."""
+"""Parser tests for src/realmock/domains/resume/services/parser.py.
+
+Covers: parse_resume_with_llm success/fallback branches, transcribe_pages_with_vision
+plus compress long-text branch (LLM faked, no download), file-lookup/text-extract
+helpers.
+Conventions: no real network/model downloads (all clients mocked); LLM faked.
+"""
 
 from __future__ import annotations
+
+import pytest
 
 from pathlib import Path
 
@@ -66,3 +74,21 @@ async def test_parse_resume_with_llm_marks_fallback() -> None:
     profile = await parse_resume_with_llm(raw, _Boom())  # type: ignore[arg-type]
     assert profile.parse_degraded is True
     assert profile.summary.startswith("hello resume")
+
+
+@pytest.mark.asyncio
+async def test_parser_transcribe_and_compress(monkeypatch) -> None:
+    from realmock.domains.resume.services import parser as mod
+    from tests.fakes import FakeLLMClient
+
+    llm = FakeLLMClient(tokens=["hello world"])
+    out = await mod.transcribe_pages_with_vision(["data:url1"], llm)  # type: ignore[arg-type]
+    assert "hello" in out.lower()
+
+    async def _fake_compress(llm_arg, source, **k):
+        return source[:10]
+
+    monkeypatch.setattr(mod, "compress_text_blob", _fake_compress)
+    long_text = "x" * (mod.PARSE_LLM_CHARS + 100)
+    profile = await mod.parse_resume_with_llm(long_text, llm)  # type: ignore[arg-type]
+    assert profile is not None

@@ -29,8 +29,8 @@ def test_auto_close_repairs_truncated_object() -> None:
 def test_auto_close_repairs_truncated_inside_string() -> None:
     text = '{"summary": "The assessment was cut off before completion'
     data = json.loads(_auto_close_brackets(text))
-    # NOTE: expectation paraphrases input; parser only auto-closes brackets
-    assert data["summary"].startswith("Evaluation cut off before completion")
+    # Parser only auto-closes brackets; content passes through verbatim.
+    assert data["summary"].startswith("The assessment was cut off")
 
 
 def test_parse_chat_json_repairs_unclosed_root() -> None:

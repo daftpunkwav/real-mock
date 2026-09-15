@@ -69,7 +69,7 @@ def test_format_context_renders_hits() -> None:
         },
     ]
     out = format_context(hits)
-    assert "Enterprise knowledge base retrieval supplement" in out
+    assert "Enterprise knowledge base search supplement" in out
     assert "[focus_areas]" in out
     assert "ByteDance" in out
 

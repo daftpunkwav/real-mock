@@ -48,8 +48,8 @@ def test_escapes_and_cn_quotes() -> None:
     body = '{"say": "quote\\" and \\\\backslash and \\nnewline and “curly quotes”", "wait_seconds": 30}'
     parser = SayFirstStreamParser()
     text = feed_all(parser, body, 4)
-    # NOTE: expectation paraphrases input ("curly quotes" vs "Chinese quotes", spacing differs); parser only unescapes.
-    assert text == 'quote"and\\backslash and\nnewline and “Chinese quotes”'
+    # Parser only unescapes; output preserves input wording/spacing.
+    assert text == 'quote" and \\backslash and \nnewline and “curly quotes”'
     assert parser.controls and parser.controls["wait_seconds"] == 30
 
 
@@ -57,16 +57,16 @@ def test_unicode_escape_across_tokens() -> None:
     body = '{"say": "A\\u4f60\\u597dB", "wait_seconds": 5}'
     parser = SayFirstStreamParser()
     text = feed_all(parser, body, 2)
-    # NOTE: expectation translates input (CJK U+4F60 U+597D vs Hello); parser only unescapes \uXXXX.
-    assert text == "AHelloB"
+    # \u4f60\u597d decodes to the CJK greeting "ni-hao".
+    assert text == "A你好B"
 
 
 def test_unclosed_say_falls_back_to_tail() -> None:
     body = '{"say": "Cut off halfway through'
     parser = SayFirstStreamParser()
     text = feed_all(parser, body, 5)
-    # NOTE: expectation paraphrases input ("halfway through" vs "mid-sentence"); parser only returns tail.
-    assert text == "Cut off mid-sentence"
+    # Unclosed JSON falls back to the streamed tail verbatim.
+    assert text == "Cut off halfway through"
     assert parser.controls is None
 
 
@@ -85,8 +85,8 @@ def test_late_say_key_still_extracts() -> None:
     body = '{"wait_seconds": 9, "say": "You made a good point", "emotion": "smile"}'
     parser = SayFirstStreamParser()
     text = feed_all(parser, body, 3)
-    # NOTE: expectation paraphrases input ("You made a good point" vs "That's a good answer"); parser only extracts say.
-    assert text == "That's a good answer"
+    # Parser extracts the say field verbatim.
+    assert text == "You made a good point"
     assert parser.controls and parser.controls["emotion"] == "smile"
 
 
@@ -104,8 +104,8 @@ def test_non_string_say_degrades_to_raw() -> None:
 def test_parse_turn_output_full() -> None:
     controls = json.loads(FULL)
     out = parse_turn_output(controls, say_text="Okay, let us discuss flash-sale systems. Start by explaining the architecture layers.")
-    # NOTE: expectation paraphrases say_text ("let us ... systems." vs "let's ... system"); parser only validates fields.
-    assert out.say.startswith("Okay, let's discuss the flash-sale system")
+    # Parser passes say_text through and clamps wait to the 7-60s window.
+    assert out.say.startswith("Okay, let us discuss flash-sale systems")
     assert out.protocol_version == 1
     assert out.wait_seconds == 60  # clamped to the 7-60s nudge window
     assert out.emotion == "serious"

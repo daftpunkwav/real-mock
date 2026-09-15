@@ -5,14 +5,18 @@ from __future__ import annotations
 from realmock.domains.interview.realtime.nudge.orchestrator import InterviewOrchestrator
 
 
+def _low(nudge: str) -> str:
+    return nudge.lower()
+
+
 def test_silence_nudge_strict_branch_uses_strict_templates() -> None:
     """The high-pressure persona should use the strict branch template."""
     orch = InterviewOrchestrator()
     for _ in range(12):
-        nudge = orch.build_silence_nudge("pressure", strictness=3)
+        nudge = _low(orch.build_silence_nudge("pressure", strictness=3))
         assert any(
             k in nudge
-            for k in ("Conclusion", "Main point", "Time is limited", "One or two sentences", "More specific", "Respond directly")
+            for k in ("conclusion", "core point", "time is limited", "one or two sentences", "more specific", "respond directly")
         ), nudge
 
 
@@ -20,10 +24,10 @@ def test_silence_nudge_gentle_branch_uses_gentle_templates() -> None:
     """A gentle persona with low strictness should use the gentle branch template."""
     orch = InterviewOrchestrator()
     for _ in range(12):
-        nudge = orch.build_silence_nudge("gentle", strictness=1)
+        nudge = _low(orch.build_silence_nudge("gentle", strictness=1))
         assert any(
             k in nudge
-            for k in ("No problem", "Idea", "Start speaking", "Familiar", "Most memorable", "Try another angle", "Sub-question", "Context")
+            for k in ("doesn't matter", "speak first", "familiar", "impressive", "background", "angle", "sub-question")
         ), nudge
 
 
@@ -32,9 +36,9 @@ def test_silence_nudge_low_strictness_uses_first_tier() -> None:
     orch = InterviewOrchestrator()
     for s in (1, 2, 3, 4):
         for _ in range(8):
-            nudge = orch.build_silence_nudge("professional", strictness=s)
+            nudge = _low(orch.build_silence_nudge("professional", strictness=s))
             assert any(
-                k in nudge for k in ("No problem", "Idea", "Start speaking", "Familiar")
+                k in nudge for k in ("doesn't matter", "speak first", "familiar")
             ), f"strictness={s}: {nudge}"
 
 
@@ -43,14 +47,14 @@ def test_silence_nudge_mid_strictness_uses_second_tier() -> None:
     orch = InterviewOrchestrator()
     for s in (5, 6, 7, 8):
         for _ in range(8):
-            nudge = orch.build_silence_nudge("professional", strictness=s)
+            nudge = _low(orch.build_silence_nudge("professional", strictness=s))
             if s >= 6:
                 assert any(
-                    k in nudge for k in ("Time is limited", "One or two sentences", "Summarize")
+                    k in nudge for k in ("time is limited", "one or two sentences", "conclusion", "core point")
                 ), f"strictness={s}: {nudge}"
             else:
                 assert any(
-                    k in nudge for k in ("Most memorable", "Context", "Process", "Result", "Entry point")
+                    k in nudge for k in ("impressive", "background", "process", "results", "incision")
                 ), f"strictness={s}: {nudge}"
 
 
@@ -59,9 +63,9 @@ def test_silence_nudge_max_strictness_uses_last_tier() -> None:
     orch = InterviewOrchestrator()
     for s in (9, 10):
         for _ in range(8):
-            nudge = orch.build_silence_nudge("professional", strictness=s)
+            nudge = _low(orch.build_silence_nudge("professional", strictness=s))
             assert any(
-                k in nudge for k in ("More specific", "Respond directly", "Key point")
+                k in nudge for k in ("more specific", "respond directly", "key points")
             ), f"strictness={s}: {nudge}"
 
 
@@ -69,16 +73,18 @@ def test_silence_nudge_identity_phase_is_contextual() -> None:
     """The identity verification stage should use stage-specific copy."""
     orch = InterviewOrchestrator()
     for _ in range(10):
-        nudge = orch.build_silence_nudge(
-            "professional", strictness=1, phase="identity_check"
+        nudge = _low(
+            orch.build_silence_nudge(
+                "professional", strictness=1, phase="identity_check"
+            )
         )
         assert any(
-            k in nudge for k in ("Confirm", "Identity", "Confirmed", "Formal interview")
+            k in nudge for k in ("confirm", "identity", "formal interview", "correction")
         ), nudge
 
 
 def test_silence_nudge_normal_strictness_not_skips_first_template() -> None:
     """Regression: normal strictness (1) should select the gentlest tier."""
     orch = InterviewOrchestrator()
-    nudge = orch.build_silence_nudge("professional", strictness=1)
-    assert any(k in nudge for k in ("No problem", "Idea", "Start speaking", "Familiar")), nudge
+    nudge = _low(orch.build_silence_nudge("professional", strictness=1))
+    assert any(k in nudge for k in ("doesn't matter", "speak first", "familiar")), nudge

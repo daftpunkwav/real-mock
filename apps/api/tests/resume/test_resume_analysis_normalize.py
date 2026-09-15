@@ -1,4 +1,12 @@
-"""Unit tests for resume assessment payload normalization."""
+"""Analysis normalize tests for src/realmock/domains/resume/services/analysis_normalize.py.
+
+Covers: normalize_resume_analysis_payload basic/clamp/empty/locale/nested/weights/
+scores/dims/rewrite/suggestion blobs plus deep-questions/repo-evidence/suggestion
+edges, rewrite-pair loaders, score coerce/pick/weights/percentile branches.
+Conventions: no real network/model downloads (all clients mocked); pure logic.
+"""
+
+from types import SimpleNamespace
 
 from realmock.domains.resume.services.analysis_normalize import (
     normalize_resume_analysis_payload,
@@ -386,3 +394,136 @@ def test_compute_score_uses_validated_weights():
     }
     assert compute_score_from_dims(dims, {"role_fit": 18.0, "typography": 2.0}) == 90
     assert compute_score_from_dims(dims, {"role_fit": 6.0, "typography": 6.0}) == 50
+
+
+def test_normalize_deep_questions_and_repo_and_suggestion() -> None:
+    from realmock.domains.resume.services import analysis_normalize as mod
+
+    assert mod._normalize_deep_questions("bad") == []
+    out = mod._normalize_deep_questions(
+        [{"question": "  "}, {"question": "What is cache?", "intent": "probe"}]
+    )
+    assert len(out) == 1 and out[0]["question"] == "What is cache?"
+    assert mod._normalize_repo_evidence([{"repo": "a", "stars": "x"}]) is not None
+    assert mod._normalize_repo_evidence(["bad", {"repo": "r"}])[0]["repo"] == "r"
+    assert mod._format_structured_suggestion({"current": "old"}) == "old"
+    assert mod._format_structured_suggestion({}) is None
+
+
+def test_normalize_rewrite_variants() -> None:
+    from realmock.domains.resume.services.analysis_normalize import (
+        _arrow_rewrite_pair,
+        _keyed_rewrite_pair,
+        _labeled_rewrite_pair,
+        _loads_rewrite_dict,
+        _normalize_rewrite_examples,
+        _strip_heading_markers,
+    )
+
+    assert _loads_rewrite_dict('{"before":"a","after":"b"}') == {"before": "a", "after": "b"}
+    assert _loads_rewrite_dict("{'before': 'a', 'after': 'b'}") == {"before": "a", "after": "b"}
+    assert _loads_rewrite_dict("not-a-dict") is None
+    assert _loads_rewrite_dict("[1,2]") is None
+    assert _keyed_rewrite_pair("{'before': 'x', 'after': 'y'}") == ("x", "y")
+    assert _keyed_rewrite_pair("nothing") == ("", "")
+    assert _labeled_rewrite_pair("before: old after: new") == ("old", "new")
+    assert _labeled_rewrite_pair("nothing") == ("", "")
+    assert _arrow_rewrite_pair("old -> new") == ("old", "new")
+    assert _arrow_rewrite_pair("[before] old => [after] new") == ("old", "new")
+    assert _arrow_rewrite_pair("no-arrow") == ("", "")
+    assert _strip_heading_markers("### title") == "title"
+
+    out = _normalize_rewrite_examples("not-a-list")
+    assert out == []
+    out2 = _normalize_rewrite_examples([
+        {"before": "### a", "after": "b"},
+        '{"before": "x", "after": "y"}',
+        "{'before': 'p', 'after': 'q'}",
+        "before: m after: n",
+        "m -> n",
+        {"before": "", "after": ""},
+        "dangling",
+    ])
+    assert {"before": "a", "after": "b"} in out2
+    assert len(out2) >= 4
+
+
+def test_normalize_scores_dims_and_weights() -> None:
+    from realmock.domains.resume.services.analysis_normalize import (
+        _coerce_dimension_map,
+        _coerce_int_score,
+        _normalize_dimension_weights,
+        _norm_score,
+        _pick_overall_score,
+        benchmark_percentile_from_score,
+        compute_score_from_dims,
+    )
+    from realmock.domains.resume.schemas.limits import DIMENSION_WEIGHTS
+
+    assert _coerce_int_score("88.7") == 88
+    assert _coerce_int_score("abc") is None
+    assert _norm_score("abc") == 0
+    assert _pick_overall_score({"score": 0, "overall_score": 90}) == 0
+    assert _pick_overall_score({"overall_score": "77"}) == 77
+    assert _pick_overall_score({}) == 0
+    assert _pick_overall_score({"score": 150}) == 100
+    assert _coerce_dimension_map({"a": 1}) == {"a": 1}
+    assert _coerce_dimension_map([{"key": "k", "score": 1}, "bad", {}]) == {"k": {"key": "k", "score": 1}}
+    assert _coerce_dimension_map("bad") == {}
+    w = _normalize_dimension_weights({"unknown_dim": 9, "tech_depth": "bad", "tech_depth2": 1})
+    assert w == DIMENSION_WEIGHTS
+    w2 = _normalize_dimension_weights({"tech_depth": float("inf")})
+    assert w2["tech_depth"] == DIMENSION_WEIGHTS["tech_depth"]
+    w3 = _normalize_dimension_weights({"tech_depth": 999})
+    assert w3["tech_depth"] <= max(v for v in w3.values())
+    assert _normalize_dimension_weights("bad") == DIMENSION_WEIGHTS
+    assert benchmark_percentile_from_score(0) < benchmark_percentile_from_score(100)
+    assert compute_score_from_dims({}) is None
+    assert compute_score_from_dims({"a": SimpleNamespace(score=None)}) is None
+    assert compute_score_from_dims({"a": SimpleNamespace(score=80)}, weights={"a": 0}) is None
+    assert compute_score_from_dims({"a": SimpleNamespace(score=80), "b": SimpleNamespace(score=60)}) == 70
+
+
+def test_normalize_nested_blobs() -> None:
+    from realmock.domains.resume.services.analysis_normalize import normalize_resume_analysis_payload
+
+    data = normalize_resume_analysis_payload(
+        {
+            "score": 80,
+            "dimension_scores": {
+                "tech_depth": {"comment": "no-score"},
+                "role_fit": {"score": "bad"},
+                "k2": {"score": 90, "comment": "ok"},
+                "k3": 70,
+            },
+            "section_reviews": [{"section": "exp", "score": "90", "verdict": "v", "detail": "d"}, "bad"],
+            "project_cards": [{"name": "p", "score": 80, "deep_questions": ["why?"]}, "bad"],
+            "skill_trust": {"solid": ["Python"], "claimed": [], "missing": []},
+            "career_analysis": {"trajectory": "up", "stability_score": 80, "gaps": ["g"], "notes": "n"},
+            "company_fit": [{"tier": "t", "fit_score": 80, "reason": "r"}, "bad"],
+            "repo_evidence": [{"repo": "o/r", "stars": "10", "forks": "x"}],
+            "repo_verification": [{"repo": "o/r", "verdict": "ok", "details": "d"}, "bad"],
+            "interview_qa": [{"question": "q?", "intent": "i", "answer_points": ["a"], "follow_ups": ["f"]}, {"no": "q"}, "bad"],
+            "improvement_suggestions": [{"location": "exp", "current": "a", "suggested": "b", "effect": "e"}, "{'location': 'x', 'current': 'a', 'suggested': 'b', 'effect': 'e'}", "plain", {}, ""],
+            "interviewer_comments": ["a", "b", "c", "d", "e"],
+            "dimension_weights": {"tech_depth": 1.5},
+        },
+        locale="en",
+    )
+    assert data["dimension_scores"]["k2"]["score"] == 90
+    assert "tech_depth" not in data["dimension_scores"]
+    assert data["skill_trust"]["solid"] == ["Python"]
+    assert data["career_analysis"]["trajectory"] == "up"
+    assert data["repo_evidence"][0]["stars"] == 10
+    assert len(data["interviewer_comments"]) == 4
+    assert any("exp" in s for s in data["improvement_suggestions"])
+
+    assert normalize_resume_analysis_payload("bad") == {}
+    zh = normalize_resume_analysis_payload({"score": 10, "headline": "，hello"}, locale="zh-CN")
+    assert zh["score"] == 10
+    empty_trust = normalize_resume_analysis_payload({"score": 1, "skill_trust": {"solid": [], "claimed": [], "missing": []}})
+    assert empty_trust["skill_trust"] is None
+    empty_career = normalize_resume_analysis_payload({"score": 1, "career_analysis": {"trajectory": "", "gaps": []}})
+    assert empty_career["career_analysis"] is None
+    assert normalize_resume_analysis_payload({"score": 1, "skill_trust": "bad"})["skill_trust"] is None
+    assert normalize_resume_analysis_payload({"score": 1, "career_analysis": "bad"})["career_analysis"] is None

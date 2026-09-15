@@ -28,8 +28,8 @@ def test_pick_stt_prefers_asr_over_browser_chinese():
         "Hello, everything in the restaurant is audible",
         "Hello, both you and the interviewer can hear this",
     )
-    assert "Interviewer" in got
-    assert "Restaurant" not in got
+    assert "interviewer" in got.lower()
+    assert "restaurant" not in got.lower()
 
 
 def test_pick_stt_prefers_whisper_on_english():
