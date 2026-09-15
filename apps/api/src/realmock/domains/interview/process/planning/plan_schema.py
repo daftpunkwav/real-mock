@@ -188,8 +188,9 @@ def parse_plan(data: object) -> InterviewPlan | None:
         language=_clean_language(data.get("language")),
         opening=_clean_opening(data.get("opening")),
     )
-    if plan.steps and not plan.steps[-1].kind:
-        # The closing step is always the summary/verdict phase. Tagging it lets
+    if plan.steps and plan.steps[-1].kind != REVERSE_QA_KIND:
+        # The closing step is always the summary/verdict phase (planner
+        # contract rule 3) — whatever kind the model filled in. Tagging it lets
         # the state machine inject the per-question score trajectory there.
         plan.steps[-1].kind = "summary"
     return plan
