@@ -72,11 +72,15 @@ async def stream_turn(
 
         context_window = runner.prompter.get_context_window(db)
         pace_msg = runner.agent.pace_message()
-        if pace_msg:
-            runner.agent.messages.append({"role": "system", "content": pace_msg})
         api_messages = await runner.prompter.build_api_messages(
             user_text, face, image_b64, context_window=context_window
         )
+        # Pace is a transient, one-shot hint for this LLM call only. Do not
+        # persist it in message history: it would make messages[-1] a system
+        # message and break the "user message is last" invariant, and on
+        # image turns it would be replaced by the multimodal user content.
+        if pace_msg:
+            api_messages = [{"role": "system", "content": pace_msg}, *api_messages]
 
         outcome: dict[str, Any] = {}
         t_tools = time.perf_counter()
