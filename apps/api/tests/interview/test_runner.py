@@ -824,3 +824,44 @@ def test_interview_runner_function_tools_without_rag(db) -> None:
     tools = runner.tools.collect_chat_tools()
     assert tools is not None
     assert any((t.get("function") or {}).get("name") == "lookup_resume_projects" for t in tools)
+
+
+def test_stream_turn_pace_hint_is_transient(db) -> None:
+    """The pace hint reaches the LLM as a one-shot system prefix, never the persisted history."""
+    import asyncio
+    from datetime import datetime, timedelta, timezone
+
+    session = _make_session(db)
+    session.agent_state = json.dumps({"phase_idx": 3, "questions_in_phase": 0})
+    session.current_phase = "project_deep_dive"
+    session.started_at = datetime.now(timezone.utc) - timedelta(minutes=31)
+    db.commit()
+    db.refresh(session)
+
+    llm = FakeLLMClient(tokens=_proto_tokens("Next question?"))
+    runner = InterviewRunner(session, llm)
+
+    async def run():
+        events = []
+        async for e in runner.stream_turn("My answer", db):
+            events.append(e)
+        return events
+
+    events = asyncio.run(run())
+
+    # The LLM call starts with the transient pace system hint.
+    assert llm.stream_calls, "the turn must call the LLM"
+    first_call = llm.stream_calls[0]
+    assert first_call[0]["role"] == "system"
+    assert "[Pace:" in first_call[0]["content"]
+
+    # ...and the persisted history keeps the plain user-tail invariant.
+    roles = [m.get("role") for m in runner.agent.messages]
+    assert roles[-1] == "assistant"
+    assert all(
+        "[Pace:" not in str(m.get("content") or "")
+        for m in runner.agent.messages
+    )
+
+    turn_done = next(e for e in events if e.kind == EventKind.TURN_COMPLETE)
+    assert turn_done.content == "Next question?"
