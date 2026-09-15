@@ -148,6 +148,10 @@ def test_parse_payload_empty_and_invalid(db) -> None:
 
 
 def test_reset_for_retry_creates_when_missing(db) -> None:
+    # The suite shares one SQLite file; arrange "missing" instead of assuming
+    # the hard-coded id is untouched by earlier tests.
+    db.query(InterviewReportRow).filter(InterviewReportRow.session_id == 114).delete()
+    db.commit()
     row = store.reset_for_retry(db, 114)
     assert row.status == store.STATUS_PENDING
 
