@@ -380,3 +380,46 @@ async def test_get_user_profile_and_candidate_use_api_db(monkeypatch) -> None:
     assert m.get_user_profile(None) == "PROFILE"  # type: ignore[arg-type]
     assert m.get_candidate(None) == "CAND"  # type: ignore[arg-type]
     assert seen["u"] == ("API-DB", 1)
+
+
+def test_build_opening_prompt_blends_research_digest(monkeypatch) -> None:
+    import realmock.domains.interview.agents.session_prompt as sp
+
+    m = _mixin()
+    monkeypatch.setattr(m, "get_candidate", lambda db: None)
+    monkeypatch.setattr(m, "get_user_profile", lambda db: None)
+    monkeypatch.setattr(sp, "get_company_context", lambda cid: "CATALOG")
+    monkeypatch.setattr(sp, "load_session_company_research", lambda db, s: "DIGEST")
+
+    captured: dict = {}
+
+    def fake_build(*args, **kwargs):
+        captured["ctx"] = args[2]
+        return "SYSTEM "
+
+    monkeypatch.setattr(sp, "build_system_prompt", fake_build)
+    m.current_phase = lambda: SimpleNamespace(id="identity_check")  # type: ignore[method-assign]
+    out = m.build_opening_prompt(db=None)  # type: ignore[arg-type]
+    assert out.startswith("SYSTEM ")
+    assert captured["ctx"] == "DIGEST"
+
+
+def test_build_opening_prompt_keeps_catalog_without_digest(monkeypatch) -> None:
+    import realmock.domains.interview.agents.session_prompt as sp
+
+    m = _mixin()
+    monkeypatch.setattr(m, "get_candidate", lambda db: None)
+    monkeypatch.setattr(m, "get_user_profile", lambda db: None)
+    monkeypatch.setattr(sp, "get_company_context", lambda cid: "CATALOG")
+
+    captured: dict = {}
+
+    def fake_build(*args, **kwargs):
+        captured["ctx"] = args[2]
+        return "SYSTEM "
+
+    monkeypatch.setattr(sp, "build_system_prompt", fake_build)
+    m.current_phase = lambda: SimpleNamespace(id="identity_check")  # type: ignore[method-assign]
+    out = m.build_opening_prompt(db=None)  # type: ignore[arg-type]
+    assert out.startswith("SYSTEM ")
+    assert captured["ctx"] == "CATALOG"

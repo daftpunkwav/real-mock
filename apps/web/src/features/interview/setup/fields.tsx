@@ -17,8 +17,10 @@ import type {
 import { ChoiceGroup, CompanyGrid, ResumeWarning, Select } from "./controls";
 import { ProcessorCard } from "./processorCard";
 import {
+  CUSTOM_COMPANY_ID,
   CUSTOM_ROLE_ID,
   avatarLabel,
+  isPresetCompany,
   isPresetRole,
   levelLabel,
   localizeOptions,
@@ -122,6 +124,8 @@ export function SetupFields({
     ? config.role
     : CUSTOM_ROLE_ID;
   const customRoleText = roleSelectValue === CUSTOM_ROLE_ID ? config.role : "";
+  const companyIsCustom = !isPresetCompany(config.company, options.companies);
+  const customCompanyText = companyIsCustom ? config.company : "";
 
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pb-2 pr-0.5">
@@ -130,8 +134,8 @@ export function SetupFields({
           <Select
             label={t("setup.role.label")}
             value={roleSelectValue}
-            options={[...options.roles, CUSTOM_ROLE_ID]}
-            labels={[...localized.roleLabels, roleLabel(CUSTOM_ROLE_ID, t)]}
+            options={[CUSTOM_ROLE_ID, ...options.roles]}
+            labels={[roleLabel(CUSTOM_ROLE_ID, t), ...localized.roleLabels]}
             onChange={(v) => {
               if (v === CUSTOM_ROLE_ID) onConfig({ role: "" });
               else onConfig({ role: v });
@@ -176,10 +180,29 @@ export function SetupFields({
       <div className="surface-card p-3.5">
         <label className="field-label !mb-2 !text-xs">{t("setup.company.label")}</label>
         <CompanyGrid
-          value={config.company}
-          companies={localized.companies.map((c) => ({ id: c.id, name: c.name }))}
-          onChange={(v) => onConfig({ company: v })}
+          value={companyIsCustom ? CUSTOM_COMPANY_ID : config.company}
+          companies={[
+            { id: CUSTOM_COMPANY_ID, name: t("setup.company.custom") },
+            ...localized.companies.map((c) => ({ id: c.id, name: c.name })),
+          ]}
+          onChange={(v) => onConfig({ company: v === CUSTOM_COMPANY_ID ? "" : v })}
         />
+        {companyIsCustom && (
+          <div className="mt-2.5">
+            <label className="field-label !mb-1 !text-xs">{t("setup.company.custom")}</label>
+            <input
+              type="text"
+              value={customCompanyText}
+              maxLength={100}
+              placeholder={t("setup.company.customPlaceholder")}
+              onChange={(e) => onConfig({ company: e.target.value })}
+              className="field-input !h-9 !text-xs"
+            />
+            <p className="mt-1 text-[11px] leading-snug text-ink-subtle">
+              {t("setup.company.customNote")}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="surface-card p-3.5">

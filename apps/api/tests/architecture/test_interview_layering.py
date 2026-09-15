@@ -38,6 +38,10 @@ AGENTS_PROCESS_ALLOWLIST = frozenset({
     # raises, never calls back into agents — verified acyclic). Splitting it
     # across the 4 finish call sites would scatter the guarantee instead.
     "realmock.domains.interview.process.process_service",
+    # session_prompt reads the persisted company-research digest via the same
+    # document-helper shape as process_memory (lookup + blend; the research
+    # LLM loop itself stays on the process side of the seam).
+    "realmock.domains.interview.process.company_research",
 })
 
 

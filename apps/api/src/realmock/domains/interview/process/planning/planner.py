@@ -15,6 +15,14 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
+from realmock.domains.interview.process.company_research import (
+    STANDALONE_FETCH_BUDGET,
+    STANDALONE_MAX_SECONDS,
+    STANDALONE_SEARCH_BUDGET,
+    blend_company_context,
+    needs_company_research,
+    research_company_context,
+)
 from realmock.domains.interview.process.planning.plan_prompts import (
     build_plan_user_message,
     planner_system_prompt,
@@ -44,7 +52,9 @@ logger = logging.getLogger(__name__)
 #: opening turn always sees either a ready plan or a failed marker.
 PLAN_TIMEOUT_SECONDS = 40.0
 #: How long stream_opening waits for the background planner before degrading.
-PLAN_WAIT_TIMEOUT_SECONDS = 45.0
+#: Covers the standalone-session inline company research (<=45s) plus the
+#: planner call above; process rounds never research here and stay fast.
+PLAN_WAIT_TIMEOUT_SECONDS = 90.0
 _POLL_INTERVAL_SECONDS = 1.0
 
 PLAN_STATUS_PENDING = ""
@@ -96,6 +106,42 @@ def _resume_summary(resume_payload: dict[str, Any] | None) -> dict[str, Any] | N
     }
 
 
+async def _company_context(db: Session, session: InterviewSession, llm: Any) -> str:
+    """Company context for the flow planner (catalog text or research digest).
+
+    Process rounds reuse the round planner's persisted digest — research runs
+    once per process. Standalone sessions with a custom (non-catalog) company
+    research inline under a tight budget and persist the digest on the row so
+    the interviewer opening prompt can reuse it.
+    """
+    company = session.company or ""
+    digest = ""
+    process_id = getattr(session, "process_id", None)
+    if process_id:
+        process = (
+            db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
+        )
+        if process is not None:
+            digest = (getattr(process, "company_research", "") or "").strip()
+    elif needs_company_research(company):
+        digest = (
+            await research_company_context(
+                llm,
+                company=company,
+                role=session.role,
+                level=session.level,
+                ui_locale=getattr(session, "ui_locale", "") or None,
+                search_budget=STANDALONE_SEARCH_BUDGET,
+                fetch_budget=STANDALONE_FETCH_BUDGET,
+                max_seconds=STANDALONE_MAX_SECONDS,
+            )
+            or ""
+        )
+        session.company_research = digest
+        db.commit()
+    return blend_company_context(get_company_context(company), digest)
+
+
 async def generate_plan_for_session(session_id: int) -> None:
     """Background task: plan the interview flow and persist it on the session row.
 
@@ -123,7 +169,7 @@ async def generate_plan_for_session(session_id: int) -> None:
                 resume_payload=_resume_summary(resume_payload),
                 profile=profile,
                 process_section=_process_section(db, session),
-                company_context=get_company_context(session.company or ""),
+                company_context=await _company_context(db, session, llm),
                 ui_locale=getattr(session, "ui_locale", None) or None,
             )
             try:

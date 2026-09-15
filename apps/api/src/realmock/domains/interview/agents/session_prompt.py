@@ -24,6 +24,10 @@ from realmock.domains.interview.agents.agent_prompts import (
     needs_compact_candidate,
 )
 from realmock.domains.interview.agents.workflows import Workflow
+from realmock.domains.interview.process.company_research import (
+    blend_company_context,
+    load_session_company_research,
+)
 from realmock.domains.interview.process.process_memory import load_memory, render_for_prompt
 from realmock.domains.interview.process.round_chain import step_for
 
@@ -288,7 +292,12 @@ class SessionPromptMixin:
         config = self.get_config()
         candidate = self.get_candidate(db)
         profile = self.get_user_profile(db)
-        company_ctx = get_company_context(config.company)
+        # Custom companies carry a web-research digest (planning stage) that
+        # replaces the generic catalog line; preset companies keep the catalog.
+        company_ctx = blend_company_context(
+            get_company_context(config.company),
+            load_session_company_research(db, self.session),
+        )
         phase = self.current_phase()
         prompt = build_system_prompt(
             config,

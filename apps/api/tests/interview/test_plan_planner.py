@@ -15,6 +15,7 @@ import pytest
 
 from realmock.domains.interview.process.planning import planner as pl
 from realmock.domains.interview.process.planning.plan_schema import InterviewPlan
+from tests.fakes import FakeLLMClient
 
 
 def _valid_plan_dict(n=8):
@@ -447,3 +448,153 @@ async def test_ensure_plan_waits_for_pending(monkeypatch) -> None:
 
 
 
+
+
+# ---- company research integration ---------------------------------------------
+
+
+def _plan_row(**overrides) -> SimpleNamespace:
+    row = SimpleNamespace(
+        plan_status="", plan=None, profile_id=1, resume_id=None,
+        role="Backend", level="Senior", company="Acme",
+        workflow_type="technical", personality="professional", strictness=3,
+        interview_style="deep_dive", ui_locale="zh-CN",
+    )
+    for k, v in overrides.items():
+        setattr(row, k, v)
+    return row
+
+
+class _RecordingJSONLLM(FakeLLMClient):
+    def __init__(self, payload):
+        super().__init__(json_payload=payload, api_key="k")
+        self.json_calls: list = []
+
+    async def chat_json(self, messages, temperature=0.3):
+        self.json_calls.append(messages)
+        return self.json_payload
+
+
+def _patch_planner_io(monkeypatch, row, llm) -> None:
+    @contextmanager
+    def fake_api():
+        yield object()
+
+    class _Db:
+        def get(self, *a, **k):
+            return row
+
+        def commit(self):
+            pass
+
+    @contextmanager
+    def fake_sessions_db():
+        yield _Db()
+
+    monkeypatch.setattr(pl, "sessions_db_session", fake_sessions_db)
+    monkeypatch.setattr(pl, "api_db_session", fake_api)
+    monkeypatch.setattr(pl, "session_llm", lambda db, s: llm)
+    monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
+    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_standalone_custom_company_researches(monkeypatch) -> None:
+    row = _plan_row()
+    llm = _RecordingJSONLLM(_valid_plan_dict())
+    _patch_planner_io(monkeypatch, row, llm)
+    monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
+
+    async def fake_research(llm_arg, **kwargs):
+        assert kwargs["company"] == "Acme"
+        return "STANDALONE-DIGEST"
+
+    monkeypatch.setattr(pl, "research_company_context", fake_research)
+    await pl.generate_plan_for_session(7)
+    assert row.company_research == "STANDALONE-DIGEST"
+    assert row.plan_status == pl.PLAN_STATUS_READY
+    assert "STANDALONE-DIGEST" in llm.json_calls[0][1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_standalone_research_failure_still_plans(monkeypatch) -> None:
+    row = _plan_row()
+    llm = _RecordingJSONLLM(_valid_plan_dict())
+    _patch_planner_io(monkeypatch, row, llm)
+    monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
+
+    async def failed_research(llm_arg, **kwargs):
+        return None
+
+    monkeypatch.setattr(pl, "research_company_context", failed_research)
+    await pl.generate_plan_for_session(7)
+    assert row.company_research == ""
+    assert row.plan_status == pl.PLAN_STATUS_READY
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_catalog_company_skips_research(monkeypatch) -> None:
+    row = _plan_row(company="bytedance")
+    llm = _RecordingJSONLLM(_valid_plan_dict())
+    _patch_planner_io(monkeypatch, row, llm)
+    monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
+
+    async def fail_research(llm_arg, **kwargs):
+        raise AssertionError("catalog companies must not research inline")
+
+    monkeypatch.setattr(pl, "research_company_context", fail_research)
+    await pl.generate_plan_for_session(7)
+    assert row.plan_status == pl.PLAN_STATUS_READY
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_process_round_reuses_process_digest(monkeypatch) -> None:
+    row = _plan_row(process_id=11, round_no=2)
+    proc = SimpleNamespace(company_research="PROC-DIGEST")
+    llm = _RecordingJSONLLM(_valid_plan_dict())
+
+    @contextmanager
+    def fake_sessions():
+        yield row
+
+    class _Query:
+        def filter(self, *a, **k):
+            return self
+
+        def first(self):
+            return proc
+
+    class _Db:
+        def get(self, *a, **k):
+            return row
+
+        def query(self, *a, **k):
+            return _Query()
+
+        def commit(self):
+            pass
+
+    @contextmanager
+    def fake_sessions_db():
+        yield _Db()
+
+    @contextmanager
+    def fake_api():
+        yield object()
+
+    monkeypatch.setattr(pl, "sessions_db_session", fake_sessions_db)
+    monkeypatch.setattr(pl, "api_db_session", fake_api)
+    monkeypatch.setattr(pl, "session_llm", lambda db, s: llm)
+    monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
+    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
+    monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
+
+    async def fail_research(llm_arg, **kwargs):
+        raise AssertionError("process rounds must not research inline")
+
+    monkeypatch.setattr(pl, "research_company_context", fail_research)
+    await pl.generate_plan_for_session(7)
+    assert row.plan_status == pl.PLAN_STATUS_READY
+    assert "PROC-DIGEST" in llm.json_calls[0][1]["content"]

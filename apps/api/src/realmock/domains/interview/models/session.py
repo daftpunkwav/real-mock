@@ -54,6 +54,8 @@ class InterviewSession(SessionsBase):
     # Agent-planned interview flow (InterviewPlan JSON) + generation status.
     plan: Mapped[str | None] = mapped_column(Text, nullable=True)
     plan_status: Mapped[str | None] = mapped_column(String(20), default="")
+    # Target-company web-research digest (planning stage; empty when none).
+    company_research: Mapped[str] = mapped_column(Text, default="")
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

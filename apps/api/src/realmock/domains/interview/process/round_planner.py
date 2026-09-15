@@ -15,6 +15,11 @@ from typing import Any
 
 from realmock.domains.interview.agents import session_llm
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
+from realmock.domains.interview.process.company_research import (
+    blend_company_context,
+    needs_company_research,
+    research_company_context,
+)
 from realmock.domains.interview.process.round_plan_prompts import (
     build_round_plan_user_message,
     hr_planner_system_prompt,
@@ -72,6 +77,24 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 profile = get_user_profile(api_db, process.profile_id)
                 resume_payload = get_resume_agent_payload(api_db, process.resume_id)
 
+            # Custom (non-catalog) companies have no interview-style context:
+            # research the company once here and persist the digest so later
+            # rounds' flow planners and the interviewer prompt reuse it.
+            digest = ""
+            if needs_company_research(process.company or ""):
+                digest = (
+                    await research_company_context(
+                        llm,
+                        company=process.company or "",
+                        role=process.role,
+                        level=process.level,
+                        ui_locale=process.ui_locale or None,
+                    )
+                    or ""
+                )
+                process.company_research = digest
+                db.commit()
+
             user_msg = build_round_plan_user_message(
                 role=process.role,
                 level=process.level,
@@ -79,7 +102,9 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 round_budget=max(1, process.max_rounds or 1),
                 profile=profile,
                 resume_summary=resume_payload if isinstance(resume_payload, dict) else None,
-                company_context=get_company_context(process.company or ""),
+                company_context=blend_company_context(
+                    get_company_context(process.company or ""), digest
+                ),
             )
             try:
                 raw = await asyncio.wait_for(

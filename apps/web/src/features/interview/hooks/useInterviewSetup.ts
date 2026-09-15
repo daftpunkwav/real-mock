@@ -11,6 +11,7 @@ import type { InterviewConfig, Options, ResumePickerItem } from "@/lib/api/contr
 import type { ModelProfile, ReasoningEffort, ReferenceDetail, TaskBindings } from "@/types";
 import {
   CUSTOM_ROLE_ID,
+  isPresetCompany,
   isPresetRole,
   resolveConfigLabelsForApi,
 } from "../setup/optionLabels";
@@ -96,6 +97,10 @@ export function useInterviewSetup() {
     }
     if (config.role === CUSTOM_ROLE_ID) {
       toast.error(t("setup.role.customRequired"));
+      return;
+    }
+    if (!isPresetCompany(config.company, options?.companies ?? []) && !config.company.trim()) {
+      toast.error(t("setup.company.customRequired"));
       return;
     }
 

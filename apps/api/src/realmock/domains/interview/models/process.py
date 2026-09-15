@@ -45,6 +45,8 @@ class InterviewProcess(SessionsBase):
     # static round_chain everywhere).
     round_plan: Mapped[str] = mapped_column(Text, default="{}")
     round_plan_status: Mapped[str] = mapped_column(String(20), default="")
+    # Target-company web-research digest (planning stage; empty when none).
+    company_research: Mapped[str] = mapped_column(Text, default="")
     # Long-term memory across rounds (realmock.process_memory.v1 JSON document).
     memory: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

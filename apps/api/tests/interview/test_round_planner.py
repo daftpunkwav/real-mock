@@ -240,3 +240,80 @@ def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
     assert refreshed.round_plan_status == "failed"
     # Degraded path: static chain still drives round creation.
     assert _planned_step(refreshed, 1) is None
+
+
+# ---- company research integration --------------------------------------------
+
+
+def test_generate_round_plan_custom_company_researches(db, monkeypatch):
+    req = ProcessCreateRequest(role="Backend", level="junior", company="Acme Robotics", max_rounds=3)
+    process, _ = create_process_with_first_round(db, req)
+
+    seen: dict = {}
+
+    async def fake_research(llm, **kwargs):
+        seen.update(kwargs)
+        return "DIGEST-1"
+
+    class FakeHRPlanner(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            return _payload(_round("tech_1"), _round("hr_1", workflow_type="hr"))
+
+    from realmock.domains.interview.process import round_planner as round_planner_mod
+
+    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "research_company_context", fake_research)
+    asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
+
+    db.expire_all()
+    refreshed = db.get(InterviewProcess, process.id)
+    assert seen["company"] == "Acme Robotics"
+    assert seen["role"] == "Backend"
+    assert refreshed.company_research == "DIGEST-1"
+    assert refreshed.round_plan_status == "ready"
+
+
+def test_generate_round_plan_catalog_company_skips_research(db, monkeypatch):
+    req = ProcessCreateRequest(role="Backend", level="junior", company="bytedance", max_rounds=3)
+    process, _ = create_process_with_first_round(db, req)
+
+    async def fail_research(llm, **kwargs):
+        raise AssertionError("research must not run for catalog companies")
+
+    class FakeHRPlanner(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            return _payload(_round("tech_1"))
+
+    from realmock.domains.interview.process import round_planner as round_planner_mod
+
+    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "research_company_context", fail_research)
+    asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
+
+    db.expire_all()
+    refreshed = db.get(InterviewProcess, process.id)
+    assert refreshed.company_research == ""
+    assert refreshed.round_plan_status == "ready"
+
+
+def test_generate_round_plan_research_failure_still_plans(db, monkeypatch):
+    req = ProcessCreateRequest(role="Backend", level="junior", company="Acme Robotics", max_rounds=3)
+    process, _ = create_process_with_first_round(db, req)
+
+    async def failed_research(llm, **kwargs):
+        return None
+
+    class FakeHRPlanner(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            return _payload(_round("tech_1"))
+
+    from realmock.domains.interview.process import round_planner as round_planner_mod
+
+    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "research_company_context", failed_research)
+    asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
+
+    db.expire_all()
+    refreshed = db.get(InterviewProcess, process.id)
+    assert refreshed.company_research == ""
+    assert refreshed.round_plan_status == "ready"

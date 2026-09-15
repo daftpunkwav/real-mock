@@ -13,6 +13,9 @@ import { resolvePhaseLabels } from "@/config/phases";
 /** Sentinel select value for free-form job title (not a backend role id). */
 export const CUSTOM_ROLE_ID = "custom";
 
+/** Sentinel company-grid value for free-form company name (not a catalog id). */
+export const CUSTOM_COMPANY_ID = "custom";
+
 type InterviewT = Translator<"interview">;
 
 function pick(t: InterviewT, key: string, fallback: string): string {
@@ -82,6 +85,11 @@ export function companyDisplay(company: CompanyInfo, t: InterviewT): CompanyDisp
 /** True when ``role`` is a catalog preset id (not free-form custom text). */
 export function isPresetRole(role: string, roleIds: readonly string[]): boolean {
   return roleIds.includes(role);
+}
+
+/** True when ``company`` is a catalog preset id (not free-form custom text). */
+export function isPresetCompany(company: string, companies: readonly CompanyInfo[]): boolean {
+  return companies.some((c) => c.id === company);
 }
 
 /**
