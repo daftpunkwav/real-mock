@@ -19,7 +19,7 @@ from realmock.platform.capabilities.ai.llm.defaults import (
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.core.secrets import decrypt_secret
 from realmock.platform.models import StageConfig
-from realmock.platform.services.pipeline.legacy import fetch_llm_settings_row, migrate_legacy_to_stages
+from realmock.platform.services.pipeline.legacy import get_llm_settings_row, migrate_legacy_to_stages
 from realmock.platform.services.pipeline.migration import TASK_BY_STAGE, DEFAULT_FALLBACK
 from realmock.platform.services.pipeline.secrets import _dec, parse_json, public_extras, runtime_extras
 from realmock.platform.services.pipeline.stages import load_stage_configs, stage_to_response
@@ -119,7 +119,7 @@ def _binding_config(db: Session, task: str, stage: str) -> dict[str, Any] | None
 def _legacy_stage_config(db: Session, stage: str) -> dict[str, Any]:
     # Read path: read-only loading, missing lines are filled in by default in memory, and will not be dropped implicitly.
     rows = load_stage_configs(db)
-    if fetch_llm_settings_row(db) and any(
+    if get_llm_settings_row(db) and any(
         not row.provider and not row.api_base and not row.model and not row.api_key
         for row in rows.values()
     ):

@@ -33,7 +33,7 @@ def _wipe(api_db) -> None:
 class TestLegacyMigration:
     def test_fetch_none(self, api_db) -> None:
         _wipe(api_db)
-        assert plegacy.fetch_llm_settings_row(api_db) is None
+        assert plegacy.get_llm_settings_row(api_db) is None
 
     def test_migrate_no_legacy(self, api_db) -> None:
         _wipe(api_db)

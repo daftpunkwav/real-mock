@@ -26,7 +26,7 @@ from realmock.platform.models.config_models import LlmProvider, ModelProfile
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.core.secrets import encrypt_secret
 from realmock.platform.models import StageConfig
-from realmock.platform.services.pipeline.legacy import fetch_llm_settings_row, migrate_legacy_to_stages
+from realmock.platform.services.pipeline.legacy import get_llm_settings_row, migrate_legacy_to_stages
 from realmock.platform.services.pipeline.migration import (
     STAGE_BY_TASK,
     TASK_BY_STAGE,
@@ -72,7 +72,7 @@ __all__ = [
     "stage_to_response",
     "update_stage_config",
     "get_stage_config_map",
-    "fetch_llm_settings_row",
+    "get_llm_settings_row",
     "migrate_legacy_to_stages",
     "allocate_provider_name",
     "migrate_stages_to_profiles",
@@ -126,7 +126,7 @@ def get_stage_config_map(db: Session) -> dict[str, dict[str, Any]]:
     rows = get_all_stage_configs(db)
     # Migrate old tables by stages to avoid blocking other empty stages from being migrated when one stage is configured, and also to avoid
     # Overwrite custom configurations that have been saved but do not have a provider name filled in.
-    if fetch_llm_settings_row(db) and any(
+    if get_llm_settings_row(db) and any(
         not row.provider and not row.api_base and not row.model and not row.api_key
         for row in rows.values()
     ):
@@ -173,7 +173,7 @@ def resolve_model_config(
 def ensure_pipeline_migrated(db: Session) -> None:
     """One-time startup migration: legacy ``llm_settings`` → ``stage_configs`` → model entries + task bindings."""
     rows = get_all_stage_configs(db)
-    if fetch_llm_settings_row(db) and any(
+    if get_llm_settings_row(db) and any(
         not row.provider and not row.api_base and not row.model and not row.api_key
         for row in rows.values()
     ):

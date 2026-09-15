@@ -28,7 +28,7 @@ from realmock.platform.services.pipeline.secrets import maybe_encrypt
 from realmock.platform.services.pipeline.stages import get_or_create_stage_config
 
 
-def fetch_llm_settings_row(db: Session) -> LLMSettings | None:
+def get_llm_settings_row(db: Session) -> LLMSettings | None:
     """Read a single row from api library ``llm_settings`` (legacy table before migration)."""
     return db.query(LLMSettings).filter(LLMSettings.id == 1).first()
 
@@ -108,7 +108,7 @@ def _speak_config_from_legacy(row: LLMSettings) -> dict[str, Any]:
 
 def migrate_legacy_to_stages(db: Session) -> dict[str, StageConfig]:
     """First upgrade: Split old LLMSettings into three-stage stage_configs."""
-    legacy = fetch_llm_settings_row(db)
+    legacy = get_llm_settings_row(db)
     configs: dict[str, StageConfig] = {}
     for stage, builder in [
         (PipelineStage.RECOGNIZE, _recognize_config_from_legacy),
