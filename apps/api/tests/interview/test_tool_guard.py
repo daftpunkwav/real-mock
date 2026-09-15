@@ -112,3 +112,33 @@ def test_local_box_when_no_state_wired():
     # Breaker still works instance-locally.
     guard2 = ToolGuard(timeout_sec=5.0)
     assert asyncio.run(guard2.run("t", {}, _ok())) == "obs"
+
+
+def test_concurrent_failures_count_every_increment():
+    """Parallel failures must not overwrite each other's streak increment."""
+    state: dict = {}
+
+    async def run_parallel() -> None:
+        guard = ToolGuard(state_fn=lambda: state, timeout_sec=5.0, circuit_streak=10)
+
+        async def boom() -> str:
+            raise RuntimeError("dead endpoint")
+
+        await asyncio.gather(
+            *(guard.run("web_search_interview_exp", {}, boom) for _ in range(3)),
+            return_exceptions=True,
+        )
+
+    asyncio.run(run_parallel())
+    assert state[GUARD_STATE_KEY]["web_search_interview_exp"]["streak"] == 3
+
+
+def test_circuit_open_refusal_carries_error_kind():
+    """A circuit-open refusal is classified apart from a real tool failure."""
+    state: dict = {GUARD_STATE_KEY: {"t": {"streak": 3, "opened_at": time.time()}}}
+    guard = ToolGuard(state_fn=lambda: state, timeout_sec=5.0, circuit_streak=3)
+    with pytest.raises(ToolGuardError) as err:
+        asyncio.run(guard.run("t", {}, _ok()))
+    assert err.value.error_kind == "circuit_open"
+    # The guard does not log this path; the loop records it exactly once.
+    assert err.value.already_logged is False

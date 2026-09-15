@@ -252,6 +252,11 @@ async def run_agent_loop(
                 raise
             except Exception as tool_exc:
                 logger.warning("Tool execution failed tool=%s: %s", name, tool_exc)
+                # Domain guards that persist their own failure record mark the
+                # exception with ``already_logged`` and classify it via
+                # ``error_kind`` (see ToolGuardError in the interview domain).
+                # The attributes are a duck-typed contract: absent ones fall
+                # back to a plain tool failure, exactly one record per failure.
                 if not getattr(tool_exc, "already_logged", False):
                     domain, session = _error_scope(error_context)
                     log_agent_error(

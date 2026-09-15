@@ -158,10 +158,13 @@ class ToolGuard:
         now = time.time()
         if streak >= self.circuit_streak and isinstance(opened_at, (int, float)):
             if now - opened_at < self.circuit_ttl_sec:
+                # The call never ran, so this refusal is not logged here; the
+                # loop records it once with the "circuit_open" kind.
                 raise ToolGuardError(
                     f"[{name}] unavailable: failed {streak} times in a row; "
                     "further calls are blocked for a while. Continue with other "
-                    f"tools or general knowledge; do not invent {name} results."
+                    f"tools or general knowledge; do not invent {name} results.",
+                    kind="circuit_open",
                 )
             # TTL expired: half-open trial (streak reset, this call decides).
             streak = 0
@@ -206,6 +209,11 @@ class ToolGuard:
                 )
                 return result
 
+        # Failure bookkeeping: re-read the shared entry under the lock so
+        # concurrent failures cannot overwrite each other's increment. The
+        # critical section must stay await-free (single-threaded asyncio makes
+        # it atomic); two guard instances may share one agent_state box, and
+        # the lock only serializes calls on this instance.
         async with self._lock:
             box = self._box(create=True)
             entry = self._entry(box, name)
