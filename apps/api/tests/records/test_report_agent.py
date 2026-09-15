@@ -242,6 +242,50 @@ def test_normalize_report_payload_keeps_external_notes():
     assert "https://example.com/byte-interview" in report.external_notes[0]
 
 
+def test_normalize_report_payload_caps_external_notes():
+    """More notes than the contract allows are clipped, not passed through."""
+    payload = {
+        "overall_score": 80,
+        "external_notes": [f"note {i} https://example.com/{i}" for i in range(8)],
+        "turn_notes": [],
+    }
+    report = normalize_report_payload(payload)
+    assert len(report.external_notes) == 5
+
+
+def test_external_notes_cap_matches_prompt_contract():
+    """The normalizer cap and the synthesis prompt must state the same number."""
+    from realmock.domains.records.agents.report.normalize import _EXTERNAL_NOTES_CAP
+    from realmock.domains.records.agents.report.prompts import SYNTHESIS_SYSTEM_PROMPT
+
+    assert f"at most {_EXTERNAL_NOTES_CAP} verification notes" in SYNTHESIS_SYSTEM_PROMPT
+
+
+# ---- web-tool budget ------------------------------------------------------------
+
+
+def test_web_budget_reuses_tool_failure_markers():
+    """Exhaustion must speak tokens the synthesis prompt already defines."""
+    from realmock.domains.records.agents.report.synthesis_agent import _consume_web_budget
+
+    budget = {"web_search": 2, "web_fetch": 1}
+    assert _consume_web_budget(budget, "web_search") is None
+    assert _consume_web_budget(budget, "web_search") is None
+    spent = _consume_web_budget(budget, "web_search")
+    assert spent is not None and spent.startswith("SEARCH_UNAVAILABLE")
+
+    assert _consume_web_budget(budget, "web_fetch") is None
+    spent_fetch = _consume_web_budget(budget, "web_fetch")
+    assert spent_fetch is not None and spent_fetch.startswith("FETCH_FAILED")
+    # Exhaustion is sticky: further calls keep failing the same way.
+    again = _consume_web_budget(budget, "web_fetch")
+    assert again is not None and again.startswith("FETCH_FAILED")
+
+    # Non-web tools are never charged.
+    assert _consume_web_budget(budget, "report_read_notes") is None
+    assert budget["web_search"] == 0
+
+
 def test_synthesis_specs_include_web_tools():
     """Synthesis is the external-calibration loop: web_search + web_fetch present."""
     from realmock.domains.records.agents.report.agent import build_context_specs
