@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/components/Toast";
-import { formatApiError } from "@/lib/api/base";
+import { formatApiError, isRequestAborted } from "@/lib/api/base";
 import { profileHttp as api } from "@/lib/api/clients";
 import type { UserProfileResponse } from "@/lib/api/contract";
 // Toast texts are built inside async callbacks, not render, so resolve the
@@ -27,7 +27,6 @@ import type { UserProfileResponse } from "@/lib/api/contract";
 // under the Next.js tsconfig ("jsx": "preserve"), breaking hook tests.
 import { getTranslator } from "@/i18n/resolve";
 import { buildProfileUpdate } from "./buildProfileUpdate";
-import { isRequestAborted } from "./isRequestAborted";
 import type { ProfileCompletionStats } from "./profileCompletion";
 import { REQUIRED_KEYS, REQUIRED_LABELS, type RequiredKey } from "./profileRequired";
 

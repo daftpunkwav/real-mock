@@ -18,7 +18,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatApiError } from "@/lib/api/base";
+import { formatApiError, isRequestAborted } from "@/lib/api/base";
 import { profileHttp as api } from "@/lib/api/clients";
 import type { UserProfileResponse } from "@/lib/api/contract";
 // The load-error text is built inside an async catch, not render, so resolve
@@ -26,7 +26,6 @@ import type { UserProfileResponse } from "@/lib/api/contract";
 // the barrel re-exports LocaleProvider.tsx, which vitest cannot transform
 // under the Next.js tsconfig ("jsx": "preserve"), breaking hook tests.
 import { getTranslator } from "@/i18n/resolve";
-import { isRequestAborted } from "./isRequestAborted";
 import { isProfileContentEqual } from "./profileCompletion";
 import { TECH_DOMAINS_MAX_COUNT } from "./profileLimits";
 

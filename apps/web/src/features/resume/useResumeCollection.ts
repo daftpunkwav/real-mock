@@ -14,11 +14,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatApiError } from "@/lib/api/base";
+import { formatApiError, isRequestAborted } from "@/lib/api/base";
 import { resumeHttp as api } from "@/lib/api/clients";
 import { getTranslator } from "@/i18n/resolve";
 import { asAnalysis } from "./analysisFormat";
-import { isRequestAborted } from "./isRequestAborted";
 import { normalizeResumeList, type ResumeItem } from "./resumeNormalize";
 import { pickPreviewId } from "./resumeSelection";
 

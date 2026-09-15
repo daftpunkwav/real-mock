@@ -1,4 +1,4 @@
-/** API error normalization: ApiError / formatting / FastAPI response parsing. */
+/** API error normalization and predicates: ApiError / abort detection / formatting / FastAPI response parsing. */
 
 // Import i18n via deep paths, not the @/i18n barrel: the barrel pulls in .tsx
 // (LocaleProvider/Toggle) and vitest cannot transform those modules.
@@ -40,6 +40,11 @@ export class ApiError extends Error {
  */
 export function formatApiError(error: unknown): string {
   return localizeApiError(error);
+}
+
+/** True when the request was aborted (unload, retry, or a superseded load). */
+export function isRequestAborted(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "NET0002";
 }
 
 export interface ParsedApiError extends ApiErrorOptions {

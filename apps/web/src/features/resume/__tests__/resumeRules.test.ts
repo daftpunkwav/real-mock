@@ -9,12 +9,11 @@ import { describe, expect, it } from "vitest";
 
 import { asAnalysis, bandColor, dimComment, dimScore, percentileFromScore, scoreBand } from "../analysisFormat";
 import { visibleAnalysisTabIds, TAB_LABEL_KEYS } from "../analysisTabs";
-import { isRequestAborted } from "../isRequestAborted";
 import { normalizeParsedProfile, normalizeResumeList } from "../resumeNormalize";
 import { shortSkillLabel } from "../resumePreview";
 import { pickPreviewId } from "../resumeSelection";
 import { clampPreviewZoom, PREVIEW_MAX_ZOOM, PREVIEW_MIN_ZOOM } from "../resumeLimits";
-import { ApiError } from "@/lib/api/base";
+import { ApiError, isRequestAborted } from "@/lib/api/base";
 import type { CandidateProfile } from "@/lib/api/contract";
 
 import { makeAnalysis, makeResumeResponse } from "./helpers";

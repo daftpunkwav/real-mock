@@ -13,6 +13,7 @@ export { resolveBackendUrl, resolveServerBackendUrl } from "./apiUrl";
 export {
   ApiError,
   formatApiError,
+  isRequestAborted,
   parseStructuredErrorResponse,
   type ApiErrorOptions,
   type ParsedApiError,
