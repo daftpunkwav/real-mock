@@ -252,11 +252,13 @@ async def run_agent_loop(
                 raise
             except Exception as tool_exc:
                 logger.warning("Tool execution failed tool=%s: %s", name, tool_exc)
-                domain, session = _error_scope(error_context)
-                log_agent_error(
-                    domain=domain, session=session, tool=name, kind="tool_failed",
-                    message=str(tool_exc),
-                )
+                if not getattr(tool_exc, "already_logged", False):
+                    domain, session = _error_scope(error_context)
+                    log_agent_error(
+                        domain=domain, session=session, tool=name,
+                        kind=getattr(tool_exc, "error_kind", "tool_failed"),
+                        message=str(tool_exc),
+                    )
                 return f"Tool execution failed: {tool_exc}", False
 
         outcomes = await asyncio.gather(*(_run_one(tc) for tc in limited))
