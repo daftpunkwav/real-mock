@@ -98,8 +98,12 @@ class ConnectionContext:
     #: Last C2001 error frame sent (STT-failure errors back off to avoid spam).
     last_stt_error_at: float = 0.0
     silence_probe_seq: int = 0          # Silence probes sent for current question (0=none yet; max 2).
-    silence_probe_question: str = ""    # The question corresponding to the current follow-up question (changing the question means counting again)
-    last_silence_probe: str = ""        # Content of the previous question (to avoid repeated questions)
+    #: Assistant message count when the current probe window started. A new
+    #: question is a new assistant message, so this is the exact window key —
+    #: probes/closing text are appended to the same message and never reset it.
+    silence_probe_msg_count: int = 0
+    silence_probe_question: str = ""    # Question text of the current probe window (set when a new one opens)
+    last_silence_probe: str = ""        # Content of the previous probe (to avoid repeating it)
     #: Closing nudge already spoken for the current question (after the probe
     #: cap): further silence stays quiet instead of looping probes or errors.
     silence_capped: bool = False

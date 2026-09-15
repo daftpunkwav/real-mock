@@ -61,6 +61,7 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
         last_nudge_at=0.0,
         silence_probe_question="",
         silence_probe_seq=0,
+        silence_probe_msg_count=1,  # one assistant message in ctx.agent.messages
         silence_capped=False,
         last_silence_probe="",
         agent=SimpleNamespace(plan=None, messages=[{"role": "assistant", "content": "Q?"}]),
@@ -204,3 +205,42 @@ def test_probe_append_does_not_reset_cap_budget():
     assert probe_seq == [1, 2]
     assert len(mixin.sent) == 1
     assert mixin.ctx.silence_capped is True
+
+
+def test_new_assistant_message_opens_a_new_probe_window():
+    """A new question opens a fresh budget even when its text extends the old one.
+
+    Regression: the old window key was the assistant text, so a rephrased
+    question beginning with the previous one inherited the capped state and
+    went permanently silent.
+    """
+    probe_seq: list[int] = []
+
+    async def fake_probe(*, question, probe_hint, attempt, silent_sec):
+        probe_seq.append(attempt)
+        return f"probe-{attempt}"
+
+    mixin = _mixin(
+        silence_probe_question="Q?",
+        silence_probe_seq=2,  # previous question already capped
+        silence_capped=True,
+        last_nudge_at=0.0,
+    )
+    mixin._generate_silence_probe = fake_probe  # type: ignore[method-assign]
+    mixin._load_session = lambda db: SimpleNamespace(  # type: ignore[method-assign]
+        personality="professional",
+        strictness=3,
+        current_phase=SimpleNamespace(id="tech", name="Tech"),
+    )
+    # The interviewer asks a new question whose text extends the old one.
+    mixin.ctx.agent.messages.append(
+        {"role": "assistant", "content": "Q? Specifically the cache layer."}
+    )
+
+    asyncio.run(mixin._on_silence_nudge())
+
+    assert probe_seq == [1]  # fresh window, first probe again
+    assert mixin.ctx.silence_capped is False
+    assert mixin.ctx.silence_probe_question.startswith("Q? Specifically")
+    assert "\nprobe-1" in mixin.ctx.agent.messages[-1]["content"]
+

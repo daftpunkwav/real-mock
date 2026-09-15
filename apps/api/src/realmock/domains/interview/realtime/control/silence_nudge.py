@@ -96,13 +96,14 @@ question/follow-up plan/silence count.
         )
         if now - self.ctx.last_nudge_at < cooldown:
             return
-        # New question resets the probe budget (memory-only, no DB needed).
-        # The anchor must ignore probe/closing text appended to the same
-        # assistant utterance, otherwise each probe looks like a new question
-        # and the cap never fires (see _last_assistant_question_anchor).
-        question = self._last_assistant_question_anchor()
-        if question != self.ctx.silence_probe_question:
-            self.ctx.silence_probe_question = question
+        # A new assistant question opens a new probe window. Counting assistant
+        # messages is exact: probes and the closing nudge are appended to the
+        # same message, so they never look like a new question (see
+        # _assistant_message_count).
+        count = self._assistant_message_count()
+        if count != self.ctx.silence_probe_msg_count:
+            self.ctx.silence_probe_msg_count = count
+            self.ctx.silence_probe_question = self._last_assistant_text().rstrip()
             self.ctx.silence_probe_seq = 0
             self.ctx.silence_capped = False
         if self.ctx.silence_capped:
@@ -125,7 +126,7 @@ question/follow-up plan/silence count.
             silent_sec = int(now - anchor) if anchor else 0
 
             probe_text = await self._generate_silence_probe(
-                question=question,
+                question=self.ctx.silence_probe_question,
                 probe_hint=probe_hint,
                 attempt=self.ctx.silence_probe_seq,
                 silent_sec=silent_sec,
@@ -229,30 +230,16 @@ question/follow-up plan/silence count.
                 return str(m.get("content") or "")
         return ""
 
-    def _last_assistant_question_anchor(self) -> str:
-        """Return the latest assistant text with any appended probes stripped.
+    def _assistant_message_count(self) -> int:
+        """Number of assistant messages in history — the probe-window key.
 
-        Probes and the closing nudge are merged into the same assistant message
-        to keep alternating roles, but that merge must not be treated as a new
-        question. The anchor is the original question text that triggered the
-        first probe for this silence window.
+        Probes and the closing nudge are merged into the last assistant message
+        to keep alternating roles, so the count only grows when the interviewer
+        actually asks something new.
         """
-        text = self._last_assistant_text()
-        anchor = getattr(self.ctx, "silence_probe_question", "") or ""
-        # Multiple probes may be appended; any text that still starts with the
-        # remembered anchor is the same question.
-        if anchor and text.startswith(anchor):
-            return anchor
-        # Fallback for the first probe before the anchor is stored: strip the
-        # most recent probe/closing suffix.
-        for suffix in (self.ctx.last_silence_probe, _CLOSING_NUDGE.get(self._nudge_language())):
-            if not suffix:
-                continue
-            for candidate in (f"\n{suffix}", suffix):
-                if text.endswith(candidate):
-                    text = text[: -len(candidate)]
-                    break
-        return text.rstrip()
+        if not self.ctx.agent:
+            return 0
+        return sum(1 for m in self.ctx.agent.messages if m.get("role") == "assistant")
 
     def _append_to_last_assistant(self, text: str) -> None:
         """Merge the follow-up question into the latest assistant statement to avoid consecutive assistants in the message history."""
