@@ -26,6 +26,10 @@ from realmock.platform.capabilities.ai.agent.tools import invoke_with_timeout
 
 SYNTHESIS_MAX_ROUNDS = 10
 _TOOL_TIMEOUT_SECONDS = 30.0
+# Web tools are the slowest and most rate-limited part of synthesis. Cap them
+# so the whole report stays inside the 480s wall-clock budget.
+_WEB_SEARCH_BUDGET = 4
+_WEB_FETCH_BUDGET = 4
 
 
 async def run_synthesis(
@@ -51,7 +55,17 @@ async def run_synthesis(
     if context_specs:
         bundle.extend(context_specs)
 
+    web_budget = {"web_search": _WEB_SEARCH_BUDGET, "web_fetch": _WEB_FETCH_BUDGET}
+
     async def execute(name: str, args: dict[str, Any]) -> str:
+        if name in web_budget:
+            remaining = web_budget[name]
+            if remaining <= 0:
+                return (
+                    f"{name.upper()}_UNAVAILABLE\n"
+                    f"{name} budget exhausted for this report; skip external notes."
+                )
+            web_budget[name] = remaining - 1
         raw, _status = await invoke_with_timeout(
             bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS
         )
