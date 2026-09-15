@@ -1,11 +1,14 @@
 "use client";
 
+// Per-phase evaluation summary from the report synthesis stage.
+// Pure display component: receives a phase-keyed map from the report page.
+
 import { useT } from "@/i18n";
 
 /** Per-phase one-line evaluations from the synthesis stage. */
 export function PhaseOverviewCard({ summary }: { summary?: Record<string, string> }) {
   const t = useT("report");
-  const entries = Object.entries(summary ?? {}).filter(([_, text]) => text?.trim());
+  const entries = Object.entries(summary ?? {}).filter(([, text]) => text?.trim());
   if (entries.length === 0) return null;
   return (
     <div className="surface-card mt-4 p-4">
