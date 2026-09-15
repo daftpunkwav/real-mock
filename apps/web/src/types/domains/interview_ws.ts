@@ -69,6 +69,33 @@ export type ServerEvent =
       provider?: string;
       requested_provider?: string | null;
     }
+  | {
+      type: "coding_challenge_open";
+      challenge: {
+        id: string;
+        title: string;
+        description: string;
+        language: string;
+        starter_code: string;
+        test_cases?: Array<{
+          input: string;
+          expected: string;
+          is_hidden?: boolean;
+          description?: string;
+        }>;
+      };
+    }
+  | {
+      type: "coding_test_result";
+      passed: boolean;
+      test_results?: Array<Record<string, unknown>>;
+      stdout?: string;
+      stderr?: string;
+    }
+  | {
+      type: "coding_eval_report";
+      report: Record<string, unknown>;
+    }
   | SSEErrorEvent;
 
 export type ClientEvent =
@@ -93,4 +120,12 @@ export type ClientEvent =
   | { type: "request_finish" }
   | { type: "vision_update"; face_analysis: FaceAnalysis }
   | { type: "tts_playback_done"; generation?: number }
-  | { type: "pong"; t: number };
+  | { type: "pong"; t: number }
+  | { type: "coding_code_update"; code: string; language: string }
+  | { type: "coding_run_request"; code: string; language: string }
+  | {
+      type: "coding_submit_request";
+      code: string;
+      language: string;
+      test_output?: string;
+    };

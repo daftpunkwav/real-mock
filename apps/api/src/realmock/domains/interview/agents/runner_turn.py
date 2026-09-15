@@ -55,6 +55,10 @@ async def stream_turn(
         runner.agent.record_user_text(user_text)
 
         last_question = runner.prompter.last_assistant_question()
+        pending_probe = None
+        if runner.agent.cognitive_memory.working_memory.pending_probes:
+            pending_probe = runner.agent.cognitive_memory.working_memory.pending_probes.pop(0)
+
         rag_msg = await runner.tools.maybe_retrieve_rag(
             query=f"{last_question} {user_text}".strip(),
         )
@@ -68,6 +72,7 @@ async def stream_turn(
             face=face,
             build_user_content=runner.prompter.build_user_content,
             session_id=runner.session.id,
+            pending_probe=pending_probe,
         )
 
         context_window = runner.prompter.get_context_window(db)
@@ -176,6 +181,37 @@ async def stream_turn(
                 getattr(runner.session, "id", None),
             )
             raise
+
+        # Asynchronously trigger Shadow Evaluator and periodic reflection
+        turn_index = len(runner.agent.agent_state.get("asked_questions", []))
+        try:
+            import asyncio
+            from realmock.domains.interview.agents.memory.reflection import reflect_on_dialogue
+
+            asyncio.create_task(
+                runner.shadow_evaluator.evaluate_turn(
+                    question=last_question,
+                    user_text=user_text,
+                    current_phase=turn_phase,
+                    turn_index=turn_index,
+                )
+            )
+            if turn_index > 0 and turn_index % 4 == 0:
+                recent_turns = [
+                    {"assistant": m.get("content", ""), "user": user_text}
+                    for m in runner.agent.messages[-4:]
+                    if isinstance(m, dict)
+                ]
+                asyncio.create_task(
+                    reflect_on_dialogue(
+                        runner.llm,
+                        runner.agent.cognitive_memory,
+                        recent_turns,
+                        turn_index,
+                    )
+                )
+        except Exception:
+            logger.debug("background shadow evaluation trigger failed", exc_info=True)
 
         if output.interview_complete:
             run_finish_lifecycle(db, runner.session, mark_completed=False)

@@ -62,6 +62,9 @@ class MessageDispatcherMixin:
             "request_hint": "_start_request_hint",
             "request_finish": "_start_request_finish",
             "tts_playback_done": "_on_tts_playback_done",
+            "coding_code_update": "_on_coding_code_update",
+            "coding_run_request": "_on_coding_run_request",
+            "coding_submit_request": "_on_coding_submit_request",
         }
     )
 
@@ -197,6 +200,40 @@ class MessageDispatcherMixin:
                 await self._send_rate_limited()
                 return
             self._spawn(self._run_user_text(text, data))
+
+    async def _on_coding_code_update(self, data: dict[str, Any]) -> None:
+        code = str(data.get("code", ""))
+        if self.ctx.runner and hasattr(self.ctx.runner, "agent"):
+            self.ctx.runner.agent.cognitive_memory.working_memory.candidate_code = code
+
+    async def _on_coding_run_request(self, data: dict[str, Any]) -> None:
+        code = str(data.get("code", ""))
+        runner = self.ctx.runner
+        if not runner or not hasattr(runner, "coding_examiner"):
+            return
+        challenge = runner.coding_examiner.active_challenge
+        test_cases = [tc.to_dict() for tc in challenge.test_cases] if challenge else []
+        from realmock.domains.interview.capabilities.sandbox.evaluator import evaluate_test_cases
+        outcome = evaluate_test_cases(
+            test_cases=test_cases,
+            candidate_code=code,
+            raw_output=data.get("test_output", "Tests run locally in browser sandbox."),
+        )
+        await self.send("coding_test_result", **outcome.to_dict())
+
+    async def _on_coding_submit_request(self, data: dict[str, Any]) -> None:
+        code = str(data.get("code", ""))
+        test_output = str(data.get("test_output", ""))
+        runner = self.ctx.runner
+        if not runner or not hasattr(runner, "coding_examiner"):
+            return
+        turn_index = len(runner.agent.agent_state.get("asked_questions", []))
+        report = await runner.coding_examiner.evaluate_submission(
+            code=code,
+            test_output=test_output,
+            turn_index=turn_index,
+        )
+        await self.send("coding_eval_report", report=report.to_dict())
 
 
 __all__ = ["MessageDispatcherMixin", "AUDIO_BUFFER_MAX_BYTES"]

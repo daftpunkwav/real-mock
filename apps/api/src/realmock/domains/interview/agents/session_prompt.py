@@ -145,6 +145,11 @@ class SessionPromptMixin:
     def _memory_section(self) -> str:
         """Structured memory summary (still usable after compression)."""
         text = WorkingMemory.from_state(self.agent_state).render()
+        cognitive_graph = getattr(self, "cognitive_memory", None)
+        if cognitive_graph is not None:
+            cog_text = cognitive_graph.render_prompt_summary()
+            if cog_text:
+                text = (text + "\n\n" + cog_text).strip()
         if not text:
             return ""
         return f"\n\n{_MEMORY_SECTION_MARKER}\n" + text

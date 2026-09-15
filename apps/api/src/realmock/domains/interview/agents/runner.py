@@ -56,6 +56,14 @@ class InterviewRunner:
         self.prompter = PromptAssembler(session, self.agent, llm)
         self.tools = ToolRoundRunner(session, llm, self.agent, rag)
 
+        from realmock.domains.interview.agents.topology.shadow_evaluator import ShadowEvaluatorAgent
+        from realmock.domains.interview.agents.topology.coding_examiner import CodingExaminerAgent
+        from realmock.domains.interview.agents.topology.process_orchestrator import ProcessOrchestratorAgent
+
+        self.shadow_evaluator = ShadowEvaluatorAgent(llm, self.agent.cognitive_memory)
+        self.coding_examiner = CodingExaminerAgent(llm, self.agent.cognitive_memory)
+        self.process_orchestrator = ProcessOrchestratorAgent(llm, self.agent.cognitive_memory)
+
     async def stream_opening(self, db: Session) -> AsyncIterator[StreamEvent]:
         """Start the interview and stream the opening line."""
         async for event in runner_opening.stream_opening(self, db):

@@ -28,6 +28,7 @@ def append_followup_and_rag(
     face: dict[str, Any] | None,
     build_user_content: Any,
     session_id: int,
+    pending_probe: str | None = None,
 ) -> None:
     """Inject the follow-up signal + RAG hits + reorder the message tail (keeping user last).
 
@@ -39,6 +40,7 @@ def append_followup_and_rag(
         question=last_question,
         tech_domains=tech_domains,
         phase_id=phase_id,
+        pending_probe=pending_probe,
     )
     if signal.needs_followup:
         state.messages.append({

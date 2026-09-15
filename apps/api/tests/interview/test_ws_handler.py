@@ -555,6 +555,9 @@ class TestDispatchTable:
             "request_hint",
             "request_finish",
             "tts_playback_done",
+            "coding_code_update",
+            "coding_run_request",
+            "coding_submit_request",
         }
 
     @pytest.mark.asyncio
