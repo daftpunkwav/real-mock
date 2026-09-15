@@ -1,7 +1,9 @@
 "use client";
 
-// Per-phase evaluation summary from the report synthesis stage.
-// Pure display component: receives a phase-keyed map from the report page.
+/**
+ * Per-phase evaluation summary from the report synthesis stage.
+ * Pure display component: receives a phase-keyed map from the report page.
+ */
 
 import { useT } from "@/i18n";
 

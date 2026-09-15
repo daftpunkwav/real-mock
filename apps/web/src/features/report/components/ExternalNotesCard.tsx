@@ -1,7 +1,9 @@
 "use client";
 
-// External verification notes surfaced by the report synthesis agent.
-// Pure display component: receives pre-rendered note strings from the report page.
+/**
+ * External verification notes surfaced by the report synthesis agent.
+ * Pure display component: receives pre-rendered note strings from the report page.
+ */
 
 import { Globe } from "lucide-react";
 import { useT } from "@/i18n";
