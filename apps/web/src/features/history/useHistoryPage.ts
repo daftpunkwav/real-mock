@@ -14,7 +14,7 @@ import {
   buildNextRoundIndex,
   selectEligibleProcesses,
   type EligibleProcess,
-} from "@/features/interview";
+} from "@/lib/interviewProcesses";
 import type { SessionHistoryItem } from "@/types/domains/records";
 
 /** History page: sessions + default selection + stats + LoadError retry. */

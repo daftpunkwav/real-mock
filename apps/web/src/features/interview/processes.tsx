@@ -1,6 +1,6 @@
 "use client";
 
-/** Multi-round process continuation: eligible-process helpers, continuation hook, and entry UI. */
+/** Multi-round process continuation: continuation hook and entry UI (pure helpers live in lib/interviewProcesses). */
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -10,30 +10,10 @@ import { ArrowRight, GitBranch } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { interviewHttp as api } from "@/lib/api/clients";
 import type { InterviewProcessResponse } from "@/lib/api/contract";
-
-/** A process whose latest round passed and with rounds remaining. */
-export type EligibleProcess = InterviewProcessResponse & {
-  next_round_no: number;
-};
-
-/** Pure helpers for multi-round process continuation (no React / no API). */
-export function selectEligibleProcesses(
-  processes: InterviewProcessResponse[],
-): EligibleProcess[] {
-  return processes
-    .filter((p) => p.next_round_eligible && p.next_round_no != null)
-    .map((p) => ({ ...p, next_round_no: p.next_round_no as number }))
-    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
-}
-
-/** process_id → eligible next-round process (history detail actions). */
-export function buildNextRoundIndex(
-  processes: EligibleProcess[],
-): Record<number, EligibleProcess> {
-  const index: Record<number, EligibleProcess> = {};
-  for (const p of processes) index[p.id] = p;
-  return index;
-}
+import {
+  selectEligibleProcesses,
+  type EligibleProcess,
+} from "@/lib/interviewProcesses";
 
 /** Continue-process data domain: eligible multi-round processes + next-round creation. */
 export function useProcessContinuation() {

@@ -7,4 +7,4 @@ export { useInterviewWS } from "./hooks/room/useInterviewWS";
 export { useInterviewRoomBootstrap, useInterviewRoom } from "./hooks/room";
 export { isLikelyEchoOfAssistant, normalizeEchoText } from "./echo";
 export { toVisibleChatMessages } from "./messages";
-export { buildNextRoundIndex, selectEligibleProcesses, type EligibleProcess } from "./processes";
+export { buildNextRoundIndex, selectEligibleProcesses, type EligibleProcess } from "@/lib/interviewProcesses";
