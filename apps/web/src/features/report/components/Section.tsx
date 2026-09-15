@@ -1,6 +1,6 @@
 "use client";
 
-/** ( / / / ). */
+/** Tone-tinted bullet list (brand/success/danger/warning) for report detail sections. */
 export function Section({
   title,
   items,
