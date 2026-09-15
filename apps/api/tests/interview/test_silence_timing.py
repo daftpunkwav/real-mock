@@ -160,3 +160,47 @@ def test_cap_speaks_closing_nudge_once():
     mixin.sent.clear()
     asyncio.run(mixin._on_silence_nudge())
     assert mixin.sent == []
+
+
+def test_probe_append_does_not_reset_cap_budget():
+    """Probes merged into the same assistant message must not look like a new question."""
+    probe_seq: list[int] = []
+
+    async def fake_probe(*, question, probe_hint, attempt, silent_sec):
+        probe_seq.append(attempt)
+        return f"probe-{attempt}"
+
+    mixin = _mixin(
+        silence_probe_question="Q?",
+        silence_probe_seq=0,
+        last_nudge_at=0.0,
+    )
+    mixin._generate_silence_probe = fake_probe  # type: ignore[method-assign]
+    mixin._load_session = lambda db: SimpleNamespace(  # type: ignore[method-assign]
+        personality="professional",
+        strictness=3,
+        current_phase=SimpleNamespace(id="tech", name="Tech"),
+    )
+
+    # First probe: seq becomes 1 and the probe text is appended to history.
+    asyncio.run(mixin._on_silence_nudge())
+    assert len([e for e, _ in mixin.sent]) == 1
+    assert probe_seq == [1]
+    assert "\nprobe-1" in mixin.ctx.agent.messages[-1]["content"]
+
+    # Cooldown has elapsed; the appended probe must not be mistaken for a new question.
+    mixin.sent.clear()
+    mixin.ctx.turn_state = TurnState.USER_SPEAKING
+    mixin.ctx.last_nudge_at = 0.0
+    asyncio.run(mixin._on_silence_nudge())
+    assert probe_seq == [1, 2]
+    assert mixin.ctx.silence_probe_seq == 2
+
+    # Third wake: cap fires, closing nudge is spoken, no more probes generated.
+    mixin.sent.clear()
+    mixin.ctx.turn_state = TurnState.USER_SPEAKING
+    mixin.ctx.last_nudge_at = 0.0
+    asyncio.run(mixin._on_silence_nudge())
+    assert probe_seq == [1, 2]
+    assert len(mixin.sent) == 1
+    assert mixin.ctx.silence_capped is True

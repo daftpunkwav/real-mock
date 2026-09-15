@@ -97,7 +97,10 @@ question/follow-up plan/silence count.
         if now - self.ctx.last_nudge_at < cooldown:
             return
         # New question resets the probe budget (memory-only, no DB needed).
-        question = self._last_assistant_text()
+        # The anchor must ignore probe/closing text appended to the same
+        # assistant utterance, otherwise each probe looks like a new question
+        # and the cap never fires (see _last_assistant_question_anchor).
+        question = self._last_assistant_question_anchor()
         if question != self.ctx.silence_probe_question:
             self.ctx.silence_probe_question = question
             self.ctx.silence_probe_seq = 0
@@ -225,6 +228,31 @@ question/follow-up plan/silence count.
             if m.get("role") == "assistant":
                 return str(m.get("content") or "")
         return ""
+
+    def _last_assistant_question_anchor(self) -> str:
+        """Return the latest assistant text with any appended probes stripped.
+
+        Probes and the closing nudge are merged into the same assistant message
+        to keep alternating roles, but that merge must not be treated as a new
+        question. The anchor is the original question text that triggered the
+        first probe for this silence window.
+        """
+        text = self._last_assistant_text()
+        anchor = getattr(self.ctx, "silence_probe_question", "") or ""
+        # Multiple probes may be appended; any text that still starts with the
+        # remembered anchor is the same question.
+        if anchor and text.startswith(anchor):
+            return anchor
+        # Fallback for the first probe before the anchor is stored: strip the
+        # most recent probe/closing suffix.
+        for suffix in (self.ctx.last_silence_probe, _CLOSING_NUDGE.get(self._nudge_language())):
+            if not suffix:
+                continue
+            for candidate in (f"\n{suffix}", suffix):
+                if text.endswith(candidate):
+                    text = text[: -len(candidate)]
+                    break
+        return text.rstrip()
 
     def _append_to_last_assistant(self, text: str) -> None:
         """Merge the follow-up question into the latest assistant statement to avoid consecutive assistants in the message history."""
