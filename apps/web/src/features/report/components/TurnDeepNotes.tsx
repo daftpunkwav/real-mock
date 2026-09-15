@@ -36,8 +36,8 @@ export function TurnDeepNotes({
     <section className="eval-section">
       <h3 className="eval-label">{t("tabs.turns")}</h3>
       <ul className="space-y-3">
-        {ordered.map((note) => (
-          <DeepQaCard key={note.turn_id} note={note} />
+        {ordered.map((note, i) => (
+          <DeepQaCard key={note.turn_id} note={note} index={i} />
         ))}
       </ul>
     </section>

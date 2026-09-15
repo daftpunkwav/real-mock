@@ -5,8 +5,42 @@
  * Pure display component: receives pre-rendered note strings from the report page.
  */
 
+import { Fragment } from "react";
 import { Globe } from "lucide-react";
 import { useT } from "@/i18n";
+
+const URL_RE = /(https?:\/\/[^\s)>\]]+)/g;
+/** Trailing sentence punctuation is prose, not part of the URL. */
+const TRAILING_PUNCT_RE = /([。、，；：？！,.!?;:)\]}>]+)$/;
+
+/** Render note text with source URLs as clickable links. */
+function LinkifiedNote({ text }: { text: string }) {
+  // Only http(s) URLs linkify, so non-navigating schemes can never execute.
+  const parts = text.split(URL_RE);
+  return (
+    <span className="min-w-0 break-words">
+      {parts.map((part, i) => {
+        if (i % 2 === 0) return <Fragment key={i}>{part}</Fragment>;
+        const punct = part.match(TRAILING_PUNCT_RE)?.[1] ?? "";
+        const href = punct ? part.slice(0, -punct.length) : part;
+        if (!href) return <Fragment key={i}>{part}</Fragment>;
+        return (
+          <Fragment key={i}>
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="break-all underline underline-offset-2 hover:opacity-80"
+            >
+              {href}
+            </a>
+            {punct || null}
+          </Fragment>
+        );
+      })}
+    </span>
+  );
+}
 
 /** External verification notes the report agent grounded via web tools. */
 export function ExternalNotesCard({ notes }: { notes?: string[] }) {
@@ -31,7 +65,7 @@ export function ExternalNotesCard({ notes }: { notes?: string[] }) {
         {notes.map((note, i) => (
           <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-ink">
             <span className="mt-1 inline-block h-1 w-1 shrink-0 rounded-full bg-current opacity-50" />
-            <span className="min-w-0 break-words">{note}</span>
+            <LinkifiedNote text={note} />
           </li>
         ))}
       </ul>

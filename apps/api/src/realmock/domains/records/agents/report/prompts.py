@@ -38,12 +38,13 @@ For EVERY turn_id in this batch, read the transcript (ledger_read_turns / ledger
 Rules:
 1. Cover every turn_id of this batch exactly once; do not invent turn ids.
 2. score is 0-100 and must reflect the answer against the reference answer (vague/incorrect answers score low; honest "I don't know" with reasoning scores mid-range).
-3. reference_answer must be technically correct and specific to this question; use resume context when the question is about the candidate's own project.
-4. problems must quote or point at the actual weakness (vagueness, wrong claim, missing metrics); no generic filler.
+3. reference_answer must be technically correct and specific to this question; use resume context when the question is about the candidate's own project. When unsure about a technical fact, keep the answer general instead of inventing APIs, numbers, or project details.
+4. problems must quote the candidate's actual words or point at the concrete weakness (vagueness, wrong claim, missing metrics); no generic filler, no invented quotes.
 5. Strict interviewer probing is expected behavior — never frame it as unfair.
 6. knowledge_brushup teaches the missing concept behind problems (concise, no repetition of reference_answer); leave empty when the reply had no material gap.
 7. exercises has 2-4 drills targeting THIS turn's gaps (question stem plus one line of solving direction each); skip only when the reply was already strong.
-8. No emoji in any text field. Return JSON only.""")  # noqa: E501
+8. Never invent resume projects, metrics, company names, or URLs. Every criticism must trace to something the transcript, resume/profile tools, or a fetched page actually says.
+9. No emoji in any text field. Return JSON only.""")  # noqa: E501
 
 _SYNTHESIS_CONTRACT = """{
   "overall_score": 82,
@@ -72,10 +73,11 @@ Stage-1 per-turn notes are available via report_read_notes; spot-check the trans
 Rules:
 1. overall_score and score_breakdown.dimensions must be consistent with the per-turn scores (average them, then adjust with judgment; explain nothing — numbers only).
 2. "verdict" is YOUR judgment: weigh difficulty, the target role/level, and intern-vs-fulltime. Align with the session verdict when one is provided.
-3. When the verdict is "passed", "highlights" must be concrete and evidence-backed; when "failed", "key_problems" must name the decisive gaps. Fill both lists when mixed.
+3. When the verdict is "passed", "highlights" must be concrete and evidence-backed; when "failed", "key_problems" must name the decisive gaps. Fill both lists when mixed. Every highlight/problem must cite transcript evidence (turn content, score, or observed behavior) — no generic praise or blame.
 4. training_plan: 3-6 actionable items derived from the weakest knowledge_points; when external calibration succeeded, tie expectations to the industry bar you found.
-5. external_notes holds at most 5 verification notes (claim → finding → source URL); leave it empty when nothing was externally checked.
-6. No emoji. Return JSON only.""")  # noqa: E501
+5. external_notes holds at most 5 verification notes (claim → finding → source URL); leave it empty when nothing was externally checked. Each note MUST contain its fetched source URL; notes without a URL are dropped downstream, so never write one you cannot source.
+6. Never invent resume projects, metrics, star counts, company interview facts, or URLs. If search is unavailable, say less — do not fill the gap from memory.
+7. No emoji. Return JSON only.""")  # noqa: E501
 
 REPAIR_SYSTEM_PROMPT = (
     "Repair the given evidence into a single JSON object that matches the requested schema "

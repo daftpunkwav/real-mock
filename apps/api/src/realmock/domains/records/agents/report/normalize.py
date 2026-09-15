@@ -37,6 +37,30 @@ def _clip_list_str(value: Any, cap: int) -> list[str]:
     return out
 
 
+def _clip_external_notes(value: Any, cap: int = _EXTERNAL_NOTES_CAP) -> list[str]:
+    """Keep only sourced verification notes (must carry an http(s) URL).
+
+    The synthesis prompt requires every external note to carry its fetched
+    source URL; URL-less notes are ungrounded by construction, so drop them
+    instead of showing unverifiable claims. De-dupes identical notes.
+    """
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        text = str(item or "").strip()
+        if not text or ("http://" not in text and "https://" not in text):
+            continue
+        if text in seen:
+            continue
+        seen.add(text)
+        out.append(text[:400])
+        if len(out) >= cap:
+            break
+    return out
+
+
 def _norm_score(value: Any) -> int:
     if isinstance(value, bool):
         return 0
@@ -159,7 +183,7 @@ def normalize_report_payload(data: dict[str, Any]) -> DebriefReport:
         face_analysis_summary=str(data.get("face_analysis_summary") or "").strip()[:600],
         presence_moments=_clip_list_str(data.get("presence_moments"), _TOP_LIST_CAP),
         rounds_context=str(data.get("rounds_context") or "").strip()[:2000],
-        external_notes=_clip_list_str(data.get("external_notes"), _EXTERNAL_NOTES_CAP),
+        external_notes=_clip_external_notes(data.get("external_notes")),
         turn_notes=notes,
     )
 

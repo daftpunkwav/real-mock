@@ -38,6 +38,20 @@ function isReportFailed(error: unknown): boolean {
   return /A2005|C1001|生成失败|generation failed/i.test(msg);
 }
 
+/**
+ * Session not finished yet (A2003): the report page often loads milliseconds
+ * after the closing speech while `run_finish_lifecycle` is still committing
+ * in the background. Retry briefly as pending instead of erroring out; a
+ * genuinely active session exhausts the cap and surfaces the real error.
+ */
+function isReportNotFinished(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.code === "A2003";
+  }
+  const msg = error instanceof Error ? error.message : String(error);
+  return /A2003|请先完成|not finished|finish the interview/i.test(msg);
+}
+
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(resolve, ms);
@@ -97,45 +111,17 @@ export function useReportLoad(sessionId: number) {
     setMessagesCount(data.messages_count ?? undefined);
   };
 
-  const loadReport = (id: number) => {
-    if (!isValidSessionId(id) || id !== sessionIdRef.current) return;
-    const seq = ++seqRef.current;
-    setLoading(true);
-    setError("");
-    reportHttp
-      .getReport(id)
-      .then(async (data) => {
-        if (seq !== seqRef.current || id !== sessionIdRef.current) return;
-        await applyPayload(data, id, seq);
-      })
-      .catch((e) => {
-        if (seq !== seqRef.current || id !== sessionIdRef.current) return;
-        setError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
-        if (seq !== seqRef.current || id !== sessionIdRef.current) return;
-        setLoading(false);
-      });
-  };
+  // Bumped by retryGenerate to restart the full load (GET → SSE → poll).
+  // The stream endpoint's upsert_pending already resets failed rows to pending,
+  // so no separate sync retry call is needed (it would block up to 180s while
+  // the agent budget is 480s, and aborting it strands the row as generating).
+  const [loadTick, setLoadTick] = useState(0);
 
-  const retryGenerate = () => {
+  const retryGenerate = useCallback(() => {
     const id = sessionIdRef.current;
     if (!isValidSessionId(id)) return;
-    setLoading(true);
-    recordsHttp
-      .retryReport(id)
-      .then(async (data) => {
-        if (id !== sessionIdRef.current) return;
-        const seq = seqRef.current;
-        await applyPayload(data, id, seq);
-        setError("");
-        setLoading(false);
-      })
-      .catch(() => {
-        if (id !== sessionIdRef.current) return;
-        loadReport(id);
-      });
-  };
+    setLoadTick((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     const seq = ++seqRef.current;
@@ -153,7 +139,11 @@ export function useReportLoad(sessionId: number) {
     setLedger(null);
 
     const poll = async () => {
-      const maxAttempts = 20;
+      // Report generation takes minutes (agent budget 480s): poll ~5 minutes
+      // before surfacing notGenerated. The live progress view stays up while
+      // generating is true (see page.tsx).
+      setGenerating(true);
+      const maxAttempts = 60;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (ac.signal.aborted || seq !== seqRef.current) return;
         try {
@@ -176,9 +166,18 @@ export function useReportLoad(sessionId: number) {
             setGenerating(false);
             return;
           }
-          if (isReportPending(e)) {
+          // A2003 right after finish is a commit race (finish_lifecycle still
+          // running in the background): retry briefly, then surface the error
+          // so genuinely active sessions still get the real message.
+          if (isReportNotFinished(e) && attempt >= 10) {
+            setError(e instanceof Error ? e.message : String(e));
+            setLoading(false);
+            setGenerating(false);
+            return;
+          }
+          if (isReportPending(e) || isReportNotFinished(e)) {
             try {
-              await sleep(Math.min(1000 * (attempt + 1), 4000), ac.signal);
+              await sleep(Math.min(1000 * (attempt + 1), 5000), ac.signal);
             } catch {
               return;
             }
@@ -234,16 +233,15 @@ export function useReportLoad(sessionId: number) {
         reportHttp
           .streamReport(sessionId, onEvent)
           .then(() => {
-            // Stream ended without done/error (e.g. generator cancelled): fall back to polling.
+            // Stream ended without done/error: keep the live progress view up
+            // while the poll fallback waits (poll owns generating from here).
             if (!ac.signal.aborted && seq === seqRef.current) {
-              setGenerating(false);
               void poll();
             }
             resolve();
           })
           .catch(() => {
             if (!ac.signal.aborted && seq === seqRef.current) {
-              setGenerating(false);
               void poll();
             }
             resolve();
@@ -267,13 +265,13 @@ export function useReportLoad(sessionId: number) {
           setLoading(false);
           return;
         }
-        if (!isReportPending(e)) {
+        if (!isReportPending(e) && !isReportNotFinished(e)) {
           setError(e instanceof Error ? e.message : String(e));
           setLoading(false);
           return;
         }
       }
-      // Pending → live generation stream (poll fallback inside).
+      // Pending (or finish-commit race) → live generation stream (poll fallback inside).
       await liveStream();
     };
 
@@ -281,7 +279,7 @@ export function useReportLoad(sessionId: number) {
     return () => {
       ac.abort();
     };
-  }, [sessionId]);
+  }, [sessionId, loadTick]);
 
   return {
     report,

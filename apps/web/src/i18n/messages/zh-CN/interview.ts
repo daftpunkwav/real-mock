@@ -132,6 +132,7 @@ export const interview = {
   // ---- 房间:结束面试 ----
   "room.finish.button": "结束面试",
   "room.finish.finishing": "收尾评价中…",
+  "room.finish.playingClosing": "收尾评价播报中，播完自动跳转报告…",
 
   // ---- 房间:聊天列 ----
   "chat.empty.restored": "已恢复会话，等待你的回答",

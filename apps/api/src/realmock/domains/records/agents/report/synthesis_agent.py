@@ -36,6 +36,28 @@ _WEB_BUDGET_MARKERS = {
     "web_search": "SEARCH_UNAVAILABLE",
     "web_fetch": "FETCH_FAILED",
 }
+#: Per-report dedupe cache for web observations (identical query/URL repeats
+#: across rounds hit the cache without charging the web budget again).
+_WEB_CACHE_MAX = 64
+
+
+def _web_cache_key(name: str, args: dict[str, Any]) -> str | None:
+    """Identity for cacheable web calls; None when the call is not cacheable.
+
+    Empty queries/URLs are model mistakes, not cache entries: they stay charged
+    against the budget so a junk-query loop still exhausts and stops.
+    """
+    if name == "web_search":
+        query = str((args or {}).get("query") or "").strip().lower()
+        if not query:
+            return None
+        return f"web_search::{query}"
+    if name == "web_fetch":
+        url = str((args or {}).get("url") or "").strip().lower()
+        if not url:
+            return None
+        return f"web_fetch::{url}"
+    return None
 
 
 def _consume_web_budget(budget: dict[str, int], name: str) -> str | None:
@@ -79,14 +101,22 @@ async def run_synthesis(
         bundle.extend(context_specs)
 
     web_budget = {"web_search": _WEB_SEARCH_BUDGET, "web_fetch": _WEB_FETCH_BUDGET}
+    web_cache: dict[str, str] = {}
 
     async def execute(name: str, args: dict[str, Any]) -> str:
+        cache_key = _web_cache_key(name, args or {})
+        if cache_key is not None and cache_key in web_cache:
+            return web_cache[cache_key]
         exhausted = _consume_web_budget(web_budget, name)
         if exhausted is not None:
             return exhausted
         raw, _status = await invoke_with_timeout(
             bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS
         )
+        if cache_key is not None:
+            web_cache[cache_key] = raw
+            while len(web_cache) > _WEB_CACHE_MAX:
+                web_cache.pop(next(iter(web_cache)))
         return raw
 
     async def on_tool(name: str, args: dict[str, Any], result: str, tc_id: str) -> None:

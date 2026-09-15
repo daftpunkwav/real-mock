@@ -65,6 +65,23 @@ class ReportSchedulerMixin:
                 return
 
             run_finish_lifecycle(db, session, mark_completed=True)
+            # Wait for the closing TTS playback before announcing completion:
+            # `interview_complete` is the frontend's safe-to-navigate signal.
+            # Without this, it races the spoken wrap-up (assistant_done is
+            # text-complete, not speech-complete) and the room jumps to the
+            # report page while the comment is still playing. No-op when no
+            # audio was sent (text-only / TTS failed); bounded by the playback
+            # timeout inside _wait_client_playback.
+            try:
+                waiter = getattr(self, "_wait_client_playback", None)
+                if callable(waiter):
+                    await waiter()
+            except Exception:
+                logger.debug(
+                    "closing playback wait failed sid=%s",
+                    self.ctx.session_id,
+                    exc_info=True,
+                )
             try:
                 await self.send(
                     "interview_complete",

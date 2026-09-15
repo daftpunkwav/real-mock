@@ -224,8 +224,8 @@ async def test_report_stream_poll_breaks_on_failed(db, api_db) -> None:
 
 @pytest.mark.asyncio
 async def test_report_stream_cancelled_branch_marks_generating_failed(db) -> None:
-    # Directly exercise the CancelledError handler shape: a generating row
-    # disconnected mid-stream must be marked failed without swallowing CancelledError.
+    # Store-level contract for explicit failures (route handler no longer marks
+    # failed on SSE client disconnect; see test_report_stream_cancel_keeps_generating).
     import asyncio as _asyncio
 
     from realmock.domains.records.services import report_store as _store
@@ -240,11 +240,11 @@ async def test_report_stream_cancelled_branch_marks_generating_failed(db) -> Non
 
     row.updated_at = datetime.now(_tz.utc)
     db.commit()
-    # Simulate the handler's cancel path: mark_failed on CancelledError.
+    # Simulate an explicit failure path: mark_failed on a terminal error.
     try:
         raise _asyncio.CancelledError()
     except _asyncio.CancelledError:
-        _store.mark_failed(db, sid, "cancelled: SSE client disconnected")
+        _store.mark_failed(db, sid, "explicit failure in test")
         raised = True
     assert raised
     assert _store.get_report_row(db, sid).status == _store.STATUS_FAILED  # type: ignore[union-attr]

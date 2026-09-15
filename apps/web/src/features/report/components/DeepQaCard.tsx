@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useT } from "@/i18n";
 import { ChevronDown } from "lucide-react";
+import { tokenizeEvalText } from "@/lib/cnText";
 import type { TurnNote } from "@/types/domains/report";
 
 function scoreTone(score: number | undefined): string {
@@ -17,9 +18,34 @@ function scoreTone(score: number | undefined): string {
   return "chip-gray";
 }
 
-export function DeepQaCard({ note }: { note: TurnNote }) {
+/** Render **bold** / `code` spans in agent prose (same tokenizer as resume eval). */
+export function ReportRichText({ text }: { text: string }) {
+  const parts = tokenizeEvalText(text);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.type === "bold" ? (
+          <strong key={i} className="eval-em">
+            {p.value}
+          </strong>
+        ) : p.type === "code" ? (
+          <code key={i} className="eval-code">
+            {p.value}
+          </code>
+        ) : (
+          <span key={i}>{p.value}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+export function DeepQaCard({ note, index }: { note: TurnNote; index?: number }) {
   const t = useT("report");
-  const [showReference, setShowReference] = useState(false);
+  // Weak answers auto-expand the reference so the miss is visible immediately;
+  // strong answers keep it collapsible to reduce noise.
+  const weak = (note.score ?? 0) > 0 && (note.score ?? 0) < 60;
+  const [showReference, setShowReference] = useState(weak);
   const hasLegacy =
     Boolean(note.user_review?.summary) || Boolean(note.interviewer_review?.intent);
   const hasDeep =
@@ -30,17 +56,24 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
   return (
     <li className="eval-qa-card">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          {note.question ? (
-            <p className="text-[13px] font-semibold leading-relaxed text-ink">{note.question}</p>
-          ) : (
-            <p className="text-[11px] font-semibold text-ink-subtle">{note.turn_id}</p>
+        <div className="flex min-w-0 items-start gap-2">
+          {typeof index === "number" && (
+            <span className="eval-qa-idx num-tabular">{index + 1}</span>
           )}
-          {note.question_intent && (
-            <p className="mt-1 text-[11px] leading-relaxed text-ink-muted">
-              {t("qa.intent")}: {note.question_intent}
-            </p>
-          )}
+          <div className="min-w-0">
+            {note.question ? (
+              <p className="text-[13px] font-semibold leading-relaxed text-ink">
+                <ReportRichText text={note.question} />
+              </p>
+            ) : (
+              <p className="text-[11px] font-semibold text-ink-subtle">{note.turn_id}</p>
+            )}
+            {note.question_intent && (
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-muted">
+                {t("qa.intent")}: <ReportRichText text={note.question_intent} />
+              </p>
+            )}
+          </div>
         </div>
         {(note.score ?? 0) > 0 && (
           <span className={`chip shrink-0 ${scoreTone(note.score)} num-tabular`}>
@@ -50,7 +83,9 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
       </div>
 
       {note.answer_summary && (
-        <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">{note.answer_summary}</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
+          <ReportRichText text={note.answer_summary} />
+        </p>
       )}
 
       {(note.problems ?? []).length > 0 && (
@@ -62,7 +97,9 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
             {(note.problems ?? []).map((p, i) => (
               <li key={i} className="flex items-start gap-2 text-[12px] leading-relaxed text-ink">
                 <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-current opacity-50" />
-                <span>{p}</span>
+                <span>
+                  <ReportRichText text={p} />
+                </span>
               </li>
             ))}
           </ul>
@@ -84,7 +121,7 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
           </button>
           {showReference && (
             <div className="mt-1.5 rounded-md border border-surface-border bg-surface-alt p-2.5 text-[12px] leading-relaxed text-ink">
-              {note.reference_answer}
+              <ReportRichText text={note.reference_answer} />
             </div>
           )}
         </div>
@@ -93,7 +130,7 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
       {note.how_to_answer && (
         <p className="mt-2.5 text-[12px] leading-relaxed text-ink">
           <span className="font-medium text-[var(--info-ink)]">{t("qa.howToAnswer")}: </span>
-          {note.how_to_answer}
+          <ReportRichText text={note.how_to_answer} />
         </p>
       )}
 
@@ -110,7 +147,7 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
       {note.knowledge_brushup && (
         <p className="mt-2.5 text-[12px] leading-relaxed text-ink">
           <span className="font-medium text-[var(--info-ink)]">{t("qa.brushup")}: </span>
-          {note.knowledge_brushup}
+          <ReportRichText text={note.knowledge_brushup} />
         </p>
       )}
 
@@ -122,7 +159,7 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
           <ol className="list-decimal space-y-1 pl-4">
             {(note.exercises ?? []).map((e, i) => (
               <li key={i} className="text-[12px] leading-relaxed text-ink">
-                {e}
+                <ReportRichText text={e} />
               </li>
             ))}
           </ol>
@@ -131,7 +168,7 @@ export function DeepQaCard({ note }: { note: TurnNote }) {
 
       {note.followup_quality && (
         <p className="mt-2 text-[11px] text-ink-muted">
-          {t("qa.followup")}: {note.followup_quality}
+          {t("qa.followup")}: <ReportRichText text={note.followup_quality} />
         </p>
       )}
 

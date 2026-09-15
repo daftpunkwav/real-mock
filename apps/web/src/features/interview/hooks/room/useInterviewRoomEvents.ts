@@ -45,6 +45,8 @@ interface InterviewRoomEventsDeps {
   ) => void;
   playBase64Mp3: (data: string) => void;
   stopTTS: (opts?: { silent?: boolean }) => void;
+  /** True while closing TTS audio is queued or speaking (excludes held audio). */
+  isActivelyPlaying?: () => boolean;
   router: ReturnType<typeof useRouter>;
   sessionId: number;
 }
@@ -53,10 +55,18 @@ interface InterviewRoomEventsDeps {
  * Registers room WebSocket handlers for assistant, TTS, STT, hints, phases,
  * completion, info, and errors. Playback refs, TTS, and routing are injected
  * so this hook owns event orchestration without duplicating their internals.
+ * Closing completion waits for the spoken wrap-up to drain before navigating
+ * to the report (text-complete is not speech-complete).
  */
 export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
   const depsRef = useRef(deps);
   depsRef.current = deps;
+  /**
+   * False after unmount: the closing-navigation wait must not push a route on
+   * a dead room (e.g. the candidate pressed back while the wrap-up played).
+   * Reset on every (re)subscription so StrictMode remounts keep working.
+   */
+  const mountedRef = useRef(true);
 
   const clearHintTimeout = useCallback(() => {
     const ref = depsRef.current.hintTimeoutRef;
@@ -131,6 +141,7 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
   const { on, playBase64Mp3, router, sessionId, stopTTS } = deps;
 
   useEffect(() => {
+    mountedRef.current = true;
     const d = depsRef.current;
 
     const announceVerdict = (result?: string | null) => {
@@ -143,19 +154,62 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       }
     };
 
-    const finishOnceAndNavigate = async () => {
+    /**
+     * Closing navigation: wait for the spoken wrap-up to finish playing before
+     * leaving the room. `assistant_done(is_complete)` is text-complete, NOT
+     * speech-complete — trailing `tts_audio` frames are still being synthesized
+     * in the background. Navigating immediately (plus `stopTTS(silent)`) drops
+     * the remaining sentences and closes the WS, so the candidate never hears
+     * the full comment.
+     */
+    const scheduleFinishNavigation = () => {
       if (d.navigatingRef.current) return;
       d.navigatingRef.current = true;
       d.finishingRef.current = true;
       d.setFinishingUi(true);
       disarmSpeechWatch();
-      // A non-silent stop invokes onPlaybackDone; the explicit send would duplicate this generation.
-      d.stopTTS({ silent: true });
-      d.sendRef.current({
-        type: "tts_playback_done",
-        generation: d.playbackGenRef.current,
-      });
-      d.router.push(`/report/${d.sessionId}`);
+      try {
+        toast.info(getTranslator("interview")("room.finish.playingClosing"));
+      } catch {
+        /* toast best-effort */
+      }
+      // Do NOT stop TTS here: let the closing speech keep playing. The natural
+      // onPlaybackDone callback reports `tts_playback_done` when the queue
+      // drains; a premature explicit send would unblock the backend wait early.
+      void (async () => {
+        const MIN_WAIT_MS = 3000; // allow trailing tts_audio to arrive/synthesize
+        const MAX_WAIT_MS = 40000; // fallback so a stuck queue never pins the room
+        const STABLE_MS = 1000; // idle-stable window before leaving
+        const POLL_MS = 300;
+        const start = Date.now();
+        await new Promise((r) => setTimeout(r, MIN_WAIT_MS));
+        let idleSince: number | null = null;
+        while (Date.now() - start < MAX_WAIT_MS) {
+          // Read live deps via depsRef: `d` is the effect-mount snapshot and
+          // `isActivelyPlaying` identity may be stale across re-renders.
+          const live = depsRef.current;
+          let busy = false;
+          try {
+            busy = live.isActivelyPlaying?.() ?? false;
+          } catch {
+            busy = false;
+          }
+          if (busy) {
+            idleSince = null;
+          } else {
+            if (idleSince === null) idleSince = Date.now();
+            if (Date.now() - idleSince >= STABLE_MS) break;
+          }
+          await new Promise((r) => setTimeout(r, POLL_MS));
+        }
+        if (!mountedRef.current) return;
+        try {
+          const live = depsRef.current;
+          live.router.push(`/report/${live.sessionId}`);
+        } catch {
+          /* navigation best-effort; WS cleanup handles the rest */
+        }
+      })();
     };
 
     on("assistant_token", (msg) => d.setStreamingText((prev) => prev + msg.token));
@@ -189,7 +243,7 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       }
       if (msg.is_complete) {
         announceVerdict(msg.result);
-        void finishOnceAndNavigate();
+        scheduleFinishNavigation();
       }
     });
 
@@ -305,7 +359,10 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
 
     on("interview_complete", (msg) => {
       announceVerdict(msg.result);
-      void finishOnceAndNavigate();
+      // Backend now delays this frame until client playback is done, so it is
+      // a safe-to-navigate signal. If the assistant_done path already scheduled
+      // the wait, this is a deduped no-op via navigatingRef.
+      scheduleFinishNavigation();
     });
 
     on("info", (msg) => {
@@ -314,8 +371,10 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
 
     on("error", (msg) => {
       d.setMessages((prev) => [...prev, { role: "assistant", content: getTranslator("interview")("room.msg.warning", { msg: msg.message }) }]);
-      // Reset finish UI whenever an error arrives mid-finish (do not substring-match backend copy)
-      if (d.finishingRef.current) {
+      // Reset finish UI when closing fails so the candidate can retry. Once
+      // navigation is scheduled (closing speech playing), errors must not pop
+      // the finishing UI back to the End button.
+      if (d.finishingRef.current && !d.navigatingRef.current) {
         d.finishingRef.current = false;
         d.setFinishingUi(false);
       }
@@ -335,6 +394,10 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
         }
       }
     });
+
+    return () => {
+      mountedRef.current = false;
+    };
   }, [on, playBase64Mp3, router, sessionId, requestHint, stopTTS, clearHintTimeout, armSpeechWatch, disarmSpeechWatch, fireSpeechEndBump]);
 
   return { requestHint, clearHintTimeout, fireSpeechEndBump, disarmSpeechWatch };

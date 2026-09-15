@@ -82,7 +82,7 @@ async def test_generate_drains_second_while() -> None:
         assert any("second" in line or "first" in line for line in lines)
 
 @pytest.mark.asyncio
-async def test_report_stream_cancel_marks_failed(db) -> None:
+async def test_report_stream_cancel_keeps_generating(db) -> None:
     import realmock.domains.records.routes.report as rmod
     from realmock.domains.records.services import report_store as store
     from realmock.platform.capabilities.ai.llm.client import LLMClient
@@ -124,7 +124,10 @@ async def test_report_stream_cancel_marks_failed(db) -> None:
         with pytest.raises(asyncio.CancelledError):
             async for _ in resp.body_iterator:
                 pass
-    assert store.get_report_row(db, sid_seed).status == store.STATUS_FAILED  # type: ignore[union-attr]
+    # Client disconnect must not fail the report: the background debrief keeps
+    # running and the next GET/stream polls it up (regression: old code marked
+    # failed here, turning transient disconnects into permanent A2005).
+    assert store.get_report_row(db, sid_seed).status == store.STATUS_GENERATING  # type: ignore[union-attr]
 
 @pytest.mark.asyncio
 async def test_report_stream_cancel_inner_failure_covered(db) -> None:

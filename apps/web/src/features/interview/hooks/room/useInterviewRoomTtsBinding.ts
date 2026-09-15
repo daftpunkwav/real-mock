@@ -30,6 +30,7 @@ export function useInterviewRoomTtsBinding(deps: InterviewRoomTtsBindingDeps) {
     flushHeldQueue,
     retryLastFailed,
     stop,
+    isActivelyPlaying,
     audioUnlocked,
   } = useTTSPlayer();
 
@@ -83,6 +84,7 @@ export function useInterviewRoomTtsBinding(deps: InterviewRoomTtsBindingDeps) {
     flushHeldQueue,
     retryLastFailed,
     stopTTS: stop,
+    isActivelyPlaying,
     audioUnlocked,
   };
 }

@@ -137,6 +137,7 @@ export const interview = {
   // ---- Room: finishing ----
   "room.finish.button": "End interview",
   "room.finish.finishing": "Wrapping up…",
+  "room.finish.playingClosing": "Playing the closing review; jumping to the report when done…",
 
   // ---- Room: chat column ----
   "chat.empty.restored": "Session restored; waiting for your answer",

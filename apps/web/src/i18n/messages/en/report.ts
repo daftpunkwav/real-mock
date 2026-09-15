@@ -99,6 +99,8 @@ export const report = {
   "qa.followup": "Follow-up handling",
   "live.title": "Generating your report",
   "live.starting": "Starting the report agent…",
+  "live.elapsed": "Waited {n}s",
+  "live.tip": "Deep reports read every answer, check the resume, and verify externally — usually 1–4 minutes. Please keep this page open.",
   "live.stageNotes": "Reading the transcript and resume evidence per question",
   "live.stageSynthesis": "Synthesizing scores and the final verdict",
   "live.tool": "Verifying: {name}",

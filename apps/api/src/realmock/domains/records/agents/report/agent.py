@@ -132,7 +132,9 @@ class DeepReportAgent:
             # search-engine rate limits.
             synthesis_specs = [
                 *specs,
-                search_tool_spec(),
+                # 5 hits cover the ≤5 external notes without stuffing the
+                # context (and latency) of the default 8.
+                search_tool_spec(default_max_results=5),
                 web_fetch_tool_spec(),
             ]
             payload = await run_synthesis(

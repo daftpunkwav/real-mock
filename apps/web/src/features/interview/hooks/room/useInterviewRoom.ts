@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useInterviewWS } from "./useInterviewWS";
 import { useInterviewRoomBootstrap } from "./useInterviewRoomBootstrap";
@@ -33,7 +33,7 @@ export function useInterviewRoom(sessionId: number) {
     send,
   });
 
-  const { playBase64Mp3, unlockAudio, flushHeldQueue, retryLastFailed, stopTTS, audioUnlocked } =
+  const { playBase64Mp3, unlockAudio, flushHeldQueue, retryLastFailed, stopTTS, isActivelyPlaying, audioUnlocked } =
     useInterviewRoomTtsBinding({
       playbackGenRef: rf.playbackGenRef,
       lastPlaybackDoneGenRef: rf.lastPlaybackDoneGenRef,
@@ -45,6 +45,20 @@ export function useInterviewRoom(sessionId: number) {
       setAudioLevel: setSt.setAudioLevel,
       setAudioBlocked: setSt.setAudioBlocked,
     });
+
+  // Stabilize the playback-busy probe for the closing-navigation wait: the raw
+  // callback is re-created per render, but the underlying refs are live.
+  const isPlayingRef = useRef(isActivelyPlaying);
+  useEffect(() => {
+    isPlayingRef.current = isActivelyPlaying;
+  }, [isActivelyPlaying]);
+  const stableIsPlaying = useCallback(() => {
+    try {
+      return isPlayingRef.current();
+    } catch {
+      return false;
+    }
+  }, []);
 
   const micEnabled =
     connected && (turnState === "USER_SPEAKING" || turnState === "AI_SPEAKING") && !st.finishingUi;
@@ -94,6 +108,7 @@ export function useInterviewRoom(sessionId: number) {
     on,
     playBase64Mp3,
     stopTTS,
+    isActivelyPlaying: stableIsPlaying,
     router,
     sessionId,
   });

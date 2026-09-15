@@ -98,6 +98,8 @@ export const report = {
   "qa.followup": "追问表现",
   "live.title": "报告生成中",
   "live.starting": "正在启动报告 agent…",
+  "live.elapsed": "已等待 {n} 秒",
+  "live.tip": "深度报告需逐题深读、对照简历与外部查证，通常需要 1–4 分钟，请勿关闭页面。",
   "live.stageNotes": "逐题深读转写与简历证据",
   "live.stageSynthesis": "综合裁定评分与结论",
   "live.tool": "查证：{name}",

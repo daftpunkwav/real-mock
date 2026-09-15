@@ -20,7 +20,6 @@ from realmock.domains.records.services.report_store import (
     STATUS_PENDING,
     STATUS_READY,
     get_report_row,
-    mark_failed,
     parse_payload,
     reset_for_retry,
     upsert_pending,
@@ -267,8 +266,12 @@ async def get_report_stream(
                     yield sse_line
                 report = generated[0] if generated else None
             if report is None:
-                for _ in range(30):
-                    await asyncio.sleep(0.2)
+                # The debrief often outlives the live-event relay (background
+                # claim, LLM rounds, web verification). Poll longer before
+                # giving up so the SSE stays open on slow generations instead
+                # of flashing A2004 while the agent is still working.
+                for _i in range(120):
+                    await asyncio.sleep(0.5)
                     row2 = get_report_row(db, session_id)
                     if row2 is not None and row2.status == STATUS_READY:
                         report = parse_payload(row2)
@@ -276,6 +279,9 @@ async def get_report_stream(
                             break
                     if row2 is not None and row2.status == STATUS_FAILED:
                         break
+                    # Keep idle connections alive for proxies (~5s heartbeat).
+                    if _i % 10 == 9:
+                        yield ": ping\n\n"
             if report is None:
                 yield format_sse_line(
                     {
@@ -294,18 +300,12 @@ async def get_report_stream(
                 yield format_sse_line({"type": "token", "content": chunk})
             yield format_sse_line({"type": "done", "report": report_payload})
         except asyncio.CancelledError:
+            # Client disconnect (navigation, StrictMode remount, timeout) must
+            # NOT fail the report: the background debrief task keeps running
+            # and persists ready; the next GET/stream polls it up. Marking
+            # failed here turned every transient disconnect into a permanent
+            # A2005 ("entering detail always errors").
             logger.info("SSE client disconnected sid=%s", session_id)
-            try:
-                from realmock.platform.database import sessions_db_session
-
-                with sessions_db_session() as fail_db:
-                    row = get_report_row(fail_db, session_id)
-                    if row is not None and row.status == STATUS_GENERATING:
-                        mark_failed(fail_db, session_id, "cancelled: SSE client disconnected")
-            except Exception:
-                logger.debug(
-                    "mark_failed on SSE cancel failed sid=%s", session_id, exc_info=True
-                )
             raise
         except Exception as e:
             safe_detail = redact_api_key(str(e)) or _SSE_ERR_GENERIC

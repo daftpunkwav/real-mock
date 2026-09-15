@@ -33,7 +33,13 @@ def test_handle_finish_requests_closing_then_navigates() -> None:
     assert "toast.error" in actions
     assert "router.push" in events
     # The report is generated in the WS background; the interview page navigates directly to the report page, which continues by polling (no longer await finishInterview).
-    assert "router.push(`/report/${d.sessionId}`)" in events
+    # Navigation waits for the closing TTS playback to drain (text-complete is
+    # not speech-complete): no silent stop before push, live playback probe via
+    # depsRef, and the push targets /report/${sessionId}.
+    assert "router.push(`/report/${live.sessionId}`)" in events
+    assert "scheduleFinishNavigation" in events
+    assert "finishOnceAndNavigate" not in events
+    assert "isActivelyPlaying" in events
     assert "is_complete" in events
 
 
