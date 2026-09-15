@@ -1,7 +1,4 @@
-"""
-@file __init__.py
-@description 4-Agent topology package exports for the interview domain.
-"""
+"""Multi-agent topology package exports for the interview domain."""
 
 from realmock.domains.interview.agents.topology.shadow_evaluator import (
     ShadowEvaluation,

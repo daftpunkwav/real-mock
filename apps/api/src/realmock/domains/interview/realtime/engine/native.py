@@ -1,6 +1,4 @@
-"""
-@file native.py
-@description Native Duplex Realtime Audio Engine adapter skeleton.
+"""Native duplex realtime audio engine adapter skeleton.
 
 Responsibilities:
 - Provide the full-duplex streaming bridge for native speech-to-speech models (OpenAI Realtime / Gemini Live).
@@ -24,6 +22,9 @@ from realmock.domains.interview.realtime.engine.base import (
 
 logger = logging.getLogger(__name__)
 
+# Max inbound queue size to prevent memory leaks during slow uplink consumer processing
+_MAX_INBOUND_FRAMES = 500
+
 
 class NativeRealtimeAudioEngine(RealtimeAudioEngine):
     """Native end-to-end full duplex audio engine adapter.
@@ -46,7 +47,7 @@ class NativeRealtimeAudioEngine(RealtimeAudioEngine):
         self._event_handler: EventHandler | None = None
         self._is_active = False
         self._generation = 0
-        self._inbound_queue: asyncio.Queue[bytes] = asyncio.Queue()
+        self._inbound_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=_MAX_INBOUND_FRAMES)
 
     @property
     def mode(self) -> AudioEngineMode:
@@ -66,8 +67,10 @@ class NativeRealtimeAudioEngine(RealtimeAudioEngine):
         """Forward PCM audio chunks directly to the model input audio buffer."""
         if not self._is_active:
             return
-        await self._inbound_queue.put(pcm_bytes)
-        # Note: In production with active API credentials, this transmits input_audio_buffer.append frames.
+        try:
+            self._inbound_queue.put_nowait(pcm_bytes)
+        except asyncio.QueueFull:
+            logger.warning("Native inbound audio queue full; dropping frame")
 
     async def finish_user_speech(self) -> str:
         """Commit user audio buffer to trigger native model inference."""
@@ -93,12 +96,15 @@ class NativeRealtimeAudioEngine(RealtimeAudioEngine):
             except asyncio.QueueEmpty:
                 break
         if self._event_handler:
-            await self._event_handler(
-                AudioEngineEvent(
-                    kind=AudioEventKind.INTERRUPTED,
-                    generation=self._generation,
+            try:
+                await self._event_handler(
+                    AudioEngineEvent(
+                        kind=AudioEventKind.INTERRUPTED,
+                        generation=self._generation,
+                    )
                 )
-            )
+            except Exception as exc:
+                logger.warning("Native audio engine failed to dispatch interrupt event: %s", exc)
 
     async def shutdown(self) -> None:
         self._is_active = False

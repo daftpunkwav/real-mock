@@ -1,7 +1,4 @@
-"""
-@file test_cognitive_memory.py
-@description Unit tests for CognitiveMemoryGraph and CompetencyNode.
-"""
+"""Unit tests for CognitiveMemoryGraph and CompetencyNode."""
 
 from realmock.domains.interview.agents.memory import (
     CognitiveMemoryGraph,
@@ -62,3 +59,28 @@ def test_cognitive_graph_serialization_roundtrip():
     assert node.confidence == 0.95
     assert restored.working_memory.current_topic == "React Reconciler"
     assert restored.working_memory.candidate_code == "function reconcile() {}"
+
+
+def test_cognitive_graph_corrupted_data_resilience():
+    corrupted_data = {
+        "nodes": {
+            "invalid_node": {
+                "topic": "CorruptedTopic",
+                "status": "not_a_valid_status",
+                "confidence": "invalid_conf_string",
+                "evidence": [
+                    {"turn_index": "not_int", "confidence": "bad", "claim": 123},
+                    "corrupted_string_item",
+                ],
+            }
+        },
+        "working_memory": "not_a_dict",
+    }
+    restored = CognitiveMemoryGraph.from_dict(corrupted_data)
+    assert "invalid_node" in restored.nodes
+    node = restored.nodes["invalid_node"]
+    assert node.status == CompetencyStatus.UNTESTED
+    assert node.confidence == 0.0
+    assert len(node.evidence) == 1
+    assert node.evidence[0].turn_index == 0
+    assert restored.working_memory.current_topic == ""

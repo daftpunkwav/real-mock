@@ -1,6 +1,4 @@
-"""
-@file base.py
-@description Realtime Audio Engine interface for the interview realtime layer.
+"""Realtime audio engine abstraction for the interview realtime domain.
 
 Responsibilities:
 - Define the abstract RealtimeAudioEngine contract for duplex and cascaded audio pipelines.

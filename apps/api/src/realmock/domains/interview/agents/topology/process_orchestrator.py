@@ -1,6 +1,4 @@
-"""
-@file process_orchestrator.py
-@description Process Orchestrator Agent responsible for agenda management, dynamic pacing, and debrief synthesis.
+"""Process Orchestrator Agent responsible for agenda management, dynamic pacing, and debrief synthesis.
 
 Responsibilities:
 - Monitor interview progression against the cognitive memory graph and time budget.

@@ -1,7 +1,4 @@
-"""
-@file test_topology_agents.py
-@description Unit tests for 4-Agent topology components.
-"""
+"""Unit tests for 4-Agent topology components."""
 
 import pytest
 from realmock.domains.interview.agents.memory import CognitiveMemoryGraph

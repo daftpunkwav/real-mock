@@ -1,6 +1,4 @@
-"""
-@file coding_examiner.py
-@description Coding Examiner Agent responsible for live coding challenges, test execution, and static analysis.
+"""Coding Examiner Agent responsible for live coding challenges, test execution, and static analysis.
 
 Responsibilities:
 - Formulate tailored algorithmic or engineering coding challenges.
@@ -251,15 +249,24 @@ class CodingExaminerAgent:
                 ],
                 temperature=0.2,
             )
+            try:
+                score = int(raw.get("score", 5))
+            except (ValueError, TypeError):
+                score = 5
+            score = max(1, min(10, score))
+
+            strengths = [str(x) for x in raw.get("strengths", []) if isinstance(x, (str, int, float))]
+            weaknesses = [str(x) for x in raw.get("weaknesses", []) if isinstance(x, (str, int, float))]
+
             report = CodeEvaluationReport(
                 passed=bool(raw.get("passed", False)),
-                score=int(raw.get("score", 5)),
+                score=score,
                 time_complexity=str(raw.get("time_complexity", "")),
                 space_complexity=str(raw.get("space_complexity", "")),
                 summary=str(raw.get("summary", "")),
                 feedback_for_candidate=str(raw.get("feedback_for_candidate", "")),
-                strengths=list(raw.get("strengths", [])),
-                weaknesses=list(raw.get("weaknesses", [])),
+                strengths=strengths,
+                weaknesses=weaknesses,
             )
 
             status = CompetencyStatus.VERIFIED if report.passed and report.score >= 7 else CompetencyStatus.FAILED

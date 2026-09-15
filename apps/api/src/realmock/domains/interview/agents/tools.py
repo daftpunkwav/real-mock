@@ -332,11 +332,22 @@ async def execute_interview_tool(
         return await _cap_result(raw, llm)
 
     if name == "issue_coding_challenge":
+        from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
         from realmock.domains.interview.agents.topology.coding_examiner import CodingExaminerAgent
-        examiner = CodingExaminerAgent(llm, agent_state.get("cognitive_memory") or {})
+
+        raw_mem = agent_state.get("cognitive_memory")
+        if isinstance(raw_mem, CognitiveMemoryGraph):
+            mem_graph = raw_mem
+        elif isinstance(raw_mem, dict):
+            mem_graph = CognitiveMemoryGraph.from_dict(raw_mem)
+        else:
+            mem_graph = CognitiveMemoryGraph()
+
+        examiner = CodingExaminerAgent(llm, mem_graph)
         lang = str(arguments.get("language") or "python")
         challenge = await examiner.create_challenge(preferred_language=lang)
-        agent_state.setdefault("active_coding_challenge", challenge.to_dict())
+        agent_state["active_coding_challenge"] = challenge.to_dict()
+        agent_state["cognitive_memory"] = mem_graph.to_dict()
         return json.dumps({
             "status": "challenge_issued",
             "title": challenge.title,
@@ -345,9 +356,18 @@ async def execute_interview_tool(
         }, ensure_ascii=False)
 
     if name == "inspect_candidate_code":
-        mem = agent_state.get("cognitive_memory", {}).get("working_memory", {}) if isinstance(agent_state.get("cognitive_memory"), dict) else {}
-        code = mem.get("candidate_code", "")
-        test_out = mem.get("last_test_output", "")
+        raw_mem = agent_state.get("cognitive_memory")
+        if hasattr(raw_mem, "working_memory"):
+            code = getattr(raw_mem.working_memory, "candidate_code", "")
+            test_out = getattr(raw_mem.working_memory, "last_test_output", "")
+        elif isinstance(raw_mem, dict):
+            wm = raw_mem.get("working_memory", {}) if isinstance(raw_mem.get("working_memory"), dict) else {}
+            code = str(wm.get("candidate_code", ""))
+            test_out = str(wm.get("last_test_output", ""))
+        else:
+            code = ""
+            test_out = ""
+
         if not code:
             return json.dumps({"status": "no_code_submitted_yet"}, ensure_ascii=False)
         return json.dumps({

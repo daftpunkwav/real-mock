@@ -1,7 +1,4 @@
-"""
-@file test_audio_engine.py
-@description Unit tests for RealtimeAudioEngine abstractions and factory.
-"""
+"""Unit tests for RealtimeAudioEngine abstractions and factory."""
 
 import pytest
 from realmock.domains.interview.realtime.engine import (
@@ -55,3 +52,9 @@ async def test_native_audio_engine_lifecycle():
 
     assert any(e.kind == AudioEventKind.INTERRUPTED for e in events)
     await engine.shutdown()
+
+
+def test_create_audio_engine_fallback_on_invalid_mode():
+    engine = create_audio_engine("unsupported_invalid_mode")
+    assert engine.mode == AudioEngineMode.CASCADED
+    assert isinstance(engine, CascadedAudioEngine)

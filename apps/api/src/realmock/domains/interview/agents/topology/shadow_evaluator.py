@@ -1,6 +1,4 @@
-"""
-@file shadow_evaluator.py
-@description Shadow Evaluator Agent for rigorous technical assessment and probing suggestions.
+"""Shadow Evaluator Agent for rigorous technical assessment and probing suggestions.
 
 Responsibilities:
 - Inspect candidate answers for technical depth, logical consistency, and buzzword avoidance.
@@ -95,11 +93,20 @@ class ShadowEvaluatorAgent:
             if not raw or not isinstance(raw, dict):
                 return ShadowEvaluation()
 
+            try:
+                substance_score = int(raw.get("substance_score", 5))
+            except (ValueError, TypeError):
+                substance_score = 5
+            substance_score = max(1, min(10, substance_score))
+
+            inconsistencies = [str(x) for x in raw.get("inconsistencies", []) if isinstance(x, (str, int, float))]
+            technical_holes = [str(x) for x in raw.get("technical_holes", []) if isinstance(x, (str, int, float))]
+
             eval_res = ShadowEvaluation(
-                substance_score=int(raw.get("substance_score", 5)),
+                substance_score=substance_score,
                 is_consistent=bool(raw.get("is_consistent", True)),
-                inconsistencies=list(raw.get("inconsistencies", [])),
-                technical_holes=list(raw.get("technical_holes", [])),
+                inconsistencies=inconsistencies,
+                technical_holes=technical_holes,
                 suggested_probe=str(raw.get("suggested_probe", "")).strip(),
                 should_trigger_coding=bool(raw.get("should_trigger_coding", False)),
                 assessed_topic=str(raw.get("assessed_topic", "")).strip(),

@@ -1,6 +1,4 @@
-"""
-@file cognitive_graph.py
-@description Semantic competency graph and cognitive memory structure for interviews.
+"""Semantic competency graph and cognitive memory structure for interviews.
 
 Responsibilities:
 - Maintain candidate competency nodes across technical and behavioral domains.
@@ -39,12 +37,24 @@ class CompetencyEvidence:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CompetencyEvidence:
+        try:
+            turn_index = int(data.get("turn_index", 0))
+        except (ValueError, TypeError):
+            turn_index = 0
+        try:
+            confidence = float(data.get("confidence", 0.8))
+        except (ValueError, TypeError):
+            confidence = 0.8
+        try:
+            timestamp = float(data.get("timestamp", time.time()))
+        except (ValueError, TypeError):
+            timestamp = time.time()
         return cls(
-            turn_index=int(data.get("turn_index", 0)),
+            turn_index=turn_index,
             claim=str(data.get("claim", "")),
             finding=str(data.get("finding", "")),
-            confidence=float(data.get("confidence", 0.8)),
-            timestamp=float(data.get("timestamp", time.time())),
+            confidence=confidence,
+            timestamp=timestamp,
         )
 
 
@@ -90,12 +100,29 @@ class CompetencyNode:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CompetencyNode:
+        raw_status = data.get("status", CompetencyStatus.UNTESTED.value)
+        try:
+            status = CompetencyStatus(raw_status)
+        except (ValueError, KeyError):
+            status = CompetencyStatus.UNTESTED
+
+        try:
+            confidence = float(data.get("confidence", 0.0))
+        except (ValueError, TypeError):
+            confidence = 0.0
+
+        evidence = [
+            CompetencyEvidence.from_dict(e)
+            for e in data.get("evidence", [])
+            if isinstance(e, dict)
+        ]
+
         return cls(
-            topic=data["topic"],
-            category=data.get("category", "general"),
-            status=CompetencyStatus(data.get("status", CompetencyStatus.UNTESTED.value)),
-            confidence=float(data.get("confidence", 0.0)),
-            evidence=[CompetencyEvidence.from_dict(e) for e in data.get("evidence", [])],
+            topic=str(data.get("topic", "unspecified")),
+            category=str(data.get("category", "general")),
+            status=status,
+            confidence=confidence,
+            evidence=evidence,
             last_probe=str(data.get("last_probe", "")),
         )
 
@@ -197,7 +224,11 @@ class CognitiveMemoryGraph:
     def from_dict(cls, data: dict[str, Any] | None) -> CognitiveMemoryGraph:
         if not data or not isinstance(data, dict):
             return cls()
-        raw_nodes = data.get("nodes", {})
-        nodes = {k: CompetencyNode.from_dict(v) for k, v in raw_nodes.items() if isinstance(v, dict)}
+        raw_nodes = data.get("nodes")
+        nodes = (
+            {k: CompetencyNode.from_dict(v) for k, v in raw_nodes.items() if isinstance(v, dict)}
+            if isinstance(raw_nodes, dict)
+            else {}
+        )
         working_mem = WorkingMemory.from_dict(data.get("working_memory"))
         return cls(nodes=nodes, working_memory=working_mem)

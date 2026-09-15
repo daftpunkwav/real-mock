@@ -1,6 +1,4 @@
-"""
-@file evaluator.py
-@description Live coding sandbox test evaluator and execution bridge.
+"""Live coding sandbox test evaluator and execution bridge.
 
 Responsibilities:
 - Validate test cases against candidate code outputs.
@@ -59,7 +57,9 @@ def evaluate_test_cases(
     results: list[SingleTestCaseResult] = []
     passed_count = 0
 
-    for tc in test_cases:
+    valid_cases = [tc for tc in test_cases if isinstance(tc, dict)]
+
+    for tc in valid_cases:
         expected = str(tc.get("expected", "")).strip()
         inp = str(tc.get("input", "")).strip()
         # Evaluate match in raw_output
@@ -75,10 +75,10 @@ def evaluate_test_cases(
             )
         )
 
-    all_passed = len(test_cases) > 0 and passed_count == len(test_cases)
+    all_passed = len(valid_cases) > 0 and passed_count == len(valid_cases)
     return CodeExecutionOutcome(
         passed_all=all_passed,
-        total_cases=len(test_cases),
+        total_cases=len(valid_cases),
         passed_cases=passed_count,
         results=results,
         stdout=raw_output,

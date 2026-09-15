@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * @file InterviewRoomOutline.tsx
+ * @description Right-hand container hosting avatar display, reference outline, and live coding whiteboard.
+ *
+ * Responsibilities:
+ * - Render the interactive 3D avatar stage and emotional state indicators.
+ * - Provide tab navigation between question outline and live coding sandbox.
+ * - Surface reference hints, source attributions, and token metrics.
+ */
+
 import { useState } from "react";
 import { useT } from "@/i18n";
 import { Code2, FileText, RefreshCw } from "lucide-react";

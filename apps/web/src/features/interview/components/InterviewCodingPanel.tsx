@@ -1,15 +1,15 @@
+"use client";
+
 /**
- * @file InterviewCodingPanel
+ * @file InterviewCodingPanel.tsx
  * @description Live coding whiteboard and execution sandbox panel for technical interviews.
  *
  * Responsibilities:
  * - Render coding challenge details, constraints, and test suites.
- * - Provide a live code editor with language switching (Python / JavaScript / TypeScript).
+ * - Provide a live code editor with language switching (Python / JavaScript).
  * - Execute code in browser sandbox and display stdout/stderr and test assertions.
  * - Enable candidate submission and review.
  */
-
-"use client";
 
 import React, { useState } from "react";
 import { Play, Send, Code, Terminal, CheckCircle2, XCircle, FileText } from "lucide-react";

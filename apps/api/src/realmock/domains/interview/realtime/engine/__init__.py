@@ -1,7 +1,4 @@
-"""
-@file __init__.py
-@description Realtime audio engine package exports.
-"""
+"""Realtime audio engine package exports for the interview domain."""
 
 from realmock.domains.interview.realtime.engine.base import (
     AudioEngineEvent,

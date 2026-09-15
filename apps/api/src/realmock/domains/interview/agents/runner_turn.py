@@ -8,6 +8,7 @@ tool loop runs (produce/consume bridge, mirroring the prep chat pattern).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -20,6 +21,7 @@ from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
 from realmock.domains.interview.agents.history_compaction import maybe_fold_history
+from realmock.domains.interview.agents.memory.reflection import reflect_on_dialogue
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
@@ -185,9 +187,6 @@ async def stream_turn(
         # Asynchronously trigger Shadow Evaluator and periodic reflection
         turn_index = len(runner.agent.agent_state.get("asked_questions", []))
         try:
-            import asyncio
-            from realmock.domains.interview.agents.memory.reflection import reflect_on_dialogue
-
             asyncio.create_task(
                 runner.shadow_evaluator.evaluate_turn(
                     question=last_question,

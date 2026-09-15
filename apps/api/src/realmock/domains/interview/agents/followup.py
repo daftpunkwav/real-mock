@@ -1,6 +1,4 @@
-"""
-@file followup.py
-@description Structured follow-up signal analyzer with semantic probe support.
+"""Structured follow-up signal analyzer with semantic probe support.
 
 Responsibilities:
 - Determine whether candidate answers require follow-up probing.

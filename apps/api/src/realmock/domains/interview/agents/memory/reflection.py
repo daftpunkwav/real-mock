@@ -1,6 +1,4 @@
-"""
-@file reflection.py
-@description Periodic cognitive reflection and synthesis loop for interview memory.
+"""Periodic cognitive reflection and synthesis loop for interview memory.
 
 Responsibilities:
 - Periodically evaluate recent dialog turns to extract candidate claims vs. verified facts.
@@ -78,18 +76,23 @@ async def reflect_on_dialogue(
             for ref in reflections:
                 if not isinstance(ref, dict):
                     continue
-                topic = ref.get("topic")
-                status_str = ref.get("status", "untested").lower()
+                topic = str(ref.get("topic", "")).strip()
+                status_str = str(ref.get("status", "untested")).lower()
                 if not topic or status_str not in {s.value for s in CompetencyStatus}:
                     continue
+                try:
+                    confidence = float(ref.get("confidence", 0.8))
+                except (ValueError, TypeError):
+                    confidence = 0.8
+
                 memory_graph.record_finding(
                     topic=topic,
-                    category=ref.get("category", "general"),
+                    category=str(ref.get("category", "general")),
                     status=CompetencyStatus(status_str),
-                    claim=ref.get("claim", ""),
-                    finding=ref.get("finding", ""),
+                    claim=str(ref.get("claim", "")),
+                    finding=str(ref.get("finding", "")),
                     turn_index=current_turn_index,
-                    confidence=float(ref.get("confidence", 0.8)),
+                    confidence=confidence,
                 )
 
         next_probe = raw.get("suggested_next_probe")
