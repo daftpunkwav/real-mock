@@ -78,6 +78,13 @@ def test_plan_from_workflow_preserves_static_ids():
     assert restored.steps[0].id == "identity_check"
 
 
+def test_parse_plan_tags_final_step_as_summary():
+    """The closing step is marked summary so the verdict turn receives score trajectory."""
+    plan = parse_plan(_agent_plan_dict(MIN_PLAN_STEPS))
+    assert plan is not None
+    assert plan.steps[-1].kind == "summary"
+
+
 def test_parse_plan_language_and_opening_defaults():
     """Legacy plans without language/opening degrade to zh + identity_confirm."""
     plan = parse_plan(_agent_plan_dict(8))
