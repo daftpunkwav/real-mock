@@ -21,7 +21,9 @@ def _json_arguments(value: Any) -> str:
         return "{}"
 
 
-def _headers(api_key: str, protocol: str) -> dict[str, str]:
+def _headers(
+    api_key: str, protocol: str, extra_headers: dict[str, str] | None = None
+) -> dict[str, str]:
     headers = {
         "api-key": api_key,
         "Authorization": f"Bearer {api_key}",
@@ -30,6 +32,10 @@ def _headers(api_key: str, protocol: str) -> dict[str, str]:
     if protocol == LLMProtocol.ANTHROPIC_MESSAGES:
         headers["x-api-key"] = api_key
         headers["anthropic-version"] = "2023-06-01"
+    # Vendor-specific header customization from model-entry extras; merged last so any
+    # standard key above can be overridden per provider.
+    if extra_headers:
+        headers.update(extra_headers)
     return headers
 
 

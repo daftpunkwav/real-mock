@@ -46,7 +46,7 @@ async def stream_message_round_retry(
     Retry 429/5xx/connection errors with exponential backoff if no delta has been emitted; when the
     endpoint rejects ``stream_options``, set ``_stream_usage_disabled``, remove that field, and replay.
     """
-    headers = chat_completions_headers(api_key)
+    headers = chat_completions_headers(api_key, getattr(client, "extra_headers", None))
     max_retries = 3
     backoff = 0.5
     async with make_pinned_async_client(
@@ -117,7 +117,7 @@ async def stream_text_retry(
     Retry 429/5xx/connection errors with exponential backoff if no token has been emitted; rebuild the sanitizer for each attempt,
     discarding any partial special-token buffer and <think> open/close state left by the previous failed attempt.
     """
-    headers = chat_completions_headers(api_key)
+    headers = chat_completions_headers(api_key, getattr(client, "extra_headers", None))
     max_retries = 3
     backoff = 0.5
     last_exc: Exception | None = None

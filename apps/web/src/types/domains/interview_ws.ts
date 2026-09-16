@@ -31,6 +31,8 @@ export type ServerEvent =
       playback_generation?: number;
       /** Expected candidate answer seconds (turn protocol; 0/missing = not provided) */
       wait_seconds?: number;
+      /** Answer window seconds from the candidate's first input (turn protocol; 0/missing = not provided) */
+      answer_wait_seconds?: number;
       /** Answer grounding for this turn: resume | github | company_kb | none */
       sources?: string[];
       /** Agent verdict on the wrap-up turn: passed | failed | null */
@@ -114,6 +116,7 @@ export type ClientEvent =
       image_base64?: string;
     }
   | { type: "stt_text"; text: string }
+  | { type: "user_typing" }
   | { type: "silence_timeout" }
   | { type: "barge_in" }
   | { type: "request_hint"; question: string }

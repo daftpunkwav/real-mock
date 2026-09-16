@@ -153,6 +153,8 @@ export const interview = {
   "chat.bubble.interviewerNudge": "面试官 · 追问",
   "chat.bubble.streamingSuffix": " · 输入中",
   "chat.thinking": "面试官正在思考…",
+  "chat.timer.think": "思考时间 {time}",
+  "chat.timer.answer": "作答时间 {time}",
 
   // ---- 房间:视频面板 / 人脸状态 ----
   "video.mic.off": "未开启",
@@ -171,6 +173,8 @@ export const interview = {
 
   // ---- 房间:参考回答 ----
   "room.outline.title": "参考回答",
+  "room.outline.tabCoding": "代码白板",
+  "room.outline.tabReference": "参考回答",
   "room.outline.regenerateTitle": "根据面试官最近的问题重新生成参考回答",
   "room.outline.regenerate": "重新生成",
   "room.outline.toggle": "显示参考",

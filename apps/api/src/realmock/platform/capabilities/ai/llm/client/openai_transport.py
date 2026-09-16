@@ -33,6 +33,7 @@ def build_payload(
     response_format: dict[str, str] | None = None,
     tools: list[dict[str, Any]] | None = None,
     max_tokens_override: int | None = None,
+    extra_body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model,
@@ -49,14 +50,21 @@ def build_payload(
         payload["reasoning_effort"] = (
             "high" if reasoning_effort == "max" else reasoning_effort
         )
+    # Vendor-specific request-body customization: model-entry extras (extra_body) win over
+    # every standard key, so any provider field can be set from the settings page.
+    if extra_body:
+        payload.update(extra_body)
     return payload
 
 
-def chat_completions_headers(api_key: str) -> dict[str, str]:
-    return {
+def chat_completions_headers(api_key: str, extra_headers: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
 
 
 async def chat_completions(
@@ -68,6 +76,7 @@ async def chat_completions(
     timeout: float,
     log_label: str,
     model: str,
+    extra_headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """POST Chat Completions and return JSON; retry semantics for 4xx/429/5xx are defined in base."""
     async with make_pinned_async_client(
@@ -75,7 +84,9 @@ async def chat_completions(
     ) as client:
         try:
             resp = await _retry_request(
-                lambda: client.post(url, headers=chat_completions_headers(api_key), json=payload)
+                lambda: client.post(
+                    url, headers=chat_completions_headers(api_key, extra_headers), json=payload
+                )
             )
             resp.raise_for_status()
             return resp.json()

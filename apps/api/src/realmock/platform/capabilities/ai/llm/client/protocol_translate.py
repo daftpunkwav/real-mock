@@ -41,12 +41,17 @@ def build_request(
     response_format: dict[str, str] | None = None,
     tools: list[dict[str, Any]] | None = None,
     tool_choice: str | dict[str, Any] | None = None,
+    full_url: bool = False,
 ) -> tuple[str, dict[str, Any]]:
-    """Construct the request URL and payload according to the protocol (the three shapes are maintained separately and are not unified with each other)."""
+    """Construct the request URL and payload according to the protocol (the three shapes are maintained separately and are not unified with each other).
+
+    ``full_url`` providers use ``api_base`` verbatim as the endpoint; only the URL is affected,
+    the payload still follows the protocol shape.
+    """
     if protocol == LLMProtocol.ANTHROPIC_MESSAGES:
         message_items = _anthropic_messages(messages)
         system_text = _system_text(messages, system)
-        url = f"{api_base}/v1/messages"
+        url = api_base if full_url else f"{api_base}/v1/messages"
         payload: dict[str, Any] = {
             "model": model,
             "max_tokens": max_tokens,
@@ -72,7 +77,7 @@ def build_request(
     if protocol == LLMProtocol.OPENAI_RESPONSES:
         message_items = _responses_input(messages)
         system_text = _system_text(messages, system)
-        url = f"{api_base}/responses"
+        url = api_base if full_url else f"{api_base}/responses"
         payload = {
             "model": model,
             "input": message_items,
@@ -93,7 +98,7 @@ def build_request(
         return url, payload
 
     # Default openai_chat
-    url = f"{api_base}/chat/completions"
+    url = api_base if full_url else f"{api_base}/chat/completions"
     payload = {
         "model": model,
         "messages": messages,

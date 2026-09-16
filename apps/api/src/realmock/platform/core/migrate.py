@@ -25,7 +25,7 @@ from realmock.platform.core.constants import (
 logger = logging.getLogger(__name__)
 
 # Aligned with the revision id in alembic/versions (the version chain manages only the api-domain schema)
-ALEMBIC_HEAD_REVISION = "20260907_0003"
+ALEMBIC_HEAD_REVISION = "20260916_0004"
 
 # api.db:archive/resume/processor-config
 API_MIGRATIONS: dict[str, list[str]] = {
@@ -79,6 +79,9 @@ API_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE llm_settings ADD COLUMN tts_api_base VARCHAR(500) DEFAULT ''",
         "ALTER TABLE llm_settings ADD COLUMN tts_api_key VARCHAR(500) DEFAULT ''",
         "ALTER TABLE llm_settings ADD COLUMN tts_model VARCHAR(100) DEFAULT ''",
+    ],
+    "llm_providers": [
+        "ALTER TABLE llm_providers ADD COLUMN full_url BOOLEAN DEFAULT 0",
     ],
     "stage_configs": [
         (

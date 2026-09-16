@@ -221,6 +221,10 @@ class TurnSttFinishMixin:
                     retryable=True,
                 )
             await self.set_turn(TurnState.USER_SPEAKING)
+            # Nothing was recognized — the candidate is still mid-answer: the
+            # server-owned timers must survive STT failures, or follow-ups
+            # would depend on the fragile client clock again.
+            self.restore_turn_timers_after_incomplete_turn()
             return
 
         self.ctx.stt_fail_streak = 0
@@ -256,6 +260,7 @@ class TurnSttFinishMixin:
             retryable=True,
         )
         await self.set_turn(TurnState.USER_SPEAKING)
+        self.restore_turn_timers_after_incomplete_turn()
         return True
 
 

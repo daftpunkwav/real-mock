@@ -227,3 +227,65 @@ async def test_text_only_mode_skips_fallback(monkeypatch) -> None:
         )
     assert out.text == ""
     assert out.fallback is True
+
+
+@pytest.mark.asyncio
+async def test_full_url_minimax_endpoint_uses_vendor_adapter(monkeypatch) -> None:
+    monkeypatch.setattr(router_mod, "find_provider", lambda stage, pid: None)
+    fake = _fake_provider("minimax-text")
+    monkeypatch.setattr(router_mod, "MiniMaxSttProvider", lambda: fake)
+    out = await router_mod.transcribe_with_handler(
+        "AAA",
+        sample_rate=16000,
+        creds=_creds(
+            provider="MiniMax-语音识别",
+            api_base="https://api.minimaxi.com/v1/speech_to_text",
+            full_url=True,
+        ),
+    )
+    assert out.text == "minimax-text"
+    assert out.provider == "MiniMax-语音识别"
+    assert out.fallback is False
+    assert out.requested_provider == "MiniMax-语音识别"
+
+
+@pytest.mark.asyncio
+async def test_full_url_unknown_endpoint_falls_back_to_local(monkeypatch) -> None:
+    monkeypatch.setattr(router_mod, "find_provider", lambda stage, pid: None)
+    fake_local = _fake_provider("local-text")
+    monkeypatch.setitem(router_mod._PROVIDERS, "local", fake_local)
+    out = await router_mod.transcribe_with_handler(
+        "AAA",
+        sample_rate=16000,
+        creds=_creds(
+            provider="custom_full",
+            api_base="https://vendor.example/whatever",
+            full_url=True,
+        ),
+    )
+    assert out.text == "local-text"
+    assert out.provider == "local"
+    assert out.fallback is True
+
+
+@pytest.mark.asyncio
+async def test_full_url_takes_precedence_over_openai_chat_mimo(monkeypatch) -> None:
+    monkeypatch.setattr(router_mod, "find_provider", lambda stage, pid: None)
+    mimo = _fake_provider("mimo-text")
+    fake_local = _fake_provider("local-text")
+    monkeypatch.setitem(router_mod._PROVIDERS, "mimo_audio", mimo)
+    monkeypatch.setitem(router_mod._PROVIDERS, "local", fake_local)
+    out = await router_mod.transcribe_with_handler(
+        "AAA",
+        sample_rate=16000,
+        creds=_creds(
+            provider="custom_full",
+            api_base="https://vendor.example/whatever",
+            protocol="openai_chat",
+            full_url=True,
+        ),
+    )
+    # Full-URL mode ignores protocol-based dispatch entirely.
+    assert out.text == "local-text"
+    assert out.provider == "local"
+    assert out.fallback is True

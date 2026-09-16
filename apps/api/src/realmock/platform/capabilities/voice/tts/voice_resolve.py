@@ -2,18 +2,33 @@
 
 Priority: avatar-mapped voice > voice from credentials (stage_configs extras.tts_voice) > default Xiaoxiao.
 personality / strictness affect speaking rate and pitch to reduce flat, mechanical delivery.
+Vendor-aware: when the broadcast handler maps to a vendor with its own voice id namespace
+(e.g. MiniMax), the avatar mapping and vendor-voice passthrough come from that vendor's descriptor.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from realmock.platform.capabilities.voice.tts.edge import DEFAULT_VOICE
+from realmock.platform.capabilities.voice.tts.providers.edge import DEFAULT_VOICE
 from realmock.platform.capabilities.voice.tts.options import AVATARS
 
 # avatar_id → Neural voice (kept in sync with options.AVATARS.voice)
 _AVATAR_VOICE: dict[str, str] = {
     str(a["id"]): str(a["voice"]) for a in AVATARS if a.get("id") and a.get("voice")
+}
+
+
+# Broadcast handler id → vendor voice resolver(avatar_id, settings_voice) → vendor voice id.
+# One entry per adapted vendor that owns its own voice id namespace.
+def _resolve_minimax_session_voice(avatar_id: str | None, settings_voice: str | None) -> str:
+    from realmock.platform.capabilities.voice.tts.providers.minimax import resolve_minimax_voice
+
+    return resolve_minimax_voice(avatar_id, settings_voice)
+
+
+_VENDOR_VOICE_RESOLVERS = {
+    "minimax_speech": _resolve_minimax_session_voice,
 }
 
 # personality → (rate, pitch); edge-tts accepts values such as "+10%" / "-5Hz"
@@ -53,8 +68,13 @@ class VoiceProsody:
 def resolve_session_voice(
     avatar_id: str | None,
     llm_settings_voice: str | None = None,
+    *,
+    handler: str | None = None,
 ) -> str:
-    """Parse the Neural patch ID that should be used in this interview."""
+    """Parse the voice id that should be used in this interview for the broadcast handler."""
+    vendor_resolver = _VENDOR_VOICE_RESOLVERS.get((handler or "").strip())
+    if vendor_resolver is not None:
+        return vendor_resolver(avatar_id, llm_settings_voice)
     aid = (avatar_id or "").strip()
     if aid and aid in _AVATAR_VOICE:
         return _AVATAR_VOICE[aid]
@@ -98,9 +118,10 @@ def resolve_prosody(
     strictness: int | None = None,
     emotion: str | None = None,
     llm_settings_voice: str | None = None,
+    handler: str | None = None,
 ) -> VoiceProsody:
     """Derive synthesis parameters from avatar / personality / strictness / emotion."""
-    voice = resolve_session_voice(avatar_id, llm_settings_voice)
+    voice = resolve_session_voice(avatar_id, llm_settings_voice, handler=handler)
     pers = (personality or "professional").strip().lower()
     rate, pitch = _PERSONALITY_PROSODY.get(pers, _PERSONALITY_PROSODY["professional"])
 

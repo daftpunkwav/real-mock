@@ -46,6 +46,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "session_llm": ".session_overrides",
     "session_stt_credentials": ".session_overrides",
     "session_tts_credentials": ".session_overrides",
+    "voice_prompt_directive": ".session_overrides",
     "strip_markers": ".agent_text",
     "strip_think_blocks": ".agent_text",
 }
@@ -58,6 +59,7 @@ __all__ = [
     "session_llm",
     "session_stt_credentials",
     "session_tts_credentials",
+    "voice_prompt_directive",
     "strip_markers",
     "strip_think_blocks",
 ]

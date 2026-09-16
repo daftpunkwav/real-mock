@@ -19,8 +19,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from realmock.platform.capabilities.voice.stt import whisper as whisper_mod
-from realmock.platform.capabilities.voice.stt.whisper import (
+from realmock.platform.capabilities.voice.stt.providers import whisper as whisper_mod
+from realmock.platform.capabilities.voice.stt.providers.whisper import (
     pcm_base64_to_wav_bytes,
     transcribe_pcm_base64,
     transcribe_pcm_base64_async,

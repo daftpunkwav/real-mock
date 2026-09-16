@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
-from realmock.platform.capabilities.voice.stt import baidu as baidu_mod
-from realmock.platform.capabilities.voice.stt.baidu import BaiduProvider
+from realmock.platform.capabilities.voice.stt.providers import baidu as baidu_mod
+from realmock.platform.capabilities.voice.stt.providers.baidu import BaiduProvider
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 
 
@@ -86,6 +86,39 @@ async def test_baidu_token_exception(monkeypatch):
             PCM, sample_rate=16000, creds=SttCredentials(api_key="k", api_secret="s")
         )
         == ""
+    )
+
+
+@pytest.mark.asyncio
+async def test_baidu_token_http_error_never_logs_credentials(monkeypatch, caplog):
+    # A 4xx token response turns into HTTPStatusError whose text embeds the full
+    # request URL (query carries client_id/client_secret) — credentials must not
+    # reach the logs.
+    import logging as _logging
+
+    import httpx
+
+    url = "https://aip.baidubce.com/oauth/2.0/token?client_id=BAIDUKEY123&client_secret=BAIDUSECRET456"
+    request = httpx.Request("GET", url)
+    response = httpx.Response(401, request=request)
+    exc = httpx.HTTPStatusError(
+        f"Client error '401 Unauthorized' for url {url!r}", request=request, response=response
+    )
+    client = _FakeClient(get_exc=exc)
+    monkeypatch.setattr(baidu_mod, "make_pinned_async_client", lambda *a, **k: client)
+    p = BaiduProvider()
+    with caplog.at_level(_logging.ERROR, logger=baidu_mod.__name__):
+        assert (
+            await p.transcribe(
+                PCM,
+                sample_rate=16000,
+                creds=SttCredentials(api_key="BAIDUKEY123", api_secret="BAIDUSECRET456"),
+            )
+            == ""
+        )
+    assert not any(
+        "BAIDUKEY123" in r.getMessage() or "BAIDUSECRET456" in r.getMessage()
+        for r in caplog.records
     )
 
 

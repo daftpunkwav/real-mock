@@ -158,6 +158,8 @@ export const interview = {
   "chat.bubble.interviewerNudge": "Interviewer · follow-up",
   "chat.bubble.streamingSuffix": " · typing",
   "chat.thinking": "The interviewer is thinking…",
+  "chat.timer.think": "Think time {time}",
+  "chat.timer.answer": "Answer time {time}",
 
   // ---- Room: video panel / face status ----
   "video.mic.off": "Mic off",
@@ -176,6 +178,8 @@ export const interview = {
 
   // ---- Room: reference answer ----
   "room.outline.title": "Reference answer",
+  "room.outline.tabCoding": "Code whiteboard",
+  "room.outline.tabReference": "Reference answer",
   "room.outline.regenerateTitle": "Regenerate the reference answer for the interviewer's latest question",
   "room.outline.regenerate": "Regenerate",
   "room.outline.toggle": "Show reference",

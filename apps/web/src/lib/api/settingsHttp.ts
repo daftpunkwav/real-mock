@@ -14,6 +14,8 @@ export const settingsHttp = {
     request<{ id: number }>(`/v1/settings/providers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteProvider: (id: number) =>
     request<{ deleted: number }>(`/v1/settings/providers/${id}`, { method: "DELETE" }),
+  listRecommendedVendors: () =>
+    request<{ vendors: import("@/types").RecommendedVendor[] }>("/v1/settings/vendors"),
   createModel: (providerId: number, data: import("@/types").ModelProfileWrite) =>
     request<import("@/types").ModelProfile>(`/v1/settings/providers/${providerId}/models`, {
       method: "POST",

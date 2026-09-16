@@ -25,6 +25,7 @@ SPEAK_PROVIDERS: list[dict[str, Any]] = [
         default_model="mimo-v2.5-tts",
         default_api_base="https://token-plan-cn.xiaomimimo.com/v1",
         hint="OpenAI is compatible with chat.completions; specify the timbre via audio.voice",
+        vendor="xiaomi",
     ),
     _p(
         id="edge",
@@ -42,6 +43,7 @@ SPEAK_PROVIDERS: list[dict[str, Any]] = [
         default_model="speech-2.8-hd",
         default_api_base="https://api.minimaxi.com/v1",
         hint="T2A text-to-speech; TTS Key can be configured separately",
+        vendor="minimax",
     ),
     _p(
         id="none",

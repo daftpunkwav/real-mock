@@ -1,4 +1,4 @@
-"""MiniMax TTS tests for src/realmock/platform/capabilities/voice/tts/minimax.py.
+"""MiniMax TTS tests for src/realmock/platform/capabilities/voice/tts/providers/minimax.py.
 
 Covers: synthesize_minimax_to_base64 missing-key/empty-text guards, hex/base64/
 top-level/missing/non-string audio branches, base/model/voice defaults, HTTP
@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from realmock.platform.capabilities.voice.tts import minimax as minimax_mod
-from realmock.platform.capabilities.voice.tts.minimax import (
+from realmock.platform.capabilities.voice.tts.providers import minimax as minimax_mod
+from realmock.platform.capabilities.voice.tts.providers.minimax import (
     DEFAULT_BASE,
     DEFAULT_MODEL,
     DEFAULT_VOICE,
@@ -115,6 +115,28 @@ async def test_base_slash_stripped_and_defaults_applied(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_full_url_base_used_verbatim(monkeypatch):
+    _settings(monkeypatch)
+    raw = b"xyz"
+    client = _FakeClient(resp=_FakeResp(payload={"data": {"audio": raw.hex()}}))
+    _patch_client(monkeypatch, client)
+    await synthesize_minimax_to_base64(
+        "hi", api_key="k", api_base="https://api.minimaxi.com/v1/t2a_v2"
+    )
+    assert client.post_calls[0]["url"] == "https://api.minimaxi.com/v1/t2a_v2"
+
+
+@pytest.mark.asyncio
+async def test_generic_mimo_default_voice_maps_to_minimax_default(monkeypatch):
+    _settings(monkeypatch)
+    raw = b"abc"
+    client = _FakeClient(resp=_FakeResp(payload={"data": {"audio": raw.hex()}}))
+    _patch_client(monkeypatch, client)
+    await synthesize_minimax_to_base64("hi", api_key="k", voice="mimo_default")
+    assert client.post_calls[0]["json"]["voice_setting"]["voice_id"] == DEFAULT_VOICE
+
+
+@pytest.mark.asyncio
 async def test_non_hex_audio_passthrough(monkeypatch):
     _settings(monkeypatch)
     b64 = base64.b64encode(b"raw-audio").decode("ascii") + "!!"
@@ -205,3 +227,68 @@ async def test_json_decode_failure_returns_empty(monkeypatch):
     client.post = _post  # type: ignore[method-assign]
     _patch_client(monkeypatch, client)
     assert await synthesize_minimax_to_base64("hi", api_key="k") == ""
+
+
+@pytest.mark.asyncio
+async def test_overrides_customize_any_body_field(monkeypatch):
+    """extras.tts_request deep-merges onto the descriptor defaults."""
+    _settings(monkeypatch)
+    client = _FakeClient(resp=_FakeResp(payload={"data": {"audio": b"x".hex()}}))
+    _patch_client(monkeypatch, client)
+    out = await synthesize_minimax_to_base64(
+        "hi",
+        api_key="k",
+        voice="female-shaonv",
+        overrides={
+            "audio_setting": {"sample_rate": 24000},
+            "voice_setting": {"emotion": "calm"},
+            "language_boost": "auto",
+        },
+    )
+    assert out
+    body = client.post_calls[0]["json"]
+    assert body["audio_setting"]["sample_rate"] == 24000
+    assert body["audio_setting"]["format"] == "mp3"  # descriptor default survives
+    assert body["voice_setting"]["emotion"] == "calm"
+    assert body["voice_setting"]["voice_id"] == "female-shaonv"
+    assert body["language_boost"] == "auto"
+    assert body["model"] == DEFAULT_MODEL
+
+
+@pytest.mark.asyncio
+async def test_base_resp_error_returns_empty(monkeypatch):
+    _settings(monkeypatch)
+    client = _FakeClient(
+        resp=_FakeResp(payload={"base_resp": {"status_code": 1002, "status_msg": "rate limit"}})
+    )
+    _patch_client(monkeypatch, client)
+    assert await synthesize_minimax_to_base64("hi", api_key="k") == ""
+    assert client.post_calls  # the request itself happened
+
+
+@pytest.mark.asyncio
+async def test_long_text_splits_at_sentence_boundaries_and_concatenates(monkeypatch):
+    _settings(monkeypatch)
+    text = "第一句话内容足够长。\n第二段也有实际内容，可以独立成段。"
+    limit = 10  # force multiple chunks below the real descriptor limit
+    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: {"limits": {"chunk_chars": limit}, "request": {}, "response": {}})
+    parts = [b"part-one", b"part-two", b"part-three"]
+
+    async def _fake_chunk(body, url, api_key):
+        return base64.b64encode(parts.pop(0)).decode("ascii")
+
+    monkeypatch.setattr(minimax_mod, "_synthesize_chunk", _fake_chunk)
+    out = await synthesize_minimax_to_base64(text, api_key="k")
+    assert base64.b64decode(out) == b"".join(
+        [b"part-one", b"part-two", b"part-three"]
+    )
+
+
+def test_split_text_chunks_respects_limit_and_paragraphs():
+    chunks = minimax_mod.split_text_chunks("短句。", 100)
+    assert chunks == ["短句。"]
+    long_text = "。" .join(["一句话" * 30] * 6) + "。"
+    for chunk in minimax_mod.split_text_chunks(long_text, 200):
+        assert len(chunk) <= 200
+    joined = "".join(minimax_mod.split_text_chunks(long_text, 200))
+    assert joined.replace("。", "") == long_text.replace("。", "")

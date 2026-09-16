@@ -854,6 +854,30 @@
         }
       }
     },
+    "/api/v1/settings/vendors": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Recommended Vendors",
+        "description": "Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.\n\nDrives the settings-page \"add provider\" cascade; entries carry catalog prefills\nplus the deep request template metadata when a vendor descriptor JSON exists.",
+        "operationId": "recommended_vendors_api_v1_settings_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Recommended Vendors Api V1 Settings Vendors Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/settings/providers/{provider_id}": {
       "put": {
         "tags": [
@@ -4481,6 +4505,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/vendors": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Recommended Vendors",
+        "description": "Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.\n\nDrives the settings-page \"add provider\" cascade; entries carry catalog prefills\nplus the deep request template metadata when a vendor descriptor JSON exists.",
+        "operationId": "recommended_vendors_api_settings_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Recommended Vendors Api Settings Vendors Get"
                 }
               }
             }
@@ -10201,6 +10249,11 @@
             "title": "Api Base",
             "default": ""
           },
+          "full_url": {
+            "type": "boolean",
+            "title": "Full Url",
+            "default": false
+          },
           "protocol": {
             "type": "string",
             "title": "Protocol",
@@ -10248,6 +10301,17 @@
               }
             ],
             "title": "Api Base"
+          },
+          "full_url": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Url"
           },
           "protocol": {
             "anyOf": [

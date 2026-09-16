@@ -57,6 +57,35 @@ export interface VoiceCatalog {
   speak: VoiceProviderOption[];
 }
 
+/* ── Recommended vendors (adapted) ─────────────────────────────────────────── */
+
+/** One model-type entry under a recommended vendor (level 2 of the cascade). */
+export interface RecommendedVendorCapability {
+  /** Catalog provider id to use as the LlmProvider name (e.g. "minimax_speech") */
+  provider_id: string;
+  label: string;
+  catalog_label: string;
+  default_model: string;
+  default_api_base: string;
+  hint: string;
+  /** True when a vendor descriptor JSON defines the request template */
+  adapted: boolean;
+  def?: {
+    transport: string;
+    models: string[];
+    request: Record<string, unknown>;
+    notes: string;
+  };
+}
+
+/** Level 1 of the recommended-vendor cascade. */
+export interface RecommendedVendor {
+  id: string;
+  label: string;
+  docs: Record<string, string>;
+  capabilities: Partial<Record<"reasoning" | "recognize" | "speak", RecommendedVendorCapability>>;
+}
+
 /* ── Model profile system (capability declaration) ─────────────────────────── */
 
 /** Neutral capability flags: a profile declares what it can do; reusable across task bindings */
@@ -87,6 +116,8 @@ export interface ProviderWithModels {
   id: number;
   name: string;
   api_base: string;
+  /** Full-URL mode: api_base is a complete endpoint used verbatim; protocol paths are skipped */
+  full_url: boolean;
   protocol: LLMProtocol;
   enabled: boolean;
   has_api_key: boolean;
@@ -106,6 +137,7 @@ export interface ModelProfileWrite {
 export interface ProviderWrite {
   name?: string;
   api_base?: string;
+  full_url?: boolean;
   protocol?: LLMProtocol;
   api_key?: string;
   enabled?: boolean;

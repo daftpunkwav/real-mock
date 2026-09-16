@@ -5,9 +5,11 @@ from __future__ import annotations
 import base64
 import logging
 
+import httpx
+
 from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,11 @@ class BaiduProvider:
                 )
                 tr.raise_for_status()
                 token = (tr.json() or {}).get("access_token") or ""
+        except httpx.HTTPStatusError as e:
+            # The token URL query carries client_id/client_secret; the exception text embeds
+            # the full request URL, so log the status only (never the exception).
+            logger.error("Baidu ASR token HTTP %s", e.response.status_code)
+            return ""
         except Exception as e:
             logger.error("Baidu ASR token failed: %s", e)
             return ""

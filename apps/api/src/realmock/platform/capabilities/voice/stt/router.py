@@ -5,15 +5,21 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 
-from realmock.platform.capabilities.voice.stt.aliyun import AliyunProvider
-from realmock.platform.capabilities.voice.stt.baidu import BaiduProvider
+from realmock.platform.capabilities.voice.stt.providers.aliyun import AliyunProvider
+from realmock.platform.capabilities.voice.stt.providers.baidu import BaiduProvider
 from realmock.platform.capabilities.voice.stt.base import SttCredentials, SttProvider
-from realmock.platform.capabilities.voice.stt.local import LocalWhisperProvider
-from realmock.platform.capabilities.voice.stt.openai_compat import MimoAudioProvider, OpenAICompatProvider
-from realmock.platform.capabilities.voice.stt.tencent import TencentProvider
-from realmock.platform.capabilities.voice.stt.volcengine import VolcengineProvider
-from realmock.platform.capabilities.voice.stt.xfyun import XfyunProvider
+from realmock.platform.capabilities.voice.stt.providers.json_template import (
+    JsonTemplateSttProvider,
+    resolve_stt_adapter,
+)
+from realmock.platform.capabilities.voice.stt.providers.local import LocalWhisperProvider
+from realmock.platform.capabilities.voice.stt.providers.minimax import MiniMaxSttProvider
+from realmock.platform.capabilities.voice.stt.providers.openai_compat import MimoAudioProvider, OpenAICompatProvider
+from realmock.platform.capabilities.voice.stt.providers.tencent import TencentProvider
+from realmock.platform.capabilities.voice.stt.providers.volcengine import VolcengineProvider
+from realmock.platform.capabilities.voice.stt.providers.xfyun import XfyunProvider
 from realmock.platform.capabilities.voice.config.catalog import find_provider
+from realmock.platform.capabilities.voice.endpoint_vendors import STT_PATHS, match_vendor
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +32,10 @@ _PROVIDERS: dict[str, SttProvider] = {
     "aliyun": AliyunProvider(),
     "tencent": TencentProvider(),
     "baidu": BaiduProvider(),
+    "minimax": MiniMaxSttProvider(),
 }
+
+_JSON_TEMPLATE_PROVIDER: SttProvider = JsonTemplateSttProvider()
 
 
 @dataclass(frozen=True)
@@ -65,6 +74,26 @@ async def transcribe_with_handler(
         forced_fallback = True
 
     impl = _PROVIDERS.get(provider_id)
+    # Full-URL providers bypass the handler table: the endpoint path itself selects the vendor
+    # adapter, and unknown endpoints fall back to local instead of guessing a request shape.
+    if impl is None and creds.full_url:
+        if match_vendor(creds.api_base, STT_PATHS) == "minimax":
+            impl = MiniMaxSttProvider()
+            provider_id = requested
+        else:
+            logger.warning(
+                "Full-URL recognition endpoint has no vendor adapter: %s, fallback to local",
+                creds.api_base,
+            )
+            impl = _PROVIDERS["local"]
+            provider_id = "local"
+            forced_fallback = True
+    # A user-authored adapter descriptor (extras.stt_adapter) routes through the generic
+    # JSON-template transport; it wins over protocol guessing so unknown vendors can be
+    # adapted from the settings page against their own API docs.
+    if impl is None and resolve_stt_adapter(creds) is not None:
+        impl = _JSON_TEMPLATE_PROVIDER
+        provider_id = requested
     # There is no fixed handler id for custom suppliers; audio models in OpenAI Chat format are unified
     # input_audio adapter (MiMo ASR is this protocol).
     if impl is None and creds.protocol == "openai_chat":

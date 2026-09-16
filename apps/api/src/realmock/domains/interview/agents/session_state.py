@@ -61,9 +61,17 @@ class InterviewSessionState(SessionPromptMixin):
     machinery (plan steps duck-type ``PhaseDef``).
     """
 
-    def __init__(self, session: InterviewSession, llm: LLMClient):
+    def __init__(
+        self,
+        session: InterviewSession,
+        llm: LLMClient,
+        voice_directive: str | None = None,
+    ):
         self.session = session
         self.llm = llm
+        # Speech-synthesis channel notes (e.g. MiniMax interjection-tag support) baked
+        # into the system prompt; None/"" renders nothing.
+        self.voice_directive = (voice_directive or "").strip()
         self._load_state()
 
     # ---- State Loading/Saving -----------------------------------------------------

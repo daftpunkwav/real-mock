@@ -3,21 +3,26 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx
 
 from realmock.platform.config import get_settings
 from realmock.platform.core.security import make_pinned_async_client
-from realmock.platform.capabilities.voice.tts.edge import synthesize_to_base64 as edge_synthesize
-from realmock.platform.capabilities.voice.tts.edge import DEFAULT_VOICE as EDGE_DEFAULT_VOICE
-from realmock.platform.capabilities.voice.tts.minimax import (
+from realmock.platform.capabilities.voice.tts.providers.edge import synthesize_to_base64 as edge_synthesize
+from realmock.platform.capabilities.voice.tts.providers.edge import DEFAULT_VOICE as EDGE_DEFAULT_VOICE
+from realmock.platform.capabilities.voice.tts.providers.json_template import (
+    resolve_tts_adapter,
+    synthesize_json_template_to_base64,
+)
+from realmock.platform.capabilities.voice.tts.providers.minimax import (
     DEFAULT_BASE as MINIMAX_DEFAULT_BASE,
     DEFAULT_MODEL as MINIMAX_DEFAULT_MODEL,
     DEFAULT_VOICE as MINIMAX_DEFAULT_VOICE,
     synthesize_minimax_to_base64,
 )
 from realmock.platform.capabilities.voice.config.catalog import find_provider
+from realmock.platform.capabilities.voice.endpoint_vendors import TTS_PATHS, match_vendor
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +33,15 @@ class TtsCredentials:
     mode: str = "tts_from_text"  # tts_from_text | native_audio | text_only
     protocol: str = "openai_chat"
     api_base: str = ""
+    # Full-URL providers: api_base is the verbatim endpoint and protocol path appending is skipped.
+    full_url: bool = False
     api_key: str = ""
     model: str = ""
     voice: str = "zh-CN-XiaoxiaoNeural"
     fallback_handler: str = "edge"
     fallback_mode: str = "tts_from_text"
+    # User-authored request overrides/adapters (tts_request / tts_adapter) for the adapters.
+    extra: dict = field(default_factory=dict)
 
 
 async def synthesize_speech(
@@ -69,6 +78,22 @@ async def synthesize_speech(
     return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch)
 
 
+def _is_minimax_full_url(creds: TtsCredentials) -> bool:
+    """Full-URL providers carry the vendor in the endpoint path (t2a_v2 → MiniMax)."""
+    return bool(creds.full_url) and match_vendor(creds.api_base, TTS_PATHS) == "minimax"
+
+
+async def _synthesize_minimax_full_url(text: str, creds: TtsCredentials) -> str:
+    return await synthesize_minimax_to_base64(
+        text,
+        api_key=creds.api_key,
+        api_base=creds.api_base,
+        model=creds.model,
+        voice=creds.voice,
+        overrides=_minimax_overrides(creds),
+    )
+
+
 async def _synthesize_handler(
     text: str,
     creds: TtsCredentials,
@@ -94,8 +119,19 @@ async def _synthesize_handler(
             api_base=creds.api_base or MINIMAX_DEFAULT_BASE,
             model=creds.model or MINIMAX_DEFAULT_MODEL,
             voice=creds.voice or MINIMAX_DEFAULT_VOICE,
+            overrides=_minimax_overrides(creds),
         )
+    if _is_minimax_full_url(creds):
+        return await _synthesize_minimax_full_url(text, creds)
+    if resolve_tts_adapter(creds) is not None:
+        return await synthesize_json_template_to_base64(text, creds=creds)
     return await _synthesize_openai_compat(text, creds)
+
+
+def _minimax_overrides(creds: TtsCredentials) -> dict | None:
+    """User-authored request-body overrides from extras (``tts_request``)."""
+    override = (creds.extra or {}).get("tts_request")
+    return override if isinstance(override, dict) else None
 
 
 async def _synthesize_fallback(
@@ -118,11 +154,15 @@ async def _synthesize_fallback(
         mode=creds.fallback_mode or "tts_from_text",
         protocol=creds.protocol,
         api_base=creds.api_base,
+        # Full-URL endpoints stay verbatim on the fallback path too; otherwise an
+        # openai-compat fallback would re-append a path onto the complete URL.
+        full_url=creds.full_url,
         api_key=creds.api_key,
         model=creds.model,
         voice=(EDGE_DEFAULT_VOICE if fallback == "edge" else creds.voice),
         fallback_handler="none",
         fallback_mode="text_only",
+        extra=dict(creds.extra or {}),
     )
     return await _synthesize_handler(
         text, fallback_creds, fallback, rate=rate, pitch=pitch
@@ -140,7 +180,8 @@ async def _synthesize_openai_compat(text: str, creds: TtsCredentials) -> str:
     if not api_key or not api_base:
         return ""
 
-    url = f"{api_base}/chat/completions"
+    # Full-URL mode posts to api_base verbatim; otherwise the documented path is appended.
+    url = api_base if creds.full_url else f"{api_base}/chat/completions"
     payload = {
         "model": model,
         "messages": [
@@ -178,6 +219,10 @@ async def _synthesize_openai_compat(text: str, creds: TtsCredentials) -> str:
 
 async def synthesize_custom_speech(text: str, *, creds: TtsCredentials) -> str:
     """Only the custom main processor is tested and Edge downgrade is not performed automatically."""
+    if _is_minimax_full_url(creds):
+        return await _synthesize_minimax_full_url(text, creds)
+    if resolve_tts_adapter(creds) is not None:
+        return await synthesize_json_template_to_base64(text, creds=creds)
     return await _synthesize_openai_compat(text, creds)
 
 

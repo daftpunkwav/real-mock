@@ -8,6 +8,7 @@ import { settingsHttp } from "@/lib/api/clients";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import type { ProviderWithModels } from "@/types";
+import { RecommendedVendors } from "./RecommendedVendors";
 
 export function ProviderList({
   providers,
@@ -83,6 +84,8 @@ export function ProviderList({
           </button>
         </div>
       </div>
+
+      <RecommendedVendors providers={providers} onChanged={onChanged} onSelect={onSelect} />
     </div>
   );
 }

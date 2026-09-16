@@ -22,10 +22,29 @@ export const settings = {
   "providerList.add": "Add provider",
   "providerList.createFailed": "Failed to create",
 
+  // RecommendedVendors
+  "recommended.title": "Recommended vendors (adapted)",
+  "recommended.empty": "No recommended vendors yet",
+  "recommended.loadFailed": "Failed to load recommended vendors",
+  "recommended.hint": "Pick a model type; the provider shell and model entry are created automatically — fill the API Key on the right",
+  "recommended.adapted": "deep-adapted",
+  "recommended.cap.reasoning": "Reasoning LLM",
+  "recommended.cap.recognize": "Speech-to-text",
+  "recommended.cap.speak": "Text-to-speech",
+  "recommended.add": "Add",
+  "recommended.adding": "Adding…",
+  "recommended.added": "Added {model} (provider {provider})",
+  "recommended.addFailed": "Failed to add",
+  "recommended.noDefaultModel": "This entry has no default model name; add it manually",
+
   // ProviderCard
   "providerCard.name.label": "Name",
   "providerCard.baseUrl.label": "Base URL",
+  "providerCard.fullUrl.label": "Full URL",
+  "providerCard.fullUrl.hint":
+    "When on, enter the complete request URL (no trailing slash) for nonstandard endpoints such as voice APIs; when off, paths are appended per API format",
   "providerCard.apiFormat.label": "API format",
+  "providerCard.apiFormat.disabledHint": "API format is ignored in full-URL mode",
   "providerCard.apiKey.label": "API Key",
   "providerCard.apiKey.setHint": " (set; leave blank to keep)",
   "providerCard.show": "Show",

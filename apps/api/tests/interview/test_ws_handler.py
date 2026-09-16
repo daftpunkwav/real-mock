@@ -546,6 +546,7 @@ class TestDispatchTable:
         assert set(MessageDispatcherMixin._MESSAGE_HANDLER_NAMES) == {
             "audio_chunk",
             "stt_text",
+            "user_typing",
             "pong",
             "vision_update",
             "user_turn_end",

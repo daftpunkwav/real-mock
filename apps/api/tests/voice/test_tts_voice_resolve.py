@@ -39,7 +39,7 @@ def test_combine_hz_bad_input() -> None:
 
 def test_resolve_session_voice_branches() -> None:
     from realmock.platform.capabilities.voice.tts import voice_resolve as vr
-    from realmock.platform.capabilities.voice.tts.edge import DEFAULT_VOICE
+    from realmock.platform.capabilities.voice.tts.providers.edge import DEFAULT_VOICE
 
     # Avatar mapped wins.
     first_avatar = next(iter(vr._AVATAR_VOICE))

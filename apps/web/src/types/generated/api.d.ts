@@ -430,6 +430,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recommended Vendors
+         * @description Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.
+         *
+         *     Drives the settings-page "add provider" cascade; entries carry catalog prefills
+         *     plus the deep request template metadata when a vendor descriptor JSON exists.
+         */
+        get: operations["recommended_vendors_api_v1_settings_vendors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/providers/{provider_id}": {
         parameters: {
             query?: never;
@@ -1820,6 +1843,29 @@ export interface paths {
         put?: never;
         /** Create Provider */
         post: operations["create_provider_api_settings_providers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recommended Vendors
+         * @description Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.
+         *
+         *     Drives the settings-page "add provider" cascade; entries carry catalog prefills
+         *     plus the deep request template metadata when a vendor descriptor JSON exists.
+         */
+        get: operations["recommended_vendors_api_settings_vendors_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4116,6 +4162,11 @@ export interface components {
              */
             api_base: string;
             /**
+             * Full Url
+             * @default false
+             */
+            full_url: boolean;
+            /**
              * Protocol
              * @default openai_chat
              */
@@ -4137,6 +4188,8 @@ export interface components {
             name?: string | null;
             /** Api Base */
             api_base?: string | null;
+            /** Full Url */
+            full_url?: boolean | null;
             /** Protocol */
             protocol?: string | null;
             /** Api Key */
@@ -5775,6 +5828,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recommended_vendors_api_v1_settings_vendors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -8209,6 +8284,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recommended_vendors_api_settings_vendors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 from typing import Any
 
 from realmock.platform.config import get_settings
 from realmock.domains.interview.agents import strip_markers
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_speech
-from realmock.platform.capabilities.voice.tts.edge import (
+from realmock.platform.capabilities.voice.tts.providers.edge import (
     extract_emotion,
     _plain_text_for_tts,
 )
@@ -148,16 +149,11 @@ class _SentenceTTSQueue:
                     if gen != self._speak_gen:
                         continue
                     try:
-                        tts_creds = TtsCredentials(
-                            handler=self._tts_creds.handler,
-                            mode=self._tts_creds.mode,
-                            protocol=self._tts_creds.protocol,
-                            api_base=self._tts_creds.api_base,
-                            api_key=self._tts_creds.api_key,
-                            model=self._tts_creds.model,
+                        # replace() keeps every credential field (full_url / protocol / extra
+                        # request overrides); only the per-emotion voice moves.
+                        tts_creds = replace(
+                            self._tts_creds,
                             voice=p.voice or self._tts_creds.voice,
-                            fallback_handler=self._tts_creds.fallback_handler,
-                            fallback_mode=self._tts_creds.fallback_mode,
                         )
                         audio_b64 = await synthesize_speech(
                             text, creds=tts_creds, rate=p.rate, pitch=p.pitch

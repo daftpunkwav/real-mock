@@ -367,3 +367,24 @@ def test_spoken_voice_covers_followup_chain_and_pressure_release() -> None:
     assert "zero preamble" in prompt
     assert "releases the pressure" in prompt
     assert "never announce a verdict mid-interview" in prompt
+
+
+def test_turn_protocol_includes_answer_wait_rule():
+    """The turn protocol asks the LLM for an answer window (90-300s clamp)."""
+    from realmock.domains.interview.agents.agent_prompts import TURN_OUTPUT_PROTOCOL
+
+    assert "answer_wait_seconds" in TURN_OUTPUT_PROTOCOL
+    assert "90-300s" in TURN_OUTPUT_PROTOCOL
+
+
+def test_voice_directive_renders_after_spoken_voice_section():
+    """The TTS-channel directive is baked into the system prompt when provided."""
+    prompt = build_system_prompt(**_prompt_kwargs(), voice_directive="## Voice channel\n(laughs) allowed")
+    assert "## Voice channel" in prompt
+    assert "(laughs) allowed" in prompt
+    assert prompt.index("How you talk") < prompt.index("## Voice channel")
+
+
+def test_empty_voice_directive_renders_nothing():
+    prompt = build_system_prompt(**_prompt_kwargs())
+    assert "## Voice channel" not in prompt

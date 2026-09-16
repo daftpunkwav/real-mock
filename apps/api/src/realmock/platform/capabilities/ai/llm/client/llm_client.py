@@ -53,6 +53,9 @@ class LLMClient:
         context_window: int = 0,
         supports_vision: bool = False,
         usage_sink: UsageAccumulator | None = None,
+        full_url: bool = False,
+        extra_body: dict[str, Any] | None = None,
+        extra_headers: dict[str, str] | None = None,
     ):
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -60,6 +63,11 @@ class LLMClient:
         self.max_tokens = max_tokens
         self.protocol = protocol
         self.reasoning_effort = reasoning_effort
+        # Full-URL providers: api_base is the verbatim endpoint, protocol path appending is skipped.
+        self.full_url = bool(full_url)
+        # Vendor-specific request customization from model-entry extras (any standard key wins replacement).
+        self.extra_body = dict(extra_body) if extra_body else {}
+        self.extra_headers = dict(extra_headers) if extra_headers else {}
         # Context window for model entry declaration; 0 = unknown (caller falls back on its own)
         self.context_window = max(0, int(context_window or 0))
         self.supports_vision = bool(supports_vision)
@@ -100,11 +108,16 @@ class LLMClient:
             response_format=response_format,
             tools=tools,
             max_tokens_override=max_tokens,
+            extra_body=self.extra_body or None,
         )
 
     def _safe_check(self) -> None:
         if not is_safe_http_url(self.api_base, allow_local=_is_local_allowed(), require_https=_require_https()):
             raise UnsafeURLError(f"LLM api_base is not secure: {self.api_base}")
+
+    def _endpoint(self, path: str) -> str:
+        """Full-URL providers use api_base verbatim; otherwise the protocol path is appended."""
+        return self.api_base if self.full_url else f"{self.api_base}{path}"
 
     def _delegate(self) -> "UnifiedLLMClient":
         from .unified_client import UnifiedLLMClient
@@ -117,6 +130,9 @@ class LLMClient:
             max_tokens=self.max_tokens,
             reasoning_effort=self.reasoning_effort,
             usage_sink=self.usage,
+            full_url=self.full_url,
+            extra_body=self.extra_body or None,
+            extra_headers=self.extra_headers or None,
         )
 
     async def chat(
@@ -143,7 +159,7 @@ class LLMClient:
         if self.protocol != DEFAULT_LLM_PROTOCOL:
             return await self._delegate().chat(payload_messages, temperature=temperature, response_format=response_format, tools=tools)
         self._safe_check()
-        url = f"{self.api_base}/chat/completions"
+        url = self._endpoint("/chat/completions")
         payload = self._build_payload(
             payload_messages,
             temperature,
@@ -159,6 +175,7 @@ class LLMClient:
             timeout=180.0,
             log_label="LLM chat",
             model=self.model,
+            extra_headers=self.extra_headers or None,
         )
         msg = data["choices"][0]["message"]
         self.usage.record_response(data, self.protocol)
@@ -181,7 +198,7 @@ class LLMClient:
                 message.pop("tool_calls", None)
             return message
         self._safe_check()
-        url = f"{self.api_base}/chat/completions"
+        url = self._endpoint("/chat/completions")
         payload = self._build_payload(
             messages, temperature, response_format=response_format, tools=tools
         )
@@ -195,6 +212,7 @@ class LLMClient:
             timeout=90.0,
             log_label="LLM chat_message",
             model=self.model,
+            extra_headers=self.extra_headers or None,
         )
         msg = data["choices"][0]["message"]
         self.usage.record_response(data, self.protocol)
@@ -233,7 +251,7 @@ class LLMClient:
                 yield event
             return
         self._safe_check()
-        url = f"{self.api_base}/chat/completions"
+        url = self._endpoint("/chat/completions")
         payload = self._build_payload(messages, temperature, stream=True, tools=tools)
         if not self._stream_usage_disabled:
             payload["stream_options"] = {"include_usage": True}
@@ -256,7 +274,7 @@ class LLMClient:
                 yield token
             return
         self._safe_check()
-        url = f"{self.api_base}/chat/completions"
+        url = self._endpoint("/chat/completions")
         payload = self._build_payload(messages, temperature, stream=True, tools=tools)
         if not self._stream_usage_disabled:
             # Request the supplier to return usage (last chunk); if rejected, downgrade according to the response

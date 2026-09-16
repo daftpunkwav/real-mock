@@ -8,7 +8,7 @@ import uuid
 
 from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 
 logger = logging.getLogger(__name__)
 

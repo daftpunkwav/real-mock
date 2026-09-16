@@ -6,7 +6,6 @@ import type { AnyRef } from "./useInterviewRoomEvents";
 
 interface InterviewRoomSilenceTimerOpts {
   micEnabled: boolean;
-  sttFailUntil: number;
   silenceNudgeMs: number;
   waitMsRef: AnyRef<number>;
   sendRef: AnyRef<(p: ClientEvent) => boolean>;
@@ -14,10 +13,13 @@ interface InterviewRoomSilenceTimerOpts {
   bumpSilenceTimerRef: AnyRef<() => void>;
 }
 
-/** Manage the initial grace period and resettable silence-nudge timer. */
+/**
+ * Fallback wake for the server-owned think window. The SERVER fires the nudge
+ * on expiry (immune to client-side STT failures); this client timer only
+ * wakes it early, so it must never gate on transient states like STT errors.
+ */
 export function useInterviewRoomSilenceTimer(opts: InterviewRoomSilenceTimerOpts) {
-  const { micEnabled, sttFailUntil, silenceNudgeMs, waitMsRef, sendRef, bumpSilenceTimerRef } =
-    opts;
+  const { micEnabled, silenceNudgeMs, waitMsRef, sendRef, bumpSilenceTimerRef } = opts;
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -28,13 +30,13 @@ export function useInterviewRoomSilenceTimer(opts: InterviewRoomSilenceTimerOpts
       }
     };
     bumpSilenceTimerRef.current = () => {
-      if (!micEnabled || Date.now() < sttFailUntil) return;
+      if (!micEnabled) return;
       clear();
       silenceTimerRef.current = setTimeout(() => {
         sendRef.current({ type: "silence_timeout" });
       }, waitMsRef.current || silenceNudgeMs);
     };
-    if (!micEnabled || Date.now() < sttFailUntil) {
+    if (!micEnabled) {
       clear();
       return;
     }
@@ -43,5 +45,5 @@ export function useInterviewRoomSilenceTimer(opts: InterviewRoomSilenceTimerOpts
       bumpSilenceTimerRef.current();
     }, graceMs);
     return clear;
-  }, [micEnabled, sttFailUntil, silenceNudgeMs, waitMsRef, sendRef, bumpSilenceTimerRef]);
+  }, [micEnabled, silenceNudgeMs, waitMsRef, sendRef, bumpSilenceTimerRef]);
 }

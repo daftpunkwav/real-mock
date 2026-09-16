@@ -25,6 +25,7 @@ def _p(
     default_model: str = "",
     default_api_base: str = "",
     hint: str = "",
+    vendor: str = "",
 ) -> dict[str, Any]:
     return {
         "id": id,
@@ -38,4 +39,6 @@ def _p(
         "default_model": default_model,
         "default_api_base": default_api_base,
         "hint": hint,
+        # Vendor group id (see platform.vendors); "" = not a vendor entry (custom/local/none).
+        "vendor": vendor,
     }

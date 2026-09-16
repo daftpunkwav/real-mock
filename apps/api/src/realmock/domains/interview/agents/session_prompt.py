@@ -308,6 +308,7 @@ class SessionPromptMixin:
             profile,
             allow_plan_ops=self._plan_is_agent_authored(),
             flow_language=self._flow_language(),
+            voice_directive=getattr(self, "voice_directive", "") or "",
         )
         # System learning (stable for the session) + prior rounds + structured memory (refreshed each turn)
         full = (

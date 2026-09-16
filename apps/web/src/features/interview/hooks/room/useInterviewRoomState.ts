@@ -5,6 +5,12 @@ import type { ChatMessage } from "@/lib/api/contract";
 import type { ClientEvent, FaceAnalysis } from "@/types";
 import type { VideoPanelHandle } from "../../components/VideoPanel";
 
+/** Server-backed turn countdown shown in the left chat panel. */
+export interface TurnTimerState {
+  phase: "think" | "answer" | null;
+  endsAt: number;
+}
+
 interface InterviewRoomStateDeps {
   sessionId: number;
   historySessionId: number | null;
@@ -45,6 +51,7 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   const [lastQuestion, setLastQuestion] = useState("");
   const [finishingUi, setFinishingUi] = useState(false);
   const [lastSources, setLastSources] = useState<string[]>([]);
+  const [turnTimer, setTurnTimer] = useState<TurnTimerState>({ phase: null, endsAt: 0 });
 
   const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<VideoPanelHandle>(null);
@@ -66,6 +73,12 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   const lastPlaybackDoneGenRef = useRef<number | null>(null);
   /** Server-provided response window in milliseconds; 0 uses the default. */
   const waitMsRef = useRef(0);
+  /** Server-provided answer window in milliseconds (first input → deadline); 0 uses the default. */
+  const answerWaitMsRef = useRef(0);
+  /** Live mirror of turnTimer for callbacks that must not re-bind. */
+  const turnTimerRef = useRef<TurnTimerState>({ phase: null, endsAt: 0 });
+  /** Last `user_typing` uplink (typing is continuous; the uplink is throttled). */
+  const typingUplinkAtRef = useRef(0);
   /** True while the silence timer waits for the interviewer's speech to end
    * (playback done) instead of starting at text-complete. */
   const awaitingSpeechEndRef = useRef(false);
@@ -97,6 +110,9 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
     setMessages([]);
     setCurrentPhase("");
     setCurrentPhaseTitle("");
+    setTurnTimer({ phase: null, endsAt: 0 });
+    answerWaitMsRef.current = 0;
+    typingUplinkAtRef.current = 0;
     finishingRef.current = false;
     navigatingRef.current = false;
     playbackGenRef.current = 0;
@@ -128,6 +144,10 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   }, [showOutline, send]);
 
   useEffect(() => {
+    turnTimerRef.current = turnTimer;
+  }, [turnTimer]);
+
+  useEffect(() => {
     turnStateRef.current = turnState;
     if (turnState === "AI_SPEAKING") {
       aiSpeakStartedAtRef.current = Date.now();
@@ -157,6 +177,7 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       lastQuestion,
       finishingUi,
       lastSources,
+      turnTimer,
     },
     set: {
       setMessages,
@@ -176,6 +197,7 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       setLastQuestion,
       setFinishingUi,
       setLastSources,
+      setTurnTimer,
     },
     refs: {
       hintTimeoutRef,
@@ -197,6 +219,9 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       localBargeStopRef,
       lastPlaybackDoneGenRef,
       waitMsRef,
+      answerWaitMsRef,
+      turnTimerRef,
+      typingUplinkAtRef,
       awaitingSpeechEndRef,
       speechFallbackRef,
       chatEndRef,

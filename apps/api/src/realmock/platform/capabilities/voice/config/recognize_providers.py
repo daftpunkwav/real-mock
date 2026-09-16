@@ -18,6 +18,16 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         hint="Fill in the Base URL, API format, API Key and model name",
     ),
     _p(
+        id="minimax",
+        label="MiniMax Speech-to-Text (asr)",
+        can_speech_recognize=True,
+        recognize_via="transcribe_only",
+        default_model="asr-1.0",
+        default_api_base="https://api.minimaxi.com/v1",
+        hint="Multipart wav upload; the language header is omitted by default (mixed-language recognition)",
+        vendor="minimax",
+    ),
+    _p(
         id="mimo_audio",
         label="Xiaomi MiMo (mimo-v2.5-asr)",
         can_speech_recognize=True,
@@ -25,6 +35,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         default_model="mimo-v2.5-asr",
         default_api_base="https://token-plan-cn.xiaomimimo.com/v1",
         hint="OpenAI is compatible with chat.completions; audio is passed in as input_audio",
+        vendor="xiaomi",
     ),
     _p(
         id="openai_compat",
@@ -34,6 +45,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         default_model="FunAudioLLM/SenseVoiceSmall",
         default_api_base="https://api.siliconflow.cn/v1",
         hint="Key needs to be transcribed independently; do not reuse and think about LLM Key",
+        vendor="openai",
     ),
     _p(
         id="xfyun",
@@ -41,6 +53,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         can_speech_recognize=True,
         recognize_via="transcribe_only",
         hint="AppId + APIKey + APISecret",
+        vendor="iflytek",
     ),
     _p(
         id="volcengine",
@@ -49,6 +62,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         recognize_via="transcribe_only",
         default_model="bigmodel",
         hint="AppKey + AccessKey; resource ID default volc.bigasr.auc_turbo",
+        vendor="volcengine",
     ),
     _p(
         id="aliyun",
@@ -56,6 +70,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         can_speech_recognize=True,
         recognize_via="transcribe_only",
         hint="AppKey + AccessKeyId/Secret",
+        vendor="alibaba",
     ),
     _p(
         id="tencent",
@@ -63,6 +78,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         can_speech_recognize=True,
         recognize_via="transcribe_only",
         hint="AppId + SecretId + SecretKey",
+        vendor="tencent",
     ),
     _p(
         id="baidu",
@@ -70,6 +86,7 @@ RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
         can_speech_recognize=True,
         recognize_via="transcribe_only",
         hint="API Key + Secret Key (for token)",
+        vendor="baidu",
     ),
     _p(
         id="local",

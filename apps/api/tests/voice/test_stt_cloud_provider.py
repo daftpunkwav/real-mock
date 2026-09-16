@@ -15,8 +15,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from realmock.platform.capabilities.voice.stt import cloud as cloud_mod
-from realmock.platform.capabilities.voice.stt.cloud import (
+from realmock.platform.capabilities.voice.stt.providers import cloud as cloud_mod
+from realmock.platform.capabilities.voice.stt.providers.cloud import (
     is_local_stt_model,
     resolve_cloud_stt_model,
     transcribe_pcm_cloud,

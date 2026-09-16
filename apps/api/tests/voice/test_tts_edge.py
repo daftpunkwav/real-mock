@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from realmock.platform.capabilities.voice.tts.edge import (
+from realmock.platform.capabilities.voice.tts.providers.edge import (
     extract_emotion,
     should_flush_sentence_buffer,
     split_sentences,
@@ -26,7 +26,7 @@ def test_soft_flush_on_comma_after_min_chars():
 
 
 def test_plain_text_strips_markdown_stars():
-    from realmock.platform.capabilities.voice.tts.edge import _plain_text_for_tts
+    from realmock.platform.capabilities.voice.tts.providers.edge import _plain_text_for_tts
 
     assert _plain_text_for_tts("Please confirm the **GitHub** username") == "Please confirm the GitHub username"
     assert "*" not in _plain_text_for_tts("This is *italic* and **bold**")

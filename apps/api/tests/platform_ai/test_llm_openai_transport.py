@@ -194,3 +194,78 @@ async def test_embed_texts_http_error_redacts_key(
     ):
         await ot_mod.embed_texts(texts=["hi"], model="m", api_base="x", api_key="k")
     assert not any("sk-embed-secret-99" in r.getMessage() for r in caplog.records)
+
+
+def test_build_payload_extra_body_overrides_standard_keys():
+    payload = build_payload(
+        "m", [{"role": "user", "content": "hi"}], 0.7, 100, None,
+        extra_body={"temperature": 0.9, "vendor_field": {"deep": 1}},
+    )
+    assert payload["temperature"] == 0.9  # override wins
+    assert payload["vendor_field"] == {"deep": 1}
+    assert payload["model"] == "m" and payload["stream"] is False
+
+
+def test_build_payload_without_extra_body_is_unchanged():
+    payload = build_payload("m", [], 0.7, 100, None)
+    assert "vendor_field" not in payload
+
+
+def test_chat_completions_headers_extra_merge():
+    headers = chat_completions_headers("k", {"X-Custom": "v"})
+    assert headers["Authorization"] == "Bearer k"
+    assert headers["X-Custom"] == "v"
+    # No extra_headers: only the standard keys are present.
+    bare = chat_completions_headers("k")
+    assert set(bare) == {"Authorization", "Content-Type"}
+
+
+def test_llm_client_carries_extra_body_and_headers_into_payload():
+    from realmock.platform.capabilities.ai.llm.client.llm_client import LLMClient
+
+    client = LLMClient(
+        api_base="https://api.example.com", api_key="k", model="m",
+        extra_body={"temperature": 0.3}, extra_headers={"X-Region": "cn"},
+    )
+    payload = client._build_payload([{"role": "user", "content": "hi"}], 0.7)
+    assert payload["temperature"] == 0.3
+    assert client.extra_headers == {"X-Region": "cn"}
+
+
+def test_unified_client_extra_headers_survive_protocol_delegation():
+    """extras.extra_headers must reach non-openai_chat protocols too (UnifiedLLMClient)."""
+    from realmock.platform.capabilities.ai.llm.client.llm_client import LLMClient
+    from realmock.platform.capabilities.ai.llm.client.protocol_utils import _headers
+    from realmock.platform.capabilities.ai.llm.client.unified_client import UnifiedLLMClient
+
+    headers = _headers(
+        "k", "anthropic_messages", {"X-Custom": "v", "anthropic-version": "2024-01-01"}
+    )
+    assert headers["x-api-key"] == "k"
+    assert headers["anthropic-version"] == "2024-01-01"  # extra wins over standard
+    assert headers["X-Custom"] == "v"
+
+    unified = UnifiedLLMClient.from_stage_config(
+        {
+            "api_base": "https://api.example.com",
+            "api_key": "k",
+            "model": "m",
+            "protocol": "anthropic_messages",
+            "extras": {
+                "extra_body": {"max_tokens": 999},
+                "extra_headers": {"X-Custom": "v"},
+            },
+        }
+    )
+    assert unified.extra_headers == {"X-Custom": "v"}
+    url, payload = unified._build_url_and_payload([{"role": "user", "content": "hi"}])
+    assert payload["max_tokens"] == 999  # extra_body wins over protocol translation
+
+    client = LLMClient(
+        api_base="https://api.example.com", api_key="k", model="m",
+        protocol="anthropic_messages",
+        extra_body={"max_tokens": 999}, extra_headers={"X-Custom": "v"},
+    )
+    delegated = client._delegate()
+    assert delegated.extra_headers == {"X-Custom": "v"}
+    assert delegated.extra_body == {"max_tokens": 999}

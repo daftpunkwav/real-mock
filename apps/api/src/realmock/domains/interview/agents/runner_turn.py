@@ -296,6 +296,7 @@ async def stream_turn(
             phase_changed=phase_changed,
             emotion=output.emotion,
             wait_seconds=output.wait_seconds,
+            answer_wait_seconds=output.answer_wait_seconds,
             sources=output.sources,
             result=output.verdict if output.interview_complete else None,
             phase_title=runner.agent.phase_title_for_display(),

@@ -32,6 +32,7 @@ class StreamEvent:
     error_code: str = ""          # Business error code; defaults to B0001 on frontend when empty
     error_retryable: bool = False # Is it possible to retry
     wait_seconds: int = 0         # The number of seconds the candidate is expected to answer (0=not provided)
+    answer_wait_seconds: int = 0  # Answer window (s) from the candidate's first input; 0=not provided
     sources: tuple[str, ...] = () # Basis for answering this round (resume/github/company_kb/none)
     result: str | None = None     # Agent verdict announced on the wrap-up turn (passed/failed)
     phase_title: str = ""         # Display title of the current plan step (agent-authored; empty = static id)
@@ -51,6 +52,7 @@ class StreamEvent:
         phase_changed: bool,
         emotion: str = "neutral",
         wait_seconds: int = 0,
+        answer_wait_seconds: int = 0,
         sources: tuple[str, ...] = (),
         result: str | None = None,
         phase_title: str = "",
@@ -64,6 +66,7 @@ class StreamEvent:
             phase_changed=phase_changed,
             emotion=emotion,
             wait_seconds=wait_seconds,
+            answer_wait_seconds=answer_wait_seconds,
             sources=sources,
             result=result,
             phase_title=phase_title,

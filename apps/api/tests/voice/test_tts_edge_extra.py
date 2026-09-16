@@ -14,8 +14,8 @@ import types
 
 import pytest
 
-from realmock.platform.capabilities.voice.tts import edge as edge_mod
-from realmock.platform.capabilities.voice.tts.edge import (
+from realmock.platform.capabilities.voice.tts.providers import edge as edge_mod
+from realmock.platform.capabilities.voice.tts.providers.edge import (
     DEFAULT_VOICE,
     VOICE_PRESETS,
     _HARD_END,

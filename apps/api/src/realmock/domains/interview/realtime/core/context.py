@@ -108,6 +108,22 @@ class ConnectionContext:
     #: cap): further silence stays quiet instead of looping probes or errors.
     silence_capped: bool = False
 
+    # ── 服务端回合计时器(思考窗/作答窗) ────────────────
+    #: Latest LLM per-question answer-window estimate (seconds, 0 = not provided).
+    last_answer_wait_seconds: float = 0.0
+    #: Scheduled think-window timer for the current question (None = disarmed);
+    #: fires the silence-nudge pipeline when the candidate has not started.
+    think_timer_task: asyncio.Task[Any] | None = None
+    #: Scheduled answer-window timer (None = not started); armed at the
+    #: candidate's FIRST input with a fixed deadline from that moment.
+    answer_timer_task: asyncio.Task[Any] | None = None
+    #: Loop-clock stamp of the candidate's first input (typing uplink or STT
+    #: partial); 0 = still in the think phase.
+    answer_started_at: float = 0.0
+    #: The interviewer already took the turn back for this question (answer
+    #: window expiry); no further nudges/timeouts until the next question.
+    answer_expired: bool = False
+
     # ── Tips/Reports ─────────────────────────────
     hint_inflight: str | None = None
     #: Reference-answer depth snapshot from the session row ("outline" | "full").

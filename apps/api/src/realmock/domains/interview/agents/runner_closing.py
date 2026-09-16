@@ -126,6 +126,7 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
             phase_changed=True,
             emotion=output.emotion or "smile",
             wait_seconds=output.wait_seconds,
+            answer_wait_seconds=output.answer_wait_seconds,
             sources=output.sources,
             result=output.verdict,
             phase_title=runner.agent.phase_title_for_display(),

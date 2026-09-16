@@ -8,6 +8,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from realmock.domains.interview.realtime.voice.pipeline import _is_echo_of_assistant, _latin_letter_ratio, _pick_stt_text
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
+from realmock.platform.capabilities.voice.tts import TtsCredentials
 
 def _make_handler(sid=10):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
@@ -32,7 +33,7 @@ def test_latin_pick_echo_pure():
 async def test_speak_one_empty_success_fail():
     h = _make_handler()
     h.ctx.session_prosody = MagicMock(voice="v", rate="+0%", pitch="+0Hz")
-    h.ctx.tts_creds = MagicMock(handler="edge", mode="tts_from_text", protocol="openai_chat", api_base="", api_key="", model="", voice="v", fallback_handler="none", fallback_mode="text_only")
+    h.ctx.tts_creds = TtsCredentials(handler="edge", mode="tts_from_text", protocol="openai_chat", api_base="", api_key="", model="", voice="v", fallback_handler="none", fallback_mode="text_only")
     h._tts_send = AsyncMock()  # type: ignore[method-assign]
     h._mark_tts_sent = MagicMock()  # type: ignore[method-assign]
     await h._speak_one("   ***   ")
@@ -51,7 +52,7 @@ async def test_speak_one_empty_success_fail():
 async def test_speak_one_empty_audio_sends_failed():
     h = _make_handler()
     h.ctx.session_prosody = MagicMock(voice="v", rate="+0%", pitch="+0Hz")
-    h.ctx.tts_creds = MagicMock(handler="edge", mode="tts_from_text", protocol="openai_chat", api_base="", api_key="", model="", voice="v", fallback_handler="none", fallback_mode="text_only")
+    h.ctx.tts_creds = TtsCredentials(handler="edge", mode="tts_from_text", protocol="openai_chat", api_base="", api_key="", model="", voice="v", fallback_handler="none", fallback_mode="text_only")
     h._tts_send = AsyncMock()  # type: ignore[method-assign]
     h._mark_tts_sent = MagicMock()  # type: ignore[method-assign]
     with patch("realmock.domains.interview.realtime.voice.pipeline.synthesize_speech", AsyncMock(return_value="")):

@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from realmock.platform.capabilities.voice.stt import local as local_mod
+from realmock.platform.capabilities.voice.stt.providers import local as local_mod
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.local import LocalWhisperProvider
+from realmock.platform.capabilities.voice.stt.providers.local import LocalWhisperProvider
 
 
 @pytest.mark.asyncio

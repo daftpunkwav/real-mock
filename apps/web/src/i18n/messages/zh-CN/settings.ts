@@ -21,10 +21,29 @@ export const settings = {
   "providerList.add": "添加供应商",
   "providerList.createFailed": "创建失败",
 
+  // RecommendedVendors:推荐供应商(已适配)
+  "recommended.title": "推荐供应商(已适配)",
+  "recommended.empty": "暂无推荐供应商",
+  "recommended.loadFailed": "推荐列表加载失败",
+  "recommended.hint": "选择模型类型,自动创建供应商与模型条目;API Key 在右侧填写",
+  "recommended.adapted": "深度适配",
+  "recommended.cap.reasoning": "思考模型",
+  "recommended.cap.recognize": "语音识别 STT",
+  "recommended.cap.speak": "语音合成 TTS",
+  "recommended.add": "添加",
+  "recommended.adding": "添加中…",
+  "recommended.added": "已添加 {model}(供应商 {provider})",
+  "recommended.addFailed": "添加失败",
+  "recommended.noDefaultModel": "该条目缺少默认模型名,请手动添加",
+
   // ProviderCard:供应商编辑
   "providerCard.name.label": "名称",
   "providerCard.baseUrl.label": "Base URL",
+  "providerCard.fullUrl.label": "完整 URL",
+  "providerCard.fullUrl.hint":
+    "开启后填写完整请求地址(勿以 / 结尾),适用于语音等非标准端点;关闭时按 API 格式拼接路径",
   "providerCard.apiFormat.label": "API 格式",
+  "providerCard.apiFormat.disabledHint": "完整 URL 模式下 API 格式不生效",
   "providerCard.apiKey.label": "API Key",
   "providerCard.apiKey.setHint": "（已设置,留空保持）",
   "providerCard.show": "显示",

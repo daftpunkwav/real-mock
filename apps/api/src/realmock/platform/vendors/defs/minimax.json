@@ -1,0 +1,147 @@
+{
+  "vendor": "minimax",
+  "label": "MiniMax",
+  "docs": {
+    "reasoning": "https://platform.minimax.cn/docs/api-reference/chat-completions",
+    "recognize": "https://platform.minimax.cn/docs/api-reference/speech-to-text",
+    "speak_http": "https://platform.minimax.cn/docs/api-reference/speech-t2a-http",
+    "speak_ws": "https://platform.minimax.cn/docs/api-reference/speech-t2a-websocket",
+    "speak_ws_bidi": "https://platform.minimax.cn/docs/api-reference/speech-t2a-websocket-bidi"
+  },
+  "capabilities": {
+    "reasoning": {
+      "transport": "openai_chat",
+      "default_model": "MiniMax-M3",
+      "default_api_base": "https://api.minimaxi.com/v1",
+      "endpoint_path": "/chat/completions",
+      "protocols": ["openai_chat", "anthropic_messages"],
+      "models": ["MiniMax-M3", "MiniMax-M2", "MiniMax-Text-01", "abab6.5s-chat"],
+      "notes": "Text LLM for the interview reasoning stage. An anthropic_messages-compatible endpoint also exists; MiniMax rejects image_url blocks on that endpoint (use Anthropic image blocks)."
+    },
+    "recognize": {
+      "transport": "minimax_stt",
+      "default_model": "asr-1.0",
+      "default_api_base": "https://api.minimaxi.com/v1",
+      "endpoint_path": "/speech_to_text",
+      "models": ["asr-1.0"],
+      "request": {
+        "headers": {},
+        "fields": {
+          "model": "asr-1.0",
+          "response_format": "json"
+        }
+      },
+      "response": {
+        "text_path": "text"
+      },
+      "optional": {
+        "headers.language": "BCP-47 hint (zh/yue/en/ja/ko/th/vi/id/ms/fil/ar/tr/fr/de/es/it/pt/pl/ru/uk). Omitted by default so mixed-language recognition stays on; override via extras {\"stt_request\": {\"headers\": {\"language\": \"zh\"}}}.",
+        "fields.response_format": "json | verbose_json | srt | vtt (verbose_json/srt/vtt add diarization+timestamps and cannot combine with stream)",
+        "fields.stream": "true = SSE incremental output, requires response_format=json",
+        "fields.timestamp_level": "'' | sentence | word (verbose_json/srt/vtt only)"
+      },
+      "limits": {
+        "max_duration_seconds": 500,
+        "max_file_mb": 50
+      },
+      "notes": "Audio uploaded as wav (converted from PCM); raw PCM is not accepted. The language header is intentionally absent by default."
+    },
+    "speak": {
+      "transport": "minimax_tts",
+      "default_model": "speech-2.8-hd",
+      "default_api_base": "https://api.minimaxi.com/v1",
+      "endpoint_path": "/t2a_v2",
+      "models": [
+        "speech-2.8-hd",
+        "speech-2.8-turbo",
+        "speech-2.6-hd",
+        "speech-2.6-turbo",
+        "speech-02-hd",
+        "speech-02-turbo",
+        "speech-01-hd",
+        "speech-01-turbo"
+      ],
+      "request": {
+        "headers": {},
+        "body": {
+          "stream": false,
+          "voice_setting": {
+            "speed": 1.0,
+            "vol": 1.0,
+            "pitch": 0
+          },
+          "audio_setting": {
+            "sample_rate": 32000,
+            "bitrate": 128000,
+            "format": "mp3",
+            "channel": 1
+          }
+        }
+      },
+      "response": {
+        "audio_path": "data.audio",
+        "encoding": "hex"
+      },
+      "optional": {
+        "voice_setting.emotion": "happy | sad | angry | fearful | disgusted | surprised | calm | fluent | whisper (auto by default; fluent/whisper only on 2.6, whisper unsupported on 2.8)",
+        "voice_setting.text_normalization": "boolean; CN/EN normalization, improves number reading",
+        "voice_setting.latex_read": "boolean; reads $$...$$ LaTeX, Chinese only",
+        "pronunciation_dict.tone": "array of 'original/replacement' rules, e.g. \"处理/(chu3)(li3)\"",
+        "timbre_weights": "voice blending, up to 4 items {voice_id, weight}; leave voice_setting.voice_id empty when used",
+        "language_boost": "boost a language/dialect or 'auto'",
+        "voice_modify": "{pitch, intensity, timbre} in [-100,100] or one sound_effects value",
+        "subtitle_enable": "boolean; subtitle service with timestamps",
+        "output_format": "hex (default) | url (24h valid), non-streaming only",
+        "aigc_watermark": "boolean, non-streaming only"
+      },
+      "voices": {
+        "default": "male-qn-qingse",
+        "avatar_map": {
+          "professional_male": "male-qn-jingying",
+          "senior_male": "presenter_male",
+          "strict_expert": "male-qn-badao",
+          "gentle_female": "female-tianmei",
+          "hr_female": "female-chengshu",
+          "young_female": "female-shaonv"
+        },
+        "recommended": [
+          {"id": "male-qn-qingse", "name": "青涩青年"},
+          {"id": "male-qn-jingying", "name": "精英青年"},
+          {"id": "male-qn-badao", "name": "霸道少爷"},
+          {"id": "presenter_male", "name": "主持人男"},
+          {"id": "presenter_female", "name": "主持人女"},
+          {"id": "female-shaonv", "name": "少女"},
+          {"id": "female-yujie", "name": "御姐"},
+          {"id": "female-chengshu", "name": "成熟女性"},
+          {"id": "female-tianmei", "name": "甜美女性"}
+        ]
+      },
+      "text_markup": {
+        "pause": {
+          "syntax": "<#x#>",
+          "range_seconds": [0.01, 99.99],
+          "notes": "Insert between pronounceable text; never consecutive; paragraphs split by newline."
+        },
+        "pronunciation": {
+          "syntax": "(pinyin5)|(ipa)|(jyutping6)",
+          "notes": "Inline replacement in ASCII parentheses with tone digits: Mandarin pinyin tones 1-5, IPA, or Cantonese jyutping tones 1-6. E.g. (he2), (lɪv), (sung3)."
+        },
+        "interjections": {
+          "models": ["speech-2.8-hd", "speech-2.8-turbo"],
+          "tags": [
+            "laughs", "chuckle", "coughs", "clear-throat", "groans", "breath",
+            "pant", "inhale", "exhale", "gasps", "sniffs", "sighs", "snorts",
+            "burps", "lip-smacking", "hissing", "emm", "sneezes", "humming"
+          ],
+          "notes": "ASCII parentheses, lowercase, inserted inline; only these two models support them."
+        }
+      },
+      "limits": {
+        "max_chars": 10000,
+        "chunk_chars": 2800,
+        "chunk_note": "Text over 3000 chars should use streaming; the HTTP adapter splits long text at paragraph/sentence boundaries and concatenates the mp3/flac/opus/pcm chunks (wav chunks cannot be concatenated, only the first chunk is returned)."
+      },
+      "notes": "Non-streaming T2A HTTP. Streaming (stream=true or the websocket endpoints) is not wired yet; interview turns are sentence-level and stay well under the chunk limit."
+    }
+  }
+}

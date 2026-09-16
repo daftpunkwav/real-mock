@@ -15,13 +15,13 @@ from realmock.domains.interview.agents import (
     session_llm,
     session_stt_credentials,
     session_tts_credentials,
+    voice_prompt_directive,
 )
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.core.session_registry import claim_session_connection
 from realmock.domains.interview.agents import InterviewRunner, InterviewSessionState
-from realmock.platform.capabilities.voice.stt import warmup_whisper
-from realmock.platform.capabilities.voice.stt.cloud import is_local_stt_model
+from realmock.platform.capabilities.voice.stt import is_local_stt_model, warmup_whisper
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody, resolve_prosody
 from realmock.platform.capabilities.voice.config.catalog import find_provider
 
@@ -84,7 +84,11 @@ class ConnectionAuthMixin:
                 return False
             self.ctx.stt_creds = session_stt_credentials(api_db, session)
             self.ctx.tts_creds = session_tts_credentials(api_db, session)
-        self.ctx.agent = InterviewSessionState(session, self.ctx.llm)
+        self.ctx.agent = InterviewSessionState(
+            session,
+            self.ctx.llm,
+            voice_directive=voice_prompt_directive(self.ctx.tts_creds),
+        )
         self.ctx.reference_detail = getattr(session, "reference_detail", None) or "outline"
 
         rag = None
@@ -140,6 +144,7 @@ class ConnectionAuthMixin:
             strictness=getattr(self.ctx.agent.session, "strictness", None),
             emotion=None,
             llm_settings_voice=self.ctx.tts_creds.voice or self.ctx.tts_voice,
+            handler=self.ctx.tts_creds.handler,
         )
         if self.ctx.tts_creds.handler not in ("edge", "minimax_speech", "none"):
             self.ctx.session_prosody = VoiceProsody(
@@ -207,6 +212,12 @@ class ConnectionAuthMixin:
             self._begin_playback_wait()
             self.ctx.tts_sent_this_turn = False
             await self.set_turn(TurnState.USER_SPEAKING)
+            # Refresh/reconnect resume: this is a fresh connection context, so
+            # the server-owned think window is gone. Re-arm it here, or a
+            # candidate who reconnects and then goes silent gets no follow-up
+            # until the next completed exchange (probe pipeline is capped, so
+            # this cannot loop).
+            self.arm_think_timer()
 
 
 __all__ = ["ConnectionAuthMixin"]

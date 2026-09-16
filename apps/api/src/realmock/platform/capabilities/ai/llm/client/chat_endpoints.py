@@ -47,7 +47,7 @@ async def chat(
             # 429/5xx exponential backoff retry, consistent with non-streaming openai_chat path semantics
             resp = await _retry_request(
                 lambda: http.post(
-                    url, headers=_headers(client.api_key, client.protocol), json=payload
+                    url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
                 )
             )
             resp.raise_for_status()
@@ -77,7 +77,7 @@ async def test_connection(client: "UnifiedLLMClient") -> tuple[bool, str]:
     ) as http:
         try:
             resp = await http.post(
-                url, headers=_headers(client.api_key, client.protocol), json=payload
+                url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
             )
             resp.raise_for_status()
             data = resp.json()
@@ -113,7 +113,7 @@ async def chat_message(
         client.api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
     ) as http:
         resp = await http.post(
-            url, headers=_headers(client.api_key, client.protocol), json=payload
+            url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
         )
         resp.raise_for_status()
         data = resp.json()

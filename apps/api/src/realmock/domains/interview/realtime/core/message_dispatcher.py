@@ -53,6 +53,7 @@ class MessageDispatcherMixin:
         {
             "audio_chunk": "_on_audio_chunk",
             "stt_text": "_on_stt_text",
+            "user_typing": "_on_user_typing",
             "pong": "_on_pong",
             "vision_update": "_on_vision_update",
             "user_turn_end": "_start_user_turn_end",
@@ -92,9 +93,19 @@ class MessageDispatcherMixin:
         await handler(data)
 
     async def _on_stt_text(self, data: dict[str, Any]) -> None:
-        text = data.get("text", "").strip()
+        # Inbound frames are untrusted: a non-string text (null/number) must not
+        # raise inside the dispatch loop.
+        text = str(data.get("text") or "").strip()
         if text:
+            # Voice partials count as "the candidate started answering": the
+            # think window ends and the answer window takes over.
+            self.mark_answer_started()
             await self.send("stt_partial", text=text)
+
+    async def _on_user_typing(self, data: dict[str, Any]) -> None:
+        """Typing uplink (client-throttled): first keystroke ends the think window."""
+        del data
+        self.mark_answer_started()
 
     async def _on_pong(self, data: dict[str, Any]) -> None:
         del data
@@ -196,7 +207,7 @@ class MessageDispatcherMixin:
         self.ctx.audio_buffer_bytes += new_bytes
 
     async def _on_user_text(self, data: dict[str, Any]) -> None:
-        text = data.get("text", "").strip()
+        text = str(data.get("text") or "").strip()
         if len(text) > MAX_USER_TEXT_CHARS:
             await self.send(
                 "error",

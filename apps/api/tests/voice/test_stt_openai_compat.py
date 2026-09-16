@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from realmock.platform.capabilities.voice.stt import cloud as cloud_mod
-from realmock.platform.capabilities.voice.stt import openai_compat as compat_mod
+from realmock.platform.capabilities.voice.stt.providers import cloud as cloud_mod
+from realmock.platform.capabilities.voice.stt.providers import openai_compat as compat_mod
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 
 LONG_PCM = base64.b64encode(b"\x00\x01" * 6000).decode("ascii")
@@ -73,7 +73,7 @@ def _http_status_error():
 
 
 def _wav_b64():
-    from realmock.platform.capabilities.voice.stt.whisper import pcm_base64_to_wav_bytes
+    from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 
     wav = pcm_base64_to_wav_bytes(SHORT_PCM, 16000)
     return base64.b64encode(wav).decode("ascii")
@@ -90,7 +90,7 @@ def test_decode_audio_variants():
 
 def test_decode_audio_wav_failure(monkeypatch):
     with patch(
-        "realmock.platform.capabilities.voice.stt.cloud.pcm_base64_to_wav_bytes",
+        "realmock.platform.capabilities.voice.stt.providers.cloud.pcm_base64_to_wav_bytes",
         side_effect=RuntimeError("wav"),
     ):
         assert compat_mod._decode_audio(SHORT_PCM) == b""
@@ -210,3 +210,53 @@ async def test_openai_compat_provider_delegates():
         )
     assert out == "OC"
     assert m.await_args.kwargs["model"] == "FunAudioLLM/SenseVoiceSmall"
+    assert m.await_args.kwargs["full_url"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("full_url", "expected_url"),
+    [
+        (False, "https://x/chat/completions"),
+        (True, "https://x/v1/complete-endpoint"),
+    ],
+)
+async def test_mimo_full_url_mode_posts_verbatim(monkeypatch, full_url, expected_url):
+    _settings(monkeypatch, compat_mod)
+    client = _FakeClient(resp=_FakeResp(payload={"choices": [{"message": {"content": "hi"}}]}))
+    monkeypatch.setattr(compat_mod, "make_pinned_async_client", lambda *a, **k: client)
+    p = compat_mod.MimoAudioProvider()
+    await p.transcribe(
+        _wav_b64(),
+        sample_rate=16000,
+        creds=SttCredentials(
+            api_key="k",
+            api_base=(
+                "https://x/v1/complete-endpoint" if full_url else "https://x"
+            ),
+            full_url=full_url,
+        ),
+    )
+    assert client.calls[0]["url"] == expected_url
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("full_url", "expected_url"),
+    [
+        (False, "https://x/audio/transcriptions"),
+        (True, "https://x/v1/complete-endpoint"),
+    ],
+)
+async def test_cloud_transcribe_full_url_mode_posts_verbatim(monkeypatch, full_url, expected_url):
+    _settings(monkeypatch, cloud_mod)
+    client = _FakeClient(resp=_FakeResp(payload={"text": "spoken text"}))
+    monkeypatch.setattr(cloud_mod, "make_pinned_async_client", lambda *a, **k: client)
+    out = await cloud_mod.transcribe_pcm_cloud(
+        LONG_PCM,
+        api_key="k",
+        api_base="https://x/v1/complete-endpoint" if full_url else "https://x",
+        full_url=full_url,
+    )
+    assert out == "spoken text"
+    assert client.calls[0]["url"] == expected_url

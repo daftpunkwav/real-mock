@@ -78,6 +78,18 @@ def list_providers(db: Session = Depends(get_db)) -> dict[str, Any]:
     return list_providers_payload(db)
 
 
+@router.get("/vendors")
+def recommended_vendors() -> dict[str, Any]:
+    """Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.
+
+    Drives the settings-page "add provider" cascade; entries carry catalog prefills
+    plus the deep request template metadata when a vendor descriptor JSON exists.
+    """
+    from realmock.platform.vendors import recommended_vendors_payload
+
+    return recommended_vendors_payload()
+
+
 @router.post("/providers")
 def create_provider(body: ProviderCreate, db: Session = Depends(get_db)) -> dict:
     name = body.name.strip()
@@ -89,6 +101,7 @@ def create_provider(body: ProviderCreate, db: Session = Depends(get_db)) -> dict
     row = LlmProvider(
         name=name,
         api_base=body.api_base.strip(),
+        full_url=bool(body.full_url),
         protocol=body.protocol or DEFAULT_LLM_PROTOCOL,
         enabled=body.enabled,
     )
@@ -113,6 +126,8 @@ def update_provider(provider_id: int, body: ProviderUpdate, db: Session = Depend
     if body.api_base is not None:
         _safe_base(body.api_base, label="Base URL")
         row.api_base = body.api_base.strip()
+    if body.full_url is not None:
+        row.full_url = body.full_url
     if body.protocol is not None:
         row.protocol = body.protocol
     if body.enabled is not None:

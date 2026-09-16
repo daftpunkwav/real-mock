@@ -31,6 +31,8 @@ class TurnLockMixin:
         epoch = self.ctx.stream_epoch
         self.ctx.turn_busy = True
         self.ctx.busy_epoch = epoch
+        # The candidate answered: both question timers are done for this round.
+        self.cancel_turn_timers()
         return epoch
 
     def _end_user_turn(self, epoch: int) -> None:

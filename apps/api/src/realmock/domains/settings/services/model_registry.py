@@ -34,6 +34,7 @@ from realmock.platform.services.pipeline.config import (
 class ProviderCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     api_base: str = ""
+    full_url: bool = False
     protocol: str = DEFAULT_LLM_PROTOCOL
     api_key: str = ""
     enabled: bool = True
@@ -42,6 +43,7 @@ class ProviderCreate(BaseModel):
 class ProviderUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     api_base: str | None = None
+    full_url: bool | None = None
     protocol: str | None = None
     api_key: str | None = None
     enabled: bool | None = None
@@ -132,6 +134,7 @@ def list_providers_payload(db: Session) -> dict[str, Any]:
                 "id": provider.id,
                 "name": provider.name,
                 "api_base": provider.api_base or "",
+                "full_url": bool(provider.full_url),
                 "protocol": provider.protocol or DEFAULT_LLM_PROTOCOL,
                 "enabled": bool(provider.enabled),
                 "has_api_key": bool(provider.api_key),

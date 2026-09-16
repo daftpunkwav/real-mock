@@ -58,10 +58,14 @@ async def test_stream_tokens_complete_error():
     h.ctx.tts_queue.enqueue = AsyncMock()
     h.ctx.tts_queue.flush_remainder = AsyncMock()
     h._spawn = MagicMock(side_effect=lambda c: (c.close(), MagicMock())[1])  # type: ignore[method-assign]
-    evs = [StreamEvent.make_token("Hello."), StreamEvent.make_turn_done(content="Hello.", phase_id="p", is_complete=False, phase_changed=False, emotion="happy", wait_seconds=5, sources=(), phase_title="T")]
+    evs = [StreamEvent.make_token("Hello."), StreamEvent.make_turn_done(content="Hello.", phase_id="p", is_complete=False, phase_changed=False, emotion="happy", wait_seconds=5, answer_wait_seconds=180, sources=(), phase_title="T")]
     last = await h._stream_events_with_tts(_agen(evs), db=MagicMock(), session=MagicMock())
     assert last is not None and last.phase_id == "p"
     assert h.ctx.last_wait_seconds == 5.0
+    assert h.ctx.last_answer_wait_seconds == 180.0
+    sent_frames = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
+    done_frame = next(f for f in sent_frames if f.get("type") == "assistant_done")
+    assert done_frame["answer_wait_seconds"] == 180
     h.ctx.tts_queue.enqueue = AsyncMock()
     h.ctx.tts_queue.flush_remainder = AsyncMock()
     err = StreamEvent.make_error("boom", code="C0001", retryable=True)

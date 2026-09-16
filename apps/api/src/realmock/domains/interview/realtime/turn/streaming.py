@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents import strip_markers
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
-from realmock.platform.capabilities.voice.tts.edge import (
+from realmock.platform.capabilities.voice.tts.providers.edge import (
     next_soft_min,
     should_flush_sentence_buffer,
 )
@@ -113,6 +113,7 @@ class TurnStreamingMixin:
                     is_complete=event.is_complete,
                     emotion=event.emotion,
                     wait_seconds=event.wait_seconds,
+                    answer_wait_seconds=event.answer_wait_seconds,
                     sources=list(event.sources),
                     result=event.result,
                     phase_title=event.phase_title or None,
@@ -133,6 +134,9 @@ class TurnStreamingMixin:
                 # Latest per-question wait estimate drives the silence timer
                 # (frontend waitMs + backend nudge cooldown, clamped 7-60s).
                 self.ctx.last_wait_seconds = float(event.wait_seconds or 0)
+                self.ctx.last_answer_wait_seconds = float(event.answer_wait_seconds or 0)
+                if not event.is_complete:
+                    self.arm_turn_timers()
                 total_ms = (time.perf_counter() - t0) * 1000.0
                 logger.info(
                     "turn_stream sid=%s first_token_ms=%s total_ms=%.0f",

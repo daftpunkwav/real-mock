@@ -165,3 +165,26 @@ async def test_auth_remainder_gaps():
         await h._cancel_bg_tasks()
         reset_session_registry_for_tests()
 
+
+@pytest.mark.asyncio
+async def test_active_resume_rearms_think_timer():
+    """ACTIVE resume (refresh/reconnect) must re-arm the server-owned think window.
+
+    A fresh connection context starts with no timers; without re-arming, a
+    candidate who reconnects and then goes silent never gets a follow-up until
+    the next completed exchange.
+    """
+    reset_session_registry_for_tests()
+    h = _make_handler()
+    try:
+        h.ctx.tts_queue.start = AsyncMock()  # type: ignore[method-assign]
+        assert h.ctx.think_timer_task is None
+        await h.start_session_flow(MagicMock(status="active"), MagicMock())
+        assert h.ctx.turn_state.value == "USER_SPEAKING"
+        assert h.ctx.think_timer_task is not None
+        assert not h.ctx.think_timer_task.done()
+    finally:
+        await h._cancel_bg_tasks()
+        assert h.ctx.think_timer_task.cancelled()
+        reset_session_registry_for_tests()
+

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.cloud import is_local_stt_model
-from realmock.platform.capabilities.voice.stt.whisper import transcribe_pcm_base64_async
+from realmock.platform.capabilities.voice.stt.providers.cloud import is_local_stt_model
+from realmock.platform.capabilities.voice.stt.providers.whisper import transcribe_pcm_base64_async
 
 
 class LocalWhisperProvider:

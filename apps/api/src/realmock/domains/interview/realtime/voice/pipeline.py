@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from realmock.domains.interview.agents import strip_markers
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_speech
-from realmock.platform.capabilities.voice.tts.edge import (
+from realmock.platform.capabilities.voice.tts.providers.edge import (
     extract_emotion,
     _plain_text_for_tts,
 )
@@ -99,19 +100,10 @@ class VoicePipelineMixin:
                 handler="edge", voice=p.voice
             )
             synth_t0 = time.perf_counter()
+            # replace() keeps full_url/protocol/extra overrides; only the emotion voice moves.
             audio_b64 = await synthesize_speech(
                 clean,
-                creds=TtsCredentials(
-                    handler=tts_creds.handler,
-                    mode=tts_creds.mode,
-                    protocol=tts_creds.protocol,
-                    api_base=tts_creds.api_base,
-                    api_key=tts_creds.api_key,
-                    model=tts_creds.model,
-                    voice=p.voice or tts_creds.voice,
-                    fallback_handler=tts_creds.fallback_handler,
-                    fallback_mode=tts_creds.fallback_mode,
-                ),
+                creds=replace(tts_creds, voice=p.voice or tts_creds.voice),
                 rate=p.rate,
                 pitch=p.pitch,
             )

@@ -2145,3 +2145,36 @@ button:active:not(:disabled),
   .markdown-user thead { background: rgb(255 255 255 / 0.2); }
   .markdown-user div:has(> table) { border-color: rgb(255 255 255 / 0.28); }
 }
+
+/* ===========================================================
+ * Coding whiteboard editor tokens (theme-adaptive) + syntax
+ * token classes emitted by features/interview/codeHighlight.
+ * =========================================================== */
+:root {
+  --ed-bg: #f8f9fa;
+  --ed-fg: #202124;
+  --ed-kw: #9334e6;
+  --ed-str: #188038;
+  --ed-com: #9aa0a6;
+  --ed-num: #e37400;
+  --ed-fn: #1a73e8;
+  --ed-builtin: #00897b;
+}
+
+.dark {
+  --ed-bg: #131314;
+  --ed-fg: #e8eaed;
+  --ed-kw: #c58af9;
+  --ed-str: #81c995;
+  --ed-com: #7f8d9f;
+  --ed-num: #ffab70;
+  --ed-fn: #8ab4f8;
+  --ed-builtin: #78d9ec;
+}
+
+.tok-kw { color: var(--ed-kw); }
+.tok-str { color: var(--ed-str); }
+.tok-com { color: var(--ed-com); font-style: italic; }
+.tok-num { color: var(--ed-num); }
+.tok-fn { color: var(--ed-fn); }
+.tok-builtin { color: var(--ed-builtin); }

@@ -10,7 +10,7 @@ import pytest
 from realmock.domains.interview.realtime import ws_handler
 from realmock.domains.interview.realtime.voice.pipeline import _pick_stt_text
 from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.platform.capabilities.voice.stt.cloud import is_local_stt_model, resolve_cloud_stt_model
+from realmock.platform.capabilities.voice.stt.providers.cloud import is_local_stt_model, resolve_cloud_stt_model
 
 
 def test_resolve_cloud_model_maps_local_sizes():
@@ -93,12 +93,12 @@ class TestCloudSttPath:
 
         with (
             patch(
-                "realmock.platform.capabilities.voice.stt.openai_compat.transcribe_pcm_cloud",
+                "realmock.platform.capabilities.voice.stt.providers.openai_compat.transcribe_pcm_cloud",
                 new_callable=AsyncMock,
                 return_value="Cloud result is correct",
             ) as cloud,
             patch(
-                "realmock.platform.capabilities.voice.stt.local.transcribe_pcm_base64_async",
+                "realmock.platform.capabilities.voice.stt.providers.local.transcribe_pcm_base64_async",
                 new_callable=AsyncMock,
                 return_value="Local",
             ) as local,
@@ -122,12 +122,12 @@ class TestCloudSttPath:
 
         with (
             patch(
-                "realmock.platform.capabilities.voice.stt.openai_compat.transcribe_pcm_cloud",
+                "realmock.platform.capabilities.voice.stt.providers.openai_compat.transcribe_pcm_cloud",
                 new_callable=AsyncMock,
                 return_value="",
             ),
             patch(
-                "realmock.platform.capabilities.voice.stt.local.transcribe_pcm_base64_async",
+                "realmock.platform.capabilities.voice.stt.providers.local.transcribe_pcm_base64_async",
                 new_callable=AsyncMock,
                 return_value="Local fallback",
             ) as local,

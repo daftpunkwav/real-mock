@@ -57,6 +57,9 @@ class LlmProvider(ApiBase):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     api_base: Mapped[str] = mapped_column(String(500), default="")
+    # When True, api_base is a complete request URL used verbatim (nonstandard endpoints such as
+    # vendor voice APIs); protocol path appending is skipped for every request through this provider.
+    full_url: Mapped[bool] = mapped_column(Boolean, default=False)
     protocol: Mapped[str] = mapped_column(String(50), default=DEFAULT_LLM_PROTOCOL)
     api_key: Mapped[str] = mapped_column(String(500), default="")  # enc: AES-GCM
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)

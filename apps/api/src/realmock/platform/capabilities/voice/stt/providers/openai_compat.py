@@ -33,7 +33,8 @@ class MimoAudioProvider:
         audio_b64 = base64.b64encode(wav_bytes).decode("ascii")
         data_uri = f"data:audio/wav;base64,{audio_b64}"
 
-        url = f"{api_base}/chat/completions"
+        # Full-URL mode posts to api_base verbatim; otherwise the documented path is appended.
+        url = api_base if creds.full_url else f"{api_base}/chat/completions"
         payload = {
             "model": model,
             "messages": [
@@ -86,7 +87,7 @@ def _decode_audio(pcm_b64: str) -> bytes:
         raw = base64.b64decode(pcm_b64)
         if raw[:4] == b"RIFF":
             return raw
-        from realmock.platform.capabilities.voice.stt.cloud import pcm_base64_to_wav_bytes
+        from realmock.platform.capabilities.voice.stt.providers.cloud import pcm_base64_to_wav_bytes
 
         # Fixed 16k encapsulation; ignore incoming sample_rate.
         return pcm_base64_to_wav_bytes(pcm_b64, 16000)
@@ -103,7 +104,7 @@ async def transcribe_pcm_cloud(
     api_key: str = "",
 ) -> str:
     """Transcribe via the OpenAI-compatible /audio/transcriptions endpoint (legacy function retained for test compatibility)."""
-    from realmock.platform.capabilities.voice.stt.cloud import transcribe_pcm_cloud as _cloud
+    from realmock.platform.capabilities.voice.stt.providers.cloud import transcribe_pcm_cloud as _cloud
 
     return await _cloud(
         pcm_b64,
@@ -124,4 +125,5 @@ class OpenAICompatProvider:
             model=creds.model or "FunAudioLLM/SenseVoiceSmall",
             api_base=creds.api_base,
             api_key=creds.api_key,
+            full_url=creds.full_url,
         )

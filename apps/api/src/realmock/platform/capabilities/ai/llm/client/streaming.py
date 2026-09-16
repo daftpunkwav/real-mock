@@ -49,7 +49,7 @@ async def stream_message_round(
         api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
     ) as c:
         async with c.stream(
-            "POST", url, headers=_headers(api_key, protocol), json=payload
+            "POST", url, headers=_headers(api_key, protocol, getattr(client, "extra_headers", None)), json=payload
         ) as resp:
             if "stream_options" in payload and resp.status_code in (400, 422):
                 body = (await resp.aread()).decode("utf-8", "ignore")
@@ -96,7 +96,7 @@ async def stream_text_payload(
         api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
     ) as c:
         async with c.stream(
-            "POST", url, headers=_headers(api_key, protocol), json=payload
+            "POST", url, headers=_headers(api_key, protocol, getattr(client, "extra_headers", None)), json=payload
         ) as resp:
             if "stream_options" in payload and resp.status_code in (400, 422):
                 body = (await resp.aread()).decode("utf-8", "ignore")

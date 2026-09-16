@@ -16,7 +16,7 @@ import pytest
 from unittest.mock import patch
 
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.xfyun import XfyunProvider, _auth_url
+from realmock.platform.capabilities.voice.stt.providers.xfyun import XfyunProvider, _auth_url
 
 
 PCM = base64.b64encode(b"\x00\x01" * 500).decode("ascii")

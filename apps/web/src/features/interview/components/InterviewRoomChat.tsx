@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useT } from "@/i18n";
-import { Send } from "lucide-react";
+import { Send, Timer } from "lucide-react";
 import { ChatBubble } from "./ChatBubble";
+import { formatTurnCountdown } from "../turnTimer";
 import type { InterviewRoomModel } from "../hooks/room";
 
 /** Chat column: message flow + streaming + empty state + text/recording sending line. */
@@ -17,10 +19,23 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
     setInputText,
     canSend,
     handleSend,
+    notifyUserActivity,
+    turnTimer,
     isRecording,
     turnState,
   } = room;
   const t = useT("interview");
+  // 1s ticker: the countdown chip re-renders once per second while visible.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const timerVisible = canInput && turnTimer.phase !== null;
+  const remainingSec =
+    timerVisible && turnTimer.endsAt > now ? Math.ceil((turnTimer.endsAt - now) / 1000) : 0;
+  const timerActive = timerVisible && remainingSec > 0;
 
   return (
     <div className="rounded-lg border border-surface-border bg-surface-card flex flex-col min-h-0">
@@ -40,12 +55,27 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
         <div ref={chatEndRef} />
       </div>
 
+      {timerActive && (
+        <div
+          className="border-t border-surface-border px-3 py-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted shrink-0"
+          aria-live="off"
+        >
+          <Timer size={12} />
+          {turnTimer.phase === "think"
+            ? t("chat.timer.think", { time: formatTurnCountdown(remainingSec) })
+            : t("chat.timer.answer", { time: formatTurnCountdown(remainingSec) })}
+        </div>
+      )}
+
       <div className="border-t border-surface-border p-2 flex gap-2 shrink-0">
         <input
           className="flex-1 rounded-md border border-surface-border bg-surface-card px-3 py-2.5 text-[13px] text-ink placeholder:text-ink-subtle focus:border-[var(--primary)] focus:shadow-focus focus:outline-none disabled:opacity-40"
           placeholder={canInput ? t("chat.input.placeholder") : t("chat.input.waiting")}
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={(e) => {
+            setInputText(e.target.value);
+            notifyUserActivity();
+          }}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           disabled={!canInput}
         />

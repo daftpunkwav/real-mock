@@ -28,6 +28,7 @@
     "user_text",
     "user_turn_end",
     "stt_text",
+    "user_typing",
     "silence_timeout",
     "barge_in",
     "request_hint",
@@ -90,6 +91,9 @@
           "type": "number"
         },
         "wait_seconds": {
+          "type": "number"
+        },
+        "answer_wait_seconds": {
           "type": "number"
         },
         "sources": {
@@ -409,6 +413,10 @@
           "type": "string"
         }
       }
+    },
+    "user_typing": {
+      "required": [],
+      "properties": {}
     },
     "silence_timeout": {
       "required": [],

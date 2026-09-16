@@ -323,6 +323,51 @@ async def test_fallback_keeps_custom_voice():
 
 
 @pytest.mark.asyncio
+async def test_openai_compat_full_url_posts_verbatim(monkeypatch):
+    """full_url providers post to api_base verbatim — no path is appended."""
+    _settings(monkeypatch)
+    client = _FakeClient(
+        resp=_FakeResp(payload={"choices": [{"message": {"audio": {"data": "A"}}}]})
+    )
+    monkeypatch.setattr(tts_mod, "make_pinned_async_client", lambda *a, **k: client)
+    out = await tts_mod._synthesize_openai_compat(
+        "hi",
+        TtsCredentials(
+            api_base="https://x/v1/complete-endpoint", api_key="k", full_url=True
+        ),
+    )
+    assert out == "A"
+    assert client.calls[0]["url"] == "https://x/v1/complete-endpoint"
+
+
+@pytest.mark.asyncio
+async def test_fallback_preserves_full_url():
+    """The fallback path inherits full_url so an openai-compat fallback does not
+    re-append /chat/completions onto an already-complete endpoint."""
+    captured: dict = {}
+
+    async def _fake_compat(text, creds):
+        captured["full_url"] = creds.full_url
+        return "FB"
+
+    with patch.object(tts_mod, "_synthesize_openai_compat", new=_fake_compat):
+        out = await tts_mod._synthesize_fallback(
+            "hi",
+            TtsCredentials(
+                handler="minimax_speech",
+                api_base="https://x/v1/complete-endpoint",
+                api_key="k",
+                full_url=True,
+                fallback_handler="custom",
+            ),
+            rate="+0%",
+            pitch="+0Hz",
+        )
+    assert out == "FB"
+    assert captured["full_url"] is True
+
+
+@pytest.mark.asyncio
 async def test_openai_compat_wrong_protocol(monkeypatch):
     _settings(monkeypatch)
     assert await tts_mod._synthesize_openai_compat("hi", TtsCredentials(protocol="other")) == ""

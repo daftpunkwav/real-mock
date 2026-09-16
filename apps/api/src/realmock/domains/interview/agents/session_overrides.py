@@ -99,3 +99,39 @@ def session_tts_credentials(db: Session, session: Any) -> "TtsCredentials":
         db, PipelineStage.SPEAK, profile_id=parse_ai_overrides(session).get("tts_profile_id")
     )
     return build_tts_credentials(cfg)
+
+
+def voice_prompt_directive(tts_creds: Any) -> str:
+    """System-prompt notes describing what the speech-synthesis channel can render.
+
+    Driven by the bound broadcast handler + model: MiniMax speech-2.8 models render
+    interjection tags like ``(laughs)`` as real vocals, so the interviewer may write
+    them; unsupported models must stay plain text (tags would be read aloud).
+    """
+    handler = (getattr(tts_creds, "handler", "") or "").strip()
+    if handler != "minimax_speech":
+        return ""
+    from realmock.platform.capabilities.voice.tts.providers.minimax import (
+        interjection_tags,
+        supports_interjections,
+    )
+
+    model = (getattr(tts_creds, "model", "") or "").strip()
+    if not supports_interjections(model):
+        return (
+            "## Voice channel\n"
+            f"Your reply is read aloud by MiniMax TTS ({model or 'unknown model'}), which does NOT "
+            "support vocal interjection tags — write plain conversational text only; never emit "
+            "(laughs)-style parenthesized tags, they would be read out literally."
+        )
+    tags = ", ".join(f"({t})" for t in interjection_tags())
+    return (
+        "## Voice channel (speech synthesis)\n"
+        "Your reply is read aloud by MiniMax speech-2.8 TTS, which renders vocal interjection "
+        "tags written in ASCII parentheses into real sounds — a human touch, use with restraint.\n"
+        f"Supported tags: {tags}.\n"
+        "Rules: at most 1-2 tags per turn, only where a real person would naturally laugh, "
+        "hesitate, breathe, or sigh (e.g. right after your own joke, or before releasing "
+        "pressure); never after every sentence; place the tag exactly where the sound belongs; "
+        "never explain or mention tags; when in doubt, plain text reads better than a forced tag."
+    )

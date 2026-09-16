@@ -5,16 +5,17 @@
  * @description Live coding whiteboard and execution sandbox panel for technical interviews.
  *
  * Responsibilities:
- * - Render coding challenge details, constraints, and test suites.
- * - Provide a live code editor with language switching (Python / JavaScript).
+ * - Provide Problem / Editor / Sandbox Console as tabs over one shared region.
+ * - Provide a syntax-highlighted code editor with language switching (Python / JavaScript).
  * - Execute code in browser sandbox and display stdout/stderr and test assertions.
  * - Enable candidate submission and review.
  */
 
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Play, Send, Code, Terminal, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { runPython } from "@/lib/code-runner/pythonRunner";
 import { runJavascript } from "@/lib/code-runner/javascriptRunner";
+import { highlightCode } from "../codeHighlight";
 
 interface CodingTestCase {
   input: string;
@@ -70,18 +71,42 @@ print("Reversed successfully!")
   ],
 };
 
+type PanelTab = "problem" | "editor" | "console";
+
+const PANEL_TABS: ReadonlyArray<{ id: PanelTab; label: string }> = [
+  { id: "problem", label: "Problem" },
+  { id: "editor", label: "Editor" },
+  { id: "console", label: "Sandbox Console" },
+];
+
 export function InterviewCodingPanel() {
   const [problem] = useState<CodingProblem>(DEFAULT_CHALLENGE);
   const [code, setCode] = useState<string>(DEFAULT_CHALLENGE.starterCode);
   const [language, setLanguage] = useState<"python" | "javascript">("python");
-  const [activeTab, setActiveTab] = useState<"editor" | "description">("editor");
+  const [activeTab, setActiveTab] = useState<PanelTab>("editor");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [runStatus, setRunStatus] = useState<"idle" | "success" | "error">("idle");
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const highlightRef = useRef<HTMLPreElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Highlight once per keystroke; the overlay pre mirrors the textarea exactly
+  // (same font/padding, whitespace-pre, wrap off) so glyphs stay aligned.
+  const highlighted = useMemo(() => highlightCode(code, language), [code, language]);
+
+  const syncEditorScroll = () => {
+    const pre = highlightRef.current;
+    const ta = editorRef.current;
+    if (pre && ta) {
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    }
+  };
 
   const handleRunCode = async () => {
     setIsRunning(true);
+    setActiveTab("console");
     setRunStatus("idle");
     setConsoleOutput("Executing in local sandbox...\n");
 
@@ -115,42 +140,34 @@ export function InterviewCodingPanel() {
 
   const handleSubmit = () => {
     setSubmitted(true);
+    setActiveTab("console");
     setConsoleOutput((prev) => `${prev}\n\n[System]: Solution submitted to Coding Examiner Agent.`);
   };
 
   return (
-    <div className="flex flex-col h-full rounded-lg border border-surface-border bg-surface-card overflow-hidden">
-      {/* Top bar: title + tab switch + language select */}
-      <div className="flex items-center justify-between border-b border-surface-border bg-surface px-3 py-2 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-ink flex items-center gap-1">
-            <Code size={14} className="text-[var(--primary)]" />
-            {problem.title}
-          </span>
-        </div>
+    <div className="flex flex-1 min-h-0 flex-col rounded-lg border border-surface-border bg-surface-card overflow-hidden">
+      {/* Top bar: title + Problem/Editor/Sandbox Console tabs + language select, one row */}
+      <div className="flex items-center justify-between gap-2 border-b border-surface-border bg-surface px-3 py-2 text-xs">
+        <span className="font-semibold text-ink flex items-center gap-2 min-w-0">
+          <Code size={14} className="text-[var(--primary)] shrink-0" />
+          <span className="truncate">{problem.title}</span>
+        </span>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="flex rounded border border-surface-border p-0.5 bg-surface-alt">
-            <button
-              type="button"
-              onClick={() => setActiveTab("editor")}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                activeTab === "editor" ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              Editor
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("description")}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                activeTab === "description" ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              Problem
-            </button>
+            {PANEL_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  activeTab === id ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value as "python" | "javascript")}
@@ -162,74 +179,87 @@ export function InterviewCodingPanel() {
         </div>
       </div>
 
-      {/* Main body: Description or Editor */}
-      <div className="flex-1 min-h-0 flex flex-col p-2 gap-2 overflow-hidden">
-        {activeTab === "description" ? (
-          <div className="flex-1 overflow-y-auto p-3 rounded border border-surface-border bg-surface text-xs text-ink whitespace-pre-wrap leading-relaxed">
+      {/* Body: one shared region switched by the header tabs */}
+      <div className="flex-1 min-h-0 flex flex-col p-2 overflow-hidden">
+        {activeTab === "problem" && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 rounded border border-surface-border bg-surface text-xs text-ink whitespace-pre-wrap leading-relaxed">
             <div className="flex items-center gap-1.5 mb-2 font-semibold text-ink">
               <FileText size={14} /> Problem Description
             </div>
             {problem.description}
           </div>
-        ) : (
-          <div className="flex-1 min-h-0 flex flex-col gap-2">
+        )}
+
+        {activeTab === "editor" && (
+          <div className="relative flex-1 min-h-0 rounded border border-surface-border overflow-hidden bg-[var(--ed-bg)]">
+            <pre
+              ref={highlightRef}
+              aria-hidden
+              className="absolute inset-0 overflow-hidden p-3 font-mono text-xs leading-relaxed text-[var(--ed-fg)] whitespace-pre pointer-events-none"
+            >
+              <code dangerouslySetInnerHTML={{ __html: highlighted }} />
+            </pre>
             <textarea
+              ref={editorRef}
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              onScroll={syncEditorScroll}
               spellCheck={false}
-              className="flex-1 w-full rounded border border-surface-border bg-[var(--surface-sunken,#18181b)] p-3 font-mono text-xs text-ink focus:outline-none resize-none leading-relaxed"
+              wrap="off"
+              className="absolute inset-0 h-full w-full resize-none border-0 bg-transparent p-3 font-mono text-xs leading-relaxed text-transparent caret-[var(--ed-fg)] placeholder:text-ink-subtle focus:outline-none overflow-auto"
               placeholder="# Write your solution here..."
             />
           </div>
         )}
 
-        {/* Console output section */}
-        <div className="h-28 rounded border border-surface-border bg-surface-alt p-2 flex flex-col shrink-0 text-xs overflow-hidden">
-          <div className="flex items-center justify-between border-b border-surface-border/50 pb-1 mb-1 text-[11px] text-ink-muted">
-            <span className="flex items-center gap-1">
-              <Terminal size={12} /> Sandbox Console
-            </span>
-            {runStatus === "success" && (
-              <span className="text-[var(--success,#22c55e)] flex items-center gap-1 font-medium">
-                <CheckCircle2 size={12} /> Pass
+        {activeTab === "console" && (
+          <div className="flex-1 min-h-0 rounded border border-surface-border bg-surface-alt p-2 flex flex-col text-xs overflow-hidden">
+            <div className="flex items-center justify-between border-b border-surface-border/50 pb-1 mb-1 text-[11px] text-ink-muted shrink-0">
+              <span className="flex items-center gap-1">
+                <Terminal size={12} /> Sandbox Console
               </span>
-            )}
-            {runStatus === "error" && (
-              <span className="text-[var(--danger,#ef4444)] flex items-center gap-1 font-medium">
-                <XCircle size={12} /> Error
-              </span>
-            )}
+              {runStatus === "success" && (
+                <span className="text-[var(--success,#22c55e)] flex items-center gap-1 font-medium">
+                  <CheckCircle2 size={12} /> Pass
+                </span>
+              )}
+              {runStatus === "error" && (
+                <span className="text-[var(--danger,#ef4444)] flex items-center gap-1 font-medium">
+                  <XCircle size={12} /> Error
+                </span>
+              )}
+            </div>
+            <pre className="flex-1 overflow-y-auto font-mono text-[11px] text-ink-muted whitespace-pre-wrap m-0">
+              {consoleOutput || "Output will appear here after clicking 'Run Code'..."}
+            </pre>
           </div>
-          <pre className="flex-1 overflow-y-auto font-mono text-[11px] text-ink-muted whitespace-pre-wrap">
-            {consoleOutput || "Output will appear here after clicking 'Run Code'..."}
-          </pre>
-        </div>
+        )}
+      </div>
 
-        {/* Bottom controls */}
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] text-ink-muted">
-            {submitted ? "✓ Submitted for assessment" : "Local in-browser sandbox runner"}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleRunCode}
-              disabled={isRunning}
-              className="inline-flex items-center gap-1 rounded bg-surface border border-surface-border px-3 py-1 text-xs font-medium text-ink hover:bg-surface-alt transition-colors disabled:opacity-50"
-            >
-              <Play size={12} className={isRunning ? "anim-spin" : "text-[var(--primary)]"} />
-              {isRunning ? "Running..." : "Run Code"}
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitted || isRunning}
-              className="inline-flex items-center gap-1 rounded bg-[var(--primary)] text-[var(--primary-foreground,#fff)] px-3 py-1 text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              <Send size={12} />
-              {submitted ? "Submitted" : "Submit"}
-            </button>
-          </div>
+      {/* Bottom controls */}
+      <div className="flex items-center justify-between pt-1 shrink-0">
+        <span className="text-[11px] text-ink-muted">
+          {submitted ? "✓ Submitted for assessment" : "Local in-browser sandbox runner"}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRunCode}
+            disabled={isRunning}
+            className="inline-flex items-center gap-1 rounded bg-surface border border-surface-border px-3 py-1 text-xs font-medium text-ink hover:bg-surface-alt transition-colors disabled:opacity-50"
+          >
+            <Play size={12} className={isRunning ? "anim-spin" : "text-[var(--primary)]"} />
+            {isRunning ? "Running..." : "Run Code"}
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitted || isRunning}
+            className="inline-flex items-center gap-1 rounded bg-[var(--primary)] text-[var(--primary-foreground,#fff)] px-3 py-1 text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            <Send size={12} />
+            {submitted ? "Submitted" : "Submit"}
+          </button>
         </div>
       </div>
     </div>

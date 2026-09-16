@@ -26,6 +26,9 @@ _EMOTIONS = ("neutral", "smile", "serious")
 _SOURCE_VALUES = ("resume", "github", "company_kb", "none")
 _VERDICT_VALUES = ("passed", "failed")
 _WAIT_MAX = 60
+# Answer window (作答时间): from the candidate's first input until the interviewer takes the turn back.
+_ANSWER_WAIT_MIN = 90
+_ANSWER_WAIT_MAX = 300
 # Single source for step-field clamps: planning.plan_schema.
 _PLAN_OPS_MAX_INSERTS = 3
 
@@ -46,6 +49,7 @@ class TurnOutput:
     say: str = ""
     protocol_version: int = 0
     wait_seconds: int = 0
+    answer_wait_seconds: int = 0
     emotion: str = "neutral"
     phase_complete: bool = False
     interview_complete: bool = False
@@ -81,6 +85,14 @@ def parse_turn_output(
     elif wait_seconds > _WAIT_MAX:
         wait_seconds = _WAIT_MAX
 
+    answer_wait_seconds = controls.get("answer_wait_seconds")
+    if isinstance(answer_wait_seconds, bool) or not isinstance(answer_wait_seconds, int):
+        answer_wait_seconds = 0
+    elif answer_wait_seconds < _ANSWER_WAIT_MIN:
+        answer_wait_seconds = _ANSWER_WAIT_MIN
+    elif answer_wait_seconds > _ANSWER_WAIT_MAX:
+        answer_wait_seconds = _ANSWER_WAIT_MAX
+
     emotion = controls.get("emotion")
     if emotion not in _EMOTIONS:
         emotion = "neutral"
@@ -109,6 +121,7 @@ def parse_turn_output(
         say=say_text,
         protocol_version=version,
         wait_seconds=wait_seconds,
+        answer_wait_seconds=answer_wait_seconds,
         emotion=emotion,
         phase_complete=phase_complete,
         interview_complete=interview_complete,

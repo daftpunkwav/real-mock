@@ -7,6 +7,7 @@ import { getTranslator } from "@/i18n/resolve";
 import { toast } from "@/components/Toast";
 import type { ChatMessage } from "@/lib/api/contract";
 import type { ClientEvent, ServerEvent } from "@/types";
+import type { TurnTimerState } from "./useInterviewRoomState";
 
 /** Minimal writable-ref shape compatible with React 18 and 19 useRef results. */
 export type AnyRef<T> = { current: T };
@@ -25,11 +26,14 @@ interface InterviewRoomEventsDeps {
   setFinishingUi: Dispatch<SetStateAction<boolean>>;
   setSttFailUntil: Dispatch<SetStateAction<number>>;
   setLastSources: Dispatch<SetStateAction<string[]>>;
+  setTurnTimer: Dispatch<SetStateAction<TurnTimerState>>;
   playbackGenRef: AnyRef<number>;
   expectedPlaybackGenRef: AnyRef<number>;
   lastPlaybackDoneGenRef: AnyRef<number | null>;
   localBargeStopRef: AnyRef<boolean>;
   waitMsRef: AnyRef<number>;
+  answerWaitMsRef: AnyRef<number>;
+  turnTimerRef: AnyRef<TurnTimerState>;
   lastAssistantTextRef: AnyRef<string>;
   hintTimeoutRef: AnyRef<ReturnType<typeof setTimeout> | null>;
   awaitingSpeechEndRef: AnyRef<boolean>;
@@ -237,6 +241,18 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       if (typeof msg.wait_seconds === "number" && msg.wait_seconds > 0) {
         d.waitMsRef.current = Math.min(60, Math.max(7, msg.wait_seconds)) * 1000;
       }
+      // Answer window (server clamps 90-300s): counts from the candidate's
+      // FIRST input, displayed as 作答时间 in the chat panel.
+      if (typeof msg.answer_wait_seconds === "number" && msg.answer_wait_seconds > 0) {
+        d.answerWaitMsRef.current = Math.min(300, Math.max(90, msg.answer_wait_seconds)) * 1000;
+      }
+      // Think countdown starts at text-complete; the phase flips to "answer"
+      // on the candidate's first input (see notifyUserActivity).
+      d.setTurnTimer(
+        msg.is_complete
+          ? { phase: null, endsAt: 0 }
+          : { phase: "think", endsAt: Date.now() + (d.waitMsRef.current || 25_000) },
+      );
       armSpeechWatch();
       if (!msg.is_complete) {
         requestHint(msg.content);
@@ -249,6 +265,8 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
 
     on("stt_final", (msg) => {
       if (msg.text) d.setMessages((prev) => [...prev, { role: "user", content: msg.text }]);
+      // The answer was submitted: both countdowns are done for this round.
+      d.setTurnTimer({ phase: null, endsAt: 0 });
     });
 
     on("tts_audio", (msg) => {
@@ -308,6 +326,11 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       // Show LLM silence nudges as normal interviewer lines (no hint prefix)
       d.setMessages((prev) => [...prev, { role: "assistant", content: msg.content }]);
       d.lastAssistantTextRef.current = msg.content || "";
+      // A spoken probe re-opens the think countdown (the server re-arms its
+      // timer too); an in-flight answer keeps its own deadline.
+      if (d.turnTimerRef.current.phase !== "answer") {
+        d.setTurnTimer({ phase: "think", endsAt: Date.now() + (d.waitMsRef.current || 25_000) });
+      }
       // A spoken probe restarts the watch: the next timer starts when THIS
       // probe's speech ends (drives probe 2 / the closing nudge).
       armSpeechWatch();
@@ -359,6 +382,7 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
 
     on("interview_complete", (msg) => {
       announceVerdict(msg.result);
+      d.setTurnTimer({ phase: null, endsAt: 0 });
       // Backend now delays this frame until client playback is done, so it is
       // a safe-to-navigate signal. If the assistant_done path already scheduled
       // the wait, this is a deduped no-op via navigatingRef.

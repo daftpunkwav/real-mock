@@ -13,6 +13,8 @@ class SttCredentials:
     provider: str = "local"
     protocol: str = "openai_chat"
     api_base: str = ""
+    # Full-URL providers: api_base is the verbatim endpoint and protocol path appending is skipped.
+    full_url: bool = False
     api_key: str = ""
     model: str = ""
     app_id: str = ""

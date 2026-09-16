@@ -12,9 +12,9 @@ from unittest.mock import patch
 
 import pytest
 
-from realmock.platform.capabilities.voice.stt import tencent as tencent_mod
+from realmock.platform.capabilities.voice.stt.providers import tencent as tencent_mod
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.tencent import TencentProvider, _sign_tc3
+from realmock.platform.capabilities.voice.stt.providers.tencent import TencentProvider, _sign_tc3
 
 
 class _FakeResp:

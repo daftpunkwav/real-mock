@@ -25,6 +25,19 @@ from realmock.platform.core.secrets import LegacySecretFormatError, decrypt_secr
 logger = logging.getLogger(__name__)
 
 
+def _extras_body_headers(cfg: dict[str, Any]) -> tuple[dict | None, dict | None]:
+    """Vendor-specific request customization from model-entry extras (extra_body / extra_headers)."""
+    extras = cfg.get("extras") or {}
+    if not isinstance(extras, dict):
+        return None, None
+    extra_body = extras.get("extra_body")
+    extra_headers = extras.get("extra_headers")
+    return (
+        extra_body if isinstance(extra_body, dict) else None,
+        extra_headers if isinstance(extra_headers, dict) else None,
+    )
+
+
 def build_from_db(
     cls: type,
     db: Session,
@@ -58,6 +71,7 @@ def build_from_db(
             if reasoning_effort and cfg.get("reasoning_capable")
             else None
         )
+        extra_body, extra_headers = _extras_body_headers(cfg)
     else:
         if profile_explicit:
             # Entries explicitly specified by the scenario lack credentials: do not fall back silently, retain the entry information and let the request report an error
@@ -71,6 +85,7 @@ def build_from_db(
                 protocol=cfg.get("protocol") or DEFAULT_LLM_PROTOCOL,
                 context_window=resolve_context_window(cfg.get("context_window")),
                 supports_vision=bool(cfg.get("supports_vision")),
+                full_url=bool(cfg.get("full_url")),
             )
         # The pipeline already contains the stage_configs fallback; here only the environment variables are added to the final level.
         api_base = cfg.get("api_base") or settings.llm_api_base
@@ -89,6 +104,7 @@ def build_from_db(
         )
         protocol = cfg.get("protocol") or DEFAULT_LLM_PROTOCOL
         reasoning = None
+        extra_body, extra_headers = _extras_body_headers(cfg)
 
     return cls(
         api_base=api_base,
@@ -99,6 +115,9 @@ def build_from_db(
         reasoning_effort=reasoning,
         context_window=resolve_context_window(cfg.get("context_window")),
         supports_vision=bool(cfg.get("supports_vision")),
+        full_url=bool(cfg.get("full_url")),
+        extra_body=extra_body,
+        extra_headers=extra_headers,
     )
 
 
@@ -114,6 +133,7 @@ def build_from_stage_config(cls: type, config: dict[str, Any]) -> Any:
         except ValueError as e:
             logger.error("API Key decryption failed: %s", e)
             api_key = ""
+    extra_body, extra_headers = _extras_body_headers(config)
     return cls(
         api_base=config.get("api_base") or "",
         api_key=api_key,
@@ -122,6 +142,9 @@ def build_from_stage_config(cls: type, config: dict[str, Any]) -> Any:
         max_tokens=resolve_max_output_tokens(config.get("max_tokens")),
         context_window=resolve_context_window(config.get("context_window")),
         supports_vision=bool(config.get("supports_vision")),
+        full_url=bool(config.get("full_url")),
+        extra_body=extra_body,
+        extra_headers=extra_headers,
     )
 
 

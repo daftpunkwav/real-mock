@@ -8,6 +8,7 @@ import type { ClientEvent, FaceAnalysis } from "@/types";
 import { isLikelyEchoOfAssistant } from "../../echo";
 import type { VideoPanelHandle } from "../../components/VideoPanel";
 import type { AnyRef } from "./useInterviewRoomEvents";
+import type { TurnTimerState } from "./useInterviewRoomState";
 
 /** Bridge that lets callbacks defined before the recorder read its current state. */
 export interface RecorderBridge {
@@ -39,6 +40,10 @@ interface InterviewRoomActionsDeps {
   faceRef: AnyRef<FaceAnalysis>;
   seedCaptureFromRingRef: AnyRef<() => void>;
   bumpSilenceTimerRef: AnyRef<() => void>;
+  setTurnTimer: Dispatch<SetStateAction<TurnTimerState>>;
+  turnTimerRef: AnyRef<TurnTimerState>;
+  answerWaitMsRef: AnyRef<number>;
+  typingUplinkAtRef: AnyRef<number>;
   disarmSpeechWatch: () => void;
   sendRef: AnyRef<(p: ClientEvent) => boolean>;
   recorderRef: AnyRef<RecorderBridge>;
@@ -96,6 +101,28 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
     submitUserMessageRef.current = submitUserMessage;
   }, [submitUserMessage]);
 
+  const notifyUserActivity = useCallback(() => {
+    const d = depsRef.current;
+    if (d.turnStateRef.current !== "USER_SPEAKING") return;
+    const now = Date.now();
+    if (d.turnTimerRef.current.phase === "answer") {
+      // Answer phase already running: throttle the typing uplink only.
+      if (now - d.typingUplinkAtRef.current >= 4000) {
+        d.typingUplinkAtRef.current = now;
+        d.sendRef.current({ type: "user_typing" });
+      }
+      return;
+    }
+    // First input (typing or voice partial): the think window ends and the
+    // answer window gets a fixed deadline from THIS moment.
+    d.typingUplinkAtRef.current = now;
+    d.sendRef.current({ type: "user_typing" });
+    d.setTurnTimer({
+      phase: "answer",
+      endsAt: now + (d.answerWaitMsRef.current || 120_000),
+    });
+  }, []);
+
   const onSilenceStable = useCallback((pcm: string, partial: string, sampleRate = 16000) => {
     const d = depsRef.current;
     if (d.turnStateRef.current !== "USER_SPEAKING") return;
@@ -113,6 +140,7 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
     if (d.turnStateRef.current !== "USER_SPEAKING") return;
     if (isLikelyEchoOfAssistant(text, d.lastAssistantTextRef.current)) return;
     d.partialTextRef.current = text;
+    notifyUserActivity();
     const now = Date.now();
     if (now - d.sttThrottleRef.current >= 500) {
       d.sttThrottleRef.current = now;
@@ -120,7 +148,7 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
     }
     d.disarmSpeechWatch();
     d.bumpSilenceTimerRef.current();
-  }, []);
+  }, [notifyUserActivity]);
 
   const onSpeechActivity = useCallback(() => {
     const d = depsRef.current;
@@ -230,6 +258,7 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
 
   return {
     submitUserMessage,
+    notifyUserActivity,
     onSilenceStable,
     onPartialStable,
     onSpeechActivity,

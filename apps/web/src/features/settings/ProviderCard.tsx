@@ -20,6 +20,7 @@ export function ProviderCard({
 }) {
   const [name, setName] = useState(provider.name);
   const [apiBase, setApiBase] = useState(provider.api_base);
+  const [fullUrl, setFullUrl] = useState(provider.full_url);
   const [protocol, setProtocol] = useState<LLMProtocol>(provider.protocol);
   const [apiKey, setApiKey] = useState("");
   const [enabled, setEnabled] = useState(provider.enabled);
@@ -30,10 +31,11 @@ export function ProviderCard({
   useEffect(() => {
     setName(provider.name);
     setApiBase(provider.api_base);
+    setFullUrl(provider.full_url);
     setProtocol(provider.protocol);
     setEnabled(provider.enabled);
     setApiKey("");
-  }, [provider.id, provider.name, provider.api_base, provider.protocol, provider.enabled]);
+  }, [provider.id, provider.name, provider.api_base, provider.full_url, provider.protocol, provider.enabled]);
 
   const save = async () => {
     setSaving(true);
@@ -41,6 +43,7 @@ export function ProviderCard({
       await settingsHttp.updateProvider(provider.id, {
         name,
         api_base: apiBase,
+        full_url: fullUrl,
         protocol,
         enabled,
         api_key: apiKey || undefined,
@@ -72,13 +75,20 @@ export function ProviderCard({
           <input className="field-input !h-9" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.baseUrl.label")}</label>
+          <div className="mb-1 flex items-center gap-3">
+            <span className="text-[11px] text-ink-muted">{t("providerCard.baseUrl.label")}</span>
+            <label className="flex cursor-pointer items-center gap-1 text-[11px] text-ink-muted">
+              <input type="checkbox" checked={fullUrl} onChange={(e) => setFullUrl(e.target.checked)} />
+              {t("providerCard.fullUrl.label")}
+            </label>
+          </div>
           <input
             className="field-input !h-9"
             value={apiBase}
-            placeholder="https://…"
+            placeholder={fullUrl ? "https://…/v1/endpoint" : "https://…"}
             onChange={(e) => setApiBase(e.target.value)}
           />
+          {fullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.fullUrl.hint")}</p>}
         </div>
         <div>
           <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.apiFormat.label")}</label>
@@ -88,7 +98,9 @@ export function ProviderCard({
             value={protocol}
             options={PROTOCOL_OPTIONS}
             onChange={setProtocol}
+            disabled={fullUrl}
           />
+          {fullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.apiFormat.disabledHint")}</p>}
         </div>
         <div>
           <label className="mb-1 block text-[11px] text-ink-muted">

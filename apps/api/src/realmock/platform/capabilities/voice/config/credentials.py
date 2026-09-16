@@ -23,6 +23,7 @@ def build_stt_credentials(cfg: Mapping[str, Any]) -> SttCredentials:
         provider=provider,
         protocol=cfg.get("protocol") or "openai_chat",
         api_base=cfg.get("api_base") or "",
+        full_url=bool(cfg.get("full_url")),
         api_key=cfg.get("api_key") or "",
         model=cfg.get("model") or "base",
         app_id=extras.get("asr_app_id") or "",
@@ -32,6 +33,8 @@ def build_stt_credentials(cfg: Mapping[str, Any]) -> SttCredentials:
         app_key=extras.get("asr_app_key") or "",
         fallback_handler=cfg.get("fallback_handler") or "local",
         fallback_mode=cfg.get("fallback_mode") or "transcribe",
+        # User-authored request overrides/adapters (stt_request / stt_adapter) for the adapters.
+        extra=dict(extras),
     )
 
 
@@ -46,10 +49,13 @@ def build_tts_credentials(cfg: Mapping[str, Any]) -> TtsCredentials:
         mode=extras.get("speech_speak_mode") or "tts_from_text",
         protocol=cfg.get("protocol") or "openai_chat",
         api_base=cfg.get("api_base") or "",
+        full_url=bool(cfg.get("full_url")),
         api_key=cfg.get("api_key") or "",
         model=cfg.get("model") or "",
         voice=extras.get("tts_voice")
         or ("zh-CN-XiaoxiaoNeural" if handler == "edge" else "mimo_default"),
         fallback_handler=cfg.get("fallback_handler") or "edge",
         fallback_mode=cfg.get("fallback_mode") or "tts_from_text",
+        # User-authored request overrides/adapters (tts_request / tts_adapter) for the adapters.
+        extra=dict(extras),
     )

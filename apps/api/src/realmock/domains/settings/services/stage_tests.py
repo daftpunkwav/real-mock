@@ -75,6 +75,7 @@ async def test_recognize(db: Session, *, profile_id: int | None = None) -> dict:
         provider=provider,
         protocol=cfg.get("protocol") or "openai_chat",
         api_base=cfg.get("api_base") or "",
+        full_url=bool(cfg.get("full_url")),
         api_key=cfg.get("api_key") or "",
         model=cfg.get("model") or "",
         app_id=extras.get("asr_app_id") or "",
@@ -84,6 +85,7 @@ async def test_recognize(db: Session, *, profile_id: int | None = None) -> dict:
         app_key=extras.get("asr_app_key") or "",
         fallback_handler=cfg.get("fallback_handler") or "local",
         fallback_mode=cfg.get("fallback_mode") or "transcribe",
+        extra=dict(extras),
     )
 
     transcription = await transcribe_utterance_result(
@@ -179,12 +181,14 @@ async def test_speak(db: Session, *, profile_id: int | None = None) -> dict:
         mode=mode,
         protocol=cfg.get("protocol") or "openai_chat",
         api_base=cfg.get("api_base") or "",
+        full_url=bool(cfg.get("full_url")),
         api_key=cfg.get("api_key") or "",
         model=cfg.get("model") or "",
         voice=extras.get("tts_voice")
         or ("zh-CN-XiaoxiaoNeural" if provider == "edge" else "mimo_default"),
         fallback_handler=cfg.get("fallback_handler") or "edge",
         fallback_mode=cfg.get("fallback_mode") or "tts_from_text",
+        extra=dict(extras),
     )
     sample = "Hello, I am the interviewer."
     if provider not in ("edge", "minimax_speech", "none"):

@@ -12,7 +12,7 @@ import httpx
 
 from realmock.platform.config import get_settings
 from realmock.platform.core.security import make_pinned_async_client, redact_api_key
-from realmock.platform.capabilities.voice.stt.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ async def transcribe_pcm_cloud(
     api_base: str = "",
     api_key: str = "",
     language: str | None = None,
+    full_url: bool = False,
 ) -> str:
     """Calls OpenAI compatible transcriptions; returns an empty string on failure."""
     key = (api_key or "").strip()
@@ -84,7 +85,8 @@ async def transcribe_pcm_cloud(
         logger.warning("PCM→WAV failed: %s", e)
         return ""
 
-    url = f"{base}/audio/transcriptions"
+    # Full-URL mode posts to api_base verbatim; otherwise the documented path is appended.
+    url = base if full_url else f"{base}/audio/transcriptions"
     cloud_model = resolve_cloud_stt_model(model)
     settings = get_settings()
     data: dict[str, str] = {

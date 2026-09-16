@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
-from realmock.platform.capabilities.voice.stt.cloud import (
+from realmock.platform.capabilities.voice.stt.providers.cloud import (
     LOCAL_WHISPER_SIZES,
     is_local_stt_model,
     resolve_cloud_stt_model,
 )
 from realmock.platform.capabilities.voice.stt.router import SttResult, transcribe_with_handler
-from realmock.platform.capabilities.voice.stt.whisper import (
+from realmock.platform.capabilities.voice.stt.providers.whisper import (
     transcribe_pcm_base64_async as transcribe_local_async,
     warmup_whisper,
 )

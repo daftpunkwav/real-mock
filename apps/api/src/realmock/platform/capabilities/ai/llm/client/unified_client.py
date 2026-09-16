@@ -43,6 +43,9 @@ class UnifiedLLMClient:
         max_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
         reasoning_effort: str | None = None,
         usage_sink: UsageAccumulator | None = None,
+        full_url: bool = False,
+        extra_body: dict[str, Any] | None = None,
+        extra_headers: dict[str, str] | None = None,
     ):
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -50,6 +53,13 @@ class UnifiedLLMClient:
         self.protocol = protocol
         self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort or None
+        # Full-URL providers: api_base is the verbatim endpoint, protocol path appending is skipped.
+        self.full_url = bool(full_url)
+        # Vendor-specific request-body customization from model-entry extras; merged after
+        # protocol translation, so translated keys can be overridden too.
+        self.extra_body = dict(extra_body) if extra_body else {}
+        # Vendor-specific header customization; merged after the protocol standard headers.
+        self.extra_headers = dict(extra_headers) if extra_headers else {}
         # Usage accumulation: self-built by default (used independently), sharing the same sink when delegated by LLMClient
         self.usage = usage_sink if usage_sink is not None else UsageAccumulator()
         self._stream_usage_disabled = False
@@ -66,12 +76,18 @@ class UnifiedLLMClient:
             except ValueError as e:
                 logger.error("API Key decryption failed: %s", e)
                 api_key = ""
+        extras = config.get("extras") or {}
+        extra_body = extras.get("extra_body") if isinstance(extras, dict) else None
+        extra_headers = extras.get("extra_headers") if isinstance(extras, dict) else None
         return cls(
             api_base=config.get("api_base") or "",
             api_key=api_key,
             model=config.get("model") or "",
             protocol=config.get("protocol") or DEFAULT_LLM_PROTOCOL,
             max_tokens=config.get("max_tokens") or DEFAULT_MAX_OUTPUT_TOKENS,
+            full_url=bool(config.get("full_url")),
+            extra_body=extra_body if isinstance(extra_body, dict) else None,
+            extra_headers=extra_headers if isinstance(extra_headers, dict) else None,
         )
 
     def _safe_check(self) -> None:
@@ -88,7 +104,7 @@ class UnifiedLLMClient:
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, Any] | None = None,
     ) -> tuple[str, dict[str, Any]]:
-        return build_request(
+        url, payload = build_request(
             self.protocol,
             self.api_base,
             self.model,
@@ -101,7 +117,11 @@ class UnifiedLLMClient:
             response_format=response_format,
             tools=tools,
             tool_choice=tool_choice,
+            full_url=self.full_url,
         )
+        if self.extra_body:
+            payload.update(self.extra_body)
+        return url, payload
 
     async def chat(
         self,

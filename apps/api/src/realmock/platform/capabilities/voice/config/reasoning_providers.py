@@ -23,6 +23,7 @@ REASONING_PROVIDERS: list[dict[str, Any]] = [
         default_model="MiniMax-M3",
         default_api_base="https://api.minimaxi.com/v1",
         hint="Text LLM; not responsible for listening/speaking",
+        vendor="minimax",
     ),
     _p(
         id="openai",
@@ -30,6 +31,7 @@ REASONING_PROVIDERS: list[dict[str, Any]] = [
         can_interview_reason=True,
         default_model="gpt-4o",
         default_api_base="https://api.openai.com/v1",
+        vendor="openai",
     ),
     _p(
         id="deepseek",
@@ -37,18 +39,21 @@ REASONING_PROVIDERS: list[dict[str, Any]] = [
         can_interview_reason=True,
         default_model="deepseek-chat",
         default_api_base="https://api.deepseek.com/v1",
+        vendor="deepseek",
     ),
     _p(
         id="stepfun",
         label="StepFun",
         can_interview_reason=True,
         default_api_base="https://api.stepfun.com/step_plan/v1",
+        vendor="stepfun",
     ),
     _p(
         id="openrouter",
         label="OpenRouter",
         can_interview_reason=True,
         default_api_base="https://openrouter.ai/api/v1",
+        vendor="openrouter",
     ),
     _p(
         id="mimo",
@@ -61,6 +66,7 @@ REASONING_PROVIDERS: list[dict[str, Any]] = [
         default_model="mimo-v2.5",
         default_api_base="https://token-plan-cn.xiaomimimo.com/v1",
         hint="Text model: mimo-v2.5; configure mimo-v2.5-asr/tts separately for the three speech recognition/synthesis stages",
+        vendor="xiaomi",
     ),
     _p(
         id="zhipu_glm4_voice",
