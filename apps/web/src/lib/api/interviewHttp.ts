@@ -63,4 +63,27 @@ export const interviewHttp = {
     request<InterviewSession>(`/v1/interview/processes/${processId}/rounds`, {
       method: "POST",
     }),
+
+  // Agent-researched company brief for the setup preview (cached per company+role+level+type+lang)
+  fetchCompanyBrief: (
+    company: string,
+    role: string,
+    level: string,
+    interviewType: string,
+    opts?: { signal?: AbortSignal; locale?: string },
+  ) =>
+    request<import("@/types").CompanyBrief>("/v1/interview/company-brief", {
+      method: "POST",
+      body: JSON.stringify({
+        company,
+        role,
+        level,
+        interview_type: interviewType,
+        locale: opts?.locale ?? getLocale(),
+      }),
+      timeoutMs: LLM_HEAVY_TIMEOUT_MS,
+      signal: opts?.signal,
+    }),
+  clearCompanyBriefs: () =>
+    request<{ cleared: number }>("/v1/interview/company-briefs", { method: "DELETE" }),
 };
