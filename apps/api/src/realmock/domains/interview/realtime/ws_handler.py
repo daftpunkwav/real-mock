@@ -6,6 +6,7 @@ See each mixin for subpackage responsibilities; this module only assembles stack
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from typing import Any
 
@@ -118,7 +119,14 @@ class InterviewWSHandler(
         self.ctx.bg_tasks.clear()
         self.ctx.report_task = None
         if self.ctx.runner is not None:
-            await self.ctx.runner.cancel_bg_tasks()
+            cancel = getattr(self.ctx.runner, "cancel_bg_tasks", None)
+            if callable(cancel):
+                try:
+                    result = cancel()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception:
+                    logger.debug("runner cancel_bg_tasks failed", exc_info=True)
 
     def _load_session(self, db: Session) -> InterviewSession | None:
         return (

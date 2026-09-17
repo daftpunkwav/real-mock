@@ -135,14 +135,26 @@ class _SentenceTTSQueue:
                 )
                 if self._send is not None and self._dropped_count == 1:
                     try:
-                        asyncio.create_task(
+                        notify = asyncio.create_task(
                             self._send(
                                 "info",
                                 message="Speech synthesis queue is experiencing high latency; some audio segments skipped (text is preserved).",
                             )
                         )
+                        # Fire-and-forget without losing failures: consume the
+                        # result so a send-side error cannot surface as an
+                        # unretrieved task exception.
+                        def _consume_notify_result(t: asyncio.Task) -> None:
+                            try:
+                                exc = t.exception()
+                            except asyncio.CancelledError:
+                                return
+                            if exc is not None:
+                                logger.debug("TTS overflow info notify failed: %s", exc)
+
+                        notify.add_done_callback(_consume_notify_result)
                     except Exception:
-                        pass
+                        logger.debug("TTS overflow info notify spawn failed", exc_info=True)
             except asyncio.QueueEmpty:
                 pass
         await self._queue.put((clean, emo))
