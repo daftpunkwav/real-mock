@@ -43,9 +43,9 @@ class _SentenceTTSQueue:
         self._prosody: VoiceProsody = VoiceProsody(voice=get_settings().tts_voice)
         self._fail_count = 0
         self._on_sent: Any = None
-        # Interrupting generations: old synthesis results will no longer be emitted after clearing
         self._speak_gen: int = 0
         self._tts_creds: TtsCredentials = TtsCredentials(handler="edge")
+        self._send: Any = None
 
     def set_prosody(self, prosody: VoiceProsody) -> None:
         """Tie the baseline timbre and rhythm of this session."""
@@ -122,9 +122,27 @@ class _SentenceTTSQueue:
         # When the queue is too long, the oldest old sentences are discarded to avoid memory expansion.
         if self._queue.qsize() >= self._MAX_QUEUE_SIZE:
             try:
-                self._queue.get_nowait()
+                dropped = self._queue.get_nowait()
                 self._queue.task_done()
                 self._dropped_count += 1
+                dropped_snippet = dropped[0][:30] if dropped else "None"
+                logger.warning(
+                    "TTS queue overflow (size=%d >= %d), dropping oldest sentence: %r (total dropped: %d)",
+                    self._queue.qsize() + 1,
+                    self._MAX_QUEUE_SIZE,
+                    dropped_snippet,
+                    self._dropped_count,
+                )
+                if self._send is not None and self._dropped_count == 1:
+                    try:
+                        asyncio.create_task(
+                            self._send(
+                                "info",
+                                message="Speech synthesis queue is experiencing high latency; some audio segments skipped (text is preserved).",
+                            )
+                        )
+                    except Exception:
+                        pass
             except asyncio.QueueEmpty:
                 pass
         await self._queue.put((clean, emo))

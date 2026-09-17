@@ -89,3 +89,26 @@ async def test_enqueue_does_not_block_producer(monkeypatch) -> None:
     await q.stop()
 
     assert len(sent) == 5
+
+
+async def test_enqueue_overflow_drops_and_notifies() -> None:
+    events: list[tuple[str, dict]] = []
+
+    async def send_cb(msg_type, **payload):
+        events.append((msg_type, payload))
+
+    q = _SentenceTTSQueue()
+    q._MAX_QUEUE_SIZE = 3
+    await q.start(send_cb)
+
+    for i in range(5):
+        await q.enqueue(f"Sentence {i}")
+
+    await asyncio.sleep(0.05)
+    await q.stop()
+
+    info_events = [e for e in events if e[0] == "info"]
+    assert len(info_events) >= 1
+    assert "latency" in info_events[0][1]["message"]
+    assert q._dropped_count == 2
+
