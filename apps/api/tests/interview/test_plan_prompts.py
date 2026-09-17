@@ -1,4 +1,4 @@
-"""Plan prompts tests for src/realmock/domains/interview/process/planning/plan_prompts.py.
+"""Plan prompts tests for src/realmock/domains/interview/agents/planning/plan_prompts.py.
 
 Covers: build_plan_user_message branches, planner_system_prompt
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only

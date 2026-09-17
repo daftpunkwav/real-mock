@@ -1,4 +1,4 @@
-"""Plan planner tests for src/realmock/domains/interview/process/planning/planner.py.
+"""Plan planner tests for src/realmock/domains/interview/agents/planning/planner.py.
 
 Covers: resume/config/dump/fallback/process-section/round-criteria/generate/wait/ensure plan
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only

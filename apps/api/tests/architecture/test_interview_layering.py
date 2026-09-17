@@ -57,6 +57,43 @@ def _from_imports(path: Path) -> list[tuple[str | None, int]]:
     ]
 
 
+_AGENTS_PACKAGE = "realmock.domains.interview.agents"
+
+
+def _import_edges(path: Path) -> list[tuple[str, int]]:
+    """Absolute module reference for every import in ``path``.
+
+    Unlike :func:`_from_imports` this sees all three import forms —
+    ``from X import y`` (relative levels resolved against the file's
+    package), plain ``import X.Y``, and the package-level facade form
+    ``from <package> import name`` — so dependency bans cannot be walked
+    around by switching import style.
+    """
+    rel = path.relative_to(_api_root() / "src" / "realmock")
+    package = ("realmock", *rel.parts[:-1])
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    edges: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                cut = len(package) - (node.level - 1)
+                if cut < 1:
+                    continue  # level escapes the realmock tree; not our seam
+                base = package[:cut]
+            else:
+                if not node.module:
+                    continue
+                base = ()
+            if node.module:
+                base = (*base, *node.module.split("."))
+            if base:
+                edges.append((".".join(base), node.lineno))
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                edges.append((alias.name, node.lineno))
+    return edges
+
+
 def _agents_submodule(module: str | None) -> str | None:
     """Return the ``<leaf>`` of ``realmock.domains.interview.agents.<leaf>...``."""
     if not module:
@@ -143,20 +180,16 @@ def test_interview_process_never_imports_agents() -> None:
     Every LLM role lives under ``agents`` (runners, topology, planning,
     research), so process has nothing left to reach for: the dependency rule
     is routes → realtime → agents → process, and this test proves the
-    agents→process direction is the only seam.
+    agents→process direction is the only seam. All import forms count —
+    deep from-imports, package-level facade imports, plain ``import``
+    statements, and relative imports.
     """
     api_root = _api_root()
     base = api_root / INTERVIEW_ROOT / "process"
     violations: list[str] = []
     for path in sorted(base.rglob("*.py")):
-        for module, lineno in _from_imports(path):
-            if not module:
-                continue
-            parts = module.split(".")
-            if (
-                len(parts) >= 5
-                and parts[:4] == ["realmock", "domains", "interview", "agents"]
-            ):
+        for module, lineno in _import_edges(path):
+            if module == _AGENTS_PACKAGE or module.startswith(_AGENTS_PACKAGE + "."):
                 violations.append(
                     f"{path.relative_to(api_root)}:{lineno}: upward import '{module}'"
                 )

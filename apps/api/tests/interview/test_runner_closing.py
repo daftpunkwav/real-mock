@@ -1,4 +1,4 @@
-"""Closing runner tests for src/realmock/domains/interview/agents/runner_closing.py.
+"""Closing runner tests for src/realmock/domains/interview/agents/interviewer/runner_closing.py.
 
 Covers: stream_closing happy path, personality fallback, compaction, plain-text fallback, ledger/LLM errors, DB persist shape
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only

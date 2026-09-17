@@ -1,4 +1,4 @@
-"""Company web-research tests for src/realmock/domains/interview/process/company_research.py.
+"""Company web-research tests for src/realmock/domains/interview/agents/research/company_research.py.
 
 Covers: catalog/custom detection, context blending, digest rendering, bounded
 research loop (success / unusable / crash / empty), session digest lookup.

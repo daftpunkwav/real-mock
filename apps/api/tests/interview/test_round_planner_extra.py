@@ -1,4 +1,4 @@
-"""Round planner tests for src/realmock/domains/interview/process/round_planner.py.
+"""Round planner tests for src/realmock/domains/interview/agents/planning/round_planner.py.
 
 Covers: first-session lookup, generate_round_plan_for_process no-process/no-session/no-key/timeout/invalid (existing test_round_planner.py kept)
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only

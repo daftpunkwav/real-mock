@@ -1,4 +1,4 @@
-"""Opening runner tests for src/realmock/domains/interview/agents/runner_opening.py.
+"""Opening runner tests for src/realmock/domains/interview/agents/interviewer/runner_opening.py.
 
 Covers: stream_opening streamed/early/say-first/tool-error/ledger-error paths
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only

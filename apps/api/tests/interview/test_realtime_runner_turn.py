@@ -1,4 +1,4 @@
-"""Runner turn tests for agents/runner_turn.py.
+"""Runner turn tests for agents/interviewer/runner_turn.py.
 
 Covers: completed/error outcomes, regen and ledger failure, background timeouts,
 early tool yield with pace prefix, finish triggering, fallback and generic errors.

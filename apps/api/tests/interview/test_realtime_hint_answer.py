@@ -1,4 +1,4 @@
-"""Hint answer tests for agents/hint_answer.py.
+"""Hint answer tests for agents/hint/hint_answer.py.
 
 Covers: timeout/generic-exception None paths, no-tools None path,
 tool trace trim with on_tool callbacks, execute path grounding.

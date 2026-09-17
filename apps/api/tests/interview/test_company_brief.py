@@ -1,4 +1,4 @@
-"""Company brief tests for src/realmock/domains/interview/process/company_brief.py.
+"""Company brief tests for src/realmock/domains/interview/agents/research/company_brief.py.
 
 Covers: cache key normalization + scope fields, cache round-trip vs generation,
 unusable output, cache clearing, singleflight dedup, failure cooldown, cache-write
