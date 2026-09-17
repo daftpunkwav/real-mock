@@ -1,6 +1,6 @@
-"""Full-URL provider tests: CRUD round-trip + settings connectivity tests through vendor adapters.
+"""Full-URL channel tests: CRUD round-trip + settings connectivity tests through vendor adapters.
 
-Covers: provider create/update with full_url flag and payload round-trip,
+Covers: channel create/update with the full_url flag and payload round-trip,
 test_recognize routing to the MiniMax STT adapter for full-URL endpoints,
 test_speak routing to the MiniMax TTS adapter, and unknown-endpoint fallback.
 Conventions: wiped api_db per test; adapters/HTTP faked (no network).
@@ -38,30 +38,34 @@ def _reset_rate_limits():
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LlmProvider, ModelProfile, TaskBinding
+    from realmock.platform.models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
 
     api_db.query(TaskBinding).delete()
     api_db.query(ModelProfile).delete()
+    api_db.query(LlmProviderChannel).delete()
     api_db.query(LlmProvider).delete()
     api_db.commit()
 
 
 def _mk_provider_profile(api_db, *, api_base: str, model: str, cap: str) -> int:
-    from realmock.platform.models import LlmProvider, ModelProfile
+    from realmock.platform.models import LlmProvider, LlmProviderChannel, ModelProfile
 
-    provider = LlmProvider(
-        name=f"p-{model}",
-        api_base=api_base,
-        full_url=True,
-        protocol="openai_chat",
-        api_key="",
-        enabled=True,
-    )
+    kind = "stt" if cap == "in" else "tts"
+    provider = LlmProvider(name=f"p-{model}")
     api_db.add(provider)
-    api_db.commit()
-    api_db.refresh(provider)
+    api_db.flush()
+    api_db.add(
+        LlmProviderChannel(
+            provider_id=provider.id,
+            kind=kind,
+            api_base=api_base,
+            full_url=True,
+            protocol="openai_chat",
+        )
+    )
     profile = ModelProfile(
         provider_id=provider.id,
+        kind=kind,
         model=model,
         cap_chat=False,
         cap_audio_in=cap == "in",
@@ -80,21 +84,33 @@ class TestProviderCrudFullUrl:
         client = TestClient(app)
         res = client.post(
             "/api/v1/settings/providers",
-            json={"name": "MiniMax-语音识别", "api_base": "https://api.minimaxi.com/v1/speech_to_text", "full_url": True},
+            json={
+                "name": "ASR 专线",
+                "channels": [
+                    {"kind": "stt", "api_base": "https://api.minimaxi.com/v1/speech_to_text", "full_url": True}
+                ],
+            },
         )
         assert res.status_code == 200, res.text
         listed = client.get("/api/v1/settings/providers").json()["providers"]
-        row = next(p for p in listed if p["name"] == "MiniMax-语音识别")
-        assert row["full_url"] is True
+        row = next(p for p in listed if p["name"] == "ASR 专线")
+        channel = next(c for c in row["channels"] if c["kind"] == "stt")
+        assert channel["full_url"] is True
+        assert channel["api_base"] == "https://api.minimaxi.com/v1/speech_to_text"
 
     def test_update_flips_flag(self, api_db):
         _wipe(api_db)
         client = TestClient(app)
         pid = client.post("/api/v1/settings/providers", json={"name": "p1"}).json()["id"]
-        assert client.get("/api/v1/settings/providers").json()["providers"][0]["full_url"] is False
-        res = client.put(f"/api/v1/settings/providers/{pid}", json={"full_url": True})
+        # Listing backfills a blank chat channel for the bare provider.
+        channels = client.get("/api/v1/settings/providers").json()["providers"][0]["channels"]
+        assert [(c["kind"], c["full_url"]) for c in channels] == [("chat", False)]
+        res = client.put(f"/api/v1/settings/providers/{pid}/channels/stt", json={"full_url": True})
         assert res.status_code == 200, res.text
-        assert client.get("/api/v1/settings/providers").json()["providers"][0]["full_url"] is True
+        channels = client.get("/api/v1/settings/providers").json()["providers"][0]["channels"]
+        by_kind = {c["kind"]: c for c in channels}
+        assert by_kind["stt"]["full_url"] is True
+        assert by_kind["chat"]["full_url"] is False
 
 
 class TestRecognizeFullUrl:

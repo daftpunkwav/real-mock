@@ -2,20 +2,26 @@
 
 import { Cpu, Plus } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
-import type { ModelProfile, ProviderWithModels } from "@/types";
+import type { ModelKind, ModelProfile, ProviderWithModels } from "@/types";
 import { useT } from "@/i18n";
 import { type ModelDraft } from "./constants";
 import { ModelForm } from "./ModelForm";
+import { ModelFormModal } from "./ModelFormModal";
 import { ModelRow } from "./ModelRow";
 
 interface ModelListCardProps {
   provider: ProviderWithModels;
+  kind: ModelKind;
+  models: ModelProfile[];
   editingModelId: number | null;
   addingModel: boolean;
   draft: ModelDraft;
   setDraft: Dispatch<SetStateAction<ModelDraft>>;
   saving: boolean;
   testingId: number | null;
+  catalog: import("@/types").ChannelModelCatalog | null;
+  catalogLoading: boolean;
+  onFetchCatalog: () => void;
   onSave: (providerId: number) => void;
   onEdit: (m: ModelProfile) => void;
   onDelete: (id: number) => void;
@@ -25,16 +31,21 @@ interface ModelListCardProps {
   onCancelAdd: () => void;
 }
 
-/** Provider model list with inline add/edit and test actions. */
+/** Model-entry list for one provider channel (kind), with inline add/edit and test actions. */
 export function ModelListCard(props: ModelListCardProps) {
   const {
     provider,
+    kind,
+    models,
     editingModelId,
     addingModel,
     draft,
     setDraft,
     saving,
     testingId,
+    catalog,
+    catalogLoading,
+    onFetchCatalog,
     onSave,
     onEdit,
     onDelete,
@@ -50,7 +61,7 @@ export function ModelListCard(props: ModelListCardProps) {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-[13px] font-semibold text-ink">
           <Cpu size={14} className="text-[var(--primary)]" />
-          {t("modelList.count", { count: provider.models.length })}
+          {t("modelList.count", { count: models.length })}
         </h2>
         <button
           type="button"
@@ -62,15 +73,18 @@ export function ModelListCard(props: ModelListCardProps) {
       </div>
 
       <div className="space-y-2">
-        {provider.models.length === 0 && !addingModel && (
-          <p className="text-[12px] text-ink-subtle">{t("modelList.empty")}</p>
+        {models.length === 0 && !addingModel && (
+          <p className="text-[12px] text-ink-subtle">{t("modelList.emptyKind")}</p>
         )}
-        {provider.models.map((m) =>
+        {models.map((m) =>
           editingModelId === m.id ? (
             <ModelForm
               key={m.id}
               draft={draft}
               setDraft={setDraft}
+              catalog={catalog}
+              catalogLoading={catalogLoading}
+              onFetchCatalog={onFetchCatalog}
               onCancel={onCancelEdit}
               onSave={() => onSave(provider.id)}
               saving={saving}
@@ -87,9 +101,12 @@ export function ModelListCard(props: ModelListCardProps) {
           ),
         )}
         {addingModel && (
-          <ModelForm
+          <ModelFormModal
             draft={draft}
             setDraft={setDraft}
+            catalog={catalog}
+            catalogLoading={catalogLoading}
+            onFetchCatalog={onFetchCatalog}
             onCancel={onCancelAdd}
             onSave={() => onSave(provider.id)}
             saving={saving}

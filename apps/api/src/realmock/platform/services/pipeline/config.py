@@ -32,6 +32,8 @@ from realmock.platform.services.pipeline.migration import (
     TASK_BY_STAGE,
     DEFAULT_FALLBACK,
     allocate_provider_name,
+    drop_legacy_provider_columns,
+    ensure_provider_channels,
     migrate_stages_to_profiles,
 )
 from realmock.platform.services.pipeline.resolve import (
@@ -75,6 +77,8 @@ __all__ = [
     "get_llm_settings_row",
     "migrate_legacy_to_stages",
     "allocate_provider_name",
+    "drop_legacy_provider_columns",
+    "ensure_provider_channels",
     "migrate_stages_to_profiles",
     "get_provider_model_rows",
     "profile_to_response",
@@ -162,7 +166,7 @@ def resolve_model_config(
         profile = db.query(ModelProfile).filter(ModelProfile.id == profile_id).first()
         if profile is not None:
             provider = db.query(LlmProvider).filter(LlmProvider.id == profile.provider_id).first()
-            return _runtime_config_from_profile(profile, provider, stage)
+            return _runtime_config_from_profile(db, profile, provider, stage)
     migrate_stages_to_profiles(db)
     config = _binding_config(db, task, stage)
     if config is not None:
@@ -171,7 +175,9 @@ def resolve_model_config(
 
 
 def ensure_pipeline_migrated(db: Session) -> None:
-    """One-time startup migration: legacy ``llm_settings`` → ``stage_configs`` → model entries + task bindings."""
+    """One-time startup migration: legacy ``llm_settings`` → ``stage_configs`` → model entries + task bindings,
+    then flat provider columns / split-provider rows → per-kind channels, finally physical
+    removal of the superseded flat columns."""
     rows = get_all_stage_configs(db)
     if get_llm_settings_row(db) and any(
         not row.provider and not row.api_base and not row.model and not row.api_key
@@ -179,6 +185,8 @@ def ensure_pipeline_migrated(db: Session) -> None:
     ):
         migrate_legacy_to_stages(db)
     migrate_stages_to_profiles(db)
+    ensure_provider_channels(db)
+    drop_legacy_provider_columns(db)
 
 
 # History alias (same as get_stage_config_for_runtime)

@@ -1,15 +1,15 @@
 "use client";
 
-/** Base URL / / Key / Use / . */
+/** Provider header card: identity only (name / enable state / website / notes / delete).
+ * Connection settings live on the per-kind channel cards below. */
 
 import { useEffect, useState } from "react";
 import { Save, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { settingsHttp } from "@/lib/api/clients";
 import { toast } from "@/components/Toast";
-import { Select } from "@/components/Select";
 import { useT } from "@/i18n";
-import type { LLMProtocol, ProviderWithModels } from "@/types";
-import { PROTOCOL_OPTIONS } from "./constants";
+import type { ProviderWithModels } from "@/types";
 
 export function ProviderCard({
   provider,
@@ -19,34 +19,30 @@ export function ProviderCard({
   onChanged: () => Promise<void>;
 }) {
   const [name, setName] = useState(provider.name);
-  const [apiBase, setApiBase] = useState(provider.api_base);
-  const [fullUrl, setFullUrl] = useState(provider.full_url);
-  const [protocol, setProtocol] = useState<LLMProtocol>(provider.protocol);
-  const [apiKey, setApiKey] = useState("");
   const [enabled, setEnabled] = useState(provider.enabled);
-  const [showKey, setShowKey] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState(provider.website_url);
+  const [notes, setNotes] = useState(provider.notes);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const t = useT("settings");
+  const tc = useT("common");
 
   useEffect(() => {
     setName(provider.name);
-    setApiBase(provider.api_base);
-    setFullUrl(provider.full_url);
-    setProtocol(provider.protocol);
     setEnabled(provider.enabled);
-    setApiKey("");
-  }, [provider.id, provider.name, provider.api_base, provider.full_url, provider.protocol, provider.enabled]);
+    setWebsiteUrl(provider.website_url);
+    setNotes(provider.notes);
+  }, [provider.id, provider.name, provider.enabled, provider.website_url, provider.notes]);
 
   const save = async () => {
     setSaving(true);
     try {
       await settingsHttp.updateProvider(provider.id, {
         name,
-        api_base: apiBase,
-        full_url: fullUrl,
-        protocol,
         enabled,
-        api_key: apiKey || undefined,
+        website_url: websiteUrl,
+        notes,
       });
       toast.success(t("providerCard.saved"));
       await onChanged();
@@ -58,83 +54,51 @@ export function ProviderCard({
   };
 
   const remove = async () => {
+    setDeleting(true);
     try {
       await settingsHttp.deleteProvider(provider.id);
       toast.success(t("providerCard.deleted"));
+      setConfirmingDelete(false);
       await onChanged();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("providerCard.deleteFailed"));
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
     <div className="surface-card !p-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1 sm:max-w-sm">
           <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.name.label")}</label>
-          <input className="field-input !h-9" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="field-input !h-9 w-full" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div>
-          <div className="mb-1 flex items-center gap-3">
-            <span className="text-[11px] text-ink-muted">{t("providerCard.baseUrl.label")}</span>
-            <label className="flex cursor-pointer items-center gap-1 text-[11px] text-ink-muted">
-              <input type="checkbox" checked={fullUrl} onChange={(e) => setFullUrl(e.target.checked)} />
-              {t("providerCard.fullUrl.label")}
-            </label>
-          </div>
-          <input
-            className="field-input !h-9"
-            value={apiBase}
-            placeholder={fullUrl ? "https://…/v1/endpoint" : "https://…"}
-            onChange={(e) => setApiBase(e.target.value)}
-          />
-          {fullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.fullUrl.hint")}</p>}
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.apiFormat.label")}</label>
-          <Select
-            className="!h-9"
-            ariaLabel={t("providerCard.apiFormat.label")}
-            value={protocol}
-            options={PROTOCOL_OPTIONS}
-            onChange={setProtocol}
-            disabled={fullUrl}
-          />
-          {fullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.apiFormat.disabledHint")}</p>}
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
-            {t("providerCard.apiKey.label")}
-            {provider.has_api_key ? t("providerCard.apiKey.setHint") : ""}
-          </label>
-          <div className="flex gap-1.5">
-            <input
-              className="field-input !h-9 flex-1"
-              type={showKey ? "text" : "password"}
-              value={apiKey}
-              placeholder={provider.has_api_key ? "••••••••" : "sk-…"}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-            <button
-              type="button"
-              className="shrink-0 text-[11px] text-ink-subtle hover:text-ink"
-              onClick={() => setShowKey((v) => !v)}
-            >
-              {showKey ? t("providerCard.hide") : t("providerCard.show")}
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <label className="flex items-center gap-1.5 text-[12px] text-ink-muted">
+        <label className="flex items-center gap-1.5 text-[12px] text-ink-muted sm:pb-2.5">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           {t("providerCard.enabled")}
         </label>
-        <div className="flex-1" />
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.website.label")}</label>
+          <input
+            className="field-input !h-9"
+            placeholder={t("providerCard.website.placeholder")}
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.notes.label")}</label>
+          <input className="field-input !h-9" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-2">
         <button
           type="button"
           className="flex items-center gap-1 rounded-md border border-surface-border px-2.5 py-1.5 text-[12px] text-ink-muted transition-colors hover:border-[var(--danger)] hover:text-[var(--danger)]"
-          onClick={remove}
+          onClick={() => setConfirmingDelete(true)}
         >
           <Trash2 size={13} /> {t("providerCard.delete")}
         </button>
@@ -142,6 +106,17 @@ export function ProviderCard({
           <Save size={13} /> {saving ? t("providerCard.saving") : t("providerCard.save")}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={t("providerCard.deleteConfirmTitle")}
+        message={t("providerCard.deleteConfirmMessage", { name: provider.name })}
+        confirmLabel={t("providerCard.delete")}
+        cancelLabel={tc("confirm.cancel")}
+        busy={deleting}
+        onConfirm={remove}
+        onCancel={() => setConfirmingDelete(false)}
+      />
     </div>
   );
 }

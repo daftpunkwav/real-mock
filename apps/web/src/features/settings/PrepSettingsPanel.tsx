@@ -209,7 +209,7 @@ export function PrepSettingsPanel() {
             </label>
             <textarea
               id="prep-compact-directive"
-              className="input mt-1 min-h-16 w-full text-[13px]"
+              className="field-textarea mt-1 min-h-16 w-full text-[13px]"
               rows={2}
               maxLength={COMPACT_DIRECTIVE_MAX_CHARS}
               placeholder={t("prep.compact.directivePlaceholder")}
@@ -227,7 +227,7 @@ export function PrepSettingsPanel() {
             <input
               id="prep-compact-retain"
               type="number"
-              className="input mt-1 w-28 text-[13px]"
+              className="field-input !h-9 mt-1 w-28 text-[13px]"
               min={COMPACT_RETAIN_MIN}
               max={COMPACT_RETAIN_MAX}
               step={1}

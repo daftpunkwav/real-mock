@@ -7,34 +7,60 @@ export const settings = {
   "nav.models": "模型与处理器",
   "nav.resume": "简历管理",
   "nav.prep": "面试准备",
+  "nav.interview": "模拟面试",
   "nav.integrations": "集成",
+
+  // InterviewSettingsPanel:模拟面试设置
+  "interviewPanel.title": "出题偏好记录",
+  "interviewPanel.desc":
+    "配置模拟面试时,AI 会联网调研目标公司的出题风格、考察重点和面试流程,并按公司缓存。清除后,下次配置将重新调研生成。",
+  "interviewPanel.clear": "清除出题偏好记录",
+  "interviewPanel.clearConfirmTitle": "清除出题偏好记录",
+  "interviewPanel.clearConfirmMessage":
+    "将删除全部已缓存的公司出题偏好。下次配置模拟面试时会重新联网调研,首次加载会稍慢。",
+  "interviewPanel.cleared": "已清除 {count} 条出题偏好记录",
+  "interviewPanel.clearFailed": "清除失败",
   "theme.title": "主题",
   "provider.pickHint": "从左侧选择或新增一个供应商",
   "language.title": "界面语言",
   "language.hint": "仅影响界面显示语言,不影响面试官的交流语言。",
 
-  // ProviderList:供应商列表
+  // ProviderList:供应商列表(加号展开添加面板)
   "providerList.title": "供应商",
-  "providerList.empty": "暂无供应商,先添加一个",
-  "providerList.addLabel": "新增供应商",
+  "providerList.empty": "暂无供应商,点右上角 + 添加",
   "providerList.namePlaceholder": "名称,如 DeepSeek",
   "providerList.add": "添加供应商",
+  "providerList.createCustom": "创建",
   "providerList.createFailed": "创建失败",
 
-  // RecommendedVendors:推荐供应商(已适配)
-  "recommended.title": "推荐供应商(已适配)",
+  // AddProviderPanel:适配供应商一键开通
+  "recommended.title": "适配供应商",
   "recommended.empty": "暂无推荐供应商",
   "recommended.loadFailed": "推荐列表加载失败",
-  "recommended.hint": "选择模型类型,自动创建供应商与模型条目;API Key 在右侧填写",
-  "recommended.adapted": "深度适配",
-  "recommended.cap.reasoning": "思考模型",
-  "recommended.cap.recognize": "语音识别 STT",
-  "recommended.cap.speak": "语音合成 TTS",
-  "recommended.add": "添加",
-  "recommended.adding": "添加中…",
-  "recommended.added": "已添加 {model}(供应商 {provider})",
-  "recommended.addFailed": "添加失败",
-  "recommended.noDefaultModel": "该条目缺少默认模型名,请手动添加",
+  "recommended.hint":
+    "点击供应商自动配置思考/语音输入/语音输出三类模型的 Base URL 与名称,并各带一个默认模型条目;API Key 留空,在右侧各标签页填写。也可在下方输入名称创建自定义供应商。",
+  "recommended.applyHint": "一键配置三类模型通道",
+  "recommended.applied": "已配置供应商 {provider},请在各标签页填写 API Key",
+  "recommended.adding": "配置中…",
+  "recommended.addFailed": "配置失败",
+  "recommended.close": "收起添加面板",
+
+  // ChannelCard:类型通道编辑
+  "channelCard.save": "保存此类型",
+  "channelCard.saving": "保存中…",
+  "channelCard.saved": "通道已保存",
+  "channelCard.saveFailed": "保存失败",
+
+  // KindTabs:三类型标签
+  "kinds.chat": "思考模型",
+  "kinds.stt": "语音识别 STT",
+  "kinds.tts": "语音合成 TTS",
+
+  // 模型列表拉取
+  "catalog.fetch": "获取模型列表",
+  "catalog.loading": "获取中…",
+  "catalog.pickAria": "从列表选择模型",
+  "catalog.loadFailed": "模型列表获取失败",
 
   // ProviderCard:供应商编辑
   "providerCard.name.label": "名称",
@@ -49,7 +75,13 @@ export const settings = {
   "providerCard.show": "显示",
   "providerCard.hide": "隐藏",
   "providerCard.enabled": "启用",
+  "providerCard.website.label": "官网链接",
+  "providerCard.website.placeholder": "https://…",
+  "providerCard.notes.label": "备注",
   "providerCard.delete": "删除",
+  "providerCard.deleteConfirmTitle": "删除供应商",
+  "providerCard.deleteConfirmMessage":
+    "将永久删除「{name}」及其全部模型条目、通道连接设置,以及指向这些条目的默认处理器绑定。此操作不可撤销。",
   "providerCard.saving": "保存中…",
   "providerCard.save": "保存供应商",
   "providerCard.saved": "供应商已保存",
@@ -61,6 +93,7 @@ export const settings = {
   "modelList.count": "模型条目({count})",
   "modelList.add": "添加模型",
   "modelList.empty": "还没有模型条目;条目按「能力」声明,可同时服务多个任务",
+  "modelList.emptyKind": "该类型还没有模型条目,点「添加模型」创建",
 
   // ModelRow:条目行操作
   "modelRow.test": "测试",

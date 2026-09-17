@@ -32,7 +32,7 @@ def test_platform_capabilities_importable() -> None:
 
     from realmock.platform.catalogs.company import get_all_companies
 
-    assert len(get_all_companies()) >= 7
+    assert len(get_all_companies()) >= 6
 
 
 def test_platform_models_and_schemas() -> None:

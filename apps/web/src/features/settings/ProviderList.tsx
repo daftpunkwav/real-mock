@@ -1,46 +1,50 @@
 "use client";
 
-/** Left : + . */
+/** Left column: configured providers plus a "+" toggle that reveals the add panel. */
 
 import { useState } from "react";
 import { ChevronRight, Plus } from "lucide-react";
-import { settingsHttp } from "@/lib/api/clients";
-import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import type { ProviderWithModels } from "@/types";
-import { RecommendedVendors } from "./RecommendedVendors";
+import { AddProviderPanel } from "./AddProviderPanel";
 
 export function ProviderList({
   providers,
   selectedId,
   onSelect,
-  onChanged,
+  onApplyVendor,
+  onCreated,
 }: {
   providers: ProviderWithModels[];
   selectedId: number | null;
   onSelect: (id: number) => void;
-  onChanged: () => Promise<void>;
+  onApplyVendor: (vendorId: string) => Promise<void>;
+  onCreated: (providerId: number) => Promise<void>;
 }) {
-  const [newProviderName, setNewProviderName] = useState("");
+  const [adding, setAdding] = useState(false);
   const t = useT("settings");
-
-  const create = async () => {
-    try {
-      await settingsHttp.createProvider({ name: newProviderName.trim() });
-      setNewProviderName("");
-      await onChanged();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("providerList.createFailed"));
-    }
-  };
 
   return (
     <div className="surface-card !p-3">
-      <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-        {t("providerList.title")}
-      </p>
+      <div className="mb-2 flex items-center justify-between px-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+          {t("providerList.title")}
+        </p>
+        <button
+          type="button"
+          className={`flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${
+            adding
+              ? "border-[var(--primary)] bg-[var(--info-soft)] text-ink"
+              : "border-surface-border text-ink-muted hover:border-[var(--primary)] hover:text-ink"
+          }`}
+          aria-label={t("providerList.add")}
+          onClick={() => setAdding((v) => !v)}
+        >
+          <Plus size={13} />
+        </button>
+      </div>
       <div className="space-y-1">
-        {providers.length === 0 && (
+        {providers.length === 0 && !adding && (
           <p className="px-1 text-[12px] text-ink-subtle">{t("providerList.empty")}</p>
         )}
         {providers.map((p) => (
@@ -64,28 +68,13 @@ export function ProviderList({
         ))}
       </div>
 
-      <div className="mt-3 border-t border-surface-border pt-3">
-        <label className="mb-1 block text-[11px] text-ink-muted">{t("providerList.addLabel")}</label>
-        <div className="flex gap-1.5">
-          <input
-            className="field-input !h-8 flex-1 text-[12px]"
-            placeholder={t("providerList.namePlaceholder")}
-            value={newProviderName}
-            onChange={(e) => setNewProviderName(e.target.value)}
-          />
-          <button
-            type="button"
-            className="btn-primary !h-8 !w-8 shrink-0 !p-0"
-            aria-label={t("providerList.add")}
-            disabled={!newProviderName.trim()}
-            onClick={create}
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      </div>
-
-      <RecommendedVendors providers={providers} onChanged={onChanged} onSelect={onSelect} />
+      {adding && (
+        <AddProviderPanel
+          onClose={() => setAdding(false)}
+          onApplyVendor={onApplyVendor}
+          onCreated={onCreated}
+        />
+      )}
     </div>
   );
 }

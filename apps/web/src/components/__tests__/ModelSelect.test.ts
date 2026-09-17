@@ -16,6 +16,7 @@ function profile(id: number, label: string): ModelProfile {
     id,
     provider_id: 1,
     provider_name: "p",
+    kind: "chat",
     model: `m${id}`,
     display_name: label,
     label,

@@ -12,6 +12,23 @@ export const settingsHttp = {
     request<{ id: number }>("/v1/settings/providers", { method: "POST", body: JSON.stringify(data) }),
   updateProvider: (id: number, data: import("@/types").ProviderWrite) =>
     request<{ id: number }>(`/v1/settings/providers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  updateChannel: (
+    id: number,
+    kind: import("@/types").ModelKind,
+    data: Omit<import("@/types").ProviderChannelWrite, "kind">,
+  ) =>
+    request<import("@/types").ProviderChannel>(
+      `/v1/settings/providers/${id}/channels/${kind}`,
+      { method: "PUT", body: JSON.stringify(data) },
+    ),
+  fetchChannelCatalog: (id: number, kind: import("@/types").ModelKind) =>
+    request<import("@/types").ChannelModelCatalog>(
+      `/v1/settings/providers/${id}/channels/${kind}/catalog`,
+    ),
+  applyVendor: (vendorId: string) =>
+    request<import("@/types").VendorApplyResult>(`/v1/settings/vendors/${vendorId}/apply`, {
+      method: "POST",
+    }),
   deleteProvider: (id: number) =>
     request<{ deleted: number }>(`/v1/settings/providers/${id}`, { method: "DELETE" }),
   listRecommendedVendors: () =>

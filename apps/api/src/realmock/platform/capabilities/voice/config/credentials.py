@@ -14,10 +14,16 @@ from realmock.platform.capabilities.voice.tts import TtsCredentials
 
 
 def build_stt_credentials(cfg: Mapping[str, Any]) -> SttCredentials:
-    """Build independent identification credentials; never fall back on thinking about Key."""
+    """Build independent identification credentials; never fall back on thinking about Key.
+
+    The handler id prefers the channel's ``vendor`` (catalog vendor id, e.g. ``minimax``);
+    the provider display name is only a legacy fallback from before channels existed.
+    """
     extras = cfg.get("extras") or {}
-    provider = cfg.get("provider") or (
-        "custom" if cfg.get("api_base") and cfg.get("api_key") else "local"
+    provider = (
+        cfg.get("vendor")
+        or cfg.get("provider")
+        or ("custom" if cfg.get("api_base") and cfg.get("api_key") else "local")
     )
     return SttCredentials(
         provider=provider,
@@ -39,10 +45,12 @@ def build_stt_credentials(cfg: Mapping[str, Any]) -> SttCredentials:
 
 
 def build_tts_credentials(cfg: Mapping[str, Any]) -> TtsCredentials:
-    """Build independent broadcast credentials."""
+    """Build independent broadcast credentials; handler id prefers the channel ``vendor``."""
     extras = cfg.get("extras") or {}
-    handler = cfg.get("provider") or (
-        "custom" if cfg.get("api_base") and cfg.get("api_key") else "edge"
+    handler = (
+        cfg.get("vendor")
+        or cfg.get("provider")
+        or ("custom" if cfg.get("api_base") and cfg.get("api_key") else "edge")
     )
     return TtsCredentials(
         handler=handler,

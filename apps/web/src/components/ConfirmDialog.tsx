@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { TriangleAlert } from "lucide-react";
 import { useT } from "@/i18n";
 import { Spinner } from "@/components/Spinner";
+import { useDialogScrollLock } from "@/components/useDialogScrollLock";
 
 /** Destructive-action dialog that focuses cancel by default and treats Escape as cancel. */
 export function ConfirmDialog({
@@ -39,6 +40,7 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   const t = useT("common");
+  useDialogScrollLock(open);
   // Explicit labels override the localized defaults.
   const okLabel = confirmLabel ?? t("confirm.confirm");
   const dismissLabel = cancelLabel ?? t("confirm.cancel");

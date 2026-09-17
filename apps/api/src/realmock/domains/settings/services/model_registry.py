@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from realmock.platform.models.config_models import LlmProvider, ModelProfile, TaskBinding
+from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.capabilities.ai.llm.defaults import (
     DEFAULT_CONTEXT_WINDOW,
@@ -25,28 +25,56 @@ from realmock.platform.services.pipeline.config import (
     SECRET_EXTRA_KEYS,
     SECRET_KEEP,
     STAGE_BY_TASK,
+    ensure_provider_channels,
     parse_json,
     migrate_stages_to_profiles,
     profile_to_response,
 )
 
+#: Channel kinds mirroring the task vocabulary; every provider owns at most one channel per kind.
+CHANNEL_KINDS = ("chat", "stt", "tts")
 
-class ProviderCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    api_base: str = ""
+
+def _valid_kind(kind: str) -> bool:
+    return kind in CHANNEL_KINDS
+
+
+class ChannelWrite(BaseModel):
+    """Per-kind connection settings attached to a provider (create or upsert)."""
+
+    kind: str = Field(..., min_length=1, max_length=10)
+    vendor: str = Field(default="", max_length=50)
+    api_base: str = Field(default="", max_length=500)
     full_url: bool = False
     protocol: str = DEFAULT_LLM_PROTOCOL
     api_key: str = ""
-    enabled: bool = True
 
 
-class ProviderUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=100)
-    api_base: str | None = None
+class ChannelUpdate(BaseModel):
+    """Partial channel update; ``None`` fields keep their current value."""
+
+    vendor: str | None = Field(default=None, max_length=50)
+    api_base: str | None = Field(default=None, max_length=500)
     full_url: bool | None = None
     protocol: str | None = None
     api_key: str | None = None
+
+
+class ProviderCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    enabled: bool = True
+    website_url: str = Field(default="", max_length=500)
+    notes: str = Field(default="", max_length=2000)
+    channels: list[ChannelWrite] = Field(default_factory=list)
+
+
+class ProviderUpdate(BaseModel):
+    """Partial provider update; ``None`` fields keep their current value."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
     enabled: bool | None = None
+    website_url: str | None = Field(default=None, max_length=500)
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class ModelCapabilitiesIn(BaseModel):
@@ -59,6 +87,7 @@ class ModelCapabilitiesIn(BaseModel):
 
 class ModelProfileCreate(BaseModel):
     model: str = Field(..., min_length=1, max_length=200)
+    kind: str = "chat"
     display_name: str = Field(default="", max_length=200)
     context_window: int = Field(default=DEFAULT_CONTEXT_WINDOW, ge=0)
     max_output: int = Field(default=DEFAULT_MAX_OUTPUT_TOKENS, ge=1)
@@ -69,6 +98,7 @@ class ModelProfileCreate(BaseModel):
 
 class ModelProfileUpdate(BaseModel):
     model: str | None = Field(default=None, min_length=1, max_length=200)
+    kind: str | None = Field(default=None, min_length=1, max_length=10)
     display_name: str | None = Field(default=None, max_length=200)
     context_window: int | None = Field(default=None, ge=0)
     max_output: int | None = Field(default=None, ge=1)
@@ -97,10 +127,30 @@ def get_profile(db: Session, model_id: int) -> ModelProfile:
     return row
 
 
-def apply_provider_key(row: LlmProvider, raw_key: str | None) -> None:
+def get_channel(db: Session, provider_id: int, kind: str) -> LlmProviderChannel | None:
+    return (
+        db.query(LlmProviderChannel)
+        .filter(LlmProviderChannel.provider_id == provider_id, LlmProviderChannel.kind == kind)
+        .first()
+    )
+
+
+def apply_channel_key(channel: LlmProviderChannel, raw_key: str | None) -> None:
     if raw_key is None or raw_key == SECRET_KEEP:
         return
-    row.api_key = encrypt_secret(raw_key) if raw_key else ""
+    channel.api_key = encrypt_secret(raw_key) if raw_key else ""
+
+
+def channel_to_response(channel: LlmProviderChannel) -> dict[str, Any]:
+    """External channel view (key masked to a boolean)."""
+    return {
+        "kind": channel.kind,
+        "vendor": channel.vendor or "",
+        "api_base": channel.api_base or "",
+        "full_url": bool(channel.full_url),
+        "protocol": channel.protocol or DEFAULT_LLM_PROTOCOL,
+        "has_api_key": bool(channel.api_key),
+    }
 
 
 def merge_profile_extras(row: ModelProfile, extras: dict[str, Any] | None) -> str:
@@ -120,6 +170,7 @@ def merge_profile_extras(row: ModelProfile, extras: dict[str, Any] | None) -> st
 
 
 def list_providers_payload(db: Session) -> dict[str, Any]:
+    ensure_provider_channels(db)
     providers = db.query(LlmProvider).order_by(LlmProvider.id).all()
     items = []
     for provider in providers:
@@ -129,19 +180,47 @@ def list_providers_payload(db: Session) -> dict[str, Any]:
             .order_by(ModelProfile.id)
             .all()
         )
+        channels = (
+            db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == provider.id)
+            .order_by(LlmProviderChannel.id)
+            .all()
+        )
         items.append(
             {
                 "id": provider.id,
                 "name": provider.name,
-                "api_base": provider.api_base or "",
-                "full_url": bool(provider.full_url),
-                "protocol": provider.protocol or DEFAULT_LLM_PROTOCOL,
                 "enabled": bool(provider.enabled),
-                "has_api_key": bool(provider.api_key),
+                "website_url": provider.website_url or "",
+                "notes": provider.notes or "",
+                "channels": [channel_to_response(c) for c in channels],
                 "models": [profile_to_response(m, provider) for m in models],
             }
         )
     return {"providers": items}
+
+
+def upsert_channel(db: Session, provider_id: int, kind: str, body: ChannelUpdate) -> dict[str, Any]:
+    """Create or partially update one provider channel; unknown kind is rejected."""
+    if not _valid_kind(kind):
+        raise ApiBusinessError(get_spec("A0007"), message=f"Unknown channel kind: {kind}")
+    provider = get_provider(db, provider_id)
+    channel = get_channel(db, provider.id, kind)
+    if channel is None:
+        channel = LlmProviderChannel(provider_id=provider.id, kind=kind)
+        db.add(channel)
+    if body.vendor is not None:
+        channel.vendor = body.vendor.strip()
+    if body.api_base is not None:
+        channel.api_base = body.api_base.strip()
+    if body.full_url is not None:
+        channel.full_url = body.full_url
+    if body.protocol is not None:
+        channel.protocol = body.protocol
+    apply_channel_key(channel, body.api_key)
+    db.commit()
+    db.refresh(channel)
+    return channel_to_response(channel)
 
 
 def list_bindings_payload(db: Session) -> dict[str, Any]:

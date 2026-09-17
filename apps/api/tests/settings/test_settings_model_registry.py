@@ -24,18 +24,25 @@ def _clean_api_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LlmProvider, ModelProfile, TaskBinding
+    from realmock.platform.models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
 
     api_db.query(TaskBinding).delete()
     api_db.query(ModelProfile).delete()
+    api_db.query(LlmProviderChannel).delete()
     api_db.query(LlmProvider).delete()
     api_db.commit()
 
 
-def _provider(api_db, name="p1", **kw):
-    from realmock.platform.models import LlmProvider
+def _channel(api_db, provider_id, kind="chat", **kw):
+    from realmock.platform.models import LlmProviderChannel
 
-    row = LlmProvider(name=name, api_base=kw.get("api_base", "http://x/v1"), protocol=kw.get("protocol", "openai_chat"), api_key=kw.get("api_key", ""), enabled=kw.get("enabled", True))
+    row = LlmProviderChannel(
+        provider_id=provider_id,
+        kind=kind,
+        api_base=kw.get("api_base", "http://x/v1"),
+        protocol=kw.get("protocol", "openai_chat"),
+        api_key=kw.get("api_key", ""),
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -78,21 +85,30 @@ class TestRegistryLookup:
 
 
 class TestRegistryHelpers:
-    def test_apply_provider_key_variants(self, api_db) -> None:
+    def test_apply_channel_key_variants(self, api_db) -> None:
         _wipe(api_db)
-        p = _provider(api_db, name="kk", api_key="orig")
-        reg.apply_provider_key(p, None)
-        assert p.api_key == "orig"
-        reg.apply_provider_key(p, "keep")
-        assert p.api_key == "orig"
-        reg.apply_provider_key(p, "")
-        assert p.api_key == ""
-        reg.apply_provider_key(p, "new-key")
-        assert p.api_key.startswith("enc:")
+        from realmock.platform.models import LlmProvider
+
+        p = LlmProvider(name="kk")
+        api_db.add(p)
+        api_db.commit()
+        c = _channel(api_db, p.id, api_key="orig")
+        reg.apply_channel_key(c, None)
+        assert c.api_key == "orig"
+        reg.apply_channel_key(c, "keep")
+        assert c.api_key == "orig"
+        reg.apply_channel_key(c, "")
+        assert c.api_key == ""
+        reg.apply_channel_key(c, "new-key")
+        assert c.api_key.startswith("enc:")
 
     def test_merge_extras_none(self, api_db) -> None:
         _wipe(api_db)
-        p = _provider(api_db, name="ex1")
+        from realmock.platform.models import LlmProvider
+
+        p = LlmProvider(name="ex1")
+        api_db.add(p)
+        api_db.commit()
         m = _profile(api_db, p.id, extras='{"a": 1}')
         assert reg.merge_profile_extras(m, None) == '{"a": 1}'
         m2 = _profile(api_db, p.id, model="ex-none", extras="")
@@ -100,7 +116,11 @@ class TestRegistryHelpers:
 
     def test_merge_extras_secret_keep_and_encrypt(self, api_db) -> None:
         _wipe(api_db)
-        p = _provider(api_db, name="ex2")
+        from realmock.platform.models import LlmProvider
+
+        p = LlmProvider(name="ex2")
+        api_db.add(p)
+        api_db.commit()
         m = _profile(api_db, p.id, model="exs", extras="{}")
         merged = reg.merge_profile_extras(m, {"asr_api_secret": "keep", "plain": "x"})
         import json as _json
@@ -111,5 +131,7 @@ class TestRegistryHelpers:
 
     def test_request_model_defaults(self) -> None:
         assert reg.ProviderCreate(name="x").enabled is True
+        assert reg.ProviderCreate(name="x").channels == []
         assert reg.ModelProfileCreate(model="m").capabilities.chat is True
+        assert reg.ModelProfileCreate(model="m").kind == "chat"
         assert reg.BindingUpdate(profile_id=1).fallback_handler == ""

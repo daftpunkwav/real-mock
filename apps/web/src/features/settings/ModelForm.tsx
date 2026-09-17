@@ -1,37 +1,123 @@
 "use client";
 
-/** Model create and edit form. */
+/** Model create and edit form. The model-name field is a lightweight combobox:
+ * "fetch model list" pulls candidate ids from the vendor descriptor or the provider's
+ * /models endpoint and offers them in a popover under the input (filtered by the
+ * typed text); manual entry stays available at all times. */
 
-import { Save, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Save, X } from "lucide-react";
 import { useT } from "@/i18n";
+import type { ChannelModelCatalog } from "@/types";
 import { CAP_OPTIONS, type ModelDraft } from "./constants";
 
 export function ModelForm({
   draft,
   setDraft,
+  catalog,
+  catalogLoading,
+  onFetchCatalog,
   onSave,
   onCancel,
   saving,
+  variant = "inline",
 }: {
   draft: ModelDraft;
   setDraft: (d: ModelDraft) => void;
+  catalog: ChannelModelCatalog | null;
+  catalogLoading: boolean;
+  onFetchCatalog: () => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  /** "inline" renders the framed card inside the model list; "modal" drops the frame
+   * because the host dialog already provides the container. */
+  variant?: "inline" | "modal";
 }) {
   const t = useT("settings");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const query = draft.model.trim().toLowerCase();
+  const candidates =
+    catalog?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? [];
+
+  // A freshly fetched catalog opens the candidate popover automatically.
+  useEffect(() => {
+    if (catalog && catalog.models.length > 0) setCatalogOpen(true);
+  }, [catalog]);
 
   return (
-    <div className="rounded-md border border-[var(--primary)]/40 bg-[var(--info-soft)]/40 p-3">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+    <div
+      className={
+        variant === "modal"
+          ? ""
+          : "rounded-md border border-[var(--primary)]/40 bg-[var(--info-soft)]/40 p-3"
+      }
+    >
+      <div className="grid grid-cols-1 gap-2.5">
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("modelForm.model.label")}</label>
-          <input
-            className="field-input !h-9"
-            value={draft.model}
-            placeholder={t("modelForm.model.placeholder")}
-            onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-          />
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-[11px] text-ink-muted">{t("modelForm.model.label")}</label>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-[11px] text-[var(--primary)] hover:underline disabled:opacity-50"
+              disabled={catalogLoading}
+              onClick={onFetchCatalog}
+            >
+              <Download size={11} />
+              {catalogLoading ? t("catalog.loading") : t("catalog.fetch")}
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              className="field-input !h-9"
+              value={draft.model}
+              placeholder={t("modelForm.model.placeholder")}
+              onChange={(e) => {
+                setDraft({ ...draft, model: e.target.value });
+                setCatalogOpen(true);
+              }}
+              onFocus={() => {
+                if (candidates.length > 0) setCatalogOpen(true);
+              }}
+              onClick={() => {
+                // Focus alone does not re-fire when the field is already focused.
+                if (candidates.length > 0) setCatalogOpen(true);
+              }}
+              onBlur={() => setCatalogOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && catalogOpen) {
+                  // Swallow so a host dialog does not also close.
+                  e.stopPropagation();
+                  setCatalogOpen(false);
+                }
+              }}
+            />
+            {catalogOpen && candidates.length > 0 && (
+              <div
+                role="listbox"
+                aria-label={t("catalog.pickAria")}
+                // Keep focus on the input so onBlur does not close before click.
+                onMouseDown={(e) => e.preventDefault()}
+                className="surface-card absolute top-full z-20 mt-1 max-h-56 w-full overflow-y-auto !p-1"
+              >
+                {candidates.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    role="option"
+                    aria-selected={m === draft.model}
+                    className="flex h-8 w-full items-center rounded-md px-2.5 text-left text-[12px] text-ink transition-colors hover:bg-surface-muted"
+                    onClick={() => {
+                      setDraft({ ...draft, model: m });
+                      setCatalogOpen(false);
+                    }}
+                  >
+                    <span className="min-w-0 truncate">{m}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-[11px] text-ink-muted">{t("modelForm.displayName.label")}</label>

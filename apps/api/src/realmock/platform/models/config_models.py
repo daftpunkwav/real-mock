@@ -50,21 +50,47 @@ class StageConfig(ApiBase):
 
 
 class LlmProvider(ApiBase):
-    """BYOK provider: API credentials and protocol ownership level, model entries inherit their credentials."""
+    """BYOK provider: identity only (name/enable state plus optional reference info).
+
+    Connection settings live on per-kind rows in ``llm_provider_channels`` so one provider
+    can serve chat / STT / TTS with independent Base URLs and API Keys.
+    """
 
     __tablename__ = "llm_providers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Optional reference info, purely informational
+    website_url: Mapped[str] = mapped_column(String(500), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class LlmProviderChannel(ApiBase):
+    """Per-kind connection settings under one provider (chat / stt / tts).
+
+    Each channel owns its Base URL, protocol, and encrypted API Key; model entries inherit
+    the credentials of the channel matching their ``kind``. ``vendor`` stores the catalog
+    vendor id (e.g. ``minimax``) that selects the deep request adapter at runtime.
+    """
+
+    __tablename__ = "llm_provider_channels"
+    __table_args__ = (
+        UniqueConstraint("provider_id", "kind", name="uq_llm_provider_channels_provider_kind"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)  # chat | stt | tts
+    vendor: Mapped[str] = mapped_column(String(50), default="")
     api_base: Mapped[str] = mapped_column(String(500), default="")
     # When True, api_base is a complete request URL used verbatim (nonstandard endpoints such as
-    # vendor voice APIs); protocol path appending is skipped for every request through this provider.
+    # vendor voice APIs); protocol path appending is skipped for every request through this channel.
     full_url: Mapped[bool] = mapped_column(Boolean, default=False)
     protocol: Mapped[str] = mapped_column(String(50), default=DEFAULT_LLM_PROTOCOL)
     api_key: Mapped[str] = mapped_column(String(500), default="")  # enc: AES-GCM
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 class ModelProfile(ApiBase):
@@ -81,6 +107,9 @@ class ModelProfile(ApiBase):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Which channel tab the entry lives under (chat | stt | tts); credentials resolve from
+    # the matching provider channel. Capability flags stay the binding-level contract.
+    kind: Mapped[str] = mapped_column(String(10), default="chat")
     model: Mapped[str] = mapped_column(String(200), nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), default="")
     context_window: Mapped[int] = mapped_column(Integer, default=DEFAULT_CONTEXT_WINDOW)
@@ -170,4 +199,12 @@ class LLMSettings(ApiBase):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
-__all__ = ["IntegrationCredential", "LLMSettings", "StageConfig", "LlmProvider", "ModelProfile", "TaskBinding"]
+__all__ = [
+    "IntegrationCredential",
+    "LLMSettings",
+    "LlmProvider",
+    "LlmProviderChannel",
+    "ModelProfile",
+    "StageConfig",
+    "TaskBinding",
+]

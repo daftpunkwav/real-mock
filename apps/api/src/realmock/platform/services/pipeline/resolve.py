@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.models.config_models import LlmProvider, ModelProfile, TaskBinding
+from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
 from realmock.platform.capabilities.ai.llm.defaults import (
     resolve_context_window,
     resolve_max_output_tokens,
@@ -35,6 +35,7 @@ def profile_to_response(profile: ModelProfile, provider: LlmProvider | None) -> 
         "id": profile.id,
         "provider_id": profile.provider_id,
         "provider_name": (provider.name if provider else "") or "",
+        "kind": _profile_kind(profile),
         "model": profile.model,
         "display_name": profile.display_name or "",
         "label": profile.display_name or profile.model,
@@ -52,6 +53,52 @@ def profile_to_response(profile: ModelProfile, provider: LlmProvider | None) -> 
     }
 
 
+def _profile_kind(profile: ModelProfile) -> str:
+    kind = (getattr(profile, "kind", "") or "").strip()
+    return kind if kind in ("chat", "stt", "tts") else "chat"
+
+
+def _channel_for_profile(
+    db: Session, profile: ModelProfile, provider: LlmProvider | None
+) -> LlmProviderChannel | None:
+    """Connection channel owning the credentials for ``profile``: its kind first, then the
+    provider's chat channel, then any channel (guards rows written before a backfill)."""
+    if provider is None:
+        return None
+    kind = _profile_kind(profile)
+    channel = (
+        db.query(LlmProviderChannel)
+        .filter(LlmProviderChannel.provider_id == provider.id, LlmProviderChannel.kind == kind)
+        .first()
+    )
+    if channel is None and kind != "chat":
+        channel = (
+            db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == provider.id, LlmProviderChannel.kind == "chat")
+            .first()
+        )
+    if channel is None:
+        channel = (
+            db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == provider.id)
+            .first()
+        )
+    return channel
+
+
+def _decrypt_channel_key(channel: LlmProviderChannel) -> str:
+    raw = channel.api_key or ""
+    if raw.startswith("enc:"):
+        try:
+            return decrypt_secret(raw) or ""
+        except Exception as e:
+            raise ValueError(
+                f"supplier channel {channel.kind} API Key decryption failed,"
+                " please go to the settings page to save again."
+            ) from e
+    return raw
+
+
 def get_provider_model_rows(db: Session) -> list[tuple[ModelProfile, LlmProvider | None]]:
     profiles = db.query(ModelProfile).order_by(ModelProfile.provider_id, ModelProfile.id).all()
     providers = {p.id: p for p in db.query(LlmProvider).all()}
@@ -59,32 +106,31 @@ def get_provider_model_rows(db: Session) -> list[tuple[ModelProfile, LlmProvider
 
 
 def _runtime_config_from_profile(
+    db: Session,
     profile: ModelProfile,
     provider: LlmProvider | None,
     stage: str,
     fallback: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Assemble vendor + model entries into a flat dict isomorphic to the old stage runtime dict."""
+    """Assemble vendor + model entries into a flat dict isomorphic to the old stage runtime dict.
+
+    Connection settings (Base URL / Key / protocol / full-URL flag / vendor id) come from the
+    provider channel matching the entry's kind, falling back to the chat channel and then to
+    any channel of the provider.
+    """
     extras = _profile_extras(profile)
     fb = fallback or DEFAULT_FALLBACK.get(TASK_BY_STAGE.get(stage, "chat"), {})
-    api_key = ""
-    if provider is not None:
-        raw = provider.api_key or ""
-        if raw.startswith("enc:"):
-            try:
-                api_key = decrypt_secret(raw) or ""
-            except Exception as e:
-                raise ValueError(f"supplier {provider.name} API Key decryption failed, please go to the settings page to save again.") from e
-        else:
-            api_key = raw
+    channel = _channel_for_profile(db, profile, provider)
+    api_key = _decrypt_channel_key(channel) if channel is not None else ""
     return {
         "stage": stage,
         "profile_id": profile.id,
         "provider": (provider.name if provider else "") or "",
-        "api_base": (provider.api_base if provider else "") or "",
+        "vendor": (channel.vendor if channel is not None else "") or "",
+        "api_base": (channel.api_base if channel is not None else "") or "",
         "api_key": api_key,
-        "protocol": (provider.protocol if provider else "") or DEFAULT_LLM_PROTOCOL,
-        "full_url": bool(getattr(provider, "full_url", False)),
+        "protocol": (channel.protocol if channel is not None else "") or DEFAULT_LLM_PROTOCOL,
+        "full_url": bool(channel.full_url) if channel is not None else False,
         "model": profile.model or "",
         "max_tokens": resolve_max_output_tokens(profile.max_output),
         "context_window": resolve_context_window(profile.context_window),
@@ -110,6 +156,7 @@ def _binding_config(db: Session, task: str, stage: str) -> dict[str, Any] | None
         return None
     provider = db.query(LlmProvider).filter(LlmProvider.id == profile.provider_id).first()
     return _runtime_config_from_profile(
+        db,
         profile,
         provider,
         stage,

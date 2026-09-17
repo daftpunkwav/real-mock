@@ -7,35 +7,61 @@ export const settings = {
   "nav.models": "Models & Processors",
   "nav.resume": "Resumes",
   "nav.prep": "Interview Prep",
+  "nav.interview": "Mock Interview",
   "nav.integrations": "Integrations",
+
+  // InterviewSettingsPanel
+  "interviewPanel.title": "Question-style brief cache",
+  "interviewPanel.desc":
+    "When configuring a mock interview, AI researches the target company's question style, focus areas, and interview flow online, cached per company. Clearing it forces fresh research on the next configuration.",
+  "interviewPanel.clear": "Clear brief cache",
+  "interviewPanel.clearConfirmTitle": "Clear question-style brief cache",
+  "interviewPanel.clearConfirmMessage":
+    "This deletes all cached company briefs. The next mock-interview setup will research online again, so the first load will be slower.",
+  "interviewPanel.cleared": "Cleared {count} cached briefs",
+  "interviewPanel.clearFailed": "Failed to clear",
   "theme.title": "Theme",
   "provider.pickHint": "Select or add a provider on the left",
   "language.title": "UI language",
   "language.hint":
     "Affects the interface language only; it does not change the language the interviewer speaks.",
 
-  // ProviderList
+  // ProviderList ("+" toggles the add panel)
   "providerList.title": "Providers",
-  "providerList.empty": "No providers yet, add one to start",
-  "providerList.addLabel": "Add provider",
+  "providerList.empty": "No providers yet — use + above to add one",
   "providerList.namePlaceholder": "Name, e.g. DeepSeek",
   "providerList.add": "Add provider",
+  "providerList.createCustom": "Create",
   "providerList.createFailed": "Failed to create",
 
-  // RecommendedVendors
-  "recommended.title": "Recommended vendors (adapted)",
+  // AddProviderPanel: one-click adapted vendors
+  "recommended.title": "Adapted vendors",
   "recommended.empty": "No recommended vendors yet",
   "recommended.loadFailed": "Failed to load recommended vendors",
-  "recommended.hint": "Pick a model type; the provider shell and model entry are created automatically — fill the API Key on the right",
-  "recommended.adapted": "deep-adapted",
-  "recommended.cap.reasoning": "Reasoning LLM",
-  "recommended.cap.recognize": "Speech-to-text",
-  "recommended.cap.speak": "Text-to-speech",
-  "recommended.add": "Add",
-  "recommended.adding": "Adding…",
-  "recommended.added": "Added {model} (provider {provider})",
-  "recommended.addFailed": "Failed to add",
-  "recommended.noDefaultModel": "This entry has no default model name; add it manually",
+  "recommended.hint":
+    "Click a vendor to auto-configure the reasoning / STT / TTS channels (Base URL + names, one default entry each); API Keys stay blank — fill them in each tab on the right. Or create a custom provider with a name below.",
+  "recommended.applyHint": "Configure all three model channels in one click",
+  "recommended.applied": "Provider {provider} configured; fill the API Keys in each tab",
+  "recommended.adding": "Configuring…",
+  "recommended.addFailed": "Failed to configure",
+  "recommended.close": "Collapse the add panel",
+
+  // ChannelCard
+  "channelCard.save": "Save this type",
+  "channelCard.saving": "Saving…",
+  "channelCard.saved": "Channel saved",
+  "channelCard.saveFailed": "Failed to save",
+
+  // Kind tabs
+  "kinds.chat": "Reasoning LLM",
+  "kinds.stt": "Speech-to-text",
+  "kinds.tts": "Text-to-speech",
+
+  // Model catalog fetch
+  "catalog.fetch": "Fetch model list",
+  "catalog.loading": "Fetching…",
+  "catalog.pickAria": "Pick a model from the list",
+  "catalog.loadFailed": "Failed to fetch the model list",
 
   // ProviderCard
   "providerCard.name.label": "Name",
@@ -50,7 +76,13 @@ export const settings = {
   "providerCard.show": "Show",
   "providerCard.hide": "Hide",
   "providerCard.enabled": "Enabled",
+  "providerCard.website.label": "Website",
+  "providerCard.website.placeholder": "https://…",
+  "providerCard.notes.label": "Notes",
   "providerCard.delete": "Delete",
+  "providerCard.deleteConfirmTitle": "Delete provider",
+  "providerCard.deleteConfirmMessage":
+    "This permanently deletes \"{name}\" together with all its model entries, channel settings, and task bindings pointing at them.",
   "providerCard.saving": "Saving…",
   "providerCard.save": "Save provider",
   "providerCard.saved": "Provider saved",
@@ -63,6 +95,7 @@ export const settings = {
   "modelList.add": "Add model",
   "modelList.empty":
     "No model entries yet; entries declare capabilities and can serve multiple tasks",
+  "modelList.emptyKind": "No entries for this model type yet — use \"Add model\" to create one",
 
   // ModelRow
   "modelRow.test": "Test",

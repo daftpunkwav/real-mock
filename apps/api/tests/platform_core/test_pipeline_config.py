@@ -26,11 +26,22 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import LLMSettings, LlmProvider, LlmProviderChannel, ModelProfile, StageConfig, TaskBinding
 
-    for m in (TaskBinding, ModelProfile, LlmProvider, StageConfig, LLMSettings):
+    for m in (TaskBinding, ModelProfile, LlmProviderChannel, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()
     api_db.commit()
+
+
+def _provider_with_channel(api_db, name, *, api_base="http://x/v1", protocol="openai_chat", kind="chat"):
+    from realmock.platform.models import LlmProvider, LlmProviderChannel
+
+    p = LlmProvider(name=name)
+    api_db.add(p)
+    api_db.flush()
+    api_db.add(LlmProviderChannel(provider_id=p.id, kind=kind, api_base=api_base, protocol=protocol))
+    api_db.commit()
+    return p
 
 
 class TestPipelineConfig:
@@ -74,9 +85,7 @@ class TestPipelineConfig:
         _wipe(api_db)
         from realmock.platform.models import LlmProvider, ModelProfile
 
-        p = LlmProvider(name="ov", api_base="http://o/v1", protocol="openai_chat")
-        api_db.add(p)
-        api_db.flush()
+        p = _provider_with_channel(api_db, "ov", api_base="http://o/v1")
         m = ModelProfile(provider_id=p.id, model="over", cap_chat=True)
         api_db.add(m)
         api_db.commit()
@@ -90,9 +99,7 @@ class TestPipelineConfig:
         _wipe(api_db)
         from realmock.platform.models import LlmProvider, ModelProfile, TaskBinding
 
-        p = LlmProvider(name="bnd", api_base="http://b/v1", protocol="openai_chat")
-        api_db.add(p)
-        api_db.flush()
+        p = _provider_with_channel(api_db, "bnd", api_base="http://b/v1")
         m = ModelProfile(provider_id=p.id, model="bound-m", cap_chat=True)
         api_db.add(m)
         api_db.flush()
@@ -100,6 +107,7 @@ class TestPipelineConfig:
         api_db.commit()
         out = pconf.resolve_model_config(api_db, "reason")
         assert out["model"] == "bound-m"
+        assert out["api_base"] == "http://b/v1"
         assert pconf.get_stage_config_for_runtime(api_db, "reason")["model"] == "bound-m"
 
     def test_ensure_pipeline_migrated(self, api_db) -> None:
