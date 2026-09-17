@@ -7,6 +7,8 @@ these tests hold the seams instead of directories:
 - external layers (realtime/routes/process) reach ``agents`` internals only
   through the facade or the two leaf contracts;
 - ``agents`` never imports upward (realtime/routes);
+- ``process`` never imports upward (agents) — every LLM role lives under
+  ``agents``, so agents → process is the only seam between them;
 - the WS entry (``routes/ws``) is the single wire into ``realtime``;
 - ``agents`` may use the frozen shared-kernel allowlist under ``process``
   (plan protocol + read-only process views) — nothing else;
@@ -24,25 +26,21 @@ INTERVIEW_ROOT = Path("src/realmock/domains/interview")
 #: The phase SSOT lives at the domain root (``interview.workflows``).
 AGENTS_LEAF_ALLOWLIST = frozenset({"events", "agent_text"})
 
-#: ``process.*`` modules ``agents`` may import (frozen shared kernel: the plan
-#: protocol hosted under process/planning plus read-only process views, plus
-#: the finish-path subscriber below). These are mis-homed but load-bearing —
-#: moving them means updating every importer plus the stored plan JSON
-#: readers, so the seam is locked instead: any NEW agents→process edge fails
-#: this test and forces the discussion.
+#: ``process.*`` modules ``agents`` may import (frozen shared kernel: the
+#: stored plan protocols plus read-only process views, plus the finish-path
+#: subscriber below). These are genuinely shared, process-owned services —
+#: any NEW agents→process edge fails this test and forces the discussion.
+#: The reverse direction is banned outright by
+#: :func:`test_interview_process_never_imports_agents`.
 AGENTS_PROCESS_ALLOWLIST = frozenset({
-    "realmock.domains.interview.process.planning.plan_schema",
-    "realmock.domains.interview.process.planning.planner",
+    "realmock.domains.interview.process.plan_schema",
+    "realmock.domains.interview.process.round_plan_schema",
     "realmock.domains.interview.process.process_memory",
     "realmock.domains.interview.process.round_chain",
     # finish_lifecycle → record_round_finished: completion subscriber (never
     # raises, never calls back into agents — verified acyclic). Splitting it
     # across the 4 finish call sites would scatter the guarantee instead.
     "realmock.domains.interview.process.process_service",
-    # session_prompt reads the persisted company-research digest via the same
-    # document-helper shape as process_memory (lookup + blend; the research
-    # LLM loop itself stays on the process side of the seam).
-    "realmock.domains.interview.process.company_research",
 })
 
 
@@ -135,6 +133,35 @@ def test_interview_agents_process_seam_frozen() -> None:
                 )
     assert not violations, (
         "agents→process seam is frozen to the shared-kernel allowlist:\n"
+        + "\n".join(violations)
+    )
+
+
+def test_interview_process_never_imports_agents() -> None:
+    """process must never import upward into agents (one-way layering).
+
+    Every LLM role lives under ``agents`` (runners, topology, planning,
+    research), so process has nothing left to reach for: the dependency rule
+    is routes → realtime → agents → process, and this test proves the
+    agents→process direction is the only seam.
+    """
+    api_root = _api_root()
+    base = api_root / INTERVIEW_ROOT / "process"
+    violations: list[str] = []
+    for path in sorted(base.rglob("*.py")):
+        for module, lineno in _from_imports(path):
+            if not module:
+                continue
+            parts = module.split(".")
+            if (
+                len(parts) >= 5
+                and parts[:4] == ["realmock", "domains", "interview", "agents"]
+            ):
+                violations.append(
+                    f"{path.relative_to(api_root)}:{lineno}: upward import '{module}'"
+                )
+    assert not violations, (
+        "process must not depend on agents (dependency: agents → process):\n"
         + "\n".join(violations)
     )
 

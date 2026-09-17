@@ -209,7 +209,7 @@ def test_generate_round_plan_success_marks_ready(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             return payload
 
-    from realmock.domains.interview.process import round_planner as round_planner_mod
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
     monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
@@ -230,7 +230,7 @@ def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             raise RuntimeError("hr planner down")
 
-    from realmock.domains.interview.process import round_planner as round_planner_mod
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
     monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: ExplodingLLM())
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
@@ -259,7 +259,7 @@ def test_generate_round_plan_custom_company_researches(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             return _payload(_round("tech_1"), _round("hr_1", workflow_type="hr"))
 
-    from realmock.domains.interview.process import round_planner as round_planner_mod
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
     monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context", fake_research)
@@ -284,7 +284,7 @@ def test_generate_round_plan_catalog_company_skips_research(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             return _payload(_round("tech_1"))
 
-    from realmock.domains.interview.process import round_planner as round_planner_mod
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
     monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context", fail_research)
@@ -307,7 +307,7 @@ def test_generate_round_plan_research_failure_still_plans(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             return _payload(_round("tech_1"))
 
-    from realmock.domains.interview.process import round_planner as round_planner_mod
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
     monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context", failed_research)

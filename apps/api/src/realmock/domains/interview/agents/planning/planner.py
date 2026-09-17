@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.process.company_research import (
+from realmock.domains.interview.agents.research.company_research import (
     STANDALONE_FETCH_BUDGET,
     STANDALONE_MAX_SECONDS,
     STANDALONE_SEARCH_BUDGET,
@@ -23,11 +23,11 @@ from realmock.domains.interview.process.company_research import (
     needs_company_research,
     research_company_context,
 )
-from realmock.domains.interview.process.planning.plan_prompts import (
+from realmock.domains.interview.agents.planning.plan_prompts import (
     build_plan_user_message,
     planner_system_prompt,
 )
-from realmock.domains.interview.process.planning.plan_schema import (
+from realmock.domains.interview.process.plan_schema import (
     InterviewPlan,
     parse_plan,
     plan_from_workflow,

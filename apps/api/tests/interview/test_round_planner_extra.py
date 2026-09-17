@@ -153,7 +153,7 @@ def _state(db, **overrides) -> InterviewSessionState:
 
 
 def test_first_session_orders_by_round(db) -> None:
-    from realmock.domains.interview.process import round_planner as rp
+    from realmock.domains.interview.agents.planning import round_planner as rp
 
     proc = InterviewProcess(role="r", level="l", company="c", max_rounds=3)
     db.add(proc)
@@ -164,7 +164,7 @@ def test_first_session_orders_by_round(db) -> None:
 
 @pytest.mark.asyncio
 async def test_generate_round_plan_no_process(monkeypatch) -> None:
-    from realmock.domains.interview.process import round_planner as rp
+    from realmock.domains.interview.agents.planning import round_planner as rp
 
     class _Ctx:
         def __enter__(self):
@@ -179,7 +179,7 @@ async def test_generate_round_plan_no_process(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_generate_round_plan_no_first_session_marks_failed(db, monkeypatch) -> None:
-    from realmock.domains.interview.process import round_planner as rp
+    from realmock.domains.interview.agents.planning import round_planner as rp
     from realmock.domains.interview.schemas.process import ProcessCreateRequest
     from realmock.domains.interview.process.process_service import (
         create_process_with_first_round,
@@ -197,7 +197,7 @@ async def test_generate_round_plan_no_first_session_marks_failed(db, monkeypatch
 
 @pytest.mark.asyncio
 async def test_generate_round_plan_no_api_key_marks_failed(db, monkeypatch) -> None:
-    from realmock.domains.interview.process import round_planner as rp
+    from realmock.domains.interview.agents.planning import round_planner as rp
     from realmock.domains.interview.schemas.process import ProcessCreateRequest
     from realmock.domains.interview.process.process_service import (
         create_process_with_first_round,
@@ -218,7 +218,7 @@ async def test_generate_round_plan_no_api_key_marks_failed(db, monkeypatch) -> N
 async def test_generate_round_plan_timeout_marks_failed(db, monkeypatch) -> None:
     import asyncio as _asyncio
 
-    from realmock.domains.interview.process import round_planner as rp
+    from realmock.domains.interview.agents.planning import round_planner as rp
     from realmock.domains.interview.schemas.process import ProcessCreateRequest
     from realmock.domains.interview.process.process_service import (
         create_process_with_first_round,
@@ -245,7 +245,7 @@ async def test_generate_round_plan_timeout_marks_failed(db, monkeypatch) -> None
 
 @pytest.mark.asyncio
 async def test_generate_round_plan_invalid_payload_marks_failed(db, monkeypatch) -> None:
-    from realmock.domains.interview.process import round_planner as rp
+    from realmock.domains.interview.agents.planning import round_planner as rp
     from realmock.domains.interview.schemas.process import ProcessCreateRequest
     from realmock.domains.interview.process.process_service import (
         create_process_with_first_round,

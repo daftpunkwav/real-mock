@@ -24,7 +24,7 @@ from realmock.domains.interview.agents.agent_prompts import (
     needs_compact_candidate,
 )
 from realmock.domains.interview.workflows import Workflow
-from realmock.domains.interview.process.company_research import (
+from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     load_session_company_research,
 )

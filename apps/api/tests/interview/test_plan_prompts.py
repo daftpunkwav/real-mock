@@ -24,7 +24,7 @@ def _clean_limits():
 
 
 def test_plan_user_message_all_branches() -> None:
-    from realmock.domains.interview.process.planning import plan_prompts as mod
+    from realmock.domains.interview.agents.planning import plan_prompts as mod
     from realmock.domains.interview.schemas import InterviewConfig
 
     cfg = InterviewConfig(role="BE", level="S", company="Acme")

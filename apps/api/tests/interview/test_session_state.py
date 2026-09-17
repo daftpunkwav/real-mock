@@ -237,7 +237,7 @@ def test_apply_plan_ops_branches(db) -> None:
     st.plan = None
     assert st.apply_plan_ops(({"title": "x"},)) == 0
     # With plan: insert, skip empty title, clamp max_questions.
-    from realmock.domains.interview.process.planning.plan_schema import (
+    from realmock.domains.interview.process.plan_schema import (
         MAX_PLAN_STEPS,
         InterviewPlan,
         PlanStep,

@@ -12,13 +12,13 @@ from realmock.domains.interview.agents.past_records import (
 )
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.turn_output import parse_turn_output
-from realmock.domains.interview.process.planning.plan_schema import (
+from realmock.domains.interview.process.plan_schema import (
     MAX_PLAN_STEPS,
     MIN_PLAN_STEPS,
     parse_plan,
     plan_from_workflow,
 )
-from realmock.domains.interview.process.planning.planner import (
+from realmock.domains.interview.agents.planning.planner import (
     PLAN_STATUS_READY,
     ensure_plan,
     fallback_plan_for,
@@ -144,7 +144,7 @@ def test_parse_plan_opening_degrades_unknown_style():
 
 def test_plan_user_message_carries_locale_signal():
     """The planner sees the UI locale so it can judge the flow language."""
-    from realmock.domains.interview.process.planning.plan_prompts import build_plan_user_message
+    from realmock.domains.interview.agents.planning.plan_prompts import build_plan_user_message
     from realmock.domains.interview.schemas import InterviewConfig
 
     config = InterviewConfig(role="Backend", level="Senior", company="Acme")
@@ -331,7 +331,7 @@ def test_generate_plan_success_marks_ready(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             return plan_payload
 
-    from realmock.domains.interview.process.planning import planner as planner_mod
+    from realmock.domains.interview.agents.planning import planner as planner_mod
 
     monkeypatch.setattr(planner_mod, "session_llm", lambda db, session: FakePlannerLLM())
     import asyncio
@@ -353,7 +353,7 @@ def test_generate_plan_failure_marks_failed(db, monkeypatch):
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             raise RuntimeError("planner down")
 
-    from realmock.domains.interview.process.planning import planner as planner_mod
+    from realmock.domains.interview.agents.planning import planner as planner_mod
 
     monkeypatch.setattr(planner_mod, "session_llm", lambda db, session: ExplodingLLM())
     import asyncio

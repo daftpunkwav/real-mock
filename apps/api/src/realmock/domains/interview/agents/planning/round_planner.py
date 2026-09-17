@@ -15,12 +15,12 @@ from typing import Any
 
 from realmock.domains.interview.agents import session_llm
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.process.company_research import (
+from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     needs_company_research,
     research_company_context,
 )
-from realmock.domains.interview.process.round_plan_prompts import (
+from realmock.domains.interview.agents.planning.round_plan_prompts import (
     build_round_plan_user_message,
     hr_planner_system_prompt,
 )

@@ -13,7 +13,7 @@ import json
 import pytest
 
 from realmock.domains.interview.models import CompanyBrief
-from realmock.domains.interview.process import company_brief as cb
+from realmock.domains.interview.agents.research import company_brief as cb
 from tests.fakes import FakeLLMClient
 
 

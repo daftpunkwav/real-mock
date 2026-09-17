@@ -42,7 +42,11 @@ from typing import Any
 _LAZY_EXPORTS: dict[str, str] = {
     "InterviewRunner": ".runner",
     "InterviewSessionState": ".session_state",
+    "clear_company_briefs": ".research.company_brief",
     "generate_full_reference_hint": ".hint_answer",
+    "generate_plan_for_session": ".planning.planner",
+    "generate_round_plan_for_process": ".planning.round_planner",
+    "get_or_create_brief": ".research.company_brief",
     "run_finish_lifecycle": ".finish_lifecycle",
     "session_llm": ".session_overrides",
     "session_stt_credentials": ".session_overrides",
@@ -55,7 +59,11 @@ _LAZY_EXPORTS: dict[str, str] = {
 __all__ = [
     "InterviewRunner",
     "InterviewSessionState",
+    "clear_company_briefs",
     "generate_full_reference_hint",
+    "generate_plan_for_session",
+    "generate_round_plan_for_process",
+    "get_or_create_brief",
     "run_finish_lifecycle",
     "session_llm",
     "session_stt_credentials",

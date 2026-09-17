@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from realmock.platform.core.errors import raise_error
 from realmock.platform.database import get_api_db, get_sessions_db
-from realmock.domains.interview.process.company_brief import (
+from realmock.domains.interview.agents import (
     clear_company_briefs,
     get_or_create_brief,
 )

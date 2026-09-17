@@ -21,7 +21,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.models import CompanyBrief
-from realmock.domains.interview.process.company_research import (
+from realmock.domains.interview.agents.research.company_research import (
     STANDALONE_FETCH_BUDGET,
     STANDALONE_MAX_SECONDS,
     STANDALONE_SEARCH_BUDGET,

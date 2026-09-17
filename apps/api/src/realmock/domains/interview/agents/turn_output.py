@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
-from realmock.domains.interview.process.planning.plan_schema import (
+from realmock.domains.interview.process.plan_schema import (
     STEP_FOCUS_MAX_CHARS,
     STEP_QUESTIONS_MAX,
     STEP_TITLE_MAX_CHARS,

@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.process import company_research as cr
+from realmock.domains.interview.agents.research import company_research as cr
 from tests.fakes import FakeLLMClient
 
 

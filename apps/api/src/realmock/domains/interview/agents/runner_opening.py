@@ -22,7 +22,7 @@ from realmock.domains.interview.agents.say_first import (
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
-from realmock.domains.interview.process.planning.planner import ensure_plan
+from realmock.domains.interview.agents.planning.planner import ensure_plan
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.runner import InterviewRunner

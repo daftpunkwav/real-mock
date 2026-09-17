@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from realmock.domains.interview.process.planning import planner as pl
-from realmock.domains.interview.process.planning.plan_schema import InterviewPlan
+from realmock.domains.interview.agents.planning import planner as pl
+from realmock.domains.interview.process.plan_schema import InterviewPlan
 from tests.fakes import FakeLLMClient
 
 
@@ -123,7 +123,7 @@ def test_round_pass_criteria_none_and_match() -> None:
 
 def test_round_pass_criteria_exception(monkeypatch) -> None:
     monkeypatch.setattr(
-        "realmock.domains.interview.process.planning.planner.load_round_plan",
+        "realmock.domains.interview.agents.planning.planner.load_round_plan",
         lambda proc: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     assert pl._round_pass_criteria(object(), 1) == ""

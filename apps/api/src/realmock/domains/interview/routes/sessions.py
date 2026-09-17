@@ -28,8 +28,8 @@ from realmock.domains.interview.schemas import (
     InterviewConfig,
     InterviewSessionResponse,
 )
-from realmock.domains.interview.process.planning.planner import generate_plan_for_session
-from realmock.domains.interview.process.planning.plan_schema import (
+from realmock.domains.interview.agents import generate_plan_for_session
+from realmock.domains.interview.process.plan_schema import (
     parse_plan,
     plan_step_views,
 )
