@@ -11,7 +11,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 
-from realmock.domains.interview.agents.workflows import Workflow
+from realmock.domains.interview.workflows import Workflow
 
 logger = logging.getLogger(__name__)
 

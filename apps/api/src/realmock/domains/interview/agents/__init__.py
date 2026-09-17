@@ -14,23 +14,24 @@ architecture test holding the seams):
 - rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools`` + ``hint_answer`` + ``tool_guard``;
 - prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
 - state: ``session_state`` + ``session_overrides`` + ``past_records`` + ``history_compaction``;
-- protocol: ``turn_output`` (+ leaf contracts ``events`` / ``agent_text`` / ``workflows``);
+- protocol: ``turn_output`` (+ leaf contracts ``events`` / ``agent_text``);
 - followup: ``followup`` + ``followup_inject``.
 
 External layers (``realtime``, ``routes``, ``process``) must depend only on
 this facade plus the leaf contracts below — never on sibling modules directly:
 
 - ``agents.events`` — WS event contract (versioned via ``schema_version``);
-- ``agents.workflows`` — phase SSOT (read-only data);
 - ``agents.agent_text`` — text filters (pure functions).
+
+The phase SSOT lives at :mod:`realmock.domains.interview.workflows` (domain
+vocabulary, not agent machinery — both ``agents`` and ``process`` import it).
 
 Internal modules keep importing each other by submodule path.
 
 The re-exports below are lazy (PEP 562): resolving them imports the owning
-submodule on first use, so importing this package (or a leaf such as
-``agents.workflows`` from ``process.planning``) never pulls the runner chain
-at package-init time. Without this, ``plan_schema`` ↔ ``turn_output`` form a
-package-level import cycle.
+submodule on first use, so importing this package never pulls the runner
+chain at package-init time. Without this, ``plan_schema`` ↔ ``turn_output``
+form a package-level import cycle.
 """
 
 from __future__ import annotations

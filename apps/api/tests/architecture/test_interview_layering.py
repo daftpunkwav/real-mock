@@ -5,7 +5,7 @@ earned past ~400 lines in one file or 3+ new files in a cluster. Until then
 these tests hold the seams instead of directories:
 
 - external layers (realtime/routes/process) reach ``agents`` internals only
-  through the facade or the three leaf contracts;
+  through the facade or the two leaf contracts;
 - ``agents`` never imports upward (realtime/routes);
 - the WS entry (``routes/ws``) is the single wire into ``realtime``;
 - ``agents`` may use the frozen shared-kernel allowlist under ``process``
@@ -21,7 +21,8 @@ from pathlib import Path
 INTERVIEW_ROOT = Path("src/realmock/domains/interview")
 
 #: Deep ``agents.<leaf>`` imports allowed outside ``agents`` (contracts/SSOT).
-AGENTS_LEAF_ALLOWLIST = frozenset({"events", "workflows", "agent_text"})
+#: The phase SSOT lives at the domain root (``interview.workflows``).
+AGENTS_LEAF_ALLOWLIST = frozenset({"events", "agent_text"})
 
 #: ``process.*`` modules ``agents`` may import (frozen shared kernel: the plan
 #: protocol hosted under process/planning plus read-only process views, plus

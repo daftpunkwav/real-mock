@@ -51,7 +51,7 @@ def test_config_shim_defaults() -> None:
 
 
 def test_dump_and_fallback_plan() -> None:
-    from realmock.domains.interview.agents.workflows import get_workflow
+    from realmock.domains.interview.workflows import get_workflow
 
     plan = pl.fallback_plan_for(SimpleNamespace(workflow_type="technical"))
     assert isinstance(plan, InterviewPlan)

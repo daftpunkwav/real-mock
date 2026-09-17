@@ -13,7 +13,7 @@ from __future__ import annotations
 from realmock.platform.schemas import CandidateProfile
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.domains.interview.agents.agent_prompts import build_system_prompt
-from realmock.domains.interview.agents.workflows import get_workflow
+from realmock.domains.interview.workflows import get_workflow
 
 
 def _config(**overrides) -> InterviewConfig:

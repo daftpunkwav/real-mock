@@ -23,7 +23,7 @@ from realmock.domains.interview.process.planning.planner import (
     ensure_plan,
     fallback_plan_for,
 )
-from realmock.domains.interview.agents.workflows import get_workflow
+from realmock.domains.interview.workflows import get_workflow
 from tests.fakes import FakeLLMClient
 
 
