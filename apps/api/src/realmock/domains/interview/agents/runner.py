@@ -14,7 +14,8 @@ not a direct growth-domain import.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -48,10 +49,13 @@ class InterviewRunner:
         llm: LLMClient,
         agent: InterviewSessionState | None = None,
         rag: CompanyKnowledgeRAG | None = None,
+        task_spawner: Callable[[Coroutine[Any, Any, Any]], asyncio.Task[Any]] | None = None,
     ):
         self.session = session
         self.llm = llm
         self.agent = agent or InterviewSessionState(session, llm)
+        self._task_spawner = task_spawner
+        self._bg_tasks: set[asyncio.Task[Any]] = set()
         # Growth feedback port: composition root registers the provider.
         if self.agent.system_insights_provider is None:
             provider = get_system_insights_provider()
@@ -64,6 +68,24 @@ class InterviewRunner:
         self.shadow_evaluator = ShadowEvaluatorAgent(llm, self.agent.cognitive_memory)
         self.coding_examiner = CodingExaminerAgent(llm, self.agent.cognitive_memory)
         self.process_orchestrator = ProcessOrchestratorAgent(llm, self.agent.cognitive_memory)
+
+    def spawn_bg_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Spawn a background task bound to this runner or the injected spawner."""
+        if self._task_spawner is not None:
+            return self._task_spawner(coro)
+        task = asyncio.create_task(coro)
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+        return task
+
+    async def cancel_bg_tasks(self) -> None:
+        """Cancel all runner-owned background tasks."""
+        tasks = list(self._bg_tasks)
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._bg_tasks.clear()
 
     async def stream_opening(self, db: Session) -> AsyncIterator[StreamEvent]:
         """Start the interview and stream the opening line."""

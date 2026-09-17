@@ -865,3 +865,52 @@ def test_stream_turn_pace_hint_is_transient(db) -> None:
 
     turn_done = next(e for e in events if e.kind == EventKind.TURN_COMPLETE)
     assert turn_done.content == "Next question?"
+
+
+def test_runner_background_task_lifecycle(db) -> None:
+    import asyncio
+    session = _make_session(db)
+    llm = FakeLLMClient()
+    runner = InterviewRunner(session, llm)
+
+    async def _dummy():
+        await asyncio.sleep(10)
+
+    async def run():
+        t = runner.spawn_bg_task(_dummy())
+        assert t in runner._bg_tasks
+        assert not t.done()
+        await runner.cancel_bg_tasks()
+        assert t.cancelled()
+        assert len(runner._bg_tasks) == 0
+
+    asyncio.run(run())
+
+
+def test_runner_custom_task_spawner(db) -> None:
+    import asyncio
+    session = _make_session(db)
+    llm = FakeLLMClient()
+    spawned = []
+
+    def custom_spawner(coro):
+        t = asyncio.create_task(coro)
+        spawned.append(t)
+        return t
+
+    runner = InterviewRunner(session, llm, task_spawner=custom_spawner)
+
+    async def _dummy():
+        await asyncio.sleep(10)
+
+    async def run():
+        t = runner.spawn_bg_task(_dummy())
+        assert t in spawned
+        t.cancel()
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
+
+    asyncio.run(run())
+

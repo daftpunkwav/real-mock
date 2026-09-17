@@ -40,6 +40,7 @@ def _mk_runner():
     r.shadow_evaluator.evaluate_turn = AsyncMock(return_value=None)
     r.process_orchestrator.decide_next_step = AsyncMock(return_value=MagicMock(directive="a", reason="r", target_topic="t"))
     r.llm = MagicMock(api_key="sk")
+    r.spawn_bg_task = MagicMock(side_effect=lambda coro: asyncio.create_task(coro))
     return r
 
 
@@ -72,6 +73,7 @@ def _mk_runner_pace(qn=0):
     r.shadow_evaluator.evaluate_turn = AsyncMock(return_value=None)
     r.process_orchestrator.decide_next_step = AsyncMock(return_value=MagicMock(directive="a", reason="r", target_topic="t"))
     r.llm = MagicMock(api_key="sk")
+    r.spawn_bg_task = MagicMock(side_effect=lambda coro: asyncio.create_task(coro))
     return r
 
 
@@ -102,6 +104,7 @@ def _mk_runner_timed():
     r.prompter.build_api_messages = AsyncMock(return_value=[{"role": "user", "content": "hi"}])
     r.tools.maybe_retrieve_rag = AsyncMock(return_value=None)
     r.llm = MagicMock(api_key="sk")
+    r.spawn_bg_task = MagicMock(side_effect=lambda coro: asyncio.create_task(coro))
     return r
 
 

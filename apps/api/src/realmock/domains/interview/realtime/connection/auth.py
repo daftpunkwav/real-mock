@@ -101,7 +101,9 @@ class ConnectionAuthMixin:
         except Exception as e:
             logger.warning("RAG instantiation failed, continue in RAG-less mode: %s", e)
 
-        self.ctx.runner = InterviewRunner(session, self.ctx.llm, self.ctx.agent, rag=rag)
+        self.ctx.runner = InterviewRunner(
+            session, self.ctx.llm, self.ctx.agent, rag=rag, task_spawner=self._spawn
+        )
 
         cfg = get_settings()
         settings_voice = self.ctx.tts_creds.voice or cfg.tts_voice

@@ -278,11 +278,11 @@ async def stream_turn(
                 logger.debug("background orchestrator advice failed", exc_info=True)
 
         try:
-            asyncio.create_task(_bounded_shadow())
+            runner.spawn_bg_task(_bounded_shadow())
             if turn_index > 0 and turn_index % 4 == 0:
-                asyncio.create_task(_bounded_reflection())
+                runner.spawn_bg_task(_bounded_reflection())
             if turn_index > 0 and turn_index % 6 == 0:
-                asyncio.create_task(_bounded_orchestrator())
+                runner.spawn_bg_task(_bounded_orchestrator())
         except Exception:
             logger.debug("background agent trigger failed", exc_info=True)
 

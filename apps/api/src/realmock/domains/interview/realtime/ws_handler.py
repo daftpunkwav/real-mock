@@ -117,6 +117,8 @@ class InterviewWSHandler(
             await asyncio.gather(*tasks, return_exceptions=True)
         self.ctx.bg_tasks.clear()
         self.ctx.report_task = None
+        if self.ctx.runner is not None:
+            await self.ctx.runner.cancel_bg_tasks()
 
     def _load_session(self, db: Session) -> InterviewSession | None:
         return (
