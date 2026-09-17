@@ -66,8 +66,6 @@ export const settings = {
   "providerCard.name.label": "名称",
   "providerCard.baseUrl.label": "Base URL",
   "providerCard.fullUrl.label": "完整 URL",
-  "providerCard.fullUrl.hint":
-    "开启后填写完整请求地址(勿以 / 结尾),适用于语音等非标准端点;关闭时按 API 格式拼接路径",
   "providerCard.apiFormat.label": "API 格式",
   "providerCard.apiFormat.disabledHint": "完整 URL 模式下 API 格式不生效",
   "providerCard.apiKey.label": "API Key",

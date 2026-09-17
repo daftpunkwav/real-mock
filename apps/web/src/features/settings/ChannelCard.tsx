@@ -1,7 +1,9 @@
 "use client";
 
 /** Per-kind channel form: Base URL / full-URL flag / API key (API format on the chat tab
- * only — voice adapters route by vendor, not protocol). Saving upserts the channel. */
+ * only — voice adapters route by vendor, not protocol). Voice channels are always full
+ * URLs, so the flag is a chat-only toggle and stt/tts always save full_url=true.
+ * Saving upserts the channel. */
 
 import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
@@ -36,6 +38,9 @@ export function ChannelCard({
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const t = useT("settings");
+  // Voice endpoints are nonstandard, so stt/tts URLs are always complete.
+  const fullUrlToggle = kind === "chat";
+  const effectiveFullUrl = fullUrlToggle ? fullUrl : true;
 
   useEffect(() => {
     setApiBase(channel?.api_base ?? "");
@@ -46,7 +51,7 @@ export function ChannelCard({
 
   const save = () => onSave(providerId, kind, {
     api_base: apiBase,
-    full_url: fullUrl,
+    full_url: effectiveFullUrl,
     ...(showProtocol ? { protocol } : {}),
     ...(apiKey ? { api_key: apiKey } : {}),
   });
@@ -56,18 +61,19 @@ export function ChannelCard({
       <div>
         <div className="mb-1 flex items-center gap-3">
           <span className="text-[11px] text-ink-muted">{t("providerCard.baseUrl.label")}</span>
-          <label className="flex cursor-pointer items-center gap-1 text-[11px] text-ink-muted">
-            <input type="checkbox" checked={fullUrl} onChange={(e) => setFullUrl(e.target.checked)} />
-            {t("providerCard.fullUrl.label")}
-          </label>
+          {fullUrlToggle && (
+            <label className="flex cursor-pointer items-center gap-1 text-[11px] text-ink-muted">
+              <input type="checkbox" checked={fullUrl} onChange={(e) => setFullUrl(e.target.checked)} />
+              {t("providerCard.fullUrl.label")}
+            </label>
+          )}
         </div>
         <input
           className="field-input !h-9"
           value={apiBase}
-          placeholder={fullUrl ? "https://…/v1/endpoint" : "https://…"}
+          placeholder={effectiveFullUrl ? "https://…/v1/endpoint" : "https://…"}
           onChange={(e) => setApiBase(e.target.value)}
         />
-        {fullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.fullUrl.hint")}</p>}
       </div>
       {showProtocol && (
         <div>
@@ -78,9 +84,9 @@ export function ChannelCard({
             value={protocol}
             options={PROTOCOL_OPTIONS}
             onChange={setProtocol}
-            disabled={fullUrl}
+            disabled={effectiveFullUrl}
           />
-          {fullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.apiFormat.disabledHint")}</p>}
+          {effectiveFullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.apiFormat.disabledHint")}</p>}
         </div>
       )}
       <div>

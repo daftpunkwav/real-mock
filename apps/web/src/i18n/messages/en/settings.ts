@@ -67,8 +67,6 @@ export const settings = {
   "providerCard.name.label": "Name",
   "providerCard.baseUrl.label": "Base URL",
   "providerCard.fullUrl.label": "Full URL",
-  "providerCard.fullUrl.hint":
-    "When on, enter the complete request URL (no trailing slash) for nonstandard endpoints such as voice APIs; when off, paths are appended per API format",
   "providerCard.apiFormat.label": "API format",
   "providerCard.apiFormat.disabledHint": "API format is ignored in full-URL mode",
   "providerCard.apiKey.label": "API Key",
