@@ -88,6 +88,9 @@ export interface RecommendedVendor {
 
 /* ── Model profile system (capability declaration) ─────────────────────────── */
 
+/** Channel/model-entry kind: which tab a model lives under and whose connection it uses */
+export type ModelKind = "chat" | "stt" | "tts";
+
 /** Neutral capability flags: a profile declares what it can do; reusable across task bindings */
 export interface ModelCapabilities {
   chat: boolean;
@@ -97,11 +100,25 @@ export interface ModelCapabilities {
   reasoning: boolean;
 }
 
+/** Connection settings for one model type (chat / stt / tts) under a provider */
+export interface ProviderChannel {
+  kind: ModelKind;
+  /** Catalog vendor id (e.g. "minimax") selecting the deep request adapter; "" for custom */
+  vendor: string;
+  api_base: string;
+  /** Full-URL mode: api_base is a complete endpoint used verbatim; protocol paths are skipped */
+  full_url: boolean;
+  protocol: LLMProtocol;
+  has_api_key: boolean;
+}
+
 /** Model profile (one model under a provider + capabilities + params) */
 export interface ModelProfile {
   id: number;
   provider_id: number;
   provider_name: string;
+  /** Which provider channel/tab this entry belongs to */
+  kind: ModelKind;
   model: string;
   display_name: string;
   label: string;
@@ -115,17 +132,18 @@ export interface ModelProfile {
 export interface ProviderWithModels {
   id: number;
   name: string;
-  api_base: string;
-  /** Full-URL mode: api_base is a complete endpoint used verbatim; protocol paths are skipped */
-  full_url: boolean;
-  protocol: LLMProtocol;
   enabled: boolean;
-  has_api_key: boolean;
+  /** Optional reference info, purely informational */
+  website_url: string;
+  notes: string;
+  /** Per-type connection settings; missing kinds can be created by saving their tab */
+  channels: ProviderChannel[];
   models: ModelProfile[];
 }
 
 export interface ModelProfileWrite {
   model: string;
+  kind?: ModelKind;
   display_name?: string;
   context_window?: number;
   max_output?: number;
@@ -134,13 +152,44 @@ export interface ModelProfileWrite {
   enabled?: boolean;
 }
 
-export interface ProviderWrite {
-  name?: string;
+export interface ProviderChannelWrite {
+  kind: ModelKind;
+  vendor?: string;
   api_base?: string;
   full_url?: boolean;
   protocol?: LLMProtocol;
   api_key?: string;
+}
+
+export interface ProviderWrite {
+  name?: string;
   enabled?: boolean;
+  website_url?: string;
+  notes?: string;
+  channels?: ProviderChannelWrite[];
+}
+
+/** Result of the one-click recommended-vendor provisioning */
+export interface VendorApplyResult {
+  provider_id: number;
+  name: string;
+  created_provider: boolean;
+  configured_kinds: ModelKind[];
+}
+
+/** Model ids offered for one channel (from the vendor descriptor or the /models endpoint) */
+export interface ChannelModelCatalog {
+  source: "vendor" | "remote";
+  models: string[];
+}
+
+/** Agent-researched company brief (setup preview); cached per company+role+level+type+language */
+export interface CompanyBrief {
+  company: string;
+  style: string;
+  focus_areas: string[];
+  process: string;
+  cached: boolean;
 }
 
 /** Task bindings: default handlers for chat / stt / tts */

@@ -860,7 +860,7 @@
           "settings"
         ],
         "summary": "Recommended Vendors",
-        "description": "Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.\n\nDrives the settings-page \"add provider\" cascade; entries carry catalog prefills\nplus the deep request template metadata when a vendor descriptor JSON exists.",
+        "description": "Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.\n\nDrives the settings-page \"add provider\" panel; entries carry catalog prefills\nplus the deep request template metadata when a vendor descriptor JSON exists.",
         "operationId": "recommended_vendors_api_v1_settings_vendors_get",
         "responses": {
           "200": {
@@ -871,6 +871,51 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Recommended Vendors Api V1 Settings Vendors Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/vendors/{vendor_id}/apply": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Apply Recommended Vendor",
+        "description": "One-click provisioning: provider shell + one channel and default entry per adapted\ncapability; Base URLs and names prefill from the vendor catalog, API Keys stay empty.",
+        "operationId": "apply_recommended_vendor_api_v1_settings_vendors__vendor_id__apply_post",
+        "parameters": [
+          {
+            "name": "vendor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Vendor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Apply Recommended Vendor Api V1 Settings Vendors  Vendor Id  Apply Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -936,6 +981,7 @@
           "settings"
         ],
         "summary": "Delete Provider",
+        "description": "Delete the provider and everything under it: model entries, channel settings,\nand task bindings pointing at its entries (the UI asks for confirmation first).",
         "operationId": "delete_provider_api_v1_settings_providers__provider_id__delete",
         "parameters": [
           {
@@ -957,6 +1003,123 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Delete Provider Api V1 Settings Providers  Provider Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/providers/{provider_id}/channels/{kind}": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Provider Channel",
+        "operationId": "update_provider_channel_api_v1_settings_providers__provider_id__channels__kind__put",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Provider Channel Api V1 Settings Providers  Provider Id  Channels  Kind  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/providers/{provider_id}/channels/{kind}/catalog": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Fetch Channel Model Catalog",
+        "description": "Model ids offered for this channel: vendor descriptor list or the provider's\nOpenAI-compatible /models endpoint.",
+        "operationId": "fetch_channel_model_catalog_api_v1_settings_providers__provider_id__channels__kind__catalog_get",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fetch Channel Model Catalog Api V1 Settings Providers  Provider Id  Channels  Kind  Catalog Get"
                 }
               }
             }
@@ -3238,6 +3401,76 @@
         }
       }
     },
+    "/api/v1/interview/company-brief": {
+      "post": {
+        "tags": [
+          "interview"
+        ],
+        "summary": "Company Brief",
+        "description": "Agent-researched brief (style / focus areas / process) for the setup preview.\n\nCached per company + role + level + interview type + language; generation\nruns inline (bounded web research) only on a cache miss, so the request can\ntake tens of seconds when cold.",
+        "operationId": "company_brief_api_v1_interview_company_brief_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyBriefRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Company Brief Api V1 Interview Company Brief Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/interview/company-briefs": {
+      "delete": {
+        "tags": [
+          "interview"
+        ],
+        "summary": "Delete Company Briefs",
+        "description": "Clear the whole question-style brief cache (settings-page action).",
+        "operationId": "delete_company_briefs_api_v1_interview_company_briefs_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object",
+                  "title": "Response Delete Company Briefs Api V1 Interview Company Briefs Delete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/options": {
       "get": {
         "tags": [
@@ -4518,7 +4751,7 @@
           "settings"
         ],
         "summary": "Recommended Vendors",
-        "description": "Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.\n\nDrives the settings-page \"add provider\" cascade; entries carry catalog prefills\nplus the deep request template metadata when a vendor descriptor JSON exists.",
+        "description": "Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.\n\nDrives the settings-page \"add provider\" panel; entries carry catalog prefills\nplus the deep request template metadata when a vendor descriptor JSON exists.",
         "operationId": "recommended_vendors_api_settings_vendors_get",
         "responses": {
           "200": {
@@ -4529,6 +4762,51 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Recommended Vendors Api Settings Vendors Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/vendors/{vendor_id}/apply": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Apply Recommended Vendor",
+        "description": "One-click provisioning: provider shell + one channel and default entry per adapted\ncapability; Base URLs and names prefill from the vendor catalog, API Keys stay empty.",
+        "operationId": "apply_recommended_vendor_api_settings_vendors__vendor_id__apply_post",
+        "parameters": [
+          {
+            "name": "vendor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Vendor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Apply Recommended Vendor Api Settings Vendors  Vendor Id  Apply Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -4594,6 +4872,7 @@
           "settings"
         ],
         "summary": "Delete Provider",
+        "description": "Delete the provider and everything under it: model entries, channel settings,\nand task bindings pointing at its entries (the UI asks for confirmation first).",
         "operationId": "delete_provider_api_settings_providers__provider_id__delete",
         "parameters": [
           {
@@ -4615,6 +4894,123 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Delete Provider Api Settings Providers  Provider Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/providers/{provider_id}/channels/{kind}": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Provider Channel",
+        "operationId": "update_provider_channel_api_settings_providers__provider_id__channels__kind__put",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Provider Channel Api Settings Providers  Provider Id  Channels  Kind  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/providers/{provider_id}/channels/{kind}/catalog": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Fetch Channel Model Catalog",
+        "description": "Model ids offered for this channel: vendor descriptor list or the provider's\nOpenAI-compatible /models endpoint.",
+        "operationId": "fetch_channel_model_catalog_api_settings_providers__provider_id__channels__kind__catalog_get",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fetch Channel Model Catalog Api Settings Providers  Provider Id  Channels  Kind  Catalog Get"
                 }
               }
             }
@@ -6896,6 +7292,76 @@
         }
       }
     },
+    "/api/interview/company-brief": {
+      "post": {
+        "tags": [
+          "interview"
+        ],
+        "summary": "Company Brief",
+        "description": "Agent-researched brief (style / focus areas / process) for the setup preview.\n\nCached per company + role + level + interview type + language; generation\nruns inline (bounded web research) only on a cache miss, so the request can\ntake tens of seconds when cold.",
+        "operationId": "company_brief_api_interview_company_brief_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyBriefRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Company Brief Api Interview Company Brief Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/interview/company-briefs": {
+      "delete": {
+        "tags": [
+          "interview"
+        ],
+        "summary": "Delete Company Briefs",
+        "description": "Clear the whole question-style brief cache (settings-page action).",
+        "operationId": "delete_company_briefs_api_interview_company_briefs_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object",
+                  "title": "Response Delete Company Briefs Api Interview Company Briefs Delete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/options": {
       "get": {
         "tags": [
@@ -7679,6 +8145,113 @@
         ],
         "title": "CatalogOption"
       },
+      "ChannelUpdate": {
+        "properties": {
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "full_url": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Url"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          }
+        },
+        "type": "object",
+        "title": "ChannelUpdate",
+        "description": "Partial channel update; ``None`` fields keep their current value."
+      },
+      "ChannelWrite": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "maxLength": 10,
+            "minLength": 1,
+            "title": "Kind"
+          },
+          "vendor": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Vendor",
+            "default": ""
+          },
+          "api_base": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Api Base",
+            "default": ""
+          },
+          "full_url": {
+            "type": "boolean",
+            "title": "Full Url",
+            "default": false
+          },
+          "protocol": {
+            "type": "string",
+            "title": "Protocol",
+            "default": "openai_chat"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ChannelWrite",
+        "description": "Per-kind connection settings attached to a provider (create or upsert)."
+      },
       "ChatMessage": {
         "properties": {
           "role": {
@@ -7713,6 +8286,45 @@
           "content"
         ],
         "title": "ChatMessage"
+      },
+      "CompanyBriefRequest": {
+        "properties": {
+          "company": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Company"
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Role",
+            "default": ""
+          },
+          "level": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Level",
+            "default": ""
+          },
+          "interview_type": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Interview Type",
+            "default": ""
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 10,
+            "title": "Locale",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "company"
+        ],
+        "title": "CompanyBriefRequest"
       },
       "CompanyFit": {
         "properties": {
@@ -8631,6 +9243,11 @@
             "minLength": 1,
             "title": "Model"
           },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "chat"
+          },
           "display_name": {
             "type": "string",
             "maxLength": 200,
@@ -8690,6 +9307,19 @@
               }
             ],
             "title": "Model"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
           },
           "display_name": {
             "anyOf": [
@@ -10244,30 +10874,29 @@
             "minLength": 1,
             "title": "Name"
           },
-          "api_base": {
-            "type": "string",
-            "title": "Api Base",
-            "default": ""
-          },
-          "full_url": {
-            "type": "boolean",
-            "title": "Full Url",
-            "default": false
-          },
-          "protocol": {
-            "type": "string",
-            "title": "Protocol",
-            "default": "openai_chat"
-          },
-          "api_key": {
-            "type": "string",
-            "title": "Api Key",
-            "default": ""
-          },
           "enabled": {
             "type": "boolean",
             "title": "Enabled",
             "default": true
+          },
+          "website_url": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Website Url",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Notes",
+            "default": ""
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelWrite"
+            },
+            "type": "array",
+            "title": "Channels"
           }
         },
         "type": "object",
@@ -10291,50 +10920,6 @@
             ],
             "title": "Name"
           },
-          "api_base": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Base"
-          },
-          "full_url": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Full Url"
-          },
-          "protocol": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protocol"
-          },
-          "api_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Key"
-          },
           "enabled": {
             "anyOf": [
               {
@@ -10345,10 +10930,35 @@
               }
             ],
             "title": "Enabled"
+          },
+          "website_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website Url"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
           }
         },
         "type": "object",
-        "title": "ProviderUpdate"
+        "title": "ProviderUpdate",
+        "description": "Partial provider update; ``None`` fields keep their current value."
       },
       "RepoEvidence": {
         "properties": {

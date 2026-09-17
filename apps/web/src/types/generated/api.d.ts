@@ -441,12 +441,33 @@ export interface paths {
          * Recommended Vendors
          * @description Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.
          *
-         *     Drives the settings-page "add provider" cascade; entries carry catalog prefills
+         *     Drives the settings-page "add provider" panel; entries carry catalog prefills
          *     plus the deep request template metadata when a vendor descriptor JSON exists.
          */
         get: operations["recommended_vendors_api_v1_settings_vendors_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/vendors/{vendor_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Recommended Vendor
+         * @description One-click provisioning: provider shell + one channel and default entry per adapted
+         *     capability; Base URLs and names prefill from the vendor catalog, API Keys stay empty.
+         */
+        post: operations["apply_recommended_vendor_api_v1_settings_vendors__vendor_id__apply_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -464,8 +485,50 @@ export interface paths {
         /** Update Provider */
         put: operations["update_provider_api_v1_settings_providers__provider_id__put"];
         post?: never;
-        /** Delete Provider */
+        /**
+         * Delete Provider
+         * @description Delete the provider and everything under it: model entries, channel settings,
+         *     and task bindings pointing at its entries (the UI asks for confirmation first).
+         */
         delete: operations["delete_provider_api_v1_settings_providers__provider_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/providers/{provider_id}/channels/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Provider Channel */
+        put: operations["update_provider_channel_api_v1_settings_providers__provider_id__channels__kind__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/providers/{provider_id}/channels/{kind}/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch Channel Model Catalog
+         * @description Model ids offered for this channel: vendor descriptor list or the provider's
+         *     OpenAI-compatible /models endpoint.
+         */
+        get: operations["fetch_channel_model_catalog_api_v1_settings_providers__provider_id__channels__kind__catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1246,6 +1309,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interview/company-brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Company Brief
+         * @description Agent-researched brief (style / focus areas / process) for the setup preview.
+         *
+         *     Cached per company + role + level + interview type + language; generation
+         *     runs inline (bounded web research) only on a cache miss, so the request can
+         *     take tens of seconds when cold.
+         */
+        post: operations["company_brief_api_v1_interview_company_brief_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interview/company-briefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Company Briefs
+         * @description Clear the whole question-style brief cache (settings-page action).
+         */
+        delete: operations["delete_company_briefs_api_v1_interview_company_briefs_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/options": {
         parameters: {
             query?: never;
@@ -1860,12 +1967,33 @@ export interface paths {
          * Recommended Vendors
          * @description Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.
          *
-         *     Drives the settings-page "add provider" cascade; entries carry catalog prefills
+         *     Drives the settings-page "add provider" panel; entries carry catalog prefills
          *     plus the deep request template metadata when a vendor descriptor JSON exists.
          */
         get: operations["recommended_vendors_api_settings_vendors_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/vendors/{vendor_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Recommended Vendor
+         * @description One-click provisioning: provider shell + one channel and default entry per adapted
+         *     capability; Base URLs and names prefill from the vendor catalog, API Keys stay empty.
+         */
+        post: operations["apply_recommended_vendor_api_settings_vendors__vendor_id__apply_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1883,8 +2011,50 @@ export interface paths {
         /** Update Provider */
         put: operations["update_provider_api_settings_providers__provider_id__put"];
         post?: never;
-        /** Delete Provider */
+        /**
+         * Delete Provider
+         * @description Delete the provider and everything under it: model entries, channel settings,
+         *     and task bindings pointing at its entries (the UI asks for confirmation first).
+         */
         delete: operations["delete_provider_api_settings_providers__provider_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/providers/{provider_id}/channels/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Provider Channel */
+        put: operations["update_provider_channel_api_settings_providers__provider_id__channels__kind__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/providers/{provider_id}/channels/{kind}/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch Channel Model Catalog
+         * @description Model ids offered for this channel: vendor descriptor list or the provider's
+         *     OpenAI-compatible /models endpoint.
+         */
+        get: operations["fetch_channel_model_catalog_api_settings_providers__provider_id__channels__kind__catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2665,6 +2835,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/interview/company-brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Company Brief
+         * @description Agent-researched brief (style / focus areas / process) for the setup preview.
+         *
+         *     Cached per company + role + level + interview type + language; generation
+         *     runs inline (bounded web research) only on a cache miss, so the request can
+         *     take tens of seconds when cold.
+         */
+        post: operations["company_brief_api_interview_company_brief_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/interview/company-briefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Company Briefs
+         * @description Clear the whole question-style brief cache (settings-page action).
+         */
+        delete: operations["delete_company_briefs_api_interview_company_briefs_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/options": {
         parameters: {
             query?: never;
@@ -3025,6 +3239,55 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * ChannelUpdate
+         * @description Partial channel update; ``None`` fields keep their current value.
+         */
+        ChannelUpdate: {
+            /** Vendor */
+            vendor?: string | null;
+            /** Api Base */
+            api_base?: string | null;
+            /** Full Url */
+            full_url?: boolean | null;
+            /** Protocol */
+            protocol?: string | null;
+            /** Api Key */
+            api_key?: string | null;
+        };
+        /**
+         * ChannelWrite
+         * @description Per-kind connection settings attached to a provider (create or upsert).
+         */
+        ChannelWrite: {
+            /** Kind */
+            kind: string;
+            /**
+             * Vendor
+             * @default
+             */
+            vendor: string;
+            /**
+             * Api Base
+             * @default
+             */
+            api_base: string;
+            /**
+             * Full Url
+             * @default false
+             */
+            full_url: boolean;
+            /**
+             * Protocol
+             * @default openai_chat
+             */
+            protocol: string;
+            /**
+             * Api Key
+             * @default
+             */
+            api_key: string;
+        };
         /** ChatMessage */
         ChatMessage: {
             /**
@@ -3036,6 +3299,31 @@ export interface components {
             content: string;
             /** Timestamp */
             timestamp?: string | null;
+        };
+        /** CompanyBriefRequest */
+        CompanyBriefRequest: {
+            /** Company */
+            company: string;
+            /**
+             * Role
+             * @default
+             */
+            role: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Interview Type
+             * @default
+             */
+            interview_type: string;
+            /**
+             * Locale
+             * @default
+             */
+            locale: string;
         };
         /**
          * CompanyFit
@@ -3422,6 +3710,11 @@ export interface components {
             /** Model */
             model: string;
             /**
+             * Kind
+             * @default chat
+             */
+            kind: string;
+            /**
              * Display Name
              * @default
              */
@@ -3460,6 +3753,8 @@ export interface components {
         ModelProfileUpdate: {
             /** Model */
             model?: string | null;
+            /** Kind */
+            kind?: string | null;
             /** Display Name */
             display_name?: string | null;
             /** Context Window */
@@ -4157,45 +4452,36 @@ export interface components {
             /** Name */
             name: string;
             /**
-             * Api Base
-             * @default
-             */
-            api_base: string;
-            /**
-             * Full Url
-             * @default false
-             */
-            full_url: boolean;
-            /**
-             * Protocol
-             * @default openai_chat
-             */
-            protocol: string;
-            /**
-             * Api Key
-             * @default
-             */
-            api_key: string;
-            /**
              * Enabled
              * @default true
              */
             enabled: boolean;
+            /**
+             * Website Url
+             * @default
+             */
+            website_url: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Channels */
+            channels?: components["schemas"]["ChannelWrite"][];
         };
-        /** ProviderUpdate */
+        /**
+         * ProviderUpdate
+         * @description Partial provider update; ``None`` fields keep their current value.
+         */
         ProviderUpdate: {
             /** Name */
             name?: string | null;
-            /** Api Base */
-            api_base?: string | null;
-            /** Full Url */
-            full_url?: boolean | null;
-            /** Protocol */
-            protocol?: string | null;
-            /** Api Key */
-            api_key?: string | null;
             /** Enabled */
             enabled?: boolean | null;
+            /** Website Url */
+            website_url?: string | null;
+            /** Notes */
+            notes?: string | null;
         };
         /**
          * RepoEvidence
@@ -5854,6 +6140,39 @@ export interface operations {
             };
         };
     };
+    apply_recommended_vendor_api_v1_settings_vendors__vendor_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_provider_api_v1_settings_providers__provider_id__put: {
         parameters: {
             query?: never;
@@ -5897,6 +6216,78 @@ export interface operations {
             header?: never;
             path: {
                 provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_provider_channel_api_v1_settings_providers__provider_id__channels__kind__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_channel_model_catalog_api_v1_settings_providers__provider_id__channels__kind__catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+                kind: string;
             };
             cookie?: never;
         };
@@ -7379,6 +7770,63 @@ export interface operations {
             };
         };
     };
+    company_brief_api_v1_interview_company_brief_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompanyBriefRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_company_briefs_api_v1_interview_company_briefs_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
     get_options_api_v1_options_get: {
         parameters: {
             query?: never;
@@ -8310,6 +8758,39 @@ export interface operations {
             };
         };
     };
+    apply_recommended_vendor_api_settings_vendors__vendor_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_provider_api_settings_providers__provider_id__put: {
         parameters: {
             query?: never;
@@ -8353,6 +8834,78 @@ export interface operations {
             header?: never;
             path: {
                 provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_provider_channel_api_settings_providers__provider_id__channels__kind__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_channel_model_catalog_api_settings_providers__provider_id__channels__kind__catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+                kind: string;
             };
             cookie?: never;
         };
@@ -9831,6 +10384,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_brief_api_interview_company_brief_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompanyBriefRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_company_briefs_api_interview_company_briefs_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
                 };
             };
         };
