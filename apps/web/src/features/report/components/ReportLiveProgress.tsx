@@ -31,7 +31,7 @@ export function ReportLiveProgress({ live }: { live: ReportLiveState }) {
   }, []);
   const last = live.events.length > 0 ? live.events[live.events.length - 1] : null;
   return (
-    <div className="page-shell-tight anim-rise">
+    <div className="page-shell anim-rise">
       <div className="surface-card p-5">
         <div className="mb-1 flex items-center gap-2.5">
           <span className="block h-4 w-4 anim-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />

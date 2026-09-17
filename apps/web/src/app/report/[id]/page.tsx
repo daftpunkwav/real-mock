@@ -52,7 +52,7 @@ export default function ReportPage() {
 
   if (loading) {
     return (
-      <div className="page-shell-tight flex min-h-[40vh] items-center justify-center gap-2 text-[13px] text-ink-muted">
+      <div className="page-shell flex min-h-[40vh] items-center justify-center gap-2 text-[13px] text-ink-muted">
         <span className="block h-4 w-4 anim-spin rounded-full border-2 border-current border-t-transparent" />
         {t("page.loading")}
       </div>
@@ -61,7 +61,7 @@ export default function ReportPage() {
 
   if (error || !report) {
     return (
-      <div className="page-shell-tight py-16 text-center">
+      <div className="page-shell py-16 text-center">
         <p className="mb-4 text-[13px] text-ink-muted">{error || t("errors.unavailable")}</p>
         <div className="flex flex-wrap justify-center gap-2.5">
           {Number.isFinite(sessionId) && sessionId > 0 && (
@@ -85,7 +85,7 @@ export default function ReportPage() {
   const current = activeTab && tabs.includes(activeTab) ? activeTab : defaultReportTab(report);
 
   return (
-    <div className="page-shell-tight anim-rise">
+    <div className="page-shell anim-rise">
       <VerdictBanner verdict={report.verdict} reasoning={report.verdict_reasoning} />
 
       <nav className="eval-tabs mt-4" role="tablist">
