@@ -39,6 +39,49 @@ _STATE_IN_SAY = "in_say"
 _STATE_DONE = "done"
 
 
+def _extract_json_dict(text: str) -> dict | None:
+    """Attempt to parse a JSON dictionary from text, tolerating markdown code fences and boundary noise."""
+    if not text:
+        return None
+    s = text.strip()
+    # 1. Direct parse
+    try:
+        data = json.loads(s)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    # 2. Strip markdown code fence e.g. ```json ... ```
+    if s.startswith("```"):
+        lines = s.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        candidate = "\n".join(lines).strip()
+        try:
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+
+    # 3. Find outermost { ... }
+    first_brace = s.find("{")
+    last_brace = s.rfind("}")
+    if first_brace >= 0 and last_brace > first_brace:
+        candidate = s[first_brace : last_brace + 1]
+        try:
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+
+    return None
+
+
 class SayFirstStreamParser:
     """Parse say-first JSON from a stream.
 
@@ -91,14 +134,11 @@ class SayFirstStreamParser:
         elif self._state == _STATE_SEEK:
             self._degraded = True
             tail = self._raw
-        try:
-            parsed = json.loads(self._raw)
-        except Exception:
-            parsed = None
+        parsed = _extract_json_dict(self._raw)
         if isinstance(parsed, dict):
             self._controls = parsed
             if self._degraded:
-                # Bottom line: Even if you don’t use streaming extraction, as long as the whole object is legal, you can recover it say
+                # Bottom line: Even if streaming extraction degraded, as long as the whole object is recoverable, restore say
                 say = parsed.get("say")
                 if isinstance(say, str) and say:
                     self._degraded = False

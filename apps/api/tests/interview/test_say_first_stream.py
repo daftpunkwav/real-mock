@@ -176,3 +176,23 @@ def test_turn_score_partial_and_empty() -> None:
     assert out2.turn_score is not None
     assert out2.turn_score.rating == 5  # Clamping
     assert len(out2.turn_score.weak_points) == 2  # Truncate to 2 items
+
+
+def test_markdown_fence_controls_recovered() -> None:
+    body = "```json\n" + FULL + "\n```"
+    parser = SayFirstStreamParser()
+    text = feed_all(parser, body, 10)
+    assert not parser.degraded
+    assert text == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+    assert parser.controls and parser.controls["wait_seconds"] == 90
+    assert parser.controls["turn_score"]["rating"] == 3
+
+
+def test_outer_noise_json_recovered() -> None:
+    body = "Here is the response:\n" + FULL + "\nHope this helps!"
+    parser = SayFirstStreamParser()
+    text = feed_all(parser, body, 12)
+    assert not parser.degraded
+    assert text == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+    assert parser.controls and parser.controls["wait_seconds"] == 90
+
