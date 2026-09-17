@@ -1,8 +1,8 @@
 """AST guards for the interview domain layering (see ``agents/__init__.py``).
 
-The ``agents`` execution chain is intentionally flat: subpackages are only
-earned past ~400 lines in one file or 3+ new files in a cluster. Until then
-these tests hold the seams instead of directories:
+``agents`` hosts one subpackage per LLM role (interviewer / topology / hint /
+planning / research / memory) with the shared machinery flat at the package
+root. These tests hold the seams:
 
 - external layers (realtime/routes/process) reach ``agents`` internals only
   through the facade or the two leaf contracts;
@@ -11,7 +11,7 @@ these tests hold the seams instead of directories:
   ``agents``, so agents → process is the only seam between them;
 - the WS entry (``routes/ws``) is the single wire into ``realtime``;
 - ``agents`` may use the frozen shared-kernel allowlist under ``process``
-  (plan protocol + read-only process views) — nothing else;
+  (stored plan protocols + read-only process views) — nothing else;
 - the facade export list stays in sync with its resolver map.
 """
 

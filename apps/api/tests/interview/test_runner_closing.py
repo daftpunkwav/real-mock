@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from realmock.domains.interview.agents import runner_closing as rcmod
+from realmock.domains.interview.agents.interviewer import runner_closing as rcmod
 from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.agents.turn_output import TurnOutput
 
@@ -131,7 +131,7 @@ async def test_stream_closing_uses_context_window_compaction(monkeypatch) -> Non
     async def fake_compact(messages, window, llm=None, keep_recent=24):
         return messages
 
-    import realmock.domains.interview.agents.runner_closing as m
+    import realmock.domains.interview.agents.interviewer.runner_closing as m
 
     monkeypatch.setitem(
         __import__("sys").modules, "realmock.platform.capabilities.ai.context.summarize",
@@ -195,7 +195,7 @@ def test_stream_closing_persists_agent_state_json_shape(db) -> None:
     import json
 
     from realmock.domains.interview.models import InterviewSession
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
     from tests.fakes import FakeLLMClient
 
     s = InterviewSession(

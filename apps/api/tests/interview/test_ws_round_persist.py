@@ -22,7 +22,7 @@ import realmock.domains.interview.models  # noqa: F401
 import realmock.platform.models  # noqa: F401
 
 from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.agents.runner import InterviewRunner
+from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 
 

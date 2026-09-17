@@ -1,6 +1,6 @@
 """Follow-up signals + RAG-hit injection and message-tail normalization.
 
-Extracted from :mod:`realmock.domains.interview.agents.runner` with a single responsibility:
+Extracted from :mod:`realmock.domains.interview.agents.interviewer.runner` with a single responsibility:
 - Analyze the follow-up signal (needs_followup), inject a system message, and record weaknesses;
 - Inject RAG hits as a system message;
 - Normalize the message tail: ensure the user message is last and this turn's appended system prompts follow it.

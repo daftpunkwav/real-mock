@@ -14,7 +14,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_hint_answer_timeout_and_no_tools_and_note_trim():
-    import realmock.domains.interview.agents.hint_answer as mod
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     # timeout -> None (patch inner _generate to raise TimeoutError)
     with patch.object(mod, "_generate", new=AsyncMock(side_effect=asyncio.TimeoutError())):
@@ -31,7 +31,7 @@ async def test_hint_answer_timeout_and_no_tools_and_note_trim():
 
 @pytest.mark.asyncio
 async def test_hint_answer_tool_trace_trim_and_on_tool(monkeypatch):
-    import realmock.domains.interview.agents.hint_answer as mod
+    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
 
     monkeypatch.setattr(mod, "get_interview_tool_definitions", lambda include_past_records=False: [{"name": "t"}])
@@ -63,7 +63,7 @@ async def test_hint_answer_tool_trace_trim_and_on_tool(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_hint_answer_execute_path():
-    import realmock.domains.interview.agents.hint_answer as mod
+    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
 
     async def fake_loop(llm, messages, **kwargs):

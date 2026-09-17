@@ -24,7 +24,7 @@ so this backend is responsible for:
    the built-in company knowledge-base document (skip this if the user supplied ``STEPFUN_VECTOR_STORE_ID``);
 2. :meth:`query` — return an empty list; actual retrieval is performed by tools during chat;
 3. :meth:`build_retrieval_tool` — emit an OpenAI-compatible tool definition
-   for injection into the chat payload by :class:`realmock.domains.interview.agents.runner.InterviewRunner`.
+   for injection into the chat payload by :class:`realmock.domains.interview.agents.interviewer.runner.InterviewRunner`.
 
 Private HTTP methods (create/upload/attach/verify/pinned client) live in
 :mod:`.stepfun_index_http`.

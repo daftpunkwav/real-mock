@@ -25,7 +25,7 @@ from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn
 from realmock.domains.interview.agents.planning.planner import ensure_plan
 
 if TYPE_CHECKING:
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 
 logger = logging.getLogger(__name__)
 

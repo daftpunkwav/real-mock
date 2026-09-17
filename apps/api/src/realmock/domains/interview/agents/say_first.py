@@ -1,6 +1,6 @@
 """say-first protocol parsing: non-streaming parsing of early tool-round text + streaming incremental parsing.
 
-Extracted from :mod:`realmock.domains.interview.agents.runner` and shared by all three
+Extracted from :mod:`realmock.domains.interview.agents.interviewer.runner` and shared by all three
 streaming entry points. think stripping comes first and protocol parsing second, with the two layers
 independent; on fallback (output does not follow the protocol), ``TurnOutput.say`` contains all visible
 text and control fields use their defaults.

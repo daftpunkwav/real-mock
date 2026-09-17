@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 from realmock.platform.models import LLMSettings
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents.events import EventKind
-from realmock.domains.interview.agents.runner import InterviewRunner
+from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 from tests.fakes import FakeLLMClient
 
 
@@ -766,7 +766,7 @@ def _make_session(db):
 
 def test_interview_runner_collects_stepfun_tools(db) -> None:
     """When StepFun is ready, tools should include retrieval + interview function tools."""
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
     from realmock.domains.interview.capabilities.rag.stepfun_backend import StepFunRetrievalRAG
 
     session = _make_session(db)
@@ -787,7 +787,7 @@ def test_interview_runner_collects_stepfun_tools(db) -> None:
 
 def test_interview_runner_stream_tools_skip_functions(db) -> None:
     """During the streaming phase, retain only retrieval when include_function_tools=False."""
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
     from realmock.domains.interview.capabilities.rag.stepfun_backend import StepFunRetrievalRAG
 
     session = _make_session(db)
@@ -803,7 +803,7 @@ def test_interview_runner_stream_tools_skip_functions(db) -> None:
 
 def test_interview_runner_no_retrieval_when_rag_unready(db) -> None:
     """Function tools (GitHub, etc.) may still be available when RAG is not ready."""
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
     from realmock.domains.interview.capabilities.rag.stepfun_backend import StepFunRetrievalRAG
 
     session = _make_session(db)
@@ -817,7 +817,7 @@ def test_interview_runner_no_retrieval_when_rag_unready(db) -> None:
 
 def test_interview_runner_function_tools_without_rag(db) -> None:
     """Expose interview function tools even without RAG."""
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 
     session = _make_session(db)
     runner = InterviewRunner(session=session, llm=FakeLLMClient(), rag=None)

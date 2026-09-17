@@ -1,30 +1,33 @@
-"""LLM interview execution chain: turn runner, session state, prompts, and tools.
+"""LLM interview agents: the lead interviewer plus every auxiliary role.
 
-This is the real agent loop of the interview domain (runner_opening / runner_turn /
-runner_closing, tool rounds, follow-ups, verdicts). The turn state machine and media
-pipeline live in :mod:`realtime`; silence-nudge templates live in
-:mod:`realtime.nudge`; pluggable perception capabilities live in
-:mod:`capabilities`.
+One role per subpackage, shared machinery flat at the package root:
 
-File clusters (new files take the matching prefix; do NOT add subpackages
-until a cluster passes ~400 lines in one file or gains 3+ files — see the
-architecture test holding the seams):
+- ``interviewer/`` — lead interviewer (opening / turn / closing streams);
+- ``topology/`` — shadow evaluator, coding examiner, process orchestrator;
+- ``hint/`` — reference-answer agent;
+- ``planning/`` — flow-plan and HR round-program planners;
+- ``research/`` — company web research + setup-page brief;
+- ``memory/`` — cognitive memory graph.
 
-- run: ``runner`` + ``runner_opening/turn/closing`` + ``finish_lifecycle``;
-- rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools`` + ``hint_answer`` + ``tool_guard``;
-- prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
+Shared kernel (import each other by submodule path, cluster prefixes):
+
+- protocol: ``events`` (leaf contract) + ``agent_text`` (leaf contract) + ``turn_output`` + ``say_first``;
 - state: ``session_state`` + ``session_overrides`` + ``past_records`` + ``history_compaction``;
-- protocol: ``turn_output`` (+ leaf contracts ``events`` / ``agent_text``);
-- followup: ``followup`` + ``followup_inject``.
+- prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
+- rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools`` + ``tool_guard``;
+- turn: ``followup`` + ``followup_inject`` + ``finish_lifecycle``.
+
+The turn state machine and media pipeline live in :mod:`realtime`;
+silence-nudge templates live in :mod:`realtime.nudge`; pluggable perception
+capabilities live in :mod:`capabilities`; the phase SSOT lives at
+:mod:`realmock.domains.interview.workflows` (domain root).
 
 External layers (``realtime``, ``routes``, ``process``) must depend only on
-this facade plus the leaf contracts below — never on sibling modules directly:
+this facade plus the two leaf contracts below — never on sibling modules
+directly:
 
 - ``agents.events`` — WS event contract (versioned via ``schema_version``);
 - ``agents.agent_text`` — text filters (pure functions).
-
-The phase SSOT lives at :mod:`realmock.domains.interview.workflows` (domain
-vocabulary, not agent machinery — both ``agents`` and ``process`` import it).
 
 Internal modules keep importing each other by submodule path.
 
@@ -40,10 +43,10 @@ from typing import Any
 
 #: Facade name → owning submodule (relative). Resolved by ``__getattr__``.
 _LAZY_EXPORTS: dict[str, str] = {
-    "InterviewRunner": ".runner",
+    "InterviewRunner": ".interviewer.runner",
     "InterviewSessionState": ".session_state",
     "clear_company_briefs": ".research.company_brief",
-    "generate_full_reference_hint": ".hint_answer",
+    "generate_full_reference_hint": ".hint.hint_answer",
     "generate_plan_for_session": ".planning.planner",
     "generate_round_plan_for_process": ".planning.round_planner",
     "get_or_create_brief": ".research.company_brief",

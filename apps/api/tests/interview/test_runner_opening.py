@@ -137,7 +137,7 @@ def _opening_runner(**overrides):
 
 @pytest.mark.asyncio
 async def test_stream_opening_streamed_output_path() -> None:
-    from realmock.domains.interview.agents import runner_opening as romod
+    from realmock.domains.interview.agents.interviewer import runner_opening as romod
 
     runner = _opening_runner()
     streamed = TurnOutput(say="hello", phase_complete=False)
@@ -161,7 +161,7 @@ async def test_stream_opening_streamed_output_path() -> None:
 
 @pytest.mark.asyncio
 async def test_stream_opening_early_path_emits_token() -> None:
-    from realmock.domains.interview.agents import runner_opening as romod
+    from realmock.domains.interview.agents.interviewer import runner_opening as romod
 
     runner = _opening_runner()
     early = json.dumps({"say": "hi early", "v": 1})
@@ -184,7 +184,7 @@ async def test_stream_opening_early_path_emits_token() -> None:
 
 @pytest.mark.asyncio
 async def test_stream_opening_say_first_path_and_phase_advance() -> None:
-    from realmock.domains.interview.agents import runner_opening as romod
+    from realmock.domains.interview.agents.interviewer import runner_opening as romod
 
     runner = _opening_runner()
     result = ToolRoundResult([{"role": "user", "content": "x"}], None, None)
@@ -212,7 +212,7 @@ async def test_stream_opening_say_first_path_and_phase_advance() -> None:
 
 @pytest.mark.asyncio
 async def test_stream_opening_tool_error_yields_error_event() -> None:
-    from realmock.domains.interview.agents import runner_opening as romod
+    from realmock.domains.interview.agents.interviewer import runner_opening as romod
 
     runner = _opening_runner()
 
@@ -232,7 +232,7 @@ async def test_stream_opening_tool_error_yields_error_event() -> None:
 
 @pytest.mark.asyncio
 async def test_stream_opening_ledger_failure_yields_error() -> None:
-    from realmock.domains.interview.agents import runner_opening as romod
+    from realmock.domains.interview.agents.interviewer import runner_opening as romod
 
     runner = _opening_runner()
     result = ToolRoundResult([{"role": "user", "content": "x"}], None, TurnOutput(say="hi"))

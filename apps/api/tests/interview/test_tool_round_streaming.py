@@ -13,7 +13,7 @@ import json
 
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents.events import EventKind
-from realmock.domains.interview.agents.runner import InterviewRunner
+from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 from tests.fakes import FakeLLMClient
 
 

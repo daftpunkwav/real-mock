@@ -26,7 +26,7 @@ from realmock.domains.interview.agents.say_first import stream_say_first
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 
 if TYPE_CHECKING:
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 
 logger = logging.getLogger(__name__)
 

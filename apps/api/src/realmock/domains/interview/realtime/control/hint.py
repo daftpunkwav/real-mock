@@ -3,7 +3,7 @@
 Two modes (per-session ``reference_detail`` setting, default ``outline``):
 - outline: one single-shot LLM call, 3-5 bullets, ~seconds.
 - full: tool-grounded loop (profile / resume / GitHub) + first-person model
-  answer via :mod:`realmock.domains.interview.agents.hint_answer`.
+  answer via :mod:`realmock.domains.interview.agents.hint.hint_answer`.
 
 Every request path ends with exactly one terminal event (``reference_hint``
 or ``reference_hint_error``) so the room UI never gets stuck loading.

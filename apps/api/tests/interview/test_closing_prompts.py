@@ -9,7 +9,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 
-from realmock.domains.interview.agents import runner_closing as rcmod
+from realmock.domains.interview.agents.interviewer import runner_closing as rcmod
 from realmock.domains.interview.agents.closing_prompts import (
     CLOSING_BY_PERSONALITY,
     closing_system_prompt,

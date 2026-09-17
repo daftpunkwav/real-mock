@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.agents.events import StreamEvent
 
 if TYPE_CHECKING:
-    from realmock.domains.interview.agents.runner import InterviewRunner
+    from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 
 logger = logging.getLogger(__name__)
 

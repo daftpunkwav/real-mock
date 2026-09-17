@@ -1,6 +1,6 @@
 """Interview turn: message assembly and context lookup.
 
-Split from :class:`realmock.domains.interview.agents.runner.InterviewRunner`:
+Split from :class:`realmock.domains.interview.agents.interviewer.runner.InterviewRunner`:
 - Assemble final LLM messages (face-analysis hints / image modality / long-context compaction);
 - Read-only lookups for candidate profile and LLM settings.
 

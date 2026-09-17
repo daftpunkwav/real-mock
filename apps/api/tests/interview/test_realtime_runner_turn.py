@@ -10,7 +10,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
-from realmock.domains.interview.agents.runner_turn import stream_turn
+from realmock.domains.interview.agents.interviewer.runner_turn import stream_turn
 from realmock.domains.interview.agents.turn_output import TurnOutput
 
 def _mk_runner():
@@ -123,7 +123,7 @@ async def test_completed_and_error_outcome():
         outcome["error"] = RuntimeError("tool boom")
         if False:
             yield
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _err):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _err):
         evs2 = await _collect(stream_turn(r2, "hi", MagicMock()))
         assert evs2[-1].kind == EventKind.ERROR and evs2[-1].error_code == "C0001"
 
@@ -139,10 +139,10 @@ async def test_regen_and_ledger_fail():
             yield
     async def _say(llm, tools, msgs, temperature=0.75):
         yield TurnOutput(say="regen answer", emotion="neutral", wait_seconds=5)
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _empty):
-        with patch("realmock.domains.interview.agents.runner_turn.stream_say_first", _say):
-            with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-                with patch("realmock.domains.interview.agents.runner_turn.append_turn", side_effect=RuntimeError("db")):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+                with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", side_effect=RuntimeError("db")):
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert evs[-1].kind == EventKind.ERROR
     await asyncio.sleep(0.05)
@@ -158,10 +158,10 @@ async def test_bg_timeouts_do_not_block():
         if False:
             yield
     r.shadow_evaluator.evaluate_turn = AsyncMock(side_effect=asyncio.TimeoutError())
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _empty2):
-        with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-            with patch("realmock.domains.interview.agents.runner_turn.append_turn", return_value=None):
-                with patch("realmock.domains.interview.agents.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=asyncio.TimeoutError())):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty2):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
+                with patch("realmock.domains.interview.agents.interviewer.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=asyncio.TimeoutError())):
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
     await asyncio.sleep(0.2)
@@ -178,9 +178,9 @@ async def test_early_and_tool_yield_and_pace():
         assert msgs[0]["content"].startswith("[Pace:")
         outcome["value"] = ToolRoundResult(msgs, '{"say": "early hi", "v": 1}')
         yield StreamEvent.make_token("tool-tok")
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _tools):
-        with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-            with patch("realmock.domains.interview.agents.runner_turn.append_turn", return_value=None):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _tools):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
                 evs = await _collect(stream_turn(r, "hi", MagicMock()))
                 assert any(e.token == "tool-tok" for e in evs if e.kind == EventKind.TOKEN)
                 assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
@@ -203,18 +203,18 @@ async def test_complete_triggers_finish_and_degraded():
     done = TurnOutput(say="bye", interview_complete=True, verdict="passed", emotion="neutral")
     async def _say2(llm, tools, msgs, temperature=0.75):
         yield done
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _empty):
-        with patch("realmock.domains.interview.agents.runner_turn.stream_say_first", _nosay):
-            with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-                with patch("realmock.domains.interview.agents.runner_turn.append_turn", return_value=None):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _nosay):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+                with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert evs[-1].kind == EventKind.TURN_COMPLETE
     r2 = _mk_runner_pace()
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _empty):
-        with patch("realmock.domains.interview.agents.runner_turn.stream_say_first", _say2):
-            with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-                with patch("realmock.domains.interview.agents.runner_turn.append_turn", return_value=None):
-                    with patch("realmock.domains.interview.agents.runner_turn.run_finish_lifecycle", return_value=None) as fl:
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say2):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+                with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
+                    with patch("realmock.domains.interview.agents.interviewer.runner_turn.run_finish_lifecycle", return_value=None) as fl:
                         evs2 = await _collect(stream_turn(r2, "hi", MagicMock()))
                         assert evs2[-1].is_complete is True
                         assert fl.called
@@ -230,11 +230,11 @@ async def test_fallback_and_generic_bg_errors():
         from realmock.domains.interview.agents.turn_output import TurnOutput
         yield TurnOutput(say="ok", emotion="neutral")
     r.shadow_evaluator.evaluate_turn = AsyncMock(side_effect=RuntimeError("s fail"))
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _noval):
-        with patch("realmock.domains.interview.agents.runner_turn.stream_say_first", _say):
-            with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-                with patch("realmock.domains.interview.agents.runner_turn.append_turn", return_value=None):
-                    with patch("realmock.domains.interview.agents.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=RuntimeError("r fail"))):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _noval):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+                with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
+                    with patch("realmock.domains.interview.agents.interviewer.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=RuntimeError("r fail"))):
                         r.process_orchestrator.decide_next_step = AsyncMock(side_effect=RuntimeError("o fail"))
                         evs = await _collect(stream_turn(r, "hi", MagicMock()))
                         assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
@@ -251,10 +251,10 @@ async def test_bg_timeouts_with_started_at():
         if False:
             yield
     r.shadow_evaluator.evaluate_turn = AsyncMock(side_effect=asyncio.TimeoutError())
-    with patch("realmock.domains.interview.agents.runner_turn.stream_tool_rounds", _empty):
-        with patch("realmock.domains.interview.agents.runner_turn.maybe_fold_history", AsyncMock()):
-            with patch("realmock.domains.interview.agents.runner_turn.append_turn", return_value=None):
-                with patch("realmock.domains.interview.agents.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=asyncio.TimeoutError())):
+    with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
+        with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
+            with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
+                with patch("realmock.domains.interview.agents.interviewer.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=asyncio.TimeoutError())):
                     r.process_orchestrator.decide_next_step = AsyncMock(side_effect=asyncio.TimeoutError())
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)

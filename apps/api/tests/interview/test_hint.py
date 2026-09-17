@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from realmock.domains.interview.agents.hint_answer import generate_full_reference_hint
+from realmock.domains.interview.agents.hint.hint_answer import generate_full_reference_hint
 from realmock.domains.interview.realtime.control.hint import ReferenceHintMixin
 from realmock.domains.interview.schemas import InterviewConfig
 
@@ -132,7 +132,7 @@ def test_reference_detail_defaults_to_outline():
 
 def test_full_hint_reuses_loop_answer_without_writer_call(monkeypatch):
     """When the tool loop already produced the answer, skip the second LLM call."""
-    import realmock.domains.interview.agents.hint_answer as mod
+    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
 
     calls = {"chat": 0}
@@ -162,7 +162,7 @@ def test_full_hint_reuses_loop_answer_without_writer_call(monkeypatch):
 
 
 def test_full_hint_falls_back_to_writer_without_loop_content(monkeypatch):
-    import realmock.domains.interview.agents.hint_answer as mod
+    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
 
     class WriterLLM:
