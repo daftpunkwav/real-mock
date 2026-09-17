@@ -70,6 +70,11 @@ class PrepSession(SessionsBase):
     # Linked session: its summary + recent turns are injected into this session's
     # context so the coach knows the linked conversation (single level, no chains).
     linked_session_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Cached list-view summary (first user message, capped at 48 chars; the
+    # column is wider for headroom) and countable message total, maintained by
+    # writers via services.session_stats so list queries skip JSON parsing.
+    summary: Mapped[str] = mapped_column(String(100), default="")
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     # Last activity time; the session list sorts by this (falls back to created_at).
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

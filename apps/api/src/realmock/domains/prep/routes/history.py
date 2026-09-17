@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.prep.agents.agent import PrepAgent
 from realmock.domains.prep.models import PrepSession
 from realmock.domains.prep.models import commit_session, utcnow
+from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
 from realmock.domains.prep.schemas import (
     PrepCompactRequest,
     PrepCompactResponse,
@@ -173,6 +174,7 @@ def _copy_session_row(
     db: Session, session: PrepSession, kept: list[dict], status: str
 ) -> PrepSession:
     """Fork helper: duplicate history into a new session row (shared by fork/backup)."""
+    summary, message_count = compute_session_summary_and_count(kept)
     forked = PrepSession(
         resume_id=session.resume_id,
         target_role=session.target_role or "",
@@ -181,6 +183,8 @@ def _copy_session_row(
         status=status,
         access_token=new_access_token(),
         linked_session_id=session.linked_session_id,
+        summary=summary,
+        message_count=message_count,
     )
     db.add(forked)
     commit_session(db)
@@ -383,6 +387,9 @@ async def truncate_prep_messages(
     cut = max(0, min(len(messages), body.from_index))
     kept = _prune_dangling_tool_tail(messages[:cut])
     session.messages = json.dumps(kept, ensure_ascii=False)
+    summary, message_count = compute_session_summary_and_count(kept)
+    session.summary = summary
+    session.message_count = message_count
     session.updated_at = utcnow()
     commit_session(db)
     return {"message_count": len(kept)}

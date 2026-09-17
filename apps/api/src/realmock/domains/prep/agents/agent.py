@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession
 from realmock.domains.prep.models import commit_session, utcnow
+from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
@@ -138,6 +139,9 @@ class PrepAgent:
 
     def _save(self, db: Session) -> None:
         self.session.messages = json.dumps(self.messages, ensure_ascii=False)
+        summary, count = compute_session_summary_and_count(self.messages)
+        self.session.summary = summary
+        self.session.message_count = count
         # Conversation list sorted by most recently active
         self.session.updated_at = utcnow()
         commit_session(db)

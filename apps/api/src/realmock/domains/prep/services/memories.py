@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepMemory, commit_session, utcnow
@@ -25,8 +25,9 @@ MEMORY_TAG_MAX_CHARS = 30
 MEMORY_TAGS_MAX_COUNT = 20
 MEMORY_LIST_DEFAULT_LIMIT = 20
 MEMORY_LIST_MAX_LIMIT = 50
-# Scan window for newest-first listing/tag aggregation (single-user scale;
-# tag filtering stays Python-side because tags are JSON text).
+# Scan window for newest-first unfiltered listing/tag aggregation (single-user
+# scale). Single-tag filtering is pushed down to SQL via a literal substring
+# predicate so deep history stays reachable; unfiltered reads still cap here.
 MEMORY_SCAN_LIMIT = 500
 
 
@@ -146,22 +147,46 @@ def create_memory(
 
 
 def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LIST_DEFAULT_LIMIT) -> list[PrepMemory]:
-    """Newest-first memory rows, optionally filtered by one tag (Python-side match).
+    """Newest-first memory rows, optionally filtered by one tag.
 
     Args:
         db: Read Session (no commit).
-        tag: Optional single-tag filter; unknown tags yield [].
+        tag: Optional single-tag filter; unknown tags yield []. When given,
+            the predicate is pushed down to SQL as a literal substring match
+            on the quoted tag, which is an exact-element match since tags
+            persist as a JSON string array via :func:`clean_tags`, so deep
+            history beyond any scan window is still reachable.
         limit: Max rows returned, clamped to 1..MEMORY_LIST_MAX_LIMIT.
 
     Returns:
-        At most ``limit`` rows from the newest MEMORY_SCAN_LIMIT scan window.
+        At most ``limit`` rows newest-first (tag path hits SQL directly;
+        unfiltered path reads the newest MEMORY_SCAN_LIMIT scan window).
     """
     limit = max(1, min(MEMORY_LIST_MAX_LIMIT, limit or MEMORY_LIST_DEFAULT_LIMIT))
+    if tag:
+        # Tags persist as JSON arrays (e.g. '["a", "b"]'); the surrounding
+        # double quotes give a strict element boundary, avoiding prefix hits.
+        # A literal '"' in the tag would break that boundary, so fall back to
+        # Python-side matching for such pathological input.
+        if '"' in tag:
+            rows = db.execute(
+                select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
+            ).scalars().all()
+            rows = [r for r in rows if tag in _decode_list(r.tags)]
+            return list(rows[:limit])
+        # instr() is a literal byte-substring search: unlike LIKE it treats
+        # '%', '_' as ordinary chars and stays case-sensitive, matching the
+        # Python exact-element semantics in _decode_list.
+        rows = db.execute(
+            select(PrepMemory)
+            .where(func.instr(PrepMemory.tags, f'"{tag}"') > 0)
+            .order_by(desc(PrepMemory.updated_at))
+            .limit(limit)
+        ).scalars().all()
+        return list(rows)
     rows = db.execute(
         select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
     ).scalars().all()
-    if tag:
-        rows = [r for r in rows if tag in _decode_list(r.tags)]
     return list(rows[:limit])
 
 
