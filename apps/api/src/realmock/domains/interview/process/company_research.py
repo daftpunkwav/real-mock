@@ -178,20 +178,23 @@ def _consume_web_budget(budget: dict[str, int], name: str) -> str | None:
     return None
 
 
-async def research_company_context(
+async def run_web_research(
     llm: Any,
     *,
-    company: str,
-    role: str,
-    level: str,
-    ui_locale: str | None = None,
+    system: str,
+    user: str,
     search_budget: int = RESEARCH_SEARCH_BUDGET,
     fetch_budget: int = RESEARCH_FETCH_BUDGET,
     max_seconds: float = PROCESS_MAX_SECONDS,
     tool_timeout: float = RESEARCH_TOOL_TIMEOUT_SECONDS,
+    max_rounds: int = RESEARCH_MAX_ROUNDS,
 ) -> str | None:
-    """Run the bounded researcher loop; returns the digest text (or None)."""
-    if not (company or "").strip():
+    """Shared bounded web-research loop: model + web_search/web_fetch tools.
+
+    Returns the model's final content, or ``None`` on timeout / failure.
+    Any exception is swallowed — research must never raise into its caller.
+    """
+    if llm is None:
         return None
     bundle = ToolBundle()
     bundle.extend([search_tool_spec(), web_fetch_tool_spec()])
@@ -213,50 +216,77 @@ async def research_company_context(
             cache[cache_key] = raw
         return raw
 
-    locale_line = f"UI locale: {ui_locale or 'unknown'}"
-    system = _RESEARCH_SYSTEM.format(contract=RESEARCH_JSON_CONTRACT)
-    messages = [
-        {"role": "system", "content": system},
-        {
-            "role": "user",
-            "content": (
-                f"Target company: {company}\n"
-                f"Target role: {role}\nLevel: {level}\n{locale_line}\n\n"
-                "Research this company's interview process now. Finish with the JSON object only."
-            ),
-        },
-    ]
     try:
         loop = await asyncio.wait_for(
             run_agent_loop(
                 llm,
-                messages,
+                [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
                 tools=bundle.definitions(),
                 execute=execute,
-                max_rounds=RESEARCH_MAX_ROUNDS,
+                max_rounds=max_rounds,
                 max_tools_per_round=3,
                 temperature=0.2,
                 wrap_up_hint={
                     "role": "system",
                     "content": (
-                        "Wrap up now: output the final research JSON object. No tool calls."
+                        "Wrap up now: output the final JSON object. No tool calls."
                     ),
                 },
             ),
             timeout=max_seconds,
         )
     except asyncio.TimeoutError:
-        logger.warning("company research timed out company=%s (%.0fs)", company, max_seconds)
+        logger.warning("web research timed out (%.0fs)", max_seconds)
         return None
     except Exception as e:  # noqa: BLE001 - research must never raise
-        logger.warning("company research failed company=%s: %s", company, e)
+        logger.warning("web research failed: %s", e)
         return None
-    digest = render_digest(extract_json_object(loop.final_content or ""))
+    return loop.final_content or ""
+
+
+async def research_company_context(
+    llm: Any,
+    *,
+    company: str,
+    role: str,
+    level: str,
+    ui_locale: str | None = None,
+    search_budget: int = RESEARCH_SEARCH_BUDGET,
+    fetch_budget: int = RESEARCH_FETCH_BUDGET,
+    max_seconds: float = PROCESS_MAX_SECONDS,
+    tool_timeout: float = RESEARCH_TOOL_TIMEOUT_SECONDS,
+) -> str | None:
+    """Run the bounded researcher loop; returns the digest text (or None)."""
+    if not (company or "").strip():
+        return None
+
+    locale_line = f"UI locale: {ui_locale or 'unknown'}"
+    system = _RESEARCH_SYSTEM.format(contract=RESEARCH_JSON_CONTRACT)
+    user = (
+        f"Target company: {company}\n"
+        f"Target role: {role}\nLevel: {level}\n{locale_line}\n\n"
+        "Research this company's interview process now. Finish with the JSON object only."
+    )
+    final = await run_web_research(
+        llm,
+        system=system,
+        user=user,
+        search_budget=search_budget,
+        fetch_budget=fetch_budget,
+        max_seconds=max_seconds,
+        tool_timeout=tool_timeout,
+    )
+    if final is None:
+        return None
+    digest = render_digest(extract_json_object(final))
     if digest is None:
         logger.info(
             "company research output unusable company=%s (len=%s)",
             company,
-            len(str(loop.final_content or "")),
+            len(str(final)),
         )
     return digest
 
@@ -274,4 +304,5 @@ __all__ = [
     "needs_company_research",
     "render_digest",
     "research_company_context",
+    "run_web_research",
 ]

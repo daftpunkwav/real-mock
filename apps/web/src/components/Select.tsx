@@ -2,15 +2,16 @@
 
 /**
  * @file Select.tsx
- * @description Project-styled dropdown select (custom listbox, no native popup).
+ * @description Project-styled dropdown select (anchored popover, no portal).
  *
- * Matches the app's field/button tokens: 36px trigger with focus ring,
- * surface-card popover, primary check mark for the active option.
- * Keyboard: ArrowUp/ArrowDown to move, Enter to pick, Escape to dismiss.
+ * The popover is absolutely positioned inside the trigger's wrapper, so it
+ * follows document scroll natively — no fixed-position re-anchor loop, no
+ * flicker during fast scrolling. Opens downward when there is room below the
+ * trigger, otherwise upward. Keyboard: ArrowUp/ArrowDown to move, Enter to
+ * pick, Escape to dismiss.
  */
 
-import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +22,7 @@ export interface SelectOption<T extends string | number> {
 
 /** Max popover height before internal scrolling kicks in. */
 const POPOVER_MAX_HEIGHT = 240;
-/** Gap between the trigger and the popover. */
-const POPOVER_GAP = 4;
-/** Option row height (h-9) — kept in sync with the row class below. */
+/** Estimated per-option height used for the open-direction decision. */
 const OPTION_ROW_HEIGHT = 36;
 /** Popover vertical chrome: p-1 padding plus border. */
 const POPOVER_CHROME_HEIGHT = 10;
@@ -44,115 +43,56 @@ export function Select<T extends string | number>({
   ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const [highlight, setHighlight] = useState(() =>
     Math.max(
       0,
       options.findIndex((o) => o.value === value),
     ),
   );
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [popoverStyle, setPopoverStyle] = useState<{
-    left: number;
-    top?: number;
-    bottom?: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
   const selectedIndex = options.findIndex((o) => o.value === value);
   const selected = options[selectedIndex];
 
-  /**
-   * Exact placement from current layout — no height estimates.
-   * Content height is deterministic (fixed row height × option count), and
-   * above-placement anchors by `bottom` so the popover always hugs the trigger.
-   */
-  const computePlacement = useCallback(() => {
-    const el = triggerRef.current;
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    const needed = options.length * OPTION_ROW_HEIGHT + POPOVER_CHROME_HEIGHT;
-    const spaceBelow = window.innerHeight - rect.bottom - POPOVER_GAP;
-    const spaceAbove = rect.top - POPOVER_GAP;
-    // Narrow triggers (e.g. effort "中") would otherwise get a clipped popover;
-    // keep it at least wide enough for a short label + check icon.
-    const width = Math.min(Math.max(rect.width, 120), window.innerWidth - 16);
-    const left = Math.min(rect.left, Math.max(8, window.innerWidth - width - 8));
-    if (spaceBelow >= needed || spaceBelow >= spaceAbove) {
-      return {
-        left,
-        top: rect.bottom + POPOVER_GAP,
-        bottom: undefined as number | undefined,
-        width,
-        maxHeight: Math.min(POPOVER_MAX_HEIGHT, Math.max(spaceBelow, 96)),
-      };
+  // Open toward the side with more room; the popover then scrolls with the
+  // document, so no repositioning is ever needed while it stays open.
+  const openMenu = (index?: number) => {
+    setHighlight(index ?? (selectedIndex >= 0 ? selectedIndex : 0));
+    const el = wrapperRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const needed = Math.min(
+        POPOVER_MAX_HEIGHT,
+        options.length * OPTION_ROW_HEIGHT + POPOVER_CHROME_HEIGHT,
+      );
+      setOpenUp(window.innerHeight - rect.bottom < needed && rect.top > window.innerHeight - rect.bottom);
     }
-    return {
-      left,
-      top: undefined as number | undefined,
-      bottom: window.innerHeight - rect.top + POPOVER_GAP,
-      width,
-      maxHeight: Math.min(POPOVER_MAX_HEIGHT, Math.max(spaceAbove, 96)),
-    };
-  }, [options.length]);
-
-  const close = (refocus = false) => {
-    setOpen(false);
-    setPopoverStyle(null);
-    if (refocus) triggerRef.current?.focus({ preventScroll: true });
+    setOpen(true);
   };
 
   const pick = (index: number) => {
     const option = options[index];
     if (!option) return;
     if (option.value !== value) onChange(option.value);
-    close(true);
+    setOpen(false);
   };
 
-  // Keep the popover anchored while it is open.
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!open) return;
-    const onReposition = () => {
-      const next = computePlacement();
-      if (next) setPopoverStyle(next);
-    };
-    window.addEventListener("resize", onReposition);
-    // Capture phase: any nested scroll container also re-anchors the popover.
-    window.addEventListener("scroll", onReposition, true);
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node | null;
-      if (
-        target &&
-        !triggerRef.current?.contains(target) &&
-        !popRef.current?.contains(target)
-      ) {
-        close();
-      }
+      if (target && !wrapperRef.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("resize", onReposition);
-      window.removeEventListener("scroll", onReposition, true);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open, computePlacement]);
-
-  const openMenu = (index?: number) => {
-    setHighlight(index ?? (selectedIndex >= 0 ? selectedIndex : 0));
-    // Layout is current inside event handlers, so place synchronously —
-    // the popover mounts at its final position with no estimate flash.
-    const placement = computePlacement();
-    if (!placement) return;
-    setPopoverStyle(placement);
-    setOpen(true);
-  };
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
 
   return (
-    <>
+    <span ref={wrapperRef} className="relative inline-flex w-full">
       <button
-        ref={triggerRef}
         type="button"
         role="combobox"
         aria-expanded={open}
@@ -160,7 +100,7 @@ export function Select<T extends string | number>({
         aria-label={ariaLabel}
         aria-activedescendant={open ? `${listId}-${highlight}` : undefined}
         disabled={disabled}
-        onClick={() => (open ? close() : openMenu())}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
@@ -179,11 +119,11 @@ export function Select<T extends string | number>({
             else pick(highlight);
           } else if (e.key === "Escape" && open) {
             e.preventDefault();
-            close(true);
+            setOpen(false);
           }
         }}
         className={cn(
-          "flex h-9 w-full items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--input)] bg-[var(--card)] px-3 text-[var(--text-sm)] text-ink transition-colors hover:border-[var(--border-strong)] focus:border-[var(--primary)] focus:outline-none focus:[box-shadow:var(--shadow-focus)] disabled:cursor-not-allowed disabled:opacity-60",
+          "flex h-9 w-full items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--card)] px-3 text-[var(--text-sm)] text-ink transition-colors hover:border-[var(--primary)] focus:border-[var(--primary)] focus:outline-none focus:[box-shadow:var(--shadow-focus)] disabled:cursor-not-allowed disabled:opacity-60",
           className,
         )}
       >
@@ -196,73 +136,65 @@ export function Select<T extends string | number>({
           )}
         />
       </button>
-      {open &&
-        popoverStyle &&
-        createPortal(
-          <div
-            ref={popRef}
-            id={listId}
-            role="listbox"
-            aria-label={ariaLabel}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                e.preventDefault();
-                setHighlight((h) => {
-                  const next =
-                    e.key === "ArrowDown"
-                      ? Math.min(options.length - 1, h + 1)
-                      : Math.max(0, h - 1);
-                  popRef.current
-                    ?.querySelector(`[data-index="${next}"]`)
-                    ?.scrollIntoView({ block: "nearest" });
-                  return next;
-                });
-              } else if (e.key === "Enter") {
-                e.preventDefault();
-                pick(highlight);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                close(true);
-              } else if (e.key === "Tab") {
-                close();
-              }
-            }}
-            className="surface-card fixed z-50 overflow-y-auto !p-1"
-            style={{
-              left: popoverStyle.left,
-              top: popoverStyle.top,
-              bottom: popoverStyle.bottom,
-              width: popoverStyle.width,
-              maxWidth: "calc(100vw - 16px)",
-              maxHeight: popoverStyle.maxHeight,
-            }}
-          >
-            {options.map((option, index) => {
-              const active = option.value === value;
-              const focused = index === highlight;
-              return (
-                <div
-                  key={String(option.value)}
-                  id={`${listId}-${index}`}
-                  data-index={index}
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => pick(index)}
-                  onMouseEnter={() => setHighlight(index)}
-                  className={cn(
-                    "flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-[13px] transition-colors",
-                    focused ? "bg-surface-muted" : "bg-transparent",
-                    active ? "font-medium text-[var(--primary)]" : "text-ink",
-                  )}
-                >
-                  <span className="min-w-0 truncate">{option.label}</span>
-                  {active && <Check size={14} className="shrink-0" />}
-                </div>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
-    </>
+      {open && (
+        <div
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label={ariaLabel}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlight((h) => {
+                const next =
+                  e.key === "ArrowDown"
+                    ? Math.min(options.length - 1, h + 1)
+                    : Math.max(0, h - 1);
+                listRef.current
+                  ?.querySelector(`[data-index="${next}"]`)
+                  ?.scrollIntoView({ block: "nearest" });
+                return next;
+              });
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              pick(highlight);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setOpen(false);
+            } else if (e.key === "Tab") {
+              setOpen(false);
+            }
+          }}
+          className={cn(
+            "surface-card absolute left-0 z-30 max-h-60 w-full min-w-[120px] overflow-y-auto !p-1",
+            openUp ? "bottom-full mb-1" : "top-full mt-1",
+          )}
+        >
+          {options.map((option, index) => {
+            const active = option.value === value;
+            const focused = index === highlight;
+            return (
+              <div
+                key={String(option.value)}
+                id={`${listId}-${index}`}
+                data-index={index}
+                role="option"
+                aria-selected={active}
+                onClick={() => pick(index)}
+                onMouseEnter={() => setHighlight(index)}
+                className={cn(
+                  "flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-[13px] transition-colors",
+                  focused ? "bg-surface-muted" : "bg-transparent",
+                  active ? "font-medium text-[var(--primary)]" : "text-ink",
+                )}
+              >
+                <span className="min-w-0 truncate">{option.label}</span>
+                {active && <Check size={14} className="shrink-0" />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </span>
   );
 }

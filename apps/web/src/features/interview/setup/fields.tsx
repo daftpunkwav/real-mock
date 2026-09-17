@@ -1,8 +1,10 @@
 "use client";
 
-/** Interview setup form cards: role/level/type/style + company + personality + avatar/scene/resume. */
+/** Interview setup form cards: goal (role/company) + format (type/style/rounds/persona)
+ * + presenter (avatar/scene/resume) + processor selection. */
 
 import { useLocale, useT } from "@/i18n";
+import { Briefcase, ListChecks, UserCircle } from "lucide-react";
 import type {
   InterviewConfig,
   Options,
@@ -14,7 +16,7 @@ import type {
   ReferenceDetail,
   TaskBindings,
 } from "@/types";
-import { ChoiceGroup, CompanyGrid, ResumeWarning, Select } from "./controls";
+import { CompanyGrid, ResumeWarning, Select } from "./controls";
 import { ProcessorCard } from "./processorCard";
 import {
   CUSTOM_COMPANY_ID,
@@ -32,21 +34,55 @@ import {
   workflowLabel,
 } from "./optionLabels";
 
-export type StrictnessLabelKey =
-  | "setup.strictness.friendly"
-  | "setup.strictness.normal"
-  | "setup.strictness.high"
-  | "setup.strictness.extreme";
+function CardTitle({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  text: string;
+}) {
+  return (
+    <h2 className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
+      <Icon size={14} className="text-[var(--primary)]" strokeWidth={1.75} />
+      {text}
+    </h2>
+  );
+}
 
-/** Map a strictness score to its label key. */
+export type StrictnessLabelKey =
+  | "setup.strictness.easy"
+  | "setup.strictness.friendly"
+  | "setup.strictness.balanced"
+  | "setup.strictness.strict"
+  | "setup.strictness.harsh"
+  | "setup.strictness.relentless";
+
+/** Six named strictness levels mapped onto the 1-10 scale the backend stores. */
+export const STRICTNESS_LEVELS: { value: number; labelKey: StrictnessLabelKey }[] = [
+  { value: 1, labelKey: "setup.strictness.easy" },
+  { value: 3, labelKey: "setup.strictness.friendly" },
+  { value: 5, labelKey: "setup.strictness.balanced" },
+  { value: 7, labelKey: "setup.strictness.strict" },
+  { value: 9, labelKey: "setup.strictness.harsh" },
+  { value: 10, labelKey: "setup.strictness.relentless" },
+];
+
+/** Nearest named level for an arbitrary strictness value (legacy configs too). */
+export function strictnessLevelIndex(strictness: number): number {
+  let bestIndex = 0;
+  let bestDiff = Infinity;
+  STRICTNESS_LEVELS.forEach((level, i) => {
+    const diff = Math.abs(level.value - strictness);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIndex = i;
+    }
+  });
+  return bestIndex;
+}
+
 export function strictnessLabelKey(strictness: number): StrictnessLabelKey {
-  return strictness <= 3
-    ? "setup.strictness.friendly"
-    : strictness <= 6
-      ? "setup.strictness.normal"
-      : strictness <= 8
-        ? "setup.strictness.high"
-        : "setup.strictness.extreme";
+  return STRICTNESS_LEVELS[strictnessLevelIndex(strictness)]?.labelKey ?? "setup.strictness.balanced";
 }
 
 export function ResumeSelect({
@@ -130,7 +166,8 @@ export function SetupFields({
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pb-2 pr-0.5">
       <div className="surface-card p-3.5">
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <CardTitle icon={Briefcase} text={t("setup.section.goal")} />
+        <div className="grid grid-cols-2 gap-2.5">
           <Select
             label={t("setup.role.label")}
             value={roleSelectValue}
@@ -148,6 +185,48 @@ export function SetupFields({
             labels={options.levels.map((id) => levelLabel(id, t))}
             onChange={(v) => onConfig({ level: v })}
           />
+        </div>
+        {roleSelectValue === CUSTOM_ROLE_ID && (
+          <div className="mt-2.5">
+            <label className="field-label !mb-1 !text-xs">{t("setup.role.custom")}</label>
+            <input
+              type="text"
+              value={customRoleText}
+              placeholder={t("setup.role.customPlaceholder")}
+              onChange={(e) => onConfig({ role: e.target.value })}
+              className="field-input !h-9 !text-xs"
+            />
+          </div>
+        )}
+        <div className="mt-3">
+          <label className="field-label !mb-2 !text-xs">{t("setup.company.label")}</label>
+          <CompanyGrid
+            value={companyIsCustom ? CUSTOM_COMPANY_ID : config.company}
+            companies={[
+              { id: CUSTOM_COMPANY_ID, name: t("setup.company.custom") },
+              ...localized.companies.map((c) => ({ id: c.id, name: c.name })),
+            ]}
+            onChange={(v) => onConfig({ company: v === CUSTOM_COMPANY_ID ? "" : v })}
+          />
+        </div>
+        {companyIsCustom && (
+          <div className="mt-2.5">
+            <label className="field-label !mb-1 !text-xs">{t("setup.company.custom")}</label>
+            <input
+              type="text"
+              value={customCompanyText}
+              maxLength={100}
+              placeholder={t("setup.company.customPlaceholder")}
+              onChange={(e) => onConfig({ company: e.target.value })}
+              className="field-input !h-9 !text-xs"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="surface-card p-3.5">
+        <CardTitle icon={ListChecks} text={t("setup.section.format")} />
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <Select
             label={t("setup.type.label")}
             value={config.workflow_type}
@@ -162,93 +241,28 @@ export function SetupFields({
             labels={options.interview_styles.map((s) => styleLabel(s.id, t))}
             onChange={(v) => onConfig({ interview_style: v as InterviewConfig["interview_style"] })}
           />
-        </div>
-        {roleSelectValue === CUSTOM_ROLE_ID && (
-          <div className="mt-2.5">
-            <label className="field-label !mb-1 !text-xs">{t("setup.role.custom")}</label>
-            <input
-              type="text"
-              value={customRoleText}
-              placeholder={t("setup.role.customPlaceholder")}
-              onChange={(e) => onConfig({ role: e.target.value })}
-              className="field-input !h-9 !text-xs"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="surface-card p-3.5">
-        <label className="field-label !mb-2 !text-xs">{t("setup.company.label")}</label>
-        <CompanyGrid
-          value={companyIsCustom ? CUSTOM_COMPANY_ID : config.company}
-          companies={[
-            { id: CUSTOM_COMPANY_ID, name: t("setup.company.custom") },
-            ...localized.companies.map((c) => ({ id: c.id, name: c.name })),
-          ]}
-          onChange={(v) => onConfig({ company: v === CUSTOM_COMPANY_ID ? "" : v })}
-        />
-        {companyIsCustom && (
-          <div className="mt-2.5">
-            <label className="field-label !mb-1 !text-xs">{t("setup.company.custom")}</label>
-            <input
-              type="text"
-              value={customCompanyText}
-              maxLength={100}
-              placeholder={t("setup.company.customPlaceholder")}
-              onChange={(e) => onConfig({ company: e.target.value })}
-              className="field-input !h-9 !text-xs"
-            />
-            <p className="mt-1 text-[11px] leading-snug text-ink-subtle">
-              {t("setup.company.customNote")}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="surface-card p-3.5">
-        <ChoiceGroup
-          label={t("setup.rounds.label")}
-          value={multiRound ? "multi" : "single"}
-          options={[
-            { id: "single" as const, name: t("setup.rounds.single") },
-            { id: "multi" as const, name: t("setup.rounds.multi") },
-          ]}
-          onChange={(v) => onMultiRound(v === "multi")}
-        />
-      </div>
-
-      <div className="surface-card p-3.5">
-        <div className="grid grid-cols-1 items-end gap-3 lg:grid-cols-[1fr_auto]">
-          <ChoiceGroup
-            label={t("setup.personality.label")}
-            value={config.personality}
-            options={options.personalities.map((p) => ({
-              id: p.id as InterviewConfig["personality"],
-              name: personalityLabel(p.id, t),
-            }))}
-            onChange={(v) => onConfig({ personality: v as InterviewConfig["personality"] })}
+          <Select
+            label={t("setup.rounds.label")}
+            value={multiRound ? "multi" : "single"}
+            options={["single", "multi"]}
+            labels={[t("setup.rounds.single"), t("setup.rounds.multi")]}
+            onChange={(v) => onMultiRound(v === "multi")}
           />
-          <div className="lg:w-48">
-            <label className="field-label !mb-2 !text-xs">
-              {t("setup.strictness.label", {
-                n: config.strictness,
-                label: t(strictnessLabelKey(config.strictness)),
-              })}
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={config.strictness}
-              onChange={(e) => onConfig({ strictness: Number(e.target.value) })}
-              className="h-2 w-full accent-[var(--primary)]"
+          {options.scenes && options.scenes.length > 0 && (
+            <Select
+              label={t("setup.scene.label")}
+              value={config.scene_id || "meeting_room"}
+              options={options.scenes.map((s) => s.id)}
+              labels={options.scenes.map((s) => sceneLabel(s.id, t))}
+              onChange={(v) => onConfig({ scene_id: v })}
             />
-          </div>
+          )}
         </div>
       </div>
 
       <div className="surface-card p-3.5">
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <CardTitle icon={UserCircle} text={t("setup.section.presenter")} />
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           {options.avatars && options.avatars.length > 0 && (
             <Select
               label={t("setup.avatar.label")}
@@ -264,15 +278,22 @@ export function SetupFields({
               onChange={(v) => onConfig({ avatar_id: v })}
             />
           )}
-          {options.scenes && options.scenes.length > 0 && (
-            <Select
-              label={t("setup.scene.label")}
-              value={config.scene_id || "meeting_room"}
-              options={options.scenes.map((s) => s.id)}
-              labels={options.scenes.map((s) => sceneLabel(s.id, t))}
-              onChange={(v) => onConfig({ scene_id: v })}
-            />
-          )}
+          <Select
+            label={t("setup.personality.label")}
+            value={config.personality}
+            options={options.personalities.map((p) => p.id)}
+            labels={options.personalities.map((p) => personalityLabel(p.id, t))}
+            onChange={(v) => onConfig({ personality: v as InterviewConfig["personality"] })}
+          />
+          <Select
+            label={t("setup.strictness.label")}
+            value={String(strictnessLevelIndex(config.strictness))}
+            options={STRICTNESS_LEVELS.map((_, i) => String(i))}
+            labels={STRICTNESS_LEVELS.map((l) => t(l.labelKey))}
+            onChange={(v) =>
+              onConfig({ strictness: STRICTNESS_LEVELS[Number(v)]?.value ?? config.strictness })
+            }
+          />
           {resumes.length > 0 ? (
             <ResumeSelect resumes={resumes} value={config.resume_id ?? null} onChange={(v) => onConfig({ resume_id: v })} />
           ) : (

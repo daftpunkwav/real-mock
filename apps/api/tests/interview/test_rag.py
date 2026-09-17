@@ -50,7 +50,6 @@ def test_build_documents_covers_all_companies() -> None:
     texts, metadatas, ids = _build_documents()
     company_ids = {m["company_id"] for m in metadatas}
     assert "bytedance" in company_ids
-    assert "tencent" in company_ids
     assert "alibaba" in company_ids
     assert len(texts) == len(metadatas) == len(ids)
     assert len(ids) > 30

@@ -11,19 +11,21 @@ export function Select({
   options,
   labels,
   onChange,
+  ariaLabel,
 }: {
   label: string;
   value: string;
   options: string[];
   labels?: string[];
   onChange: (v: string) => void;
+  ariaLabel?: string;
 }) {
   return (
     <div>
       <label className="field-label !mb-1 !text-xs">{label}</label>
       <CustomSelect
         className="!h-9 !text-xs"
-        ariaLabel={label}
+        ariaLabel={ariaLabel ?? label}
         value={value}
         options={options.map((o, i) => ({ value: o, label: labels?.[i] || o }))}
         onChange={onChange}

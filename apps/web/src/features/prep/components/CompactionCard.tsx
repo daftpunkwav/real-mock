@@ -103,7 +103,7 @@ export function CompactionCard({
             {editing ? (
               <div className="space-y-2">
                 <textarea
-                  className="input min-h-20 w-full text-[13px]"
+                  className="field-textarea min-h-20 w-full text-[13px]"
                   rows={4}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

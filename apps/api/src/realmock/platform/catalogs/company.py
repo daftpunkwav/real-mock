@@ -29,25 +29,6 @@ BUILTIN_COMPANIES: list[dict] = [
         "pressure_level": "High",
     },
     {
-        "id": "tencent",
-        "name": "Tencent",
-        "style": "Solid fundamentals, project experience, teamwork and incident handling",
-        "focus_areas": [
-            "Fundamentals",
-            "Project experience",
-            "Teamwork",
-            "Incident handling",
-            "Code quality",
-        ],
-        "sample_questions": [
-            "If a major production incident happens, how do you locate and resolve it?",
-            "Describe a time you disagreed with a teammate on a technical decision and how you resolved it.",
-            "Explain the difference between TCP and UDP.",
-        ],
-        "interview_flow": "Self intro → Fundamentals → Project experience → Scenarios → Your questions",
-        "pressure_level": "Medium",
-    },
-    {
         "id": "alibaba",
         "name": "Alibaba",
         "style": "Business thinking, technical depth, and values fit",

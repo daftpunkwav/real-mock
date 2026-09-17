@@ -2,15 +2,22 @@
 
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Cpu, Database, GraduationCap, Palette, PlugZap } from "lucide-react";
+import { Cpu, Database, GraduationCap, Mic, Palette, PlugZap } from "lucide-react";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 import { InterfaceSettingsPanel } from "./InterfaceSettingsPanel";
+import { InterviewSettingsPanel } from "./InterviewSettingsPanel";
 import { ModelsSettingsPanel } from "./ModelsSettingsPanel";
 import { PrepSettingsPanel } from "./PrepSettingsPanel";
 import { ResumeSettingsPanel } from "./ResumeSettingsPanel";
 
 /** Categories group settings by domain: global, resumes, interview prep. */
-export type SettingsCategoryId = "interface" | "models" | "resume" | "prep" | "integrations";
+export type SettingsCategoryId =
+  | "interface"
+  | "models"
+  | "resume"
+  | "prep"
+  | "interview"
+  | "integrations";
 
 export type SettingsCategory = {
   id: SettingsCategoryId;
@@ -26,6 +33,7 @@ export const SETTINGS_CATEGORIES = [
   { id: "models", labelKey: "nav.models", icon: Cpu, Panel: ModelsSettingsPanel },
   { id: "resume", labelKey: "nav.resume", icon: Database, Panel: ResumeSettingsPanel },
   { id: "prep", labelKey: "nav.prep", icon: GraduationCap, Panel: PrepSettingsPanel },
+  { id: "interview", labelKey: "nav.interview", icon: Mic, Panel: InterviewSettingsPanel },
   { id: "integrations", labelKey: "nav.integrations", icon: PlugZap, Panel: IntegrationsSettingsPanel },
 ] as const satisfies readonly [SettingsCategory, ...SettingsCategory[]];
 

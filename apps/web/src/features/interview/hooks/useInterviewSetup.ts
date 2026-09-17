@@ -2,7 +2,7 @@
 
 /** Interview setup data domain: options/resumes/model buckets + config + create session. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getTranslator } from "@/i18n/resolve";
 import { interviewHttp as api, settingsHttp } from "@/lib/api/clients";
@@ -15,6 +15,12 @@ import {
   isPresetRole,
   resolveConfigLabelsForApi,
 } from "../setup/optionLabels";
+import {
+  readSetupPrefs,
+  restoreModelId,
+  restoreSetupConfig,
+  writeSetupPrefs,
+} from "../setup/prefs";
 
 const DEFAULT_CONFIG: InterviewConfig = {
   role: "backend_engineer",
@@ -52,6 +58,17 @@ export function useInterviewSetup() {
   const [referenceDetail, setReferenceDetail] = useState<ReferenceDetail>("outline");
   const [defaultBindings, setDefaultBindings] = useState<TaskBindings | null>(null);
 
+  // Stored preferences are read once; state keeps defaults until the catalogs
+  // validate them, so SSR/hydration output stays identical.
+  const storedPrefs = useMemo(() => readSetupPrefs(), []);
+  /** True once catalog-dependent restores finished; gates preference write-back. */
+  const [prefsRestored, setPrefsRestored] = useState(false);
+  const restoreGatesRef = useRef(2);
+  const markPrefsRestored = () => {
+    restoreGatesRef.current -= 1;
+    if (restoreGatesRef.current <= 0) setPrefsRestored(true);
+  };
+
   const loadData = () => {
     setLoading(true);
     setLoadError("");
@@ -59,10 +76,18 @@ export function useInterviewSetup() {
       .then(([opts, res]) => {
         setOptions(opts);
         setResumes(res);
-        if (res.length > 0) {
-          const active = res.find((r) => r.is_active) ?? res[0];
-          if (active) setConfig((c) => ({ ...c, resume_id: active.id }));
-        }
+        // Restore last-used choices; a stored resume only wins while it still
+        // exists, otherwise the active resume fallback applies.
+        const restored = restoreSetupConfig(storedPrefs.config, opts, res);
+        setConfig((c) => {
+          const next = { ...c, ...restored };
+          if (restored.resume_id === undefined && res.length > 0) {
+            const active = res.find((r) => r.is_active) ?? res[0];
+            if (active) next.resume_id = active.id;
+          }
+          return next;
+        });
+        markPrefsRestored();
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : getTranslator("interview")("setup.loadFailed")))
       .finally(() => setLoading(false));
@@ -72,19 +97,39 @@ export function useInterviewSetup() {
     loadData();
   }, []);
 
+  // Storage-only preferences (no catalog validation needed).
+  useEffect(() => {
+    if (storedPrefs.multiRound !== undefined) setMultiRound(storedPrefs.multiRound);
+    if (storedPrefs.effort) setEffort(storedPrefs.effort);
+    if (storedPrefs.referenceDetail) setReferenceDetail(storedPrefs.referenceDetail);
+  }, [storedPrefs]);
+
   // Processor buckets by capability; load failure must not block setup
   useEffect(() => {
     settingsHttp
       .listModelOptions()
       .then((res) => {
         const list = Array.isArray(res?.models) ? res.models : [];
-        setChatModels(list.filter((m) => m.capabilities?.chat));
-        setSttModels(list.filter((m) => m.capabilities?.audio_input));
-        setTtsModels(list.filter((m) => m.capabilities?.audio_output));
+        const chat = list.filter((m) => m.capabilities?.chat);
+        const stt = list.filter((m) => m.capabilities?.audio_input);
+        const tts = list.filter((m) => m.capabilities?.audio_output);
+        setChatModels(chat);
+        setSttModels(stt);
+        setTtsModels(tts);
+        setChatModelId(restoreModelId(storedPrefs.chatModelId, chat));
+        setSttModelId(restoreModelId(storedPrefs.sttModelId, stt));
+        setTtsModelId(restoreModelId(storedPrefs.ttsModelId, tts));
+        markPrefsRestored();
       })
-      .catch(() => {});
+      .catch(() => markPrefsRestored());
     settingsHttp.getBindings().then(setDefaultBindings).catch(() => {});
-  }, []);
+  }, [storedPrefs]);
+
+  // Write-back on every change so the next visit restores the latest choices.
+  useEffect(() => {
+    if (!prefsRestored) return;
+    writeSetupPrefs({ config, multiRound, chatModelId, sttModelId, ttsModelId, effort, referenceDetail });
+  }, [prefsRestored, config, multiRound, chatModelId, sttModelId, ttsModelId, effort, referenceDetail]);
 
   const set = (patch: Partial<InterviewConfig>) => setConfig((c) => ({ ...c, ...patch }));
 

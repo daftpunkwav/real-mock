@@ -689,7 +689,7 @@ button:active:not(:disabled),
     width: 100%;
     padding: 0 12px;
     border-radius: var(--radius);
-    border: 1px solid var(--input);
+    border: 1px solid var(--border-strong);
     background: var(--card);
     color: var(--foreground);
     font-size: var(--text-sm);
@@ -709,7 +709,7 @@ button:active:not(:disabled),
   .field-textarea::placeholder { color: var(--foreground-subtle); }
   .field-input:hover,
   .field-textarea:hover,
-  .field-select:hover { border-color: var(--border-strong); }
+  .field-select:hover { border-color: var(--primary); }
   .field-input:focus,
   .field-textarea:focus,
   .field-select:focus {

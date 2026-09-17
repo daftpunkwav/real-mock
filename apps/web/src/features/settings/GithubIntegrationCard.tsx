@@ -114,7 +114,7 @@ export function GithubIntegrationCard() {
       <div className="mt-3 flex max-w-md flex-col gap-2">
         <input
           type="password"
-          className="input text-[13px]"
+          className="field-input !h-9 text-[13px]"
           autoComplete="off"
           spellCheck={false}
           placeholder={t("integrations.github.placeholder")}
