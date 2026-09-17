@@ -1,7 +1,7 @@
 "use client";
 
-/** Centered modal wrapping the model form for the add flow. Escape closes unless a
- * save is in flight; the edit flow stays inline in the model list. */
+/** Centered modal wrapping the model form for the add and edit flows. Escape
+ * closes unless a save is in flight; title follows the flow via ``titleKey``. */
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -22,6 +22,7 @@ export function ModelFormModal({
   onSave,
   onCancel,
   saving,
+  titleKey = "modelList.add",
 }: {
   draft: ModelDraft;
   setDraft: Dispatch<SetStateAction<ModelDraft>>;
@@ -31,6 +32,7 @@ export function ModelFormModal({
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  titleKey?: "modelList.add" | "modelList.edit";
 }) {
   const t = useT("settings");
   useDialogScrollLock(true);
@@ -48,11 +50,11 @@ export function ModelFormModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 anim-fade-in"
       role="dialog"
       aria-modal="true"
-      aria-label={t("modelList.add")}
+      aria-label={t(titleKey)}
     >
       <div className="surface-card w-full max-w-lg !p-5 anim-rise">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-ink">{t("modelList.add")}</h2>
+          <h2 className="text-[13px] font-semibold text-ink">{t(titleKey)}</h2>
           <button
             type="button"
             className="rounded p-0.5 text-ink-subtle hover:text-ink"
@@ -63,7 +65,6 @@ export function ModelFormModal({
           </button>
         </div>
         <ModelForm
-          variant="modal"
           draft={draft}
           setDraft={setDraft}
           catalog={catalog}

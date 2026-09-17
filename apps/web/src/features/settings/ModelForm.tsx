@@ -1,9 +1,10 @@
 "use client";
 
-/** Model create and edit form. The model-name field is a lightweight combobox:
- * "fetch model list" pulls candidate ids from the vendor descriptor or the provider's
- * /models endpoint and offers them in a popover under the input (filtered by the
- * typed text); manual entry stays available at all times. */
+/** Model create and edit form, hosted by ModelFormModal (which owns the dialog
+ * frame). The model-name field is a lightweight combobox: "fetch model list" pulls
+ * candidate ids from the vendor descriptor or the provider's /models endpoint and
+ * offers them in a popover under the input (filtered by the typed text); manual
+ * entry stays available at all times. */
 
 import { useEffect, useState } from "react";
 import { Download, Save, X } from "lucide-react";
@@ -20,7 +21,6 @@ export function ModelForm({
   onSave,
   onCancel,
   saving,
-  variant = "inline",
 }: {
   draft: ModelDraft;
   setDraft: (d: ModelDraft) => void;
@@ -30,9 +30,6 @@ export function ModelForm({
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
-  /** "inline" renders the framed card inside the model list; "modal" drops the frame
-   * because the host dialog already provides the container. */
-  variant?: "inline" | "modal";
 }) {
   const t = useT("settings");
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -46,13 +43,7 @@ export function ModelForm({
   }, [catalog]);
 
   return (
-    <div
-      className={
-        variant === "modal"
-          ? ""
-          : "rounded-md border border-[var(--primary)]/40 bg-[var(--info-soft)]/40 p-3"
-      }
-    >
+    <div>
       <div className="grid grid-cols-1 gap-2.5">
         <div>
           <div className="mb-1 flex items-center justify-between">

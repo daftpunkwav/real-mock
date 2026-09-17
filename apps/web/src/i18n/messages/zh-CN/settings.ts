@@ -92,6 +92,7 @@ export const settings = {
   // ModelListCard:模型条目列表
   "modelList.count": "模型条目({count})",
   "modelList.add": "添加模型",
+  "modelList.edit": "编辑模型",
   "modelList.empty": "还没有模型条目;条目按「能力」声明,可同时服务多个任务",
   "modelList.emptyKind": "该类型还没有模型条目,点「添加模型」创建",
 

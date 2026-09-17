@@ -93,6 +93,7 @@ export const settings = {
   // ModelListCard
   "modelList.count": "Model entries ({count})",
   "modelList.add": "Add model",
+  "modelList.edit": "Edit model",
   "modelList.empty":
     "No model entries yet; entries declare capabilities and can serve multiple tasks",
   "modelList.emptyKind": "No entries for this model type yet — use \"Add model\" to create one",

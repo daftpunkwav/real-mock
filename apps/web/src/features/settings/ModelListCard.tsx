@@ -5,7 +5,6 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ModelKind, ModelProfile, ProviderWithModels } from "@/types";
 import { useT } from "@/i18n";
 import { type ModelDraft } from "./constants";
-import { ModelForm } from "./ModelForm";
 import { ModelFormModal } from "./ModelFormModal";
 import { ModelRow } from "./ModelRow";
 
@@ -31,7 +30,7 @@ interface ModelListCardProps {
   onCancelAdd: () => void;
 }
 
-/** Model-entry list for one provider channel (kind), with inline add/edit and test actions. */
+/** Model-entry list for one provider channel (kind), with modal add/edit and test actions. */
 export function ModelListCard(props: ModelListCardProps) {
   const {
     provider,
@@ -76,30 +75,16 @@ export function ModelListCard(props: ModelListCardProps) {
         {models.length === 0 && !addingModel && (
           <p className="text-[12px] text-ink-subtle">{t("modelList.emptyKind")}</p>
         )}
-        {models.map((m) =>
-          editingModelId === m.id ? (
-            <ModelForm
-              key={m.id}
-              draft={draft}
-              setDraft={setDraft}
-              catalog={catalog}
-              catalogLoading={catalogLoading}
-              onFetchCatalog={onFetchCatalog}
-              onCancel={onCancelEdit}
-              onSave={() => onSave(provider.id)}
-              saving={saving}
-            />
-          ) : (
-            <ModelRow
-              key={m.id}
-              model={m}
-              testing={testingId === m.id}
-              onEdit={() => onEdit(m)}
-              onDelete={() => onDelete(m.id)}
-              onTest={() => onTest(m.id)}
-            />
-          ),
-        )}
+        {models.map((m) => (
+          <ModelRow
+            key={m.id}
+            model={m}
+            testing={testingId === m.id}
+            onEdit={() => onEdit(m)}
+            onDelete={() => onDelete(m.id)}
+            onTest={() => onTest(m.id)}
+          />
+        ))}
         {addingModel && (
           <ModelFormModal
             draft={draft}
@@ -108,6 +93,19 @@ export function ModelListCard(props: ModelListCardProps) {
             catalogLoading={catalogLoading}
             onFetchCatalog={onFetchCatalog}
             onCancel={onCancelAdd}
+            onSave={() => onSave(provider.id)}
+            saving={saving}
+          />
+        )}
+        {editingModelId != null && (
+          <ModelFormModal
+            titleKey="modelList.edit"
+            draft={draft}
+            setDraft={setDraft}
+            catalog={catalog}
+            catalogLoading={catalogLoading}
+            onFetchCatalog={onFetchCatalog}
+            onCancel={onCancelEdit}
             onSave={() => onSave(provider.id)}
             saving={saving}
           />
