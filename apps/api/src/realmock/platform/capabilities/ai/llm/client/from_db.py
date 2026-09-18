@@ -38,6 +38,21 @@ def _extras_body_headers(cfg: dict[str, Any]) -> tuple[dict | None, dict | None]
     )
 
 
+def _default_reasoning_effort(cfg: dict[str, Any]) -> str | None:
+    """Profile-declared default thinking level (``extras.reasoning.defaultVariant``).
+
+    Applies only to reasoning-capable entries; entries without a declared default
+    keep the previous behavior of sending no reasoning parameter.
+    """
+    if not cfg.get("reasoning_capable"):
+        return None
+    reasoning = (cfg.get("extras") or {}).get("reasoning")
+    if not isinstance(reasoning, dict):
+        return None
+    variant = str(reasoning.get("defaultVariant") or "").strip()
+    return variant or None
+
+
 def build_from_db(
     cls: type,
     db: Session,
@@ -48,7 +63,9 @@ def build_from_db(
     """Build a client from the model-profile system (default task binding or scenario-level ``profile_id`` override).
 
     ``reasoning_effort`` applies only when the selected profile declares ``reasoning_capable``;
-    without an override, use the default chat binding, then let the pipeline fall back to stage_configs;
+    without an override, the profile's declared default level (``extras.reasoning.defaultVariant``)
+    is used; without either, no reasoning parameter is sent. Without an explicit ``profile_id``,
+    use the default chat binding, then let the pipeline fall back to stage_configs;
     environment variables are the last-resort fallback.
     """
     from realmock.platform.services.pipeline.config import get_stage_config_for_runtime
@@ -69,7 +86,7 @@ def build_from_db(
         reasoning = (
             reasoning_effort
             if reasoning_effort and cfg.get("reasoning_capable")
-            else None
+            else _default_reasoning_effort(cfg)
         )
         extra_body, extra_headers = _extras_body_headers(cfg)
     else:

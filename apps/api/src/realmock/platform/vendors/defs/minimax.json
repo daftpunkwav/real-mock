@@ -116,6 +116,32 @@
           {"id": "female-tianmei", "name": "甜美女性"}
         ]
       },
+      "prosody": {
+        "notes": "Session emotion tag → native voice_setting.emotion via emotion_map; empty value keeps the API's auto emotion. Map values: happy/sad/angry/fearful/disgusted/surprised/calm/fluent/whisper (fluent/whisper only on 2.6; whisper unsupported on 2.8).",
+        "emotion_map": {
+          "neutral": "",
+          "smile": "happy",
+          "happy": "happy",
+          "serious": "calm",
+          "curious": "fluent",
+          "encouraging": "happy",
+          "skeptical": "calm",
+          "concerned": "sad",
+          "angry": "angry",
+          "sad": "sad"
+        },
+        "speed": {
+          "base": 1.0,
+          "min": 0.5,
+          "max": 2.0,
+          "notes": "Edge-style rate percentage (e.g. \"+12%\") maps to speed = base * (1 + pct/100), clamped."
+        },
+        "pitch": {
+          "min": -12,
+          "max": 12,
+          "notes": "Edge-style pitch offset (e.g. \"+3Hz\") maps 1:1 to integer voice_setting.pitch, clamped."
+        }
+      },
       "text_markup": {
         "pause": {
           "syntax": "<#x#>",

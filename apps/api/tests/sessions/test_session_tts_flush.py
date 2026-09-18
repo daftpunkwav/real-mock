@@ -14,7 +14,7 @@ async def test_flush_waits_for_all_enqueued(monkeypatch: pytest.MonkeyPatch) -> 
     order: list[str] = []
     delays = {"Hello.": 0.05, "Second sentence.": 0.05, "Third sentence.": 0.05}
 
-    async def slow_synth(sentence: str, *, creds=None, rate="+0%", pitch="+0Hz") -> str:
+    async def slow_synth(sentence: str, *, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral") -> str:
         await asyncio.sleep(delays.get(sentence, 0.01))
         return f"audio:{sentence}"
 
@@ -43,7 +43,7 @@ async def test_flush_remainder_enqueues_trailing(monkeypatch: pytest.MonkeyPatch
 
     sent: list[str] = []
 
-    async def synth(sentence: str, *, creds=None, rate="+0%", pitch="+0Hz") -> str:
+    async def synth(sentence: str, *, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral") -> str:
         return f"a:{sentence}"
 
     monkeypatch.setattr("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", synth)

@@ -4,6 +4,10 @@ Request shape is driven by the vendor descriptor (``platform/vendors/defs/minima
 every field of the request body can be overridden per model entry via
 ``extras["tts_request"]`` (deep-merged onto the descriptor defaults).
 
+Session prosody (``emotion`` tag plus edge-tts-style ``rate``/``pitch`` strings) is
+translated to native ``voice_setting`` fields through the descriptor's ``prosody``
+section and only applied for non-neutral/non-zero values.
+
 Text-markup support (all passed through to the API verbatim):
 - pause markers ``<#x#>`` (x seconds, 0.01-99.99);
 - inline pronunciation replacement ``(pinyin5)`` / ``(ipa)`` / ``(jyutping6)``;
@@ -148,8 +152,19 @@ def build_tts_body(
     model: str,
     voice: str,
     overrides: dict | None = None,
+    emotion: str = "neutral",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
 ) -> dict:
-    """Assemble the t2a_v2 body: descriptor defaults ← extras overrides ← runtime values."""
+    """Assemble the t2a_v2 body: descriptor defaults ← extras overrides ← runtime values ← prosody.
+
+    ``emotion``/``rate``/``pitch`` carry the session prosody (edge-tts-style ``"+12%"`` /
+    ``"+2Hz"`` strings plus a coarse emotion tag). They are translated through the
+    descriptor's ``prosody`` section and only applied when non-neutral/non-zero, so a
+    pinned ``extras["tts_request"]`` value survives for neutral sentences. When prosody
+    is active the two axes differ: ``speed`` is recomputed from the descriptor base
+    (replacing a pinned speed), while ``pitch`` accumulates onto the pinned value.
+    """
     request_def = _capability_def().get("request") or {}
     body = deep_merge(request_def.get("body") or _FALLBACK_BODY, overrides)
     body["model"] = model or DEFAULT_MODEL
@@ -157,6 +172,68 @@ def build_tts_body(
     body.setdefault("stream", False)
     voice_setting = dict(body.get("voice_setting") or {})
     voice_setting["voice_id"] = _resolve_voice(voice)
+    body["voice_setting"] = voice_setting
+    return apply_prosody(body, emotion=emotion, rate=rate, pitch=pitch)
+
+
+def _parse_percent(rate: str) -> int:
+    """Parse an edge-tts style relative rate (``"+12%"`` → 12, ``"-3%"`` → -3)."""
+    try:
+        return int(str(rate or "").strip().replace("%", ""))
+    except ValueError:
+        return 0
+
+
+def _parse_hz(pitch: str) -> int:
+    """Parse an edge-tts style pitch offset (``"+2Hz"`` → 2, ``"-1hz"`` → -1)."""
+    try:
+        return int(str(pitch or "").strip().replace("Hz", "").replace("hz", ""))
+    except ValueError:
+        return 0
+
+
+def apply_prosody(
+    body: dict,
+    *,
+    emotion: str = "neutral",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
+) -> dict:
+    """Overlay session prosody onto ``body["voice_setting"]`` per the descriptor prosody map.
+
+    Only non-neutral emotions and non-zero rate/pitch offsets are written, so static
+    values from the descriptor defaults or ``extras["tts_request"]`` win otherwise.
+    """
+    prosody = _capability_def().get("prosody")
+    if not isinstance(prosody, dict):
+        return body
+    voice_setting = dict(body.get("voice_setting") or {})
+
+    emo = (emotion or "neutral").strip().lower()
+    emotion_map = prosody.get("emotion_map") or {}
+    native = str(emotion_map.get(emo) or "").strip()
+    if native:
+        voice_setting["emotion"] = native
+
+    pct = _parse_percent(rate)
+    if pct:
+        speed_cfg = prosody.get("speed") or {}
+        base = float(speed_cfg.get("base", 1.0))
+        lo = float(speed_cfg.get("min", 0.5))
+        hi = float(speed_cfg.get("max", 2.0))
+        voice_setting["speed"] = round(min(max(base * (1 + pct / 100), lo), hi), 2)
+
+    hz = _parse_hz(pitch)
+    if hz:
+        pitch_cfg = prosody.get("pitch") or {}
+        lo = int(pitch_cfg.get("min", -12))
+        hi = int(pitch_cfg.get("max", 12))
+        try:
+            current = int(float(voice_setting.get("pitch") or 0))
+        except (TypeError, ValueError):
+            current = 0
+        voice_setting["pitch"] = min(max(current + hz, lo), hi)
+
     body["voice_setting"] = voice_setting
     return body
 
@@ -228,6 +305,9 @@ async def synthesize_minimax_to_base64(
     model: str = DEFAULT_MODEL,
     voice: str = DEFAULT_VOICE,
     overrides: dict | None = None,
+    emotion: str = "neutral",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
 ) -> str:
     """Call MiniMax t2a_v2; successfully returns mp3/wav base64, otherwise returns an empty string."""
     key = (api_key or "").strip()
@@ -241,7 +321,15 @@ async def synthesize_minimax_to_base64(
     path = _endpoint_path("/t2a_v2")
     url = base if base.endswith(path) else f"{base}{path}"
 
-    merged_body = build_tts_body(clean, model=model, voice=voice, overrides=overrides)
+    merged_body = build_tts_body(
+        clean,
+        model=model,
+        voice=voice,
+        overrides=overrides,
+        emotion=emotion,
+        rate=rate,
+        pitch=pitch,
+    )
     fmt = str((merged_body.get("audio_setting") or {}).get("format") or "mp3").lower()
     limit = int(_capability_def().get("limits", {}).get("chunk_chars") or 2800)
     chunks = split_text_chunks(clean, limit)

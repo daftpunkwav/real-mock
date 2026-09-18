@@ -1,7 +1,7 @@
 """Edge TTS extra tests for src/realmock/platform/capabilities/voice/tts/edge.py.
 
 Covers: _HARD_END/VOICE_PRESETS/split_sentences/should_flush_sentence_buffer/
-next_soft_min/extract_emotion/_plain_text_for_tts helpers plus
+next_soft_min/extract_emotion/plain_text_for_tts helpers plus
 _stream_communicate and synthesize_to_base64 prosody/default/fallback/exception/
 empty branches and safe wrapper (edge_tts module faked).
 Conventions: no real network/model downloads (all clients mocked).
@@ -19,7 +19,7 @@ from realmock.platform.capabilities.voice.tts.providers.edge import (
     DEFAULT_VOICE,
     VOICE_PRESETS,
     _HARD_END,
-    _plain_text_for_tts,
+    plain_text_for_tts,
     extract_emotion,
     next_soft_min,
     should_flush_sentence_buffer,
@@ -95,19 +95,19 @@ def test_extract_emotion_variants():
 
 
 def test_plain_text_strips_all_decorations():
-    assert _plain_text_for_tts("[PHASE_COMPLETE] done") == "done"
-    assert _plain_text_for_tts("[INTERVIEW_COMPLETE] done") == "done"
-    assert _plain_text_for_tts("hi[emotion:smile]there") == "hithere"
-    assert _plain_text_for_tts("**bold**") == "bold"
-    assert _plain_text_for_tts("*italic*") == "italic"
-    assert _plain_text_for_tts("__under__") == "under"
-    assert _plain_text_for_tts("_under_") == "under"
-    assert _plain_text_for_tts("`code`") == "code"
-    assert _plain_text_for_tts("## Title") == "Title"
-    assert _plain_text_for_tts("[link](https://example.com)") == "link"
-    assert _plain_text_for_tts("a ＊ b * c") == "a  b  c".replace("  ", " ").strip() or True
-    assert "*" not in _plain_text_for_tts("a * b ＊ c")
-    assert _plain_text_for_tts("a  b") == "a b"
+    assert plain_text_for_tts("[PHASE_COMPLETE] done") == "done"
+    assert plain_text_for_tts("[INTERVIEW_COMPLETE] done") == "done"
+    assert plain_text_for_tts("hi[emotion:smile]there") == "hithere"
+    assert plain_text_for_tts("**bold**") == "bold"
+    assert plain_text_for_tts("*italic*") == "italic"
+    assert plain_text_for_tts("__under__") == "under"
+    assert plain_text_for_tts("_under_") == "under"
+    assert plain_text_for_tts("`code`") == "code"
+    assert plain_text_for_tts("## Title") == "Title"
+    assert plain_text_for_tts("[link](https://example.com)") == "link"
+    assert plain_text_for_tts("a ＊ b * c") == "a  b  c".replace("  ", " ").strip() or True
+    assert "*" not in plain_text_for_tts("a * b ＊ c")
+    assert plain_text_for_tts("a  b") == "a b"
 
 
 def _install_fake_edge_tts(monkeypatch, factory):

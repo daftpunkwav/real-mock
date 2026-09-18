@@ -14,7 +14,7 @@ from realmock.domains.interview.agents import strip_markers
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_speech
 from realmock.platform.capabilities.voice.tts.providers.edge import (
     extract_emotion,
-    _plain_text_for_tts,
+    plain_text_for_tts,
 )
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody, with_emotion
 
@@ -89,7 +89,7 @@ class VoicePipelineMixin:
     ctx: "ConnectionContext"
 
     async def _speak_one(self, sentence: str) -> None:
-        clean = _plain_text_for_tts(strip_markers(sentence))
+        clean = plain_text_for_tts(strip_markers(sentence))
         if not clean:
             return
         base = self.ctx.session_prosody or VoiceProsody(voice=self.ctx.tts_voice)
@@ -106,6 +106,7 @@ class VoicePipelineMixin:
                 creds=replace(tts_creds, voice=p.voice or tts_creds.voice),
                 rate=p.rate,
                 pitch=p.pitch,
+                emotion=emo,
             )
         except Exception as e:
             logger.error("TTS short sentence failed: %s", e)

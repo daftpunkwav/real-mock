@@ -292,3 +292,103 @@ def test_split_text_chunks_respects_limit_and_paragraphs():
         assert len(chunk) <= 200
     joined = "".join(minimax_mod.split_text_chunks(long_text, 200))
     assert joined.replace("。", "") == long_text.replace("。", "")
+
+
+_PROSODY_DEF: dict = {
+    "request": {"body": {"stream": False, "voice_setting": {"speed": 1.0, "vol": 1.0, "pitch": 0}}},
+    "response": {},
+    "prosody": {
+        "emotion_map": {"neutral": "", "smile": "happy", "serious": "calm", "sad": "sad"},
+        "speed": {"base": 1.0, "min": 0.5, "max": 2.0},
+        "pitch": {"min": -12, "max": 12},
+    },
+}
+
+
+def test_build_tts_body_emotion_maps_to_native(monkeypatch):
+    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: _PROSODY_DEF)
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", emotion="smile")
+    assert body["voice_setting"]["emotion"] == "happy"
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", emotion="serious")
+    assert body["voice_setting"]["emotion"] == "calm"
+    # neutral maps to "" → no emotion key; descriptor/override values survive
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", emotion="neutral")
+    assert "emotion" not in body["voice_setting"]
+    # unknown emotion → no mapping applied
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", emotion="excited")
+    assert "emotion" not in body["voice_setting"]
+
+
+def test_build_tts_body_neutral_keeps_static_overrides(monkeypatch):
+    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: _PROSODY_DEF)
+    body = minimax_mod.build_tts_body(
+        "hi",
+        model="m",
+        voice="v",
+        overrides={"voice_setting": {"emotion": "whisper", "speed": 1.2}},
+    )
+    assert body["voice_setting"]["emotion"] == "whisper"
+    assert body["voice_setting"]["speed"] == 1.2
+
+
+def test_build_tts_body_rate_maps_to_speed_with_clamp(monkeypatch):
+    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: _PROSODY_DEF)
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", rate="+12%")
+    assert body["voice_setting"]["speed"] == 1.12
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", rate="-50%")
+    assert body["voice_setting"]["speed"] == 0.5  # clamped low
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", rate="+200%")
+    assert body["voice_setting"]["speed"] == 2.0  # clamped high
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", rate="+0%")
+    assert body["voice_setting"]["speed"] == 1.0  # untouched default
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", rate="bogus")
+    assert body["voice_setting"]["speed"] == 1.0
+
+
+def test_build_tts_body_pitch_offset_and_clamp(monkeypatch):
+    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: _PROSODY_DEF)
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", pitch="+3Hz")
+    assert body["voice_setting"]["pitch"] == 3
+    body = minimax_mod.build_tts_body(
+        "hi",
+        model="m",
+        voice="v",
+        pitch="+20Hz",
+        overrides={"voice_setting": {"pitch": 10}},
+    )
+    assert body["voice_setting"]["pitch"] == 12  # clamped from 10+20
+    body = minimax_mod.build_tts_body("hi", model="m", voice="v", pitch="+0Hz")
+    assert body["voice_setting"]["pitch"] == 0
+
+
+def test_build_tts_body_without_prosody_section_is_noop(monkeypatch):
+    monkeypatch.setattr(
+        minimax_mod, "_capability_def", lambda: {"request": {"body": {"voice_setting": {}}}, "response": {}}
+    )
+    body = minimax_mod.build_tts_body(
+        "hi", model="m", voice="v", emotion="smile", rate="+12%", pitch="+3Hz"
+    )
+    assert "emotion" not in body["voice_setting"]
+    assert "speed" not in body["voice_setting"]
+    assert "pitch" not in body["voice_setting"]
+
+
+@pytest.mark.asyncio
+async def test_synthesize_passes_prosody_into_request(monkeypatch):
+    _settings(monkeypatch)
+    seen: list[dict] = []
+
+    def _fake_build(text, *, model, voice, overrides, emotion, rate, pitch):
+        seen.append({"emotion": emotion, "rate": rate, "pitch": pitch})
+        return {"voice_setting": {}, "text": text, "model": model}
+
+    monkeypatch.setattr(minimax_mod, "build_tts_body", _fake_build)
+
+    async def _fake_chunk(body, url, api_key):
+        return base64.b64encode(b"a").decode("ascii")
+
+    monkeypatch.setattr(minimax_mod, "_synthesize_chunk", _fake_chunk)
+    await synthesize_minimax_to_base64(
+        "hi", api_key="k", emotion="smile", rate="+5%", pitch="+2Hz"
+    )
+    assert seen == [{"emotion": "smile", "rate": "+5%", "pitch": "+2Hz"}]

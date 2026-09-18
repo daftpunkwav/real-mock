@@ -34,7 +34,7 @@ _SOFT_MIN_CHARS = 18
 
 def split_sentences(text: str) -> list[str]:
     """Split by Chinese and English periods for streaming TTS."""
-    clean = _plain_text_for_tts(text)
+    clean = plain_text_for_tts(text)
     parts = re.split(r"(?<=[。！？!?；;…\.\n])", clean)
     return [p.strip() for p in parts if p.strip()]
 
@@ -71,7 +71,7 @@ def extract_emotion(text: str) -> str:
     return m.group(1) if m else "neutral"
 
 
-def _plain_text_for_tts(text: str) -> str:
+def plain_text_for_tts(text: str) -> str:
     """Remove control tags and markdown decoration to prevent TTS from pronouncing "asterisk"."""
     clean = re.sub(r"\[(PHASE_COMPLETE|INTERVIEW_COMPLETE|emotion:\w+)\]", "", text)
     # **Bold** / *Italic* → Keep text
@@ -110,7 +110,7 @@ async def synthesize_to_base64(
     raise an error if that also fails. The ``style`` parameter is retained for compatibility and is actually mapped to rate/pitch by the caller.
     """
     del style  # edge-tts cannot be injected into express-as, the sentiment has been reflected in rate/pitch
-    plain = _plain_text_for_tts(text)
+    plain = plain_text_for_tts(text)
     if not plain:
         return ""
     import edge_tts

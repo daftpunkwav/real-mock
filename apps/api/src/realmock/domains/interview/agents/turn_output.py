@@ -22,7 +22,20 @@ from realmock.domains.interview.process.plan_schema import (
 logger = logging.getLogger(__name__)
 
 _PROTOCOL_VERSION = 1
-_EMOTIONS = ("neutral", "smile", "serious")
+# Emotion tags the interviewer may emit per turn; vendors translate them to native
+# prosody (e.g. the MiniMax descriptor's prosody.emotion_map).
+_EMOTIONS = (
+    "neutral",
+    "smile",
+    "serious",
+    "curious",
+    "encouraging",
+    "skeptical",
+    "concerned",
+    "happy",
+    "angry",
+    "sad",
+)
 _SOURCE_VALUES = ("resume", "github", "company_kb", "none")
 _VERDICT_VALUES = ("passed", "failed")
 _WAIT_MAX = 60

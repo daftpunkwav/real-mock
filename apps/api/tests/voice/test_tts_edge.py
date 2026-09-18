@@ -26,12 +26,12 @@ def test_soft_flush_on_comma_after_min_chars():
 
 
 def test_plain_text_strips_markdown_stars():
-    from realmock.platform.capabilities.voice.tts.providers.edge import _plain_text_for_tts
+    from realmock.platform.capabilities.voice.tts.providers.edge import plain_text_for_tts
 
-    assert _plain_text_for_tts("Please confirm the **GitHub** username") == "Please confirm the GitHub username"
-    assert "*" not in _plain_text_for_tts("This is *italic* and **bold**")
+    assert plain_text_for_tts("Please confirm the **GitHub** username") == "Please confirm the GitHub username"
+    assert "*" not in plain_text_for_tts("This is *italic* and **bold**")
     # NOTE: tautology guard ("Normal text" never contains "Star"); kept as-is.
-    assert "Star" not in _plain_text_for_tts("Normal text")
+    assert "Star" not in plain_text_for_tts("Normal text")
 
 
 def test_extract_emotion_from_marker():

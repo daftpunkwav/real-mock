@@ -68,6 +68,55 @@ def test_reasoning_dropped_without_capability() -> None:
     assert out.kw["reasoning_effort"] is None
 
 
+def test_default_reasoning_variant_used_without_explicit_effort() -> None:
+    """No caller effort → extras.reasoning.defaultVariant applies (capability-gated)."""
+    cfg = {
+        "api_base": "https://x", "api_key": "k", "model": "m",
+        "reasoning_capable": True,
+        "extras": {"reasoning": {"variants": ["low", "high"], "defaultVariant": "high"}},
+    }
+    ctx, ctx2, ctx3 = _patch(cfg)
+    with ctx, ctx2, ctx3:
+        out = build_from_db(_FakeClient, MagicMock())  # type: ignore[arg-type]
+    assert out.kw["reasoning_effort"] == "high"
+
+
+def test_default_reasoning_variant_gated_by_capability() -> None:
+    cfg = {
+        "api_base": "https://x", "api_key": "k", "model": "m",
+        "reasoning_capable": False,
+        "extras": {"reasoning": {"variants": ["high"], "defaultVariant": "high"}},
+    }
+    ctx, ctx2, ctx3 = _patch(cfg)
+    with ctx, ctx2, ctx3:
+        out = build_from_db(_FakeClient, MagicMock())  # type: ignore[arg-type]
+    assert out.kw["reasoning_effort"] is None
+
+
+def test_explicit_effort_overrides_default_variant() -> None:
+    cfg = {
+        "api_base": "https://x", "api_key": "k", "model": "m",
+        "reasoning_capable": True,
+        "extras": {"reasoning": {"variants": ["low", "high"], "defaultVariant": "high"}},
+    }
+    ctx, ctx2, ctx3 = _patch(cfg)
+    with ctx, ctx2, ctx3:
+        out = build_from_db(_FakeClient, MagicMock(), reasoning_effort="low")  # type: ignore[arg-type]
+    assert out.kw["reasoning_effort"] == "low"
+
+
+def test_default_reasoning_variant_missing_or_invalid_is_none() -> None:
+    base = {"api_base": "https://x", "api_key": "k", "model": "m", "reasoning_capable": True}
+    for extras in (None, {}, {"reasoning": {}}, {"reasoning": {"variants": ["high"]}}):
+        cfg = dict(base)
+        if extras is not None:
+            cfg["extras"] = extras
+        ctx, ctx2, ctx3 = _patch(cfg)
+        with ctx, ctx2, ctx3:
+            out = build_from_db(_FakeClient, MagicMock())  # type: ignore[arg-type]
+        assert out.kw["reasoning_effort"] is None
+
+
 def test_explicit_profile_without_credentials_keeps_identity() -> None:
     cfg = {"profile_id": 7, "api_base": "", "model": "m7", "protocol": "openai_chat"}
     ctx, ctx2, ctx3 = _patch(cfg)

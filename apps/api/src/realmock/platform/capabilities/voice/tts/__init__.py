@@ -50,8 +50,14 @@ async def synthesize_speech(
     creds: TtsCredentials,
     rate: str = "+0%",
     pitch: str = "+0Hz",
+    emotion: str = "neutral",
 ) -> str:
-    """Synthesize speech as base64; return an empty string for text_only / coming_soon / failures (the caller continues with captions)."""
+    """Synthesize speech as base64; return an empty string for text_only / coming_soon / failures (the caller continues with captions).
+
+    ``rate``/``pitch`` are edge-tts style relative strings; ``emotion`` is the session's
+    coarse emotion tag. Adapters that own a native prosody vocabulary (MiniMax) consume
+    all three; the others ignore what they cannot express.
+    """
     handler = (creds.handler or "edge").strip()
     mode = (creds.mode or "tts_from_text").strip()
 
@@ -61,21 +67,21 @@ async def synthesize_speech(
     meta = find_provider("speak", handler)
     if meta and meta.get("status") == "coming_soon":
         logger.info("The broadcast processor %s has not yet been connected and performs the configured downgrade processing.", handler)
-        return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch)
+        return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch, emotion=emotion)
 
     if mode == "native_audio":
         logger.info("native_audio reports that the broadcast is not connected and performs the configured downgrade processing.")
-        return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch)
+        return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch, emotion=emotion)
 
     try:
-        audio = await _synthesize_handler(text, creds, handler, rate=rate, pitch=pitch)
+        audio = await _synthesize_handler(text, creds, handler, rate=rate, pitch=pitch, emotion=emotion)
     except Exception as e:
         logger.error("Report handler %s Exception: %s", handler, e)
         audio = ""
     if audio:
         return audio
     logger.info("The broadcast processor %s failed and performed the configured downgrade processing.", handler)
-    return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch)
+    return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch, emotion=emotion)
 
 
 def _is_minimax_full_url(creds: TtsCredentials) -> bool:
@@ -83,7 +89,14 @@ def _is_minimax_full_url(creds: TtsCredentials) -> bool:
     return bool(creds.full_url) and match_vendor(creds.api_base, TTS_PATHS) == "minimax"
 
 
-async def _synthesize_minimax_full_url(text: str, creds: TtsCredentials) -> str:
+async def _synthesize_minimax_full_url(
+    text: str,
+    creds: TtsCredentials,
+    *,
+    emotion: str = "neutral",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
+) -> str:
     return await synthesize_minimax_to_base64(
         text,
         api_key=creds.api_key,
@@ -91,6 +104,9 @@ async def _synthesize_minimax_full_url(text: str, creds: TtsCredentials) -> str:
         model=creds.model,
         voice=creds.voice,
         overrides=_minimax_overrides(creds),
+        emotion=emotion,
+        rate=rate,
+        pitch=pitch,
     )
 
 
@@ -101,6 +117,7 @@ async def _synthesize_handler(
     *,
     rate: str,
     pitch: str,
+    emotion: str = "neutral",
 ) -> str:
     if handler == "none":
         return ""
@@ -120,9 +137,12 @@ async def _synthesize_handler(
             model=creds.model or MINIMAX_DEFAULT_MODEL,
             voice=creds.voice or MINIMAX_DEFAULT_VOICE,
             overrides=_minimax_overrides(creds),
+            emotion=emotion,
+            rate=rate,
+            pitch=pitch,
         )
     if _is_minimax_full_url(creds):
-        return await _synthesize_minimax_full_url(text, creds)
+        return await _synthesize_minimax_full_url(text, creds, emotion=emotion, rate=rate, pitch=pitch)
     if resolve_tts_adapter(creds) is not None:
         return await synthesize_json_template_to_base64(text, creds=creds)
     return await _synthesize_openai_compat(text, creds)
@@ -140,6 +160,7 @@ async def _synthesize_fallback(
     *,
     rate: str,
     pitch: str,
+    emotion: str = "neutral",
 ) -> str:
     fallback = (creds.fallback_handler or "edge").strip()
     if (
@@ -165,7 +186,7 @@ async def _synthesize_fallback(
         extra=dict(creds.extra or {}),
     )
     return await _synthesize_handler(
-        text, fallback_creds, fallback, rate=rate, pitch=pitch
+        text, fallback_creds, fallback, rate=rate, pitch=pitch, emotion=emotion
     )
 
 
@@ -232,6 +253,7 @@ async def synthesize_primary_speech(
     creds: TtsCredentials,
     rate: str = "+0%",
     pitch: str = "+0Hz",
+    emotion: str = "neutral",
 ) -> str:
     """Only the anchor report processor is executed, no degradation is triggered, and it is used to set the page connectivity test."""
     handler = (creds.handler or "edge").strip()
@@ -244,7 +266,7 @@ async def synthesize_primary_speech(
     if mode == "native_audio":
         return ""
     try:
-        return await _synthesize_handler(text, creds, handler, rate=rate, pitch=pitch)
+        return await _synthesize_handler(text, creds, handler, rate=rate, pitch=pitch, emotion=emotion)
     except Exception as e:
         logger.error("The anchor reported that the processor %s failed the test: %s", handler, e)
         return ""

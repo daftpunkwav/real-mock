@@ -129,6 +129,53 @@ class TestRegistryHelpers:
         merged2 = reg.merge_profile_extras(m, {"asr_api_secret": "s3cr3t"})
         assert _json.loads(merged2)["asr_api_secret"].startswith("enc:")
 
+    def test_merge_extras_capability_convention_keys(self, api_db) -> None:
+        _wipe(api_db)
+        from realmock.platform.models import LlmProvider
+        import json as _json
+
+        p = LlmProvider(name="ex3")
+        api_db.add(p)
+        api_db.commit()
+        m = _profile(api_db, p.id, model="excap", extras="{}")
+
+        merged = _json.loads(
+            reg.merge_profile_extras(
+                m,
+                {
+                    "reasoning": {"variants": ["Low", "high", "low", ""], "defaultVariant": "high"},
+                    "modalities": {"input": ["text", "image", "bogus"], "output": ["text", "bogus"]},
+                    "tts_request": {"voice_setting": {"speed": 1.2}},
+                },
+            )
+        )
+        assert merged["reasoning"] == {"variants": ["low", "high"], "defaultVariant": "high"}
+        assert merged["modalities"] == {"input": ["text", "image"], "output": ["text"]}
+        assert merged["tts_request"] == {"voice_setting": {"speed": 1.2}}  # unrelated keys survive
+
+    def test_merge_extras_capability_convention_invalid_dropped(self, api_db) -> None:
+        _wipe(api_db)
+        from realmock.platform.models import LlmProvider
+        import json as _json
+
+        p = LlmProvider(name="ex4")
+        api_db.add(p)
+        api_db.commit()
+        m = _profile(api_db, p.id, model="exbad", extras="{}")
+
+        merged = _json.loads(
+            reg.merge_profile_extras(
+                m,
+                {
+                    # defaultVariant not in variants → dropped; that alone leaves the key
+                    "reasoning": {"variants": [], "defaultVariant": "high"},
+                    "modalities": "not-a-dict",
+                },
+            )
+        )
+        assert "reasoning" not in merged
+        assert "modalities" not in merged
+
     def test_request_model_defaults(self) -> None:
         assert reg.ProviderCreate(name="x").enabled is True
         assert reg.ProviderCreate(name="x").channels == []

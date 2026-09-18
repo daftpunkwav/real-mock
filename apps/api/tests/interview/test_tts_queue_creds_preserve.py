@@ -22,7 +22,7 @@ def test_worker_preserves_full_url_and_extra_when_overlaying_voice() -> None:
     async def _scenario():
         captured: list[TtsCredentials] = []
 
-        async def _fake_synth(sentence, *, creds=None, rate="+0%", pitch="+0Hz"):
+        async def _fake_synth(sentence, *, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
             captured.append(creds)
             return f"audio:{sentence}"
 

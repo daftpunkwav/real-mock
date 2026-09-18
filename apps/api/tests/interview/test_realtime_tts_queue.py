@@ -38,7 +38,7 @@ async def test_setters_enqueue_clear_overflow():
 
 @pytest.mark.asyncio
 async def test_worker_success_and_failed_and_empty():
-    async def _ok(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _ok(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return f"audio:{text}"
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _ok):
         q = _SentenceTTSQueue()
@@ -51,7 +51,7 @@ async def test_worker_success_and_failed_and_empty():
         await q.flush_remainder("")
         await q.stop()
         assert ("tts_audio", "Hi there.") in [(t, s) for t, s in sent]
-    async def _fail(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _fail(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         raise RuntimeError("synth down")
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _fail):
         q2 = _SentenceTTSQueue()
@@ -63,7 +63,7 @@ async def test_worker_success_and_failed_and_empty():
         await q2.flush_remainder("")
         await q2.stop()
         assert "error" in errs
-    async def _empty(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _empty(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return ""
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _empty):
         q3 = _SentenceTTSQueue()
@@ -79,7 +79,7 @@ async def test_worker_success_and_failed_and_empty():
 
 @pytest.mark.asyncio
 async def test_stop_timeout_cancels_worker():
-    async def _slow(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _slow(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         await asyncio.sleep(5)
         return "x"
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _slow):
@@ -96,7 +96,7 @@ async def test_stop_timeout_cancels_worker():
 
 @pytest.mark.asyncio
 async def test_flush_with_text_and_send_fail():
-    async def _ok(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _ok(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return "audio:x"
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _ok):
         q = _SentenceTTSQueue()
@@ -139,7 +139,7 @@ async def test_tts_enqueue_overflow_empty_branch() -> None:
 async def test_tts_worker_gen_mismatch_before_synth(monkeypatch) -> None:
     from realmock.domains.interview.realtime.voice import tts_queue as mod
 
-    async def _ok(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _ok(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return "audio:x"
 
     monkeypatch.setattr(mod, "synthesize_speech", _ok)
@@ -168,7 +168,7 @@ async def test_tts_worker_gen_mismatch_before_synth(monkeypatch) -> None:
 async def test_tts_worker_send_failure_branches() -> None:
     from realmock.domains.interview.realtime.voice import tts_queue as mod
 
-    async def _fail(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _fail(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         raise RuntimeError("synth down")
 
     async def _bad_send(t, **p):
@@ -185,7 +185,7 @@ async def test_tts_worker_send_failure_branches() -> None:
         await q.flush_remainder("")
         await q.stop()
 
-    async def _empty(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _empty(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return ""
 
     with patch.object(mod, "synthesize_speech", _empty):
@@ -200,7 +200,7 @@ async def test_tts_worker_send_failure_branches() -> None:
 async def test_tts_worker_gen_mismatch_after_synth(monkeypatch) -> None:
     from realmock.domains.interview.realtime.voice import tts_queue as mod
 
-    async def _bump_synth(text, creds=None, rate="+0%", pitch="+0Hz"):
+    async def _bump_synth(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         # Simulate interruption during synthesis: stale result must be dropped (184).
         q_ref[0]._speak_gen += 1
         return "audio:x"

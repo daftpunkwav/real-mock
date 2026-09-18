@@ -34,6 +34,14 @@ from realmock.platform.services.pipeline.config import (
 #: Channel kinds mirroring the task vocabulary; every provider owns at most one channel per kind.
 CHANNEL_KINDS = ("chat", "stt", "tts")
 
+# Capability convention keys stored inside ModelProfile.extras (no dedicated columns):
+# - extras["reasoning"] = {"variants": [...], "defaultVariant": "..."} (enabled = cap_reasoning column)
+# - extras["modalities"] = {"input": [...], "output": [...]}
+_MODALITY_IN_VALUES = ("text", "image", "audio", "video", "pdf")
+_MODALITY_OUT_VALUES = ("text", "audio")
+_REASONING_VARIANTS_MAX = 8
+_MODALITY_TOKEN_MAX = 32
+
 
 def _valid_kind(kind: str) -> bool:
     return kind in CHANNEL_KINDS
@@ -153,6 +161,66 @@ def channel_to_response(channel: LlmProviderChannel) -> dict[str, Any]:
     }
 
 
+def _norm_token_list(
+    value: Any, *, allowed: tuple[str, ...] | None = None, limit: int
+) -> list[str]:
+    """Coerce a JSON value into a normalized token list; unusable items are dropped.
+
+    ``allowed=None`` accepts any token (free-form vocabularies such as reasoning
+    variants); otherwise tokens outside ``allowed`` are dropped.
+    """
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value[: limit * 2]:
+        token = str(item or "").strip().lower()[:_MODALITY_TOKEN_MAX]
+        if not token or token in out or (allowed is not None and token not in allowed):
+            continue
+        out.append(token)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _normalize_capability_extras(extras: dict[str, Any]) -> dict[str, Any]:
+    """Coerce the capability convention keys (``reasoning`` / ``modalities``) in place.
+
+    The model form owns validation; this is the defensive backstop so malformed
+    client payloads never enter storage. An empty/invalid convention key is removed
+    rather than kept half-formed.
+    """
+    if "reasoning" in extras:
+        reasoning = extras.get("reasoning")
+        cleaned: dict[str, Any] = {}
+        if isinstance(reasoning, dict):
+            variants = _norm_token_list(reasoning.get("variants"), limit=_REASONING_VARIANTS_MAX)
+            default = str(reasoning.get("defaultVariant") or "").strip().lower()
+            if variants:
+                cleaned["variants"] = variants
+            if default and default in variants:
+                cleaned["defaultVariant"] = default
+        if cleaned:
+            extras["reasoning"] = cleaned
+        else:
+            extras.pop("reasoning", None)
+
+    if "modalities" in extras:
+        modalities = extras.get("modalities")
+        cleaned = {}
+        if isinstance(modalities, dict):
+            modal_in = _norm_token_list(modalities.get("input"), allowed=_MODALITY_IN_VALUES, limit=8)
+            modal_out = _norm_token_list(modalities.get("output"), allowed=_MODALITY_OUT_VALUES, limit=4)
+            if modal_in:
+                cleaned["input"] = modal_in
+            if modal_out:
+                cleaned["output"] = modal_out
+        if cleaned:
+            extras["modalities"] = cleaned
+        else:
+            extras.pop("modalities", None)
+    return extras
+
+
 def merge_profile_extras(row: ModelProfile, extras: dict[str, Any] | None) -> str:
     current = parse_json(row.extras)
     if extras is None:
@@ -166,6 +234,7 @@ def merge_profile_extras(row: ModelProfile, extras: dict[str, Any] | None) -> st
         value = merged.get(key)
         if value and not str(value).startswith("enc:"):
             merged[key] = encrypt_secret(str(value)) or ""
+    merged = _normalize_capability_extras(merged)
     return json.dumps(merged, ensure_ascii=False)
 
 

@@ -40,12 +40,10 @@ def strip_think_blocks(content: str) -> str:
 def strip_markers(content: str) -> str:
     """Removes all control tags and thought blocks, returning plain text responses."""
     s = strip_think_blocks(content)
+    s = re.sub(r"\[emotion:\w+\]", "", s)
     return (
         s.replace(INTERVIEW_COMPLETE_MARKER, "")
         .replace(PHASE_COMPLETE_MARKER, "")
-        .replace("[emotion:neutral]", "")
-        .replace("[emotion:smile]", "")
-        .replace("[emotion:serious]", "")
         .strip()
     )
 
