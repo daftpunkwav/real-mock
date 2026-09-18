@@ -2,28 +2,12 @@
 
 export const home = {
   // Hero
-  "hero.badge": "Open source · BYOK · Local-first",
   "hero.title.line1": "Mock interviews with",
   "hero.title.line2": "real pressure",
   "hero.sub1": "Agent-driven, multi-round voice interviews that probe your answers until they hold;",
   "hero.sub2": "per-round scoring and review reports, with your data kept local.",
   "hero.cta.interview": "Start interview",
   "hero.cta.resume": "Upload resume",
-
-  // Hero interview preview card (demo content)
-  "hero.preview.status": "Mock interview in progress",
-  "hero.preview.live": "Live",
-  "hero.preview.interviewerInitial": "I",
-  "hero.preview.interviewer": "Interviewer",
-  "hero.preview.role": "Backend engineer",
-  "hero.preview.question":
-    "Describe the project you worked on most recently. Focus on the decisions you made and how the results were measured.",
-  "hero.preview.candidateInitial": "M",
-  "hero.preview.you": "You",
-  "hero.preview.answer":
-    "Last quarter I reworked the order fulfillment pipeline, reducing peak latency from 320ms to 110ms and increasing QPS by 2.4x…",
-  "hero.preview.videoStatus": "Video connected",
-  "hero.preview.micStatus": "Transcribing",
 
   // Features section
   "features.eyebrow": "CORE FEATURES",

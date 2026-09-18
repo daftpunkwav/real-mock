@@ -5,23 +5,27 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useT } from "@/i18n";
 import { STEPS } from "../content";
-import { ease } from "../motion";
+import { FlowItem, useFlowProgress } from "./ScrollFlow";
 
 export function StepsSection() {
-  const reduce = useReducedMotion();
+  const prefersReduce = useReducedMotion();
   const t = useT("home");
+  const { ref, progress, reduce } = useFlowProgress<HTMLElement>();
 
   return (
-    <section className="relative mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8 pt-20 sm:pt-28">
-      <div className="mx-auto max-w-[62ch] text-center">
+    <section
+      ref={ref}
+      className="relative mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8 pt-20 sm:pt-28"
+    >
+      <FlowItem progress={progress} reduce={reduce} className="mx-auto max-w-[62ch] text-center">
         <p className="page-eyebrow">{t("steps.eyebrow")}</p>
-        <h2 className="page-title">{t("steps.title")}</h2>
+        <h2 className="page-title sm:!text-[30px]">{t("steps.title")}</h2>
         <p className="page-desc mx-auto">{t("steps.desc")}</p>
-      </div>
+      </FlowItem>
 
       <div className="relative mt-10 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
         {/* Connector line draws itself left→right when the row enters view */}
-        {!reduce && (
+        {!prefersReduce && (
           <motion.span
             aria-hidden
             initial={{ scaleX: 0 }}
@@ -32,16 +36,10 @@ export function StepsSection() {
           />
         )}
         {STEPS.map((step, i) => (
-          <motion.div
-            key={step.n}
-            initial={reduce ? false : { opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.5, delay: i * 0.09, ease: [0.16, 1, 0.3, 1] }}
-          >
+          <FlowItem key={step.n} progress={progress} reduce={reduce} index={i + 1}>
             <Link
               href={step.href}
-              className="glass-card group relative flex h-full flex-col p-5 sm:p-6"
+              className="stage-card group relative flex h-full flex-col p-5 sm:p-6"
             >
               <div className="mb-5 flex items-start justify-between">
                 <span className="font-mono text-xs font-semibold tracking-wide text-brand">
@@ -66,7 +64,7 @@ export function StepsSection() {
                 </span>
               )}
             </Link>
-          </motion.div>
+          </FlowItem>
         ))}
       </div>
     </section>

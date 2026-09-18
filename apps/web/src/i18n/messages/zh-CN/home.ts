@@ -2,28 +2,12 @@
 
 export const home = {
   // Hero
-  "hero.badge": "开源 · BYOK · 本地优先",
   "hero.title.line1": "带真实压力的",
   "hero.title.line2": "AI 模拟面试",
   "hero.sub1": "Agent 驱动的多轮语音面试,顺着你的回答追问到底;",
   "hero.sub2": "逐轮评分与复盘报告,数据全程留在本地。",
   "hero.cta.interview": "开始面试",
   "hero.cta.resume": "上传简历",
-
-  // Hero 面试预览卡(演示内容)
-  "hero.preview.status": "模拟面试进行中",
-  "hero.preview.live": "Live",
-  "hero.preview.interviewerInitial": "面",
-  "hero.preview.interviewer": "面试官",
-  "hero.preview.role": "后端工程师",
-  "hero.preview.question":
-    "请介绍一下你最近负责的项目,重点说明你做了什么决策,以及结果如何衡量。",
-  "hero.preview.candidateInitial": "我",
-  "hero.preview.you": "你",
-  "hero.preview.answer":
-    "上个季度我负责订单履约链路改造,把峰值延迟从 320ms 降到 110ms,QPS 提升 2.4 倍…",
-  "hero.preview.videoStatus": "视频已连接",
-  "hero.preview.micStatus": "语音识别中",
 
   // 功能区块
   "features.eyebrow": "CORE FEATURES",

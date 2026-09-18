@@ -564,6 +564,55 @@ button:active:not(:disabled),
     }
   }
 
+  /* Stage card: the home page's deep-panel surface — a lit backdrop with a
+     grain layer, echoing the hero ring cards so every section shares the
+     hero's stage language. The gradient centre sits inside the box so no
+     edge ever clips a visible falloff. */
+  .stage-card {
+    position: relative;
+    border-radius: var(--radius-xl);
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+    background:
+      radial-gradient(120% 64% at 50% -18%, color-mix(in srgb, var(--card-foreground) 7%, transparent), transparent 56%),
+      linear-gradient(180deg, color-mix(in srgb, var(--card) 94%, transparent), color-mix(in srgb, var(--background-alt) 86%, transparent));
+    box-shadow:
+      0 14px 34px -20px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 color-mix(in srgb, var(--card-foreground) 6%, transparent);
+    transition: border-color var(--dur-base) var(--ease),
+      box-shadow var(--dur-base) var(--ease);
+  }
+  .stage-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 140px 140px;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .stage-card:hover {
+      border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+      box-shadow:
+        0 18px 40px -20px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 color-mix(in srgb, var(--card-foreground) 7%, transparent);
+    }
+  }
+
+  /* Near-layer starlight breathes slowly — the sky feels alive, not pinned. */
+  @keyframes star-breathe {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+  }
+  .star-breathe {
+    animation: star-breathe 6.5s ease-in-out infinite alternate;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .star-breathe { animation: none; opacity: 1; }
+  }
+
   /* ---------- Icon Badge ---------- */
   .icon-badge {
     @apply w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center shrink-0;
