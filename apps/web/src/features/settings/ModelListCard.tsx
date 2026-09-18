@@ -23,7 +23,7 @@ interface ModelListCardProps {
   onFetchCatalog: () => void;
   onSave: (providerId: number) => void;
   onEdit: (m: ModelProfile) => void;
-  onDelete: (id: number) => void;
+  onDelete: (model: ModelProfile) => void;
   onTest: (id: number) => void;
   onStartAdd: () => void;
   onCancelEdit: () => void;
@@ -81,7 +81,7 @@ export function ModelListCard(props: ModelListCardProps) {
             model={m}
             testing={testingId === m.id}
             onEdit={() => onEdit(m)}
-            onDelete={() => onDelete(m.id)}
+            onDelete={() => onDelete(m)}
             onTest={() => onTest(m.id)}
           />
         ))}

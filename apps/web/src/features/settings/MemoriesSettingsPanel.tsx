@@ -435,7 +435,7 @@ export function MemoriesSettingsPanel() {
             type="button"
             onClick={() => setConfirming(true)}
             disabled={busy}
-            className="inline-flex h-9 items-center rounded-md border border-[var(--danger)]/30 bg-surface-alt px-4 text-[13px] font-medium text-[var(--danger-ink)] transition-colors hover:bg-[var(--danger-soft)] disabled:opacity-45"
+            className="btn-danger text-[13px]"
           >
             {t("memories.batchDelete")}
           </button>

@@ -97,7 +97,7 @@ export function ProviderCard({
       <div className="mt-3 flex items-center justify-end gap-2">
         <button
           type="button"
-          className="flex items-center gap-1 rounded-md border border-surface-border px-2.5 py-1.5 text-[12px] text-ink-muted transition-colors hover:border-[var(--danger)] hover:text-[var(--danger)]"
+          className="btn-danger !h-8 text-[12px]"
           onClick={() => setConfirmingDelete(true)}
         >
           <Trash2 size={13} /> {t("providerCard.delete")}

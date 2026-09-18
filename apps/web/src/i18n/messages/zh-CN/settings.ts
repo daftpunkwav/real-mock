@@ -98,6 +98,9 @@ export const settings = {
   "modelRow.test": "测试",
   "modelRow.edit": "编辑",
   "modelRow.delete": "删除",
+  "modelRow.deleteConfirmTitle": "删除模型条目",
+  "modelRow.deleteConfirmMessage":
+    "将永久删除「{label}」,此操作不可撤销;若该条目仍被任务绑定为默认处理器,需先改绑才能删除。",
 
   // CAP_OPTIONS:能力徽章/勾选
   "caps.chat": "对话/思考",
@@ -114,6 +117,8 @@ export const settings = {
   "modelForm.maxOutput.label": "最大输出(tokens)",
   "modelForm.capabilities.label": "能力(可多选;同一模型可服务多个任务)",
   "modelForm.extras.summary": "高级参数(语音凭证等 JSON)",
+  "modelForm.capsConfig.summary": "能力配置 (JSON; 应用后写回表单)",
+  "modelForm.capsConfig.apply": "应用到表单",
   "modelForm.cancel": "取消",
   "modelForm.saving": "保存中…",
   "modelForm.save": "保存模型",
@@ -137,6 +142,7 @@ export const settings = {
   // useSettingsPage:toast 与错误提示
   "toast.loadFailed": "加载失败",
   "toast.extrasInvalidJson": "高级参数不是合法 JSON",
+  "toast.capsInvalidJson": "能力配置不是合法 JSON",
   "toast.modelNameRequired": "模型名不能为空",
   "toast.modelUpdated": "模型已更新",
   "toast.modelAdded": "模型已添加",

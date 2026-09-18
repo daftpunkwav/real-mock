@@ -247,7 +247,7 @@ export function PrepSettingsPanel() {
           type="button"
           onClick={() => setConfirmingPurge(true)}
           disabled={purging}
-          className="btn-secondary mt-3 text-[13px] disabled:cursor-not-allowed disabled:opacity-45"
+          className="btn-danger mt-3 text-[13px]"
         >
           {t("prep.purge.action")}
         </button>
@@ -262,7 +262,7 @@ export function PrepSettingsPanel() {
           type="button"
           onClick={() => setConfirmingPurgeAll(true)}
           disabled={purgingAll}
-          className="btn-danger mt-3 text-[13px] disabled:cursor-not-allowed disabled:opacity-45"
+          className="btn-danger mt-3 text-[13px]"
         >
           {t("prep.purgeAll.action")}
         </button>

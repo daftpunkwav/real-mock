@@ -4,12 +4,19 @@
  * frame). The model-name field is a lightweight combobox: "fetch model list" pulls
  * candidate ids from the vendor descriptor or the provider's /models endpoint and
  * offers them in a popover under the input (filtered by the typed text); manual
- * entry stays available at all times. */
+ * entry stays available at all times.
+ *
+ * The capability-config panel is a zcode-style JSON projection of the form plus the
+ * capability convention keys in extras; "Apply" writes an edited snippet back into
+ * the form fields (which stay canonical). Unapplied edits are lost when any form
+ * field changes — the panel re-derives from the draft on every draft update. */
 
 import { useEffect, useState } from "react";
 import { Download, Save, X } from "lucide-react";
+import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import type { ChannelModelCatalog } from "@/types";
+import { applyCapabilityConfig, capsConfigFromDraft } from "./capabilityConfig";
 import { CAP_OPTIONS, type ModelDraft } from "./constants";
 
 export function ModelForm({
@@ -33,9 +40,25 @@ export function ModelForm({
 }) {
   const t = useT("settings");
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [capsText, setCapsText] = useState("");
   const query = draft.model.trim().toLowerCase();
   const candidates =
     catalog?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? [];
+
+  // The JSON panel re-derives from the form (canonical) on every draft change;
+  // unapplied manual edits in the textarea are intentionally discarded.
+  useEffect(() => {
+    setCapsText(JSON.stringify(capsConfigFromDraft(draft), null, 2));
+  }, [draft]);
+
+  const applyCaps = () => {
+    const result = applyCapabilityConfig(capsText, draft);
+    if (!result.ok) {
+      toast.error(t("toast.capsInvalidJson"));
+      return;
+    }
+    setDraft(result.draft);
+  };
 
   // A freshly fetched catalog opens the candidate popover automatically.
   useEffect(() => {
@@ -160,6 +183,27 @@ export function ModelForm({
           ))}
         </div>
       </div>
+
+      <details className="mt-2.5">
+        <summary className="cursor-pointer text-[11px] text-ink-subtle hover:text-ink-muted">
+          {t("modelForm.capsConfig.summary")}
+        </summary>
+        <textarea
+          className="field-input mt-1.5 min-h-40 w-full font-mono text-[11px]"
+          value={capsText}
+          onChange={(e) => setCapsText(e.target.value)}
+          spellCheck={false}
+        />
+        <div className="mt-1.5 flex justify-end">
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-md border border-surface-border px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink"
+            onClick={applyCaps}
+          >
+            {t("modelForm.capsConfig.apply")}
+          </button>
+        </div>
+      </details>
 
       <details className="mt-2.5">
         <summary className="cursor-pointer text-[11px] text-ink-subtle hover:text-ink-muted">

@@ -58,7 +58,7 @@ function DangerCard({
         type="button"
         disabled={disabled || running}
         onClick={() => setConfirming(true)}
-        className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--danger)]/30 bg-surface-alt px-4 text-[13px] font-medium text-[var(--danger-ink)] transition-colors hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+        className="btn-danger mt-3 text-[13px]"
       >
         {action}
       </button>

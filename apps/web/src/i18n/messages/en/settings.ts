@@ -100,6 +100,9 @@ export const settings = {
   "modelRow.test": "Test",
   "modelRow.edit": "Edit",
   "modelRow.delete": "Delete",
+  "modelRow.deleteConfirmTitle": "Delete model entry",
+  "modelRow.deleteConfirmMessage":
+    "This permanently deletes \"{label}\". If the entry is bound as a default processor, change the binding first — the delete will be rejected.",
 
   // CAP_OPTIONS
   "caps.chat": "Chat / Reasoning",
@@ -117,6 +120,8 @@ export const settings = {
   "modelForm.capabilities.label":
     "Capabilities (multi-select; one model can serve multiple tasks)",
   "modelForm.extras.summary": "Advanced params (JSON, e.g. voice credentials)",
+  "modelForm.capsConfig.summary": "Capability config (JSON; Apply writes back to the form)",
+  "modelForm.capsConfig.apply": "Apply to form",
   "modelForm.cancel": "Cancel",
   "modelForm.saving": "Saving…",
   "modelForm.save": "Save model",
@@ -141,6 +146,7 @@ export const settings = {
   // useSettingsPage
   "toast.loadFailed": "Failed to load",
   "toast.extrasInvalidJson": "Advanced params are not valid JSON",
+  "toast.capsInvalidJson": "Capability config is not valid JSON",
   "toast.modelNameRequired": "Model name is required",
   "toast.modelUpdated": "Model updated",
   "toast.modelAdded": "Model added",

@@ -1,21 +1,27 @@
 "use client";
 
-/** Theme switcher card for the settings page (light / dark / system). */
+/** Theme switcher card for the settings page (light / dark). */
 
-import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
+import { Moon, Sun, type LucideIcon } from "lucide-react";
+import type { MouseEvent } from "react";
 import { useTheme, type ThemeMode } from "@/components/theme/ThemeProvider";
 import { useT } from "@/i18n";
 
 const THEME_OPTIONS: { mode: ThemeMode; labelKey: string; icon: LucideIcon }[] = [
   { mode: "light", labelKey: "theme.light", icon: Sun },
   { mode: "dark", labelKey: "theme.dark", icon: Moon },
-  { mode: "system", labelKey: "theme.system", icon: Monitor },
 ];
 
 export function ThemeCard() {
   const { theme, setTheme } = useTheme();
   const t = useT("settings");
   const tc = useT("common");
+
+  const pick = (mode: ThemeMode) => (e: MouseEvent<HTMLButtonElement>) => {
+    // Spread from the exact cursor point; keyboard activation (detail 0) gets
+    // an instant, animation-free switch.
+    setTheme(mode, e.detail === 0 ? undefined : { x: e.clientX, y: e.clientY });
+  };
 
   return (
     <div className="surface-card p-4">
@@ -28,7 +34,7 @@ export function ThemeCard() {
           <button
             key={mode}
             type="button"
-            onClick={() => setTheme(mode)}
+            onClick={pick(mode)}
             data-active={theme === mode}
             aria-pressed={theme === mode}
             className="segmented-item flex-1 !h-7 !text-xs"

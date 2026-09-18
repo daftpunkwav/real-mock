@@ -152,14 +152,17 @@ export function useSettingsPage() {
     }
   };
 
+  /** Returns true when the model was actually deleted (caller owns the confirm step). */
   const deleteModel = async (id: number) => {
     const t = getTranslator("settings");
     try {
       await settingsHttp.deleteModel(id);
       toast.success(t("toast.deleted"));
       await reload();
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("toast.deleteFailed"));
+      return false;
     }
   };
 

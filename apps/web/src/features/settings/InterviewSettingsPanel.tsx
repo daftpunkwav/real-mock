@@ -29,20 +29,19 @@ export function InterviewSettingsPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="surface-card !p-4">
-        <h2 className="text-[13px] font-semibold text-ink">{t("interviewPanel.title")}</h2>
-        <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
-          {t("interviewPanel.desc")}
-        </p>
-        <div className="mt-3">
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-md border border-surface-border px-2.5 py-1.5 text-[12px] text-ink-muted transition-colors hover:border-[var(--danger)] hover:text-[var(--danger)]"
-            onClick={() => setConfirming(true)}
-          >
-            <Trash2 size={13} /> {t("interviewPanel.clear")}
-          </button>
+      <div className="surface-card p-4">
+        <div className="mb-1 flex items-center gap-2">
+          <Trash2 size={16} className="text-[var(--danger)]" />
+          <h2 className="text-[14px] font-semibold">{t("interviewPanel.title")}</h2>
         </div>
+        <p className="text-[13px] leading-relaxed text-ink-muted">{t("interviewPanel.desc")}</p>
+        <button
+          type="button"
+          className="btn-danger mt-3 text-[13px]"
+          onClick={() => setConfirming(true)}
+        >
+          <Trash2 size={13} /> {t("interviewPanel.clear")}
+        </button>
       </div>
 
       <ConfirmDialog

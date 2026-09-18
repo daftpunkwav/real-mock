@@ -8,7 +8,11 @@
  */
 
 import { RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadError } from "@/components/LoadError";
+import type { ModelProfile } from "@/types";
+import { useT } from "@/i18n";
 import { BindingsCard } from "@/features/settings/BindingsCard";
 import { ChannelCard } from "@/features/settings/ChannelCard";
 import { ModelListCard } from "@/features/settings/ModelListCard";
@@ -16,7 +20,6 @@ import { ProviderCard } from "@/features/settings/ProviderCard";
 import { ProviderList } from "@/features/settings/ProviderList";
 import { useSettingsPage } from "@/features/settings/useSettingsPage";
 import { channelForKind, KIND_META } from "@/features/settings/constants";
-import { useT } from "@/i18n";
 
 export function ModelsSettingsPanel() {
   const {
@@ -52,6 +55,21 @@ export function ModelsSettingsPanel() {
     saveBinding,
   } = useSettingsPage();
   const t = useT("settings");
+  const tc = useT("common");
+  /** Row awaiting delete confirmation; the actual delete runs behind the dialog. */
+  const [pendingDelete, setPendingDelete] = useState<ModelProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      // deleteModel reports success instead of throwing; keep the dialog open on failure.
+      if (await deleteModel(pendingDelete.id)) setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -148,7 +166,7 @@ export function ModelsSettingsPanel() {
                       onFetchCatalog={() => fetchCatalog(selectedProvider.id, selectedKind)}
                       onSave={saveModel}
                       onEdit={openModelEdit}
-                      onDelete={deleteModel}
+                      onDelete={setPendingDelete}
                       onTest={testModel}
                       onStartAdd={startAddModel}
                       onCancelEdit={cancelEdit}
@@ -168,6 +186,17 @@ export function ModelsSettingsPanel() {
         {/* Task bindings */}
         <BindingsCard bindings={bindings} allModels={allModels} onUpdate={saveBinding} />
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("modelRow.deleteConfirmTitle")}
+        message={t("modelRow.deleteConfirmMessage", { label: pendingDelete?.label ?? "" })}
+        confirmLabel={t("modelRow.delete")}
+        cancelLabel={tc("confirm.cancel")}
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
