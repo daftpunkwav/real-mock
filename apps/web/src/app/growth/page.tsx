@@ -21,7 +21,7 @@ export default function GrowthPage() {
     <div className="page-shell anim-rise">
       <div className="page-header">
         <div className="flex items-start gap-3">
-          <span className="icon-badge icon-badge-warning">
+          <span className="icon-badge icon-badge-brand">
             <TrendingUp size={18} strokeWidth={1.75} />
           </span>
           <div>

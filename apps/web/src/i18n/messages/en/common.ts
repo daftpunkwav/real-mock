@@ -18,9 +18,8 @@ export const common = {
   "stream.failed": "Streaming output failed",
   "theme.light": "Light",
   "theme.dark": "Dark",
-  "theme.system": "System",
-  "theme.toggle.title": "Theme: {label} (click to switch)",
-  "theme.toggle.aria": "Current theme {label}, click to switch",
+  "theme.toggle.title": "Switch to {label}",
+  "theme.toggle.aria": "Switch to {label}",
   "locale.toggle.title": "UI language: {label} (click to switch)",
   "locale.toggle.aria": "Current UI language {label}, click to switch",
 

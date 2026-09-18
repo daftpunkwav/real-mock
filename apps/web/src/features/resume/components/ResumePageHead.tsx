@@ -14,7 +14,7 @@ export function ResumePageHead() {
   return (
     <div className="page-header">
       <div className="flex items-start gap-3">
-        <span className="icon-badge icon-badge-success">
+        <span className="icon-badge icon-badge-brand">
           <FileText size={18} strokeWidth={1.75} />
         </span>
         <div>

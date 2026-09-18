@@ -95,3 +95,45 @@ export const TRUST_POINTS = [
     descKey: "trust.items.opensource.desc",
   },
 ];
+
+/** Why mock interviews fail today — each card names the RealMock answer. */
+export const PAIN_POINTS = [
+  {
+    icon: MessageSquare,
+    titleKey: "pain.items.bank.title",
+    descKey: "pain.items.bank.desc",
+    featureKey: "pain.items.bank.feature",
+  },
+  {
+    icon: BarChart3,
+    titleKey: "pain.items.alone.title",
+    descKey: "pain.items.alone.desc",
+    featureKey: "pain.items.alone.feature",
+  },
+  {
+    icon: Mic,
+    titleKey: "pain.items.nerve.title",
+    descKey: "pain.items.nerve.desc",
+    featureKey: "pain.items.nerve.feature",
+  },
+] as const;
+
+/**
+ * Hero scene ring: real interview moments rendered as typographic cards cycling
+ * on a 3D cylinder. Ten creatives, duplicated to fill the carousel.
+ */
+export const RING_CARDS = [
+  { variant: "role", titleKey: "ring.items.role.title", subKey: "ring.items.role.sub" },
+  { variant: "probe", titleKey: "ring.items.probe.title", subKey: "ring.items.probe.sub" },
+  { variant: "basics", titleKey: "ring.items.basics.title", subKey: "ring.items.basics.sub" },
+  { variant: "score", titleKey: "ring.items.score.title", subKey: "ring.items.score.sub" },
+  { variant: "system", titleKey: "ring.items.system.title", subKey: "ring.items.system.sub" },
+  { variant: "project", titleKey: "ring.items.project.title", subKey: "ring.items.project.sub" },
+  { variant: "hr", titleKey: "ring.items.hr.title", subKey: "ring.items.hr.sub" },
+  { variant: "round", titleKey: "ring.items.round.title", subKey: "ring.items.round.sub" },
+  { variant: "reverse", titleKey: "ring.items.reverse.title", subKey: "ring.items.reverse.sub" },
+  { variant: "report", titleKey: "ring.items.report.title", subKey: "ring.items.report.sub" },
+] as const;
+
+export type RingCard = (typeof RING_CARDS)[number];
+

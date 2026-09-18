@@ -3,9 +3,10 @@
 export const home = {
   // Hero
   "hero.badge": "开源 · BYOK · 本地优先",
-  "hero.title": "开源的 AI 模拟面试工具",
-  "hero.desc":
-    "面向个人开发者,在本地运行。上传简历,选择目标岗位,进行语音模拟面试,结束后生成评分与改进建议。自带 LLM API Key,无需注册账号。",
+  "hero.title.line1": "带真实压力的",
+  "hero.title.line2": "AI 模拟面试",
+  "hero.sub1": "Agent 驱动的多轮语音面试,顺着你的回答追问到底;",
+  "hero.sub2": "逐轮评分与复盘报告,数据全程留在本地。",
   "hero.cta.interview": "开始面试",
   "hero.cta.resume": "上传简历",
 
@@ -25,6 +26,7 @@ export const home = {
   "hero.preview.micStatus": "语音识别中",
 
   // 功能区块
+  "features.eyebrow": "CORE FEATURES",
   "features.title": "主要功能",
   "features.desc": "覆盖面试准备、模拟面试到评分报告的完整流程。",
   "features.items.dynamic.title": "动态出题",
@@ -41,6 +43,7 @@ export const home = {
   "features.items.report.desc": "每场面试生成评分与改进建议,可回看历史。",
 
   // 使用流程区块
+  "steps.eyebrow": "HOW IT WORKS",
   "steps.title": "使用流程",
   "steps.desc": "配置密钥、上传简历,即可开始一场模拟面试。",
   "steps.items.key.title": "接入密钥",
@@ -52,17 +55,55 @@ export const home = {
   "steps.go": "前往",
 
   // CTA 区块
+  "cta.eyebrow": "GET STARTED",
   "cta.title": "配置完成后即可开始",
   "cta.desc": "无需注册账号,面试数据保存在本地。",
   "cta.action": "开始模拟面试",
 
   // 信任区块
+  "trust.eyebrow": "PRINCIPLES",
   "trust.items.local.title": "本地优先",
   "trust.items.local.desc": "面试数据与密钥默认留在本机,不强制上云",
   "trust.items.byok.title": "自带密钥",
   "trust.items.byok.desc": "BYOK 接入你的 LLM,成本与模型自己掌控",
   "trust.items.opensource.title": "开源可审计",
   "trust.items.opensource.desc": "代码透明,流程可改,适合二次定制",
+
+  // 痛点区块
+  "pain.eyebrow": "WHY REALMOCK",
+  "pain.title": "大多数模拟面试,练不到点上",
+  "pain.desc": "三个最常见的失败模式,RealMock 逐一给出解法。",
+  "pain.items.bank.title": "背题失灵",
+  "pain.items.bank.desc": "固定题库练不出应变——真实面试官会顺着你的回答不断追问。",
+  "pain.items.bank.feature": "动态出题 + 深度追问",
+  "pain.items.alone.title": "独自盲练",
+  "pain.items.alone.desc": "答完没人告诉你哪里站不住脚,盲点会原样带进真面试。",
+  "pain.items.alone.feature": "逐轮评分 + 复盘报告",
+  "pain.items.nerve.title": "临场失语",
+  "pain.items.nerve.desc": "会做不会说——知识在脑子里,语言组织却跟不上临场压力。",
+  "pain.items.nerve.feature": "语音实时对话 + 多轮流程",
+
+  // Hero 场景环卡片:客观、真实、通俗的面试瞬间
+  "ring.items.role.title": "后端工程师",
+  "ring.items.role.sub": "目标岗位 · 一面",
+  "ring.items.probe.title": "缓存击穿?",
+  "ring.items.probe.sub": "顺着你的回答追问",
+  "ring.items.basics.title": "B+ 树索引",
+  "ring.items.basics.sub": "MySQL 基础抽查",
+  "ring.items.score.title": "82",
+  "ring.items.score.sub": "本轮评分 · 表达 3.5/5",
+  "ring.items.system.title": "秒杀系统设计",
+  "ring.items.system.sub": "系统设计 · 白板推演",
+  "ring.items.project.title": "项目深挖",
+  "ring.items.project.sub": "简历上每行都可能被问",
+  "ring.items.hr.title": "失败经历",
+  "ring.items.hr.sub": "HR 面 · 素质考察",
+  "ring.items.round.title": "第 4 / 5 轮",
+  "ring.items.round.sub": "多轮流程推进",
+  "ring.items.reverse.title": "反问环节",
+  "ring.items.reverse.sub": "你有什么想问的?",
+  "ring.items.report.title": "复盘报告",
+  "ring.items.report.sub": "超时 2 次 · 建议已生成",
 } as const;
 
 export type HomeMessageKey = keyof typeof home;

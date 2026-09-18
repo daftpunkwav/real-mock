@@ -7,7 +7,7 @@
  * Source: Design Library Google (dl_builtin_google)
  * rule:
  * - Light color: white paper base + #4285f4 main color + 1px border for hierarchy
- * - Dark color: #161616 base + main color turned to #fc2c50 (high contrast red), sidebar activated with #0065fd blue
+ * - Dark color: #161616 base + one #4285f4 accent everywhere (sidebar included); red is reserved for danger
  * - Rounded corners unified to 8px baseline
  * - Shadows are almost 0, levels are done with border/tone colors
  * - Compact 4px spacing rhythm, dashboard-first
@@ -151,7 +151,7 @@
 }
 
 /* ===========================================================
- * Dark Theme Tokens - The main color is flipped to #fc2c50 high contrast red
+ * Dark Theme Tokens - accent stays Google Blue; red is reserved for danger
  * =========================================================== */
 .dark {
   --background: #161616;
@@ -168,14 +168,14 @@
   --muted: #252525;
   --muted-foreground: #949494;
   --muted-strong: #383838;
-  --accent-soft: #2a1a1f;
+  --accent-soft: rgba(66, 133, 244, 0.14);
 
-  /* Brand——Dark mode main color turns red */
-  --primary: #fc2c50;
-  --primary-hover: #ff587a;
-  --primary-active: #d61f43;
+  /* Brand——same accent ramp as light so danger red stays unambiguous */
+  --primary: #4285f4;
+  --primary-hover: #1a73e8;
+  --primary-active: #1967d2;
   --primary-foreground: #ffffff;
-  --primary-ink: #ffb1c1;
+  --primary-ink: #a8c7fa;
 
   --success: #6fcf97;
   --success-soft: rgba(111, 207, 151, 0.14);
@@ -186,14 +186,14 @@
   --danger: #f1204a;
   --danger-soft: rgba(241, 32, 74, 0.16);
   --danger-ink: #f1204a;
-  --info: #2dccd3;
-  --info-soft: rgba(45, 204, 211, 0.16);
-  --info-ink: #2dccd3;
+  --info: #4285f4;
+  --info-soft: rgba(66, 133, 244, 0.14);
+  --info-ink: #a8c7fa;
 
   --border: #2a2a2a;
   --border-strong: #404040;
   --input: #000000;
-  --ring: #fc2c50;
+  --ring: #4285f4;
 
   /* Data Viz - Dark mode is more electric */
   --chart-1: #2dccd3;
@@ -202,19 +202,19 @@
   --chart-4: #fbeb35;
   --chart-5: #baf6f0;
 
-  /* Sidebar - black + blue activated */
+  /* Sidebar - black + same accent blue as the content area */
   --sidebar: #171717;
   --sidebar-foreground: #e5e5e5;
-  --sidebar-primary: #0065fd;
+  --sidebar-primary: #4285f4;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #00266b;
+  --sidebar-accent: rgba(66, 133, 244, 0.16);
   --sidebar-accent-foreground: #bfdbfe;
   --sidebar-border: #2a2a2a;
   --sidebar-hover: #1f1f1f;
-  --sidebar-active: #00266b;
+  --sidebar-active: rgba(66, 133, 244, 0.16);
 
-  --chip-blue-bg: rgba(45, 204, 211, 0.16);
-  --chip-blue-fg: #2dccd3;
+  --chip-blue-bg: rgba(66, 133, 244, 0.16);
+  --chip-blue-fg: #a8c7fa;
   --chip-green-bg: rgba(111, 207, 151, 0.16);
   --chip-green-fg: #6fcf97;
   --chip-yellow-bg: rgba(242, 201, 76, 0.16);
@@ -230,8 +230,8 @@
   --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4);
   --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.55);
-  --shadow-brand: 0 1px 2px rgba(252, 44, 80, 0.28);
-  --shadow-focus: 0 0 0 3px rgba(252, 44, 80, 0.24);
+  --shadow-brand: 0 1px 2px rgba(66, 133, 244, 0.28);
+  --shadow-focus: 0 0 0 3px rgba(66, 133, 244, 0.24);
 }
 
 /* ===========================================================
@@ -271,7 +271,7 @@ body {
   color: var(--foreground);
 }
 .dark ::selection {
-  background: rgba(252, 44, 80, 0.3);
+  background: rgba(66, 133, 244, 0.3);
 }
 
 /* Scrollbar */
@@ -333,6 +333,16 @@ select,
 button:active:not(:disabled),
 [role="button"]:active:not([aria-disabled="true"]) {
   transform: scale(0.98);
+}
+
+/* Theme veil (lights-off / lights-on): a full-viewport dissolving layer driven
+   entirely by opacity animations; ThemeProvider owns its gradient and timing. */
+.theme-spread-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  pointer-events: none;
+  will-change: opacity;
 }
 
 .no-transition,
@@ -398,6 +408,10 @@ button:active:not(:disabled),
   60% { transform: translateX(2px) scale(1.05); opacity: 1; }
   100% { transform: translateX(0) scale(1); opacity: 1; }
 }
+@keyframes google-nav-pending {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
 
 .markdown-streaming > *:last-child {
   animation: google-stream-fade 0.14s ease-out;
@@ -421,6 +435,18 @@ button:active:not(:disabled),
 .anim-blink { animation: google-blink 1s steps(2) infinite; }
 .anim-progress-fill { animation: google-progress-fill 0.9s var(--ease) both; }
 .anim-marker { animation: google-marker-slide 0.45s var(--ease) both; }
+
+/* Indeterminate bar shown on a sidebar item while its navigation is in flight. */
+.nav-pending-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, transparent, var(--sidebar-primary), transparent);
+  animation: google-nav-pending 0.9s var(--ease) infinite;
+}
 
 /* Rolling entry (triggered by IntersectionObserver injecting .is-in-view) */
 /* Entrance animation (played immediately after mounting, no need for IntersectionObserver) */
@@ -452,38 +478,15 @@ button:active:not(:disabled),
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
   }
+  .nav-pending-bar {
+    animation: none !important;
+    transform: translateX(-30%);
+  }
 }
 
 /* ===========================================================
  * Brand Identifiers
  * =========================================================== */
-.g-logo-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    #4285f4 0 25%,
-    #ea4335 25% 50%,
-    #fbbc05 50% 75%,
-    #34a853 75% 100%
-  );
-  flex-shrink: 0;
-}
-.g-logo-dot-sm {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    #4285f4 0 25%,
-    #ea4335 25% 50%,
-    #fbbc05 50% 75%,
-    #34a853 75% 100%
-  );
-  flex-shrink: 0;
-}
-
 .text-brand-grad {
   background: linear-gradient(90deg, #4285f4, #ea4335, #fbbc05, #34a853);
   -webkit-background-clip: text;
@@ -538,6 +541,27 @@ button:active:not(:disabled),
     background: var(--background-alt);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+  }
+
+  /* Home showcase panel: translucent glass over the page backdrop, with a
+     hairline top highlight (Vertex-style) and a subtle hover lift. */
+  .glass-card {
+    background: color-mix(in srgb, var(--card) 84%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm),
+      inset 0 1px 0 color-mix(in srgb, var(--card-foreground) 5%, transparent);
+    transition: transform var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease),
+      box-shadow var(--dur-base) var(--ease);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .glass-card:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+      box-shadow: var(--shadow-md),
+        inset 0 1px 0 color-mix(in srgb, var(--card-foreground) 5%, transparent);
+    }
   }
 
   /* ---------- Icon Badge ---------- */
@@ -650,6 +674,7 @@ button:active:not(:disabled),
   .btn-danger:hover { filter: brightness(0.94); }
   .btn-danger:hover > .btn-arrow { transform: translateX(2px); }
   .btn-danger:active { transform: scale(0.985); }
+  .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; filter: none; transform: none; }
 
   /* ---------- Chips ---------- */
   .chip {

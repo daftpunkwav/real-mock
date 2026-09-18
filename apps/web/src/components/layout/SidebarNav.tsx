@@ -2,12 +2,12 @@
 
 /** Sidebar navigation content, separated from the responsive shell in Sidebar.tsx. */
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronRight, PanelLeftClose } from "lucide-react";
 import { NAV_ITEMS } from "@/config/nav";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/brand/LogoMark";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LocaleToggle, useT } from "@/i18n";
 
@@ -26,18 +26,32 @@ function isNavActive(
   );
 }
 
-/** Logo lockup (dot + product name) shared by the desktop toggle and the mobile drawer. */
-function BrandText() {
+/** Wordmark lockup (mark + name) shared by the expanded header and the mobile drawer. */
+function BrandLockup({ markSize = 26 }: { markSize?: number }) {
   return (
-    <div className="min-w-0 overflow-hidden">
-      <h1 className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-[var(--sidebar-foreground)]">
-        RealMock
-      </h1>
-      <p className="whitespace-nowrap text-[10px] uppercase tracking-[0.1em] text-[var(--muted-foreground)]">
-        AI Mock Interview
-      </p>
-    </div>
+    <>
+      <LogoMark size={markSize} />
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <h1 className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-[var(--sidebar-foreground)]">
+          Real Mock
+        </h1>
+        <p className="whitespace-nowrap text-[10px] uppercase tracking-[0.1em] text-[var(--muted-foreground)]">
+          AI Mock Interview
+        </p>
+      </div>
+    </>
   );
+}
+
+/**
+ * In-flight indicator for the Link it renders in: stays visible from click until
+ * the target route actually renders, so slow navigations (first compile in dev,
+ * chunk load) never feel like a dead click.
+ */
+function NavPendingBar() {
+  const { pending } = useLinkStatus();
+  if (!pending) return null;
+  return <span className="nav-pending-bar" aria-hidden />;
 }
 
 export function NavContent({
@@ -55,45 +69,34 @@ export function NavContent({
 
   return (
     <>
-      {/* Logo doubles as the collapse/expand toggle on desktop; static branding on mobile */}
-      <div className="flex h-[60px] items-center border-b border-[var(--sidebar-border)] px-2">
-        {onToggleCollapse ? (
+      {/* Brand header: expanded shows the wordmark plus a round collapse control;
+          collapsed turns the mark itself into the expand control (mobile: static). */}
+      <div className="flex h-[60px] shrink-0 items-center gap-2.5 border-b border-[var(--sidebar-border)] px-3">
+        {onToggleCollapse && collapsed ? (
           <button
             type="button"
             onClick={onToggleCollapse}
-            aria-label={collapsed ? tc("sidebar.expand") : tc("sidebar.collapse")}
-            title={collapsed ? tc("sidebar.expand") : tc("sidebar.collapse")}
-            className={cn(
-              "group flex h-11 w-full items-center gap-2.5 rounded-md px-2 transition-colors duration-base ease-google hover:bg-[var(--sidebar-hover)]",
-              collapsed && "justify-center",
-            )}
+            aria-label={tc("sidebar.expand")}
+            title={tc("sidebar.expand")}
+            className="mx-auto flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-base ease-google hover:bg-[var(--sidebar-hover)]"
           >
-            <span className="g-logo-dot shadow-xs" aria-hidden />
-            <AnimatePresence initial={false}>
-              {!collapsed && (
-                <motion.div
-                  className="min-w-0 overflow-hidden"
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
-                >
-                  <BrandText />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {!collapsed && (
-              <ChevronLeft
-                size={15}
-                className="ml-auto shrink-0 text-ink-subtle transition-transform duration-base ease-google group-hover:-translate-x-0.5"
-              />
-            )}
+            <LogoMark size={24} />
           </button>
         ) : (
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="g-logo-dot shadow-xs" aria-hidden />
-            <BrandText />
-          </div>
+          <>
+            <BrandLockup />
+            {onToggleCollapse && (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                aria-label={tc("sidebar.collapse")}
+                title={tc("sidebar.collapse")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-transparent text-[var(--muted-foreground)] transition-colors duration-base ease-google hover:border-[var(--sidebar-border)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-foreground)]"
+              >
+                <PanelLeftClose size={17} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -123,13 +126,7 @@ export function NavContent({
                     : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-hover)]",
                 )}
               >
-                {/* Active-route indicator */}
-                {isActive && (
-                  <span
-                    className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[var(--sidebar-primary)]"
-                    aria-hidden
-                  />
-                )}
+                <NavPendingBar />
                 <Icon
                   size={17}
                   strokeWidth={isActive ? 2 : 1.75}

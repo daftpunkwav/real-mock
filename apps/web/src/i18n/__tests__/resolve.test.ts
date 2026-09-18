@@ -30,7 +30,7 @@ describe("createTranslator", () => {
   it("interpolates {name} with strings and numbers", () => {
     const t = createTranslator("zh-CN", "common");
     expect(t("request.failed", { status: 500 })).toBe("请求失败: 500");
-    expect(t("theme.toggle.title", { label: "深色" })).toBe("主题:深色(点击切换)");
+    expect(t("theme.toggle.title", { label: "深色" })).toBe("切换到深色");
   });
 
   it("keeps unknown placeholders as-is", () => {

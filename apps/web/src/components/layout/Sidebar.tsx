@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
+import { LogoMark } from "@/components/brand/LogoMark";
 import { NavContent } from "./SidebarNav";
 import {
   SIDEBAR_DEFAULT_WIDTH,
@@ -92,8 +93,8 @@ export function Sidebar({
           <Menu size={18} />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <span className="g-logo-dot-sm" aria-hidden />
-          <span className="text-[14px] font-semibold text-ink">RealMock</span>
+          <LogoMark size={20} />
+          <span className="text-[14px] font-semibold text-ink">Real Mock</span>
         </Link>
       </div>
 

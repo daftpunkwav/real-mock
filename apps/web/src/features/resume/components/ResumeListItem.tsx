@@ -152,7 +152,7 @@ export function ResumeListItem({
               e.stopPropagation();
               setConfirmingDelete(true);
             }}
-            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium text-[var(--danger-ink)] hover:bg-[var(--danger-soft)]"
+            className="btn-danger ml-auto !h-8 !px-3 !text-xs"
           >
             <Trash2 size={12} />
             {t("item.delete")}

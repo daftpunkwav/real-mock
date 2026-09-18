@@ -98,7 +98,7 @@ export default function ProfilePage() {
             type="button"
             onClick={() => setClearOpen(true)}
             disabled={busy || !canClear}
-            className="btn-secondary !text-[var(--danger-ink)] hover:!border-[var(--danger)]/40 hover:!bg-[var(--danger-soft)]"
+            className="btn-danger"
           >
             {clearing ? <Spinner className="h-3.5 w-3.5" /> : <Eraser size={13} />}
             {t("page.clear")}

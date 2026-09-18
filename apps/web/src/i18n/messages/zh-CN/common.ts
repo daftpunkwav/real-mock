@@ -18,9 +18,8 @@ export const common = {
   "stream.failed": "流式输出失败",
   "theme.light": "浅色",
   "theme.dark": "深色",
-  "theme.system": "跟随系统",
-  "theme.toggle.title": "主题:{label}(点击切换)",
-  "theme.toggle.aria": "当前主题 {label},点击切换",
+  "theme.toggle.title": "切换到{label}",
+  "theme.toggle.aria": "切换到{label}",
   "locale.toggle.title": "界面语言:{label}(点击切换)",
   "locale.toggle.aria": "当前界面语言 {label},点击切换",
 

@@ -1,28 +1,31 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
+import type { MouseEvent } from "react";
 import { useTheme } from "./ThemeProvider";
 import { useT } from "@/i18n";
 
-const LABEL_KEYS = {
-  light: "theme.light",
-  dark: "theme.dark",
-  system: "theme.system",
-} as const;
-
-/** Sidebar theme switch: one button that cycles light → dark → system. */
+/** Sidebar theme switch: toggles light/dark, spreading from the click point. */
 export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
-  const { theme, cycleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const t = useT("common");
-  const label = t(LABEL_KEYS[theme]);
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const nextLabel = t(theme === "dark" ? "theme.light" : "theme.dark");
+
+  const onClick = (e: MouseEvent<HTMLButtonElement>) => {
+    // Spread from the exact cursor point; keyboard activation (detail 0) gets
+    // an instant, animation-free switch.
+    toggleTheme(e.detail === 0 ? undefined : { x: e.clientX, y: e.clientY });
+  };
+
+  const Icon = theme === "dark" ? Moon : Sun;
+  const label = t(theme === "dark" ? "theme.dark" : "theme.light");
 
   return (
     <button
       type="button"
-      onClick={cycleTheme}
-      title={t("theme.toggle.title", { label })}
-      aria-label={t("theme.toggle.aria", { label })}
+      onClick={onClick}
+      title={t("theme.toggle.title", { label: nextLabel })}
+      aria-label={t("theme.toggle.aria", { label: nextLabel })}
       className={
         collapsed
           ? "mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink"

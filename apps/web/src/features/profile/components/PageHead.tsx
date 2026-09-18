@@ -15,7 +15,7 @@ export function PageHead() {
   const t = useT("profile");
   return (
     <div className="flex items-start gap-3">
-      <span className="icon-badge">
+      <span className="icon-badge icon-badge-brand">
         <User size={18} strokeWidth={1.75} />
       </span>
       <div>
