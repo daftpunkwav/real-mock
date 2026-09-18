@@ -33,8 +33,9 @@ Internal modules keep importing each other by submodule path.
 
 The re-exports below are lazy (PEP 562): resolving them imports the owning
 submodule on first use, so importing this package never pulls the runner
-chain at package-init time. Without this, ``plan_schema`` ↔ ``turn_output``
-form a package-level import cycle.
+chain at package-init time, and package-internal consumers that fetch shared
+names through the package root (``planning.planner`` → ``session_llm``)
+cannot force an import order on the flat modules during init.
 """
 
 from __future__ import annotations

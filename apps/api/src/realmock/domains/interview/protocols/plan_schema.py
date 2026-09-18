@@ -142,7 +142,13 @@ def _clean_step(raw: object, index: int, used_ids: set[str] | None = None) -> Pl
     kind = str(raw.get("kind") or "").strip()[:30]
     step_id = str(raw.get("id") or "").strip()[:30]
     if not step_id or (used_ids is not None and step_id in used_ids):
-        step_id = f"s{index + 1:02d}"
+        # Bump the synthetic suffix past kept real ids too: a model may emit
+        # "s02" literally, which would collide with the synthetic id of a
+        # later unnamed step and break client-side step identity.
+        n = index + 1
+        while used_ids is not None and f"s{n:02d}" in used_ids:
+            n += 1
+        step_id = f"s{n:02d}"
     if used_ids is not None:
         used_ids.add(step_id)
     return PlanStep(

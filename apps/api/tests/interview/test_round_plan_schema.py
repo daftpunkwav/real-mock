@@ -15,7 +15,7 @@ from realmock.domains.interview.agents.session_state import (
     InterviewSessionState,
 )
 from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.process.round_plan_schema import (
+from realmock.domains.interview.protocols.round_plan_schema import (
     PlannedRound,
     RoundPlan,
     load_round_plan,
@@ -202,7 +202,7 @@ def test_parse_round_plan_string_and_workflow_derive() -> None:
 def test_load_round_plan_exception_returns_none() -> None:
     proc = SimpleNamespace(round_plan_status="ready", round_plan="{}", id=1)
     with patch(
-        "realmock.domains.interview.process.round_plan_schema.parse_round_plan",
+        "realmock.domains.interview.protocols.round_plan_schema.parse_round_plan",
         side_effect=RuntimeError("boom"),
     ):
         assert load_round_plan(proc) is None

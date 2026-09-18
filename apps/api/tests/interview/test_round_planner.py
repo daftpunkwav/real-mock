@@ -18,7 +18,7 @@ from realmock.domains.interview.process.process_service import (
     _to_response,
     create_process_with_first_round,
 )
-from realmock.domains.interview.process.round_plan_schema import (
+from realmock.domains.interview.protocols.round_plan_schema import (
     load_round_plan,
     parse_round_plan,
 )

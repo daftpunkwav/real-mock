@@ -231,7 +231,7 @@ def test_process_round_exception_returns_empty(monkeypatch) -> None:
 def test_process_round_with_memory_and_identity(monkeypatch) -> None:
     from contextlib import contextmanager
 
-    from realmock.domains.interview.process import process_memory as pm
+    from realmock.domains.interview.protocols import process_memory as pm
 
     m = _mixin()
     m.session.process_id = 5

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
-from realmock.domains.interview.process.plan_schema import (
+from realmock.domains.interview.protocols.plan_schema import (
     STEP_FOCUS_MAX_CHARS,
     STEP_QUESTIONS_MAX,
     STEP_TITLE_MAX_CHARS,
@@ -42,7 +42,7 @@ _WAIT_MAX = 60
 # Answer window (作答时间): from the candidate's first input until the interviewer takes the turn back.
 _ANSWER_WAIT_MIN = 90
 _ANSWER_WAIT_MAX = 300
-# Single source for step-field clamps: planning.plan_schema.
+# Single source for step-field clamps: protocols.plan_schema.
 _PLAN_OPS_MAX_INSERTS = 3
 
 

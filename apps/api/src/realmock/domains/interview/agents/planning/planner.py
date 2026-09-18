@@ -27,13 +27,13 @@ from realmock.domains.interview.agents.planning.plan_prompts import (
     build_plan_user_message,
     planner_system_prompt,
 )
-from realmock.domains.interview.process.plan_schema import (
+from realmock.domains.interview.protocols.plan_schema import (
     InterviewPlan,
     parse_plan,
     plan_from_workflow,
 )
-from realmock.domains.interview.process.round_plan_schema import load_round_plan
-from realmock.domains.interview.process.process_memory import (
+from realmock.domains.interview.protocols.round_plan_schema import load_round_plan
+from realmock.domains.interview.protocols.process_memory import (
     load_memory,
     render_for_prompt,
 )

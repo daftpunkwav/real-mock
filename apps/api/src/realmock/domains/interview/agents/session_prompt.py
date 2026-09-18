@@ -28,8 +28,8 @@ from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     load_session_company_research,
 )
-from realmock.domains.interview.process.process_memory import load_memory, render_for_prompt
-from realmock.domains.interview.process.round_chain import step_for
+from realmock.domains.interview.protocols.process_memory import load_memory, render_for_prompt
+from realmock.domains.interview.protocols.round_chain import step_for
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.session_state import InterviewSessionState

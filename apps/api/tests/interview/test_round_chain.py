@@ -8,7 +8,7 @@ from realmock.domains.interview.process.process_service import (
     _session_from_process,
     create_process_with_first_round,
 )
-from realmock.domains.interview.process.round_chain import round_chain, step_for
+from realmock.domains.interview.protocols.round_chain import round_chain, step_for
 
 
 def _process(db, **overrides) -> InterviewProcess:

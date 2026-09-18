@@ -8,10 +8,12 @@ root. These tests hold the seams:
   through the facade or the two leaf contracts;
 - ``agents`` never imports upward (realtime/routes);
 - ``process`` never imports upward (agents) — every LLM role lives under
-  ``agents``, so agents → process is the only seam between them;
+  ``agents``;
+- shared stored-process documents (plan/round-plan/memory/round chain) live
+  in the neutral ``protocols`` package both ``agents`` and ``process`` read;
+- ``agents`` may call exactly one ``process`` module (the finish-path
+  subscriber below) — any other agents→process edge fails this test;
 - the WS entry (``routes/ws``) is the single wire into ``realtime``;
-- ``agents`` may use the frozen shared-kernel allowlist under ``process``
-  (stored plan protocols + read-only process views) — nothing else;
 - the facade export list stays in sync with its resolver map.
 """
 
@@ -26,20 +28,17 @@ INTERVIEW_ROOT = Path("src/realmock/domains/interview")
 #: The phase SSOT lives at the domain root (``interview.workflows``).
 AGENTS_LEAF_ALLOWLIST = frozenset({"events", "agent_text"})
 
-#: ``process.*`` modules ``agents`` may import (frozen shared kernel: the
-#: stored plan protocols plus read-only process views, plus the finish-path
-#: subscriber below). These are genuinely shared, process-owned services —
-#: any NEW agents→process edge fails this test and forces the discussion.
+#: ``process.*`` modules ``agents`` may import. Everything shared (stored plan
+#: protocols, process-memory documents, round chain) lives in the neutral
+#: ``interview.protocols`` package, so exactly one downward edge remains:
+#:
+#: finish_lifecycle → record_round_finished: completion subscriber (never
+#: raises, never calls back into agents — verified acyclic). Splitting it
+#: across the 4 finish call sites would scatter the guarantee instead.
+#: Any NEW agents→process edge fails this test and forces the discussion.
 #: The reverse direction is banned outright by
 #: :func:`test_interview_process_never_imports_agents`.
 AGENTS_PROCESS_ALLOWLIST = frozenset({
-    "realmock.domains.interview.process.plan_schema",
-    "realmock.domains.interview.process.round_plan_schema",
-    "realmock.domains.interview.process.process_memory",
-    "realmock.domains.interview.process.round_chain",
-    # finish_lifecycle → record_round_finished: completion subscriber (never
-    # raises, never calls back into agents — verified acyclic). Splitting it
-    # across the 4 finish call sites would scatter the guarantee instead.
     "realmock.domains.interview.process.process_service",
 })
 
@@ -48,26 +47,16 @@ def _api_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _from_imports(path: Path) -> list[tuple[str | None, int]]:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    return [
-        (node.module, node.lineno)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
-    ]
-
-
 _AGENTS_PACKAGE = "realmock.domains.interview.agents"
 
 
 def _import_edges(path: Path) -> list[tuple[str, int]]:
     """Absolute module reference for every import in ``path``.
 
-    Unlike :func:`_from_imports` this sees all three import forms —
-    ``from X import y`` (relative levels resolved against the file's
-    package), plain ``import X.Y``, and the package-level facade form
-    ``from <package> import name`` — so dependency bans cannot be walked
-    around by switching import style.
+    This sees all three import forms — ``from X import y`` (relative levels
+    resolved against the file's package), plain ``import X.Y``, and the
+    package-level facade form ``from <package> import name`` — so dependency
+    bans cannot be walked around by switching import style.
     """
     rel = path.relative_to(_api_root() / "src" / "realmock")
     package = ("realmock", *rel.parts[:-1])
@@ -113,7 +102,7 @@ def test_interview_agents_facade_discipline() -> None:
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*.py")):
-            for module, lineno in _from_imports(path):
+            for module, lineno in _import_edges(path):
                 leaf = _agents_submodule(module)
                 if leaf and leaf not in AGENTS_LEAF_ALLOWLIST:
                     violations.append(
@@ -131,12 +120,10 @@ def test_interview_agents_no_upward_imports() -> None:
     base = api_root / INTERVIEW_ROOT / "agents"
     violations: list[str] = []
     for path in sorted(base.rglob("*.py")):
-        for module, lineno in _from_imports(path):
-            if not module:
-                continue
+        for module, lineno in _import_edges(path):
             parts = module.split(".")
             if (
-                len(parts) >= 5
+                len(parts) >= 4
                 and parts[:3] == ["realmock", "domains", "interview"]
                 and parts[3] in ("realtime", "routes")
             ):
@@ -155,13 +142,10 @@ def test_interview_agents_process_seam_frozen() -> None:
     base = api_root / INTERVIEW_ROOT / "agents"
     violations: list[str] = []
     for path in sorted(base.rglob("*.py")):
-        for module, lineno in _from_imports(path):
-            if not module:
-                continue
+        for module, lineno in _import_edges(path):
             parts = module.split(".")
             if (
-                len(parts) >= 5
-                and parts[:4] == ["realmock", "domains", "interview", "process"]
+                parts[:4] == ["realmock", "domains", "interview", "process"]
                 and module not in AGENTS_PROCESS_ALLOWLIST
             ):
                 violations.append(
@@ -207,14 +191,9 @@ def test_interview_routes_realtime_single_wire() -> None:
         base = api_root / INTERVIEW_ROOT / layer
         for path in sorted(base.rglob("*.py")):
             in_ws_entry = "routes/ws" in path.as_posix().replace("\\", "/")
-            for module, lineno in _from_imports(path):
-                if not module:
-                    continue
+            for module, lineno in _import_edges(path):
                 parts = module.split(".")
-                if not (
-                    len(parts) >= 5
-                    and parts[:4] == ["realmock", "domains", "interview", "realtime"]
-                ):
+                if parts[:4] != ["realmock", "domains", "interview", "realtime"]:
                     continue
                 allowed = (
                     in_ws_entry

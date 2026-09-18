@@ -12,7 +12,7 @@ from realmock.domains.interview.agents.past_records import (
 )
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.turn_output import parse_turn_output
-from realmock.domains.interview.process.plan_schema import (
+from realmock.domains.interview.protocols.plan_schema import (
     MAX_PLAN_STEPS,
     MIN_PLAN_STEPS,
     parse_plan,
@@ -66,6 +66,22 @@ def test_parse_plan_caps_total_steps():
     plan = parse_plan(_agent_plan_dict(50))
     assert plan is not None
     assert len(plan.steps) == MAX_PLAN_STEPS
+
+
+def test_parse_plan_synthetic_ids_avoid_kept_real_ids():
+    """A kept real id matching a later synthetic slot must not duplicate ids.
+
+    Regression: an explicit ``"id": "s02"`` kept on step 1 used to collide
+    with the synthetic id assigned to unnamed step 2.
+    """
+    raw = _agent_plan_dict(MIN_PLAN_STEPS)
+    raw["steps"][0]["id"] = "s02"
+    plan = parse_plan(raw)
+    assert plan is not None
+    ids = [s.id for s in plan.steps]
+    assert len(ids) == len(set(ids))
+    assert ids[0] == "s02"
+    assert ids[1] != "s02"
 
 
 def test_plan_from_workflow_preserves_static_ids():

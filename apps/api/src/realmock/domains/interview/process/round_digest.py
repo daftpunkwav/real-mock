@@ -12,7 +12,7 @@ import json
 import logging
 from typing import Any
 
-from realmock.domains.interview.process.process_memory import _DIGEST_LIMITS
+from realmock.domains.interview.protocols.process_memory import DIGEST_LIMITS
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +61,10 @@ def build_round_digest(session: Any, ledger: dict[str, Any] | None = None) -> di
     )
 
     return {
-        "summary": summary[:_DIGEST_LIMITS["summary_chars"]],
-        "topics_covered": topics[: _DIGEST_LIMITS["topics"]],
-        "weak_points": weak[: _DIGEST_LIMITS["weak_points"]],
-        "strengths": strengths[: _DIGEST_LIMITS["strengths"]],
+        "summary": summary[:DIGEST_LIMITS["summary_chars"]],
+        "topics_covered": topics[: DIGEST_LIMITS["topics"]],
+        "weak_points": weak[: DIGEST_LIMITS["weak_points"]],
+        "strengths": strengths[: DIGEST_LIMITS["strengths"]],
         "phases_covered": phases[: 16],
     }
 

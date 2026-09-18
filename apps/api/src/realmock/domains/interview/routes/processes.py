@@ -1,7 +1,7 @@
 """Multi-round interview process routes: create, list, detail, next round.
 
 Handlers are thin: business rules live in
-``services/process_service.py``; this module owns HTTP concerns (auth cookie,
+``process/process_service.py``; this module owns HTTP concerns (auth cookie,
 rate limits are declared on the aggregating router).
 """
 

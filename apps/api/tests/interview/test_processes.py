@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from realmock.asgi import app
 from realmock.domains.interview.constants import ProcessStatus
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.process.process_memory import (
+from realmock.domains.interview.protocols.process_memory import (
     append_round,
     dump_memory,
     empty_memory,

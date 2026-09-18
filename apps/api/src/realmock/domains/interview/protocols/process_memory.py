@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 MEMORY_SCHEMA = "realmock.process_memory.v1"
 
-_DIGEST_LIMITS = {
+DIGEST_LIMITS = {
     # Questions asked per round feed the next round's anti-repeat list; a
     # 30+ question round truncated to 12 left the interviewer blind to most
     # of what was already covered, so repeats slipped through.
@@ -92,22 +92,22 @@ def render_for_prompt(memory: dict[str, Any] | None) -> str:
     if not rounds:
         return ""
     lines: list[str] = []
-    for r in rounds[-_DIGEST_LIMITS["topics"]:]:
+    for r in rounds[-DIGEST_LIMITS["topics"]:]:
         digest = r.get("digest") or {}
         head = f"- Round {r.get('round_no')}: result={r.get('result') or 'unjudged'}"
         summary = (digest.get("summary") or "").strip()
         if summary:
-            head += f"; {summary[:_DIGEST_LIMITS['summary_chars']]}"
+            head += f"; {summary[:DIGEST_LIMITS['summary_chars']]}"
         lines.append(head)
         topics = digest.get("topics_covered") or []
         if topics:
-            lines.append(f"  Topics covered: {'; '.join(str(t) for t in topics[:_DIGEST_LIMITS['topics']])}")
+            lines.append(f"  Topics covered: {'; '.join(str(t) for t in topics[:DIGEST_LIMITS['topics']])}")
         weak = digest.get("weak_points") or []
         if weak:
-            lines.append(f"  Candidate weak points: {'; '.join(str(w) for w in weak[:_DIGEST_LIMITS['weak_points']])}")
+            lines.append(f"  Candidate weak points: {'; '.join(str(w) for w in weak[:DIGEST_LIMITS['weak_points']])}")
         strong = digest.get("strengths") or []
         if strong:
-            lines.append(f"  Candidate strengths: {'; '.join(str(s) for s in strong[:_DIGEST_LIMITS['strengths']])}")
+            lines.append(f"  Candidate strengths: {'; '.join(str(s) for s in strong[:DIGEST_LIMITS['strengths']])}")
     final = memory.get("final")
     if final:
         lines.append(f"Process final outcome: {final}")
@@ -115,6 +115,7 @@ def render_for_prompt(memory: dict[str, Any] | None) -> str:
 
 
 __all__ = [
+    "DIGEST_LIMITS",
     "MEMORY_SCHEMA",
     "append_round",
     "dump_memory",

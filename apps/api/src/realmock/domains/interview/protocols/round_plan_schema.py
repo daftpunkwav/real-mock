@@ -1,6 +1,6 @@
 """HR round-program value objects with tolerant parsing and clamping.
 
-Mirrors :mod:`planning.plan_schema`: the HR planner agent authors a
+Mirrors the tolerant-parsing style of sibling :mod:`realmock.domains.interview.protocols.plan_schema`: the HR planner agent authors a
 multi-round program (round count / kinds / interviewer persona /
 pass criteria); field-level drift degrades only that field, structural
 garbage yields None so callers fall back to the static
@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 
 from realmock.domains.interview.constants import MAX_INTERVIEW_ROUNDS
-from realmock.domains.interview.process.round_chain import (
+from realmock.domains.interview.protocols.round_chain import (
     KIND_CROSS,
     KIND_HR_1,
     KIND_HR_2,

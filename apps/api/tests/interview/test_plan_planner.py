@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from realmock.domains.interview.agents.planning import planner as pl
-from realmock.domains.interview.process.plan_schema import InterviewPlan
+from realmock.domains.interview.protocols.plan_schema import InterviewPlan
 from tests.fakes import FakeLLMClient
 
 
@@ -81,7 +81,7 @@ def test_process_section_missing_row(db) -> None:
 
 def test_process_section_with_memory(db) -> None:
     from realmock.domains.interview.models import InterviewProcess, InterviewSession
-    from realmock.domains.interview.process.process_memory import dump_memory, empty_memory
+    from realmock.domains.interview.protocols.process_memory import dump_memory, empty_memory
 
     mem = empty_memory()
     mem["rounds"] = [{"round_no": 1, "session_id": 1, "result": "passed",
@@ -107,7 +107,7 @@ def test_round_pass_criteria_none_and_match() -> None:
     proc = SimpleNamespace(round_plan="{}", round_plan_status="")
     assert pl._round_pass_criteria(proc, 1) == ""
     # Ready plan with matching round_no
-    from realmock.domains.interview.process.round_plan_schema import RoundPlan, PlannedRound
+    from realmock.domains.interview.protocols.round_plan_schema import RoundPlan, PlannedRound
 
     plan = RoundPlan(rounds=[
         PlannedRound(round_no=1, kind="tech_1", workflow_type="technical",

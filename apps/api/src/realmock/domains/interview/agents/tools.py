@@ -28,7 +28,6 @@ from realmock.platform.capabilities.ai.agent.tools import (
 from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapshot
 from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
-from realmock.platform.capabilities.ai.llm.tool_args import parse_tool_arguments  # noqa: F401 — Re-export for backward compat (explicit via __all__); prefer direct import.
 from realmock.platform.capabilities.integrations.github.tools import execute_github_tool
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session
@@ -384,5 +383,4 @@ __all__ = [
     "MAX_TOOL_ROUNDS",
     "execute_interview_tool",
     "get_interview_tool_definitions",
-    "parse_tool_arguments",
 ]

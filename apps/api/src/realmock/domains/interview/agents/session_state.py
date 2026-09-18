@@ -29,7 +29,7 @@ from realmock.domains.interview.agents.agent_text import (
 )
 from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
 from realmock.domains.interview.workflows import Workflow, get_workflow
-from realmock.domains.interview.process.plan_schema import (
+from realmock.domains.interview.protocols.plan_schema import (
     MAX_PLAN_STEPS,
     REVERSE_QA_KIND,
     InterviewPlan,
