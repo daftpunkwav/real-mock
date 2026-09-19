@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 from realmock.domains.interview.agents.memory.cognitive_graph import (
     CognitiveMemoryGraph,

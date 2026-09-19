@@ -28,8 +28,6 @@ from realmock.domains.settings.services.model_registry import (
     ProviderCreate,
     ProviderUpdate,
     apply_channel_key,
-    channel_to_response,
-    get_channel,
     get_profile,
     get_provider,
     list_bindings_payload,

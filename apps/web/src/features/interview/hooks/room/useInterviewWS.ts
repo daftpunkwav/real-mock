@@ -162,7 +162,8 @@ export function useInterviewWS(
 
         retryCountRef.current += 1;
         if (retryCountRef.current > maxRetries) {
-          // Mark failed after max retries; retry once after 20s.
+          // Mark failed after max retries; keep probing every 20s so a
+          // restarted backend is picked up without manual action.
           setConnectionState("failed");
           clearRetryTimer();
           retryTimerRef.current = window.setTimeout(() => {

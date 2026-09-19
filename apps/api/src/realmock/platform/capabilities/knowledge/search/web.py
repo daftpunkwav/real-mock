@@ -133,6 +133,6 @@ def web_search(
     max_results: int = 5,
     sites: list[str] | None = None,
 ) -> str:
-    """Perform text search; ``sites`` is a non-empty time-limited domain name (reserved for Niuke/BOSS, etc.)."""
+    """Perform a text search; ``sites`` scopes the query to the given domains (appended as ``site:`` filters)."""
     text, _ = web_search_with_hits(query, max_results=max_results, sites=sites)
     return text
