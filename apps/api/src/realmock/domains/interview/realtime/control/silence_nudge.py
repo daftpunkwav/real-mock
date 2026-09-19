@@ -139,6 +139,12 @@ question/follow-up plan/silence count.
                 )
             self.ctx.last_silence_probe = probe_text
 
+            # Re-check after the LLM call: the candidate may have started
+            # answering (typing/STT partial) or requested finish while the
+            # probe was generating — never speak over that.
+            if self.ctx.answer_started_at or self.ctx.closing:
+                return
+
             await self.set_turn(TurnState.PROCESSING)
             await self.send(
                 "silence_nudge",

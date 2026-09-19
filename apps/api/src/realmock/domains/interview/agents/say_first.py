@@ -64,6 +64,14 @@ async def stream_say_first(
         if say_chunk:
             say_parts.append(say_chunk)
             yield StreamEvent.make_token(say_chunk)
+    # Drain text the think filter held back as a possible (disproven) tag
+    # prefix, so trailing characters like a lone "<" are not lost.
+    held = think_filter.flush()
+    if held:
+        chunk = parser.feed(held)
+        if chunk:
+            say_parts.append(chunk)
+            yield StreamEvent.make_token(chunk)
     tail = parser.finish()
     if tail:
         say_parts.append(tail)

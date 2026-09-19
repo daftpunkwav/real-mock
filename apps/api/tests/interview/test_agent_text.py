@@ -82,9 +82,18 @@ def test_think_stream_filter_single_token_block() -> None:
 
 def test_think_stream_filter_split_open_tag_across_tokens() -> None:
     f = ThinkStreamFilter()
-    # Unfinished "<thi" tail is buffered, never emitted until completed/disproven.
-    assert f.feed("hello <thi") == ""
-    assert f.feed("nk>secret</think> world") == "hello  world"
+    # Unfinished "<thi" tail is buffered (only the tag prefix), never emitted
+    # until the tag completes or is disproven by more input.
+    assert f.feed("hello <thi") == "hello "
+    assert f.feed("nk>secret</think> world") == " world"
+
+
+def test_think_stream_filter_partial_prefix_in_long_tail() -> None:
+    f = ThinkStreamFilter()
+    # A partial tag prefix must stay buffered even when the tail is long;
+    # emitting it would disable think filtering for the rest of the stream.
+    assert f.feed("hello world <thi") == "hello world "
+    assert f.feed("nking>secret</think> tail") == " tail"
 
 
 def test_think_stream_filter_split_close_tag_keeps_hidden() -> None:

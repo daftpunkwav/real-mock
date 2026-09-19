@@ -240,6 +240,24 @@ async def test_answer_timeout_ignored_after_processing():
 
 
 @pytest.mark.asyncio
+async def test_answer_timeout_ignored_when_submit_races_generation():
+    """Candidate submits while the wrap-up line is generating: never trample
+    the in-flight interviewer reply (state flips during the LLM call)."""
+    h = _TimerHandler()
+    h.ctx.answer_started_at = asyncio.get_event_loop().time() - 200.0
+
+    async def _submit_during_generation():
+        h.ctx.turn_state = TurnState.AI_SPEAKING
+        return "时间差不多了，我们先继续。"
+
+    h._generate_answer_timeout_line = AsyncMock(side_effect=_submit_during_generation)
+    await h._on_answer_timer_fire()
+    h.set_turn.assert_not_awaited()
+    h._speak_one.assert_not_awaited()
+    h.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_user_typing_dispatch_marks_answer_started():
     """Dispatcher wiring: a user_typing frame reaches mark_answer_started."""
     from realmock.domains.interview.realtime.core.message_dispatcher import (

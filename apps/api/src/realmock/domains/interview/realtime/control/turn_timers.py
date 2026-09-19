@@ -197,6 +197,11 @@ class TurnTimersMixin:
             return
         self.ctx.answer_expired = True
         text = await self._generate_answer_timeout_line()
+        # Re-check after the LLM call: the candidate may have submitted or
+        # requested finish while the wrap-up line was generating; taking the
+        # turn now would trample the in-flight interviewer reply/closing.
+        if self.ctx.closing or self.ctx.turn_state != TurnState.USER_SPEAKING:
+            return
         await self.set_turn(TurnState.PROCESSING)
         await self.send("silence_nudge", content=text, seq=4)
         self._begin_playback_wait()

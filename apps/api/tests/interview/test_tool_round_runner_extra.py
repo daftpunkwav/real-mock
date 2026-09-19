@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.tool_round_runner import (
     ToolRoundRunner,
@@ -260,7 +261,9 @@ async def test_finish_streamed_variants() -> None:
 
     # Not streamed -> None.
     assert (
-        await ToolRoundRunner._finish_streamed(SayFirstStreamParser(), [], {"on": False}, None)
+        await ToolRoundRunner._finish_streamed(
+            ThinkStreamFilter(), SayFirstStreamParser(), [], {"on": False}, None
+        )
         is None
     )
 
@@ -269,7 +272,9 @@ async def test_finish_streamed_variants() -> None:
 
     parser = SayFirstStreamParser()
     parser.feed(json.dumps({"say": "hello", "v": 1}))
-    out = await ToolRoundRunner._finish_streamed(parser, ["hello"], {"on": True}, _sink)
+    out = await ToolRoundRunner._finish_streamed(
+        ThinkStreamFilter(), parser, ["hello"], {"on": True}, _sink
+    )
     assert isinstance(out, TurnOutput)
     assert "hello" in out.say
 
@@ -373,7 +378,9 @@ async def test_finish_streamed_flushes_tail() -> None:
     async def _sink(event: StreamEvent) -> None:
         seen.append(event)
 
-    out = await ToolRoundRunner._finish_streamed(parser, [], {"on": True}, _sink)
+    out = await ToolRoundRunner._finish_streamed(
+        ThinkStreamFilter(), parser, [], {"on": True}, _sink
+    )
     assert out is not None
     assert "plain hello" in out.say
     assert seen

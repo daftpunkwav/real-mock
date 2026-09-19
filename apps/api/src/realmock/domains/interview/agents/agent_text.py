@@ -93,19 +93,21 @@ class ThinkStreamFilter:
                 if p >= 0 and (open_pos < 0 or p < open_pos):
                     open_pos, open_len = p, len(tag)
             if open_pos < 0:
-                # Check if the tail looks like an unfinished open tag
+                # Check if the tail ends inside a partial open tag; keep the
+                # longest matching tag-prefix suffix buffered no matter how
+                # long the tail is (a length limit here would leak the prefix
+                # and disable think filtering for the rest of the stream).
                 tail = s[i:]
                 tl = tail.lower()
-                partial = False
+                keep = 0
                 for tag in ("<think>", "<thinking>"):
-                    for k in range(1, len(tag)):
-                        if tl.endswith(tag[:k]) or tl == tag[:k]:
-                            partial = True
+                    for k in range(min(len(tl), len(tag) - 1), 0, -1):
+                        if tl.endswith(tag[:k]):
+                            keep = max(keep, k)
                             break
-                    if partial:
-                        break
-                if partial and len(tail) < 12:
-                    self._buf = tail
+                if keep:
+                    out.append(tail[: len(tail) - keep])
+                    self._buf = tail[len(tail) - keep :]
                     return "".join(out)
                 out.append(s[i:])
                 self._buf = ""

@@ -287,15 +287,20 @@ class ToolRoundRunner:
             )
             return ToolRoundResult(
                 api_messages, None,
-                await self._finish_streamed(state["parser"], say_parts, streamed, content_sink),
+                await self._finish_streamed(
+                    state["think"], state["parser"], say_parts, streamed, content_sink
+                ),
             )
 
         early = loop.final_content
-        streamed_output = await self._finish_streamed(state["parser"], say_parts, streamed, content_sink)
+        streamed_output = await self._finish_streamed(
+            state["think"], state["parser"], say_parts, streamed, content_sink
+        )
         return ToolRoundResult(loop.messages, early, streamed_output)
 
     @staticmethod
     async def _finish_streamed(
+        think: ThinkStreamFilter,
         parser: SayFirstStreamParser,
         say_parts: list[str],
         streamed: dict[str, bool],
@@ -304,6 +309,14 @@ class ToolRoundRunner:
         """Flush the parser tail and assemble the streamed turn's output (None when nothing streamed)."""
         if not streamed["on"] or content_sink is None:
             return None
+        # Drain text the think filter held back as a possible (disproven) tag
+        # prefix so trailing characters are not lost, then close the parser.
+        held = think.flush()
+        if held:
+            chunk = parser.feed(held)
+            if chunk:
+                say_parts.append(chunk)
+                await content_sink(StreamEvent.make_token(chunk))
         tail = parser.finish()
         if tail:
             say_parts.append(tail)

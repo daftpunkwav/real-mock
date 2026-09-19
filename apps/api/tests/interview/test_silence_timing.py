@@ -64,6 +64,8 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
         silence_probe_msg_count=1,  # one assistant message in ctx.agent.messages
         silence_capped=False,
         last_silence_probe="",
+        answer_started_at=0.0,
+        closing=False,
         agent=SimpleNamespace(plan=None, messages=[{"role": "assistant", "content": "Q?"}]),
         orchestrator=SimpleNamespace(),
     )
@@ -80,7 +82,8 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
 
     mixin.send = send  # type: ignore[method-assign]
     mixin.set_turn = set_turn  # type: ignore[method-assign]
-    mixin._begin_playback_wait = lambda: asyncio.sleep(0)  # type: ignore[method-assign]
+    # The real method is synchronous (raises generation, clears event).
+    mixin._begin_playback_wait = lambda: None  # type: ignore[method-assign]
     mixin._load_session = lambda db: None  # type: ignore[method-assign]
     mixin._speak_one = lambda text: asyncio.sleep(0)  # type: ignore[method-assign]
     mixin._open_mic_after_playback = lambda **kw: asyncio.sleep(0)  # type: ignore[method-assign]
@@ -161,6 +164,36 @@ def test_cap_speaks_closing_nudge_once():
     mixin.sent.clear()
     asyncio.run(mixin._on_silence_nudge())
     assert mixin.sent == []
+
+
+def test_probe_skipped_when_candidate_starts_answering_during_generation():
+    """Candidate starts answering while the probe LLM call runs: the probe
+    must never be spoken over their answer."""
+    probe_calls: list[int] = []
+
+    async def fake_probe(*, question, probe_hint, attempt, silent_sec):
+        probe_calls.append(attempt)
+        # Simulate the candidate typing / STT partial arriving mid-generation.
+        mixin.ctx.answer_started_at = 1234.0
+        return "probe-1"
+
+    mixin = _mixin(
+        silence_probe_question="Q?",
+        silence_probe_seq=0,
+        last_nudge_at=0.0,
+    )
+    mixin._generate_silence_probe = fake_probe  # type: ignore[method-assign]
+    mixin._load_session = lambda db: SimpleNamespace(  # type: ignore[method-assign]
+        personality="professional",
+        strictness=3,
+        current_phase=SimpleNamespace(id="tech", name="Tech"),
+    )
+
+    asyncio.run(mixin._on_silence_nudge())
+
+    assert probe_calls == [1]  # generation ran...
+    assert mixin.sent == []  # ...but nothing was spoken
+    assert mixin.ctx.turn_state == TurnState.USER_SPEAKING
 
 
 def test_probe_append_does_not_reset_cap_budget():
