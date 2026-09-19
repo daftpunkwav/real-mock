@@ -102,7 +102,13 @@ export function NavContent({
 
       {/* Navigation */}
       <nav
-        className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3"
+        className={cn(
+          "flex-1 space-y-0.5 overflow-y-auto py-3",
+          // Collapsed 64px rail: the aside's 1px right border leaves 63px of
+          // content, so 13.5/12.5 gutters + the row's 10px padding center both
+          // the 17px icon and its 37px row box on the rail centerline.
+          collapsed ? "pl-[13.5px] pr-[12.5px]" : "px-2.5",
+        )}
         aria-label={t("aria.main")}
       >
         {NAV_ITEMS.filter((item) => !item.hidden).map((item) => {
