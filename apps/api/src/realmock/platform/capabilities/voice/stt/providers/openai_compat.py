@@ -102,6 +102,7 @@ async def transcribe_pcm_cloud(
     model: str = "whisper-1",
     api_base: str = "",
     api_key: str = "",
+    full_url: bool = False,
 ) -> str:
     """Transcribe via the OpenAI-compatible /audio/transcriptions endpoint (legacy function retained for test compatibility)."""
     from realmock.platform.capabilities.voice.stt.providers.cloud import transcribe_pcm_cloud as _cloud
@@ -112,6 +113,7 @@ async def transcribe_pcm_cloud(
         model=model,
         api_base=api_base,
         api_key=api_key,
+        full_url=full_url,
     )
 
 
@@ -125,8 +127,5 @@ class OpenAICompatProvider:
             model=creds.model or "FunAudioLLM/SenseVoiceSmall",
             api_base=creds.api_base,
             api_key=creds.api_key,
-            # BUG (deferred): this legacy wrapper has no full_url parameter, so the
-            # provider call below raises TypeError at runtime. Runtime fix is out of
-            # scope for this type-only change set.
-            full_url=creds.full_url,  # type: ignore[call-arg]
+            full_url=creds.full_url,
         )
