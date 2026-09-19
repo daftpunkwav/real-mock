@@ -13,5 +13,5 @@ Feature-first business modules. Each feature owns its components, hooks, and tes
 | `report/` | Report display (tabs, score formatting, live events) |
 | `history/` | Interview history page |
 | `growth/` | Growth statistics page |
-| `media/` | Shared media primitives: mic recorder, TTS player |
+| `media/` | Shared media primitives: mic recorder ([recorder/](media/recorder/README.md)), TTS player |
 | `avatar/` | Interviewer avatar rendering (stage, portraits, scenes) |

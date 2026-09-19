@@ -7,6 +7,7 @@ Next.js + React frontend. The dev server runs on port 8080 and must stay in dev 
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the dev server on port 8080 |
+| `npm run build` | Production build (used by CI; local development runs `npm run dev`) |
 | `npm run test` | Run vitest once |
 | `npm run test:watch` | Run vitest in watch mode |
 | `npm run lint` | ESLint |
@@ -18,16 +19,16 @@ Next.js + React frontend. The dev server runs on port 8080 and must stay in dev 
 
 | Directory | Purpose |
 | --- | --- |
-| `app/` | Next.js App Router pages, one route segment per page |
+| [`app/`](src/app/README.md) | Next.js App Router pages, one route segment per page |
 | `features/` | Feature-first business modules (see [src/features/README.md](src/features/README.md)) |
-| `components/` | Cross-feature presentational components |
-| `config/` | Static frontend configuration (navigation, page layout, interview phases) |
-| `lib/` | Framework-free utilities: API client, code runner, compaction, clipboard, and friends |
-| `i18n/` | Locale system (zh-CN / en): provider, catalogs, error-code mapping |
-| `types/` | Shared types; `generated/` holds the OpenAPI-derived API types |
+| [`components/`](src/components/README.md) | Cross-feature presentational components |
+| [`config/`](src/config/README.md) | Static frontend configuration (navigation, page layout, interview phases, prep quick prompts) |
+| [`lib/`](src/lib/README.md) | Framework-free utilities: API client, code runner, compaction, clipboard, and friends |
+| [`i18n/`](src/i18n/README.md) | Locale system (zh-CN / en): provider, catalogs, error-code mapping |
+| [`types/`](src/types/README.md) | Shared types; `generated/` holds the OpenAPI-derived API types |
 
 ## Conventions
 
-- All user-visible strings come from the i18n catalogs; hard-coded prose is a review failure. This is enforced for the backend by `scripts/check_no_cjk.py`.
-- `config/phases.ts` is locked by the backend as the SSOT for interview phases and cannot move.
+- All user-visible strings come from the i18n catalogs; hard-coded prose is a review failure.
+- `config/phases.ts` mirrors the backend phase SSOT (`realmock.domains.interview.workflows`); the backend test `tests/interview/test_phase_ssot.py` keeps them aligned — phase ids are not edited by hand.
 - Tests live in `__tests__/` next to the code they cover.

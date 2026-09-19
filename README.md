@@ -9,7 +9,7 @@ AI mock interview app: upload a resume to get parsing and an in-depth review, pr
 | [`apps/`](apps/README.md) | Deployable applications — see each app's README |
 | [`apps/web`](apps/web/README.md) | Frontend (Next.js, runs in dev mode on port 8080) |
 | [`apps/api`](apps/api/README.md) | Backend (FastAPI, port 8081): the `realmock` package (src layout); `platform` (platform kernel) / `domains` (seven domains: profile / resume / settings / prep / interview / records / growth), aggregated into a single process by `realmock.asgi`; tests live in [`apps/api/tests`](apps/api/tests/README.md) |
-| [`scripts/`](scripts/README.md) | Development and generation scripts (`dev.sh`, `export_openapi.py`, `check_no_cjk.py`) |
+| [`scripts/`](scripts/README.md) | Development and generation scripts (`dev.sh`, `export_openapi.py`) |
 | [`protocol/`](protocol/README.md) | WebSocket message protocol schema (`interview_ws.schema.json`) |
 | `logs/` | Runtime logs (created and written by `dev.sh`) |
 
