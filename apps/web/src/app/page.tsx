@@ -8,7 +8,11 @@ import { CtaSection } from "@/features/home/components/CtaSection";
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-full">
+    // overflow-x-clip: section blocks drift in from beyond the right edge, and
+    // a transform alone still creates scrollable overflow (a horizontal
+    // scrollbar); clipping at the page edge is invisible because the drifting
+    // blocks are offscreen there anyway.
+    <div className="relative min-h-full overflow-x-clip">
       {/* One continuous stage: the starfield stays fixed while sections scroll
           over it, so the hero and everything below share the same atmosphere. */}
       <PageBackdrop />
