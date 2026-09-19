@@ -74,7 +74,7 @@ export const VideoPanel = forwardRef<VideoPanelHandle, VideoPanelProps>(
       return () => {
         stopCamera();
       };
-    }, []);
+    }, [stopCamera]);
 
     if (!enabled) return null;
 

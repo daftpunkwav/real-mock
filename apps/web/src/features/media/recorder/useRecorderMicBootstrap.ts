@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { getTranslator } from "@/i18n/resolve";
-import { TARGET_SAMPLE_RATE } from "./audioRecorderConstants";
 import { createSpeechRecognitionSession } from "./audioRecorderAsr";
 import {
   attachRecorderProcessor,
@@ -140,7 +139,8 @@ export function useRecorderMicBootstrap(
           setIsRecording(true);
         }
       } catch (e) {
-        // translator( )
+        // Browser mic errors are raw English messages; fall back to the
+        // localized generic copy only when no message exists.
         const msg =
           e instanceof Error ? e.message : getTranslator("media")("recorder.micUnavailable");
         setMicError(msg);

@@ -34,10 +34,14 @@ export function useProfileForm() {
     save.clearRequiredError(key);
   };
 
+  // Destructure the exact methods first so the callback deps stay precise
+  // (nav/save objects are recreated per render; the methods are stable).
+  const { abortInFlight } = save;
+  const { leavePage: navLeavePage } = nav;
   const leavePage = useCallback(() => {
-    save.abortInFlight();
-    nav.leavePage();
-  }, [save.abortInFlight, nav.leavePage]);
+    abortInFlight();
+    navLeavePage();
+  }, [abortInFlight, navLeavePage]);
 
   return {
     profile: editor.profile,

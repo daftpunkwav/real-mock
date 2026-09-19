@@ -85,7 +85,7 @@ export const markdownComponents: Components = {
       </a>
     );
   },
-  // GFM Form #:
+  // GFM table chrome: horizontal scroll wrapper + zebra rows.
   table: ({ children }) => (
     <div className="my-3 w-full max-w-full overflow-x-auto rounded-md border border-surface-border">
       <table className="w-full min-w-[320px] border-collapse text-left text-[13px] tabular-nums">

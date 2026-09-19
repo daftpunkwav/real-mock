@@ -37,18 +37,30 @@ export function useInterviewerAvatarMotion(
 
   // randomly spaced blink loop
   useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
+    let closed = false;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const later = (fn: () => void, ms: number) => {
+      const id = setTimeout(() => {
+        timers.delete(id);
+        if (closed) return;
+        fn();
+      }, ms);
+      timers.add(id);
+    };
     const schedule = () => {
-      timeout = setTimeout(() => {
+      later(() => {
         setBlink(0.08);
-        setTimeout(() => {
+        later(() => {
           setBlink(1);
           schedule();
         }, 120);
       }, 2800 + Math.random() * 3200);
     };
     schedule();
-    return () => clearTimeout(timeout);
+    return () => {
+      closed = true;
+      timers.forEach((id) => clearTimeout(id));
+    };
   }, []);
 
   return { mouthOpen, blink };

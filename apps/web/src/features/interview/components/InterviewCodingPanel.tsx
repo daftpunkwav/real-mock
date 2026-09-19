@@ -9,10 +9,15 @@
  * - Provide a syntax-highlighted code editor with language switching (Python / JavaScript).
  * - Execute code in browser sandbox and display stdout/stderr and test assertions.
  * - Enable candidate submission and review.
+ *
+ * UI chrome is fully localized via the interview catalog (`room.coding.*`);
+ * the bundled demo challenge (title/description/starter code) is fixed English
+ * sample content, like the code samples it embeds.
  */
 
 import React, { useMemo, useRef, useState } from "react";
 import { Play, Send, Code, Terminal, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { useT } from "@/i18n";
 import { runPython } from "@/lib/code-runner/pythonRunner";
 import { runJavascript } from "@/lib/code-runner/javascriptRunner";
 import { highlightCode } from "../codeHighlight";
@@ -73,13 +78,19 @@ print("Reversed successfully!")
 
 type PanelTab = "problem" | "editor" | "console";
 
-const PANEL_TABS: ReadonlyArray<{ id: PanelTab; label: string }> = [
-  { id: "problem", label: "Problem" },
-  { id: "editor", label: "Editor" },
-  { id: "console", label: "Sandbox Console" },
+type CodingMessageKey =
+  | "room.coding.tabProblem"
+  | "room.coding.tabEditor"
+  | "room.coding.tabConsole";
+
+const PANEL_TABS: ReadonlyArray<{ id: PanelTab; labelKey: CodingMessageKey }> = [
+  { id: "problem", labelKey: "room.coding.tabProblem" },
+  { id: "editor", labelKey: "room.coding.tabEditor" },
+  { id: "console", labelKey: "room.coding.tabConsole" },
 ];
 
 export function InterviewCodingPanel() {
+  const t = useT("interview");
   const [problem] = useState<CodingProblem>(DEFAULT_CHALLENGE);
   const [code, setCode] = useState<string>(DEFAULT_CHALLENGE.starterCode);
   const [language, setLanguage] = useState<"python" | "javascript">("python");
@@ -108,30 +119,22 @@ export function InterviewCodingPanel() {
     setIsRunning(true);
     setActiveTab("console");
     setRunStatus("idle");
-    setConsoleOutput("Executing in local sandbox...\n");
+    setConsoleOutput(`${t("room.coding.executing")}\n`);
 
     try {
-      if (language === "python") {
-        const res = await runPython(code).done;
-        if (res.status === "ok") {
-          setConsoleOutput(res.output || "Execution finished with no output.");
-          setRunStatus("success");
-        } else {
-          setConsoleOutput(`[Error] ${res.error ?? "Execution failed."}\n${res.stderr ?? ""}`);
-          setRunStatus("error");
-        }
+      const runner = language === "python" ? runPython : runJavascript;
+      const res = await runner(code).done;
+      if (res.status === "ok") {
+        setConsoleOutput(res.output || t("room.coding.noOutput"));
+        setRunStatus("success");
       } else {
-        const res = await runJavascript(code).done;
-        if (res.status === "ok") {
-          setConsoleOutput(res.output || "Execution finished with no output.");
-          setRunStatus("success");
-        } else {
-          setConsoleOutput(`[Error] ${res.error ?? "Execution failed."}\n${res.stderr ?? ""}`);
-          setRunStatus("error");
-        }
+        setConsoleOutput(
+          `${t("room.coding.execFailed")} ${res.error ?? ""}\n${res.stderr ?? ""}`,
+        );
+        setRunStatus("error");
       }
     } catch (err: unknown) {
-      setConsoleOutput(`Runtime error: ${String(err)}`);
+      setConsoleOutput(t("room.coding.runtimeError", { msg: String(err) }));
       setRunStatus("error");
     } finally {
       setIsRunning(false);
@@ -141,7 +144,7 @@ export function InterviewCodingPanel() {
   const handleSubmit = () => {
     setSubmitted(true);
     setActiveTab("console");
-    setConsoleOutput((prev) => `${prev}\n\n[System]: Solution submitted to Coding Examiner Agent.`);
+    setConsoleOutput((prev) => `${prev}\n\n${t("room.coding.submitNotice")}`);
   };
 
   return (
@@ -155,7 +158,7 @@ export function InterviewCodingPanel() {
 
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex rounded border border-surface-border p-0.5 bg-surface-alt">
-            {PANEL_TABS.map(({ id, label }) => (
+            {PANEL_TABS.map(({ id, labelKey }) => (
               <button
                 key={id}
                 type="button"
@@ -164,7 +167,7 @@ export function InterviewCodingPanel() {
                   activeTab === id ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
                 }`}
               >
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -184,7 +187,7 @@ export function InterviewCodingPanel() {
         {activeTab === "problem" && (
           <div className="flex-1 min-h-0 overflow-y-auto p-3 rounded border border-surface-border bg-surface text-xs text-ink whitespace-pre-wrap leading-relaxed">
             <div className="flex items-center gap-1.5 mb-2 font-semibold text-ink">
-              <FileText size={14} /> Problem Description
+              <FileText size={14} /> {t("room.coding.problemHeading")}
             </div>
             {problem.description}
           </div>
@@ -207,7 +210,7 @@ export function InterviewCodingPanel() {
               spellCheck={false}
               wrap="off"
               className="absolute inset-0 h-full w-full resize-none border-0 bg-transparent p-3 font-mono text-xs leading-relaxed text-transparent caret-[var(--ed-fg)] placeholder:text-ink-subtle focus:outline-none overflow-auto"
-              placeholder="# Write your solution here..."
+              placeholder={t("room.coding.editorPlaceholder")}
             />
           </div>
         )}
@@ -216,21 +219,21 @@ export function InterviewCodingPanel() {
           <div className="flex-1 min-h-0 rounded border border-surface-border bg-surface-alt p-2 flex flex-col text-xs overflow-hidden">
             <div className="flex items-center justify-between border-b border-surface-border/50 pb-1 mb-1 text-[11px] text-ink-muted shrink-0">
               <span className="flex items-center gap-1">
-                <Terminal size={12} /> Sandbox Console
+                <Terminal size={12} /> {t("room.coding.tabConsole")}
               </span>
               {runStatus === "success" && (
                 <span className="text-[var(--success,#22c55e)] flex items-center gap-1 font-medium">
-                  <CheckCircle2 size={12} /> Pass
+                  <CheckCircle2 size={12} /> {t("room.coding.status.pass")}
                 </span>
               )}
               {runStatus === "error" && (
                 <span className="text-[var(--danger,#ef4444)] flex items-center gap-1 font-medium">
-                  <XCircle size={12} /> Error
+                  <XCircle size={12} /> {t("room.coding.status.error")}
                 </span>
               )}
             </div>
             <pre className="flex-1 overflow-y-auto font-mono text-[11px] text-ink-muted whitespace-pre-wrap m-0">
-              {consoleOutput || "Output will appear here after clicking 'Run Code'..."}
+              {consoleOutput || t("room.coding.consolePlaceholder")}
             </pre>
           </div>
         )}
@@ -239,7 +242,7 @@ export function InterviewCodingPanel() {
       {/* Bottom controls */}
       <div className="flex items-center justify-between pt-1 shrink-0">
         <span className="text-[11px] text-ink-muted">
-          {submitted ? "✓ Submitted for assessment" : "Local in-browser sandbox runner"}
+          {submitted ? t("room.coding.footerSubmitted") : t("room.coding.footerLocal")}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -249,7 +252,7 @@ export function InterviewCodingPanel() {
             className="inline-flex items-center gap-1 rounded bg-surface border border-surface-border px-3 py-1 text-xs font-medium text-ink hover:bg-surface-alt transition-colors disabled:opacity-50"
           >
             <Play size={12} className={isRunning ? "anim-spin" : "text-[var(--primary)]"} />
-            {isRunning ? "Running..." : "Run Code"}
+            {isRunning ? t("room.coding.running") : t("room.coding.run")}
           </button>
           <button
             type="button"
@@ -258,7 +261,7 @@ export function InterviewCodingPanel() {
             className="inline-flex items-center gap-1 rounded bg-[var(--primary)] text-[var(--primary-foreground,#fff)] px-3 py-1 text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             <Send size={12} />
-            {submitted ? "Submitted" : "Submit"}
+            {submitted ? t("room.coding.submitted") : t("room.coding.submit")}
           </button>
         </div>
       </div>

@@ -34,7 +34,6 @@ interface ModelListCardProps {
 export function ModelListCard(props: ModelListCardProps) {
   const {
     provider,
-    kind,
     models,
     editingModelId,
     addingModel,

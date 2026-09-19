@@ -40,12 +40,10 @@ function setup(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   render(
-    createElement(LocaleProvider, {
-      initialLocale: "zh-CN",
-      children: createElement(PrepComposer, props),
-    }),
+    createElement(LocaleProvider, null, [createElement(PrepComposer, props)]),
   );
   // jsdom has no stored locale: the provider falls back to English strings.
+  // Assertions are locale-tolerant (see the /1M|100万/ alternation below).
   const box = screen.getByRole("textbox") as HTMLTextAreaElement;
   return { box, onSend, onInputChange };
 }

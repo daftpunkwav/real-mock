@@ -59,6 +59,8 @@ export function useInterviewRoomBootstrap(sessionId: number) {
     setLastAssistantContent("");
     setSessionMeta(DEFAULT_META);
     setPhaseLabelOverlay(null);
+    setPlanSteps([]);
+    setSilenceNudgeMs(25000);
 
     const load = async () => {
       try {

@@ -1,4 +1,4 @@
-/** ScriptProcessor Frame: VAD, , , . */
+/** ScriptProcessor audio frame: VAD, barge-in detection, PCM capture, and silence commits. */
 
 import {
   BARGE_RMS_THRESHOLD,

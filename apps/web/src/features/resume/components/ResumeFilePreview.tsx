@@ -149,8 +149,8 @@ function PreviewPageImage({
   const t = useT("resume");
   const src = useAlignedBackendUrl(resumeHttp.resumePageImagePath(id, page));
   // Use a plain img for dynamic page PNGs.
-  // eslint-disable-next-line @next/next/no-img-element
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       ref={registerRef}
       src={src}

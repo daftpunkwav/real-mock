@@ -94,7 +94,10 @@ export function useInterviewSetup() {
   };
 
   useEffect(() => {
+    // Mount-only load: loadData reads stable prefs and setters; retry goes
+    // through the explicit `reload` action, not effect re-runs.
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Storage-only preferences (no catalog validation needed).

@@ -1,7 +1,7 @@
 import { latinLetterRatio } from "./audioRecorderPcm";
 import type { SpeechRecognition, SpeechRecognitionEvent } from "./audioRecorderTypes";
 
-/** ASR refs . */
+/** Refs and callbacks shared by the ASR session and the recorder. */
 interface AsrRefs {
   getSession: () => number;
   isCapturing: () => boolean;
@@ -25,9 +25,10 @@ interface SpeechRecognitionSession {
 }
 
 /**
- * Web Speech API : start, finals/interim
- * (interim )and, onend .
- * ASR; VAD and, PCM by .
+ * Web Speech API session: starts recognition, folds finals/interim into the
+ * partial text (interim updates refresh timestamps), and restarts itself from
+ * onend while the session is still live. Language switches (zh/en by letter
+ * ratio) recreate the recognizer; VAD and PCM capture stay independent of ASR.
  */
 export function createSpeechRecognitionSession(refs: AsrRefs): SpeechRecognitionSession {
   const session = refs.getSession();
@@ -36,7 +37,7 @@ export function createSpeechRecognitionSession(refs: AsrRefs): SpeechRecognition
   startRec = () => {
     if (session !== refs.getSession()) return;
     if (!refs.asrAllowedRef.current || !refs.isCapturing()) return;
-    // in start
+    // Already started
     if (refs.recognitionRef.current) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;

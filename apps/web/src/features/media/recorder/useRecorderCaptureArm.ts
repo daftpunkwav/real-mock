@@ -74,6 +74,7 @@ export function useRecorderCaptureArm(
     captureEnabled,
     clearCaptureBuffers,
     stopAsr,
+    setPartialText,
     captureEnabledRef,
     captureArmAtRef,
     pendingSeedRef,

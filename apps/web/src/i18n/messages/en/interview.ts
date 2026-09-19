@@ -183,6 +183,28 @@ export const interview = {
   "room.source.resume": "Resume",
   "room.source.github": "GitHub",
   "room.source.companyKb": "Company KB",
+
+  // ---- Room: coding whiteboard (local sandbox) ----
+  "room.coding.tabProblem": "Problem",
+  "room.coding.tabEditor": "Editor",
+  "room.coding.tabConsole": "Sandbox Console",
+  "room.coding.problemHeading": "Problem Description",
+  "room.coding.run": "Run Code",
+  "room.coding.running": "Running…",
+  "room.coding.submit": "Submit",
+  "room.coding.submitted": "Submitted",
+  "room.coding.status.pass": "Pass",
+  "room.coding.status.error": "Error",
+  "room.coding.executing": "Executing in local sandbox…",
+  "room.coding.noOutput": "Execution finished with no output.",
+  "room.coding.execFailed": "Execution failed.",
+  "room.coding.runtimeError": "Runtime error: {msg}",
+  "room.coding.submitNotice": "[System]: Solution submitted to Coding Examiner Agent.",
+  "room.coding.consolePlaceholder": "Output will appear here after clicking 'Run Code'…",
+  "room.coding.footerLocal": "Local in-browser sandbox runner",
+  "room.coding.footerSubmitted": "✓ Submitted for assessment",
+  "room.coding.editorPlaceholder": "# Write your solution here…",
+
   "room.hint.timeout":
     "Generation is slow or timed out. Try STAR: Situation → Task → Action → Result (quantify where possible).",
   "room.hint.timeoutDetailed":
