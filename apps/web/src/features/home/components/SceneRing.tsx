@@ -1,36 +1,60 @@
 "use client";
 
 /**
- * Hero centrepiece: typographic interview-moment cards placed on a true 3D
- * cylinder (camera at the ring centre, like the Vertex wheel). Cards rotate
- * continuously via requestAnimationFrame; the back half fades out over an
- * angular band instead of popping (visibility flips only at zero opacity),
- * and rotation freezes under prefers-reduced-motion.
+ * Hero centrepiece: a perspective ring of per-frame billboarded cards. One
+ * rAF loop places each
+ * card per frame with translate3d onto a cylinder (camera just outside the
+ * near surface) and rotateY(-a) so the card faces the camera, then culls it
+ * with visibility past CULL_ANGLE — the card reads as upright at every angle:
+ * the slanted sides are perspective, not rotation. Cards carry
+ * will-change:transform so Chromium rasterizes each once and reuses that
+ * texture while only the transform moves; without the hint the drifting
+ * projected scale makes it re-raster periodically and the new tiles land a
+ * frame apart (visible as half-card pops). Visibility writes are diffed so
+ * culled cards cost nothing; a visible card costs one transform write.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useEffect, useRef } from "react";
 import { useT } from "@/i18n";
 import { RING_CARDS, type RingCard } from "../content";
 
-/* Design-space geometry (scaled down as a whole on narrow screens):
-   R = cylinder radius, STEP = angular step. Thirty cards give a continuous
-   ring (step 12deg, ~17px gaps at this radius). Cards stay fully opaque up
-   to FADE_START degrees, then fade to zero at CULL before being hidden; the
-   scale law fits the FULLY-OPAQUE span so solid cards never clip, while
-   already-fading cards may run past the container edges and keep the sides
-   of the stage full. */
-const RADIUS = 860;
-const FADE_START = 40;
-const CULL_ANGLE = 58;
+/* Design-space geometry (scaled as a whole to the container width):
+   R = cylinder radius, STEP = angular step, PERSPECTIVE = eye distance.
+   Thirty-six cards (18 creatives x2) give a continuous ring (step 10deg).
+   The eye sits near the ring centre (P/R = 1.6);
+   projected span and mask fade are derived from the projection at CULL_ANGLE
+   so the fade hugs the outermost visible cards. */
+const RADIUS = 1140;
+const PERSPECTIVE = RADIUS * 1.6;
 
-const CARD_COUNT = RING_CARDS.length * 3;
+const CARD_COUNT = RING_CARDS.length * 2;
 const STEP = 360 / CARD_COUNT;
-const CARD_WIDTH = 164;
-const CARD_HEIGHT = 228;
-const CARD_TOP = 52;
-const VISIBLE_SPAN = 2 * RADIUS * Math.sin((FADE_START * Math.PI) / 180) + CARD_WIDTH;
-const SPEED_DEG_PER_SEC = 1.7;
+const CARD_WIDTH = 180;
+const CARD_HEIGHT = 240;
+const CARD_TOP = 48;
+const CULL_ANGLE = 50; // deep inside the mask's zero zone, so culling never shows
+const SPEED = 1.7; // deg/s, cards travel left to right: enter at the left rim, exit right
+const SCALE_FLOOR = 0.8;
+
+const CULL_RAD = (CULL_ANGLE * Math.PI) / 180;
+const S_CULL = PERSPECTIVE / (PERSPECTIVE - RADIUS * (1 - Math.cos(CULL_RAD)));
+const VISIBLE_SPAN = 2 * (RADIUS * Math.sin(CULL_RAD) + CARD_WIDTH / 2) * S_CULL;
+
+/* Signed angle of card i for a given phase, wrapped to -180..180, plus the
+   transform that puts it on the cylinder facing the camera. */
+function angleOf(i: number, phase: number) {
+  let a = (i * STEP + phase) % 360;
+  if (a > 180) a -= 360;
+  if (a < -180) a += 360;
+  return a;
+}
+
+function transformAt(angleDeg: number) {
+  const a = angleDeg * (Math.PI / 180);
+  const x = RADIUS * Math.sin(a);
+  const z = RADIUS * (1 - Math.cos(a));
+  return `translate3d(${x.toFixed(2)}px, 0, ${z.toFixed(2)}px) rotateY(${(-angleDeg).toFixed(3)}deg)`;
+}
 
 const VARIANT_STYLE: Record<string, string> = {
   role: "linear-gradient(165deg, #26497c, #16304f 55%, #0b1a30)",
@@ -43,6 +67,14 @@ const VARIANT_STYLE: Record<string, string> = {
   round: "linear-gradient(165deg, #282f66, #151a35 55%, #0d1024)",
   reverse: "linear-gradient(165deg, #343b49, #1d222c 55%, #131720)",
   report: "linear-gradient(165deg, #484d14, #2a2d0a 55%, #1c1e06)",
+  intro: "linear-gradient(165deg, #1e3a52, #10243a 55%, #0a1828)",
+  coding: "linear-gradient(165deg, #14402c, #0b2a1d 55%, #071d13)",
+  tricky: "linear-gradient(165deg, #452413, #2a160b 55%, #1c0e07)",
+  pause: "linear-gradient(165deg, #2b313e, #191d27 55%, #10131b)",
+  salary: "linear-gradient(165deg, #413012, #2a1e0a 55%, #1c1406)",
+  cross: "linear-gradient(165deg, #1c2650, #101735 55%, #0a0f24)",
+  english: "linear-gradient(165deg, #3a1f42, #241230 55%, #170b20)",
+  offer: "linear-gradient(165deg, #0f4038, #082a24 55%, #051c18)",
 };
 
 const VARIANT_ACCENT: Record<string, string> = {
@@ -56,6 +88,14 @@ const VARIANT_ACCENT: Record<string, string> = {
   round: "#a8b4ff",
   reverse: "#c5cdd9",
   report: "#d4e08a",
+  intro: "#7cd8e0",
+  coding: "#8ce8b0",
+  tricky: "#ffa870",
+  pause: "#cdd8ea",
+  salary: "#f5d565",
+  cross: "#a3b4f8",
+  english: "#e0baf0",
+  offer: "#f2d070",
 };
 
 /* One quiet CSS motif per variant, painted in the card's lower half so the
@@ -122,6 +162,63 @@ function variantMotif(variant: string, accent: string): React.CSSProperties {
         ...base,
         opacity: 0.4,
         background: `repeating-linear-gradient(0deg, ${a} 0 1px, transparent 1px 12px), repeating-linear-gradient(90deg, ${a} 0 1px, transparent 1px 12px)`,
+      };
+    case "intro":
+      // Sound arcs radiating from a low corner: an opening voice.
+      return {
+        ...base,
+        opacity: 0.4,
+        background: `repeating-radial-gradient(circle at 8% 120%, ${a} 0 1px, transparent 1px 12px)`,
+      };
+    case "coding":
+      // Faint diagonal hatching, like an IDE gutter pattern.
+      return {
+        ...base,
+        opacity: 0.4,
+        background: `repeating-linear-gradient(60deg, ${a} 0 1px, transparent 1px 10px)`,
+      };
+    case "tricky":
+      // Hazard stripes: an incident under way.
+      return {
+        ...base,
+        opacity: 0.4,
+        background: `repeating-linear-gradient(45deg, ${a} 0 1px, transparent 1px 7px)`,
+      };
+    case "pause":
+      // Sparse wide dots: air, not signal.
+      return {
+        ...base,
+        opacity: 0.35,
+        background: `radial-gradient(${a} 1px, transparent 1.4px)`,
+        backgroundSize: "15px 15px",
+      };
+    case "salary":
+      // Vertical ticks, like a rising quote ladder.
+      return {
+        ...base,
+        opacity: 0.4,
+        background: `repeating-linear-gradient(90deg, ${a} 0 1px, transparent 1px 12px)`,
+      };
+    case "cross":
+      // One soft diagonal beam linking the halves.
+      return {
+        ...base,
+        opacity: 0.4,
+        background: `linear-gradient(65deg, transparent 38%, ${a} 50%, transparent 62%)`,
+      };
+    case "english":
+      // Concentric rings from below: words travelling outward.
+      return {
+        ...base,
+        opacity: 0.4,
+        background: `repeating-radial-gradient(circle at 50% 135%, ${a} 0 1px, transparent 1px 12px)`,
+      };
+    case "offer":
+      // Scattered bright specks: a quiet confetti.
+      return {
+        ...base,
+        opacity: 0.5,
+        background: `radial-gradient(circle at 20% 30%, ${a} 0 2px, transparent 3px), radial-gradient(circle at 70% 20%, ${a} 0 2px, transparent 3px), radial-gradient(circle at 45% 60%, ${a} 0 2px, transparent 3px)`,
       };
     default:
       return { display: "none" };
@@ -286,220 +383,349 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
           <div className="ml-1 h-px flex-1 self-end" style={{ background: glow }} />
         </div>
       );
+    case "intro":
+      // Opening pitch: a speaking dot leading three draft lines.
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ background: accent }} />
+            <span className="h-1.5 w-3/5 rounded-full" style={{ background: `${accent}66` }} />
+          </div>
+          <div className="ml-3.5 h-1.5 w-4/5 rounded-full" style={{ background: dim }} />
+          <div className="ml-3.5 h-1.5 w-1/2 rounded-full" style={{ background: glow }} />
+        </div>
+      );
+    case "coding":
+      // Editor panel: indented code lines and a block cursor.
+      return (
+        <div className="rounded-lg px-2.5 py-2" style={{ border: `1px solid ${dim}` }}>
+          <div className="space-y-1.5">
+            <div className="h-1 w-3/5 rounded-full" style={{ background: dim }} />
+            <div className="ml-2 h-1 w-4/5 rounded-full" style={{ background: accent }} />
+            <div className="ml-2 flex items-center gap-1">
+              <div className="h-1 w-1/3 rounded-full" style={{ background: glow }} />
+              <div className="h-2.5 w-1" style={{ background: accent }} />
+            </div>
+          </div>
+        </div>
+      );
+    case "tricky":
+      // Incident log: four rows, the failing one lit.
+      return (
+        <div className="space-y-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span
+                className="h-1 w-1 rounded-full"
+                style={{ background: i === 2 ? accent : dim }}
+              />
+              <span
+                className="h-1 flex-1 rounded-full"
+                style={{
+                  background: i === 2 ? accent : i < 2 ? dim : glow,
+                  opacity: i === 2 ? 1 : 0.7,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      );
+    case "pause":
+      // Waveform with a hole in the middle: the silence itself.
+      return (
+        <div className="flex h-8 items-center gap-1">
+          {[3, 5, 8, 6].map((h, i) => (
+            <div key={i} className="w-1 rounded-full" style={{ height: h, background: dim }} />
+          ))}
+          <div className="flex-1" />
+          {[6, 8, 4].map((h, i) => (
+            <div key={i} className="w-1 rounded-full" style={{ height: h, background: i === 1 ? accent : dim }} />
+          ))}
+        </div>
+      );
+    case "salary":
+      // Two offers converging on one number.
+      return (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <div className="h-1.5 w-8 rounded-full" style={{ background: dim }} />
+            <div className="h-1.5 w-1.5 rotate-45 border-l border-t" style={{ borderColor: accent }} />
+          </div>
+          <div className="h-1 w-6 rounded-full" style={{ background: glow }} />
+          <div className="flex items-center gap-1">
+            <div className="h-1.5 w-1.5 rotate-45 border-r border-b" style={{ borderColor: accent }} />
+            <div className="h-1.5 w-8 rounded-full" style={{ background: dim }} />
+          </div>
+        </div>
+      );
+    case "cross":
+      // Round 1 node riding a dashed link into round 2.
+      return (
+        <div className="flex items-center">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ border: `1px solid ${dim}` }} />
+          <div
+            className="h-px flex-1"
+            style={{ background: `repeating-linear-gradient(90deg, ${dim} 0 4px, transparent 4px 8px)` }}
+          />
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: accent }} />
+          <div className="ml-1.5 h-1 w-1/3 rounded-full" style={{ background: glow }} />
+        </div>
+      );
+    case "english":
+      // Two bubbles trading turns: one listening, one speaking.
+      return (
+        <div className="space-y-2">
+          <div className="flex h-6 w-4/5 items-center gap-1 rounded-md px-2" style={{ border: `1px solid ${dim}` }}>
+            <span className="h-1 w-1 rounded-full" style={{ background: dim }} />
+            <span className="h-1 w-1 rounded-full" style={{ background: dim }} />
+            <span className="h-1 w-1 rounded-full" style={{ background: dim }} />
+          </div>
+          <div
+            className="ml-5 flex h-6 w-3/5 items-center gap-1 rounded-md px-2"
+            style={{ border: `1px solid ${accent}66`, background: `${accent}14` }}
+          >
+            <span className="h-1 w-1 rounded-full" style={{ background: accent }} />
+            <span className="h-1 flex-1 rounded-full" style={{ background: glow }} />
+          </div>
+        </div>
+      );
+    case "offer":
+      // Check ring beside two settled lines.
+      return (
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+            style={{ border: `1px solid ${accent}88` }}
+          >
+            <div className="h-2.5 w-1.5 -translate-y-px rotate-45 border-b-2 border-r-2" style={{ borderColor: accent }} />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <div className="h-1.5 w-4/5 rounded-full" style={{ background: `${accent}66` }} />
+            <div className="h-1.5 w-3/5 rounded-full" style={{ background: glow }} />
+          </div>
+        </div>
+      );
     default:
       return null;
   }
 }
 
-/* Fractal-noise tile shared by every card face — kills the flat "vector
-   plastic" look the same way film grain does. */
-const NOISE_URI =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
-
 export function SceneRing() {
   const t = useT("home");
-  const reduce = useReducedMotion();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const shadeRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const phaseRef = useRef(1.5);
-  const [scale, setScale] = useState(1);
+  const scaleRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
 
-  // The whole wheel is authored at VISIBLE_SPAN and scaled to the container,
-  // so the geometry never reflows mid-rotation. Compute once on mount — under
-  // frame throttling the observer's first callback can be delayed.
+  // The wheel is authored at VISIBLE_SPAN and scaled to the container width
+  // in BOTH directions, so the band always spans the scene edge to edge (no
+  // dead margins on wide screens). Applied straight to the wrapper's style:
+  // resizes must never re-render the cards, whose inline transforms belong to
+  // the rAF loop.
   useEffect(() => {
     const el = wrapRef.current;
-    if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / VISIBLE_SPAN));
+    const scaled = scaleRef.current;
+    if (!el || !scaled) return;
+    const update = () => {
+      const s = Math.max(SCALE_FLOOR, el.clientWidth / VISIBLE_SPAN);
+      scaled.style.transform = `translate(-50%, -50%) scale(${s})`;
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
+  // The placement loop. dt is clamped and re-based on visibilitychange so a
+  // backgrounded tab does not fast-forward the wheel on return. Off-screen,
+  // the loop parks entirely (the IO gate) instead of burning rAF.
   useEffect(() => {
-    // Per-frame writes stay compositor-friendly: transform + opacity only.
-    // Depth dimming is a black overlay's opacity — a per-frame filter would
-    // force a full repaint of every card on every tick.
-    const place = (phase: number) => {
-      cardRefs.current.forEach((el, i) => {
-        if (!el) return;
-        const angle = ((((i * STEP + phase) % 360) + 540) % 360) - 180;
-        const abs = Math.abs(angle);
-        if (abs > CULL_ANGLE) {
-          el.style.visibility = "hidden";
-          return;
-        }
-        el.style.visibility = "visible";
-        const rad = (angle * Math.PI) / 180;
-        const c = Math.cos(rad);
-        el.style.transform = `translate3d(${RADIUS * Math.sin(rad)}px, 0, ${RADIUS * (1 - c)}px) rotateY(${-angle}deg)`;
-        el.style.opacity =
-          abs <= FADE_START ? "1" : String(Math.max(0, 1 - (abs - FADE_START) / (CULL_ANGLE - FADE_START)));
-        const shade = shadeRefs.current[i];
-        if (shade) shade.style.opacity = String(0.32 * (1 - c));
-      });
-    };
-
-    if (reduce) {
-      place(phaseRef.current);
-      return;
-    }
+    const ring = ringRef.current;
+    if (!ring) return;
+    const cards = Array.from(ring.children) as HTMLElement[];
+    const culled = new Array<boolean>(cards.length).fill(true);
+    let phase = 0;
     let raf = 0;
     let last = 0;
-    let running = false;
-    const tick = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.1);
-      last = now;
-      phaseRef.current -= SPEED_DEG_PER_SEC * dt;
-      place(phaseRef.current);
+    let onScreen = true;
+
+    const render = () => {
+      for (let i = 0; i < cards.length; i++) {
+        const el = cards[i];
+        if (!el) continue;
+        const a = angleOf(i, phase);
+        const hide = Math.abs(a) > CULL_ANGLE;
+        if (hide) {
+          if (!culled[i]) {
+            el.style.visibility = "hidden";
+            culled[i] = true;
+          }
+          continue;
+        }
+        if (culled[i]) {
+          el.style.visibility = "visible";
+          culled[i] = false;
+        }
+        el.style.transform = transformAt(a);
+      }
+    };
+
+    const tick = (t: number) => {
+      const dt = Math.min((t - last) / 1000, 0.1);
+      last = t;
+      phase += SPEED * dt;
+      if (phase >= 360) phase -= 360;
+      render();
       raf = requestAnimationFrame(tick);
     };
+
     const start = () => {
-      if (running) return;
-      running = true;
       last = performance.now();
       raf = requestAnimationFrame(tick);
     };
     const stop = () => {
-      running = false;
-      cancelAnimationFrame(raf);
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
     };
-    // The loop runs only while the wheel is on screen; tab-hidden frames are
-    // already throttled by the browser, and a backgrounded wheel costs zero.
+
+    render();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     const io = new IntersectionObserver(
-      (entries) => (entries[0]?.isIntersecting ? start() : stop()),
+      (entries) => {
+        onScreen = entries[0]?.isIntersecting ?? true;
+        if (onScreen && !raf) start();
+        if (!onScreen && raf) stop();
+      },
       { threshold: 0 },
     );
-    if (wrapRef.current) io.observe(wrapRef.current);
-    // Reset the timestamp on tab refocus so a backgrounded tab never jumps.
-    const onVisibility = () => {
-      last = performance.now();
+    io.observe(ring);
+    const onVis = () => {
+      if (!document.hidden && onScreen && !raf) start();
     };
-    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("visibilitychange", onVis);
+    if (onScreen) start();
     return () => {
       stop();
       io.disconnect();
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", onVis);
     };
-  }, [reduce]);
+  }, []);
 
   return (
     <div ref={wrapRef} className="pointer-events-none relative h-full w-full" aria-hidden>
       <div
+        ref={scaleRef}
         className="absolute left-1/2 top-1/2"
-        style={{ transform: `translate(-50%, -50%) scale(${scale})`, width: VISIBLE_SPAN }}
+        style={{ transform: "translate(-50%, -50%)", width: VISIBLE_SPAN }}
       >
         <div
           className="relative mx-auto"
           style={{
             height: 320,
-            perspective: RADIUS,
-            perspectiveOrigin: "50% 540px",
-            transformStyle: "preserve-3d",
+            // Side fade without an opaque cover: a mask on this ancestor
+            // composites the already-projected 3D result, so it neither
+            // flattens the cylinder nor hides the starfield behind it.
+            // black 13%/87% == the projected x of a card at ~36deg, so the
+            // fade owns the 36-42deg rim and hits zero right where cards
+            // are culled. no-repeat: cards can paint past the box and a
+            // repeating tile would fade them back in.
+            maskImage:
+              "linear-gradient(90deg, transparent 0, black 13%, black 87%, transparent 100%)",
+            maskRepeat: "no-repeat",
+            WebkitMaskImage:
+              "linear-gradient(90deg, transparent 0, black 13%, black 87%, transparent 100%)",
+            WebkitMaskRepeat: "no-repeat",
           }}
         >
-          {Array.from({ length: CARD_COUNT }, (_, i) => {
-            const card = RING_CARDS[i % RING_CARDS.length] as RingCard;
-            const accent = VARIANT_ACCENT[card.variant] ?? "#8ab4f8";
-            const isScore = card.variant === "score";
-            return (
-              <div
-                key={i}
-                ref={(el) => {
-                  cardRefs.current[i] = el;
-                }}
-                className="absolute overflow-hidden will-change-transform"
-                style={{
-                  left: "50%",
-                  top: CARD_TOP,
-                  width: CARD_WIDTH,
-                  height: CARD_HEIGHT,
-                  marginLeft: -CARD_WIDTH / 2,
-                  borderRadius: 14,
-                  background: VARIANT_STYLE[card.variant] ?? VARIANT_STYLE.role,
-                  backfaceVisibility: "hidden",
-                  boxShadow:
-                    "0 24px 48px -12px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4)",
-                }}
-              >
-                {/* quiet variant-specific motif, lower half */}
-                <div className="absolute inset-x-3.5 bottom-0 top-[42%]" style={variantMotif(card.variant, accent)} />
-
-                {/* kicker: index + hairline */}
-                <div className="absolute left-4 right-4 top-4 flex items-center gap-2">
-                  <span
-                    className="font-mono text-[10px] font-semibold tracking-[0.14em]"
-                    style={{ color: accent }}
+          {/* Perspective stage: the eye sits near the ring centre; each card
+              is placed per frame and billboarded to face it. */}
+          <div
+            className="absolute inset-0"
+            style={{ perspective: PERSPECTIVE, perspectiveOrigin: "50% 540px" }}
+          >
+            <div ref={ringRef} className="h-full w-full">
+              {Array.from({ length: CARD_COUNT }, (_, i) => {
+                const card = RING_CARDS[i % RING_CARDS.length] as RingCard;
+                const accent = VARIANT_ACCENT[card.variant] ?? "#8ab4f8";
+                const isScore = card.variant === "score";
+                const a0 = angleOf(i, 0);
+                const visible0 = Math.abs(a0) <= CULL_ANGLE;
+                return (
+                  <div
+                    key={i}
+                    className="absolute overflow-hidden"
+                    style={{
+                      left: "50%",
+                      top: CARD_TOP,
+                      width: CARD_WIDTH,
+                      height: CARD_HEIGHT,
+                      marginLeft: -CARD_WIDTH / 2,
+                      // SSR-safe initial placement at phase 0; the loop
+                      // owns these two properties from hydration on.
+                      transform: visible0 ? transformAt(a0) : undefined,
+                      visibility: visible0 ? "visible" : "hidden",
+                      // Pin the raster: see the file header.
+                      willChange: "transform",
+                      borderRadius: 16,
+                      // One pre-composited background stack keeps each card a
+                      // single cheap paint: a 1px catch-light along the top
+                      // bevel, skylight from above, a diagonal glare, side
+                      // shading that reads as cylindrical curvature, bottom
+                      // volume grounding the caption, then the variant color.
+                      background: [
+                        "linear-gradient(180deg, rgba(255,255,255,0.22) 0 1px, transparent 1px)",
+                        "radial-gradient(120% 58% at 50% -10%, rgba(255,255,255,0.15), transparent 54%)",
+                        "linear-gradient(155deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 40%, transparent 62%)",
+                        "linear-gradient(90deg, rgba(0,0,0,0.22), transparent 16% 84%, rgba(0,0,0,0.22))",
+                        "linear-gradient(180deg, transparent 58%, rgba(0,0,0,0.30))",
+                        VARIANT_STYLE[card.variant] ?? VARIANT_STYLE.role,
+                      ].join(", "),
+                      border: "1px solid rgba(255,255,255,0.13)",
+                    }}
                   >
-                    {String((i % RING_CARDS.length) + 1).padStart(2, "0")}
-                  </span>
-                  <span className="h-px flex-1" style={{ background: `${accent}40` }} />
-                </div>
+                    {/* quiet variant-specific motif, lower half */}
+                    <div className="absolute inset-x-3.5 bottom-0 top-[42%]" style={variantMotif(card.variant, accent)} />
 
-                {/* headline — the score card gets a giant tabular numeral */}
-                <div className={`absolute left-4 right-4 ${isScore ? "top-[84px]" : "top-10"}`}>
-                  <p
-                    className={
-                      isScore
-                        ? "font-mono text-[46px] font-bold leading-none tracking-tight text-white"
-                        : "text-[22px] font-bold leading-[1.12] tracking-tight text-white"
-                    }
-                    style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)" }}
-                  >
-                    {t(card.titleKey)}
-                  </p>
-                </div>
+                    {/* kicker: index + hairline */}
+                    <div className="absolute left-4 right-4 top-4 flex items-center gap-2">
+                      <span
+                        className="font-mono text-[10px] font-semibold tracking-[0.14em]"
+                        style={{ color: accent }}
+                      >
+                        {String((i % RING_CARDS.length) + 1).padStart(2, "0")}
+                      </span>
+                      <span className="h-px flex-1" style={{ background: `${accent}40` }} />
+                    </div>
 
-                {/* the evidence: a small data-graphic per variant */}
-                <div className={`absolute left-4 right-4 ${isScore ? "top-[148px]" : "top-[116px]"}`}>
-                  {cardGraphic(card.variant, accent)}
-                </div>
+                    {/* headline — the score card gets a giant tabular numeral */}
+                    <div className={`absolute left-4 right-4 ${isScore ? "top-[88px]" : "top-11"}`}>
+                      <p
+                        className={
+                          isScore
+                            ? "font-mono text-[46px] font-bold leading-none tracking-tight text-white"
+                            : "text-[22px] font-bold leading-[1.12] tracking-tight text-white"
+                        }
+                        style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)" }}
+                      >
+                        {t(card.titleKey)}
+                      </p>
+                    </div>
 
-                {/* footer: hairline + caption */}
-                <div className="absolute bottom-3.5 left-4 right-4">
-                  <div className="mb-2 h-px bg-white/12" />
-                  <p className="text-[11px] leading-snug text-white/65">{t(card.subKey)}</p>
-                </div>
+                    {/* the evidence: a small data-graphic per variant */}
+                    <div className={`absolute left-4 right-4 ${isScore ? "top-[156px]" : "top-[120px]"}`}>
+                      {cardGraphic(card.variant, accent)}
+                    </div>
 
-                {/* skylight hotspot, film grain, then glare + edge light */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(120% 58% at 50% -10%, rgba(255,255,255,0.15), transparent 54%)",
-                  }}
-                />
-                <div
-                  className="absolute inset-0 opacity-15 mix-blend-overlay"
-                  style={{ backgroundImage: NOISE_URI, backgroundSize: "120px 120px" }}
-                />
-                {/* depth shading, driven per-frame via opacity (never a filter) */}
-                <div
-                  ref={(el) => {
-                    shadeRefs.current[i] = el;
-                  }}
-                  className="absolute inset-0 bg-black"
-                  style={{ opacity: 0, willChange: "opacity" }}
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "linear-gradient(155deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 40%, transparent 62%)",
-                  }}
-                />
-                <div
-                  className="absolute inset-0 rounded-[14px]"
-                  style={{
-                    boxShadow:
-                      "inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 -20px 32px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.16)",
-                  }}
-                />
-              </div>
-            );
-          })}
+                    {/* footer: hairline + caption */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="mb-2 h-px bg-white/12" />
+                      <p className="text-[11px] leading-snug text-white/65">{t(card.subKey)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

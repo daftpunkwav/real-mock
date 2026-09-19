@@ -61,29 +61,33 @@ export function PageBackdrop() {
         }}
       />
 
-      <motion.div style={{ y: yFar }} className="absolute inset-x-0 -top-80 bottom-0">
-        <div
-          className="absolute left-0 top-0 h-px w-px rounded-full"
-          style={{ boxShadow: faintStars }}
-        />
-      </motion.div>
+      {/* The night sky belongs to the dark stage; on the light surface the
+          grain would read as dirt, so .home-stars fades the layers out. */}
+      <div className="home-stars absolute inset-0">
+        <motion.div style={{ y: yFar }} className="absolute inset-x-0 -top-80 bottom-0">
+          <div
+            className="absolute left-0 top-0 h-px w-px rounded-full"
+            style={{ boxShadow: faintStars }}
+          />
+        </motion.div>
 
-      <motion.div style={{ y: yMid }} className="absolute inset-x-0 -top-80 bottom-0">
-        <div
-          className="absolute left-0 top-0 h-[1.5px] w-[1.5px] rounded-full"
-          style={{ boxShadow: midStars, filter: "blur(0.4px)" }}
-        />
-      </motion.div>
+        <motion.div style={{ y: yMid }} className="absolute inset-x-0 -top-80 bottom-0">
+          <div
+            className="absolute left-0 top-0 h-[1.5px] w-[1.5px] rounded-full"
+            style={{ boxShadow: midStars }}
+          />
+        </motion.div>
 
-      <motion.div
-        style={{ y: yNear }}
-        className="star-breathe absolute inset-x-0 -top-80 bottom-0"
-      >
-        <div
-          className="absolute left-0 top-0 h-[2.5px] w-[2.5px] rounded-full"
-          style={{ boxShadow: brightStars, filter: "blur(0.6px)" }}
-        />
-      </motion.div>
+        <motion.div
+          style={{ y: yNear }}
+          className="star-breathe absolute inset-x-0 -top-80 bottom-0"
+        >
+          <div
+            className="absolute left-0 top-0 h-[2.5px] w-[2.5px] rounded-full"
+            style={{ boxShadow: brightStars }}
+          />
+        </motion.div>
+      </div>
 
       <div
         className="absolute inset-x-0 bottom-0 h-[45vh]"

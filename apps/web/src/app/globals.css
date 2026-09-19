@@ -335,14 +335,26 @@ button:active:not(:disabled),
   transform: scale(0.98);
 }
 
-/* Theme veil (lights-off / lights-on): a full-viewport dissolving layer driven
-   entirely by opacity animations; ThemeProvider owns its gradient and timing. */
-.theme-spread-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  pointer-events: none;
-  will-change: opacity;
+/* Sidebar toggle icon: remounts when the theme flips; a quick tilt-fade
+   makes the state change register at the point of control. The switch
+   itself is a plain, instant class flip owned by ThemeProvider. */
+@keyframes theme-icon-swap {
+  from {
+    opacity: 0;
+    transform: rotate(-40deg) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+.theme-icon-swap {
+  animation: theme-icon-swap 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-icon-swap {
+    animation: none;
+  }
 }
 
 .no-transition,
@@ -601,9 +613,10 @@ button:active:not(:disabled),
     }
   }
 
-  /* Near-layer starlight breathes slowly — the sky feels alive, not pinned. */
+  /* Near-layer starlight breathes slowly — the sky feels alive, not pinned.
+     The amplitude stays small: crisper dots oscillating hard read as flicker. */
   @keyframes star-breathe {
-    from { opacity: 0.6; }
+    from { opacity: 0.85; }
     to { opacity: 1; }
   }
   .star-breathe {
@@ -611,6 +624,46 @@ button:active:not(:disabled),
   }
   @media (prefers-reduced-motion: reduce) {
     .star-breathe { animation: none; opacity: 1; }
+  }
+
+  /* The starfield is the night stage's texture; on the light surface grey
+     grain reads as dirt, so it fades out with the theme. */
+  .home-stars {
+    transition: opacity var(--dur-slow) var(--ease);
+  }
+  html:not(.dark) .home-stars {
+    opacity: 0;
+  }
+
+  /* Hero title glyphs: each glyph is inline-block so it can hop. The hop
+     amplitude comes in through --hero-hop (low = dot, high = dash), one
+     glyph at a time marching through the Morse bit stream. */
+  .hero-title-glyph {
+    display: inline-block;
+    will-change: transform;
+  }
+  .hero-title-glyph.morse-hopping {
+    animation: hero-morse-hop 0.52s cubic-bezier(0.33, 1.18, 0.55, 1) both;
+  }
+  @keyframes hero-morse-hop {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+    28% {
+      transform: translateY(calc(var(--hero-hop, 12px) * -1)) scale(1.03);
+    }
+    52% {
+      transform: translateY(calc(var(--hero-hop, 12px) * -0.35)) scale(1);
+    }
+    72% {
+      transform: translateY(calc(var(--hero-hop, 12px) * -0.55)) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-title-glyph.morse-hopping {
+      animation: none;
+    }
   }
 
   /* ---------- Icon Badge ---------- */

@@ -4,8 +4,7 @@ export const home = {
   // Hero
   "hero.title.line1": "带真实压力的",
   "hero.title.line2": "AI 模拟面试",
-  "hero.sub1": "Agent 驱动的多轮语音面试,顺着你的回答追问到底;",
-  "hero.sub2": "逐轮评分与复盘报告,数据全程留在本地。",
+  "hero.sub1": "Agent驱动的多轮音视频拟真面试,顺着你的回答追问到底",
   "hero.cta.interview": "开始面试",
   "hero.cta.resume": "上传简历",
 
@@ -88,6 +87,22 @@ export const home = {
   "ring.items.reverse.sub": "你有什么想问的?",
   "ring.items.report.title": "复盘报告",
   "ring.items.report.sub": "超时 2 次 · 建议已生成",
+  "ring.items.intro.title": "自我介绍",
+  "ring.items.intro.sub": "开场 90 秒 · 定下基调",
+  "ring.items.coding.title": "手写代码",
+  "ring.items.coding.sub": "共享屏幕 · 边写边讲",
+  "ring.items.tricky.title": "线上事故",
+  "ring.items.tricky.sub": "场景题 · 讲清排查思路",
+  "ring.items.pause.title": "3 秒沉默",
+  "ring.items.pause.sub": "别急 · 想清楚再答",
+  "ring.items.cross.title": "跨轮追问",
+  "ring.items.cross.sub": "上一轮的坑,这轮接着问",
+  "ring.items.english.title": "英文环节",
+  "ring.items.english.sub": "外语面 · 慢一点没关系",
+  "ring.items.salary.title": "期望薪资",
+  "ring.items.salary.sub": "HR 面 · 谈判回合",
+  "ring.items.offer.title": "面试通过",
+  "ring.items.offer.sub": "评价已生成 · 下一面已安排",
 } as const;
 
 export type HomeMessageKey = keyof typeof home;

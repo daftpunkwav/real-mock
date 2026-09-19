@@ -120,19 +120,29 @@ export const PAIN_POINTS = [
 
 /**
  * Hero scene ring: real interview moments rendered as typographic cards cycling
- * on a 3D cylinder. Ten creatives, duplicated to fill the carousel.
+ * on a 3D cylinder. Eighteen creatives ordered as one pass through an interview
+ * (opening → technical rounds → HR → closing), duplicated to fill the carousel;
+ * the sequence loops back from "offer" to "self intro".
  */
 export const RING_CARDS = [
+  { variant: "intro", titleKey: "ring.items.intro.title", subKey: "ring.items.intro.sub" },
+  { variant: "coding", titleKey: "ring.items.coding.title", subKey: "ring.items.coding.sub" },
   { variant: "role", titleKey: "ring.items.role.title", subKey: "ring.items.role.sub" },
-  { variant: "probe", titleKey: "ring.items.probe.title", subKey: "ring.items.probe.sub" },
   { variant: "basics", titleKey: "ring.items.basics.title", subKey: "ring.items.basics.sub" },
-  { variant: "score", titleKey: "ring.items.score.title", subKey: "ring.items.score.sub" },
+  { variant: "probe", titleKey: "ring.items.probe.title", subKey: "ring.items.probe.sub" },
   { variant: "system", titleKey: "ring.items.system.title", subKey: "ring.items.system.sub" },
+  { variant: "tricky", titleKey: "ring.items.tricky.title", subKey: "ring.items.tricky.sub" },
+  { variant: "score", titleKey: "ring.items.score.title", subKey: "ring.items.score.sub" },
   { variant: "project", titleKey: "ring.items.project.title", subKey: "ring.items.project.sub" },
+  { variant: "pause", titleKey: "ring.items.pause.title", subKey: "ring.items.pause.sub" },
   { variant: "hr", titleKey: "ring.items.hr.title", subKey: "ring.items.hr.sub" },
   { variant: "round", titleKey: "ring.items.round.title", subKey: "ring.items.round.sub" },
   { variant: "reverse", titleKey: "ring.items.reverse.title", subKey: "ring.items.reverse.sub" },
+  { variant: "cross", titleKey: "ring.items.cross.title", subKey: "ring.items.cross.sub" },
+  { variant: "english", titleKey: "ring.items.english.title", subKey: "ring.items.english.sub" },
+  { variant: "salary", titleKey: "ring.items.salary.title", subKey: "ring.items.salary.sub" },
   { variant: "report", titleKey: "ring.items.report.title", subKey: "ring.items.report.sub" },
+  { variant: "offer", titleKey: "ring.items.offer.title", subKey: "ring.items.offer.sub" },
 ] as const;
 
 export type RingCard = (typeof RING_CARDS)[number];

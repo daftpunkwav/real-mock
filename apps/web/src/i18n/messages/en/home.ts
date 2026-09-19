@@ -2,10 +2,9 @@
 
 export const home = {
   // Hero
-  "hero.title.line1": "Mock interviews with",
-  "hero.title.line2": "real pressure",
-  "hero.sub1": "Agent-driven, multi-round voice interviews that probe your answers until they hold;",
-  "hero.sub2": "per-round scoring and review reports, with your data kept local.",
+  "hero.title.line1": "Mock Interviews With",
+  "hero.title.line2": "Real Pressure",
+  "hero.sub1": "Agent-driven multi-round audio-video interviews that follow up on your answers",
   "hero.cta.interview": "Start interview",
   "hero.cta.resume": "Upload resume",
 
@@ -88,6 +87,22 @@ export const home = {
   "ring.items.reverse.sub": "Ask us anything",
   "ring.items.report.title": "Review report",
   "ring.items.report.sub": "2 timeouts · tips ready",
+  "ring.items.intro.title": "Self introduction",
+  "ring.items.intro.sub": "First 90 seconds · set the tone",
+  "ring.items.coding.title": "Live coding",
+  "ring.items.coding.sub": "Screen share · think out loud",
+  "ring.items.tricky.title": "Production incident",
+  "ring.items.tricky.sub": "Scenario · walk through your debugging",
+  "ring.items.pause.title": "3 seconds of silence",
+  "ring.items.pause.sub": "Take a breath · then answer",
+  "ring.items.cross.title": "Cross-round follow-up",
+  "ring.items.cross.sub": "Last round's stumbles, revisited",
+  "ring.items.english.title": "English round",
+  "ring.items.english.sub": "Foreign language · slow is fine",
+  "ring.items.salary.title": "Salary expectations",
+  "ring.items.salary.sub": "HR round · negotiation",
+  "ring.items.offer.title": "You passed",
+  "ring.items.offer.sub": "Feedback ready · next round scheduled",
 } as const;
 
 export type HomeMessageKey = keyof typeof home;
