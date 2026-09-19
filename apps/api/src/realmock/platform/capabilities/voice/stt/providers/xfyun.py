@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -96,7 +97,10 @@ class XfyunProvider:
                 }
                 await ws.send(json.dumps(frame))
                 while True:
-                    raw = await ws.recv()
+                    # Bound each server frame: a stalled peer must not leave the
+                    # transcription coroutine pending forever (every other
+                    # provider enforces an HTTP timeout instead).
+                    raw = await asyncio.wait_for(ws.recv(), timeout=15.0)
                     payload = json.loads(raw)
                     code = payload.get("code", -1)
                     if code != 0:

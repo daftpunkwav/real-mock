@@ -122,7 +122,10 @@ async def async_get(
                 "reset_in": quota.get("reset_in"),
                 "remaining": quota.get("remaining"),
             }
-            if attempt + 1 < _MAX_ATTEMPTS and 0 < wait_hint <= _MAX_WAIT_SEC:
+            # wait_hint is clamped to >= 0 upstream; a hint of 0 means the quota
+            # has already reset (or Retry-After: 0), so retry immediately
+            # instead of degrading to a rate_limited observation.
+            if attempt + 1 < _MAX_ATTEMPTS and 0 <= wait_hint <= _MAX_WAIT_SEC:
                 logger.warning(
                     "GitHub rate-limited %s; waiting %.0fs before one retry", path, wait_hint
                 )

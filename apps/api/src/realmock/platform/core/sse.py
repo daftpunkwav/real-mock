@@ -92,6 +92,11 @@ async def pump_queue_to_sse(
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=heartbeat_seconds)
             except asyncio.TimeoutError:
+                # A producer that died without pushing the None sentinel must not
+                # leave the stream pinging forever; end the stream once it is
+                # done and the queue is fully drained.
+                if task.done() and queue.empty():
+                    break
                 yield ": ping\n\n"
                 continue
             if event is None:
@@ -100,7 +105,9 @@ async def pump_queue_to_sse(
     finally:
         if not task.done():
             task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+        # Await unconditionally so cancellation lands and a producer exception
+        # is retrieved (avoids "exception was never retrieved" warnings).
+        await asyncio.gather(task, return_exceptions=True)
 
 
 def sse_streaming_response(body: AsyncIterator[str]) -> StreamingResponse:

@@ -228,7 +228,13 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
         elif section == "links":
             body = _link_bundle(parsed, snapshot.raw_text)
         else:
-            offset = max(0, int(args.get("offset") or 0))
+            # Same tolerance as limit below: a model-supplied non-numeric
+            # offset must degrade to page start, not fail the whole tool call.
+            try:
+                offset = int(args.get("offset") or 0)
+            except (TypeError, ValueError):
+                offset = 0
+            offset = max(0, offset)
             try:
                 limit = int(args.get("limit") or RESUME_RAW_PAGE_CHARS)
             except (TypeError, ValueError):
