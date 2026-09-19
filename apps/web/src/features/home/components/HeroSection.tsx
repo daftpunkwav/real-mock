@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useT } from "@/i18n";
 import { getMorseHopPx, HERO_MORSE_BITS, HERO_MORSE_INTERVAL_MS } from "../morse";
-import { SceneRing } from "./SceneRing";
+import { CardStrip } from "./CardStrip";
 import { StageButton } from "./StageButton";
 
 /** Choreography easing — leads the eye hard, then settles. */
@@ -148,7 +148,7 @@ export function HeroSection() {
           {...(reduce ? {} : intro(0.4, 16))}
           className="absolute inset-0"
         >
-          <SceneRing />
+          <CardStrip />
         </motion.div>
         {/* Pool of light under the wheel. Its centre sits INSIDE the box so
             the falloff reaches zero before every edge — a gradient clipped

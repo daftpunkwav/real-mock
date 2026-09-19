@@ -1,60 +1,42 @@
 "use client";
 
 /**
- * Hero centrepiece: a perspective ring of per-frame billboarded cards. One
- * rAF loop places each
- * card per frame with translate3d onto a cylinder (camera just outside the
- * near surface) and rotateY(-a) so the card faces the camera, then culls it
- * with visibility past CULL_ANGLE — the card reads as upright at every angle:
- * the slanted sides are perspective, not rotation. Cards carry
- * will-change:transform so Chromium rasterizes each once and reuses that
- * texture while only the transform moves; without the hint the drifting
- * projected scale makes it re-raster periodically and the new tiles land a
- * frame apart (visible as half-card pops). Visibility writes are diffed so
- * culled cards cost nothing; a visible card costs one transform write.
+ * Hero centrepiece: a flat conveyor of equal-pitch cards drifting left to
+ * right across the hero's foot. One rAF loop translates the whole strip; the
+ * cards themselves are static, so the browser reuses their raster forever
+ * (will-change:transform on the strip alone). The strip holds two copies of
+ * the deck and the offset wraps over one deck: each duplicate then stands
+ * exactly where its sibling stood, so the wrap is invisible. Coverage is
+ * structural — the strip is always ~1.8x the container — so cards run edge
+ * to edge at any zoom with a few always off-screen, and a 4% mask softens
+ * the rims without ever opening a gap.
  */
 
 import { useEffect, useRef } from "react";
 import { useT } from "@/i18n";
 import { RING_CARDS, type RingCard } from "../content";
 
-/* Design-space geometry (scaled as a whole to the container width):
-   R = cylinder radius, STEP = angular step, PERSPECTIVE = eye distance.
-   Thirty-six cards (18 creatives x2) give a continuous ring (step 10deg).
-   The eye sits near the ring centre (P/R = 1.6);
-   projected span and mask fade are derived from the projection at CULL_ANGLE
-   so the fade hugs the outermost visible cards. */
-const RADIUS = 1140;
-const PERSPECTIVE = RADIUS * 1.6;
-
-const CARD_COUNT = RING_CARDS.length * 2;
-const STEP = 360 / CARD_COUNT;
+/* Design-space geometry, scaled as a whole to the container width.
+   Flat and uniform: every card sits PITCH from its neighbours and moves at
+   one constant speed — no perspective, no angle-dependent gaps, nothing to
+   pop at the rims. */
 const CARD_WIDTH = 180;
 const CARD_HEIGHT = 240;
 const CARD_TOP = 48;
-const CULL_ANGLE = 50; // deep inside the mask's zero zone, so culling never shows
-const SPEED = 1.7; // deg/s, cards travel left to right: enter at the left rim, exit right
-const SCALE_FLOOR = 0.8;
-
-const CULL_RAD = (CULL_ANGLE * Math.PI) / 180;
-const S_CULL = PERSPECTIVE / (PERSPECTIVE - RADIUS * (1 - Math.cos(CULL_RAD)));
-const VISIBLE_SPAN = 2 * (RADIUS * Math.sin(CULL_RAD) + CARD_WIDTH / 2) * S_CULL;
-
-/* Signed angle of card i for a given phase, wrapped to -180..180, plus the
-   transform that puts it on the cylinder facing the camera. */
-function angleOf(i: number, phase: number) {
-  let a = (i * STEP + phase) % 360;
-  if (a > 180) a -= 360;
-  if (a < -180) a += 360;
-  return a;
-}
-
-function transformAt(angleDeg: number) {
-  const a = angleDeg * (Math.PI / 180);
-  const x = RADIUS * Math.sin(a);
-  const z = RADIUS * (1 - Math.cos(a));
-  return `translate3d(${x.toFixed(2)}px, 0, ${z.toFixed(2)}px) rotateY(${(-angleDeg).toFixed(3)}deg)`;
-}
+const BAND_HEIGHT = 320;
+const GAP = 28; // design px of daylight between neighbouring cards
+const PITCH = CARD_WIDTH + GAP;
+const DECK = RING_CARDS.length; // one copy of every creative
+const COPY_COUNT = 2; // second copy makes the deck wrap seamless
+const STRIP_CARDS = DECK * COPY_COUNT;
+const LOOP_SPAN = DECK * PITCH; // strip offset wraps over one deck
+const VISIBLE_SPAN = 10 * PITCH; // design width mapped onto the container: ~10 cards on screen
+const SPEED = 34; // design px/s, deck drifts left to right
+const SCALE_FLOOR = 0.8; // phone widths stop here instead of shrinking cards into confetti
+/* Mask fade per side, a fraction of the band: a whisper of softening at the
+   rims. Purely cosmetic — equal pitch means nothing can bunch up or vanish. */
+const FADE_PCT = 4;
+const BAND_MASK = `linear-gradient(90deg, transparent 0, black ${FADE_PCT}%, black ${100 - FADE_PCT}%, transparent 100%)`;
 
 const VARIANT_STYLE: Record<string, string> = {
   role: "linear-gradient(165deg, #26497c, #16304f 55%, #0b1a30)",
@@ -510,17 +492,16 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
   }
 }
 
-export function SceneRing() {
+export function CardStrip() {
   const t = useT("home");
   const wrapRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
 
-  // The wheel is authored at VISIBLE_SPAN and scaled to the container width
-  // in BOTH directions, so the band always spans the scene edge to edge (no
-  // dead margins on wide screens). Applied straight to the wrapper's style:
-  // resizes must never re-render the cards, whose inline transforms belong to
-  // the rAF loop.
+  // The strip is authored at VISIBLE_SPAN and scaled to the container width
+  // in BOTH directions, so cards run edge to edge (no dead margins on wide
+  // screens). Applied straight to the wrapper's style: resizes must never
+  // re-render the cards.
   useEffect(() => {
     const el = wrapRef.current;
     const scaled = scaleRef.current;
@@ -535,46 +516,23 @@ export function SceneRing() {
     return () => ro.disconnect();
   }, []);
 
-  // The placement loop. dt is clamped and re-based on visibilitychange so a
-  // backgrounded tab does not fast-forward the wheel on return. Off-screen,
-  // the loop parks entirely (the IO gate) instead of burning rAF.
+  // The drift. One transform write per frame moves the whole strip; dt is
+  // clamped and re-based on visibilitychange so a backgrounded tab does not
+  // fast-forward on return. Off-screen, the loop parks entirely (the IO
+  // gate) instead of burning rAF.
   useEffect(() => {
-    const ring = ringRef.current;
-    if (!ring) return;
-    const cards = Array.from(ring.children) as HTMLElement[];
-    const culled = new Array<boolean>(cards.length).fill(true);
-    let phase = 0;
+    const strip = stripRef.current;
+    if (!strip) return;
+    let offset = 0;
     let raf = 0;
     let last = 0;
     let onScreen = true;
 
-    const render = () => {
-      for (let i = 0; i < cards.length; i++) {
-        const el = cards[i];
-        if (!el) continue;
-        const a = angleOf(i, phase);
-        const hide = Math.abs(a) > CULL_ANGLE;
-        if (hide) {
-          if (!culled[i]) {
-            el.style.visibility = "hidden";
-            culled[i] = true;
-          }
-          continue;
-        }
-        if (culled[i]) {
-          el.style.visibility = "visible";
-          culled[i] = false;
-        }
-        el.style.transform = transformAt(a);
-      }
-    };
-
     const tick = (t: number) => {
       const dt = Math.min((t - last) / 1000, 0.1);
       last = t;
-      phase += SPEED * dt;
-      if (phase >= 360) phase -= 360;
-      render();
+      offset = (offset + SPEED * dt) % LOOP_SPAN;
+      strip.style.transform = `translate3d(${offset.toFixed(2)}px, 0, 0)`;
       raf = requestAnimationFrame(tick);
     };
 
@@ -587,7 +545,6 @@ export function SceneRing() {
       raf = 0;
     };
 
-    render();
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const io = new IntersectionObserver(
@@ -598,7 +555,7 @@ export function SceneRing() {
       },
       { threshold: 0 },
     );
-    io.observe(ring);
+    io.observe(strip);
     const onVis = () => {
       if (!document.hidden && onScreen && !raf) start();
     };
@@ -621,110 +578,102 @@ export function SceneRing() {
         <div
           className="relative mx-auto"
           style={{
-            height: 320,
-            // Side fade without an opaque cover: a mask on this ancestor
-            // composites the already-projected 3D result, so it neither
-            // flattens the cylinder nor hides the starfield behind it.
-            // black 13%/87% == the projected x of a card at ~36deg, so the
-            // fade owns the 36-42deg rim and hits zero right where cards
-            // are culled. no-repeat: cards can paint past the box and a
-            // repeating tile would fade them back in.
-            maskImage:
-              "linear-gradient(90deg, transparent 0, black 13%, black 87%, transparent 100%)",
+            height: BAND_HEIGHT,
+            // Side fade without an opaque cover: a mask on this static
+            // ancestor composites the moving strip, so the outer FADE_PCT per
+            // side softens cards sliding in and out of the viewport. The
+            // band box spans the container, so its hard edge (where the
+            // no-repeat mask drops to zero) coincides with the screen edge;
+            // at the scale floor it falls outside the viewport entirely.
+            maskImage: BAND_MASK,
             maskRepeat: "no-repeat",
-            WebkitMaskImage:
-              "linear-gradient(90deg, transparent 0, black 13%, black 87%, transparent 100%)",
+            WebkitMaskImage: BAND_MASK,
             WebkitMaskRepeat: "no-repeat",
           }}
         >
-          {/* Perspective stage: the eye sits near the ring centre; each card
-              is placed per frame and billboarded to face it. */}
+          {/* The moving belt. Cards are laid out once and never touched again;
+              the loop translates the strip and the wrap at LOOP_SPAN lands
+              each duplicate exactly where its sibling stood, so it reads as
+              an endless deck. Off-screen cards live inside the translated,
+              clipped layer and are never painted. */}
           <div
-            className="absolute inset-0"
-            style={{ perspective: PERSPECTIVE, perspectiveOrigin: "50% 540px" }}
+            ref={stripRef}
+            className="absolute inset-y-0 left-0"
+            style={{ width: STRIP_CARDS * PITCH, willChange: "transform" }}
           >
-            <div ref={ringRef} className="h-full w-full">
-              {Array.from({ length: CARD_COUNT }, (_, i) => {
-                const card = RING_CARDS[i % RING_CARDS.length] as RingCard;
-                const accent = VARIANT_ACCENT[card.variant] ?? "#8ab4f8";
-                const isScore = card.variant === "score";
-                const a0 = angleOf(i, 0);
-                const visible0 = Math.abs(a0) <= CULL_ANGLE;
-                return (
-                  <div
-                    key={i}
-                    className="absolute overflow-hidden"
-                    style={{
-                      left: "50%",
-                      top: CARD_TOP,
-                      width: CARD_WIDTH,
-                      height: CARD_HEIGHT,
-                      marginLeft: -CARD_WIDTH / 2,
-                      // SSR-safe initial placement at phase 0; the loop
-                      // owns these two properties from hydration on.
-                      transform: visible0 ? transformAt(a0) : undefined,
-                      visibility: visible0 ? "visible" : "hidden",
-                      // Pin the raster: see the file header.
-                      willChange: "transform",
-                      borderRadius: 16,
-                      // One pre-composited background stack keeps each card a
-                      // single cheap paint: a 1px catch-light along the top
-                      // bevel, skylight from above, a diagonal glare, side
-                      // shading that reads as cylindrical curvature, bottom
-                      // volume grounding the caption, then the variant color.
-                      background: [
-                        "linear-gradient(180deg, rgba(255,255,255,0.22) 0 1px, transparent 1px)",
-                        "radial-gradient(120% 58% at 50% -10%, rgba(255,255,255,0.15), transparent 54%)",
-                        "linear-gradient(155deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 40%, transparent 62%)",
-                        "linear-gradient(90deg, rgba(0,0,0,0.22), transparent 16% 84%, rgba(0,0,0,0.22))",
-                        "linear-gradient(180deg, transparent 58%, rgba(0,0,0,0.30))",
-                        VARIANT_STYLE[card.variant] ?? VARIANT_STYLE.role,
-                      ].join(", "),
-                      border: "1px solid rgba(255,255,255,0.13)",
-                    }}
-                  >
-                    {/* quiet variant-specific motif, lower half */}
-                    <div className="absolute inset-x-3.5 bottom-0 top-[42%]" style={variantMotif(card.variant, accent)} />
+            {Array.from({ length: STRIP_CARDS }, (_, i) => {
+              const card = RING_CARDS[i % DECK] as RingCard;
+              const accent = VARIANT_ACCENT[card.variant] ?? "#8ab4f8";
+              const isScore = card.variant === "score";
+              return (
+                <div
+                  key={i}
+                  className="absolute overflow-hidden"
+                  style={{
+                    // Start one deck left of the band so the strip covers the
+                    // container across the whole offset range [0, LOOP_SPAN).
+                    left: (i - DECK) * PITCH,
+                    top: CARD_TOP,
+                    width: CARD_WIDTH,
+                    height: CARD_HEIGHT,
+                    borderRadius: 16,
+                    // One pre-composited background stack keeps each card a
+                    // single cheap paint: a 1px catch-light along the top
+                    // bevel, skylight from above, a diagonal glare, side
+                    // shading that reads as curvature, bottom volume grounding
+                    // the caption, then the variant color.
+                    background: [
+                      "linear-gradient(180deg, rgba(255,255,255,0.22) 0 1px, transparent 1px)",
+                      "radial-gradient(120% 58% at 50% -10%, rgba(255,255,255,0.15), transparent 54%)",
+                      "linear-gradient(155deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 40%, transparent 62%)",
+                      "linear-gradient(90deg, rgba(0,0,0,0.22), transparent 16% 84%, rgba(0,0,0,0.22))",
+                      "linear-gradient(180deg, transparent 58%, rgba(0,0,0,0.30))",
+                      VARIANT_STYLE[card.variant] ?? VARIANT_STYLE.role,
+                    ].join(", "),
+                    border: "1px solid rgba(255,255,255,0.13)",
+                  }}
+                >
+                  {/* quiet variant-specific motif, lower half */}
+                  <div className="absolute inset-x-3.5 bottom-0 top-[42%]" style={variantMotif(card.variant, accent)} />
 
-                    {/* kicker: index + hairline */}
-                    <div className="absolute left-4 right-4 top-4 flex items-center gap-2">
-                      <span
-                        className="font-mono text-[10px] font-semibold tracking-[0.14em]"
-                        style={{ color: accent }}
-                      >
-                        {String((i % RING_CARDS.length) + 1).padStart(2, "0")}
-                      </span>
-                      <span className="h-px flex-1" style={{ background: `${accent}40` }} />
-                    </div>
-
-                    {/* headline — the score card gets a giant tabular numeral */}
-                    <div className={`absolute left-4 right-4 ${isScore ? "top-[88px]" : "top-11"}`}>
-                      <p
-                        className={
-                          isScore
-                            ? "font-mono text-[46px] font-bold leading-none tracking-tight text-white"
-                            : "text-[22px] font-bold leading-[1.12] tracking-tight text-white"
-                        }
-                        style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)" }}
-                      >
-                        {t(card.titleKey)}
-                      </p>
-                    </div>
-
-                    {/* the evidence: a small data-graphic per variant */}
-                    <div className={`absolute left-4 right-4 ${isScore ? "top-[156px]" : "top-[120px]"}`}>
-                      {cardGraphic(card.variant, accent)}
-                    </div>
-
-                    {/* footer: hairline + caption */}
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="mb-2 h-px bg-white/12" />
-                      <p className="text-[11px] leading-snug text-white/65">{t(card.subKey)}</p>
-                    </div>
+                  {/* kicker: index + hairline */}
+                  <div className="absolute left-4 right-4 top-4 flex items-center gap-2">
+                    <span
+                      className="font-mono text-[10px] font-semibold tracking-[0.14em]"
+                      style={{ color: accent }}
+                    >
+                      {String((i % DECK) + 1).padStart(2, "0")}
+                    </span>
+                    <span className="h-px flex-1" style={{ background: `${accent}40` }} />
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* headline — the score card gets a giant tabular numeral */}
+                  <div className={`absolute left-4 right-4 ${isScore ? "top-[88px]" : "top-11"}`}>
+                    <p
+                      className={
+                        isScore
+                          ? "font-mono text-[46px] font-bold leading-none tracking-tight text-white"
+                          : "text-[22px] font-bold leading-[1.12] tracking-tight text-white"
+                      }
+                      style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)" }}
+                    >
+                      {t(card.titleKey)}
+                    </p>
+                  </div>
+
+                  {/* the evidence: a small data-graphic per variant */}
+                  <div className={`absolute left-4 right-4 ${isScore ? "top-[156px]" : "top-[120px]"}`}>
+                    {cardGraphic(card.variant, accent)}
+                  </div>
+
+                  {/* footer: hairline + caption */}
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="mb-2 h-px bg-white/12" />
+                    <p className="text-[11px] leading-snug text-white/65">{t(card.subKey)}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
