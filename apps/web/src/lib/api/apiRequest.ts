@@ -44,6 +44,14 @@ export async function request<T>(
   }
   // Always hit the backend directly so HttpOnly cookies share host with WS
   const url = resolveBackendUrl(`/api${path}`);
+  const timeoutError = () =>
+    new ApiError(
+      timeoutMs > DEFAULT_REQUEST_TIMEOUT_MS
+        ? `Request timed out (${Math.round(timeoutMs / 1000)}s). Deep review and other LLM tasks can be slow; retry later or check the model/network`
+        : `Request timed out (${Math.round(timeoutMs / 1000)}s). Confirm the backend is running (NEXT_PUBLIC_API_BASE / STREAM_API_BASE)`,
+      0,
+      { code: "NET0001", params: { seconds: Math.round(timeoutMs / 1000) } },
+    );
   let res: Response;
   try {
     res = await fetch(url, {
@@ -53,17 +61,10 @@ export async function request<T>(
       signal: controller.signal,
     });
   } catch {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
     if (controller.signal.aborted) {
-      if (timedOut) {
-        // Localized copy comes from errors catalog (NET0001 + {seconds}); English is catalog-miss fallback
-        throw new ApiError(
-          timeoutMs > DEFAULT_REQUEST_TIMEOUT_MS
-            ? `Request timed out (${Math.round(timeoutMs / 1000)}s). Deep review and other LLM tasks can be slow; retry later or check the model/network`
-            : `Request timed out (${Math.round(timeoutMs / 1000)}s). Confirm the backend is running (NEXT_PUBLIC_API_BASE / STREAM_API_BASE)`,
-          0,
-          { code: "NET0001", params: { seconds: Math.round(timeoutMs / 1000) } },
-        );
-      }
+      if (timedOut) throw timeoutError();
       throw new ApiError("Request cancelled", 0, { code: "NET0002" });
     }
     throw new ApiError(
@@ -71,19 +72,29 @@ export async function request<T>(
       0,
       { code: "NET0000", params: { url } },
     );
+  }
+  // The timeout and the external-abort forwarder stay armed through the body
+  // read: timeoutMs budgets the whole request, not just the headers.
+  try {
+    if (!res.ok) {
+      const error = await parseStructuredErrorResponse(res);
+      throw new ApiError(error.message, res.status, error);
+    }
+    const text = await res.text();
+    if (!text) return undefined as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new ApiError("Server returned invalid JSON", res.status, { code: "NET0004" });
+    }
+  } catch (e) {
+    if (controller.signal.aborted) {
+      if (timedOut) throw timeoutError();
+      throw new ApiError("Request cancelled", 0, { code: "NET0002" });
+    }
+    throw e;
   } finally {
     clearTimeout(timeoutId);
     externalSignal?.removeEventListener("abort", onExternalAbort);
-  }
-  if (!res.ok) {
-    const error = await parseStructuredErrorResponse(res);
-    throw new ApiError(error.message, res.status, error);
-  }
-  const text = await res.text();
-  if (!text) return undefined as T;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new ApiError("Server returned invalid JSON", res.status, { code: "NET0004" });
   }
 }

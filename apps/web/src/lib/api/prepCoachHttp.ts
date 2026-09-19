@@ -142,6 +142,8 @@ export const prepCoachHttp = {
         }),
       });
     } catch (err) {
+      window.clearInterval(watchdog);
+      opts?.signal?.removeEventListener("abort", forwardUserAbort);
       if (stalled) {
         throw new ApiError(`Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`, 0, {
           code: "NET0006",
@@ -153,25 +155,25 @@ export const prepCoachHttp = {
         code: "NET0000",
         params: { url },
       });
-    } finally {
-      window.clearInterval(watchdog);
-      opts?.signal?.removeEventListener("abort", forwardUserAbort);
     }
-    if (!res.ok) {
-      const error = await parseStructuredErrorResponse(res);
-      throw new ApiError(error.message, res.status, error);
-    }
+    // The watchdog and the user-abort forwarder must stay live through the SSE
+    // read: stopping mid-stream or a stalled connection only surfaces there.
+    try {
+      if (!res.ok) {
+        const error = await parseStructuredErrorResponse(res);
+        throw new ApiError(error.message, res.status, error);
+      }
 
-    let tokenUsage = 0;
-    let promptTokens = 0;
-    let completionTokens = 0;
-    let cachedTokens = 0;
-    let promptEstimated = 0;
-    let turnId = "";
-    let prefixFingerprint = "";
-    let messageCount = 0;
-    let usage: PrepUsageStats | null = null;
-    await consumeSSE<PrepSSEEvent>(res, (event) => {
+      let tokenUsage = 0;
+      let promptTokens = 0;
+      let completionTokens = 0;
+      let cachedTokens = 0;
+      let promptEstimated = 0;
+      let turnId = "";
+      let prefixFingerprint = "";
+      let messageCount = 0;
+      let usage: PrepUsageStats | null = null;
+      await consumeSSE<PrepSSEEvent>(res, (event) => {
       touch();
       if (event.type === "token" && typeof event.content === "string") {
         onToken(event.content);
@@ -231,7 +233,21 @@ export const prepCoachHttp = {
         throw new ApiError(event.message || getTranslator("common")("stream.failed"), res.status);
       }
     }, touch);
-    return { token_usage: tokenUsage, prompt_tokens: promptTokens, completion_tokens: completionTokens, cached_tokens: cachedTokens, prompt_tokens_estimated: promptEstimated, turn_id: turnId, prefix_fingerprint: prefixFingerprint, message_count: messageCount, usage };
+      return { token_usage: tokenUsage, prompt_tokens: promptTokens, completion_tokens: completionTokens, cached_tokens: cachedTokens, prompt_tokens_estimated: promptEstimated, turn_id: turnId, prefix_fingerprint: prefixFingerprint, message_count: messageCount, usage };
+    } catch (err) {
+      // A watchdog abort mid-stream rejects the reader with AbortError; convert
+      // it so the caller does not mistake the stall for a user stop.
+      if (stalled) {
+        throw new ApiError(`Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`, 0, {
+          code: "NET0006",
+          params: { url },
+        });
+      }
+      throw err;
+    } finally {
+      window.clearInterval(watchdog);
+      opts?.signal?.removeEventListener("abort", forwardUserAbort);
+    }
   },
   forkSession: (sessionId: number, upTo: number) =>
     request<PrepSessionCreateResponse>(`/v1/prep/sessions/${sessionId}/fork`, {

@@ -266,22 +266,42 @@ export const resumeHttp = {
       const markAlive = () => {
         lastEventAt = Date.now();
       };
-      await consumeSSE<ResumeAnalyzeSSEEvent>(
-        res,
-        (event) => {
-          markAlive();
-          onEvent?.(event);
-        if (event.type === "done" && event.analysis) {
-          analysis = event.analysis;
-        } else if (event.type === "error") {
-          throw new ApiError(event.message || "Deep review failed", 0, {
-            code: event.code,
-            retryable: event.retryable,
-          });
+      try {
+        await consumeSSE<ResumeAnalyzeSSEEvent>(
+          res,
+          (event) => {
+            markAlive();
+            onEvent?.(event);
+            if (event.type === "done" && event.analysis) {
+              analysis = event.analysis;
+            } else if (event.type === "error") {
+              throw new ApiError(event.message || "Deep review failed", 0, {
+                code: event.code,
+                retryable: event.retryable,
+              });
+            }
+          },
+          markAlive,
+        );
+      } catch (e) {
+        // The idle or total-budget abort can land mid-stream; convert the raw
+        // AbortError so callers get the catalog NET0001 copy instead of it.
+        if (e instanceof DOMException && e.name === "AbortError") {
+          if (idleTimedOut) {
+            throw new ApiError(
+              `Request timed out (${SSE_IDLE_TIMEOUT_MS / 1000}s). The live review stream stalled; retry the analysis`,
+              0,
+              { code: "NET0001", params: { seconds: SSE_IDLE_TIMEOUT_MS / 1000 } },
+            );
+          }
+          throw new ApiError(
+            `Request timed out (${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s). Deep review and other LLM tasks can be slow; retry later or check the model/network`,
+            0,
+            { code: "NET0001", params: { seconds: Math.round(ANALYZE_TIMEOUT_MS / 1000) } },
+          );
         }
-        },
-        markAlive,
-      );
+        throw e;
+      }
       if (!analysis) {
         throw new ApiError("Failed to analyze resume: server returned an empty response", res.status, {
           code: "NET0003",
