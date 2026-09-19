@@ -161,7 +161,7 @@ def repair_common_json_errors(text: str) -> str:
 async def embed_texts(
     *,
     texts: list[str],
-    model: str,
+    model: str | None,
     api_base: str,
     api_key: str,
 ) -> list[list[float]]:

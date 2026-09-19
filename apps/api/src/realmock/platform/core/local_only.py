@@ -18,7 +18,10 @@ from realmock.platform.config import get_settings
 from realmock.platform.core.errors import raise_error
 
 
-def require_local_peer(request: Request = None) -> None:  # noqa: B008 - WS scopes cannot inject Request; see docstring
+def require_local_peer(  # noqa: B008 - WS scopes cannot inject Request; see docstring
+    # None default serves direct WS-scope calls; a Request|None annotation would stop FastAPI injection.
+    request: Request = None,  # type: ignore[assignment]
+) -> None:
     """Allow direct loopback connections only; otherwise return 403.
 
     Starlette TestClient uses ``testclient`` as its peer and is always allowed.
@@ -50,7 +53,10 @@ def require_local_peer(request: Request = None) -> None:  # noqa: B008 - WS scop
         raise_error("A0405")
 
 
-def reject_cross_site_fetch(request: Request = None) -> None:  # noqa: B008 - WS scopes cannot inject Request; see docstring
+def reject_cross_site_fetch(  # noqa: B008 - WS scopes cannot inject Request; see docstring
+    # None default serves direct WS-scope calls; a Request|None annotation would stop FastAPI injection.
+    request: Request = None,  # type: ignore[assignment]
+) -> None:
     """Reject browser-driven cross-site requests (``Sec-Fetch-Site: cross-site``) → A0403.
 
     Like :func:`require_local_peer`, this guard is HTTP-only; on WebSocket

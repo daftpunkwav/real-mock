@@ -18,6 +18,12 @@ from realmock.platform.capabilities.voice.tts.providers.edge import (
 )
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody, with_emotion
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+    from typing import Any
+
+    from realmock.domains.interview.realtime.core.context import ConnectionContext
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,7 +90,10 @@ class VoicePipelineMixin:
     """Short-utterance TTS; depends on ctx.tts_voice / ctx.session_prosody / ctx.tts_creds / send."""
 
     if TYPE_CHECKING:
-        from realmock.domains.interview.realtime.core.context import ConnectionContext
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _tts_send: Callable[..., Coroutine[Any, Any, None]]
+        _mark_tts_sent: Callable[..., None]
 
     ctx: "ConnectionContext"
 

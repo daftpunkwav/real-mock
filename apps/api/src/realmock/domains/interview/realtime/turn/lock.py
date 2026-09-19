@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 
@@ -15,6 +17,10 @@ class TurnLockMixin:
     """Turn lock: reject when ``closing``; reject when busy and the epoch is unchanged; release only the lock for this epoch."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        cancel_turn_timers: Callable[..., None]
 
     def _can_start_user_turn(self) -> bool:
         """Whether to allow starting a new candidate round (including taking over after interruption)."""

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from realmock.platform.capabilities.integrations.github.client import GitHubClient
 from realmock.platform.capabilities.integrations.github.github_http import (
@@ -141,7 +142,7 @@ async def _evidence_for_repo(client: GitHubClient, target: _RepoTarget) -> dict:
             f"GitHub quota nearly exhausted (about {quota['remaining']} remaining); "
             "source-tree evidence skipped for this repository."
         )
-        tree = {"error": "quota_shed"}
+        tree: dict[str, Any] = {"error": "quota_shed"}
     else:
         tree = await client.get_tree(owner, repo, branch=branch)
     paths: list[str] = []

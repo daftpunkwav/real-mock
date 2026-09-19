@@ -135,7 +135,7 @@ def normalize_ask_scale(widget: str, raw: Any) -> dict[str, Any] | None:
 
 
 def _build_ask_event(
-    question: str,
+    question: str | None,
     options: list[str],
     *,
     selection: Any = "single",

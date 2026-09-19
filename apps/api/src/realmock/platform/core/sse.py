@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from typing import Any
 
 from fastapi import Request
@@ -61,7 +61,7 @@ def format_sse_line(event: dict[str, Any]) -> str:
 
 
 QueuePut = Callable[[dict[str, Any] | None], Awaitable[None]]
-QueueProducer = Callable[[QueuePut], Awaitable[None]]
+QueueProducer = Callable[[QueuePut], "Coroutine[Any, Any, None]"]
 
 
 async def pump_queue_to_sse(

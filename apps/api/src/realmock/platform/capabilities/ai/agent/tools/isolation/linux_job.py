@@ -171,7 +171,7 @@ def _user_switch_argv(
     """
     setpriv = _tool_path("setpriv")
     if setpriv:
-        argv = (
+        argv: tuple[str, ...] = (
             setpriv,
             f"--reuid={uid}",
             f"--regid={gid}",
@@ -211,6 +211,7 @@ def build_plan(
     network namespace only > plain spawn with explicit unavailable markers.
     """
     named = f"{username}({uid}:{gid})"
+    net_note: tuple[str, ...]
     if allow_network:
         net_note = ("network=allowed (explicit opt-in)",)
     else:

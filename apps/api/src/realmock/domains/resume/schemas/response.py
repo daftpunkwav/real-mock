@@ -14,7 +14,7 @@ Must not import FastAPI or ORM.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -45,7 +45,9 @@ class ResumeDomainLimits(BaseModel):
     compare values, not just property names.
     """
 
-    model_config = ConfigDict(json_schema_extra={"x-resume-catalog": client_limits_payload()})
+    model_config = ConfigDict(
+        json_schema_extra={"x-resume-catalog": cast("dict[str, Any]", client_limits_payload())}
+    )
 
     allowed_extensions: list[str]
     max_upload_bytes: int

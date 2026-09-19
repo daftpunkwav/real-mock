@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 from realmock.domains.interview.realtime.core.session_registry import verify_connection_lease
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,18 @@ class HeartbeatMixin:
     """Idle heartbeat: If no message is received after a continuous timeout, it will prompt and disconnect."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins / the composed InterviewWSHandler.
+        _superseded: bool
+
+        @property
+        def session_id(self): ...
+
+        @property
+        def ws(self): ...
+
+        send: Callable[..., Coroutine[Any, Any, None]]
 
     async def next_message(self) -> dict[str, Any] | None:
         """Return the next message to dispatch; return None when the connection should end (timeout disconnect / replacement / exception).

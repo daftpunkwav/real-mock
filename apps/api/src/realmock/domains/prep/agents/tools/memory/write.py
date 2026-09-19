@@ -91,7 +91,8 @@ async def run_memory_write(args: dict[str, Any], memory: WorkingMemory) -> tuple
     origin = str(args.get("origin") or "agent_note")
     if origin not in MEMORY_ORIGINS:
         origin = "agent_note"
-    tags = args.get("tags") if isinstance(args.get("tags"), list) else []
+    raw_tags = args.get("tags")
+    tags = raw_tags if isinstance(raw_tags, list) else []
     key = _normalize_idempotency_key(args.get("idempotency_key"))
     async with _MEMORY_WRITE_LOCK:
         if key:

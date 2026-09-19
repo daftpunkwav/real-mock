@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import TypeGuard
+
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,7 @@ from realmock.platform.services.pipeline.stages import STAGES, get_all_stage_con
 logger = logging.getLogger(__name__)
 
 # old stage name → neutral task name. The stage vocabulary appears only in paths that are compatible with this mapping and the API.
-TASK_BY_STAGE = {
+TASK_BY_STAGE: dict[str, str] = {
     PipelineStage.REASON: "chat",
     PipelineStage.RECOGNIZE: "stt",
     PipelineStage.SPEAK: "tts",
@@ -34,7 +36,7 @@ DEFAULT_FALLBACK = {
 }
 
 
-def _stage_has_data(row: StageConfig | None) -> bool:
+def _stage_has_data(row: StageConfig | None) -> "TypeGuard[StageConfig]":
     return bool(row and (row.provider or row.api_base or row.model or row.api_key))
 
 

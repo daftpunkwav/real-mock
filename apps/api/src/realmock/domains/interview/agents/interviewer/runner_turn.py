@@ -103,7 +103,7 @@ async def stream_turn(
         if not isinstance(result, ToolRoundResult):
             result = ToolRoundResult(api_messages, None)
 
-        output: TurnOutput
+        output: TurnOutput | None
         t_say = time.perf_counter()
         say_mode = "streamed"
         if result.streamed_output is not None:

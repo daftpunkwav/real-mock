@@ -23,6 +23,9 @@ from realmock.domains.interview.agents import (
 from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -56,6 +59,11 @@ class ReferenceHintMixin:
     """Generate reference answers. Depends on ctx.session_id / ctx.llm / ctx.agent / ctx.hint_inflight / ctx.reference_detail / send."""
 
     ctx: ConnectionContext
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _load_session: Callable[..., InterviewSession | None]
 
     _HINT_CTX_CHARS: int = _HINT_CTX_CHARS
 

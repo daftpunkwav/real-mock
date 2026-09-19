@@ -11,6 +11,8 @@ Must not import FastAPI, ORM, or Pydantic models.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from realmock.platform.core.constants import (
     RESUME_ALLOWED_EXTENSIONS,
     RESUME_MAX_UPLOAD_BYTES,
@@ -34,7 +36,7 @@ FILE_MIME: dict[str, str] = {
 # ── Analysis locales ────────────────────────────────────────────────────
 
 ANALYSIS_LOCALES: tuple[str, ...] = ("zh-CN", "en")
-DEFAULT_ANALYSIS_LOCALE: str = "zh-CN"
+DEFAULT_ANALYSIS_LOCALE: Literal["zh-CN", "en"] = "zh-CN"
 
 # ── Persistence / LLM context ───────────────────────────────────────────
 

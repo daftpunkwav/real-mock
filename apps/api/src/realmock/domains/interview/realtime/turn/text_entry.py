@@ -14,6 +14,10 @@ from realmock.platform.database import SessionLocal
 from realmock.domains.interview.realtime.core.events import TurnState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+
+    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -23,6 +27,16 @@ class TurnTextEntryMixin:
     """Text-to-turn: acquire lock → send ``stt_final`` → main flow; on failure, return to ``USER_SPEAKING``."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        _begin_user_turn: Callable[..., int | None]
+        _end_user_turn: Callable[..., None]
+        send: Callable[..., Coroutine[Any, Any, None]]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        _load_session: Callable[..., InterviewSession | None]
+        rebind_runtime_session: Callable[..., None]
+        _process_user_text: Callable[..., Coroutine[Any, Any, None]]
 
     async def _run_user_text(
         self,

@@ -13,6 +13,10 @@ from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+    from typing import Any
+
+    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -22,6 +26,12 @@ class InterruptControlMixin:
     """Candidate interruption handling; depends on ctx state fields + send / set_turn / _load_session."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        send: Callable[..., Coroutine[Any, Any, None]]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        _load_session: Callable[..., InterviewSession | None]
 
     def _persist_interrupt_stats(self, session: InterviewSession, db: Session) -> None:
         """Incorporate the interrupt count into the agent memory state and then drop it into the library (single truth, anti-round save_state override rollback)."""

@@ -42,14 +42,10 @@ jobs:
       - name: ruff static check
         run: python -m ruff check apps/api
 
-      - name: mypy typecheck (per package)
-        # Existing type errors (~215, mostly Mixin cross-package attrs); non-blocking until fixed
-        continue-on-error: true
+      - name: mypy typecheck
+        # Full-package typecheck (matches local verification); blocking since the tree is clean
         working-directory: apps/api
-        run: |
-          for pkg in src/realmock/platform src/realmock/domains/profile src/realmock/domains/resume src/realmock/domains/settings src/realmock/domains/prep src/realmock/domains/interview; do
-            python -m mypy $pkg/ --ignore-missing-imports
-          done
+        run: python -m mypy src
 
       - name: pytest full regression + coverage gate (>=40%)
         working-directory: apps/api

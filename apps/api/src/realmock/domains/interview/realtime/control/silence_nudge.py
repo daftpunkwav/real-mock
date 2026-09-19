@@ -23,6 +23,10 @@ from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.control.silence_probe import flow_language
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+    from typing import Any
+
+    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -64,6 +68,16 @@ class SilenceNudgeMixin:
     """Silence follow-up orchestration; depends on ctx fields + _generate_silence_probe (SilenceProbeMixin)."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        _load_session: Callable[..., InterviewSession | None]
+        _generate_silence_probe: Callable[..., Coroutine[Any, Any, str]]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _begin_playback_wait: Callable[..., None]
+        _speak_one: Callable[..., Coroutine[Any, Any, None]]
+        _open_mic_after_playback: Callable[..., Coroutine[Any, Any, None]]
 
     def _nudge_language(self) -> str:
         """Closing-nudge language from the flow plan ("en" or "zh")."""

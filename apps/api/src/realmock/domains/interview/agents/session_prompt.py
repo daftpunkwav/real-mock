@@ -31,9 +31,6 @@ from realmock.domains.interview.agents.research.company_research import (
 from realmock.domains.interview.protocols.process_memory import load_memory, render_for_prompt
 from realmock.domains.interview.protocols.round_chain import step_for
 
-if TYPE_CHECKING:
-    from realmock.domains.interview.agents.session_state import InterviewSessionState
-
 logger = logging.getLogger(__name__)
 
 #: Growth-insights provider port: returns a cross-interview summary dict.
@@ -56,7 +53,11 @@ class SessionPromptMixin:
     system_insights_provider: SystemInsightsProvider | None = None
 
     if TYPE_CHECKING:
-        _self: InterviewSessionState
+        # Members provided by the host state machine (InterviewSessionState).
+        agent_state: dict[str, Any]
+        messages: list[dict[str, Any]]
+        workflow: Workflow
+        current_phase: Callable[[], Any]
 
     # ---- Config / context lookups (read-only) --------------------------------
 

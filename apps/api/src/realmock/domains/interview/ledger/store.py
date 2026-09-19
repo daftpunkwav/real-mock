@@ -127,7 +127,7 @@ def append_turn(
     assistant_text: str,
     user_text: str | None = None,
     user_source: str = "text",
-    tools: list[ToolPreview] | list[dict[str, Any]] | None = None,
+    tools: list[ToolPreview] | None = None,
     flags: dict[str, Any] | None = None,
     visible: bool = True,
 ) -> LedgerDocument | None:

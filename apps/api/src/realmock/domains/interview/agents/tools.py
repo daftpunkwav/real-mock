@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,9 @@ from realmock.platform.services.candidate_read import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from realmock.platform.capabilities.ai.llm.client import LLMClient
 
 MAX_TOOL_ROUNDS = 3
 MAX_TOOL_RESULT_CHARS = 8_000
@@ -334,7 +337,9 @@ async def execute_interview_tool(
         from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
         from realmock.domains.interview.agents.topology.coding_examiner import CodingExaminerAgent
 
-        raw_mem = agent_state.get("cognitive_memory")
+        # Coding tools run inside the agent loop, which always supplies state and llm.
+        state = cast("dict[str, Any]", agent_state)
+        raw_mem = state.get("cognitive_memory")
         if isinstance(raw_mem, CognitiveMemoryGraph):
             mem_graph = raw_mem
         elif isinstance(raw_mem, dict):
@@ -342,11 +347,11 @@ async def execute_interview_tool(
         else:
             mem_graph = CognitiveMemoryGraph()
 
-        examiner = CodingExaminerAgent(llm, mem_graph)
+        examiner = CodingExaminerAgent(cast("LLMClient", llm), mem_graph)
         lang = str(arguments.get("language") or "python")
         challenge = await examiner.create_challenge(preferred_language=lang)
-        agent_state["active_coding_challenge"] = challenge.to_dict()
-        agent_state["cognitive_memory"] = mem_graph.to_dict()
+        state["active_coding_challenge"] = challenge.to_dict()
+        state["cognitive_memory"] = mem_graph.to_dict()
         return json.dumps({
             "status": "challenge_issued",
             "title": challenge.title,
@@ -355,7 +360,7 @@ async def execute_interview_tool(
         }, ensure_ascii=False)
 
     if name == "inspect_candidate_code":
-        raw_mem = agent_state.get("cognitive_memory")
+        raw_mem = cast("Any", agent_state).get("cognitive_memory")
         if hasattr(raw_mem, "working_memory"):
             code = getattr(raw_mem.working_memory, "candidate_code", "")
             test_out = getattr(raw_mem.working_memory, "last_test_output", "")

@@ -9,6 +9,7 @@ failure — a broken credential store must never break client construction.
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 from sqlalchemy.orm import Session
 
@@ -27,14 +28,15 @@ def _read_secret(key: str, db: Session | None = None) -> str:
     try:
         if db is not None:
             row = db.query(IntegrationCredential).filter(IntegrationCredential.key == key).first()
-            return decrypt_secret(row.secret_enc) if row and row.secret_enc else ""
+            # decrypt_secret only yields None for falsy input, excluded by the guard.
+            return cast("str", decrypt_secret(row.secret_enc)) if row and row.secret_enc else ""
         with api_db_session() as session:
             row = (
                 session.query(IntegrationCredential)
                 .filter(IntegrationCredential.key == key)
                 .first()
             )
-            return decrypt_secret(row.secret_enc) if row and row.secret_enc else ""
+            return cast("str", decrypt_secret(row.secret_enc)) if row and row.secret_enc else ""
     except Exception as e:
         logger.warning("Integration credential read failed key=%s: %s", key, e)
         return ""

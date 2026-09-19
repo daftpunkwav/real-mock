@@ -17,6 +17,8 @@ rate-limit dependencies), which ``realmock.domains.prep.router`` mounts with
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from realmock.domains.prep.routes import chat, create, history, lists, manage, memories
@@ -39,8 +41,11 @@ from realmock.platform.core.constants import (
 )
 from realmock.platform.core.ratelimit import rate_limit_dep
 
+if TYPE_CHECKING:
+    from fastapi.params import Depends as DependsInstance
 
-def _manage_limit() -> Depends:
+
+def _manage_limit() -> "DependsInstance":
     """Shared rate limit for purge endpoints and memory write endpoints."""
     return Depends(
         rate_limit_dep(key="manage", limit=DEFAULT_RATE_LIMIT_PER_MINUTE),

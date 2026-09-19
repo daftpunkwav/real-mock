@@ -13,6 +13,9 @@ from typing import TYPE_CHECKING
 from realmock.domains.interview.realtime.core.events import TurnState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+    from typing import Any
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -22,6 +25,11 @@ class TurnPlaybackMixin:
     """Playback wait: Upgrade the generation, wait for ``tts_playback_done`` (or timeout), and then switch on the mic."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        send: Callable[..., Coroutine[Any, Any, None]]
 
     def _mark_tts_sent(self) -> None:
         self.ctx.tts_sent_this_turn = True

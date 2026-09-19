@@ -8,7 +8,7 @@ in the records domain after the interview_finished hook.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from realmock.domains.interview.ledger.store import is_frozen
 from realmock.domains.interview.models import InterviewSession
@@ -17,6 +17,9 @@ from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import Callable, Coroutine
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -26,6 +29,11 @@ class ReportSchedulerMixin:
     """Background finish notify. Depends on ctx.session_id / report_task / send / _spawn."""
 
     ctx: ConnectionContext
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _spawn: Callable[..., "asyncio.Task[Any]"]
 
     def _schedule_report_generation(self) -> None:
         """Schedule finish notify / debrief trigger (name kept for FinishControlMixin)."""

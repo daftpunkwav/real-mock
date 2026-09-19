@@ -18,7 +18,7 @@ from realmock.platform.core.constants import DEFAULT_LLM_RATE_LIMIT_PER_MINUTE, 
 from realmock.platform.core.ratelimit import try_rate_limit_by_id
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Coroutine, Mapping
 
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
@@ -34,6 +34,20 @@ class MessageDispatcherMixin:
     """Distributed by message type; relies on ctx field and _spawn/send/set_turn."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _spawn: Callable[..., "asyncio.Task[Any]"]
+        mark_answer_started: Callable[..., None]
+        _can_start_user_turn: Callable[..., bool]
+        _run_user_turn_end: Callable[..., Coroutine[Any, Any, None]]
+        _on_silence_nudge: Callable[..., Coroutine[Any, Any, None]]
+        _on_candidate_barge_in: Callable[..., Coroutine[Any, Any, None]]
+        _hint_rate_limited: Callable[..., Coroutine[Any, Any, None]]
+        _on_request_hint: Callable[..., Coroutine[Any, Any, None]]
+        _on_request_finish: Callable[..., Coroutine[Any, Any, None]]
+        _run_user_text: Callable[..., Coroutine[Any, Any, None]]
 
     def _llm_rate_limited(self, *, limit: int) -> bool:
         if not try_rate_limit_by_id(

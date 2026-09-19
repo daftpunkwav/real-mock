@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from realmock.platform.contracts.interview_finished import InterviewFinishedPayload
@@ -19,8 +19,8 @@ from realmock.platform.contracts.report_summary import ReportSummaryPayload
 
 logger = logging.getLogger(__name__)
 
-InterviewFinishedHandler = Callable[[InterviewFinishedPayload], Awaitable[None] | None]
-ReportSummaryHandler = Callable[[ReportSummaryPayload], Awaitable[None] | None]
+InterviewFinishedHandler = Callable[[InterviewFinishedPayload], "Coroutine[Any, Any, None] | None"]
+ReportSummaryHandler = Callable[[ReportSummaryPayload], "Coroutine[Any, Any, None] | None"]
 SystemInsightsProvider = Callable[..., Any]
 
 _on_interview_finished: InterviewFinishedHandler | None = None
@@ -51,7 +51,7 @@ def get_system_insights_provider() -> SystemInsightsProvider | None:
     return _system_insights_provider
 
 
-def _schedule_or_run(awaitable: Awaitable[None], *, label: str, sid: int) -> None:
+def _schedule_or_run(awaitable: "Coroutine[Any, Any, None]", *, label: str, sid: int) -> None:
     """Fire-and-forget an async handler; never raise into the caller."""
 
     def _done(task: asyncio.Task[None]) -> None:

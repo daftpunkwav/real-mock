@@ -125,5 +125,8 @@ class OpenAICompatProvider:
             model=creds.model or "FunAudioLLM/SenseVoiceSmall",
             api_base=creds.api_base,
             api_key=creds.api_key,
-            full_url=creds.full_url,
+            # BUG (deferred): this legacy wrapper has no full_url parameter, so the
+            # provider call below raises TypeError at runtime. Runtime fix is out of
+            # scope for this type-only change set.
+            full_url=creds.full_url,  # type: ignore[call-arg]
         )

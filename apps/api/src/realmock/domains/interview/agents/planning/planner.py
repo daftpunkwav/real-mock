@@ -10,7 +10,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from realmock.domains.interview.schemas import InterviewConfig
 
 from sqlalchemy.orm import Session
 
@@ -163,7 +166,9 @@ async def generate_plan_for_session(session_id: int) -> None:
                 profile = get_user_profile(api_db, session.profile_id)
                 resume_payload = get_resume_agent_payload(api_db, session.resume_id)
 
-            config_like = _config_shim(session)
+            # _ConfigShim exposes the InterviewConfig attribute surface without
+            # pydantic validation; build_plan_user_message only reads attributes.
+            config_like = cast("InterviewConfig", _config_shim(session))
             user_msg = build_plan_user_message(
                 config_like,
                 resume_payload=_resume_summary(resume_payload),

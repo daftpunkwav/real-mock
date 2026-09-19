@@ -132,7 +132,7 @@ def _clip_list_str(values: object, limit: int, item_max: int = 200) -> list[str]
 def _coerce_int_score(v: object) -> int | None:
     """Lenient int coercion: int / float / numeric strings (incl. ``"88.7"``); else None."""
     try:
-        return int(v)  # type: ignore[arg-type]
+        return int(v)  # type: ignore[arg-type, call-overload]
     except (TypeError, ValueError):
         pass
     try:

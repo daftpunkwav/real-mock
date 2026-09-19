@@ -7,6 +7,7 @@ has no router prefix and defines only undecorated handlers for the main file to 
 from __future__ import annotations
 
 import json
+from typing import cast
 
 from fastapi import BackgroundTasks, Depends, Request, Response
 from pydantic import TypeAdapter
@@ -28,6 +29,7 @@ from realmock.domains.interview.schemas import (
     InterviewConfig,
     InterviewSessionResponse,
 )
+from realmock.domains.interview.schemas.session import PlanStepView
 from realmock.domains.interview.agents import generate_plan_for_session
 from realmock.domains.interview.protocols.plan_schema import (
     parse_plan,
@@ -163,7 +165,7 @@ def to_session_response(
         round_no=getattr(session, "round_no", None),
         result=getattr(session, "result", None),
         plan_status=getattr(session, "plan_status", None),
-        plan=plan_step_views(plan),
+        plan=cast("list[PlanStepView]", plan_step_views(plan)),
         started_at=session.started_at,
         ended_at=session.ended_at,
         created_at=session.created_at,

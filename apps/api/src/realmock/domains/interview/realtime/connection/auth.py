@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,10 @@ from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody,
 from realmock.platform.capabilities.voice.config.catalog import find_provider
 
 if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import AsyncIterator, Callable, Coroutine
+
+    from realmock.domains.interview.agents.events import StreamEvent
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -35,6 +39,28 @@ class ConnectionAuthMixin:
     """Auth / session bind / pipeline assembly; depends on ctx fields plus send / set_turn / _spawn."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins / the composed InterviewWSHandler.
+        _superseded: bool
+
+        @property
+        def session_id(self): ...
+
+        @property
+        def ws(self): ...
+
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _fail_and_close: Callable[..., Coroutine[Any, Any, None]]
+        _spawn: Callable[..., "asyncio.Task[Any]"]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        _mark_tts_sent: Callable[..., None]
+        _tts_send: Callable[..., Coroutine[Any, Any, None]]
+        _stream_events_with_tts: Callable[..., Coroutine[Any, Any, StreamEvent | None]]
+        _consume_runner_opening: Callable[..., "AsyncIterator[StreamEvent]"]
+        _open_mic_after_playback: Callable[..., Coroutine[Any, Any, None]]
+        _begin_playback_wait: Callable[..., None]
+        arm_think_timer: Callable[..., None]
 
     # ------------------------------------------------------------------
     # Authentication and session checking
@@ -140,10 +166,12 @@ class ConnectionAuthMixin:
 
     async def _bind_prosody(self) -> None:
         """Analyze timbres by session persona/avatar and bind TTS queue."""
+        # bind_pipeline assigns ctx.agent before calling this method.
+        agent_session = cast("InterviewSessionState", self.ctx.agent).session
         self.ctx.session_prosody = resolve_prosody(
-            avatar_id=getattr(self.ctx.agent.session, "avatar_id", None),
-            personality=getattr(self.ctx.agent.session, "personality", None),
-            strictness=getattr(self.ctx.agent.session, "strictness", None),
+            avatar_id=getattr(agent_session, "avatar_id", None),
+            personality=getattr(agent_session, "personality", None),
+            strictness=getattr(agent_session, "strictness", None),
             emotion=None,
             llm_settings_voice=self.ctx.tts_creds.voice or self.ctx.tts_voice,
             handler=self.ctx.tts_creds.handler,

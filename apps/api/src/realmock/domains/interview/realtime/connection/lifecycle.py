@@ -23,6 +23,9 @@ from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.core.session_registry import release_session_connection
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -32,6 +35,23 @@ class ConnectionLifecycleMixin:
     """WS main loop: handshake, authentication assembly, message loop, cleanup."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins / the composed InterviewWSHandler.
+        _superseded: bool
+
+        @property
+        def session_id(self): ...
+
+        @property
+        def ws(self): ...
+
+        authenticate: Callable[..., Coroutine[Any, Any, InterviewSession | None]]
+        bind_pipeline: Callable[..., Coroutine[Any, Any, bool]]
+        start_session_flow: Callable[..., Coroutine[Any, Any, None]]
+        next_message: Callable[..., Coroutine[Any, Any, dict[str, Any] | None]]
+        _dispatch: Callable[..., Coroutine[Any, Any, None]]
+        _cancel_bg_tasks: Callable[..., Coroutine[Any, Any, None]]
 
     async def send(self, msg_type: str, **payload: Any) -> None:
         """Send one JSON event on the room socket (``{"type": msg_type, ...}``)."""
@@ -96,10 +116,10 @@ class ConnectionLifecycleMixin:
         short-lived DB session (never reuse the loop's). Any unexpected error
         restores ``USER_SPEAKING`` and reports it instead of dropping the room.
         """
-        accept_kwargs: dict[str, str] = {}
         if self.ctx.ws_subprotocol:
-            accept_kwargs["subprotocol"] = self.ctx.ws_subprotocol
-        await self.ctx.ws.accept(**accept_kwargs)
+            await self.ctx.ws.accept(subprotocol=self.ctx.ws_subprotocol)
+        else:
+            await self.ctx.ws.accept()
         ws_tid = f"ws-{self.ctx.session_id}-{uuid.uuid4().hex[:8]}"
         set_trace_id(ws_tid)
         db = SessionLocal()

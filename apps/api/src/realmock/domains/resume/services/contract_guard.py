@@ -19,7 +19,9 @@ Must not run business logic or touch the database.
 
 from __future__ import annotations
 
-from typing import get_args
+from typing import cast, get_args
+
+from sqlalchemy import String
 
 from realmock.platform.core.constants import (
     RESUME_ALLOWED_EXTENSIONS,
@@ -64,8 +66,9 @@ def assert_resume_contract_aligned() -> None:
         raise RuntimeError(f"Resume ORM missing JSON text columns: {sorted(missing_json)}")
 
     length_drift: list[str] = []
-    filename_orm = Resume.__table__.columns["filename"].type.length
-    file_type_orm = Resume.__table__.columns["file_type"].type.length
+    # Both columns are VARCHAR (declared on the ORM model); .length lives on String.
+    filename_orm = cast("String", Resume.__table__.columns["filename"].type).length
+    file_type_orm = cast("String", Resume.__table__.columns["file_type"].type).length
     if filename_orm is not None and FILENAME_MAX_LENGTH > filename_orm:
         length_drift.append(f"filename: catalog={FILENAME_MAX_LENGTH} > orm={filename_orm}")
     if file_type_orm is not None and FILE_TYPE_MAX_LENGTH > file_type_orm:

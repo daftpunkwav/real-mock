@@ -12,6 +12,10 @@ from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.agents.events import EventKind
 
 if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import AsyncIterator, Callable, Coroutine
+
+    from realmock.domains.interview.agents.events import StreamEvent
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -21,6 +25,17 @@ class UserTextControlMixin:
     """Candidate text enters the round; relies on ctx.runner + turn_streaming consumption chain."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        _cancel_pending_playback: Callable[..., Coroutine[Any, Any, None]]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        _stream_events_with_tts: Callable[..., Coroutine[Any, Any, StreamEvent | None]]
+        _consume_runner_turn: Callable[..., "AsyncIterator[StreamEvent]"]
+        _open_mic_after_playback: Callable[..., Coroutine[Any, Any, None]]
+        _schedule_report_generation: Callable[..., None]
+        _spawn: Callable[..., "asyncio.Task[Any]"]
+        _wait_client_playback: Callable[..., Coroutine[Any, Any, None]]
 
     async def _process_user_text(
         self, text: str, data: dict[str, Any], db: Session, session: InterviewSession

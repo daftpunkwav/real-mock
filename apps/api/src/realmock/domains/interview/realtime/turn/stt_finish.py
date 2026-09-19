@@ -23,6 +23,8 @@ from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
 from realmock.domains.interview.realtime.voice.pipeline import _is_echo_of_assistant, _pick_stt_text
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,17 @@ class TurnSttFinishMixin:
     """Candidate voice round ending: STT, recovery, failure count; enter the round after successful clearing."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        _begin_user_turn: Callable[..., int | None]
+        _end_user_turn: Callable[..., None]
+        send: Callable[..., Coroutine[Any, Any, None]]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        _load_session: Callable[..., InterviewSession | None]
+        rebind_runtime_session: Callable[..., None]
+        restore_turn_timers_after_incomplete_turn: Callable[..., None]
+        _process_user_text: Callable[..., Coroutine[Any, Any, None]]
 
     async def _run_user_turn_end(
         self,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
@@ -11,6 +11,12 @@ from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.agents.events import EventKind
 
 if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import Callable, Coroutine
+
+
+    from realmock.domains.interview.models import InterviewSession
+    from realmock.domains.interview.agents.events import StreamEvent
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -20,6 +26,18 @@ class FinishControlMixin:
     """Candidates end proactively; relies on ctx.runner/llm + reporting dispatch chain."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        _load_session: Callable[..., InterviewSession | None]
+        send: Callable[..., Coroutine[Any, Any, None]]
+        rebind_runtime_session: Callable[..., None]
+        _schedule_report_generation: Callable[..., None]
+        set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
+        _stream_events_with_tts: Callable[..., Coroutine[Any, Any, StreamEvent | None]]
+        _open_mic_after_playback: Callable[..., Coroutine[Any, Any, None]]
+        _spawn: Callable[..., "asyncio.Task[Any]"]
+        _wait_client_playback: Callable[..., Coroutine[Any, Any, None]]
 
     async def _on_request_finish(self) -> None:
         """Candidate-initiated end: streaming thanks; finish-notify scheduled (debrief lives in records domain)."""

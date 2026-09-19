@@ -9,7 +9,7 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 from realmock.platform.capabilities.ai.llm.defaults import TOOL_OBSERVATION_SOFT_CHARS
 
@@ -59,7 +59,7 @@ non-streaming when unsupported.
         async for event in streamer(call_messages, temperature=temperature, tools=tools):
             etype = event.get("type")
             if etype == "reasoning":
-                await emit_thinking(str(event.get("text") or ""))
+                await cast("Awaitable[None]", emit_thinking(str(event.get("text") or "")))
             elif etype == "text" and emit_content is not None:
                 maybe = emit_content(str(event.get("text") or ""))
                 if maybe is not None and inspect.isawaitable(maybe):

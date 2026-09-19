@@ -17,7 +17,9 @@ length, so check 2 is a contract alarm, not a database constraint.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
+
+from sqlalchemy import String
 
 from realmock.platform.models import UserProfile
 from realmock.domains.profile.schemas import UserProfileResponse, UserProfileUpdate
@@ -45,7 +47,8 @@ def assert_profile_contract_aligned() -> None:
         if name == "tech_domains":
             continue
         schema_max = _contract_max_length(field)
-        orm_len = UserProfile.__table__.columns[name].type.length
+        # All guarded columns are VARCHAR; .length lives on String.
+        orm_len = cast("String", UserProfile.__table__.columns[name].type).length
         if schema_max is not None and orm_len is not None and schema_max > orm_len:
             length_drift.append(f"{name}: schema={schema_max} > orm={orm_len}")
     if length_drift:

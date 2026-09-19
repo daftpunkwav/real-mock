@@ -65,6 +65,9 @@ asyncio_mode = "auto"
 # Pin python_version to 3.12 (newer numpy stubs need 3.12+ syntax),
 # matching the CI python:3.12 image; requires-python remains >=3.11.
 python_version = "3.12"
+# Type-check against the deployment/CI platform (python:3.12-slim on Linux),
+# not the developer OS; POSIX-only APIs (os.killpg, pwd, ...) are real there.
+platform = "linux"
 ignore_missing_imports = true
 no_incremental = true
 explicit_package_bases = true

@@ -17,6 +17,9 @@ from realmock.platform.capabilities.voice.tts.providers.edge import (
 )
 
 if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import Callable, Coroutine
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,14 @@ class TurnStreamingMixin:
     """Consume a round stream; depends on ctx.runner/orchestrator/tts_queue/stream_epoch, etc."""
 
     ctx: "ConnectionContext"
+
+    if TYPE_CHECKING:
+        # Members provided by sibling mixins of the composed InterviewWSHandler.
+        _begin_playback_wait: Callable[..., None]
+        send: Callable[..., Coroutine[Any, Any, None]]
+        _spawn: Callable[..., "asyncio.Task[Any]"]
+        _on_request_hint: Callable[..., Coroutine[Any, Any, None]]
+        arm_turn_timers: Callable[..., None]
 
     async def _consume_runner_opening(self, db: Session):
         assert self.ctx.runner is not None

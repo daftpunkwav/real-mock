@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 class SessionConnection(Protocol):
     """Leaseholder minimal interface (implemented by InterviewWSHandler)."""
 
-    session_id: int
     _superseded: bool
+
+    @property
+    def session_id(self) -> int: ...
 
     async def send(self, msg_type: str, **payload) -> None: ...
 

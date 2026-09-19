@@ -7,7 +7,7 @@ this module contains Pydantic request bodies and DB reads/writes and can be unit
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -146,7 +146,8 @@ def get_channel(db: Session, provider_id: int, kind: str) -> LlmProviderChannel 
 def apply_channel_key(channel: LlmProviderChannel, raw_key: str | None) -> None:
     if raw_key is None or raw_key == SECRET_KEEP:
         return
-    channel.api_key = encrypt_secret(raw_key) if raw_key else ""
+    # encrypt_secret only yields None for falsy input, excluded by the guard.
+    channel.api_key = cast("str", encrypt_secret(raw_key)) if raw_key else ""
 
 
 def channel_to_response(channel: LlmProviderChannel) -> dict[str, Any]:

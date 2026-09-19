@@ -60,7 +60,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
         if not isinstance(result, ToolRoundResult):
             result = ToolRoundResult(opening_messages, None)
 
-        output: TurnOutput
+        output: TurnOutput | None
         if result.streamed_output is not None:
             # Say tokens already streamed live during the tool loop.
             output = result.streamed_output

@@ -41,8 +41,9 @@ def compact_score_anchor(analysis: dict[str, Any] | None) -> dict[str, Any] | No
     for key, value in raw_dims.items():
         score: int | None = None
         if isinstance(value, dict) and "score" in value:
+            raw_score: Any = value.get("score")
             try:
-                score = int(value.get("score"))
+                score = int(raw_score)
             except (TypeError, ValueError):
                 score = None
         elif isinstance(value, (int, float)):

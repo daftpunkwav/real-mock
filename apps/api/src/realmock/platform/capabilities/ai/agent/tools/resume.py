@@ -76,7 +76,8 @@ def snapshot_from_payload(
     has_visual_pages: bool = False,
 ) -> ResumeSnapshot:
     """Build a snapshot from a plain dict (API/ORM façades, not domain imports)."""
-    parsed = payload.get("parsed") if isinstance(payload.get("parsed"), dict) else {}
+    raw_parsed = payload.get("parsed")
+    parsed = raw_parsed if isinstance(raw_parsed, dict) else {}
     layout = str(payload.get("layout_notes") or parsed.get("layout_notes") or "")
     return ResumeSnapshot(
         resume_id=int(payload.get("resume_id") or 0),

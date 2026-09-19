@@ -10,9 +10,22 @@ from __future__ import annotations
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 ToolHandler = Callable[[dict[str, Any]], Awaitable[str]]
+
+
+class OpenAIToolSchema(Protocol):
+    """Function-schema fields :func:`openai_tool` renders; domain specs duck-type this."""
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def description(self) -> str: ...
+
+    @property
+    def parameters(self) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -25,7 +38,7 @@ class ToolSpec:
     handler: ToolHandler
 
 
-def openai_tool(spec: ToolSpec) -> dict[str, Any]:
+def openai_tool(spec: OpenAIToolSchema) -> dict[str, Any]:
     """Render a spec as an OpenAI ``tools[]`` item."""
     return {
         "type": "function",

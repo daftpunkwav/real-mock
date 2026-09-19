@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable
 
 from realmock.domains.records.agents.report.normalize import normalize_report_payload
 from realmock.domains.records.agents.report.synthesis_agent import run_synthesis
@@ -125,7 +128,7 @@ class DeepReportAgent:
             batches = split_turn_ids(ids)
             notes = await self._run_batches(ledger, batches, role, level, company, specs)
             if self._on_event is not None:
-                await self._on_event({"type": "stage", "stage": "synthesis", "status": "running"})
+                await cast("Awaitable[None]", self._on_event({"type": "stage", "stage": "synthesis", "status": "running"}))
             # Synthesis alone gets the public-web tools: it is the single loop
             # that calibrates against company/industry context, and giving the
             # parallel stage-1 batches live search would multiply latency and
