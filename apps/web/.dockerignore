@@ -4,3 +4,4 @@ Dockerfile
 .dockerignore
 coverage
 *.log
+*.tsbuildinfo

@@ -1,8 +1,19 @@
 # Keep only backend build inputs; exclude everything else (faster builds, no local artifact leaks).
+# Image inputs (what the Dockerfile COPYs): apps/api/pyproject.toml + apps/api/src.
 *
-!requirements.txt
-!services/
-services/__pycache__/
-services/**/__pycache__/
-services/**/tests/
-services/shared/data/
+!apps
+apps/*
+!apps/api
+apps/api/*
+!apps/api/pyproject.toml
+!apps/api/src
+
+# Local runtime data must not leak into the image (DB, WAL, Chroma store);
+# STT fixtures ship with the package (used by the in-app connectivity tests).
+apps/api/src/realmock/platform/data/*
+!apps/api/src/realmock/platform/data/stt_fixtures
+
+# Build / install residue.
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
