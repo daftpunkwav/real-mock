@@ -9,7 +9,7 @@ import { NAV_ITEMS } from "@/config/nav";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/brand/LogoMark";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import { LocaleToggle, useT } from "@/i18n";
+import { useT } from "@/i18n";
 
 /** Match exact routes, descendants, and explicitly declared extra prefixes. */
 function isNavActive(
@@ -160,14 +160,13 @@ export function NavContent({
         })}
       </nav>
 
-      {/* Locale and theme controls: side-by-side when expanded, stacked icons when collapsed */}
+      {/* Theme control footer; language lives on the settings page only. */}
       <div
         className={cn(
           "border-t border-[var(--sidebar-border)]",
-          collapsed ? "px-1 pt-2" : "grid grid-cols-2 gap-1 px-3 pb-2 pt-2",
+          collapsed ? "px-1 pt-2" : "px-3 pb-2 pt-2",
         )}
       >
-        <LocaleToggle collapsed={collapsed} />
         <ThemeToggle collapsed={collapsed} />
       </div>
     </>
