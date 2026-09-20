@@ -28,7 +28,7 @@ npx tsc --noEmit   # typecheck
 npm run lint       # eslint
 npm test           # vitest
 npm run build      # production build
-npm audit --audit-level=high
+npm run audit      # dependency audit (fails on high+ unless allowlisted in npm-audit-allowlist.json)
 ```
 
 ## Contracts & generated files

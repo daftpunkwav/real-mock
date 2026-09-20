@@ -32,7 +32,7 @@ SSRF filtering with DNS pinning, used by the agent `fetch` tool and the LLM clie
 - Port allowlist: only 80 / 443 by default (`_DEFAULT_ALLOWED_PORTS`); an explicit `allowed_ports` set is enforced regardless of `allow_local`.
 - DNS-rebinding mitigation: `pin_safe_http_url()` resolves once, validates all candidates, and pins the first secure IP into a `PinnedHttpTarget`; `PinnedHostTransport` rewrites the request host to the pinned IP while keeping the `Host` header and SNI hostname; `make_pinned_async_client()` builds an `httpx.AsyncClient` with `follow_redirects=False`.
 - Proxy fake-IP carve-out: `198.18.0.0/15` is always allowed, restricted to `FAKEIP_ALLOWED_HOSTS` (the `xiaomimimo.com` API hosts listed in `url.py`).
-- The agent fetch tool follows redirects hop-by-hop: every hop builds a new pinned client (max 5 hops, `_MAX_REDIRECT_HOPS`), so the redirect target passes the same policy checks. The LLM clients validate `api_base` with `is_safe_http_url()` and send requests through pinned clients (`client/retry_stream.py`).
+- The agent fetch tool follows redirects hop-by-hop: every hop builds a new pinned client (max 5 hops, `_MAX_REDIRECT_HOPS`), so the redirect target passes the same policy checks. The fetch tool itself fetches public pages only (loopback blocked), so model input cannot drive loopback management endpoints. The LLM clients validate `api_base` with `is_safe_http_url()` and send requests through pinned clients (`client/retry_stream.py`).
 
 ## Secrets at rest (`secrets.py`)
 

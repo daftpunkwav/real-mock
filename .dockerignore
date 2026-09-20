@@ -13,6 +13,13 @@ apps/api/*
 apps/api/src/realmock/platform/data/*
 !apps/api/src/realmock/platform/data/stt_fixtures
 
+# Local secrets and uploaded PII must not leak into the image either:
+# platform/.env holds real keys (only .env.example is tracked and safe),
+# platform/uploads holds user resumes. The COPY below would otherwise bake
+# both into the image from an ordinary dev machine build context.
+apps/api/src/realmock/platform/.env
+apps/api/src/realmock/platform/uploads/*
+
 # Build / install residue.
 **/__pycache__/
 **/*.py[cod]

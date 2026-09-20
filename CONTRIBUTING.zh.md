@@ -27,7 +27,7 @@ npx tsc --noEmit   # 类型检查
 npm run lint       # eslint
 npm test           # vitest
 npm run build      # 生产构建
-npm audit --audit-level=high
+npm run audit      # 依赖审计（high+ 未列入 npm-audit-allowlist.json 则失败）
 ```
 
 ## 契约与生成物

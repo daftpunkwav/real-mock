@@ -91,5 +91,8 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Dependency audit (fail on high+)
-        run: npm audit --audit-level=high
+      - name: Dependency audit (fail on unlisted high+)
+        # npm audit has no per-advisory ignore flag: scripts/npm-audit-check.mjs
+        # enforces npm-audit-allowlist.json (mirrors the pip-audit --ignore-vuln
+        # pattern for unfixable upstream with unreachable entry points).
+        run: npm run audit

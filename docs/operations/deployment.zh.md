@@ -9,7 +9,7 @@
 | Job | 运行器 / 工具链 | 步骤 |
 | --- | --- | --- |
 | `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.12，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api`，并安装锁定版本 `ruff==0.15.20`、`mypy==2.1.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；`ruff check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=40`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit --ignore-vuln PYSEC-2026-311`（chromadb 1.5.9 已知问题，暂无修复版本） |
-| `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`；`npm run build`；`npm audit --audit-level=high` |
+| `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
 
 backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LLM_API_BASE` 与 `CORS_ORIGINS`。
 

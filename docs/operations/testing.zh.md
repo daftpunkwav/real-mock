@@ -84,4 +84,4 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | Job | 检查 |
 | --- | --- |
 | `backend` | `ruff==0.15.20`；`mypy==2.1.0` 检查 `src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=40`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit==2.10.1` 并 `--ignore-vuln PYSEC-2026-311`（chromadb 1.5.9 已知问题，暂无修复版本） |
-| `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`；`npm run build`；`npm audit --audit-level=high` |
+| `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |

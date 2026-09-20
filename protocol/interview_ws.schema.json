@@ -36,6 +36,7 @@
     "vision_update",
     "tts_playback_done",
     "pong",
+    "audio_chunk",
     "coding_code_update",
     "coding_run_request",
     "coding_submit_request"
@@ -465,6 +466,17 @@
       "properties": {
         "t": {
           "type": "number"
+        }
+      }
+    },
+    "audio_chunk": {
+      "description": "Reserved legacy inbound (base64 audio frame); the first-party client sends PCM inside user_turn_end instead.",
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "string"
         }
       }
     },
