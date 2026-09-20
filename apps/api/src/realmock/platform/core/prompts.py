@@ -63,9 +63,13 @@ _EMOJI_RE = re.compile(
 )
 
 # Common kaomoji (lightweight cleanup, not full NLP).
+# Each face must not be glued to a following word character: CJK labels end with a
+# colon ("重点：Python") and "XD" appears inside words ("Xdebug"), so an unguarded
+# colon/emoticon class silently deletes real content instead of a face.
 _KAOMOJI_RE = re.compile(
     r"(?:[\(（]\s*[^\w\u4e00-\u9fff]{1,12}\s*[\)）])"  # (^_^) style
-    r"|(?:[：:][)DP(p]|[xX][dD]|[;；][)）])"  # :) :D ;)
+    r"|(?:(?:[：:][)DPp(]|[;；][)）])(?!\w))"  # :) :( :D :P ;)
+    r"|(?:(?<![A-Za-z])[xX][dD](?![A-Za-z]))"  # XD / xd
 )
 
 
