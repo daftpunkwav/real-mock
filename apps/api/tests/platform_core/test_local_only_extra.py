@@ -12,14 +12,14 @@ import pytest
 from realmock.platform.core.errors import ApiBusinessError
 
 
-def _req(host="127.0.0.1", headers=None):
+def _req(host="127.0.0.1", headers=None, method="GET"):
     from starlette.requests import Request
 
     scope = {
         "type": "http",
         "asgi": {"version": "3.0"},
         "http_version": "1.1",
-        "method": "GET",
+        "method": method,
         "scheme": "http",
         "path": "/",
         "raw_path": b"/",
@@ -97,9 +97,19 @@ class TestLocalOnly:
         reject_cross_site_fetch(_req(host="127.0.0.1"))
 
     def test_local_api_deps_registered(self) -> None:
-        from realmock.platform.core.local_only import LOCAL_API_DEPENDENCIES
+        from realmock.platform.core.local_only import (
+            LOCAL_API_DEPENDENCIES,
+            reject_cross_site_fetch,
+            require_local_peer,
+            require_same_origin_for_writes,
+        )
 
-        assert len(LOCAL_API_DEPENDENCIES) == 2
+        guards = {dep.dependency for dep in LOCAL_API_DEPENDENCIES}
+        assert guards == {
+            require_local_peer,
+            reject_cross_site_fetch,
+            require_same_origin_for_writes,
+        }
 
     @pytest.mark.asyncio
     async def test_guard_ws_origin(self) -> None:
@@ -126,3 +136,42 @@ class TestLocalOnly:
         assert await guard_ws_origin(ws2) is False
         # direct close helper both states
         await _close_ws_forbidden(_WS(origin="", state=WebSocketState.CONNECTING))
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        [],  # curl / non-browser client: no Origin at all
+        [(b"origin", b"http://localhost:8080")],  # the allowlisted frontend origin
+        [(b"referer", b"http://localhost:8080/settings")],
+    ],
+)
+def test_writes_allowed_for_local_client_and_allowlisted_origin(headers) -> None:
+    from realmock.platform.core.local_only import require_same_origin_for_writes
+
+    require_same_origin_for_writes(_req(headers=headers, method="POST"))
+
+
+def test_write_from_foreign_origin_is_rejected() -> None:
+    """A page on another localhost port is ``same-site``, so the old guard passed it."""
+    from realmock.platform.core.local_only import require_same_origin_for_writes
+
+    with pytest.raises(ApiBusinessError) as exc:
+        require_same_origin_for_writes(
+            _req(headers=[(b"origin", b"http://localhost:9999")], method="DELETE")
+        )
+    assert exc.value.error_code == "A0403"
+
+
+def test_reads_from_foreign_origin_still_pass_this_guard() -> None:
+    from realmock.platform.core.local_only import require_same_origin_for_writes
+
+    require_same_origin_for_writes(
+        _req(headers=[(b"origin", b"http://localhost:9999")], method="GET")
+    )
+
+
+def test_ws_scope_short_circuits_write_guard() -> None:
+    from realmock.platform.core.local_only import require_same_origin_for_writes
+
+    require_same_origin_for_writes(None)

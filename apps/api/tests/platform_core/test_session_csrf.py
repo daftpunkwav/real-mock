@@ -42,21 +42,21 @@ class TestCsrf:
         from realmock.platform.core.session_auth import csrf as m
 
         monkeypatch.setattr(m, "get_settings", lambda: SimpleNamespace(cors_origin_list=[]))
-        assert m._origin_allowed(_http_req(headers={"origin": "http://x"})) is False
+        assert m.is_origin_in_cors_allowlist(_http_req(headers={"origin": "http://x"})) is False
 
     def test_origin_hit(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import csrf as m
 
         monkeypatch.setattr(m, "get_settings", lambda: SimpleNamespace(cors_origin_list=["http://localhost:8080"]))
-        assert m._origin_allowed(_http_req(headers={"origin": "http://localhost:8080"})) is True
-        assert m._origin_allowed(_http_req(headers={"referer": "http://localhost:8080/some/page"})) is True
+        assert m.is_origin_in_cors_allowlist(_http_req(headers={"origin": "http://localhost:8080"})) is True
+        assert m.is_origin_in_cors_allowlist(_http_req(headers={"referer": "http://localhost:8080/some/page"})) is True
 
     def test_referer_parse_fail(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import csrf as m
 
         monkeypatch.setattr(m, "get_settings", lambda: SimpleNamespace(cors_origin_list=["http://localhost:8080"]))
-        assert m._origin_allowed(_http_req(headers={"referer": "http://%zz"})) is False
-        assert m._origin_allowed(_http_req()) is False
+        assert m.is_origin_in_cors_allowlist(_http_req(headers={"referer": "http://%zz"})) is False
+        assert m.is_origin_in_cors_allowlist(_http_req()) is False
 
     def test_assert_branches(self, monkeypatch) -> None:
         from realmock.platform.core.errors import ApiBusinessError

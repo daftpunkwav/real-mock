@@ -17,8 +17,12 @@ from realmock.platform.core.errors import raise_error
 logger = logging.getLogger(__name__)
 
 
-def _origin_allowed(request: Request) -> bool:
-    """Check whether Origin/Referer is in the CORS allowlist (CSRF mitigation for cookie authentication)."""
+def is_origin_in_cors_allowlist(request: Request) -> bool:
+    """Check whether Origin/Referer is in the CORS allowlist.
+
+    Shared by the cookie-authentication CSRF check and the router-level
+    write guard in :mod:`realmock.platform.core.local_only`.
+    """
     allowed = {o.rstrip("/") for o in get_settings().cors_origin_list}
     if not allowed:
         return False
@@ -48,5 +52,5 @@ def assert_csrf_if_cookie_only(
         return
     if request.method.upper() in ("GET", "HEAD", "OPTIONS"):
         return
-    if not _origin_allowed(request):
+    if not is_origin_in_cors_allowlist(request):
         raise_error("A0403")

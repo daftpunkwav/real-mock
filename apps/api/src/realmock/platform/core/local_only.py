@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 from realmock.platform.config import get_settings
 from realmock.platform.core.errors import raise_error
+from realmock.platform.core.session_auth.csrf import is_origin_in_cors_allowlist
 
 
 def require_local_peer(  # noqa: B008 - WS scopes cannot inject Request; see docstring
@@ -74,12 +75,43 @@ def reject_cross_site_fetch(  # noqa: B008 - WS scopes cannot inject Request; se
         raise_error("A0403")
 
 
+_UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def require_same_origin_for_writes(  # noqa: B008 - WS scopes cannot inject Request; see docstring
+    # None default serves direct WS-scope calls; a Request|None annotation would stop FastAPI injection.
+    request: Request = None,  # type: ignore[assignment]
+) -> None:
+    """Reject browser writes whose Origin/Referer is not an allowlisted origin → A0403.
+
+    :func:`reject_cross_site_fetch` cannot cover this: a page served from another
+    localhost port is ``same-site`` (the scheme and port are ignored), and a
+    body-less POST/DELETE is a CORS *simple request*, so no preflight runs and
+    the side effect still executes. Endpoints that take no capability token had
+    no CSRF control at all, while cookie-authenticated ones do (see
+    :func:`realmock.platform.core.session_auth.csrf.assert_csrf_if_cookie_only`).
+
+    Like the other guards this is HTTP-only (``request=None`` on WS scopes), and
+    non-browser clients that send neither Origin nor Referer pass unchanged.
+    """
+    if request is None:
+        return
+    if request.method.upper() not in _UNSAFE_METHODS:
+        return
+    if not (request.headers.get("origin") or request.headers.get("referer")):
+        return
+    if not is_origin_in_cors_allowlist(request):
+        raise_error("A0403")
+
+
 # Unified access control for local management APIs (single truth for app/include_router level mounts):
-# loopback authentication + browser cross-site rejection. Each router no longer declares itself.
+# loopback authentication + browser cross-site rejection + same-origin writes.
+# Each router no longer declares itself.
 # Avoid missing new endpoints/services (historical lesson: Settings global and interview endpoints streak).
 LOCAL_API_DEPENDENCIES: list = [
     Depends(require_local_peer),
     Depends(reject_cross_site_fetch),
+    Depends(require_same_origin_for_writes),
 ]
 
 

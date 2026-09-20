@@ -95,6 +95,15 @@ class MessageDispatcherMixin:
         session: InterviewSession | None = None,
     ) -> None:
         """Distributed by message type; the round path builds a short life cycle db by itself, and this method does not use db/session."""
+        if not isinstance(data, dict):
+            # receive_json accepts any JSON value; a scalar/array frame must not
+            # raise out of the loop, which would tear down the whole room.
+            logger.warning(
+                "Discarding non-object WS frame sid=%s type=%s",
+                self.ctx.session_id,
+                type(data).__name__,
+            )
+            return
         msg_type = data.get("type", "")
         handler_name = self._MESSAGE_HANDLER_NAMES.get(msg_type)
         if handler_name is None:

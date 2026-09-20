@@ -158,6 +158,10 @@ def is_safe_http_url(
         return False
     try:
         parsed = urlparse(url.strip())
+        # Accessing .port raises ValueError for out-of-range/non-numeric ports;
+        # read it here so a malformed port is "unsafe" instead of escaping as
+        # a bare ValueError past the UnsafeURLError handler.
+        port = parsed.port
     except Exception:
         return False
 
@@ -169,13 +173,14 @@ def is_safe_http_url(
         return False
 
     if allowed_ports is not None or not allow_local:
-        port = parsed.port
         if port is not None and port not in (allowed_ports or _DEFAULT_ALLOWED_PORTS):
             return False
 
     try:
         ips = _resolve_all(parsed.hostname)
     except ValueError:
+        return False
+    if not ips:
         return False
     trusted = trusted_hosts if trusted_hosts is not None else FAKEIP_ALLOWED_HOSTS
     hostname = parsed.hostname.lower()
@@ -220,6 +225,8 @@ def pin_safe_http_url(
         raise UnsafeURLError("URL is empty")
     try:
         parsed = urlparse(url.strip())
+        # See is_safe_http_url: .port raises ValueError on malformed ports.
+        port = parsed.port
     except Exception as e:
         raise UnsafeURLError(f"URL parsing failed: {url!r}") from e
 
@@ -232,7 +239,6 @@ def pin_safe_http_url(
         raise UnsafeURLError(f"URL is missing hostname: {url!r}")
 
     if allowed_ports is not None or not allow_local:
-        port = parsed.port
         if port is not None and port not in (allowed_ports or _DEFAULT_ALLOWED_PORTS):
             raise UnsafeURLError(f"URL port is not allowed: {url!r}")
 

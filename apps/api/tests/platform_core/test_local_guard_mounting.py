@@ -85,3 +85,22 @@ def test_http_guard_still_rejects_non_loopback_urls() -> None:
         if resp.status_code == 200:
             body = json.dumps(resp.json())[:1]
             assert body in ("[", "{")
+
+
+def _post_status(client: TestClient, origin: str | None) -> int:
+    headers = {"Origin": origin} if origin else {}
+    return client.post("/api/v1/profile/clear", headers=headers).status_code
+
+
+def test_tokenless_write_requires_allowlisted_origin() -> None:
+    """Router-level mount, so every domain inherits it without declaring it.
+
+    A page on another localhost port is ``same-site`` and a body-less POST is a
+    CORS simple request, so neither ``Sec-Fetch-Site`` nor the preflight stops it.
+    """
+    from realmock.asgi import app
+
+    with TestClient(app) as client:
+        assert _post_status(client, "http://localhost:9999") == 403
+        assert _post_status(client, None) != 403  # curl / local scripts unaffected
+        assert _post_status(client, "http://localhost:8080") != 403

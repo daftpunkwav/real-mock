@@ -17,7 +17,7 @@ class VisionAgent:
         Returns:
             Semicolon-joined hints, or a normal-state sentence when unremarkable.
         """
-        if not face_analysis:
+        if not isinstance(face_analysis, dict) or not face_analysis:
             return ""
         hints: list[str] = []
         if not face_analysis.get("face_detected", True):
@@ -27,6 +27,7 @@ class VisionAgent:
         nervousness = face_analysis.get("nervousness", 0)
         if isinstance(nervousness, (int, float)) and nervousness > 0.5:
             hints.append("Candidate appears nervous")
-        if face_analysis.get("face_count", 1) > 1:
+        face_count = face_analysis.get("face_count", 1)
+        if isinstance(face_count, (int, float)) and face_count > 1:
             hints.append("Multiple people appear on the screen")
         return "; ".join(hints) if hints else "Candidate status is normal"

@@ -59,6 +59,23 @@ class TestUrlDeniedWording:
         monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("93.184.216.34")])
         assert is_safe_http_url("http:///x") is False
 
+    def test_malformed_port_is_denied_not_raised(self, pub) -> None:
+        """urlparse.port raises; the contract is bool / UnsafeURLError, not ValueError."""
+        for bad in ("https://example.com:99999/v1", "https://example.com:abc/v1"):
+            assert is_safe_http_url(bad, require_https=True) is False
+            with pytest.raises(UnsafeURLError):
+                pin_safe_http_url(bad, require_https=True)
+            with pytest.raises(UnsafeURLError):
+                assert_safe_http_url(bad, require_https=True)
+
+    def test_trusted_host_with_no_addresses_is_denied(self, monkeypatch) -> None:
+        """A whitelist hit must not fail open when DNS yields nothing."""
+        monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [])
+        trusted = next(iter(sec_url.FAKEIP_ALLOWED_HOSTS))
+        assert is_safe_http_url(f"https://{trusted}/v1", require_https=True) is False
+        with pytest.raises(UnsafeURLError, match="Unable to resolve"):
+            pin_safe_http_url(f"https://{trusted}/v1", require_https=True)
+
     def test_port_policy(self, pub) -> None:
         assert is_safe_http_url("https://example.com:8443", allowed_ports=frozenset({8443})) is True
         assert is_safe_http_url("https://example.com:8443") is False

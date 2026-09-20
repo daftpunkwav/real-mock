@@ -26,7 +26,7 @@ class SessionSnapshot:
 
     def merge_face(self, face: dict[str, Any] | None) -> None:
         """Fold one face-analysis frame into the snapshot (no-op on empty)."""
-        if not face:
+        if not isinstance(face, dict) or not face:
             return
         self.face_analysis = face
         hints: list[str] = []
@@ -34,7 +34,10 @@ class SessionSnapshot:
             hints.append("No face detected")
         elif face.get("looking_away"):
             hints.append("Not looking at the camera")
-        if face.get("nervousness", 0) > 0.5:
+        # Inbound frames are untrusted: FaceDetector degenerates to null and a
+        # non-numeric nervousness must not raise out of the WS dispatch loop.
+        nervousness = face.get("nervousness", 0)
+        if isinstance(nervousness, (int, float)) and nervousness > 0.5:
             hints.append("Slightly nervous")
         if hints:
             self.vision_summary = "Candidate status: " + "; ".join(hints)

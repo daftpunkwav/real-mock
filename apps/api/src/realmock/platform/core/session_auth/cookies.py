@@ -19,7 +19,7 @@ COOKIE_MAX_AGE = 90 * 24 * 3600
 
 
 def _peer_is_trusted_proxy(peer: str) -> bool:
-    """Whether the directly connected peer falls within the CIDR of the trusted proxy (consistent with the semantics of the current limiting module)."""
+    """Whether the directly connected peer falls within the CIDR of the trusted proxy (same semantics as the rate-limiting module)."""
     from realmock.platform.core.ratelimit import _peer_is_trusted_proxy as _rl_peer
 
     return _rl_peer(peer)
