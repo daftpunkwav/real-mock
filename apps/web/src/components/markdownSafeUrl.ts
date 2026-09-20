@@ -3,10 +3,15 @@ export function safeHttpUrl(url: string | undefined): string | null {
   if (!url) return null;
   const t = url.trim();
   try {
+    // The base only exists to parse schemes; resolving a bare relative path
+    // against it would render a dead link to that placeholder host.
     const u = new URL(t, "https://example.invalid");
     if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    // Same-origin relative paths / and in-page anchors # pass through as-is
     if (t.startsWith("/") || t.startsWith("#")) return t;
+    // Only an explicit scheme makes this absolute ("//host" already matched the
+    // branch above). A bare relative path has no same-origin base here, and
+    // resolving it against the parse base would render a dead link.
+    if (!/^[a-z][a-z\d+\-.]*:/i.test(t)) return null;
     return u.href;
   } catch {
     return null;

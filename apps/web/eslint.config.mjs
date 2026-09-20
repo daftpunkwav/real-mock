@@ -16,7 +16,7 @@ const eslintConfig = [
       "node_modules/**",
       "out/**",
       "next-env.d.ts",
-      "vitest.config.ts",
+      "vitest.config.mts",
       "public/**",
       // Generated OpenAPI types: do not hand-edit or review
       "src/types/generated/**",

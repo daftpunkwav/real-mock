@@ -401,9 +401,10 @@ export function usePrepSend(opts: {
       }
     } finally {
       completeStream(sid);
-      if (isViewing(sid)) {
-        setBusySid((prev) => (prev === sid ? null : prev));
-      }
+      // Not gated on isViewing: the functional update already no-ops unless this
+      // stream still owns the marker, and skipping it when the candidate has
+      // switched sessions left busySid pointing at a finished stream forever.
+      setBusySid((prev) => (prev === sid ? null : prev));
       refreshSessions();
       // Breakdown buckets are global view state: refresh only for the session
       // on screen (background sessions reseed on switch).
