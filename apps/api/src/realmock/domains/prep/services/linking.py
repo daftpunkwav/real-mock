@@ -8,11 +8,14 @@ pass their own Session; this module never opens connections.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession
+
+logger = logging.getLogger(__name__)
 
 # Per-turn referenced-session block marker (transient; stripped before persist).
 REF_BLOCK_MARKER = "[Referenced sessions]"
@@ -60,6 +63,7 @@ def format_linked_session(db: Session, linked_id: int | None) -> str:
         lines = [f"- {text}" for text in turns if text]
         return f"{header}, recent turns:\n" + "\n".join(lines)
     except Exception:
+        logger.debug("format_linked_session failed linked_id=%s", linked_id, exc_info=True)
         return ""
 
 

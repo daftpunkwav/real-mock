@@ -94,10 +94,19 @@ class InterviewSessionState(SessionPromptMixin):
         self.phases: list[Any] = self.plan.steps if self.plan else list(self.workflow.phases)
         # Clamp to the legal range to prevent obsolete or truncated workflows from crossing the boundary
         _raw_idx = self.agent_state.get("phase_idx", 0)
+        try:
+            _raw_idx = int(_raw_idx)
+        except (TypeError, ValueError):
+            _raw_idx = 0
         _max_idx = max(0, len(self.phases) - 1)
         self.current_phase_idx: int = max(0, min(_raw_idx, _max_idx))
-        self.questions_in_phase: int = self.agent_state.get("questions_in_phase", 0)
-        self.asked_topics: list[str] = self.agent_state.get("asked_topics", [])
+        try:
+            _q_in_phase = int(self.agent_state.get("questions_in_phase", 0))
+        except (TypeError, ValueError):
+            _q_in_phase = 0
+        self.questions_in_phase: int = max(0, _q_in_phase)
+        _asked = self.agent_state.get("asked_topics", [])
+        self.asked_topics: list[str] = _asked if isinstance(_asked, list) else []
         # Long context structured memory (for 40-minute interview)
         self.agent_state.setdefault("weak_points", [])
         self.agent_state.setdefault("followup_clues", [])
@@ -245,12 +254,18 @@ class InterviewSessionState(SessionPromptMixin):
         for raw in plan_ops:
             if len(self.plan.steps) >= MAX_PLAN_STEPS:
                 break
+            if not isinstance(raw, dict):
+                continue
+            try:
+                max_q = max(1, min(int(raw.get("max_questions") or 3), 8))
+            except (TypeError, ValueError):
+                max_q = 3
             step = PlanStep(
                 id=f"s{len(self.plan.steps) + 1:02d}",
                 title=str(raw.get("title") or "").strip()[:60],
                 focus=str(raw.get("focus") or "").strip()[:400],
                 min_questions=1,
-                max_questions=max(1, min(int(raw.get("max_questions") or 3), 8)),
+                max_questions=max_q,
                 kind=str(raw.get("kind") or "").strip()[:30],
             )
             if not step.title:

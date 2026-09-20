@@ -112,6 +112,35 @@ def test_duration_minutes_variants() -> None:
     assert rmod._duration_minutes(_snap()) is None
 
 
+def test_duration_minutes_tolerates_bad_types() -> None:
+    snap = _snap()
+    object.__setattr__(snap, "duration_seconds", "oops")
+    assert rmod._duration_minutes(snap) is None
+    snap2 = _snap()
+    object.__setattr__(snap2, "started_at", "oops")
+    object.__setattr__(snap2, "ended_at", "oops")
+    assert rmod._duration_minutes(snap2) is None
+
+
+def test_require_session_maps_invalid_snapshot_to_not_found(db) -> None:
+    from unittest.mock import MagicMock
+
+    from realmock.platform.core.errors import ApiBusinessError
+
+    fake_db = MagicMock()
+    with patch(
+        "realmock.domains.records.routes.report.get_session_catalog"
+    ) as mock_cat:
+        mock_cat.return_value.get_session_snapshot.return_value = {
+            "id": "not-an-int",
+            "duration_seconds": "oops",
+            "status": 123,
+        }
+        with pytest.raises(ApiBusinessError) as exc:
+            rmod._require_session(fake_db, 1, None)
+        assert exc.value.error_code == "A2001"
+
+
 def test_build_response_uses_catalog_ledger_when_missing(db) -> None:
     snap = _snap(id=5, ledger=None)
     report = DebriefReport.model_validate(_report_dict())

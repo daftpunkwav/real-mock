@@ -13,6 +13,7 @@ Layered by responsibility:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -147,7 +148,7 @@ async def run_agent_loop(
             round_thinking.append(text)
             if on_thinking is not None:
                 maybe = on_thinking(display)
-                if maybe is not None:
+                if maybe is not None and inspect.isawaitable(maybe):
                     await maybe
 
         try:
@@ -282,7 +283,7 @@ async def run_agent_loop(
             })
             if on_tool is not None:
                 maybe = on_tool(name, args, result, tc_id)
-                if maybe is not None:
+                if maybe is not None and inspect.isawaitable(maybe):
                     await maybe
             halted = halted or did_halt
         # Position suffix keeps synthetic ids collision-free even when the

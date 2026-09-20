@@ -26,7 +26,11 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
     raw = catalog.get_session_snapshot(db, session_id)
     if raw is None:
         return None
-    snap = snapshot_from_catalog_dict(raw)
+    try:
+        snap = snapshot_from_catalog_dict(raw)
+    except Exception:
+        logger.debug("legacy snapshot invalid sid=%s", session_id, exc_info=True)
+        return None
     report_raw = (snap.report or "").strip()
     if not report_raw or report_raw in ("{}", '{"_generating":true}'):
         return None
@@ -52,8 +56,11 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
             messages_count = 0
     duration = None
     if snap.duration_seconds is not None:
-        duration = round(float(snap.duration_seconds) / 60, 1)
-    elif snap.started_at and snap.ended_at:
+        try:
+            duration = round(float(snap.duration_seconds) / 60, 1)
+        except (TypeError, ValueError):
+            duration = None
+    if duration is None and snap.started_at and snap.ended_at:
         duration = round((snap.ended_at - snap.started_at).total_seconds() / 60, 1)
     return ReportResponse(
         session_id=session_id,

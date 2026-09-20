@@ -42,7 +42,7 @@ def sanitize_filename(name: str) -> str:
             cleaned = f"{stem}.{suffix}"
         else:
             cleaned = cleaned[:_MAX_FILENAME_LEN]
-    # When the suffix is ​​too long, negative slicing will preserve the overlong result and eventually truncate it unconditionally.
+    # Final unconditional truncation guards overlong suffixes.
     return cleaned[:_MAX_FILENAME_LEN]
 
 

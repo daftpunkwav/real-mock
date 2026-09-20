@@ -110,10 +110,16 @@ def _messages_count(snap: SessionSnapshot) -> int:
 
 def _duration_minutes(snap: SessionSnapshot) -> float | None:
     if snap.duration_seconds is not None:
-        return round(float(snap.duration_seconds) / 60, 1)
+        try:
+            return round(float(snap.duration_seconds) / 60, 1)
+        except (TypeError, ValueError):
+            pass
     if snap.started_at and snap.ended_at:
-        delta = snap.ended_at - snap.started_at
-        return round(delta.total_seconds() / 60, 1)
+        try:
+            delta = snap.ended_at - snap.started_at
+            return round(delta.total_seconds() / 60, 1)
+        except (TypeError, ValueError, OverflowError):
+            return None
     return None
 
 
@@ -124,7 +130,11 @@ def _require_session(
     raw = catalog.get_session_snapshot(db, session_id)
     if raw is None:
         raise_error("A2001")
-    snap = snapshot_from_catalog_dict(raw)
+    try:
+        snap = snapshot_from_catalog_dict(raw)
+    except Exception:
+        logger.warning("session snapshot invalid sid=%s", session_id, exc_info=True)
+        raise_error("A2001")
     assert_session_token(snap, access)
     return snap
 

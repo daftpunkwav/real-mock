@@ -310,6 +310,38 @@ def test_advance_phase_marker_and_max(db) -> None:
     assert st4.questions_in_phase == 1
 
 
+def test_load_state_tolerates_malformed_types(db) -> None:
+    st = _state(
+        db,
+        agent_state=json.dumps(
+            {"phase_idx": "oops", "questions_in_phase": "many", "asked_topics": "nope"}
+        ),
+    )
+    assert st.current_phase_idx == 0
+    assert st.questions_in_phase == 0
+    assert st.asked_topics == []
+
+
+def test_apply_plan_ops_tolerates_malformed_model_output(db) -> None:
+    from realmock.domains.interview.protocols.plan_schema import InterviewPlan, PlanStep
+
+    st = _state(db)
+    st.plan = InterviewPlan(
+        steps=[PlanStep(id="s01", title="t1", focus="f1", min_questions=1, max_questions=2)]
+    )
+    st.current_phase_idx = 0
+    n = st.apply_plan_ops(
+        (
+            {"title": "Bad count", "focus": "f", "max_questions": "many"},
+            {"title": "No count", "focus": "f", "max_questions": None},
+            "not-a-dict",  # type: ignore[arg-type]
+        ),  # type: ignore[arg-type]
+    )
+    assert n == 2
+    assert st.plan.steps[1].max_questions == 3
+    assert st.plan.steps[2].max_questions == 3
+
+
 def test_phase_entry_reverse_qa_and_summary(db) -> None:
     st = _state(db)
     rev = SimpleNamespace(id="reverse_qa", kind="", name="RQ", description="ask us")
