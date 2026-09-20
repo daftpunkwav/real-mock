@@ -45,6 +45,10 @@ cd apps/web && npm test  # 前端测试(vitest)
 
 API 契约流水线:`scripts/export_openapi.py` → 根目录 `openapi.json` → `apps/web/src/types/generated/api.d.ts`(`cd apps/web && npm run generate:api-types`)。
 
+## 贡献指南
+
+开发环境、检查门禁与约定:[CONTRIBUTING.zh.md](CONTRIBUTING.zh.md)。
+
 ## 许可证
 
 [MIT](LICENSE)

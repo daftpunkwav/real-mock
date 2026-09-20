@@ -45,6 +45,10 @@ cd apps/web && npm test  # frontend tests (vitest)
 
 API contract pipeline: `scripts/export_openapi.py` → root `openapi.json` → `apps/web/src/types/generated/api.d.ts` (`cd apps/web && npm run generate:api-types`).
 
+## Contributing
+
+Development setup, check gates and conventions: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 [MIT](LICENSE)
