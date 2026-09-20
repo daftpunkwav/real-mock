@@ -8,7 +8,7 @@ Realistic interview room domain: realtime WebSocket conversation, multi-round pr
 | `realtime/` | WebSocket runtime (handler, stacks, turn / media / control, audio engine) — see [realtime/README.md](realtime/README.md) |
 | `process/` | Multi-round process orchestration and per-round digests |
 | `protocols/` | Plan / round-plan schemas, deterministic round chains, process memory documents |
-| `capabilities/` | Interview-specific capabilities: `rag/`, `sandbox/` (coding), `vision/` |
+| [`capabilities/`](capabilities/README.md) | Interview-specific capabilities: `rag/`, `sandbox/` (coding), `vision/` |
 | `ledger/` | Append / freeze session ledger (interview is the sole writer) |
 | `routes/` | `sessions.py`, `interview.py`, `turns.py`, `processes.py`, `options.py`, `brief.py`, `ws/` (WebSocket endpoint) |
 | `models/` | `session.py`, `process.py`, `brief.py`, `ws_lease.py` |

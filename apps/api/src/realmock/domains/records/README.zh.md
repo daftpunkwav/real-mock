@@ -7,7 +7,7 @@
 | `routes/history.py` | 历史端点(挂载于 `/records`) |
 | `routes/report.py` | 报告端点(挂载于 `/reports`) |
 | `services/` | `report_store.py`、`report_events.py`(报告实时事件)、`debrief_runner.py`、`ingest.py`、`legacy_fallback.py` |
-| `agents/report/` | 报告 agent |
+| [`agents/report/`](agents/report/README.zh.md) | 报告 agent(两阶段 ReAct 流水线) |
 | `models/report.py` | 报告表 |
 | `column_migrations.py` | 列级迁移 |
 

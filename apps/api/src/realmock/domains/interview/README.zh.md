@@ -8,7 +8,7 @@
 | `realtime/` | WebSocket 运行时(handler、stacks、turn / media / control、音频引擎)— 见 [realtime/README.zh.md](realtime/README.zh.md) |
 | `process/` | 多轮流程编排与轮次摘要 |
 | `protocols/` | plan / round-plan schema、确定性轮次链、流程记忆文档 |
-| `capabilities/` | 面试专属能力:`rag/`、`sandbox/`(编码)、`vision/` |
+| [`capabilities/`](capabilities/README.zh.md) | 面试专属能力:`rag/`、`sandbox/`(编码)、`vision/` |
 | `ledger/` | append / freeze 会话台账(interview 是唯一写方) |
 | `routes/` | `sessions.py`、`interview.py`、`turns.py`、`processes.py`、`options.py`、`brief.py`、`ws/`(WebSocket 端点) |
 | `models/` | `session.py`、`process.py`、`brief.py`、`ws_lease.py` |

@@ -18,4 +18,4 @@ Prep agent machinery: the think-then-act loop and everything a prep turn touches
 | --- | --- |
 | `context/` | Context assembly: `seed.py` (stable-first seed blocks), `working.py`, `linked.py` (#-referenced sessions), `hints.py`, `markers.py` |
 | `ask_user/` | User-prompt control flow: `dispatch.py`, `inline.py`, `normalize.py`, `schema.py` |
-| `tools/` | Tool registry (`registry.py`, `spec.py`) and five families: `basic/` (code_exec, company_info, quiz, take_note, web_search), `candidate/` (profile, resume, shared), `memory/` (write, list_summaries, get_detail, list_tags), `repo/` (github), `system/` (availability, compact, search_tools) |
+| [`tools/`](tools/README.md) | Tool registry (`registry.py`, `spec.py`) and five families: `basic/` (code_exec, company_info, quiz, take_note, web_search), `candidate/` (profile, resume, shared), `memory/` (write, list_summaries, get_detail, list_tags), `repo/` (github), `system/` (availability, compact, search_tools) |

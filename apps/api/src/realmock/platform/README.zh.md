@@ -8,7 +8,7 @@
 | --- | --- |
 | `capabilities/` | 外部能力适配器:[`ai/`](capabilities/ai/README.zh.md)(LLM 供应商、agent loop、上下文管理)、`integrations/github/`、`knowledge/search/`、[`voice/`](capabilities/voice/README.zh.md)(STT / TTS / 语音配置) |
 | `contracts/` | 跨域事件与数据契约(interview finished、session score、report summary、session catalog、lifecycle hooks) |
-| `core/` | 内核工具:常量、错误与处理器、日志、文件锁、local-only 守卫、DB 迁移助手、agent 错误日志、共享提示词片段、进程内限流、secrets 加密、SSE 助手、安全助手(文件 / URL pin / 脱敏)、会话认证(cookies、CSRF、tokens) |
+| [`core/`](core/README.zh.md) | 内核工具:常量、错误与处理器、日志、文件锁、local-only 守卫、DB 迁移助手、agent 错误日志、共享提示词片段、进程内限流、secrets 加密、SSE 助手、安全助手(文件 / URL pin / 脱敏)、会话认证(cookies、CSRF、tokens) |
 | `catalogs/` | 静态参考目录(公司) |
 | `models/` | 共享模型(配置模型、限流桶) |
 | `schemas/` | 共享 pydantic schema(candidate、pipeline、errors) |
