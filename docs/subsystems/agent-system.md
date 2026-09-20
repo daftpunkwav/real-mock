@@ -1,6 +1,6 @@
 # Agent System
 
-The platform-level agent machinery lives in `apps/api/src/realmock/platform/capabilities/ai/`: the generic think-then-act loop (`agent/`), context-window management (`context/`), and the LLM provider layer (`llm/`). Domain packages instantiate it: [prep agents](../apps/api/src/realmock/domains/prep/agents/README.md) and [interview agents](../apps/api/src/realmock/domains/interview/agents/README.md).
+The platform-level agent machinery lives in `apps/api/src/realmock/platform/capabilities/ai/`: the generic think-then-act loop (`agent/`), context-window management (`context/`), and the LLM provider layer (`llm/`). Domain packages instantiate it: [prep agents](../../apps/api/src/realmock/domains/prep/agents/README.md) and [interview agents](../../apps/api/src/realmock/domains/interview/agents/README.md).
 
 ## `agent/` — think-then-act loop
 
@@ -21,7 +21,7 @@ The platform-level agent machinery lives in `apps/api/src/realmock/platform/capa
 | `executor.py` | `invoke_with_timeout()` — single-call timeout + error classification; timeouts and unexpected exceptions return as JSON observations (`"timeout"` / `"tool_failed"`), `ApiBusinessError` raises. |
 | `github.py` | Wraps `capabilities/integrations/github/tools` (`GITHUB_TOOL_DEFINITIONS`, `execute_github_tool`) so domains share one schema + execute path. |
 | `search.py` | Public-web search tool; result count bounded by `SEARCH_DEFAULT_MAX_RESULTS` (8) / `SEARCH_HARD_MAX_RESULTS` (12). |
-| `fetch.py` | Public-web page fetch with SSRF mitigation (see [security.md](security.md)); redirects followed hop-by-hop (max 5 hops), output hard-capped (6,000 / 12,000 chars). |
+| `fetch.py` | Public-web page fetch with SSRF mitigation (see [security.md](../operations/security.md)); redirects followed hop-by-hop (max 5 hops), output hard-capped (6,000 / 12,000 chars). |
 | `profile.py` | Hierarchical user-profile tools: `profile_list_sections` / `profile_get_section` over five sections (`basics`, `education`, `career`, `skills`, `links`). |
 | `resume.py` | Progressive-disclosure resume tools: `resume_overview` / `resume_get_section` (sections incl. paged raw excerpt). |
 | `codeexec.py` | Sandboxed Python / JavaScript snippet runner; isolation backend picked per call by `run_code_snippet(..., isolation=...)`, `"auto"` by default. |
@@ -74,5 +74,5 @@ HTTP surface: `domains/settings/routes/models.py` and `domains/settings/routes/m
 
 ## Domain-level instances
 
-- **Prep agents** — [`domains/prep/agents/`](../apps/api/src/realmock/domains/prep/agents/README.md): turn orchestration (`chat.py`, `agent.py`), per-turn toolset policy (`turn_tools.py`), tool execution callback with `ask_user` dispatch (`tool_exec.py`; the `ask_user` tool emits an `ask_user` event and raises `AgentHalt`), mid-turn compaction (`round_compaction.py`, `MidTurnCompaction`), speculative streaming (`streaming.py`), persistence (`persist.py`); subpackages `context/`, `ask_user/`, `tools/` (families `basic/`, `candidate/`, `memory/`, `repo/`, `system/`).
-- **Interview agents** — [`domains/interview/agents/`](../apps/api/src/realmock/domains/interview/agents/README.md): one subpackage per role (`interviewer/`, `topology/`, `hint/`, `planning/`, `research/`, `memory/`), shared kernel flat at the package root. The package `__init__` is the facade: `realtime` / `routes` / `process` depend only on it plus the leaf contracts `agents.events` and `agents.agent_text`. `say_first.py` parses the say-first protocol for interview turns.
+- **Prep agents** — [`domains/prep/agents/`](../../apps/api/src/realmock/domains/prep/agents/README.md): turn orchestration (`chat.py`, `agent.py`), per-turn toolset policy (`turn_tools.py`), tool execution callback with `ask_user` dispatch (`tool_exec.py`; the `ask_user` tool emits an `ask_user` event and raises `AgentHalt`), mid-turn compaction (`round_compaction.py`, `MidTurnCompaction`), speculative streaming (`streaming.py`), persistence (`persist.py`); subpackages `context/`, `ask_user/`, `tools/` (families `basic/`, `candidate/`, `memory/`, `repo/`, `system/`).
+- **Interview agents** — [`domains/interview/agents/`](../../apps/api/src/realmock/domains/interview/agents/README.md): one subpackage per role (`interviewer/`, `topology/`, `hint/`, `planning/`, `research/`, `memory/`), shared kernel flat at the package root. The package `__init__` is the facade: `realtime` / `routes` / `process` depend only on it plus the leaf contracts `agents.events` and `agents.agent_text`. `say_first.py` parses the say-first protocol for interview turns.

@@ -1,6 +1,6 @@
 # Interview WebSocket 协议
 
-实时面试间在每个会话上运行一条 WebSocket。线上事件词汇表唯一收录于 [`protocol/interview_ws.schema.json`](../protocol/interview_ws.schema.json)。
+实时面试间在每个会话上运行一条 WebSocket。线上事件词汇表唯一收录于 [`protocol/interview_ws.schema.json`](../../protocol/interview_ws.schema.json)。
 
 ## 端点与握手
 

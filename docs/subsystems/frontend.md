@@ -1,6 +1,6 @@
 # Frontend
 
-Next.js + React app in `apps/web`. The dev server runs on port 8080 and stays in dev mode (`npm run dev`); a production build is only used by CI. Commands and the full source layout: [apps/web/README.md](../apps/web/README.md).
+Next.js + React app in `apps/web`. The dev server runs on port 8080 and stays in dev mode (`npm run dev`); a production build is only used by CI. Commands and the full source layout: [apps/web/README.md](../../apps/web/README.md).
 
 ## Pages (`src/app/`)
 
@@ -24,7 +24,7 @@ Shell files: `layout.tsx` (root layout), `error.tsx`, `loading.tsx`, `not-found.
 
 ## Feature modules (`src/features/`)
 
-Feature-first business modules; each owns its components, hooks, and tests. Cross-feature pieces go up to `src/components/` and `src/lib/`. See [src/features/README.md](../apps/web/src/features/README.md).
+Feature-first business modules; each owns its components, hooks, and tests. Cross-feature pieces go up to `src/components/` and `src/lib/`. See [src/features/README.md](../../apps/web/src/features/README.md).
 
 | Feature | Purpose |
 | --- | --- |
@@ -96,7 +96,7 @@ Error codes: the `A`-family entries mirror the backend `realmock/platform/core/e
 | `useInterviewRoomActions` | User actions (send, wrap-up, barge-in) |
 | `useInterviewRoomRecorderBridge` | Mic / recorder bridge |
 
-Details and change-radius rules: [src/features/interview/hooks/room/README.md](../apps/web/src/features/interview/hooks/room/README.md).
+Details and change-radius rules: [src/features/interview/hooks/room/README.md](../../apps/web/src/features/interview/hooks/room/README.md).
 
 ## Media capture (`src/features/media/recorder/`)
 

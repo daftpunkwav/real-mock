@@ -1,6 +1,6 @@
 # RealMock HTTP API
 
-The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers under `/api/v1` and registers a rolling `/api` legacy alias. The full machine-readable contract is the root [`openapi.json`](../openapi.json).
+The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers under `/api/v1` and registers a rolling `/api` legacy alias. The full machine-readable contract is the root [`openapi.json`](../../openapi.json).
 
 ## Mounting and access control
 
@@ -10,7 +10,7 @@ The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers 
 | Domain prefixes | Owned by each domain's router (`domains/<name>/router.py`): `/profile`, `/resume`, `/settings`, `/prep`, `/interview`, `/options`, `/records`, `/reports`, `/growth` |
 | Local access | `platform/core/local_only.py: LOCAL_API_DEPENDENCIES` is applied at mount time to every HTTP route: `require_local_peer` (loopback peers only, else `A0405`) + `reject_cross_site_fetch` (browser `Sec-Fetch-Site: cross-site` rejected, `A0403`) |
 | Capability tokens | Interview / prep / report content routes additionally require the session capability token (`platform/core/session_auth/extract.py`): header `X-Interview-Token` > cookie > query `token=` (non-prod only) |
-| WebSocket | FastAPI dependencies do not run on WS scopes; `ws/interview` performs origin + token checks in the route body — see [realtime_protocol.md](realtime_protocol.md) |
+| WebSocket | FastAPI dependencies do not run on WS scopes; `ws/interview` performs origin + token checks in the route body — see [realtime-protocol.md](realtime-protocol.md) |
 | Health | `GET /health` (registered on the app, outside the `/api` prefixes) |
 
 ## Contract pipeline
@@ -81,10 +81,10 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | POST | `/interview/sessions/{session_id}/start`, `/interview/sessions/{session_id}/message`, `/interview/sessions/{session_id}/finish` | HTTP turn API (the interview room itself runs over WebSocket) |
 | POST / GET | `/interview/processes` | create (with round-1 session) / list multi-round processes |
 | GET | `/interview/processes/{process_id}` | process detail (round lineage, round plan) |
-| POST | `/interview/processes/{process_id}/rounds` | create next round — see [interview_flow.md](interview_flow.md) |
+| POST | `/interview/processes/{process_id}/rounds` | create next round — see [interview-flow.md](../interview-flow.md) |
 | POST / DELETE | `/interview/company-brief`, `/interview/company-briefs` | company research brief |
 | GET | `/options` | setup-page options (workflows / personalities / voices / avatars) |
-| WS | `/ws/interview/{session_id}` | realtime room — see [realtime_protocol.md](realtime_protocol.md) |
+| WS | `/ws/interview/{session_id}` | realtime room — see [realtime-protocol.md](realtime-protocol.md) |
 
 ### records — `domains/records/routes/` (`history` / `report`)
 

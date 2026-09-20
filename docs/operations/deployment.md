@@ -1,6 +1,6 @@
 # Deployment
 
-Container images and CI/CD. Workflows: [.github/workflows/ci.yml](../.github/workflows/ci.yml) and [.github/workflows/cd.yml](../.github/workflows/cd.yml); Dockerfiles: root [Dockerfile](../Dockerfile) (backend api) and [apps/web/Dockerfile](../apps/web/Dockerfile) (web).
+Container images and CI/CD. Workflows: [.github/workflows/ci.yml](../../.github/workflows/ci.yml) and [.github/workflows/cd.yml](../../.github/workflows/cd.yml); Dockerfiles: root [Dockerfile](../../Dockerfile) (backend api) and [apps/web/Dockerfile](../../apps/web/Dockerfile) (web).
 
 ## CI (`.github/workflows/ci.yml`)
 

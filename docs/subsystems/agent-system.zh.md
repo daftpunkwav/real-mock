@@ -1,6 +1,6 @@
 # Agent 系统
 
-平台级 agent 机制位于 `apps/api/src/realmock/platform/capabilities/ai/`:通用 think-then-act 循环(`agent/`)、上下文窗口管理(`context/`)与 LLM 供应方调用层(`llm/`)。域包在其上实例化:[prep agents](../apps/api/src/realmock/domains/prep/agents/README.md) 与 [interview agents](../apps/api/src/realmock/domains/interview/agents/README.md)。
+平台级 agent 机制位于 `apps/api/src/realmock/platform/capabilities/ai/`:通用 think-then-act 循环(`agent/`)、上下文窗口管理(`context/`)与 LLM 供应方调用层(`llm/`)。域包在其上实例化:[prep agents](../../apps/api/src/realmock/domains/prep/agents/README.md) 与 [interview agents](../../apps/api/src/realmock/domains/interview/agents/README.md)。
 
 ## `agent/` — think-then-act 循环
 
@@ -21,7 +21,7 @@
 | `executor.py` | `invoke_with_timeout()` — 单次调用的超时 + 错误分类;超时与意外异常以 JSON 观察返回(`"timeout"` / `"tool_failed"`),`ApiBusinessError` 向上抛出。 |
 | `github.py` | 包装 `capabilities/integrations/github/tools`(`GITHUB_TOOL_DEFINITIONS`、`execute_github_tool`),各域共享同一 schema + 执行路径。 |
 | `search.py` | 公网搜索工具;结果数受 `SEARCH_DEFAULT_MAX_RESULTS`(8)/ `SEARCH_HARD_MAX_RESULTS`(12)约束。 |
-| `fetch.py` | 公网网页抓取,带 SSRF 防护(见 [security.zh.md](security.zh.md));重定向逐跳跟随(最多 5 跳),输出硬上限(6,000 / 12,000 字符)。 |
+| `fetch.py` | 公网网页抓取,带 SSRF 防护(见 [security.zh.md](../operations/security.zh.md));重定向逐跳跟随(最多 5 跳),输出硬上限(6,000 / 12,000 字符)。 |
 | `profile.py` | 分层用户画像工具:`profile_list_sections` / `profile_get_section`,五个分区(`basics`、`education`、`career`、`skills`、`links`)。 |
 | `resume.py` | 渐进披露的简历工具:`resume_overview` / `resume_get_section`(分区含分页原文摘录)。 |
 | `codeexec.py` | 沙箱化 Python / JavaScript 代码片段执行器;隔离后端由 `run_code_snippet(..., isolation=...)` 按次选择,默认 `"auto"`。 |
@@ -74,5 +74,5 @@ HTTP 面:`domains/settings/routes/models.py` 与 `domains/settings/routes/model_
 
 ## 域级实例
 
-- **Prep agents** — [`domains/prep/agents/`](../apps/api/src/realmock/domains/prep/agents/README.md):轮次编排(`chat.py`、`agent.py`)、每轮工具集策略(`turn_tools.py`)、带 `ask_user` 分发的工具执行回调(`tool_exec.py`;`ask_user` 工具发出 `ask_user` 事件并抛出 `AgentHalt`)、轮内压缩(`round_compaction.py`,`MidTurnCompaction`)、投机流式(`streaming.py`)、持久化(`persist.py`);子包 `context/`、`ask_user/`、`tools/`(家族 `basic/`、`candidate/`、`memory/`、`repo/`、`system/`)。
-- **Interview agents** — [`domains/interview/agents/`](../apps/api/src/realmock/domains/interview/agents/README.md):每角色一个子包(`interviewer/`、`topology/`、`hint/`、`planning/`、`research/`、`memory/`),共享内核平铺在包根。包 `__init__` 即 facade:`realtime` / `routes` / `process` 只依赖它以及两个叶契约 `agents.events` 与 `agents.agent_text`。`say_first.py` 为面试轮次解析 say-first 协议。
+- **Prep agents** — [`domains/prep/agents/`](../../apps/api/src/realmock/domains/prep/agents/README.md):轮次编排(`chat.py`、`agent.py`)、每轮工具集策略(`turn_tools.py`)、带 `ask_user` 分发的工具执行回调(`tool_exec.py`;`ask_user` 工具发出 `ask_user` 事件并抛出 `AgentHalt`)、轮内压缩(`round_compaction.py`,`MidTurnCompaction`)、投机流式(`streaming.py`)、持久化(`persist.py`);子包 `context/`、`ask_user/`、`tools/`(家族 `basic/`、`candidate/`、`memory/`、`repo/`、`system/`)。
+- **Interview agents** — [`domains/interview/agents/`](../../apps/api/src/realmock/domains/interview/agents/README.md):每角色一个子包(`interviewer/`、`topology/`、`hint/`、`planning/`、`research/`、`memory/`),共享内核平铺在包根。包 `__init__` 即 facade:`realtime` / `routes` / `process` 只依赖它以及两个叶契约 `agents.events` 与 `agents.agent_text`。`say_first.py` 为面试轮次解析 say-first 协议。

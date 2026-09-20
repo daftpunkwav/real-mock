@@ -1,6 +1,6 @@
 # Interview WebSocket Protocol
 
-The realtime interview room runs over a single WebSocket per session. The wire-level event vocabulary is defined once in [`protocol/interview_ws.schema.json`](../protocol/interview_ws.schema.json).
+The realtime interview room runs over a single WebSocket per session. The wire-level event vocabulary is defined once in [`protocol/interview_ws.schema.json`](../../protocol/interview_ws.schema.json).
 
 ## Endpoint and handshake
 

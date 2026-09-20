@@ -1,6 +1,6 @@
 # 部署
 
-容器镜像与 CI/CD。工作流：[.github/workflows/ci.yml](../.github/workflows/ci.yml) 与 [.github/workflows/cd.yml](../.github/workflows/cd.yml)；Dockerfile：根目录 [Dockerfile](../Dockerfile)（后端 api）与 [apps/web/Dockerfile](../apps/web/Dockerfile)（web）。
+容器镜像与 CI/CD。工作流：[.github/workflows/ci.yml](../../.github/workflows/ci.yml) 与 [.github/workflows/cd.yml](../../.github/workflows/cd.yml)；Dockerfile：根目录 [Dockerfile](../../Dockerfile)（后端 api）与 [apps/web/Dockerfile](../../apps/web/Dockerfile)（web）。
 
 ## CI（`.github/workflows/ci.yml`）
 

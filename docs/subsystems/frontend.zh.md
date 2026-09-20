@@ -1,6 +1,6 @@
 # 前端
 
-`apps/web` 下的 Next.js + React 应用。dev server 运行在 8080 端口且保持 dev 模式（`npm run dev`）；生产构建仅供 CI 使用。命令与完整源码布局见 [apps/web/README.md](../apps/web/README.md)。
+`apps/web` 下的 Next.js + React 应用。dev server 运行在 8080 端口且保持 dev 模式（`npm run dev`）；生产构建仅供 CI 使用。命令与完整源码布局见 [apps/web/README.md](../../apps/web/README.md)。
 
 ## 页面（`src/app/`）
 
@@ -24,7 +24,7 @@
 
 ## Feature 模块（`src/features/`）
 
-Feature-first 业务模块；每个 feature 自持组件、hook 与测试。跨 feature 的代码上移到 `src/components/` 与 `src/lib/`。见 [src/features/README.md](../apps/web/src/features/README.md)。
+Feature-first 业务模块；每个 feature 自持组件、hook 与测试。跨 feature 的代码上移到 `src/components/` 与 `src/lib/`。见 [src/features/README.md](../../apps/web/src/features/README.md)。
 
 | Feature | 用途 |
 | --- | --- |
@@ -96,7 +96,7 @@ Feature-first 业务模块；每个 feature 自持组件、hook 与测试。跨 
 | `useInterviewRoomActions` | 用户操作（发送、收尾、barge-in） |
 | `useInterviewRoomRecorderBridge` | 麦克风 / 采集器桥接 |
 
-细节与改动半径规则见 [src/features/interview/hooks/room/README.md](../apps/web/src/features/interview/hooks/room/README.md)。
+细节与改动半径规则见 [src/features/interview/hooks/room/README.md](../../apps/web/src/features/interview/hooks/room/README.md)。
 
 ## 媒体采集（`src/features/media/recorder/`）
 

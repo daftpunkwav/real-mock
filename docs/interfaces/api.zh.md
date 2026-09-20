@@ -1,6 +1,6 @@
 # RealMock HTTP API
 
-FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `/api/v1` 下，并注册 `/api` 作为滚动兼容别名。完整机器可读契约为仓库根的 [`openapi.json`](../openapi.json)。
+FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `/api/v1` 下，并注册 `/api` 作为滚动兼容别名。完整机器可读契约为仓库根的 [`openapi.json`](../../openapi.json)。
 
 ## 挂载与访问控制
 
@@ -10,7 +10,7 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 | 域内前缀 | 由各域 router 自持（`domains/<name>/router.py`）：`/profile`、`/resume`、`/settings`、`/prep`、`/interview`、`/options`、`/records`、`/reports`、`/growth` |
 | 本地访问 | `platform/core/local_only.py: LOCAL_API_DEPENDENCIES` 在挂载层应用于所有 HTTP 路由：`require_local_peer`（仅允许回环地址，否则 `A0405`）+ `reject_cross_site_fetch`（拒绝浏览器 `Sec-Fetch-Site: cross-site` 请求，`A0403`） |
 | 能力令牌 | interview / prep / report 的内容读取路由另需会话能力令牌（`platform/core/session_auth/extract.py`）：header `X-Interview-Token` > cookie > query `token=`（仅非生产环境） |
-| WebSocket | FastAPI 依赖不作用于 WS scope；`ws/interview` 在路由体内执行 origin + 令牌检查 — 见 [realtime_protocol.zh.md](realtime_protocol.zh.md) |
+| WebSocket | FastAPI 依赖不作用于 WS scope；`ws/interview` 在路由体内执行 origin + 令牌检查 — 见 [realtime-protocol.zh.md](realtime-protocol.zh.md) |
 | 健康检查 | `GET /health`（直接注册在应用上，不在 `/api` 前缀内） |
 
 ## 契约链
@@ -81,10 +81,10 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 | POST | `/interview/sessions/{session_id}/start`、`/interview/sessions/{session_id}/message`、`/interview/sessions/{session_id}/finish` | HTTP 轮次 API（面试间本体运行在 WebSocket 上） |
 | POST / GET | `/interview/processes` | 创建（连同 round-1 会话）/ 列出多轮面试流程 |
 | GET | `/interview/processes/{process_id}` | 流程详情（轮次链、轮次计划） |
-| POST | `/interview/processes/{process_id}/rounds` | 创建下一轮 — 见 [interview_flow.zh.md](interview_flow.zh.md) |
+| POST | `/interview/processes/{process_id}/rounds` | 创建下一轮 — 见 [interview-flow.zh.md](../interview-flow.zh.md) |
 | POST / DELETE | `/interview/company-brief`、`/interview/company-briefs` | 公司调研简报 |
 | GET | `/options` | 设置页选项（工作流 / 面试官风格 / 音色 / 形象） |
-| WS | `/ws/interview/{session_id}` | 实时面试间 — 见 [realtime_protocol.zh.md](realtime_protocol.zh.md) |
+| WS | `/ws/interview/{session_id}` | 实时面试间 — 见 [realtime-protocol.zh.md](realtime-protocol.zh.md) |
 
 ### records — `domains/records/routes/`（`history` / `report`）
 

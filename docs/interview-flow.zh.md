@@ -20,7 +20,7 @@
 
 ## 单会话
 
-独立会话运行一个工作流：`POST /api/v1/interview/sessions` → `POST .../start` → `POST .../message` 轮次 → `POST .../finish`（HTTP 轮次 API；面试间本体运行在 WebSocket 上，见 [realtime_protocol.zh.md](realtime_protocol.zh.md)）。会话从阶段 `identity_check` 起步；阶段切换以 `phase_changed` 事件推送。收尾轮由面试官 agent 宣布本轮裁定 —— `passed` / `failed`（`InterviewResult`）—— 携带在 `assistant_done.result` 上，并持久化到会话。
+独立会话运行一个工作流：`POST /api/v1/interview/sessions` → `POST .../start` → `POST .../message` 轮次 → `POST .../finish`（HTTP 轮次 API；面试间本体运行在 WebSocket 上，见 [realtime-protocol.zh.md](interfaces/realtime-protocol.zh.md)）。会话从阶段 `identity_check` 起步；阶段切换以 `phase_changed` 事件推送。收尾轮由面试官 agent 宣布本轮裁定 —— `passed` / `failed`（`InterviewResult`）—— 携带在 `assistant_done.result` 上，并持久化到会话。
 
 ## 流程（多轮）
 

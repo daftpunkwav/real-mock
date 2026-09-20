@@ -20,7 +20,7 @@ Unknown workflow ids fall back to `technical` (`get_workflow`).
 
 ## Single session
 
-A standalone session runs one workflow: `POST /api/v1/interview/sessions` → `POST .../start` → `POST .../message` turns → `POST .../finish` (HTTP turn API; the room itself runs over the WebSocket, see [realtime_protocol.md](realtime_protocol.md)). A session starts at phase `identity_check`; phase switches are pushed as `phase_changed` events. On the wrap-up turn the interviewer agent announces the round verdict — `passed` / `failed` (`InterviewResult`) — carried on `assistant_done.result` and persisted on the session.
+A standalone session runs one workflow: `POST /api/v1/interview/sessions` → `POST .../start` → `POST .../message` turns → `POST .../finish` (HTTP turn API; the room itself runs over the WebSocket, see [realtime-protocol.md](interfaces/realtime-protocol.md)). A session starts at phase `identity_check`; phase switches are pushed as `phase_changed` events. On the wrap-up turn the interviewer agent announces the round verdict — `passed` / `failed` (`InterviewResult`) — carried on `assistant_done.result` and persisted on the session.
 
 ## Process (multi-round)
 
