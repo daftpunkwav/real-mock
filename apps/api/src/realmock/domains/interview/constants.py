@@ -135,6 +135,7 @@ class WSClientEvent(StrEnum):
     USER_TEXT = "user_text"
     USER_TURN_END = "user_turn_end"
     STT_TEXT = "stt_text"
+    USER_TYPING = "user_typing"
     SILENCE_TIMEOUT = "silence_timeout"
     BARGE_IN = "barge_in"
     REQUEST_HINT = "request_hint"
@@ -142,6 +143,9 @@ class WSClientEvent(StrEnum):
     VISION_UPDATE = "vision_update"
     TTS_PLAYBACK_DONE = "tts_playback_done"
     PONG = "pong"
+    # Reserved legacy inbound: accepted by the dispatcher but not emitted by
+    # the first-party client (voice travels as PCM inside ``user_turn_end``).
+    AUDIO_CHUNK = "audio_chunk"
     CODING_CODE_UPDATE = "coding_code_update"
     CODING_RUN_REQUEST = "coding_run_request"
     CODING_SUBMIT_REQUEST = "coding_submit_request"

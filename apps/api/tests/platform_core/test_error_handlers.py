@@ -58,6 +58,16 @@ async def test_on_http_exception_plain_fallback() -> None:
 
 
 @pytest.mark.asyncio
+async def test_plain_fallback_empty_detail_uses_status_phrase() -> None:
+    """Empty-detail HTTPException falls back to the HTTP reason phrase, not "Not Found"."""
+    exc = HTTPException(status_code=400, detail="")
+    resp = await on_http_exception(None, exc)  # type: ignore[arg-type]
+    data = _body(resp)
+    assert data["error"]["code"] == "http_400"
+    assert data["error"]["message"] == "Bad Request"
+
+
+@pytest.mark.asyncio
 async def test_on_http_exception_propagates_retry_after() -> None:
     """Pass HTTPException.headers (such as Retry-After) through to the response headers."""
     exc = HTTPException(status_code=429, detail="rate", headers={"Retry-After": "60"})

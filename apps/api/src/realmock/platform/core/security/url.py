@@ -264,7 +264,10 @@ def pin_safe_http_url(
 
 
 def is_localhost_family(host: str) -> bool:
-    """Check whether the host hits the default blocked networks; rate-limit trust chain see ratelimit._peer_is_trusted_proxy."""
+    """Check whether ``host`` resolves into a non-public range (loopback, private, link-local, ...).
+
+    Despite the name, this covers the whole default blocked-network set, not
+    just loopback; rate-limit trust chain see ratelimit._peer_is_trusted_proxy."""
     if not host:
         return False
     try:

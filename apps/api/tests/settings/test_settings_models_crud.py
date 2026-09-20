@@ -158,7 +158,7 @@ class TestProviderCrud:
     def test_update_branches(self, api_db) -> None:
         _wipe(api_db)
         p1 = _provider(api_db, name="u1")
-        p2 = _provider(api_db, name="u2")
+        _provider(api_db, name="u2")  # seed only; duplicate-name guard reads it by name
         with pytest.raises(ApiBusinessError):
             models_routes.update_provider(p1.id, reg.ProviderUpdate(name="   "), api_db)
         with pytest.raises(ApiBusinessError, match="already exists"):

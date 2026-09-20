@@ -66,6 +66,14 @@ def test_run_code_timeout_clamp_and_bad_timeout(monkeypatch) -> None:
     assert r2.exit_code == 0
 
 
+def test_run_code_nonfinite_timeout_falls_back_to_default() -> None:
+    # NaN/inf must not escape the never-raise API (they poison child waits).
+    r = ce.run_code_snippet("python", "print(1)", timeout=float("nan"), isolation="process")
+    assert r.error == "" and r.exit_code == 0
+    r2 = ce.run_code_snippet("python", "print(1)", timeout=float("inf"), isolation="process")
+    assert r2.error == "" and r2.exit_code == 0
+
+
 def test_node_missing_returns_error(monkeypatch) -> None:
     monkeypatch.setattr(ce.shutil, "which", lambda name: None)
     r = ce.run_code_snippet("javascript", "console.log(1)", isolation="process")

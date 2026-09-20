@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 # keeps the historic module name (ws_handler re-exports it and tests pin it).
 AUDIO_BUFFER_MAX_BYTES: int = _platform_constants.AUDIO_BUFFER_MAX_BYTES
 _WS_LLM_RATE_LIMIT = DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
+# Whiteboard code mirror cap: ~100x a normal interview snippet; beyond this
+# the frame is pathological (stuck client / fuzzer), not an interview answer.
+_CODING_CODE_MAX_CHARS = 200_000
 
 
 class MessageDispatcherMixin:
@@ -65,6 +68,8 @@ class MessageDispatcherMixin:
     # The mapping is immutable so a subclass cannot corrupt dispatch for siblings.
     _MESSAGE_HANDLER_NAMES: "Mapping[str, str]" = MappingProxyType(
         {
+            # audio_chunk is a reserved legacy inbound (no first-party
+            # sender; voice travels as PCM inside user_turn_end).
             "audio_chunk": "_on_audio_chunk",
             "stt_text": "_on_stt_text",
             "user_typing": "_on_user_typing",
@@ -110,6 +115,13 @@ class MessageDispatcherMixin:
         # Inbound frames are untrusted: a non-string text (null/number) must not
         # raise inside the dispatch loop.
         text = str(data.get("text") or "").strip()
+        if len(text) > MAX_USER_TEXT_CHARS:
+            # Interim partials are superseded by the next frame; drop the
+            # pathological one instead of echoing megabytes back.
+            logger.debug(
+                "stt_text overlong session=%s len=%d", self.ctx.session_id, len(text)
+            )
+            return
         if text:
             # Voice partials count as "the candidate started answering": the
             # think window ends and the answer window takes over.
@@ -196,6 +208,20 @@ class MessageDispatcherMixin:
         chunk = data.get("data", "")
         if not chunk:
             return
+        if not isinstance(chunk, str):
+            # A non-string element would poison the buffer: stt_finish joins
+            # it with "".join. Drop instead of crashing the turn later.
+            logger.debug(
+                "audio_chunk non-string session=%s type=%s",
+                self.ctx.session_id,
+                type(chunk).__name__,
+            )
+            return
+        # Pre-check before decoding: base64 inflates ~4/3, so a frame that
+        # alone exceeds the budget is rejected without paying decode cost.
+        if self.ctx.audio_buffer_bytes + (len(chunk) * 3 // 4) > AUDIO_BUFFER_MAX_BYTES:
+            await self._reject_audio_overflow()
+            return
         try:
             new_bytes = len(base64.b64decode(chunk, validate=False))
         except (ValueError, TypeError):
@@ -204,21 +230,24 @@ class MessageDispatcherMixin:
             )
             new_bytes = 0
         if self.ctx.audio_buffer_bytes + new_bytes > AUDIO_BUFFER_MAX_BYTES:
-            logger.warning(
-                "audio_buffer exceeds the upper limit session=%s bytes=%s",
-                self.ctx.session_id,
-                self.ctx.audio_buffer_bytes + new_bytes,
-            )
-            await self.send(
-                "error",
-                message="Audio buffer exceeded; end the current turn first",
-                code="A0004",
-            )
-            self.ctx.audio_buffer = []
-            self.ctx.audio_buffer_bytes = 0
+            await self._reject_audio_overflow()
             return
         self.ctx.audio_buffer.append(chunk)
         self.ctx.audio_buffer_bytes += new_bytes
+
+    async def _reject_audio_overflow(self) -> None:
+        logger.warning(
+            "audio_buffer exceeds the upper limit session=%s bytes=%s",
+            self.ctx.session_id,
+            self.ctx.audio_buffer_bytes,
+        )
+        await self.send(
+            "error",
+            message="Audio buffer exceeded; end the current turn first",
+            code="A0004",
+        )
+        self.ctx.audio_buffer = []
+        self.ctx.audio_buffer_bytes = 0
 
     async def _on_user_text(self, data: dict[str, Any]) -> None:
         text = str(data.get("text") or "").strip()
@@ -261,6 +290,15 @@ class MessageDispatcherMixin:
     async def _on_coding_code_update(self, data: dict[str, Any]) -> None:
         try:
             code = str(data.get("code", ""))
+            if len(code) > _CODING_CODE_MAX_CHARS:
+                # Keep the last good mirror instead of caching a pathological
+                # payload in working memory.
+                logger.debug(
+                    "coding_code_update overlong session=%s len=%d",
+                    self.ctx.session_id,
+                    len(code),
+                )
+                return
             runner = getattr(self.ctx, "runner", None)
             agent = getattr(runner, "agent", None) if runner else None
             cog_mem = getattr(agent, "cognitive_memory", None) if agent else None
@@ -273,6 +311,17 @@ class MessageDispatcherMixin:
     async def _on_coding_run_request(self, data: dict[str, Any]) -> None:
         try:
             code = str(data.get("code", ""))
+            raw_output = str(data.get("test_output", "Tests run locally in browser sandbox."))
+            if len(code) > _CODING_CODE_MAX_CHARS or len(raw_output) > _CODING_CODE_MAX_CHARS:
+                await self.send(
+                    "error",
+                    message=(
+                        f"Code or test output too long (limit: {_CODING_CODE_MAX_CHARS} characters); "
+                        "shrink it and retry"
+                    ),
+                    code="A0003",
+                )
+                return
             runner = getattr(self.ctx, "runner", None)
             if not runner or not hasattr(runner, "coding_examiner"):
                 return
@@ -282,7 +331,7 @@ class MessageDispatcherMixin:
             outcome = evaluate_test_cases(
                 test_cases=test_cases,
                 candidate_code=code,
-                raw_output=str(data.get("test_output", "Tests run locally in browser sandbox.")),
+                raw_output=raw_output,
             )
             await self.send("coding_test_result", **outcome.to_dict())
         except Exception as exc:
@@ -292,6 +341,16 @@ class MessageDispatcherMixin:
         try:
             code = str(data.get("code", ""))
             test_output = str(data.get("test_output", ""))
+            if len(code) > _CODING_CODE_MAX_CHARS or len(test_output) > _CODING_CODE_MAX_CHARS:
+                await self.send(
+                    "error",
+                    message=(
+                        f"Code or test output too long (limit: {_CODING_CODE_MAX_CHARS} characters); "
+                        "shrink it and retry"
+                    ),
+                    code="A0003",
+                )
+                return
             runner = getattr(self.ctx, "runner", None)
             if not runner or not hasattr(runner, "coding_examiner"):
                 return

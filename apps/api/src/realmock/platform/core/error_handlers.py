@@ -9,6 +9,7 @@ Design principles:
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -88,6 +89,14 @@ def _exc_headers(exc: Exception) -> dict[str, str]:
     return dict(getattr(exc, "headers", None) or {})
 
 
+def _status_phrase(status: int) -> str:
+    """Best-effort reason phrase for fallback envelopes (unknown codes → generic)."""
+    try:
+        return HTTPStatus(status).phrase
+    except ValueError:
+        return "Request failed"
+
+
 def _envelope_from_http_exception(exc: HTTPException) -> JSONResponse:
     """Route every HTTPException (shared by FastAPI and Starlette) here.
 
@@ -108,7 +117,7 @@ def _envelope_from_http_exception(exc: HTTPException) -> JSONResponse:
     # The bottom line http_{status}
     return _envelope(
         code=f"http_{exc.status_code}",
-        message=detail or "Not Found",
+        message=detail or _status_phrase(exc.status_code),
         status=exc.status_code,
         extra_headers=extra,
     )

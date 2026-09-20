@@ -137,10 +137,12 @@ async def _fetch_page(url: str, max_chars: int) -> str:
             return _unavailable(f"too many redirects (>{_MAX_REDIRECT_HOPS})")
         # Policy validation and DNS pinning both resolve DNS; keep them off
         # the event loop so a slow resolver cannot stall every stream.
+        # Loopback stays blocked: this tool fetches public pages, and the
+        # model must not be able to drive loopback management endpoints.
         client = await asyncio.to_thread(
             make_pinned_async_client,
             current,
-            allow_local=True,
+            allow_local=False,
             allowed_ports=FETCH_ALLOWED_PORTS,
             timeout=FETCH_TIMEOUT_SECONDS,
         )

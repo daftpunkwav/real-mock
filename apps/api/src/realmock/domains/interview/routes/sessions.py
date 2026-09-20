@@ -132,9 +132,9 @@ def get_messages(
     if not session:
         raise_error("A2001")
     assert_session_token(session, access)
-    raw = json.loads(session.messages or "[]")
     # Strong validation: only retain legal items that conform to the ChatMessage structure; bad data is reduced to an empty list
     try:
+        raw = json.loads(session.messages or "[]")
         validated = _CHAT_MSG_ADAPTER.validate_python(raw)
         return [m.model_dump(mode="json") for m in validated]
     except Exception:

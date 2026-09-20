@@ -109,6 +109,17 @@ async def test_fetch_unsafe_url_blocked(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_loopback_blocked(monkeypatch) -> None:
+    """Model-supplied loopback URLs never reach the wire (no local-endpoint drive-by)."""
+    from realmock.platform.capabilities.ai.agent.tools import fetch as mod
+
+    monkeypatch.setattr(mod.asyncio, "to_thread", lambda f, *a, **k: f(*a, **k))
+    out = await mod.execute_web_fetch({"url": "http://127.0.0.1/"})
+    assert "FETCH_FAILED" in out
+    assert "blocked by policy" in out
+
+
+@pytest.mark.asyncio
 async def test_fetch_tool_handler_delegates() -> None:
     from realmock.platform.capabilities.ai.agent.tools.fetch import web_fetch_tool_spec
 

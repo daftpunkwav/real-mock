@@ -128,6 +128,12 @@ def test_sessions_crud_gaps():
     db8.query.return_value.filter.return_value.first.return_value = dirty
     with patch.object(mod, "assert_session_token", return_value=None):
         assert mod.get_messages(1, db8, "tok") == []
+    # Corrupt (unparseable) JSON degrades to [] instead of raising 500.
+    corrupt = _session_row(messages="{not-json")
+    db9 = MagicMock()
+    db9.query.return_value.filter.return_value.first.return_value = corrupt
+    with patch.object(mod, "assert_session_token", return_value=None):
+        assert mod.get_messages(1, db9, "tok") == []
     # to_session_response defaults avatar/scene
     with patch.object(mod, "parse_plan", return_value=None), patch.object(mod, "plan_step_views", return_value=[]):
         resp_out = mod.to_session_response(_session_row(), include_token=False)

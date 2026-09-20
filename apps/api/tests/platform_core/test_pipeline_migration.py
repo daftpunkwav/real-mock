@@ -200,7 +200,7 @@ class TestEnsureProviderChannels:
     def test_legacy_columns_dropped_after_backfill(self, api_db) -> None:
         """Upgraded DBs: flat columns are backfilled into channels, then physically
         dropped so ORM inserts no longer hit their NOT NULL constraints."""
-        from sqlalchemy import inspect, text
+        from sqlalchemy import inspect
 
         _wipe(api_db)
         from realmock.platform.models import LlmProvider

@@ -25,6 +25,7 @@ untrusted callers without reviewing the active backend's notes first.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import re
 import shutil
@@ -151,6 +152,10 @@ def run_code_snippet(
         timeout_s = min(max(float(timeout or DEFAULT_TIMEOUT_SEC), 1.0), MAX_TIMEOUT_SEC)
     except (TypeError, ValueError):
         timeout_s = DEFAULT_TIMEOUT_SEC
+    if not math.isfinite(timeout_s):
+        # NaN/inf would poison the child wait (ValueError deep in
+        # threading) — fall back instead of raising out of a never-raise API.
+        timeout_s = DEFAULT_TIMEOUT_SEC
 
     if lang == LANGUAGE_PYTHON:
         argv = [sys.executable, "-I", "snippet.py"]
@@ -250,6 +255,7 @@ __all__ = [
     "DEFAULT_TIMEOUT_SEC",
     "LANGUAGE_JAVASCRIPT",
     "LANGUAGE_PYTHON",
+    "MAX_CODE_CHARS",
     "MAX_OUTPUT_CHARS",
     "CodeResult",
     "format_observation",

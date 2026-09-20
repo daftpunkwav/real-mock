@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from typing import Any
 
 from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.platform.capabilities.ai.agent.tools import format_observation, run_code_snippet
+from realmock.platform.capabilities.ai.agent.tools import (
+    MAX_CODE_CHARS as _PLATFORM_MAX_CODE_CHARS,
+    format_observation,
+    run_code_snippet,
+)
 
 # Sandbox wall-clock bound for LLM-requested snippets (platform truncates
 # output; this clamp bounds worker-thread hold time per tool call).
@@ -15,30 +20,36 @@ _CODE_EXEC_DEFAULT_TIMEOUT = 10.0
 _CODE_EXEC_MAX_TIMEOUT = 15.0
 
 
-_CODE_MAX_CHARS = 20000
-
-
 async def run_code_exec(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
     """Run a short snippet in the sandbox.
 
     Args:
         args: Tool arguments (``language`` python/javascript, ``code``
-            up to 20k chars, ``timeout`` seconds clamped 1..15).
+            up to 8k chars, ``timeout`` seconds clamped 1..15).
         memory: Unused (no turn state to record).
 
     Returns:
-        ``(observation_text, [])`` with stdout/stderr/exit code; empty code
-        is refused without running.
+        ``(observation_text, [])`` with stdout/stderr/exit code; empty or
+        overlong code is refused without running.
     """
     del memory
     language = str(args.get("language", "") or "")
     code = str(args.get("code", "") or "")
     if not code.strip():
         return "code_exec missing code; nothing ran.", []
-    code = code[:_CODE_MAX_CHARS]
+    if len(code) > _PLATFORM_MAX_CODE_CHARS:
+        # Refuse instead of truncating: a cut snippet would run (and mislead)
+        # while the platform would reject it anyway above its own limit.
+        return (
+            f"code_exec code too long ({len(code)} chars > {_PLATFORM_MAX_CODE_CHARS}); "
+            "shrink the snippet and retry.",
+            [],
+        )
     try:
         timeout = float(args.get("timeout", _CODE_EXEC_DEFAULT_TIMEOUT) or _CODE_EXEC_DEFAULT_TIMEOUT)
     except (TypeError, ValueError):
+        timeout = _CODE_EXEC_DEFAULT_TIMEOUT
+    if not math.isfinite(timeout):
         timeout = _CODE_EXEC_DEFAULT_TIMEOUT
     timeout = min(max(timeout, 1.0), _CODE_EXEC_MAX_TIMEOUT)
     result = await asyncio.to_thread(run_code_snippet, language, code, timeout=timeout)

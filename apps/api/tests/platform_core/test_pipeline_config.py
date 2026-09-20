@@ -83,7 +83,7 @@ class TestPipelineConfig:
 
     def test_resolve_model_config_profile_override(self, api_db) -> None:
         _wipe(api_db)
-        from realmock.platform.models import LlmProvider, ModelProfile
+        from realmock.platform.models import ModelProfile
 
         p = _provider_with_channel(api_db, "ov", api_base="http://o/v1")
         m = ModelProfile(provider_id=p.id, model="over", cap_chat=True)
@@ -97,7 +97,7 @@ class TestPipelineConfig:
 
     def test_resolve_prefers_binding(self, api_db) -> None:
         _wipe(api_db)
-        from realmock.platform.models import LlmProvider, ModelProfile, TaskBinding
+        from realmock.platform.models import ModelProfile, TaskBinding
 
         p = _provider_with_channel(api_db, "bnd", api_base="http://b/v1")
         m = ModelProfile(provider_id=p.id, model="bound-m", cap_chat=True)

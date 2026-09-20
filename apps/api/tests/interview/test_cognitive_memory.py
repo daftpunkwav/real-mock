@@ -3,7 +3,6 @@
 from realmock.domains.interview.agents.memory import (
     CognitiveMemoryGraph,
     CompetencyStatus,
-    WorkingMemory,
 )
 
 

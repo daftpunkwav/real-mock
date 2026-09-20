@@ -75,6 +75,14 @@ def test_clamp_answer_wait_bounds_and_default():
     assert clamp_answer_wait(150) == 150.0
 
 
+def test_answer_timeout_prompt_language_split():
+    zh = answer_timeout_system_prompt()
+    assert "首先" in zh and "Firstly" not in zh
+    en = answer_timeout_system_prompt(lang="en")
+    assert "Firstly" in en and "首先" not in en
+    assert answer_timeout_system_prompt(lang="") == zh  # falsy → default
+
+
 def test_turn_output_answer_wait_clamped():
     from realmock.domains.interview.agents.turn_output import parse_turn_output
 

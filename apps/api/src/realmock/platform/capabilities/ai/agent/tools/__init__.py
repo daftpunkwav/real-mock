@@ -5,6 +5,7 @@ FastAPI or resume/prep/interview agents.
 """
 
 from .codeexec import (
+    MAX_CODE_CHARS,
     CodeResult,
     format_observation,
     run_code_snippet,
@@ -30,6 +31,7 @@ from .spec import ToolBundle, ToolSpec, openai_tool
 __all__ = [
     "FETCH_DEFAULT_MAX_CHARS",
     "FETCH_HARD_MAX_CHARS",
+    "MAX_CODE_CHARS",
     "SEARCH_DEFAULT_MAX_RESULTS",
     "SEARCH_HARD_MAX_RESULTS",
     "CodeResult",

@@ -223,7 +223,7 @@ async def test_dispatcher_spawn_gaps():
 async def test_dispatcher_audio_coding_and_submit_gaps():
     h = _make_handler()
     try:
-        # audio_chunk TypeError path (non-str data)
+        # audio_chunk non-str data is dropped by the type guard
         await h._on_audio_chunk({"data": 12345})
         assert h.ctx.audio_buffer_bytes == 0
         # coding_code_update exception path
@@ -240,6 +240,59 @@ async def test_dispatcher_audio_coding_and_submit_gaps():
         h.ctx.runner = None
         await h._on_coding_submit_request({"code": "c"})
         h.ctx.ws.send_json.assert_not_called()
+    finally:
+        await h._cancel_bg_tasks()
+
+
+@pytest.mark.asyncio
+async def test_audio_chunk_oversized_frame_rejected_before_decode():
+    from realmock.domains.interview.realtime.core.message_dispatcher import (
+        AUDIO_BUFFER_MAX_BYTES,
+    )
+
+    h = _make_handler()
+    try:
+        # A single frame larger than the whole budget is rejected without
+        # decoding (decode cost stays bounded by the budget itself; base64
+        # inflates ~4/3, so the encoded frame must exceed budget * 4/3).
+        await h._on_audio_chunk({"data": "A" * (AUDIO_BUFFER_MAX_BYTES * 4 // 3 + 16)})
+        assert h.ctx.audio_buffer == []
+        assert h.ctx.audio_buffer_bytes == 0
+        assert h.ctx.ws.send_json.await_args[0][0]["code"] == "A0004"
+    finally:
+        await h._cancel_bg_tasks()
+
+
+@pytest.mark.asyncio
+async def test_stt_text_overlong_dropped():
+    h = _make_handler()
+    try:
+        await h._on_stt_text({"text": "x" * 16001})
+        h.ctx.ws.send_json.assert_not_called()
+    finally:
+        await h._cancel_bg_tasks()
+
+
+@pytest.mark.asyncio
+async def test_coding_overlong_payloads_guarded():
+    from realmock.domains.interview.realtime.core.message_dispatcher import (
+        _CODING_CODE_MAX_CHARS,
+    )
+
+    big = "x" * (_CODING_CODE_MAX_CHARS + 1)
+    h = _make_handler()
+    try:
+        h.ctx.runner = MagicMock()
+        # Mirror keeps the last good value instead of caching the payload.
+        await h._on_coding_code_update({"code": "print(1)"})
+        await h._on_coding_code_update({"code": big})
+        wm = h.ctx.runner.agent.cognitive_memory.working_memory
+        assert wm.candidate_code == "print(1)"
+        # Run/submit answer with a visible error instead of burning the LLM.
+        await h._on_coding_run_request({"code": big})
+        assert h.ctx.ws.send_json.await_args[0][0]["code"] == "A0003"
+        await h._on_coding_submit_request({"code": "c", "test_output": big})
+        assert h.ctx.ws.send_json.await_args[0][0]["code"] == "A0003"
     finally:
         await h._cancel_bg_tasks()
 

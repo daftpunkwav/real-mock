@@ -1,10 +1,6 @@
 """Unit tests for sandbox test evaluation."""
 
-from realmock.domains.interview.capabilities.sandbox import (
-    CodeExecutionOutcome,
-    SingleTestCaseResult,
-    evaluate_test_cases,
-)
+from realmock.domains.interview.capabilities.sandbox import evaluate_test_cases
 
 
 def test_evaluate_test_cases_success():
