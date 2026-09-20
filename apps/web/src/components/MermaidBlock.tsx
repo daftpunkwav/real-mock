@@ -93,8 +93,10 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
           mermaid.initialize({
             startOnLoad: false,
             securityLevel: "strict",
-            // Critical: reject on parse errors instead of resolving with the
-            // red error-diagram SVG that used to flood the page.
+            // Best-effort: reject on parse errors instead of resolving with
+            // the red error-diagram SVG that used to flood the page. The
+            // isErrorDiagramSvg content check below is the real guard and
+            // works regardless of this flag.
             suppressErrorRendering: true,
             theme: readDarkMode() ? "dark" : "default",
             themeVariables: readDarkMode()

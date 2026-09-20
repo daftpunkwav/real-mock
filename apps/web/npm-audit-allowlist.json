@@ -1,0 +1,19 @@
+{
+  "$comment": "Accepted npm advisories: unfixable upstream with unreachable entry points in our usage. Every entry must name the GHSA id, the affected package, and why it is accepted. npm audit has no --ignore flag, so scripts/npm-audit-check.mjs enforces this list (CI runs `npm run audit`). Re-check entries when the dependency tree changes.",
+  "allow": [
+    {
+      "id": "GHSA-r5fr-rjxr-66jc",
+      "package": "lodash-es",
+      "via": "mermaid -> dagre-d3-es -> lodash-es",
+      "reason": "Code injection via _.template imports. lodash is unmaintained (4.17.23 is final, no patch). Not reachable: our src never imports lodash, and neither mermaid nor dagre-d3-es calls _.template (verified by grep over node_modules). Client-only impact in the diagram renderer.",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "GHSA-f23m-r3pf-42rh",
+      "package": "lodash-es",
+      "via": "mermaid -> dagre-d3-es -> lodash-es",
+      "reason": "Prototype pollution via _.unset/_.omit array path bypass. Same unmaintained-lodash situation. Not reachable: neither mermaid nor dagre-d3-es calls _.unset or _.omit (verified by grep over node_modules). Client-only impact in the diagram renderer.",
+      "added": "2026-09-20"
+    }
+  ]
+}

@@ -12,7 +12,7 @@
  */
 export function isErrorDiagramSvg(svg: string): boolean {
   if (svg.includes("Syntax error in text")) return true;
-  // Match an actual error-icon ELEMENT. mermaid v12 ships an `.error-icon`
+  // Match an actual error-icon ELEMENT. Mermaid ships an `.error-icon`
   // CSS rule inside every diagram's <style> block, so a bare substring
   // check misflags all healthy diagrams as failures.
   return /<[^>]*\bclass="[^"]*\berror-icon\b[^"]*"[^>]*>/.test(svg);

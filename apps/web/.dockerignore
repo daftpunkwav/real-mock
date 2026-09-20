@@ -5,3 +5,6 @@ Dockerfile
 coverage
 *.log
 *.tsbuildinfo
+# Local env files hold machine-specific backend URLs; the image takes
+# backend URLs via --build-arg (NEXT_PUBLIC_*) instead.
+.env*.local
