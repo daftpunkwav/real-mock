@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -252,12 +253,12 @@ async def get_report_stream(
     db: Session = Depends(get_sessions_db),
     api_db: Session = Depends(get_api_db),
     access: str | None = Depends(extract_token),
-):
+) -> StreamingResponse:
     """Pseudo-stream a ready report; generate once if still pending."""
     snap = _require_finished_session(db, session_id, access)
     llm = LLMClient.from_db(api_db)
 
-    async def event_stream():
+    async def event_stream() -> AsyncIterator[str]:
         try:
             row = get_report_row(db, session_id)
             report: DebriefReport | None = None
@@ -282,6 +283,11 @@ async def get_report_stream(
                 # of flashing A2004 while the agent is still working.
                 for _i in range(120):
                     await asyncio.sleep(0.5)
+                    # The debrief commits through a different Session. query().first()
+                    # hands back the identity-mapped instance without refreshing its
+                    # columns, so without expiring this poll re-reads its own snapshot
+                    # and can never observe ready/failed.
+                    db.expire_all()
                     row2 = get_report_row(db, session_id)
                     if row2 is not None and row2.status == STATUS_READY:
                         report = parse_payload(row2)

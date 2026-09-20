@@ -124,6 +124,40 @@ async def test_pump_breaks_on_disconnect_and_cancels_producer() -> None:
     assert cancelled.is_set()
 
 
+async def test_pump_unblocks_producer_that_pushes_during_cleanup() -> None:
+    """A producer awaiting put() during unwind must not wedge the pump.
+
+    Real producers report an error event and the None sentinel from their
+    except/finally blocks. After a disconnect nobody drains the bounded queue,
+    so those awaits would block forever and the unconditional gather below the
+    pump would never return, leaking the response coroutine.
+    """
+    cleanup_done = asyncio.Event()
+
+    async def producer(put: QueuePut) -> None:
+        try:
+            for i in range(100):
+                await put({"i": i})
+        except asyncio.CancelledError:
+            await put({"type": "error"})
+            await put(None)
+            cleanup_done.set()
+            raise
+
+    await asyncio.wait_for(
+        _collect(
+            pump_queue_to_sse(
+                _Request(disconnect_after=1),
+                producer,
+                heartbeat_seconds=5.0,
+                max_queue=1,
+            )  # type: ignore[arg-type]
+        ),
+        timeout=5.0,
+    )
+    assert cleanup_done.is_set()
+
+
 def test_sse_streaming_response_headers() -> None:
     async def _empty():
         if False:

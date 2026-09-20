@@ -80,8 +80,14 @@ async def pump_queue_to_sse(
     the stream, and the producer task is always cancelled on exit.
     """
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=max_queue)
+    # Flipped once the consumer stops draining. A producer that awaits put() in
+    # its own cleanup would otherwise block forever on a full queue nobody reads
+    # again, and the gather below would never return.
+    abandoned = False
 
     async def _put(event: dict[str, Any] | None) -> None:
+        if abandoned:
+            return
         await queue.put(event)
 
     task = asyncio.create_task(producer(_put))
@@ -103,6 +109,7 @@ async def pump_queue_to_sse(
                 break
             yield format_sse_line(event)
     finally:
+        abandoned = True
         if not task.done():
             task.cancel()
         # Await unconditionally so cancellation lands and a producer exception

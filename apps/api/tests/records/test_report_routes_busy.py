@@ -145,7 +145,15 @@ def _snap(**overrides) -> SessionSnapshot:
 
 
 @pytest.mark.asyncio
-async def test_report_stream_poll_finds_ready_row(db, api_db) -> None:
+async def test_report_stream_poll_observes_another_session_commit(
+    db, api_db, session_factory
+) -> None:
+    """The poll must see a ready row committed outside the request Session.
+
+    The debrief worker writes through its own Session, so a poll that keeps
+    handing back the identity-mapped instance never observes the transition and
+    the stream answers A2004 for a report that is already ready.
+    """
     _ensure_llm(api_db)
     sid = _completed_session(db)
     store.upsert_pending(db, sid)
@@ -154,18 +162,26 @@ async def test_report_stream_poll_finds_ready_row(db, api_db) -> None:
     async def fake_none(*a, **k):
         return None
 
-    calls = {"n": 0}
     orig_get = rmod.get_report_row
+    calls = {"n": 0}
+    flipped = {"done": False}
 
     def flipping_get(db_arg, sid_arg):
         calls["n"] += 1
-        if calls["n"] < 3:
-            return orig_get(db_arg, sid_arg)
-        row = orig_get(db_arg, sid_arg)
-        if row is not None:
-            row.status = store.STATUS_READY
-            row.payload = ready.model_dump_json()
-        return row
+        # Commit from a foreign Session only after the request Session has
+        # already loaded the row, so the poll really has to leave its snapshot.
+        if calls["n"] >= 3 and not flipped["done"]:
+            flipped["done"] = True
+            worker = session_factory()
+            try:
+                row = store.get_report_row(worker, sid_arg)
+                assert row is not None
+                row.status = store.STATUS_READY
+                row.payload = ready.model_dump_json()
+                worker.commit()
+            finally:
+                worker.close()
+        return orig_get(db_arg, sid_arg)
 
     async def fast_sleep(*a, **k):
         return None
@@ -183,11 +199,13 @@ async def test_report_stream_poll_finds_ready_row(db, api_db) -> None:
                                 json.loads(line[6:]) for line in resp.iter_lines()
                                 if line.startswith("data: ")
                             ]
+    assert flipped["done"], "poll never ran, so the assertion below proves nothing"
     assert any(c["type"] == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
-async def test_report_stream_poll_breaks_on_failed(db, api_db) -> None:
+async def test_report_stream_poll_breaks_on_failed(db, api_db, session_factory) -> None:
+    """A failed status written by the worker Session must end the poll."""
     _ensure_llm(api_db)
     sid = _completed_session(db)
     store.upsert_pending(db, sid)
@@ -196,12 +214,22 @@ async def test_report_stream_poll_breaks_on_failed(db, api_db) -> None:
         return None
 
     orig_get = rmod.get_report_row
+    calls = {"n": 0}
+    flipped = {"done": False}
 
     def failing_get(db_arg, sid_arg):
-        row = orig_get(db_arg, sid_arg)
-        if row is not None:
-            row.status = store.STATUS_FAILED
-        return row
+        calls["n"] += 1
+        if calls["n"] >= 3 and not flipped["done"]:
+            flipped["done"] = True
+            worker = session_factory()
+            try:
+                row = store.get_report_row(worker, sid_arg)
+                assert row is not None
+                row.status = store.STATUS_FAILED
+                worker.commit()
+            finally:
+                worker.close()
+        return orig_get(db_arg, sid_arg)
 
     async def fast_sleep(*a, **k):
         return None
@@ -219,6 +247,10 @@ async def test_report_stream_poll_breaks_on_failed(db, api_db) -> None:
                                 json.loads(line[6:]) for line in resp.iter_lines()
                                 if line.startswith("data: ")
                             ]
+    assert flipped["done"], "poll never ran, so the assertion below proves nothing"
+    # Breaking on failed is what distinguishes this from the timeout path: an
+    # unrefreshed poll would burn all 120 iterations and emit the generic error.
+    assert calls["n"] < 20, f"poll did not break early: {calls['n']} reads"
     assert any(c["type"] == "error" for c in chunks)
 
 
