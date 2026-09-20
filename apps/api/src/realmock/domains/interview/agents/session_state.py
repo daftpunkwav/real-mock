@@ -5,7 +5,7 @@ Responsibilities:
 - Advance phases and persist turn-control information;
 - For system prompt construction, see :mod:`session_prompt` (SessionPromptMixin).
 
-For prompts, see :mod:`agent_prompts`; for text filtering, see :mod:`agent_text`; for reports, see :mod:`report`.
+For prompts, see :mod:`agent_prompts`; for text filtering, see :mod:`agent_text`.
 Company catalog: cross-session company knowledge comes from :mod:`realmock.platform.catalogs.company`; this module only reads it.
 """
 

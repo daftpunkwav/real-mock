@@ -1,6 +1,6 @@
 """Turn lock (WS mixin): candidate-turn acquisition/release and epoch validation.
 
-Extracted from :mod:`...turn_coordinator`. Handles lock semantics only, not stream consumption or STT.
+Handles lock semantics only, not stream consumption or STT.
 """
 
 from __future__ import annotations

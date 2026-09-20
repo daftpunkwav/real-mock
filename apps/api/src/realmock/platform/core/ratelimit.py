@@ -57,7 +57,7 @@ def SessionsSessionLocal() -> Session:
 _BUCKET_TTL_SECONDS = 600
 _CLEANUP_INTERVAL_SECONDS = 120
 
-# When TRUSTED_PROXY_CIDRS is not configured, only loopback antigeneration is trusted
+# When TRUSTED_PROXY_CIDRS is not configured, only loopback addresses are trusted
 _DEFAULT_TRUSTED_PROXY_NETS = (
     ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("::1/128"),
@@ -212,7 +212,7 @@ def check_rate_limit(
         if bucket is None:
             bucket = _Bucket(timestamps=deque())
             _BUCKETS[bucket_key] = bucket
-        # outside pop-up window
+        # Drop timestamps outside the sliding window
         while bucket.timestamps and bucket.timestamps[0] <= now - window_seconds:
             bucket.timestamps.popleft()
         if len(bucket.timestamps) >= limit:

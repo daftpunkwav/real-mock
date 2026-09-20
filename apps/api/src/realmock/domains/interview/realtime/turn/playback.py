@@ -1,6 +1,6 @@
 """Playback wait (WS mixin): align TTS send generations and wait for client playback before opening the microphone.
 
-Extracted from :mod:`...turn_coordinator`. Generations are shared with room hooks / the TTS queue
+Generations are shared with room hooks / the TTS queue
 through ``ctx.playback_generation`` / ``ctx.awaiting_playback_gen``; do not introduce another counter.
 """
 

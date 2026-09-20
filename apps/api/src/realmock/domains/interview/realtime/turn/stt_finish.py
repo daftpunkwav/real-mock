@@ -1,6 +1,6 @@
 """End-of-turn STT (WS mixin): PCM limit / loopback-capture detection / recognition failure and turn admission.
 
-Extracted from :mod:`...turn_coordinator`. The PCM and browser-text paths share the same
+The PCM and browser-text paths share the same
 ``transcribe_utterance_result`` binding (a module-level name here; tests
 patch ``realmock.domains.interview.realtime.turn.stt_finish.transcribe_utterance_result``),
 and finally share ``_pick_stt_text`` → loopback-capture detection → ``_process_user_text``.

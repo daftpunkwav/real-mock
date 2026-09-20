@@ -91,14 +91,14 @@ def test_stepfun_rag_unready_tool_returns_none() -> None:
 
 def test_stepfun_rag_ready_tool_shape() -> None:
     rag = StepFunRetrievalRAG(llm=FakeLLMClient(api_key="sk-test"), settings=_make_settings())
-    rag._vector_store_id = "171215831957549056"
+    rag._vector_store_id = "1712158319575490FAKE"
     rag._ready = True
     tool = rag.build_retrieval_tool()
     assert tool is not None
     assert tool["type"] == "retrieval"
     assert tool["function"]["name"] == "company_kb"
     options = tool["function"]["options"]
-    assert options["vector_store_id"] == "171215831957549056"
+    assert options["vector_store_id"] == "1712158319575490FAKE"
     assert "{{knowledge}}" in options["prompt_template"]
     assert "{{query}}" in options["prompt_template"]
 
@@ -211,7 +211,7 @@ def test_stepfun_ensure_index_uses_configured_vector_store_id(monkeypatch) -> No
 
     settings = _make_settings(
         rag_backend="stepfun",
-        stepfun_vector_store_id="171215831957549056",
+        stepfun_vector_store_id="1712158319575490FAKE",
     )
     rag = StepFunRetrievalRAG(llm=FakeLLMClient(api_key="sk-test"), settings=settings)
     import asyncio

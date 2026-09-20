@@ -2,9 +2,9 @@
 
 Responsibilities are split into independent submodules; this module only composes the mixins:
 
-- :mod:`interrupt_control` — interruption counting and handling;
-- :mod:`user_text_control` — admit user text into a turn;
-- :mod:`finish_control` — proactive closing;
+- :mod:`interrupt` — interruption counting and handling;
+- :mod:`user_text` — admit user text into a turn;
+- :mod:`finish` — proactive closing;
 - :mod:`silence_nudge` — silence follow-up orchestration (LLM generation remains in :mod:`silence_probe`);
 - :mod:`turn_timers` — server-owned think/answer windows for the current question.
 """

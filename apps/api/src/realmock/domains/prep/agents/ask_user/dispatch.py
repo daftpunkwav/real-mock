@@ -55,7 +55,7 @@ async def dispatch_ask_user(
     if asked_user is not None:
         asked_user["on"] = True
     if events is not None:
-        # First reissue the previously generated search cards to ensure that the order of card events before the pop-up window is correct.
+        # Re-emit the previously generated search cards first so card events keep their order before the ask-user dialog.
         if search_groups:
             await events.put({
                 "type": "search_results",

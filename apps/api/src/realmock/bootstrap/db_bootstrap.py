@@ -1,11 +1,11 @@
-"""Aggregation entry database guidance (dual database + legacy demolition database).
+"""Database bootstrap: dual-database initialization plus legacy single-file migration.
 
-Attribution combination root (``bootstrap`` package): Business ORM must be registered before creating a table. This orchestration function depends on
-``bootstrap.sessions_orm`` and each business package, so it cannot be placed in the ``platform`` layer
-(See ``tests/test_platform_no_domain_imports.py`` for guards).
+Business ORM classes must be registered before ``create_all`` runs. This
+orchestration depends on ``bootstrap.sessions_orm`` and the business packages,
+so it lives in ``bootstrap`` — the platform layer must not import domains.
 
-``session_domains`` controls whether/according to which business package to register sessions ORM, so that each service
-There is no need to load unrelated business models when starting independently.
+``session_domains`` selects which business packages register their sessions
+ORM, so services started independently do not load unrelated models.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def bootstrap_databases_and_seed(
             - ``("prep",)`` / ``("interview",)`` / ``("records",)``: On-demand registration - corresponding to business independent process.
     """
     if os.environ.get("TEST_MODE") == "1":
-        # The test uses the conftest temporary library and skips the legacy single file demolition.
+        # Tests use the conftest temporary databases; skip the legacy single-file migration.
         pass
     else:
         maybe_migrate_legacy_app_db()

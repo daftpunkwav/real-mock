@@ -2,10 +2,10 @@
 
 This module only composes:
 
-- :mod:`turn_lock` — turn lock (reject closing / busy+epoch validation / release only this epoch);
-- :mod:`turn_text_entry` — admit candidate text into a turn (``stt_final`` before the main flow);
-- :mod:`turn_stt_finish` — finish a voice turn (PCM limit / loopback capture / failure count);
-- :mod:`turn_playback` — playback waiting (generation alignment, wait for playback before opening the microphone).
+- :mod:`lock` — turn lock (reject closing / busy+epoch validation / release only this epoch);
+- :mod:`text_entry` — admit candidate text into a turn (``stt_final`` before the main flow);
+- :mod:`stt_finish` — finish a voice turn (PCM limit / loopback capture / failure count);
+- :mod:`playback` — playback waiting (generation alignment, wait for playback before opening the microphone).
 
 ``_AUDIO_BUFFER_MAX_BYTES`` and ``_IMAGE_BASE64_MAX_LEN`` are re-exported by this module
 (preserving test patch / import paths).

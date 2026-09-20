@@ -42,10 +42,6 @@ def commit_session(db: Session) -> None:
         raise
 
 
-# Deprecated alias: kept for older imports; new code uses utcnow.
-_utcnow = utcnow
-
-
 class PrepSession(SessionsBase):
     """Interview preparation coaching sessions."""
 

@@ -1,7 +1,7 @@
 """Candidate text input into a turn (WS mixin): emit ``stt_final`` before entering the main flow.
 
-Extracted from :mod:`...turn_coordinator`. This only orchestrates text turns; lock semantics live in
-:class:`TurnLockMixin`, and the main flow is consumed by ``user_text_control.UserTextControlMixin``.
+This only orchestrates text turns; lock semantics live in
+:class:`TurnLockMixin`, and the main flow is consumed by ``realtime.control.user_text``.
 """
 
 from __future__ import annotations

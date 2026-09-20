@@ -226,10 +226,10 @@ async def run_chat(
         working, db, asked_user=asked_user
     )
     if asked_user["on"]:
-        # The pop-up window has been displayed: consistent with the streaming path, waiting for the user to answer, no more fabricated answers
+        # The ask-user dialog was already emitted: consistent with the streaming path, wait for the user to answer instead of fabricating one
         final = agent.pending_reply_text()
     elif early:
-        # The text at the end of the model is the final answer; pop-up events cannot be sent to non-streaming channels, and only purification is done.
+        # Trailing model text is the final answer; ask-user events cannot be sent on non-streaming channels, so only polish it.
         final, _ = polish_final(early)
         final = final or agent.pending_reply_text()
     else:
@@ -396,7 +396,7 @@ async def run_chat_stream(
                 async for piece in slice_stream(final):
                     yield piece
             if inline_ask is not None:
-                # Rescue it into a real pop-up window: a selection box pops up after the context is given in the text
+                # Promote the inlined question into a real ask_user event (the model put it in text instead of the tool call)
                 yield {"type": "ask_user", **inline_ask}
         if not final and inline_ask is None:
             if content_state.get("streamed"):
