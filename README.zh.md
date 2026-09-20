@@ -9,6 +9,7 @@ AI 模拟面试应用:上传简历获得解析与深度评价,通过 Prep 面试
 | [`apps/`](apps/README.zh.md) | 可部署应用 — 见各应用 README |
 | [`apps/web`](apps/web/README.zh.md) | 前端(Next.js,dev 模式运行于 8080 端口) |
 | [`apps/api`](apps/api/README.zh.md) | 后端(FastAPI,端口 8081):`realmock` 包(src layout);`platform`(平台内核)/ `domains`(七个域:profile / resume / settings / prep / interview / records / growth),由 `realmock.asgi` 聚合为单进程;测试位于 [`apps/api/tests`](apps/api/tests/README.zh.md) |
+| [`docs/`](docs/README.zh.md) | 主题指南:架构、API、实时协议、面试流程、Agent、语音、数据模型、配置、安全、前端、测试、部署 |
 | [`scripts/`](scripts/README.zh.md) | 开发与生成脚本(`dev.sh`、`export_openapi.py`) |
 | [`protocol/`](protocol/README.zh.md) | WebSocket 消息协议 schema(`interview_ws.schema.json`) |
 | `logs/` | 运行日志(由 `dev.sh` 创建和写入) |

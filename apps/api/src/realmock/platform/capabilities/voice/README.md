@@ -8,7 +8,7 @@ Provider catalogs (`recognize_providers.py`, `reasoning_providers.py`, `speak_pr
 
 ## `stt/` — speech-to-text
 
-`router.py` selects the provider; `base.py` is the adapter contract. Providers under `providers/`: `local` (faster-whisper), `cloud`, `openai_compat`, `xfyun`, `aliyun`, `tencent`, `volcengine`, `baidu`, `minimax`, and `json_template` (user-defined vendors); `whisper.py` hosts the shared faster-whisper service.
+`router.py` routes by provider id; `base.py` is the adapter contract. Fixed ids in `_PROVIDERS`: `openai_compat`, `mimo_audio`, `local` (faster-whisper), `xfyun`, `volcengine`, `aliyun`, `tencent`, `baidu`, `minimax`. Three dispatch paths bypass the table: full-URL credentials matched against `STT_PATHS` (minimax), user-authored adapter descriptors (`json_template`), and `protocol=openai_chat` (routed to `mimo_audio`). `cloud.py` and `whisper.py` are shared service modules, not routed ids.
 
 ## `tts/` — text-to-speech
 
