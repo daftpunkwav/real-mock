@@ -39,7 +39,7 @@ _EMOTIONS = (
 _SOURCE_VALUES = ("resume", "github", "company_kb", "none")
 _VERDICT_VALUES = ("passed", "failed")
 _WAIT_MAX = 60
-# Answer window (作答时间): from the candidate's first input until the interviewer takes the turn back.
+# Answer window: from the candidate's first input until the interviewer takes the turn back.
 _ANSWER_WAIT_MIN = 90
 _ANSWER_WAIT_MAX = 300
 # Single source for step-field clamps: protocols.plan_schema.

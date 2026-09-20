@@ -26,7 +26,7 @@ External layers (``realtime``, ``routes``, ``process``) must depend only on
 this facade plus the two leaf contracts below — never on sibling modules
 directly:
 
-- ``agents.events`` — WS event contract (versioned via ``schema_version``);
+- ``agents.events`` — runner-to-handler streaming contract (``StreamEvent`` / ``EventKind``);
 - ``agents.agent_text`` — text filters (pure functions).
 
 Internal modules keep importing each other by submodule path.

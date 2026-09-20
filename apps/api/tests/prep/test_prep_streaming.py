@@ -37,7 +37,6 @@ def test_oversized_unclosed_block_released_as_text() -> None:
 async def test_on_content_noop_without_events_or_state() -> None:
     _, _, on_content = event_loopbacks(None, content_state=None)
     await on_content("hello")
-    assert True
 
     events: asyncio.Queue = asyncio.Queue()
     _, _, on_content2 = event_loopbacks(events, content_state=None)

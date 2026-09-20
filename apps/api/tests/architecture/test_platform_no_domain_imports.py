@@ -30,7 +30,7 @@ def test_platform_package_no_domain_imports() -> None:
     base = api_root / SCAN_ROOT
     violations: list[str] = []
     for path in base.rglob("*.py"):
-        if "tests" in path.parts or path.name == "__init__.py":
+        if "tests" in path.parts:
             continue
         for hit in _forbidden_service_imports(path):
             violations.append(f"{path.relative_to(api_root)}: {hit}")

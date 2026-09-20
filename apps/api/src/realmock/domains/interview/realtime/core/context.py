@@ -108,7 +108,7 @@ class ConnectionContext:
     #: cap): further silence stays quiet instead of looping probes or errors.
     silence_capped: bool = False
 
-    # ── 服务端回合计时器(思考窗/作答窗) ────────────────
+    # ── Server-side turn timers (think window / answer window) ──────
     #: Latest LLM per-question answer-window estimate (seconds, 0 = not provided).
     last_answer_wait_seconds: float = 0.0
     #: Scheduled think-window timer for the current question (None = disarmed);

@@ -36,8 +36,6 @@ def _extract_ts_required_fields(ts_path: Path) -> tuple[dict[str, set[str]], dic
 
     def _scan(part: str) -> dict[str, set[str]]:
         out: dict[str, set[str]] = {}
-        for block in re.findall(r"\{[^{}]*type:\s*\"([a-z_]+)\"[^{}]*\}", part):
-            pass
         # Multi-line block: from type to the next `| {` or `;`
         for m in re.finditer(
             r"type:\s*\"([a-z_]+)\"([^|]*?)(?=\||;)",

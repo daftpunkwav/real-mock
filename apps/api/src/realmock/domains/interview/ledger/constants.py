@@ -5,7 +5,7 @@ from __future__ import annotations
 SCHEMA = "realmock.ledger.v1"
 PREVIEW_MAX_CHARS = 2048
 # Agent loop encodes tool exceptions with this prefix.
-TOOL_FAILURE_PREFIXES: tuple[str, ...] = ("Tool execution failed", "Tool execution failed")
+TOOL_FAILURE_PREFIXES: tuple[str, ...] = ("Tool execution failed",)
 
 
 def is_tool_failure_result(result: str) -> bool:
