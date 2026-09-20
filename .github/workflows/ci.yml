@@ -47,13 +47,13 @@ jobs:
         working-directory: apps/api
         run: python -m mypy src
 
-      - name: pytest full regression + coverage gate (>=40%)
+      - name: pytest full regression + coverage gate (>=90%)
         working-directory: apps/api
         run: >
           python -m pytest -q
           --cov=realmock.platform --cov=realmock.domains.profile --cov=realmock.domains.resume
           --cov=realmock.domains.settings --cov=realmock.domains.prep --cov=realmock.domains.interview
-          --cov-report=term-missing --cov-fail-under=40
+          --cov-report=term-missing --cov-fail-under=90
 
       - name: pip-audit dependency scan
         # Audit the current env (including editable realmock-api deps)
