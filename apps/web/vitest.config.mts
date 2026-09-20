@@ -14,6 +14,18 @@ export default defineConfig({
     env: {
       NODE_ENV: "development",
     },
+    coverage: {
+      provider: "v8",
+      // Regression gates, set just under the measured level so normal churn
+      // cannot silently drop coverage (run via `npm test`, which enables
+      // coverage). Raise them as coverage grows.
+      thresholds: {
+        statements: 50,
+        branches: 47,
+        functions: 47,
+        lines: 50,
+      },
+    },
   },
   resolve: {
     alias: {

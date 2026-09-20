@@ -33,7 +33,8 @@ export const prepMemoryHttp = {
   listMemories: (tag?: string, limit?: number) => {
     const params = new URLSearchParams();
     if (tag) params.set("tag", tag);
-    // Falsy/over-range limits fall back to the default (server clamps anyway).
+    // Non-number limits fall back to the default; finite values clamp into
+    // 1..50 (the server clamps anyway).
     const clamped =
       typeof limit === "number" && Number.isFinite(limit)
         ? Math.min(Math.max(Math.floor(limit), 1), MEMORY_LIST_LIMIT)

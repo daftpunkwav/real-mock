@@ -61,3 +61,81 @@ describe("env WS base derivation", () => {
     expect(env.STREAM_API_BASE).toBe("http://localhost:8081");
   });
 });
+
+describe("env production validation", () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  /** loadEnv variant that runs readEnv() with NODE_ENV=production. */
+  async function loadProdEnv(env: Partial<Record<(typeof ENV_KEYS)[number], string>>) {
+    vi.resetModules();
+    const procEnv = process.env as Record<string, string | undefined>;
+    const saved: Record<string, string | undefined> = { NODE_ENV: procEnv.NODE_ENV };
+    procEnv.NODE_ENV = "production";
+    for (const key of ENV_KEYS) {
+      saved[key] = procEnv[key];
+      if (env[key] === undefined) delete procEnv[key];
+      else procEnv[key] = env[key]!;
+    }
+    try {
+      const mod = await import("@/lib/env");
+      return mod.getEnv();
+    } finally {
+      for (const key of ENV_KEYS) {
+        if (saved[key] === undefined) delete procEnv[key];
+        else procEnv[key] = saved[key]!;
+      }
+      procEnv.NODE_ENV = saved.NODE_ENV;
+    }
+  }
+
+  const fullValid = {
+    NEXT_PUBLIC_API_BASE: "https://api.example.com",
+    NEXT_PUBLIC_STREAM_API_BASE: "https://api.example.com",
+    NEXT_PUBLIC_WS_URL: "wss://api.example.com",
+  };
+
+  it("accepts a complete protocol-consistent production config and strips trailing slashes", async () => {
+    const env = await loadProdEnv({
+      ...fullValid,
+      NEXT_PUBLIC_API_BASE: "https://api.example.com/",
+    });
+    expect(env.API_BASE).toBe("https://api.example.com");
+    expect(env.STREAM_API_BASE).toBe("https://api.example.com");
+  });
+
+  it("throws when production is missing required vars, naming all of them", async () => {
+    await expect(loadProdEnv({})).rejects.toThrow(
+      /NEXT_PUBLIC_API_BASE, NEXT_PUBLIC_WS_URL, NEXT_PUBLIC_STREAM_API_BASE/,
+    );
+  });
+
+  it("throws on an https API_BASE with a ws:// WS_URL", async () => {
+    await expect(
+      loadProdEnv({
+        ...fullValid,
+        NEXT_PUBLIC_WS_URL: "ws://api.example.com",
+      }),
+    ).rejects.toThrow(/API_BASE and WS_URL protocol mismatch/);
+  });
+
+  it("throws on an https API_BASE with an http:// STREAM_API_BASE", async () => {
+    await expect(
+      loadProdEnv({
+        ...fullValid,
+        NEXT_PUBLIC_STREAM_API_BASE: "http://api.example.com",
+      }),
+    ).rejects.toThrow(/API_BASE and STREAM_API_BASE protocol mismatch/);
+  });
+
+  it("throws when WS_URL hosts differ from STREAM_API_BASE (host-scoped cookies)", async () => {
+    await expect(
+      loadProdEnv({
+        NEXT_PUBLIC_API_BASE: "http://api.example.com",
+        NEXT_PUBLIC_STREAM_API_BASE: "http://api.example.com",
+        NEXT_PUBLIC_WS_URL: "ws://other.example.com",
+      }),
+    ).rejects.toThrow(/host must equal STREAM_API_BASE host/);
+  });
+});
