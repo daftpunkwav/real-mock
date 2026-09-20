@@ -115,7 +115,7 @@
           ]
         },
         "phase_title": {
-          "type": "string"
+          "type": ["string", "null"]
         }
       }
     },
@@ -248,7 +248,7 @@
           "type": "string"
         },
         "phase_title": {
-          "type": "string"
+          "type": ["string", "null"]
         }
       }
     },
@@ -503,6 +503,10 @@
         },
         "language": {
           "type": "string"
+        },
+        "test_output": {
+          "type": "string",
+          "description": "Client-supplied run output; the backend falls back to a fixed string when absent."
         }
       }
     },

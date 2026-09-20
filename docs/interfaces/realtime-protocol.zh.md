@@ -17,9 +17,9 @@
 ## SSOT 与守卫
 
 - SSOT：`protocol/interview_ws.schema.json` — server / client 事件类型及逐事件 payload 结构。
-- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（20 个类型）与 `WSClientEvent`（13 个类型）。
+- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（20 个类型）与 `WSClientEvent`（15 个类型）。
 - 前端：`apps/web/src/types/domains/interview_ws.ts`（`ServerEvent` / `ClientEvent` 联合类型）。
-- 守卫：`apps/api/tests/interview/test_ws_protocol_schema.py` — 双向子集断言（后端枚举 ⊆ schema、前端联合类型 ⊆ schema）加逐事件 payload 覆盖检查。schema 刻意作为超集：`user_typing` 是仅前端使用的 client 事件，后端枚举中没有对应成员。
+- 守卫：`apps/api/tests/interview/test_ws_protocol_schema.py` — 双向子集断言（后端枚举 ⊆ schema、前端联合类型 ⊆ schema）加逐事件 payload 覆盖检查。schema 刻意作为超集：`audio_chunk` 是保留的历史入站事件——派发器接受它，但第一方客户端不再发送（语音以 PCM 承载于 `user_turn_end` 内）。
 
 ## Server 事件（20 个）
 
@@ -46,14 +46,15 @@
 | `coding_test_result` | `passed` | `test_results`、`stdout`、`stderr` |
 | `coding_eval_report` | `report` | |
 
-## Client 事件（14 个）
+## Client 事件（15 个）
 
 | 事件 | 必填字段 | 可选字段 |
 | --- | --- | --- |
 | `user_text` | `text` | `face_analysis`、`image_base64` |
 | `user_turn_end` | `pcm`、`sample_rate` | `text`、`face_analysis`、`image_base64` |
 | `stt_text` | `text` | |
-| `user_typing` | |（仅前端使用） |
+| `user_typing` | | |
+| `audio_chunk` | `data` |（保留的历史事件，第一方客户端不发送） |
 | `silence_timeout` | | |
 | `barge_in` | | |
 | `request_hint` | `question` | |

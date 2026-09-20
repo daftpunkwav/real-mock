@@ -37,7 +37,7 @@ Triggers: push to `main` (edge tag) and `v*` tags (semver). Auth uses the built-
 | Port / entry | 8081; `uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
 | Runtime data | DB / Chroma / uploads live under `/app/apps/api/src/realmock/platform/data` inside the container — mount a volume there at runtime |
 
-The Dockerfile installs no extra apt packages on purpose: the agent sandbox shells out to `setpriv` / `runuser` / `unshare` (shipped by bookworm's essential util-linux package) and `nobody` (from base-passwd). Full sandbox enforcement additionally needs runtime privileges the image cannot grant itself (e.g. `docker run --cap-add SYS_ADMIN` plus a writable `/sys/fs/cgroup`); without them snippets still run and every unenforced control is reported back as an explicit isolation note.
+Besides the Node.js row above, the Dockerfile installs no other extra apt packages on purpose: the agent sandbox shells out to `setpriv` / `runuser` / `unshare` (shipped by bookworm's essential util-linux package) and `nobody` (from base-passwd). Full sandbox enforcement additionally needs runtime privileges the image cannot grant itself (e.g. `docker run --cap-add SYS_ADMIN` plus a writable `/sys/fs/cgroup`); without them snippets still run and every unenforced control is reported back as an explicit isolation note.
 
 ### Web image (`apps/web/Dockerfile`, build context = `apps/web`)
 

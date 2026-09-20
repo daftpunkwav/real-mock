@@ -37,7 +37,7 @@ backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LL
 | 端口 / 入口 | 8081；`uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
 | 运行时数据 | DB / Chroma / 上传文件位于容器内 `/app/apps/api/src/realmock/platform/data`——运行时需在该路径挂载卷 |
 
-该 Dockerfile 有意不安装额外 apt 包：agent 沙箱会调用 `setpriv` / `runuser` / `unshare`（bookworm essential 的 util-linux 包自带）与 `nobody` 用户（来自 base-passwd）。完整沙箱强制还需镜像自身无法授予的运行时特权（如 `docker run --cap-add SYS_ADMIN` 加可写的 `/sys/fs/cgroup`）；缺省时片段仍可运行，且每个未强制的控制项都会以明确的隔离说明回报。
+除上表 Node.js 一行外，该 Dockerfile 有意不再安装其他 apt 包：agent 沙箱会调用 `setpriv` / `runuser` / `unshare`（bookworm essential 的 util-linux 包自带）与 `nobody` 用户（来自 base-passwd）。完整沙箱强制还需镜像自身无法授予的运行时特权（如 `docker run --cap-add SYS_ADMIN` 加可写的 `/sys/fs/cgroup`）；缺省时片段仍可运行，且每个未强制的控制项都会以明确的隔离说明回报。
 
 ### Web 镜像（`apps/web/Dockerfile`，build context = `apps/web`）
 

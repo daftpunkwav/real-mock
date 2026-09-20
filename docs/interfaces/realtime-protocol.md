@@ -17,9 +17,9 @@ One JSON object per message, no envelope: `{"type": "<event-type>", ...payload}`
 ## SSOT and guards
 
 - SSOT: `protocol/interview_ws.schema.json` — server / client event types plus per-event payload shapes.
-- Backend: `realmock.domains.interview.constants` — `WSServerEvent` (20 types) and `WSClientEvent` (13 types).
+- Backend: `realmock.domains.interview.constants` — `WSServerEvent` (20 types) and `WSClientEvent` (15 types).
 - Frontend: `apps/web/src/types/domains/interview_ws.ts` (`ServerEvent` / `ClientEvent` union types).
-- Guard: `apps/api/tests/interview/test_ws_protocol_schema.py` — subset assertions in both directions (backend enums ⊆ schema, frontend union ⊆ schema) plus per-event payload coverage for every event. The schema is deliberately a superset: `user_typing` is a frontend-only client event and has no backend enum member.
+- Guard: `apps/api/tests/interview/test_ws_protocol_schema.py` — subset assertions in both directions (backend enums ⊆ schema, frontend union ⊆ schema) plus per-event payload coverage for every event. The schema is deliberately a superset: `audio_chunk` is reserved legacy inbound — the dispatcher accepts it, but the first-party client does not emit it (voice travels as PCM inside `user_turn_end`).
 
 ## Server events (20)
 
@@ -46,14 +46,15 @@ One JSON object per message, no envelope: `{"type": "<event-type>", ...payload}`
 | `coding_test_result` | `passed` | `test_results`, `stdout`, `stderr` |
 | `coding_eval_report` | `report` | |
 
-## Client events (14)
+## Client events (15)
 
 | Event | Required fields | Optional fields |
 | --- | --- | --- |
 | `user_text` | `text` | `face_analysis`, `image_base64` |
 | `user_turn_end` | `pcm`, `sample_rate` | `text`, `face_analysis`, `image_base64` |
 | `stt_text` | `text` | |
-| `user_typing` | | (frontend-only) |
+| `user_typing` | | |
+| `audio_chunk` | `data` | (reserved legacy; not emitted by the first-party client) |
 | `silence_timeout` | | |
 | `barge_in` | | |
 | `request_hint` | `question` | |
