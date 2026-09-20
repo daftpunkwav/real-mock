@@ -1,9 +1,8 @@
 # Contributing
 
-RealMock is a personal, local-first project (single user, not deployed publicly).
+RealMock is a personal, local-first project.
 This guide describes how to develop it day-to-day and exactly what CI expects;
-agent-specific working rules live in [AGENTS.md](AGENTS.md) (plus a private
-`AGENTS.local.md` overlay when present).
+agent-specific working rules live in [AGENTS.md](AGENTS.md).
 
 ## Setup
 
@@ -42,8 +41,7 @@ docstrings leak into schema descriptions — document schemas with `#` comments 
 ## Commit & branch conventions
 
 - Commit: `<type>(<scope>): <subject>` with type `feat | fix | refactor | chore | docs | test | perf`
-- Commits are in English and describe the change itself (what and why) — never
-  task-list or document progress ("finished chapter N" style is rejected)
+- Commits are in English and describe the change itself
 - Branches: `<type>/<short-kebab-description>`, e.g. `feat/prep-agent-memory`
 
 ## Code rules
@@ -53,7 +51,7 @@ Enforced in review, backed by the architecture tests:
 - Decoupling over cohesion: split mixed concerns even when a file is small; one responsibility per file
 - Domains depend only on the platform kernel — no cross-domain business imports
 - Neutral naming driven by function, boundary and responsibility
-- Comments in English, explaining the code itself (no references to docs or history)
+- Comments in English, explaining the code itself
 - Minimal correct diffs; no speculative generality
 - Type-only changes must have zero runtime footprint
 

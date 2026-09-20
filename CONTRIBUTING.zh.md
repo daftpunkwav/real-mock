@@ -1,8 +1,7 @@
 # 贡献指南
 
-RealMock 是个人本地优先项目（单用户，不公开部署）。本指南描述日常开发方式与
-CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)（另有私有的
-`AGENTS.local.md` 本地覆盖，若存在）。
+RealMock 是个人本地优先项目。本指南描述日常开发方式与
+CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 
 ## 环境准备
 
@@ -41,7 +40,7 @@ API 契约链为 `scripts/export_openapi.py` -> `openapi.json` -> `apps/web/src/
 ## 提交与分支约定
 
 - 提交：`<type>(<scope>): <subject>`，type 取 `feat | fix | refactor | chore | docs | test | perf`
-- 提交信息用英文，只描述改动本身（改了什么、为什么）——禁止任务清单或文档进度式表述
+- 提交信息用英文，只描述改动本身
 - 分支：`<type>/<short-kebab-description>`，如 `feat/prep-agent-memory`
 
 ## 代码规则
@@ -51,7 +50,7 @@ API 契约链为 `scripts/export_openapi.py` -> `openapi.json` -> `apps/web/src/
 - 解耦优先于内聚：混合职责即使文件很小也必须拆分；一个文件单一职责
 - domains 只依赖 platform 内核——禁止跨域业务导入
 - 命名保持中立，以功能、边界、职责为依据
-- 注释用英文，只解释代码本身（不引用文档或历史）
+- 注释用英文，只解释代码本身
 - 最小正确 diff；不做投机性泛化
 - 纯类型层改动必须零运行时足迹
 
