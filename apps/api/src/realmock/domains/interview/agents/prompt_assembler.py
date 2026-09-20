@@ -51,7 +51,7 @@ class PromptAssembler:
     ) -> str:
         """Assemble the user text sent to the LLM (including face-analysis hints)."""
         content = text
-        if face:
+        if isinstance(face, dict) and face:
             hints: list[str] = []
             if not face.get("face_detected", True):
                 hints.append("no face detected in frame")
@@ -73,13 +73,23 @@ class PromptAssembler:
     ) -> list[dict[str, Any]]:
         """Build the messages list for the LLM API (image modality + compaction when needed).
 
-        Caller must ensure ``self.agent.messages`` already ends with the current-turn user
-        message (set by :meth:`stream_turn`). This method does not append another user message.
+        Caller must ensure ``self.agent.messages`` already contains the current-turn
+        user message (set by :meth:`stream_turn`); follow-up / RAG guidance may trail
+        it, so the upgrade targets the last user entry rather than the list tail.
+        This method does not append another user message.
         """
         messages = list(self.agent.messages)
         if image_b64:
             user_content = self.build_user_content(text, face)
-            messages[-1] = {
+            last_user = next(
+                (
+                    i
+                    for i in range(len(messages) - 1, -1, -1)
+                    if messages[i].get("role") == "user"
+                ),
+                len(messages) - 1,
+            )
+            messages[last_user] = {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": user_content},

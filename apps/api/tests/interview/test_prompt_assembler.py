@@ -50,6 +50,33 @@ async def test_prompt_image_branch_and_plain_return() -> None:
 
 
 @pytest.mark.asyncio
+async def test_prompt_image_upgrade_keeps_trailing_guidance() -> None:
+    """stream_turn leaves follow-up/RAG system blocks after the user turn.
+
+    Upgrading the tail in place used to delete the RAG block and duplicate the
+    candidate's utterance (plain text at -3, multimodal at -1).
+    """
+    from realmock.domains.interview.agents.prompt_assembler import PromptAssembler
+
+    agent = SimpleNamespace(
+        messages=[
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "我的回答是……"},
+            {"role": "system", "content": "[Follow-up guidance: depth] 追问一下"},
+            {"role": "system", "content": "## Enterprise knowledge base\n命中片段"},
+        ],
+        agent_state={},
+    )
+    asm = PromptAssembler(SimpleNamespace(id=1), agent, llm=None)
+    out = await asm.build_api_messages("我的回答是……", None, "aGVsbG8=", context_window=None)
+
+    assert [m["role"] for m in out] == ["system", "user", "system", "system"]
+    assert out[1]["content"][1]["type"] == "image_url"
+    assert "命中片段" in out[3]["content"]
+    assert sum(1 for m in out if m["role"] == "user") == 1
+
+
+@pytest.mark.asyncio
 async def test_prompt_compact_token_estimate_failure(monkeypatch) -> None:
     from realmock.domains.interview.agents import prompt_assembler as mod
 

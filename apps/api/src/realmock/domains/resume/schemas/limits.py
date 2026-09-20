@@ -75,8 +75,10 @@ REVIEW_MAX_TOOLS_PER_ROUND: int = 4
 REVIEW_MAX_PLAN_STEPS: int = 15
 REVIEW_MIN_PLAN_STEPS: int = 8
 REVIEW_TOOL_TIMEOUT_SECONDS: float = 30.0
-REVIEW_REPAIR_TIMEOUT_SECONDS: float = 300.0
-REVIEW_MAX_OUTPUT_TOKENS = 16_384
+REVIEW_REPAIR_TIMEOUT_SECONDS: float = 480.0
+# Responses-protocol reasoning models count reasoning tokens toward this cap;
+# a full Chinese evaluation JSON plus high-effort reasoning exceeds 16k.
+REVIEW_MAX_OUTPUT_TOKENS = 32_768
 REVIEW_SEARCH_MAX_RESULTS: int = 8
 REVIEW_KEEP_RECENT_MESSAGES: int = 32
 SSE_HEARTBEAT_SECONDS: float = 15.0

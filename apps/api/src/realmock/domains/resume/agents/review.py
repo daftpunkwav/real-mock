@@ -70,6 +70,7 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.defaults import resolve_context_window, resolve_max_output_tokens
 from realmock.platform.capabilities.ai.llm.json_extract import (
     extract_json_object as _extract_json_object,
+    salvage_truncated_object as _salvage_truncated_object,
     truncate_chunk,
 )
 from realmock.platform.core.errors import ApiBusinessError, raise_error
@@ -239,7 +240,8 @@ async def finalize_review_json(
     """Parse the loop's final JSON, or repair it from gathered evidence.
 
     Does not invent an evaluation from an empty prompt. Missing evidence → C0001.
-    Repair failure → C0002.
+    A reply truncated by the output-token cap is repaired first and only salvaged
+    locally when that repair yields no object. Repair failure → C0002.
     """
     payload = _extract_json_object(loop.final_content or "")
     if isinstance(payload, dict):
@@ -259,6 +261,8 @@ async def finalize_review_json(
         evidence,
         purpose="resume review JSON repair",
     )
+    repaired: Any = None
+    repair_error: Exception | None = None
     try:
         repaired = await asyncio.wait_for(
             llm.chat_json(
@@ -284,10 +288,22 @@ async def finalize_review_json(
         )
     except Exception as exc:
         logger.warning("Resume review JSON repair failed: %s", exc)
-        raise_error("C0002", cause=exc)
-    if not isinstance(repaired, dict):
-        raise_error("C0002")
-    return repaired
+        repair_error = exc
+    if isinstance(repaired, dict):
+        return repaired
+    # Last resort for a reply cut off by the output-token cap: the head is real
+    # review text, so keep it rather than failing the whole review. Everything
+    # past the cut is missing, which the normalizers below fill with defaults.
+    salvaged = _salvage_truncated_object(loop.final_content or "")
+    if isinstance(salvaged, dict):
+        logger.warning(
+            "Resume review kept the head of a truncated reply (%s chars, no grounded repair)",
+            len(str(loop.final_content or "")),
+        )
+        return salvaged
+    if repair_error is not None:
+        raise_error("C0002", cause=repair_error)
+    raise_error("C0002")
 
 
 async def _invoke_review_tool(
