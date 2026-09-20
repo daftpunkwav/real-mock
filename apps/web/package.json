@@ -1,13 +1,13 @@
 {
   "name": "realmock-web",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_ENV=development next dev --port 8080",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --coverage.enabled",
     "test:watch": "vitest",
     "audit": "npm audit --json | node scripts/npm-audit-check.mjs",
     "export:openapi": "python ../../scripts/export_openapi.py",
@@ -52,6 +52,8 @@
   },
   "overrides": {
     "postcss": "^8.5.18",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.4",
+    "js-yaml": "4.3.2",
+    "@redocly/openapi-core": "1.34.20"
   }
 }

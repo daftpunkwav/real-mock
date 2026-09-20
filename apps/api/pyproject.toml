@@ -19,7 +19,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "realmock-api"
-version = "1.0.0"
+version = "0.1.0"
 description = "RealMock mock-interview platform API (modular FastAPI monolith)"
 requires-python = ">=3.11"
 dependencies = [
