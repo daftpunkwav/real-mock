@@ -146,15 +146,3 @@ export function localizeOptions(
     phaseLabels,
   };
 }
-
-/**
- * @deprecated Static workflow arrow lines are no longer shown in setup preview.
- * The interview flow is agent-planned per session (resume/role/company/round);
- * workflow phases are only a baseline coverage reference. Kept for tests only.
- */
-export function workflowProcessLine(
-  phaseIds: readonly string[],
-  phaseLabels: Record<string, string>,
-): string {
-  return phaseIds.map((id) => phaseLabels[id] || id).join(" → ");
-}
