@@ -8,7 +8,7 @@
 
 ## `stt/` — 语音识别
 
-`router.py` 选择供应商;`base.py` 是适配器契约。`providers/` 下的供应商:`whisper`(本地)、`cloud`、`openai_compat`、`xfyun`、`aliyun`、`tencent`、`volcengine`、`baidu`、`minimax`、`json_template`(自定义厂商)。
+`router.py` 选择供应商;`base.py` 是适配器契约。`providers/` 下的供应商:`local`(faster-whisper)、`cloud`、`openai_compat`、`xfyun`、`aliyun`、`tencent`、`volcengine`、`baidu`、`minimax`、`json_template`(自定义厂商);`whisper.py` 承载共享的 faster-whisper 服务。
 
 ## `tts/` — 语音合成
 

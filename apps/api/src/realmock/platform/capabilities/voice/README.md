@@ -8,7 +8,7 @@ Provider catalogs (`recognize_providers.py`, `reasoning_providers.py`, `speak_pr
 
 ## `stt/` — speech-to-text
 
-`router.py` selects the provider; `base.py` is the adapter contract. Providers under `providers/`: `whisper` (local), `cloud`, `openai_compat`, `xfyun`, `aliyun`, `tencent`, `volcengine`, `baidu`, `minimax`, and `json_template` (user-defined vendors).
+`router.py` selects the provider; `base.py` is the adapter contract. Providers under `providers/`: `local` (faster-whisper), `cloud`, `openai_compat`, `xfyun`, `aliyun`, `tencent`, `volcengine`, `baidu`, `minimax`, and `json_template` (user-defined vendors); `whisper.py` hosts the shared faster-whisper service.
 
 ## `tts/` — text-to-speech
 
