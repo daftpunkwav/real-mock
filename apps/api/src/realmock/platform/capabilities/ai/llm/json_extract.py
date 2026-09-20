@@ -15,7 +15,9 @@ import json
 from collections.abc import Iterator
 from typing import Any
 
+from realmock.platform.capabilities.ai.llm.client.json_response import auto_close_brackets
 from realmock.platform.capabilities.ai.llm.client.openai_transport import (
+    repair_common_json_errors,
     strip_code_fences,
 )
 
@@ -91,6 +93,61 @@ def extract_json_object(
     return best
 
 
+def _unclosed_object_starts(blob: str) -> list[int]:
+    """Indices of ``{`` still unclosed at the end, outermost first (string-aware)."""
+    stack: list[int] = []
+    in_string = False
+    escaped = False
+    for i, ch in enumerate(blob):
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\":
+            if in_string:
+                escaped = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            stack.append(i)
+        elif ch == "}" and stack:
+            stack.pop()
+    # A cut inside a bare string is fine: its enclosing object start is still
+    # on the stack and auto-close closes the string before the braces.
+    return stack
+
+
+def salvage_truncated_object(text: str | None) -> dict[str, Any] | None:
+    """Recover the head of a JSON object whose tail was cut off.
+
+    ``extract_json_object`` only parses complete balanced spans, so output
+    truncated by an output-token cap (never balanced again) falls through it.
+    This anchors on the unclosed ``{`` spans and closes them string-aware,
+    applying the same repair ladder as :func:`parse_chat_json`. Returns None
+    when nothing JSON-shaped can be recovered locally.
+    """
+    blob = strip_code_fences((text or "").strip())
+    if not blob:
+        return None
+    for start in _unclosed_object_starts(blob):
+        candidate = blob[start:]
+        for attempt in (
+            repair_common_json_errors(candidate),
+            auto_close_brackets(candidate),
+            repair_common_json_errors(auto_close_brackets(candidate)),
+        ):
+            try:
+                data = json.loads(attempt)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(data, dict):
+                return data
+    return None
+
+
 def truncate_chunk(text: str, *, limit: int) -> str:
     """Cap one evidence chunk; keep head+tail with an explicit marker.
 
@@ -107,4 +164,4 @@ def truncate_chunk(text: str, *, limit: int) -> str:
     )
 
 
-__all__ = ["extract_json_object", "iter_balanced_objects", "truncate_chunk"]
+__all__ = ["extract_json_object", "iter_balanced_objects", "salvage_truncated_object", "truncate_chunk"]

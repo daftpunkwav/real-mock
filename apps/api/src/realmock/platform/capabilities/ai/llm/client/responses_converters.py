@@ -11,6 +11,32 @@ from typing import Any
 from .protocol_utils import _json_arguments
 
 
+def _responses_content(content: Any) -> Any:
+    """Convert chat-completions multimodal parts to Responses API parts.
+
+    User messages may carry ``{"type": "text"}`` / ``{"type": "image_url", ...}``
+    parts; the Responses API only accepts ``input_text`` / ``input_image`` and
+    rejects the chat shapes outright (MiniMax answers 400/2013).
+    """
+    if not isinstance(content, list):
+        return content
+    converted: list[dict[str, Any]] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        kind = part.get("type")
+        if kind == "text":
+            converted.append({"type": "input_text", "text": str(part.get("text") or "")})
+        elif kind == "image_url":
+            image = part.get("image_url")
+            url = image.get("url") if isinstance(image, dict) else image
+            if url:
+                converted.append({"type": "input_image", "image_url": str(url)})
+        else:
+            converted.append(part)
+    return converted or ""
+
+
 def _responses_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert internal tool messages to Responses API input items."""
     converted: list[dict[str, Any]] = []
@@ -44,7 +70,12 @@ def _responses_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     }
                 )
             continue
-        converted.append({"role": role or "user", "content": message.get("content") or ""})
+        content = message.get("content") or ""
+        if role != "assistant":
+            # Assistant list-content is not produced anywhere and Responses
+            # expects output_text parts there; only user roles get converted.
+            content = _responses_content(content)
+        converted.append({"role": role or "user", "content": content})
     return converted
 
 

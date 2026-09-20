@@ -3,7 +3,9 @@
 All LLM clients (openai_chat / anthropic_messages / responses) share this module:
 - Non-streaming responses extract usage from the complete body;
 - Streaming responses incrementally extract usage from each protocol's usage events;
-- :class:`UsageAccumulator` accumulates over the client instance's lifetime (one request = one client).
+- :class:`UsageAccumulator` accumulates over the client instance's lifetime, which one
+  agent run spans as *several* requests (one tool round each), so per-message provider
+  values must be folded in as increments rather than overwrite the running total.
 
 A cache hit is the number of tokens served from the "input cache" (openai ``prompt_tokens_details.cached_tokens``
 / DeepSeek-compatible ``prompt_cache_hit_tokens`` / anthropic ``cache_read_input_tokens``
@@ -12,7 +14,7 @@ A cache hit is the number of tokens served from the "input cache" (openai ``prom
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from realmock.platform.core.constants import LLMProtocol
@@ -34,6 +36,8 @@ class UsageAccumulator:
     completion_tokens: int = 0
     cached_tokens: int = 0
     requests: int = 0
+    # output_tokens already counted for the message being streamed.
+    _message_output_base: int = field(default=0, init=False, repr=False)
 
     @property
     def cache_hit_rate(self) -> float | None:
@@ -72,14 +76,24 @@ class UsageAccumulator:
             etype = event.get("type")
             if etype == "message_start":
                 usage = (event.get("message") or {}).get("usage") or {}
-                return self._absorb_anthropic(usage, count_request=True)
+                absorbed = self._absorb_anthropic(usage, count_request=True)
+                # message_start already contributed its own output_tokens, and every
+                # later message_delta reports the cumulative value for THIS message.
+                self._message_output_base = _as_int(usage.get("output_tokens"))
+                return absorbed
             if etype == "message_delta":
                 usage = event.get("usage") or {}
-                # message_delta only carries the cumulative value of output_tokens, which is directly overwritten rather than accumulated.
+                # output_tokens here is cumulative for THIS message only, while
+                # completion_tokens accumulates across every message this
+                # instance covers. Fold in the delta against the per-message
+                # baseline; overwriting would drop earlier rounds.
                 if "output_tokens" in usage:
-                    delta = _as_int(usage.get("output_tokens"))
-                    if delta > self.completion_tokens:
-                        self.completion_tokens = delta
+                    cumulative = _as_int(usage.get("output_tokens"))
+                    if cumulative > self._message_output_base:
+                        self.completion_tokens += (
+                            cumulative - self._message_output_base
+                        )
+                        self._message_output_base = cumulative
                 return True
             return False
         if protocol == LLMProtocol.OPENAI_RESPONSES:

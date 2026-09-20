@@ -77,7 +77,7 @@ async def parse_chat_json(
         try:
             data = json.loads(repair_common_json_errors(text))
         except json.JSONDecodeError:
-            repaired = repair_common_json_errors(_auto_close_brackets(text))
+            repaired = repair_common_json_errors(auto_close_brackets(text))
             if repaired != text:
                 # Completion means that the output is likely to be truncated: part of the results are dropped into the database and need to be traced for investigation.
                 logger.warning("LLM JSON is missing the closing character and has been automatically completed (suspected to truncate the output)")
@@ -87,7 +87,7 @@ async def parse_chat_json(
     return data
 
 
-def _auto_close_brackets(text: str) -> str:
+def auto_close_brackets(text: str) -> str:
     """Complete missing closing brackets/quotes with string awareness (last-resort recovery for truncated JSON).
 
     Append characters only when a structure is actually unclosed; return valid JSON unchanged.
@@ -119,4 +119,4 @@ def _auto_close_brackets(text: str) -> str:
     return text + "".join(closers)
 
 
-__all__ = ["parse_chat_json"]
+__all__ = ["auto_close_brackets", "parse_chat_json"]

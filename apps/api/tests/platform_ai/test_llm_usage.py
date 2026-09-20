@@ -116,8 +116,10 @@ def test_record_stream_anthropic_message_start() -> None:
     assert acc.requests == 1
 
 
-def test_record_stream_anthropic_message_delta_overwrite() -> None:
-    acc = UsageAccumulator(completion_tokens=2)
+def test_record_stream_anthropic_message_delta_folds_cumulative() -> None:
+    acc = UsageAccumulator()
+    start = {"type": "message_start", "message": {"usage": {"input_tokens": 5, "output_tokens": 1}}}
+    assert acc.record_stream_event(start, ANTH) is True
     assert acc.record_stream_event({"type": "message_delta", "usage": {"output_tokens": 10}}, ANTH) is True
     assert acc.completion_tokens == 10
     # Smaller cumulative value does not move backwards.
@@ -125,6 +127,33 @@ def test_record_stream_anthropic_message_delta_overwrite() -> None:
     assert acc.completion_tokens == 10
     # No output_tokens key still returns True.
     assert acc.record_stream_event({"type": "message_delta", "usage": {}}, ANTH) is True
+
+
+def test_record_stream_anthropic_usage_across_rounds() -> None:
+    """One accumulator spans every round of an agent run.
+
+    message_delta is cumulative per message, so the second round must add to
+    the first instead of comparing against the running total.
+    """
+    acc = UsageAccumulator()
+
+    def round_(input_tokens: int, final_output: int) -> None:
+        acc.record_stream_event(
+            {
+                "type": "message_start",
+                "message": {"usage": {"input_tokens": input_tokens, "output_tokens": 4}},
+            },
+            ANTH,
+        )
+        acc.record_stream_event(
+            {"type": "message_delta", "usage": {"output_tokens": final_output}}, ANTH
+        )
+
+    round_(1000, 800)
+    round_(1200, 600)
+    assert acc.completion_tokens == 1400
+    assert acc.prompt_tokens == 2200
+    assert acc.requests == 2
 
 
 def test_record_stream_anthropic_other_returns_false() -> None:

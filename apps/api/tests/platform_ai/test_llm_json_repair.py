@@ -11,24 +11,24 @@ from __future__ import annotations
 import json
 
 from realmock.platform.capabilities.ai.llm.client.json_response import (
-    _auto_close_brackets,
+    auto_close_brackets,
     parse_chat_json,
 )
 
 
 def test_auto_close_leaves_valid_json_untouched() -> None:
     text = '{"a": [1, 2], "b": "a string containing a } brace"}'
-    assert _auto_close_brackets(text) == text
+    assert auto_close_brackets(text) == text
 
 
 def test_auto_close_repairs_truncated_object() -> None:
     text = '{"score": 67, "items": ["a", "b"'
-    assert json.loads(_auto_close_brackets(text)) == {"score": 67, "items": ["a", "b"]}
+    assert json.loads(auto_close_brackets(text)) == {"score": 67, "items": ["a", "b"]}
 
 
 def test_auto_close_repairs_truncated_inside_string() -> None:
     text = '{"summary": "The assessment was cut off before completion'
-    data = json.loads(_auto_close_brackets(text))
+    data = json.loads(auto_close_brackets(text))
     # Parser only auto-closes brackets; content passes through verbatim.
     assert data["summary"].startswith("The assessment was cut off")
 

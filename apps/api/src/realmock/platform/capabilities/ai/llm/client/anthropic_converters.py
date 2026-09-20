@@ -87,9 +87,15 @@ def _anthropic_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 )
             converted.append({"role": "assistant", "content": blocks})
             continue
+        content = _anthropic_content_blocks(message.get("content"))
+        if not content:
+            # Anthropic rejects empty message content ("at least 1 character"),
+            # and an assistant turn is persisted as "" when the user hits Stop.
+            # Dropping the entry instead would break the required role alternation.
+            content = [{"type": "text", "text": "(no output)"}]
         converted.append({
             "role": role or "user",
-            "content": _anthropic_content_blocks(message.get("content")),
+            "content": content,
         })
     return converted
 

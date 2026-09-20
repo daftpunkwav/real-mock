@@ -1,7 +1,7 @@
 """JSON response tests for apps/api/src/realmock/platform/capabilities/ai/llm/client/json_response.py.
 
 Covers: parse_chat_json direct/retry/empty/think-tag/fence/prose/repair/autoclose
-branches and _auto_close_brackets variants.
+branches and auto_close_brackets variants.
 
 Conventions: no real network (chat callable faked with AsyncMock); asyncio_mode=auto.
 """
@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from realmock.platform.capabilities.ai.llm.client import json_response as jr_mod
-from realmock.platform.capabilities.ai.llm.client.json_response import _auto_close_brackets, parse_chat_json
+from realmock.platform.capabilities.ai.llm.client.json_response import auto_close_brackets, parse_chat_json
 
 
 
@@ -77,12 +77,12 @@ async def test_parse_chat_json_rejects_non_object_and_garbage() -> None:
         await parse_chat_json(AsyncMock(return_value="just some words"), [], 0.5, 64)
 
 
-def test_auto_close_brackets_variants() -> None:
-    assert _auto_close_brackets('{"a": 1}') == '{"a": 1}'
-    assert _auto_close_brackets('{"a": 1') == '{"a": 1}'
-    assert _auto_close_brackets('{"a": [1, 2') == '{"a": [1, 2]}'
-    assert _auto_close_brackets('{"a": "x') == '{"a": "x"}'
-    fixed = _auto_close_brackets('{"a": "x\\"y')
+def testauto_close_brackets_variants() -> None:
+    assert auto_close_brackets('{"a": 1}') == '{"a": 1}'
+    assert auto_close_brackets('{"a": 1') == '{"a": 1}'
+    assert auto_close_brackets('{"a": [1, 2') == '{"a": [1, 2]}'
+    assert auto_close_brackets('{"a": "x') == '{"a": "x"}'
+    fixed = auto_close_brackets('{"a": "x\\"y')
     assert fixed.endswith('"}')
     assert json.loads(fixed) == {"a": 'x"y'}
     assert jr_mod.__all__ == ["parse_chat_json"]

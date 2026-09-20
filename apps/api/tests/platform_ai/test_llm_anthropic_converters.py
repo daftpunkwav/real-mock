@@ -61,6 +61,25 @@ def test_anthropic_messages_system_skipped_tool_mapped() -> None:
     ]
 
 
+def test_anthropic_messages_empty_content_gets_placeholder() -> None:
+    """An empty assistant turn (user pressed Stop) is valid upstream output.
+
+    Anthropic rejects "" content, and dropping the entry would merge the two
+    surrounding turns into a non-alternating sequence.
+    """
+    placeholder = {"type": "text", "text": "(no output)"}
+    assert ac._anthropic_messages([{"role": "assistant", "content": ""}]) == [
+        {"role": "assistant", "content": [placeholder]}
+    ]
+    assert ac._anthropic_messages([{"role": "user", "content": None}]) == [
+        {"role": "user", "content": [placeholder]}
+    ]
+    # Real content is never rewritten.
+    assert ac._anthropic_messages([{"role": "assistant", "content": "ok"}]) == [
+        {"role": "assistant", "content": "ok"}
+    ]
+
+
 def test_anthropic_messages_assistant_tool_calls_variants() -> None:
     out = ac._anthropic_messages([{
         "role": "assistant",
