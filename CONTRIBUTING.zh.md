@@ -54,6 +54,11 @@ API 契约链为 `scripts/export_openapi.py` -> `openapi.json` -> `apps/web/src/
 - 最小正确 diff；不做投机性泛化
 - 纯类型层改动必须零运行时足迹
 
+## 安全
+
+漏洞请按 [SECURITY.zh.md](SECURITY.zh.md) 私下报告——不要提公开 issue。
+其中列出了安全相关面及其防护;触碰这些路径的改动在评审时需要额外审慎。
+
 ## 文档
 
 每份文档配中文镜像（`<name>.zh.md`）并与代码保持同步；目录内文件名不再

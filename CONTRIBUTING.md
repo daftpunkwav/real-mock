@@ -55,6 +55,12 @@ Enforced in review, backed by the architecture tests:
 - Minimal correct diffs; no speculative generality
 - Type-only changes must have zero runtime footprint
 
+## Security
+
+Report vulnerabilities privately per [SECURITY.md](SECURITY.md) — do not open
+public issues for them. The security-relevant surfaces and their guards are
+listed there; changes to those paths deserve extra scrutiny in review.
+
 ## Docs
 
 Every doc ships with a Chinese mirror (`<name>.zh.md`) kept current with the
