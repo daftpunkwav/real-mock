@@ -27,15 +27,30 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
+from realmock.platform import database
 from realmock.platform.config import get_settings
 from realmock.platform.core.errors import ApiBusinessError, get_spec
-from realmock.platform.database import SessionsSessionLocal
 from realmock.platform.models import RateLimitBucket
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 logger = logging.getLogger(__name__)
+
+
+def SessionsSessionLocal() -> Session:
+    """Indirection to ``database.SessionsSessionLocal``, resolved on first use.
+
+    Importing that symbol directly runs the module's PEP 562 ``__getattr__`` at
+    import time, which builds the engine before configuration has settled and
+    pins a factory that ``reset_engines()`` can no longer replace. Tests patch
+    this function.
+    """
+    return database.SessionsSessionLocal()
 
 
 # Bucket idle recovery time window. No access after this time is considered recyclable.
