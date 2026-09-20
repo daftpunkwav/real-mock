@@ -32,6 +32,6 @@
 | [配置](operations/configuration.zh.md) | Settings 字段与环境变量、启动校验、BYOK 存储、密钥加密 |
 | [安全](operations/security.zh.md) | 环回守卫、会话认证、SSRF pin、静态密钥加密、密钥脱敏、文件处理 |
 | [测试](operations/testing.zh.md) | 后端与前端套件、架构与契约守卫测试、CI 门禁 |
-| [部署](operations/deployment.zh.md) | CI 与 CD 工作流、容器镜像、运行时数据卷 |
+| [部署](operations/deployment.zh.md) | CI 工作流、容器镜像、运行时数据卷 |
 
 每份指南的中文版即为同目录下的 `<name>.zh.md`(英文版为 `<name>.md`)。

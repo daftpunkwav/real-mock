@@ -8,7 +8,7 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 | --- | --- |
 | 挂载 | `platform/router_mount.py: include_with_legacy_api_alias()` 将每个域的 `service_router` 挂载到 `/api/v1`，并再次挂载到 `/api` |
 | 域内前缀 | 由各域 router 自持（`domains/<name>/router.py`）：`/profile`、`/resume`、`/settings`、`/prep`、`/interview`、`/options`、`/records`、`/reports`、`/growth` |
-| 本地访问 | `platform/core/local_only.py: LOCAL_API_DEPENDENCIES` 在挂载层应用于所有 HTTP 路由：`require_local_peer`（仅允许回环地址，否则 `A0405`）+ `reject_cross_site_fetch`（拒绝浏览器 `Sec-Fetch-Site: cross-site` 请求，`A0403`） |
+| 本地访问 | `platform/core/local_only.py: LOCAL_API_DEPENDENCIES` 在挂载层应用于所有 HTTP 路由：`require_local_peer`（仅允许回环地址，否则 `A0405`）+ `reject_cross_site_fetch`（拒绝浏览器 `Sec-Fetch-Site: cross-site` 请求，`A0403`）+ `require_same_origin_for_writes`（非安全方法要求白名单内 `Origin`/`Referer`，`A0403`） |
 | 能力令牌 | interview / prep / report 的内容读取路由另需会话能力令牌（`platform/core/session_auth/extract.py`）：header `X-Interview-Token` > cookie > query `token=`（仅非生产环境） |
 | WebSocket | FastAPI 依赖不作用于 WS scope；`ws/interview` 在路由体内执行 origin + 令牌检查 — 见 [realtime-protocol.zh.md](realtime-protocol.zh.md) |
 | 健康检查 | `GET /health`（直接注册在应用上，不在 `/api` 前缀内） |
@@ -44,6 +44,7 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 | 方法 | 路径 | 端点组 |
 | --- | --- | --- |
 | GET | `/settings/models`、`/settings/providers`、`/settings/vendors`、`/settings/bindings` | 目录与当前配置 |
+| POST | `/settings/vendors/{vendor_id}/apply` | 供应商一键开通(按描述符创建 provider + models + channels) |
 | POST / PUT / DELETE | `/settings/providers`、`/settings/providers/{provider_id}`、`/settings/providers/{provider_id}/models`、`/settings/models/{model_id}` | 供应商与模型 CRUD |
 | PUT / GET | `/settings/providers/{provider_id}/channels/{kind}`、`.../catalog` | 渠道配置与目录 |
 | PUT | `/settings/bindings/{task}` | 任务到模型的绑定 |

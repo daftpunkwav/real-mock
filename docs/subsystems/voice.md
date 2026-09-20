@@ -46,11 +46,11 @@ Synthesis entry: `synthesize_speech` with `TtsCredentials`, exported from the `t
 | `reasoning_providers.py` | `custom`, `minimax`, `openai`, `deepseek`, `stepfun`, `openrouter`, `mimo`, `zhipu_glm4_voice` |
 | `speak_providers.py` | `custom`, `mimo_audio`, `edge`, `minimax_speech`, `none` (subtitles only), plus `coming_soon` `zhipu_glm4_voice` and `doubao_s2s` |
 
-`endpoint_vendors.py` maps full-URL endpoint path signatures to vendor ids (`STT_PATHS` / `TTS_PATHS`; `minimax` is the only mapped vendor).
+At the voice package root (not under `config/`), `endpoint_vendors.py` maps full-URL endpoint path signatures to vendor ids (`STT_PATHS` / `TTS_PATHS`; `minimax` is the only mapped vendor).
 
 ## Interview room voice chain
 
-The realtime layer (`domains/interview/realtime/`) assembles `InterviewWSHandler` from stack mixins; `MediaStack` (`stacks/media_stack.py`) owns the audio path via `voice/`:
+The realtime layer (`domains/interview/realtime/`) assembles `InterviewWSHandler` from stack mixins; `MediaStackMixin` (`stacks/media_stack.py`) owns the audio path via `voice/`:
 
 | Module | Purpose |
 | --- | --- |

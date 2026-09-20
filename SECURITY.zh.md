@@ -2,12 +2,14 @@
 
 ## 支持版本
 
-只有 `main` 分支接收安全修复。当前没有 tag 发布版本。
+安全修复落在 `main` 分支,并随最新 tag 版本发布(当前为 `v0.1.0`)。更早的
+tag 不做回移。
 
 ## 部署形态
 
 RealMock 是本地优先的单用户应用。`scripts/dev.sh` 将后端绑定到
-`127.0.0.1:8081`,前端 dev server 运行在 `127.0.0.1:8080`。模型供应商密钥由
+`127.0.0.1:8081`;前端 dev server 监听 `8080` 端口,Next.js 默认绑定全部
+网卡接口,请勿暴露在不受信网络中。模型供应商密钥由
 用户自带(BYOK),落盘加密存储。将后端暴露到 loopback 之外(例如
 `--host 0.0.0.0`)不是受支持的部署方式;下述防护能缓解但不会为这种部署做设计。
 
@@ -23,8 +25,10 @@ RealMock 是本地优先的单用户应用。`scripts/dev.sh` 将后端绑定到
 按大致优先级排列(路径相对仓库根目录):
 
 - **本地暴露防护** — `apps/api/src/realmock/platform/core/local_only.py`:
-  `require_local_peer` 将管理类端点(profile / resume / settings / interview /
-  prep)限制为 loopback 对端;`ENV=prod` 下对非 loopback 对端忽略 `TEST_MODE`
+  `LOCAL_API_DEPENDENCIES`(经 `require_local_peer` 的 loopback 校验、浏览器
+  跨站拒绝、非安全方法的同源校验)挂载在全部七个业务路由
+  (profile / resume / settings / interview / prep / records / growth)上;
+  `ENV=prod` 下对非 loopback 对端忽略 `TEST_MODE`
   逃生开关。同一模块还提供挂载层跨站防护(`Sec-Fetch-Site` 与
   Origin/Referer 校验,错误码 `A0403`),覆盖全部业务路由,含 WS 握手。
 - **SSRF 防护** — `apps/api/src/realmock/platform/core/security/url.py` 与
@@ -44,7 +48,7 @@ RealMock 是本地优先的单用户应用。`scripts/dev.sh` 将后端绑定到
   传 token(cookie 与 header 仍受支持)。
 - **静态密钥加密** — `apps/api/src/realmock/platform/core/secrets.py`:存储的
   供应商密钥使用 AES-256-GCM 认证加密(`enc:v2:...` 格式;密钥来自
-  `SECRET_KEY` 环境变量或 `data/.secret.key`)。`security/redact.py` 对日志中
+  `SECRET_KEY` 环境变量或 `apps/api/src/realmock/platform/data/.secret.key`)。`security/redact.py` 对日志中
   形似 API Key 的字符串做脱敏。
 - **上传安全** — `apps/api/src/realmock/platform/core/security/file.py`:
   文件名清洗(取 basename、字符白名单、长度上限)与接受容器的魔数嗅探。

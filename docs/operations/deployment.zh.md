@@ -1,6 +1,6 @@
 # 部署
 
-容器镜像与 CI/CD。工作流：[.github/workflows/ci.yml](../../.github/workflows/ci.yml) 与 [.github/workflows/cd.yml](../../.github/workflows/cd.yml)；Dockerfile：根目录 [Dockerfile](../../Dockerfile)（后端 api）与 [apps/web/Dockerfile](../../apps/web/Dockerfile)（web）。
+容器镜像与 CI。工作流：[.github/workflows/ci.yml](../../.github/workflows/ci.yml)；Dockerfile：根目录 [Dockerfile](../../Dockerfile)（后端 api）与 [apps/web/Dockerfile](../../apps/web/Dockerfile)（web）。
 
 ## CI（`.github/workflows/ci.yml`）
 
@@ -8,22 +8,10 @@
 
 | Job | 运行器 / 工具链 | 步骤 |
 | --- | --- | --- |
-| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.12，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api`，并安装锁定版本 `ruff==0.15.20`、`mypy==2.1.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；`ruff check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=40`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit --ignore-vuln PYSEC-2026-311`（chromadb 1.5.9 已知问题，暂无修复版本） |
-| `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
+| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.12，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api`，并安装锁定版本 `ruff==0.15.20`、`mypy==2.1.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；`ruff check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit --ignore-vuln PYSEC-2026-311`（chromadb 1.5.9 已知问题，暂无修复版本） |
+| `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（vitest,阈值由 `vitest.config.ts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
 
 backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LLM_API_BASE` 与 `CORS_ORIGINS`。
-
-## CD（`.github/workflows/cd.yml`）
-
-触发：push 到 `main`（edge 标签）与 `v*` 语义化标签。认证使用内置 `GITHUB_TOKEN`（`packages: write`），无需额外 Secrets。
-
-| 项目 | 值 |
-| --- | --- |
-| Job | `release` — "Build and publish images"，ubuntu-latest，限时 30 分钟 |
-| Matrix | `web`：context `apps/web`，dockerfile `apps/web/Dockerfile`；`api`：context 为仓库根，dockerfile `Dockerfile` |
-| 镜像仓库 | GHCR；镜像名 `ghcr.io/<repository>-web` 与 `ghcr.io/<repository>-api` |
-| 标签 | 默认分支推 `edge`；`v*` 标签推 `{{version}}` 与 `{{major}}.{{minor}}`；另有 `sha-<sha>` |
-| 缓存 | GitHub Actions 缓存，每组件一个 scope（`cache-from` / `cache-to type=gha`） |
 
 ## 镜像
 

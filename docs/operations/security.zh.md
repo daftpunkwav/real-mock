@@ -8,9 +8,10 @@
 | --- | --- |
 | `require_local_peer(request)` | 本地管理端点仅接受环回对端;非环回 IP 以 `A0405` 拒绝。Starlette `testclient` 对端始终放行;`TEST_MODE=1` 仅在非生产环境放行真实 HTTP(`env=prod` 时忽略)。FastAPI 无法在 WebSocket 作用域注入 `Request`,因此 WS 端点以 `request=None` 调用,此时守卫短路 — WS 端点改经会话能力令牌认证。 |
 | `reject_cross_site_fetch(request)` | 拒绝浏览器驱动的跨站请求(`Sec-Fetch-Site: cross-site`),返回 `A0403`。非浏览器客户端(curl)不发送该头,直接放行。仅限 HTTP;WS 作用域 `request=None` 时短路。 |
+| `require_same_origin_for_writes(request)` | 非安全方法(POST / PUT / PATCH / DELETE)要求 `Origin` 或 `Referer` 在 CORS 白名单内,否则 `A0403`。补上 `reject_cross_site_fetch` 覆盖不到的缺口:另一 localhost 端口属 `same-site`,且无请求体的写请求是 CORS 简单请求、不触发预检。两者都不发送的非浏览器客户端直接放行。仅限 HTTP;WS 作用域 `request=None` 时短路。 |
 | `guard_ws_origin(websocket)` | 跨站 WS 握手在 accept 之前关闭(关闭码 1008)。浏览器必发 `Origin`;主机名必须是 `localhost` / 环回 IP;无 Origin(非浏览器)放行。 |
 
-`LOCAL_API_DEPENDENCIES` 组合两个 HTTP 守卫,是路由挂载层统一的访问控制唯一定义;各路由不再自行声明。
+`LOCAL_API_DEPENDENCIES` 组合三个 HTTP 守卫,是路由挂载层统一的访问控制唯一定义;各路由不再自行声明。
 
 ## 会话认证(`session_auth/`)
 

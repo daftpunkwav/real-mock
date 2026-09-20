@@ -46,11 +46,11 @@
 | `reasoning_providers.py` | `custom`、`minimax`、`openai`、`deepseek`、`stepfun`、`openrouter`、`mimo`、`zhipu_glm4_voice` |
 | `speak_providers.py` | `custom`、`mimo_audio`、`edge`、`minimax_speech`、`none`(仅字幕),以及 `coming_soon` 的 `zhipu_glm4_voice`、`doubao_s2s` |
 
-`endpoint_vendors.py` 将完整 URL 端点路径签名映射到供应方 id(`STT_PATHS` / `TTS_PATHS`;`minimax` 是唯一已映射的供应方)。
+位于 voice 包根目录(不在 `config/` 下)的 `endpoint_vendors.py` 将完整 URL 端点路径签名映射到供应方 id(`STT_PATHS` / `TTS_PATHS`;`minimax` 是唯一已映射的供应方)。
 
 ## 面试房语音链路
 
-实时层(`domains/interview/realtime/`)以栈 mixin 组装 `InterviewWSHandler`;`MediaStack`(`stacks/media_stack.py`)经 `voice/` 持有音频路径:
+实时层(`domains/interview/realtime/`)以栈 mixin 组装 `InterviewWSHandler`;`MediaStackMixin`(`stacks/media_stack.py`)经 `voice/` 持有音频路径:
 
 | 模块 | 用途 |
 | --- | --- |

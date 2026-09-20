@@ -8,7 +8,7 @@ The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers 
 | --- | --- |
 | Mounting | `platform/router_mount.py: include_with_legacy_api_alias()` mounts every domain `service_router` under `/api/v1` and again under `/api` |
 | Domain prefixes | Owned by each domain's router (`domains/<name>/router.py`): `/profile`, `/resume`, `/settings`, `/prep`, `/interview`, `/options`, `/records`, `/reports`, `/growth` |
-| Local access | `platform/core/local_only.py: LOCAL_API_DEPENDENCIES` is applied at mount time to every HTTP route: `require_local_peer` (loopback peers only, else `A0405`) + `reject_cross_site_fetch` (browser `Sec-Fetch-Site: cross-site` rejected, `A0403`) |
+| Local access | `platform/core/local_only.py: LOCAL_API_DEPENDENCIES` is applied at mount time to every HTTP route: `require_local_peer` (loopback peers only, else `A0405`) + `reject_cross_site_fetch` (browser `Sec-Fetch-Site: cross-site` rejected, `A0403`) + `require_same_origin_for_writes` (unsafe methods need an allowlisted `Origin`/`Referer`, `A0403`) |
 | Capability tokens | Interview / prep / report content routes additionally require the session capability token (`platform/core/session_auth/extract.py`): header `X-Interview-Token` > cookie > query `token=` (non-prod only) |
 | WebSocket | FastAPI dependencies do not run on WS scopes; `ws/interview` performs origin + token checks in the route body — see [realtime-protocol.md](realtime-protocol.md) |
 | Health | `GET /health` (registered on the app, outside the `/api` prefixes) |
@@ -44,6 +44,7 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | Methods | Path | Group |
 | --- | --- | --- |
 | GET | `/settings/models`, `/settings/providers`, `/settings/vendors`, `/settings/bindings` | catalogs and current config |
+| POST | `/settings/vendors/{vendor_id}/apply` | one-click vendor provisioning (creates provider + models + channels from the vendor descriptor) |
 | POST / PUT / DELETE | `/settings/providers`, `/settings/providers/{provider_id}`, `/settings/providers/{provider_id}/models`, `/settings/models/{model_id}` | provider and model CRUD |
 | PUT / GET | `/settings/providers/{provider_id}/channels/{kind}`, `.../catalog` | channel config and catalog |
 | PUT | `/settings/bindings/{task}` | task-to-model bindings |

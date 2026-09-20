@@ -70,12 +70,12 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 
 | 命令 | 用途 |
 | --- | --- |
-| `npm test` | vitest 单次运行 |
-| `npm run test:watch` | vitest watch 模式 |
+| `npm test` | vitest 单次运行,带覆盖率;阈值由 `vitest.config.ts` 设定,覆盖率下降即失败 |
+| `npm run test:watch` | vitest watch 模式(无覆盖率) |
 | `npx tsc --noEmit` | TypeScript 类型门 |
 | `npm run lint` | ESLint |
 
-测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 58 个 `*.test.ts(x)` 文件。
+测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 66 个 `*.test.ts(x)` 文件。
 
 ## CI 门禁
 
@@ -83,5 +83,5 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 
 | Job | 检查 |
 | --- | --- |
-| `backend` | `ruff==0.15.20`；`mypy==2.1.0` 检查 `src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=40`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit==2.10.1` 并 `--ignore-vuln PYSEC-2026-311`（chromadb 1.5.9 已知问题，暂无修复版本） |
-| `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
+| `backend` | `ruff==0.15.20`；`mypy==2.1.0` 检查 `src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit==2.10.1` 并 `--ignore-vuln PYSEC-2026-311`（chromadb 1.5.9 已知问题，暂无修复版本） |
+| `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（覆盖率阈值由 `vitest.config.ts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |

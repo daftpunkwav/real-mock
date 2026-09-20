@@ -8,9 +8,10 @@ Mechanisms that exist in the code, per mechanism. All paths below are verified s
 | --- | --- |
 | `require_local_peer(request)` | Local management endpoints accept only loopback peers; non-loopback IPs are rejected with `A0405`. The Starlette `testclient` peer is always allowed; `TEST_MODE=1` permits real HTTP outside production only (ignored when `env=prod`). FastAPI cannot inject `Request` on WebSocket scopes, so WS endpoints call it with `request=None`, where it short-circuits — WS endpoints authenticate through session capability tokens instead. |
 | `reject_cross_site_fetch(request)` | Rejects browser-driven cross-site requests (`Sec-Fetch-Site: cross-site`) with `A0403`. Non-browser clients (curl) do not send the header and pass. HTTP-only; `request=None` on WS scopes short-circuits. |
+| `require_same_origin_for_writes(request)` | On unsafe methods (POST / PUT / PATCH / DELETE), `Origin` or `Referer` must be in the CORS allowlist, else `A0403`. Closes the gap `reject_cross_site_fetch` cannot: a page served from another localhost port is `same-site`, and body-less writes are CORS simple requests that skip preflight. Non-browser clients that send neither header pass. HTTP-only; `request=None` on WS scopes short-circuits. |
 | `guard_ws_origin(websocket)` | Cross-site WS handshakes are closed before accept (close code 1008). Browsers always send `Origin`; hostnames must be `localhost` / loopback IPs; absent origin (non-browser) passes. |
 
-`LOCAL_API_DEPENDENCIES` composes the two HTTP guards and is the single access-control truth mounted at router level; individual routers no longer declare their own.
+`LOCAL_API_DEPENDENCIES` composes the three HTTP guards and is the single access-control truth mounted at router level; individual routers no longer declare their own.
 
 ## Session authentication (`session_auth/`)
 

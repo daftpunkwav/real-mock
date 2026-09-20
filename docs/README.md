@@ -32,6 +32,6 @@ Topic guides covering the whole repository. Directory-level structure lives in t
 | [Configuration](operations/configuration.md) | Settings fields and environment variables, startup validation, BYOK storage, key encryption |
 | [Security](operations/security.md) | Loopback guards, session authentication, SSRF pinning, secrets at rest, key redaction, file handling |
 | [Testing](operations/testing.md) | Backend and frontend suites, architecture and contract guard tests, CI gates |
-| [Deployment](operations/deployment.md) | CI and CD workflows, container images, runtime data volume |
+| [Deployment](operations/deployment.md) | CI workflow, container images, runtime data volume |
 
 Chinese versions of every guide sit beside it as `<name>.zh.md`.
