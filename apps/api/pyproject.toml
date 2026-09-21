@@ -46,7 +46,7 @@ dependencies = [
     # 6.x is the last generation under that module name — pin upper bound to avoid incompatible 7.x+ (renamed to ddgs).
     "duckduckgo-search>=6.0.0,<7",
     "ddgs>=9.0.0,<10",
-    "cryptography>=42.0.0,<51",
+    "cryptography>=50.0.0,<51",
     # Tests (shared by local regression and CI)
     "pytest>=8.3.0,<10",
     "pytest-asyncio>=0.24.0,<2",
