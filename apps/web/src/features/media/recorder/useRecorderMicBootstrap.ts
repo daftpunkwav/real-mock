@@ -155,5 +155,8 @@ export function useRecorderMicBootstrap(
     })();
 
     return () => stop();
+    // Effect intentionally reads live state through refs (stable identities);
+    // adding them here would tear down the mic pipeline on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, stop, setIsRecording, setMicError, setPartialText]);
 }
