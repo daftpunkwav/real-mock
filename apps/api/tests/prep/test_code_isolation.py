@@ -133,6 +133,64 @@ def test_timeout_kill_tree_preserved_under_process_backend() -> None:
     assert "isolation: process" in format_observation(result)
 
 
+def test_terminate_tree_posix_and_dead_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    from realmock.platform.capabilities.ai.agent.tools.isolation import base as base_mod
+
+    class _P:
+        pid = 12345
+        killed = False
+
+        def kill(self):
+            self.killed = True
+
+    # POSIX killpg success path (create attr on Windows).
+    monkeypatch.setattr(base_mod.os, "name", "posix")
+    monkeypatch.setattr(base_mod.os, "killpg", lambda pid, sig: None, raising=False)
+    import signal as _sig
+
+    monkeypatch.setattr(_sig, "SIGKILL", 9, raising=False)
+    p = _P()
+    base_mod.terminate_tree(p)  # type: ignore[arg-type]
+    assert p.killed is False
+    # POSIX killpg raises -> falls back to proc.kill.
+
+    def _boom(pid, sig):
+        raise ProcessLookupError("gone")
+
+    monkeypatch.setattr(base_mod.os, "killpg", _boom, raising=False)
+    base_mod.terminate_tree(p)  # type: ignore[arg-type]
+    assert p.killed is True
+    # proc.kill raises -> swallowed.
+    class _Dead:
+        pid = 1
+
+        def kill(self):
+            raise ProcessLookupError("gone")
+
+    base_mod.terminate_tree(_Dead())  # type: ignore[arg-type]
+
+
+def test_run_child_caps_captured_output_and_child_still_exits() -> None:
+    # A child printing far beyond the backend capture cap must still exit
+    # cleanly (draining keeps the pipe open) with bounded captured output.
+    from realmock.platform.capabilities.ai.agent.tools.isolation.base import (
+        _CAPTURE_LIMIT_BYTES,
+        run_child,
+    )
+
+    script = "print('x' * (3 * 1024 * 1024))"
+    exit_code, out, err, timed_out = run_child(
+        [sys.executable, "-I", "-c", script],
+        cwd=os.getcwd(),
+        env={"PATH": os.environ.get("PATH", "")},
+        timeout_s=30,
+    )
+    assert exit_code == 0
+    assert timed_out is False
+    assert len(out) <= _CAPTURE_LIMIT_BYTES
+    assert err == b""
+
+
 def test_output_caps_preserved_with_isolation_param() -> None:
     result = run_code_snippet("python", "print('x' * 20000)", isolation="process")
     assert result.exit_code == 0

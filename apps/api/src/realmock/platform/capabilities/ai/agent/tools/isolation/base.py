@@ -15,9 +15,10 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import IO, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,36 @@ def terminate_tree(proc: subprocess.Popen[bytes]) -> None:
         pass
 
 
+# Hard safety net for captured child output per stream. Callers apply their own
+# much smaller model-facing cap (codeexec: MAX_OUTPUT_CHARS); this only bounds
+# parent-process memory so a chatty snippet cannot exhaust it before the timeout.
+_CAPTURE_LIMIT_BYTES = 2 * 1024 * 1024
+_READ_CHUNK_BYTES = 65536
+
+
+def _pump_stream(
+    stream: IO[bytes], buf: bytearray, limit: int, lock: threading.Lock
+) -> None:
+    """Drain ``stream`` into ``buf`` up to ``limit``; excess is discarded.
+
+    Draining (instead of stopping at the limit) keeps the child unblocked so a
+    chatty snippet still exits on its own instead of stalling until the
+    timeout kill.
+    """
+    try:
+        while True:
+            chunk = stream.read(_READ_CHUNK_BYTES)
+            if not chunk:
+                break
+            with lock:
+                remaining = limit - len(buf)
+                if remaining > 0:
+                    buf += chunk[:remaining]
+    except (OSError, ValueError):
+        # Pipe closed mid-read (e.g. grandchild inherited and dropped it).
+        pass
+
+
 def run_child(
     argv: Sequence[str],
     *,
@@ -90,6 +121,11 @@ def run_child(
     given) is invoked with the child pid right after spawn so callers can
     attach out-of-band controls such as a cgroup. Raises ``OSError`` when
     the runtime cannot be launched.
+
+    Captured output is drained through a per-stream cap
+    (``_CAPTURE_LIMIT_BYTES``): memory stays bounded no matter how much the
+    child prints, while draining (not hard-closing at the cap) keeps the
+    child unblocked so exit behavior is unchanged.
     """
     proc = subprocess.Popen(
         list(argv),
@@ -102,13 +138,35 @@ def run_child(
     )
     if on_start is not None:
         on_start(proc.pid)
+    out_buf, err_buf = bytearray(), bytearray()
+    lock = threading.Lock()
+    pumps = [
+        threading.Thread(
+            target=_pump_stream,
+            args=(proc.stdout, out_buf, _CAPTURE_LIMIT_BYTES, lock),
+            daemon=True,
+        ),
+        threading.Thread(
+            target=_pump_stream,
+            args=(proc.stderr, err_buf, _CAPTURE_LIMIT_BYTES, lock),
+            daemon=True,
+        ),
+    ]
+    for t in pumps:
+        t.start()
     try:
-        out, err = proc.communicate(timeout=timeout_s)
-        return proc.returncode, out, err, False
+        proc.wait(timeout=timeout_s)
+        timed_out = False
     except subprocess.TimeoutExpired:
         terminate_tree(proc)
-        try:
-            out, err = proc.communicate(timeout=5)
-        except Exception:
-            out, err = b"", b""
-        return -1, out, err, True
+        timed_out = True
+    # Reap the child after a timeout kill; grandchildren that inherited the
+    # pipes may keep a pump blocked, so the join is bounded.
+    proc.wait()
+    for t in pumps:
+        t.join(timeout=5)
+    if timed_out:
+        # Contract: a timeout is reported as exit_code -1 regardless of the
+        # signal the platform reaps the killed tree with.
+        return -1, bytes(out_buf), bytes(err_buf), True
+    return proc.returncode, bytes(out_buf), bytes(err_buf), False

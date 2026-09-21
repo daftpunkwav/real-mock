@@ -1,13 +1,14 @@
 """Isolation base tests for apps/api/src/realmock/platform/capabilities/ai/agent/tools/isolation/base.py.
 
 Covers: terminate_tree POSIX/killpg-fallback paths and run_child success/launch-failure/
-timeout branches including second-wait failure handling.
+timeout branches (captured output is drained by pump threads capped per stream).
 
 Conventions: no real containers (Popen/killpg mocked, one real short-lived python child); asyncio_mode=auto.
 """
 
 from __future__ import annotations
 
+import io
 import os
 import signal
 import subprocess
@@ -78,29 +79,35 @@ def test_run_child_launch_failure_raises(tmp_path: Any) -> None:
 
 
 def test_run_child_timeout_paths() -> None:
-    real_popen = subprocess.Popen
+    class _FakeProc:
+        """Minimal Popen stand-in: wait(timeout) always expires, output pipes
+        carry canned bytes for the pump threads."""
 
-    def _fake_factory(second: Any) -> Any:
-        proc = MagicMock()
-        proc.pid = 777
-        proc.returncode = -1
-        proc.communicate = MagicMock(
-            side_effect=[subprocess.TimeoutExpired("cmd", 1), second]
-        )
-        return proc
+        def __init__(self, out: bytes, err: bytes) -> None:
+            self.pid = 777
+            self.returncode = -1
+            self.stdout = io.BytesIO(out)
+            self.stderr = io.BytesIO(err)
+            self.wait_timeouts: list[float | None] = []
 
+        def wait(self, timeout: float | None = None) -> int:
+            self.wait_timeouts.append(timeout)
+            if timeout is not None:
+                raise subprocess.TimeoutExpired("cmd", timeout)
+            return 0
+
+        def kill(self) -> None:
+            self.returncode = -1
+
+    proc = _FakeProc(b"o", b"e")
     with (
-        patch.object(iso_base.subprocess, "Popen", return_value=_fake_factory((b"o", b"e"))),
+        patch.object(iso_base.subprocess, "Popen", return_value=proc),
         patch.object(iso_base, "terminate_tree") as term,
     ):
-        assert real_popen is not None
         assert iso_base.run_child(["x"], cwd=".", env={}, timeout_s=1) == (-1, b"o", b"e", True)
-        term.assert_called_once()
-    with (
-        patch.object(iso_base.subprocess, "Popen", return_value=_fake_factory(RuntimeError("x"))),
-        patch.object(iso_base, "terminate_tree"),
-    ):
-        assert iso_base.run_child(["x"], cwd=".", env={}, timeout_s=1) == (-1, b"", b"", True)
+        term.assert_called_once_with(proc)
+    # First the deadline wait, then the unbounded reap after the kill.
+    assert proc.wait_timeouts == [1, None]
 
 
 @pytest.mark.asyncio
@@ -124,11 +131,13 @@ async def test_iso_base_terminate_and_run_child_timeout(monkeypatch) -> None:
     class _FakeProc:
         pid = 7
         returncode = 0
+        stdout = io.BytesIO(b"")
+        stderr = io.BytesIO(b"")
 
-        def communicate(self, timeout=None):
-            if timeout == 5:
-                raise RuntimeError("second wait fails")
-            raise subprocess.TimeoutExpired(cmd="x", timeout=timeout)
+        def wait(self, timeout=None):
+            if timeout is not None:
+                raise subprocess.TimeoutExpired(cmd="x", timeout=timeout)
+            return 0
 
         def kill(self):
             return None
