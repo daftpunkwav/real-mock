@@ -8,10 +8,12 @@
 # Local dev: pip install -e ./apps/api then uvicorn realmock.asgi:app --port 8081.
 #
 # Dependencies use >= lower bounds with next-major upper caps to avoid
-# silent breakage on major upgrades. chromadb 1.5.9 has known issue PYSEC-2026-311
-# (no fixed release yet). It is a required direct dependency (LocalEmbeddingRAG
-# uses PersistentClient embedded mode and does not expose a chroma server port,
-# so the attack surface is limited). Upgrade when upstream ships a fix.
+# silent breakage on major upgrades. chromadb 1.5.9 is the latest release and
+# carries several known issues with no fixed version yet (PYSEC-2026-311 and
+# PYSEC-2026-3813/3814/3815; see the pip-audit ignores in ci.yml). It is a
+# required direct dependency (LocalEmbeddingRAG uses PersistentClient embedded
+# mode and does not expose a chroma server port, so the attack surface is
+# limited). Upgrade when upstream ships a fix.
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -44,7 +46,7 @@ dependencies = [
     # 6.x is the last generation under that module name — pin upper bound to avoid incompatible 7.x+ (renamed to ddgs).
     "duckduckgo-search>=6.0.0,<7",
     "ddgs>=9.0.0,<10",
-    "cryptography>=42.0.0,<50",
+    "cryptography>=42.0.0,<51",
     # Tests (shared by local regression and CI)
     "pytest>=8.3.0,<10",
     "pytest-asyncio>=0.24.0,<2",

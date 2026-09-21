@@ -56,9 +56,15 @@ jobs:
           --cov-report=term-missing --cov-fail-under=90
 
       - name: pip-audit dependency scan
-        # Audit the current env (including editable realmock-api deps)
-        # PYSEC-2026-311: chromadb 1.5.9 known issue, no fixed release yet (see pyproject comments)
-        run: pip-audit --ignore-vuln PYSEC-2026-311
+        # Audit the current env (including editable realmock-api deps).
+        # chromadb 1.5.9 (latest) known issues with no fixed release yet
+        # (see pyproject comments); re-check when upstream ships a fix.
+        run: >-
+          pip-audit
+          --ignore-vuln PYSEC-2026-311
+          --ignore-vuln PYSEC-2026-3813
+          --ignore-vuln PYSEC-2026-3814
+          --ignore-vuln PYSEC-2026-3815
 
   frontend:
     name: Frontend (tsc / lint / test / build / audit)
