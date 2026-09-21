@@ -74,9 +74,9 @@ def bootstrap_databases_and_seed(
 
     Args:
         session_domains:
-            - ``None`` (default): Register all session fields (prep + interview + records), for aggregation entry.
-            - Empty set: only the platform sessions table (current-limiting bucket), no business packages are imported - api independent process.
-            - ``("prep",)`` / ``("interview",)`` / ``("records",)``: On-demand registration - corresponding to business independent process.
+            - ``None`` (default): Register all session domains (prep + interview + records + growth), for the aggregate app.
+            - Empty set: only the platform sessions table (rate-limit bucket), no business packages imported — API-only process.
+            - ``("prep",)`` / ``("interview",)`` / ``("records",)`` / ``("growth",)``: On-demand registration — matching standalone processes.
     """
     if os.environ.get("TEST_MODE") == "1":
         # Tests use the conftest temporary databases; skip the legacy single-file migration.

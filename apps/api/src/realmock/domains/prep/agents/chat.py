@@ -226,7 +226,9 @@ async def run_chat(
         working, db, asked_user=asked_user
     )
     if asked_user["on"]:
-        # The ask-user dialog was already emitted: consistent with the streaming path, wait for the user to answer instead of fabricating one
+        # The ask_user tool fired; on this non-streaming channel no dialog event
+        # is emitted (events=None), so return the pending text and wait for the
+        # user's answer instead of fabricating one.
         final = agent.pending_reply_text()
     elif early:
         # Trailing model text is the final answer; ask-user events cannot be sent on non-streaming channels, so only polish it.
