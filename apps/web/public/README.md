@@ -20,7 +20,6 @@ files for them.
 | `gentle_female.glb`, `young_female.glb` | [Ready Player Me](https://readyplayer.me) (`generator` / `copyright: "Ready Player Me"`) |
 | `hr_female.glb` | [Avaturn](https://avaturn.me), exported through Blender (`generator: "Avaturn.me \| Blender"`) |
 | `professional_male.glb` | Blender export (Khronos glTF Blender I/O v5.0.21); the upstream model source is not recorded in the file or this repository |
-| `professional_male2.glb` | Byte-identical duplicate of `professional_male.glb` (unreferenced by code) |
 | `senior_male.glb` | Blender export (Khronos glTF Blender I/O v5.0.21); the upstream model source is not recorded in the file or this repository |
 
 The provider terms that governed the original downloads (Ready Player Me,

@@ -70,7 +70,7 @@ Realtime tests patch module-level symbols in the owning module (e.g. `turn.stt_f
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | vitest, single run with coverage; thresholds from `vitest.config.ts` fail the run when coverage drops |
+| `npm test` | vitest, single run with coverage; thresholds from `vitest.config.mts` fail the run when coverage drops |
 | `npm run test:watch` | vitest in watch mode (no coverage) |
 | `npx tsc --noEmit` | TypeScript type gate |
 | `npm run lint` | ESLint |
@@ -84,4 +84,4 @@ Both jobs run on push to `main` and on all pull requests (`.github/workflows/ci.
 | Job | Checks |
 | --- | --- |
 | `backend` | `ruff==0.15.20`; `mypy==2.1.0` over `src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview domains; `pip-audit==2.10.1` with `--ignore-vuln PYSEC-2026-311` (chromadb 1.5.9 known issue, no fixed release yet) |
-| `frontend` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (coverage thresholds from `vitest.config.ts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |
+| `frontend` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (coverage thresholds from `vitest.config.mts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |

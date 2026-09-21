@@ -26,7 +26,7 @@ Frontend, run from `apps/web`:
 ```bash
 npx tsc --noEmit   # typecheck
 npm run lint       # eslint
-npm test           # vitest (coverage thresholds enforced from vitest.config.ts)
+npm test           # vitest (coverage thresholds enforced from apps/web/vitest.config.mts)
 npm run build      # production build
 npm run audit      # dependency audit (fails on high+ unless allowlisted in npm-audit-allowlist.json)
 ```

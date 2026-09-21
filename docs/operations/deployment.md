@@ -9,7 +9,7 @@ Triggers: push to `main` and all pull requests. Concurrency group `ci-<ref>` wit
 | Job | Runner / toolchain | Steps |
 | --- | --- | --- |
 | `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.12 with pip cache keyed on `apps/api/pyproject.toml` | install `apps/api` editable plus pinned `ruff==0.15.20`, `mypy==2.1.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`; `ruff check apps/api`; `mypy src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview domains; `pip-audit --ignore-vuln PYSEC-2026-311` (chromadb 1.5.9 known issue, no fixed release yet) |
-| `frontend` (Frontend (tsc / lint / test / build / audit)) | ubuntu-latest, 20 min cap; Node 24 with npm cache keyed on `apps/web/package-lock.json` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (vitest with coverage thresholds from `vitest.config.ts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |
+| `frontend` (Frontend (tsc / lint / test / build / audit)) | ubuntu-latest, 20 min cap; Node 24 with npm cache keyed on `apps/web/package-lock.json` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (vitest with coverage thresholds from `apps/web/vitest.config.mts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |
 
 The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, and `CORS_ORIGINS` as job env.
 

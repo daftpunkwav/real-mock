@@ -67,5 +67,5 @@
 | 2 | 结束（WS 或 `POST .../finish`）→ `agents/finish_lifecycle.py: run_finish_lifecycle` 冻结会话台账、标记会话 completed、折叠轮次摘要、通知订阅方 |
 | 3 | `notify_interview_finished` 钩子 → records 域 `services/ingest.py: handle_interview_finished`（幂等；已是 ready / generating 的报告跳过） |
 | 4 | `services/debrief_runner.py: run_debrief_for_session` — CAS 抢占（`pending` / `failed` / 过期 `generating` → `generating`），运行报告 agent，持久化，通知报告摘要 |
-| 5 | `agents/report/agent.py: DeepReportAgent` — 基于冻结台账的两阶段 ReAct 管线：阶段 1 轮次笔记（每批 12 轮，至多 2 批并行），阶段 2 汇总产出对齐的裁定、评分、亮点 / 关键问题与训练计划；总时长预算 480 秒 |
+| 5 | records 域 `agents/report/agent.py: DeepReportAgent` — 基于冻结台账的两阶段 ReAct 管线：阶段 1 轮次笔记（每批 12 轮，至多 2 批并行），阶段 2 汇总产出对齐的裁定、评分、亮点 / 关键问题与训练计划；总时长预算 480 秒 |
 | 6 | 报告行状态 `pending` / `generating` / `ready` / `failed`（`services/report_store.py`）；`GET /api/v1/reports/{session_id}` 读取，`POST .../retry` 重跑，`GET .../stream` 伪流式输出 |
