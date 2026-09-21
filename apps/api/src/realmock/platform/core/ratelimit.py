@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 
 from realmock.platform import database
 from realmock.platform.config import get_settings
@@ -147,7 +148,7 @@ def _use_db_ratelimit() -> bool:
     return get_settings().ratelimit_backend == "database"
 
 
-def _check_rate_limit_db(
+def _check_rate_limit_db_once(
     *,
     bucket_key: tuple[str, str],
     limit: int,
@@ -190,6 +191,30 @@ def _check_rate_limit_db(
         raise
     finally:
         db.close()
+
+
+def _check_rate_limit_db(
+    *,
+    bucket_key: tuple[str, str],
+    limit: int,
+    window_seconds: int,
+) -> None:
+    """Check the current limit (DB backend), retrying once on a first-write race.
+
+    ``bucket_key`` is the primary key, so two processes checking an unseen
+    bucket concurrently both try to insert and one commit fails with
+    ``IntegrityError``; re-reading once turns that transient race into a
+    normal count instead of a 500.
+    """
+    for attempt in range(2):
+        try:
+            _check_rate_limit_db_once(
+                bucket_key=bucket_key, limit=limit, window_seconds=window_seconds
+            )
+            return
+        except IntegrityError:
+            if attempt == 1:
+                raise
 
 
 def check_rate_limit(

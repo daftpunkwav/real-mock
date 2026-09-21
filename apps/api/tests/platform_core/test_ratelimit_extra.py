@@ -200,6 +200,38 @@ class TestDbRatelimitBranches:
         with pytest.raises(RuntimeError):
             rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
 
+    def test_integrity_error_race_retries_once(self, monkeypatch) -> None:
+        from sqlalchemy.exc import IntegrityError
+
+        class _RaceDB(_FakeDB):
+            def __init__(self):
+                super().__init__(row=None)
+                self._attempts = 0
+
+            def commit(self):
+                self._attempts += 1
+                if self._attempts == 1:
+                    raise IntegrityError("INSERT", {}, Exception("pk conflict"))
+                super().commit()
+
+        db = _RaceDB()
+        monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+        assert db._attempts == 2
+        assert db.committed
+
+    def test_integrity_error_twice_reraises(self, monkeypatch) -> None:
+        from sqlalchemy.exc import IntegrityError
+
+        class _AlwaysRacingDB(_FakeDB):
+            def commit(self):
+                raise IntegrityError("INSERT", {}, Exception("pk conflict"))
+
+        db = _AlwaysRacingDB(row=None)
+        monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
+        with pytest.raises(IntegrityError):
+            rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+
     def test_check_rate_limit_db_backend_routing(self, monkeypatch) -> None:
         monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(ratelimit_backend="database", trusted_proxy_cidr_list=[]))
         db = _FakeDB(row=None)
