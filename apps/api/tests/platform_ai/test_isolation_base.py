@@ -9,6 +9,7 @@ Conventions: no real containers (Popen/killpg mocked, one real short-lived pytho
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
 from typing import Any
@@ -23,10 +24,15 @@ from realmock.platform.capabilities.ai.agent.tools.isolation import base as iso_
 def test_terminate_tree_current_platform() -> None:
     proc = MagicMock()
     proc.pid = 123
-    iso_base.terminate_tree(proc)
     if os.name == "posix":
+        # Mock killpg: pgid 123 may exist in some environments (e.g. WSL),
+        # which would make the real call succeed/fail non-deterministically.
+        with patch.object(iso_base.os, "killpg") as killpg:
+            iso_base.terminate_tree(proc)
+        killpg.assert_called_once_with(123, signal.SIGKILL)
         proc.kill.assert_not_called()
     else:
+        iso_base.terminate_tree(proc)
         proc.kill.assert_called_once_with()
 
 

@@ -33,7 +33,7 @@ class TestFileLock:
 
             msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
             locked = True
-        except OSError:
+        except (OSError, ImportError):  # ImportError: msvcrt is Windows-only
             locked = False
         try:
             if locked:
