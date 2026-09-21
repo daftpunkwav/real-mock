@@ -30,3 +30,5 @@ and versioning follows Semantic Versioning (SemVer).
 - Mermaid UX: parse failures no longer leak a red error diagram (source view + gentle notice instead), diagram/source dual view, 50%–300% zoom + fullscreen, dark-theme palette, re-render on theme change
 - Select unification: native selects across the app migrated to the custom Select (keyboard/ARIA), interview settings and Prep-related forms
 - Test infra: vitest React plugin for .tsx component tests, added missing Select cleanup between cases
+
+[0.1.0]: https://github.com/daftpunkwav/real-mock/releases/tag/v0.1.0

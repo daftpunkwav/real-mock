@@ -15,10 +15,10 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 
 | 门禁 | 命令 | 说明 |
 |---|---|---|
-| Lint | `python -m ruff check apps/api` | CI 钉 `ruff==0.15.20` |
+| Lint | `python -m ruff check apps/api` | 在仓库根目录运行；CI 钉 `ruff==0.15.20` |
 | 类型 | `python -m mypy src` | CI 钉 `mypy==2.1.0`；阻塞门，必须保持 0 错误 |
 | 测试 | `python -m pytest` | CI 对 platform 内核与 profile / resume / settings / prep / interview 五个域有 >=90% 覆盖率门(records / growth 不在统计内) |
-| 依赖审计 | `pip-audit --ignore-vuln PYSEC-2026-311` | chromadb 已知问题且上游无修复版；已在 `pyproject.toml` 声明 |
+| 依赖审计 | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 已知问题且上游无修复版；已在 `pyproject.toml` 声明 |
 
 前端，在 `apps/web` 下运行：
 

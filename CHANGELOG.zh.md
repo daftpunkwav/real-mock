@@ -29,3 +29,5 @@
 - Mermaid 体验:解析失败不再泄漏红色错误图(改为源码视图 + 温和提示)、图 / 源码双视图、50%–300% 缩放 + 全屏、深色主题配色、主题切换时重渲染
 - Select 统一:全站原生 select 迁移为自定义 Select(键盘 / ARIA),覆盖面试设置与 Prep 相关表单
 - 测试基建:vitest React 插件支持 .tsx 组件测试,补齐用例间缺失的 Select 清理
+
+[0.1.0]: https://github.com/daftpunkwav/real-mock/releases/tag/v0.1.0

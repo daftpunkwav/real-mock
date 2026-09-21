@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes land on `main` and are released in the latest tagged version (currently `v0.1.0`). Older tags do not receive backports.
+Security fixes land on `main` and are released in the latest tagged version (first release: `v0.1.0`). Older tags do not receive backports.
 
 ## Deployment model
 
