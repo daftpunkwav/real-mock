@@ -29,7 +29,6 @@ import math
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
@@ -92,22 +91,6 @@ def _truncate(text: str, limit: int = MAX_OUTPUT_CHARS) -> tuple[str, bool]:
     if len(text) <= limit:
         return text, False
     return text[:limit] + f"\n…[truncated {len(text) - limit} chars]", True
-
-
-def _kill_tree(proc: subprocess.Popen[bytes]) -> None:
-    """Best-effort kill of a timed-out child (and its group on POSIX)."""
-    try:
-        if os.name == "posix":
-            try:
-                import signal
-
-                os.killpg(proc.pid, signal.SIGKILL)
-                return
-            except (ProcessLookupError, PermissionError, OSError):
-                pass
-        proc.kill()
-    except (ProcessLookupError, PermissionError, OSError):
-        pass
 
 
 def run_code_snippet(

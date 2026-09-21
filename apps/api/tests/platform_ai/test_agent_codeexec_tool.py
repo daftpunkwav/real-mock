@@ -1,7 +1,9 @@
 """Code-exec tool tests for apps/api/src/realmock/platform/capabilities/ai/agent/tools/codeexec.py.
 
-Covers: _kill_tree POSIX/dead paths, timeout clamping, missing node runtime,
-misconfigured isolation, overlong code, launch OSError, suffix/observation formatting.
+Covers: timeout clamping, missing node runtime, misconfigured isolation,
+overlong code, launch OSError, suffix/observation formatting. Timeout
+kill-tree behavior lives with the isolation backends (see
+tests/prep/test_code_isolation.py).
 
 Conventions: no real network (runtimes/backends mocked); asyncio_mode=auto.
 """
@@ -21,40 +23,6 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
-
-
-def test_kill_tree_posix_and_dead(monkeypatch) -> None:
-    class _P:
-        pid = 12345
-        killed = False
-
-        def kill(self):
-            self.killed = True
-
-    # POSIX killpg success path (create attr on Windows).
-    monkeypatch.setattr(ce.os, "name", "posix")
-    monkeypatch.setattr(ce.os, "killpg", lambda pid, sig: None, raising=False)
-    import signal as _sig
-
-    monkeypatch.setattr(_sig, "SIGKILL", 9, raising=False)
-    p = _P()
-    ce._kill_tree(p)  # type: ignore[arg-type]
-    assert p.killed is False
-    # POSIX killpg raises -> falls back to proc.kill.
-    def _boom(pid, sig):
-        raise ProcessLookupError("gone")
-
-    monkeypatch.setattr(ce.os, "killpg", _boom, raising=False)
-    ce._kill_tree(p)  # type: ignore[arg-type]
-    assert p.killed is True
-    # proc.kill raises -> swallowed.
-    class _Dead:
-        pid = 1
-
-        def kill(self):
-            raise ProcessLookupError("gone")
-
-    ce._kill_tree(_Dead())  # type: ignore[arg-type]
 
 
 def test_run_code_timeout_clamp_and_bad_timeout(monkeypatch) -> None:
