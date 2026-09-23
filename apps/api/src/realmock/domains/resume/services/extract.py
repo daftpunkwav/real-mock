@@ -44,7 +44,11 @@ async def extract_resume_text(
     - Still no text after fallback → A1004.
     """
     try:
-        raw_text = extract_text_from_file(file_path, ext)
+        # pypdf (up to 50 pages) / python-docx (up to 30MB uncompressed) parsing
+        # is synchronous CPU+disk work; keep it off the event loop so in-flight
+        # SSE streams sharing the loop do not stall (same discipline as the
+        # fitz render below). Raises from the worker propagate unchanged.
+        raw_text = await asyncio.to_thread(extract_text_from_file, file_path, ext)
     except Exception as e:
         logger.warning("Resume parsing failed: %s", e)
         raise_error("A1004", cause=e)
