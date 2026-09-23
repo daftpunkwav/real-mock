@@ -79,13 +79,6 @@ Rules:
 6. Never invent resume projects, metrics, star counts, company interview facts, or URLs. If search is unavailable, say less — do not fill the gap from memory.
 7. No emoji. Return JSON only.""")  # noqa: E501
 
-REPAIR_SYSTEM_PROMPT = (
-    "Repair the given evidence into a single JSON object that matches the requested schema "
-    "exactly — same keys, same shapes, every field present. Use only facts present in the "
-    "evidence; do not invent scores or quotes. No tool calls. Return JSON only."
-)
-
-
 def turn_notes_user_message(
     *,
     role: str,
@@ -145,7 +138,6 @@ def notes_json_schema_text() -> str:
 
 
 __all__ = [
-    "REPAIR_SYSTEM_PROMPT",
     "SYNTHESIS_SYSTEM_PROMPT",
     "TURN_NOTES_SYSTEM_PROMPT",
     "notes_json_schema_text",
