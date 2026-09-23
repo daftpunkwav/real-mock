@@ -187,14 +187,16 @@ class LLMClient:
             extra_headers=self.extra_headers or None,
             usage=self.usage,
         )
-        msg = data["choices"][0]["message"]
         self.usage.record_response(data, self.protocol)
+        # Business failure is checked before choices indexing: an error body
+        # (MiniMax base_resp convention) may carry no choices at all.
         business_error = provider_business_error(data, self.protocol)
         if business_error:
-            # HTTP 200 but the provider body reports a business failure
-            # (MiniMax base_resp convention): fail loudly with the verbatim text.
+            # HTTP 200 but the provider body reports a business failure:
+            # fail loudly with the verbatim text.
             self.usage.note_request_error(LLMUpstreamError(business_error))
             raise LLMUpstreamError(business_error)
+        msg = data["choices"][0]["message"]
         finish = extract_finish_reason(data, self.protocol)
         if finish in ("length", "max_tokens") or finish.startswith("incomplete"):
             logger.warning("LLM chat answer truncated (finish=%s) model=%s", finish, self.model)
@@ -234,12 +236,14 @@ class LLMClient:
             extra_headers=self.extra_headers or None,
             usage=self.usage,
         )
-        msg = data["choices"][0]["message"]
         self.usage.record_response(data, self.protocol)
+        # Business failure is checked before choices indexing: an error body
+        # (MiniMax base_resp convention) may carry no choices at all.
         business_error = provider_business_error(data, self.protocol)
         if business_error:
             self.usage.note_request_error(LLMUpstreamError(business_error))
             raise LLMUpstreamError(business_error)
+        msg = data["choices"][0]["message"]
         result: dict[str, Any] = {
             "role": msg.get("role") or "assistant",
             "content": msg.get("content"),

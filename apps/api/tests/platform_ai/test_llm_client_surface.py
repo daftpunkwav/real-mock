@@ -15,6 +15,7 @@ import httpx
 import pytest
 
 from realmock.platform.capabilities.ai.llm.client import llm_client as lc_mod
+from realmock.platform.capabilities.ai.llm.client.base import LLMUpstreamError
 from realmock.platform.capabilities.ai.llm.client.llm_client import LLMClient
 from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
 from realmock.platform.core.constants import LLMProtocol
@@ -92,6 +93,43 @@ async def test_chat_openai_success() -> None:
     ):
         text = await c.chat([{"role": "user", "content": "hi"}], purpose="t", system="sys")
     assert text == "hi"
+
+
+@pytest.mark.asyncio
+async def test_chat_business_error_body_without_choices_raises_upstream() -> None:
+    """MiniMax HTTP-200 error body (base_resp, no choices) surfaces verbatim."""
+    c = _client()
+    with (
+        patch.object(lc_mod, "is_safe_http_url", return_value=True),
+        patch.object(lc_mod, "build_payload", return_value={"model": "m"}),
+        patch.object(
+            lc_mod,
+            "chat_completions",
+            new=AsyncMock(
+                return_value={"base_resp": {"status_code": 1004, "status_msg": "invalid api key"}}
+            ),
+        ),
+        pytest.raises(LLMUpstreamError, match="invalid api key"),
+    ):
+        await c.chat([{"role": "user", "content": "hi"}])
+
+
+@pytest.mark.asyncio
+async def test_chat_message_business_error_body_without_choices_raises_upstream() -> None:
+    c = _client()
+    with (
+        patch.object(lc_mod, "is_safe_http_url", return_value=True),
+        patch.object(lc_mod, "build_payload", return_value={}),
+        patch.object(
+            lc_mod,
+            "chat_completions",
+            new=AsyncMock(
+                return_value={"base_resp": {"status_code": 1004, "status_msg": "invalid api key"}}
+            ),
+        ),
+        pytest.raises(LLMUpstreamError, match="invalid api key"),
+    ):
+        await c.chat_message([{"role": "user", "content": "hi"}])
 
 
 @pytest.mark.asyncio
