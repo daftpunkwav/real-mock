@@ -112,3 +112,68 @@ def test_build_request_openai_chat_minimal_and_plain_effort() -> None:
 def test_system_text_explicit_empty_falls_back() -> None:
     assert pt._system_text([{"role": "system", "content": "A"}], "") == "A"
     assert pt._system_text([{"role": "user", "content": "x"}], None) == ""
+
+
+def test_build_request_anthropic_thinking_modes() -> None:
+    """Mode labels map to dedicated thinking shapes: no budget, max_tokens as-is."""
+    for effort, mode in (("adaptive", "adaptive"), ("off", "disabled"), ("none", "disabled")):
+        _, payload = pt.build_request(
+            LLMProtocol.ANTHROPIC_MESSAGES,
+            "https://x",
+            "m",
+            4096,
+            effort,
+            [{"role": "user", "content": "hi"}],
+            temperature=0.2,
+        )
+        assert payload["thinking"] == {"type": mode}
+        assert payload["max_tokens"] == 4096  # no budget appended for modes
+        assert "temperature" not in payload  # thinking parameter present → no temperature
+
+
+def test_build_request_anthropic_custom_variant_interpolates_budget() -> None:
+    """A custom declared variant interpolates its budget from list position."""
+    variants = ["minimal", "light", "deep", "extreme"]
+    msgs = [{"role": "user", "content": "hi"}]
+    for effort, budget in (("minimal", 4096), ("light", 13_653), ("deep", 23_210), ("extreme", 32_768)):
+        _, payload = pt.build_request(
+            LLMProtocol.ANTHROPIC_MESSAGES,
+            "https://x",
+            "m",
+            1024,
+            effort,
+            msgs,
+            reasoning_variants=variants,
+        )
+        assert payload["thinking"] == {"type": "enabled", "budget_tokens": budget}
+        # Enabled thinking: budget sits on top of the floored answer allowance.
+        assert payload["max_tokens"] == budget + 1024
+
+
+def test_build_request_anthropic_custom_variant_unknown_label_default_budget() -> None:
+    """An effort outside the declared list falls back to the middle budget."""
+    _, payload = pt.build_request(
+        LLMProtocol.ANTHROPIC_MESSAGES,
+        "https://x",
+        "m",
+        1024,
+        "mystery",
+        [{"role": "user", "content": "hi"}],
+        reasoning_variants=["minimal", "light"],
+    )
+    assert payload["thinking"] == {"type": "enabled", "budget_tokens": 8192}
+
+
+def test_build_request_responses_tool_choice_nested_function() -> None:
+    """Chat-shaped nested tool_choice flattens to the Responses function shape."""
+    _, payload = pt.build_request(
+        LLMProtocol.OPENAI_RESPONSES,
+        "https://x",
+        "m",
+        64,
+        None,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        tool_choice={"type": "function", "function": {"name": "lookup"}},
+    )
+    assert payload["tool_choice"] == {"type": "function", "name": "lookup"}
