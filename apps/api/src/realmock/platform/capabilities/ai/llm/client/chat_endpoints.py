@@ -18,6 +18,12 @@ from realmock.platform.core.security import (
     redact_api_key,
 )
 
+from realmock.platform.capabilities.ai.llm.defaults import (
+    LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
+    LLM_CHAT_TIMEOUT_SECONDS,
+    LLM_TEST_CONNECTION_TIMEOUT_SECONDS,
+)
+
 from .base import _is_local_allowed, _require_https, _retry_request
 from .protocol_utils import _headers
 from .response_extract import extract_reasoning, extract_text, extract_tool_calls
@@ -41,7 +47,10 @@ async def chat(
         messages, system=system, stream=False, temperature=temperature, response_format=response_format, tools=tools
     )
     async with make_pinned_async_client(
-        client.api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
+        client.api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=LLM_CHAT_TIMEOUT_SECONDS,
     ) as http:
         try:
             # 429/5xx exponential backoff retry, consistent with non-streaming openai_chat path semantics
@@ -73,7 +82,10 @@ async def test_connection(client: "UnifiedLLMClient") -> tuple[bool, str]:
         temperature=0,
     )
     async with make_pinned_async_client(
-        client.api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=60.0
+        client.api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=LLM_TEST_CONNECTION_TIMEOUT_SECONDS,
     ) as http:
         try:
             resp = await http.post(
@@ -110,7 +122,10 @@ async def chat_message(
         tool_choice=tool_choice,
     )
     async with make_pinned_async_client(
-        client.api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
+        client.api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
     ) as http:
         resp = await http.post(
             url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload

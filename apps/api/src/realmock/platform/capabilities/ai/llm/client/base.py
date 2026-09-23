@@ -81,11 +81,17 @@ async def _retry_request(
                     await asyncio.sleep(backoff * (2 ** attempt))
                     continue
             raise
-        except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteError, httpx.RemoteProtocolError) as e:
+        except (httpx.ConnectError, httpx.WriteError, httpx.RemoteProtocolError) as e:
             last_exc = e
             if attempt < max_retries:
                 await asyncio.sleep(backoff * (2 ** attempt))
                 continue
+            raise
+        except httpx.ReadTimeout:
+            # Never retried: the request timeouts are minutes-scale, so a read
+            # timeout means the provider is still generating, not down —
+            # retrying would multiply an already-long wait (up to 4x) and is
+            # the caller's decision to make with its own budget.
             raise
         if resp.status_code == 429 or resp.status_code >= 500:
             last_exc = httpx.HTTPStatusError(

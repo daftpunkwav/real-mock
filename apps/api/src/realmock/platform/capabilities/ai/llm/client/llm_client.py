@@ -4,7 +4,7 @@ Changes:
 
 - ``from_db`` automatically decrypts the encrypted ``api_key`` stored in the database;
 - Validate ``api_base`` for safety on every request (SSRF defense, with dev/prod behavior controlled by settings);
-- chat 180s / chat_message 90s timeouts;
+- chat / chat_message timeouts come from the LLM_CHAT_*_TIMEOUT_SECONDS defaults;
 - Redact API Keys in error logs;
 - Do not retry 4xx; automatically retry 429/5xx with exponential backoff (3 attempts by default).
 
@@ -25,7 +25,11 @@ from realmock.platform.core.security import (
     UnsafeURLError,
     is_safe_http_url,
 )
-from realmock.platform.capabilities.ai.llm.defaults import DEFAULT_MAX_OUTPUT_TOKENS
+from realmock.platform.capabilities.ai.llm.defaults import (
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
+    LLM_CHAT_TIMEOUT_SECONDS,
+)
 from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
 
 from .base import _extract_message_text, _is_local_allowed, _require_https
@@ -172,7 +176,7 @@ class LLMClient:
             api_key=self.api_key,
             url=url,
             payload=payload,
-            timeout=180.0,
+            timeout=LLM_CHAT_TIMEOUT_SECONDS,
             log_label="LLM chat",
             model=self.model,
             extra_headers=self.extra_headers or None,
@@ -209,7 +213,7 @@ class LLMClient:
             api_key=self.api_key,
             url=url,
             payload=payload,
-            timeout=90.0,
+            timeout=LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
             log_label="LLM chat_message",
             model=self.model,
             extra_headers=self.extra_headers or None,

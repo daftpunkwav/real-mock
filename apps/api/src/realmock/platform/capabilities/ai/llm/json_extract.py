@@ -6,7 +6,7 @@ spans and keeps the key-richest candidate so callers only fall back to a
 slow evidence-repair pass on genuinely unrecoverable output.
 
 Single source for the resume-review finalizer and the records report
-finalizer, which previously carried near-duplicate copies.
+finalizer.
 """
 
 from __future__ import annotations

@@ -24,6 +24,13 @@ TOOL_OBSERVATION_COMPRESSED_CHARS = 4_000
 SPEECH_STAGE_MAX_OUTPUT_TOKENS = 4_096
 SPEECH_STAGE_CONTEXT_WINDOW = 8_192
 SPEECH_STAGE_TTS_MAX_OUTPUT_TOKENS = 8_192
+# Non-streaming request ceilings. Big-context requests (deep review: page
+# images + accumulated evidence, max reasoning effort) legitimately need
+# minutes on some providers; a read timeout below that turns every late agent
+# round into a guaranteed ReadTimeout instead of a slow but real answer.
+LLM_CHAT_TIMEOUT_SECONDS = 480.0
+LLM_CHAT_MESSAGE_TIMEOUT_SECONDS = 300.0
+LLM_TEST_CONNECTION_TIMEOUT_SECONDS = 60.0
 
 
 def resolve_context_window(value: int | None) -> int:
@@ -49,6 +56,9 @@ __all__ = [
     "COMPRESSION_TIMEOUT_SECONDS",
     "DEFAULT_CONTEXT_WINDOW",
     "DEFAULT_MAX_OUTPUT_TOKENS",
+    "LLM_CHAT_MESSAGE_TIMEOUT_SECONDS",
+    "LLM_CHAT_TIMEOUT_SECONDS",
+    "LLM_TEST_CONNECTION_TIMEOUT_SECONDS",
     "SPEECH_STAGE_CONTEXT_WINDOW",
     "SPEECH_STAGE_MAX_OUTPUT_TOKENS",
     "SPEECH_STAGE_TTS_MAX_OUTPUT_TOKENS",

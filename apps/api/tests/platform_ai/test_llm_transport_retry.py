@@ -174,15 +174,38 @@ async def test_retry_connect_error_exhausted() -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_read_timeout_write_remote_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_retry_write_error_and_remote_protocol_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
     for exc in (
-        httpx.ReadTimeout("t"),
         httpx.WriteError("w"),
         httpx.RemoteProtocolError("p"),
     ):
-        with pytest.raises(type(exc)):
-            await base_mod._retry_request(lambda: _raise(exc), max_retries=0)
+        calls = {"n": 0}
+
+        async def _factory(_exc: Exception = exc) -> Any:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise _exc
+            return _ok_response(200)
+
+        out = await base_mod._retry_request(_factory, max_retries=2)
+        assert out.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_read_timeout_is_never_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A minutes-scale read timeout means the model is still generating —
+    retrying would multiply the wait, so it must raise immediately."""
+    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    calls = {"n": 0}
+
+    async def _factory() -> Any:
+        calls["n"] += 1
+        raise httpx.ReadTimeout("still generating")
+
+    with pytest.raises(httpx.ReadTimeout):
+        await base_mod._retry_request(_factory, max_retries=3)
+    assert calls["n"] == 1
 
 
 @pytest.mark.asyncio

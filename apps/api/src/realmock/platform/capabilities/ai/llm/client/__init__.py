@@ -1,17 +1,14 @@
 """LLM client package.
 
-Maintains backward-compatible import paths:
+Public surface re-exported from submodules so the established import
+paths keep working:
 
-- ``from realmock.platform.capabilities.ai.llm.client import LLMClient`` (formerly ``client.py``)
-- ``from realmock.platform.capabilities.ai.llm.unified_client import UnifiedLLMClient`` (formerly ``unified_client.py``)
-- ``from realmock.platform.capabilities.ai.llm.tool_args import parse_tool_arguments`` (formerly ``tool_args.py``)
+- ``LLMClient`` — OpenAI-compatible BYOK client (:mod:`llm_client`)
+- ``UnifiedLLMClient`` — unified multi-protocol client (:mod:`unified_client`)
+- ``parse_tool_arguments`` — function-calling tool-argument parsing (:mod:`tool_args`)
 
-Split submodules:
-
-- :mod:`base` — retries, text extraction, and environment-check helpers
-- :mod:`llm_client` — OpenAI-compatible BYOK client
-- :mod:`unified_client` — unified multi-protocol client
-- :mod:`tool_args` — function-calling tool-argument parsing
+:mod:`base` holds the shared retry, text-extraction, and environment-check
+helpers.
 """
 
 from .llm_client import LLMClient

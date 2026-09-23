@@ -25,9 +25,11 @@ from ..stream_filters import StreamSanitizer
 
 logger = logging.getLogger(__name__)
 
+# ReadTimeout is deliberately absent (same policy as base._retry_request): a
+# read timeout on a minutes-scale request means the provider is still
+# generating, and retrying would multiply the wait — the caller decides.
 _RETRYABLE_CONNECTION_ERRORS = (
     httpx.ConnectError,
-    httpx.ReadTimeout,
     httpx.WriteError,
     httpx.RemoteProtocolError,
 )
