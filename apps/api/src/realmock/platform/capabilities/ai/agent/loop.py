@@ -7,7 +7,7 @@ without introducing Cordis, MCP, shell, or sub-Agents.
 Layered by responsibility:
 - ``loop.py``: main ``run_agent_loop`` orchestration and result structures;
 - ``llm_round.py``: one LLM round (streaming preferred) and tool-result truncation;
-- ``hints.py``: closing/correction hint constants; ``halt.py``: the ``AgentHalt`` termination signal.
+- ``hints.py``: closing/correction/countdown hints; ``halt.py``: the ``AgentHalt`` termination signal.
 """
 
 from __future__ import annotations
@@ -206,7 +206,7 @@ async def run_agent_loop(
     protocol-level guarantee of a final answer instead of an advisory hint the
     model can ignore. The caller's ``wrap_up_hint`` copy should match (no
     "call only one tool" phrasing).
-    ``budget_hint_enabled``: when True (default), every round's request
+    ``budget_hint_enabled``: when True (default), every round after the first
     carries a transient ``[Budget]`` system line (see :func:`budget_hint`)
     stating round/max-rounds/per-round width/calls spent. Never persisted.
 
