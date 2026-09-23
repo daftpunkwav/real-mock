@@ -27,6 +27,7 @@ from realmock.domains.resume.routes.file import (
     get_resume_page_image,
     get_resume_pages_meta,
 )
+from realmock.domains.resume.routes.parse_retry import retry_resume_parse
 from realmock.domains.resume.routes.upload import upload_resume, upload_resume_version
 from realmock.domains.resume.schemas import ResumeAnalysis, ResumeDomainLimits, ResumeResponse
 from realmock.domains.resume.services import contract_guard
@@ -133,6 +134,20 @@ router.add_api_route(
             rate_limit_dep(
                 key="upload",
                 limit=DEFAULT_RATE_LIMIT_PER_MINUTE,
+            )
+        )
+    ],
+)
+router.add_api_route(
+    "/{resume_id}/parse",
+    retry_resume_parse,
+    methods=["POST"],
+    response_model=ResumeResponse,
+    dependencies=[
+        Depends(
+            rate_limit_dep(
+                key="llm",
+                limit=DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
             )
         )
     ],
