@@ -70,12 +70,37 @@ COMMIT_RETRY_DELAY_SECONDS: float = 1.5
 # client_limits_payload + contract_guard coverage).
 REPO_EVIDENCE_JSON_BUDGET: int = 4000
 
-REVIEW_MAX_ROUNDS: int = 18
-REVIEW_MAX_TOOLS_PER_ROUND: int = 4
+# Rounds before the cap that receive the soft-landing countdown nudges; the
+# outer half is advisory ("conclude evidence gathering"), the inner half is
+# urgent ("no new explorations"). The last round always gets the wrap-up hint
+# and (with final_round_tool_free) no tools at all.
+REVIEW_COUNTDOWN_ROUNDS: int = 10
+REVIEW_MAX_ROUNDS: int = 30
+REVIEW_MAX_TOOLS_PER_ROUND: int = 6
+# Soft ceiling on tool calls across the whole review: beyond it calls are
+# refused with a "write the final answer" observation instead of executing,
+# but the loop keeps running so the model can always produce its answer.
+REVIEW_MAX_TOTAL_TOOL_CALLS: int = 80
+# Deterministic head+tail cap for one tool observation (attention bound, not a
+# context-space bound — big-context models keep raw evidence).
+REVIEW_OBSERVATION_MAX_CHARS: int = 16_000
 REVIEW_MAX_PLAN_STEPS: int = 15
 REVIEW_MIN_PLAN_STEPS: int = 8
-REVIEW_TOOL_TIMEOUT_SECONDS: float = 30.0
-REVIEW_REPAIR_TIMEOUT_SECONDS: float = 480.0
+# Post-loop finalize passes. Each wait_for must sit ABOVE the transport
+# ceiling (LLM_CHAT_TIMEOUT_SECONDS = 480s): these bounds only catch
+# pathological hangs, never a slow model legitimately thinking through a long
+# chain of thought. ReadTimeout is not retried at transport level, so the
+# worst real call is one transport attempt.
+REVIEW_REPAIR_TIMEOUT_SECONDS: float = 540.0
+# The tool-free synthesis call after a loop break re-sends the whole history;
+# the bound below is a hang safety net, not a thinking deadline.
+REVIEW_FORCED_FINAL_TIMEOUT_SECONDS: float = 540.0
+# Self-correction finalize phase (model re-emits its own malformed JSON over
+# the full loop history): same hang exposure as the forced-final call, so it
+# gets the same class of bound. On timeout the chain falls through to repair.
+REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS: float = 540.0
+# Score-recovery pass (chat_json over the review narrative).
+REVIEW_SCORE_RECOVERY_TIMEOUT_SECONDS: float = 300.0
 # Responses-protocol reasoning models count reasoning tokens toward this cap;
 # a full Chinese evaluation JSON plus high-effort reasoning exceeds 16k.
 REVIEW_MAX_OUTPUT_TOKENS = 32_768
@@ -83,8 +108,8 @@ REVIEW_SEARCH_MAX_RESULTS: int = 8
 REVIEW_KEEP_RECENT_MESSAGES: int = 32
 SSE_HEARTBEAT_SECONDS: float = 15.0
 # Persist-time floor so a truncated/empty JSON is not stored as a successful review.
-MIN_SCORED_DIMENSIONS: int = 4
-MIN_REVIEW_TEXT_CHARS: int = 40
+REVIEW_MIN_SCORED_DIMENSIONS: int = 4
+REVIEW_MIN_TEXT_CHARS: int = 40
 REVIEW_AGENT_TEMPERATURE: float = 0.15
 SCORE_BAND_FAIR: int = 55
 SCORE_BAND_STRONG: int = 70
@@ -218,7 +243,7 @@ def client_limits_payload() -> dict[str, object]:
         "max_resume_versions": MAX_RESUME_VERSIONS,
         "percentile_floor": PERCENTILE_FLOOR,
         "percentile_ceiling": PERCENTILE_CEILING,
-        "min_scored_dimensions": MIN_SCORED_DIMENSIONS,
+        "min_scored_dimensions": REVIEW_MIN_SCORED_DIMENSIONS,
         "score_band_fair": SCORE_BAND_FAIR,
         "score_band_strong": SCORE_BAND_STRONG,
         "score_band_standout": SCORE_BAND_STANDOUT,

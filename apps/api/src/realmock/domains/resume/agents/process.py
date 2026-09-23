@@ -87,10 +87,30 @@ class ReviewProcess:
     min_steps: int = REVIEW_MIN_PLAN_STEPS
     steps: list[ProcessStep] = field(default_factory=list)
     on_change: OnPlanChange | None = None
+    # Tool actions since the last done/skipped transition; consumed as the
+    # deterministic step-note fallback so every finished step carries a note
+    # even when the model omits one.
+    _activity: list[str] = field(default_factory=list)
+
+    # Fallback note budget: enough labels to describe a step, small enough to
+    # stay one quiet line in the plan spine.
+    _ACTIVITY_MAX_LABELS = 8
+    _ACTIVITY_LABEL_MAX_CHARS = 60
 
     def snapshot(self) -> list[dict[str, Any]]:
         """Return a detached copy of the current steps for event payloads."""
         return [step.as_dict() for step in self.steps]
+
+    def record_activity(self, label: str) -> None:
+        """Record one executed tool action for the step-note fallback."""
+        text = str(label or "").strip()
+        if not text:
+            return
+        if len(self._activity) < self._ACTIVITY_MAX_LABELS:
+            self._activity.append(text[: self._ACTIVITY_LABEL_MAX_CHARS])
+
+    def _activity_note(self) -> str:
+        return " · ".join(self._activity)[:240]
 
     async def _notify(self) -> None:
         if self.on_change is None:
@@ -186,7 +206,17 @@ class ReviewProcess:
         target.status = status
         target.mode = mode
         if note:
+            # Same one-line cap as the activity-note fallback: a finished step
+            # shows at most one short line in the plan spine UI.
             target.note = _decode_escapes(note)[:240]
+        elif status in ("done", "skipped") and not target.note:
+            # Deterministic fallback so the plan spine shows a line under every
+            # finished step: summarize the tool actions taken for this step.
+            target.note = self._activity_note()
+        if status in ("done", "skipped"):
+            # The recorded actions belong to the step that just closed; the
+            # next step starts from an empty slate even if it re-marks later.
+            self._activity.clear()
         await self._notify()
         return json.dumps({"ok": True, "steps": self.snapshot()}, ensure_ascii=False)
 
@@ -270,9 +300,11 @@ def process_tool_specs(process: ReviewProcess) -> list[ToolSpec]:
         ToolSpec(
             name="review_update_step",
             description=(
-                "Mark a plan step pending / in_progress / done / skipped, with an optional note. "
+                "Mark a plan step pending / in_progress / done / skipped. "
                 "Set in_progress when you start a step and done/skipped when you finish it, "
-                "so the live plan always shows what is executing. Steps whose evidence is "
+                "so the live plan always shows what is executing. When marking done, ALWAYS "
+                "include note: one concrete line stating what the step found or concluded "
+                "(shown under the step in the live progress UI). Steps whose evidence is "
                 "independent may share mode=parallel; issue their tool calls together in one "
                 "round and they execute concurrently."
             ),
@@ -281,7 +313,13 @@ def process_tool_specs(process: ReviewProcess) -> list[ToolSpec]:
                 "properties": {
                     "id": {"type": "string", "description": "Step id (1-based) or exact title"},
                     "status": {"type": "string", "enum": list(STATUSES)},
-                    "note": {"type": "string"},
+                    "note": {
+                        "type": "string",
+                        "description": (
+                            "Required with status=done: one-line finding or conclusion "
+                            "from this step (max 240 chars)"
+                        ),
+                    },
                     "mode": {
                         "type": "string",
                         "enum": list(MODES),

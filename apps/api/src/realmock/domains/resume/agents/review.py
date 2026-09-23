@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -27,15 +28,19 @@ from realmock.domains.resume.agents.process import (
 )
 from realmock.domains.resume.schemas.limits import (
     REVIEW_AGENT_TEMPERATURE,
+    REVIEW_COUNTDOWN_ROUNDS,
+    REVIEW_FORCED_FINAL_TIMEOUT_SECONDS,
     REVIEW_KEEP_RECENT_MESSAGES,
     REVIEW_MAX_OUTPUT_TOKENS,
     REVIEW_MAX_PLAN_STEPS,
     REVIEW_MAX_ROUNDS,
     REVIEW_MAX_TOOLS_PER_ROUND,
+    REVIEW_MAX_TOTAL_TOOL_CALLS,
     REVIEW_MIN_PLAN_STEPS,
+    REVIEW_OBSERVATION_MAX_CHARS,
     REVIEW_REPAIR_TIMEOUT_SECONDS,
     REVIEW_SEARCH_MAX_RESULTS,
-    REVIEW_TOOL_TIMEOUT_SECONDS,
+    REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS,
 )
 from realmock.domains.resume.services.analysis_prompt import (
     get_review_agent_prompt,
@@ -64,7 +69,6 @@ from realmock.platform.capabilities.ai.agent.tools import (
     search_tool_spec,
     snapshot_from_payload,
 )
-from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.ai.context.manager import compact_with_summary, upsert_memory_block
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.defaults import resolve_context_window, resolve_max_output_tokens
@@ -86,25 +90,46 @@ OnReviewEvent = OnAgentEvent
 
 # Defense-in-depth caps: repair evidence joins already-compacted tool
 # observations; these only bound the join itself.
-_EVIDENCE_CHUNK_CHARS = 8_000
-_EVIDENCE_TOTAL_CHARS = 40_000
-# Circuit breaker: a tool failing this many times in a row is refused without
-# spending another call, so one broken tool cannot eat the round budget.
+_EVIDENCE_CHUNK_CHARS = 12_000
+_EVIDENCE_TOTAL_CHARS = 80_000
+# Circuit breaker: the exact same call (tool + arguments) failing this many
+# times in a row is refused without spending another call. Different arguments
+# are never blocked — the workload differs, so the model decides.
 _TOOL_CIRCUIT_BREAKER_STREAK = 3
 
-_WRAP_UP_MESSAGE = {
+# Final-round wrap-up matching final_round_tool_free=True: the last round is
+# sent without a tools parameter, so the copy demands the complete JSON
+# directly (unlike the platform _WRAP_UP_HINT, which still allows one last
+# essential tool call).
+_WRAP_UP_TOOL_FREE_MESSAGE = {
     "role": "system",
     "content": (
-        "This is the last tool-calling round. If evidence is sufficient, output the "
-        "complete evaluation JSON now and do not call tools. If one critical fact is "
-        "still missing, call only that tool."
+        "This is the final round and tools are no longer available. Output the "
+        "complete evaluation JSON now: a single JSON object with every required "
+        "field, no tool calls, no prose before or after."
     ),
 }
 
 # Bounded plan enforcement: the first user message already orders plan-first;
-# from the second round on, pin a reminder on top until the model declares a
-# plan. The tool-derived fallback still applies so progress never stalls.
+# from the second round on, append a transient reminder at the tail until the
+# model declares a plan (tail position keeps the stable prefix cacheable). The
+# tool-derived fallback still applies so progress never stalls.
 _PLAN_REMINDER_MAX = 3
+
+# Last-resort instruction when the loop burns every round on tools and never
+# emits the evaluation: the follow-up call offers no tools, so the model can
+# only answer with text. Kept separate from _WRAP_UP_TOOL_FREE_MESSAGE because
+# that one closes the in-loop final round while the loop is still running;
+# this one drives the post-loop follow-up call after the loop already ended
+# empty.
+_FORCED_FINAL_INSTRUCTION = (
+    "Tools are now disabled. Output the complete resume evaluation as a single "
+    "JSON object that matches this schema exactly — same keys, same shapes, "
+    "every field present:\n"
+    "{schema}\n"
+    "Write user-facing fields in {locale}. Use only facts from the conversation "
+    "above. Do not invent scores, repos, or quotes. Output JSON only, no tool calls."
+)
 
 
 def _plan_reminder_text() -> str:
@@ -115,6 +140,101 @@ def _plan_reminder_text() -> str:
         "language; the last step must generate the evaluation JSON. "
         "Then keep the plan in sync with review_update_step as you work."
     )
+
+
+def _progress_line(round_no: int, tool_calls_used: int) -> str:
+    """Per-round budget awareness so the model can pace itself to the answer."""
+    return (
+        f"Progress: LLM round {round_no}/{REVIEW_MAX_ROUNDS}. "
+        f"Tool calls used: {tool_calls_used}/{REVIEW_MAX_TOTAL_TOOL_CALLS} "
+        f"(max {REVIEW_MAX_TOOLS_PER_ROUND} per round). Keep enough budget to "
+        "finish evidence gathering, then output the final answer."
+    )
+
+
+async def _truncate_observation(text: str) -> str:
+    """Deterministic head+tail cap for one tool observation.
+
+    Attention bound, not a context-space bound: raw evidence stays readable at
+    both ends (model-written args and the tool's summary/marker live there),
+    only the middle is elided behind an explicit marker.
+    """
+    body = str(text or "")
+    limit = REVIEW_OBSERVATION_MAX_CHARS
+    if len(body) <= limit:
+        return body
+    head = limit * 70 // 100
+    tail = limit - head
+    return body[:head] + "\n…[middle truncated]…\n" + body[-tail:]
+
+
+# User-visible progress notices for the post-loop finalize phases (rendered as
+# timeline rows by the web UI) so a slow synthesis never looks like a hang.
+_FINALIZE_NOTICES: dict[str, tuple[str, str]] = {
+    "forced_final": (
+        "正在基于已收集的证据汇总生成最终评价…",
+        "Synthesizing the final evaluation from the gathered evidence…",
+    ),
+    "self_correction": (
+        "上一轮输出不是有效 JSON，正在重新输出…",
+        "The previous output was not valid JSON; re-emitting it…",
+    ),
+    "repair": (
+        "正在基于已收集的证据重建评价 JSON…",
+        "Rebuilding the evaluation JSON from the gathered evidence…",
+    ),
+}
+
+
+async def _emit_finalize_notice(
+    on_event: OnReviewEvent | None,
+    locale: str,
+    kind: str,
+) -> None:
+    zh, en = _FINALIZE_NOTICES[kind]
+    await _emit(on_event, {"type": "notice", "message": en if locale == "en" else zh})
+
+
+# Page-image retirement: the 8 rendered pages are re-sent with EVERY round and
+# dominate per-request latency on slow models. Once the layout review step has
+# concluded, its findings live in the step notes and the images stop earning
+# their cost — later rounds continue text-only. If no step clearly owns the
+# layout review, retire the images after a bounded share of rounds anyway.
+_LAYOUT_STEP_RE = re.compile(
+    r"版面|版式|排版|页面图|图像|layout|visual|image|typograph", re.I
+)
+_IMAGE_RETIRE_ROUND_RATIO = 2 / 3
+_IMAGE_RETIRE_MIN_ROUND = 8
+_RETIRED_IMAGE_MARKER = (
+    "[Original page images were attached earlier; the layout review is complete "
+    "and its findings are recorded in your step notes.]"
+)
+
+
+def _layout_review_concluded(process: Any) -> bool:
+    """True when a plan step owning the layout review has finished."""
+    for step in getattr(process, "steps", []) or []:
+        if step.status in ("done", "skipped") and _LAYOUT_STEP_RE.search(step.title or ""):
+            return True
+    return False
+
+
+def _retire_page_images(message: dict[str, Any]) -> dict[str, Any]:
+    """Replace attached page images with an explicit text marker (new dict)."""
+    content = message.get("content")
+    if not isinstance(content, list):
+        return message
+    if not any(
+        isinstance(item, dict) and item.get("type") == "image_url" for item in content
+    ):
+        return message
+    replaced: list[dict[str, Any]] = []
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "image_url":
+            replaced.append({"type": "text", "text": _RETIRED_IMAGE_MARKER})
+        else:
+            replaced.append(item)
+    return {**message, "content": replaced}
 
 
 def _needs_plan_reminder(*, has_plan: bool, round_index: int, reminders_used: int) -> bool:
@@ -175,11 +295,6 @@ def _query_from_args(name: str, args: dict[str, Any]) -> str:
     return name
 
 
-# NOTE: _iter_balanced_objects / _extract_json_object live in
-# platform.capabilities.ai.llm.json_extract (single source); the import
-# aliases above keep the established import path working.
-
-
 def _content_as_text(content: Any) -> str:
     """Flatten a chat content field; images become a short marker, not the data URL."""
     if isinstance(content, list):
@@ -230,18 +345,76 @@ def evidence_for_repair(messages: list[dict[str, Any]], draft: str) -> str:
     return joined
 
 
+async def _request_json_self_correction(
+    llm: LLMClient,
+    loop: LoopResult,
+    *,
+    locale: str,
+    parse_error: str,
+) -> str | None:
+    """One tool-free round asking the model to re-emit its own broken JSON.
+
+    Reuses the loop history (prefix-cache friendly) plus the malformed draft as
+    an assistant message and the parser's error message — fixing the model's
+    own output beats regenerating from evidence. Bounded by
+    ``REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS`` so a hung request still leaves
+    time for the repair pass. Never raises; ``None`` sends the caller on to
+    the repair pass.
+    """
+    draft = str(loop.final_content or "").strip()
+    if not draft:
+        return None
+    try:
+        # Bounded like the other finalize phases: this call replays the whole
+        # loop history over the same flaky network; without an outer bound a
+        # hung request could eat the rest of the frontend budget (the
+        # transport timeout only caps a single attempt, not its retries).
+        text = await asyncio.wait_for(
+            llm.chat(
+                [
+                    *loop.messages,
+                    {"role": "assistant", "content": loop.final_content},
+                    {
+                        "role": "user",
+                        "content": (
+                            "Your previous reply could not be parsed as JSON. Parser "
+                            f"error: {parse_error[:200]}\n"
+                            "Output the complete evaluation JSON again: a single JSON "
+                            "object matching the required schema exactly, with every "
+                            f"field present. Write user-facing fields in {locale}. "
+                            "JSON only — no tools, no prose before or after."
+                        ),
+                    },
+                ],
+                temperature=REVIEW_AGENT_TEMPERATURE,
+            ),
+            timeout=REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        logger.warning("Resume review JSON self-correction failed: %s", exc)
+        return None
+    corrected = str(text or "").strip()
+    if not corrected:
+        return None
+    logger.info("Resume review requested a JSON self-correction round (draft %s chars)", len(draft))
+    return corrected
+
+
 async def finalize_review_json(
     loop: LoopResult,
     llm: LLMClient,
     *,
     locale: str,
     max_output: int,
+    on_event: OnReviewEvent | None = None,
 ) -> dict[str, Any]:
-    """Parse the loop's final JSON, or repair it from gathered evidence.
+    """Parse the loop's final JSON, or repair it through the degradation chain.
 
-    Does not invent an evaluation from an empty prompt. Missing evidence → C0001.
-    A reply truncated by the output-token cap is repaired first and only salvaged
-    locally when that repair yields no object. Repair failure → C0002.
+    Chain: extract → self-correction (model fixes its own malformed JSON) →
+    repair (regenerate from evidence) → salvage (keep the head of a truncated
+    reply). Missing evidence → C0001; everything failed → C0002. Each slow
+    phase announces itself through ``on_event`` so the live timeline shows
+    progress instead of a silent wait.
     """
     payload = _extract_json_object(loop.final_content or "")
     if isinstance(payload, dict):
@@ -249,18 +422,36 @@ async def finalize_review_json(
     silent = not str(loop.final_content or "").strip() and not loop.tool_used
     if silent:
         raise_error("C0001")
+    # First rung: the model re-emits its own output. Skipped for an empty
+    # draft — there is nothing of the model's to fix, go straight to repair.
+    draft = str(loop.final_content or "").strip()
+    if draft:
+        try:
+            json.loads(loop.final_content or "")
+        except Exception as exc:
+            parse_error = f"{type(exc).__name__}: {exc}"
+        else:
+            parse_error = "no complete JSON object found"
+        await _emit_finalize_notice(on_event, locale, "self_correction")
+        corrected_text = await _request_json_self_correction(
+            llm, loop, locale=locale, parse_error=parse_error
+        )
+        if corrected_text:
+            corrected = _extract_json_object(corrected_text)
+            if isinstance(corrected, dict):
+                logger.info("Resume review JSON self-correction succeeded")
+                return corrected
     logger.info(
         "Resume review final content was not JSON (len=%s); requesting a grounded JSON repair pass",
-        len(str(loop.final_content or "")),
+        len(draft),
     )
     evidence = evidence_for_repair(loop.messages, loop.final_content or "")
     if not evidence.strip():
         raise_error("C0001")
-    repair_src = await compress_text_blob(
-        llm,
-        evidence,
-        purpose="resume review JSON repair",
-    )
+    await _emit_finalize_notice(on_event, locale, "repair")
+    # Evidence is char-capped by evidence_for_repair and is sent as-is: a
+    # compression round-trip would only add latency and destroy detail the
+    # repair needs.
     repaired: Any = None
     repair_error: Exception | None = None
     try:
@@ -279,7 +470,7 @@ async def finalize_review_json(
                             "No tool calls."
                         ),
                     },
-                    {"role": "user", "content": repair_src},
+                    {"role": "user", "content": evidence},
                 ],
                 temperature=0.2,
                 max_tokens=min(max_output, REVIEW_MAX_OUTPUT_TOKENS),
@@ -298,12 +489,49 @@ async def finalize_review_json(
     if isinstance(salvaged, dict):
         logger.warning(
             "Resume review kept the head of a truncated reply (%s chars, no grounded repair)",
-            len(str(loop.final_content or "")),
+            len(draft),
         )
         return salvaged
     if repair_error is not None:
         raise_error("C0002", cause=repair_error)
     raise_error("C0002")
+
+
+async def _request_forced_final_answer(
+    llm: LLMClient,
+    loop: LoopResult,
+    *,
+    locale: str,
+) -> str | None:
+    """One tool-free chat call reusing the loop history; None when unusable.
+
+    Covers a loop that broke with tools run but no final content (a failed
+    round LLM call, or an empty model reply): without tools the model can only
+    answer. Runs under the loop's output-token cap (caller restores the client
+    budget afterwards); the transport timeout bounds the call. Never raises —
+    failure falls through to the repair path; cancellation still propagates.
+    """
+    call = llm.chat(
+        [
+            *loop.messages,
+            {
+                "role": "system",
+                "content": _FORCED_FINAL_INSTRUCTION.format(
+                    schema=review_json_schema_text(), locale=locale
+                ),
+            },
+        ],
+        temperature=REVIEW_AGENT_TEMPERATURE,
+    )
+    try:
+        text = await call
+    except Exception as exc:
+        logger.warning("Resume review forced final answer failed: %s", exc)
+        return None
+    if not str(text or "").strip():
+        return None
+    logger.info("Resume review loop ended without content; using tool-free final answer")
+    return str(text)
 
 
 async def _invoke_review_tool(
@@ -312,14 +540,13 @@ async def _invoke_review_tool(
     args: dict[str, Any],
     context: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
-    """Run one tool. Platform helper with the resume-domain timeout.
+    """Run one tool. Platform helper; the timeout comes from the tool's own
+    ``timeout_seconds`` declaration, falling back to the platform default.
 
     ApiBusinessError propagates through the Agent loop to the caller;
     only timeouts/unexpected exceptions become JSON observations.
     """
-    return await invoke_with_timeout(
-        bundle, name, args, timeout=REVIEW_TOOL_TIMEOUT_SECONDS, context=context
-    )
+    return await invoke_with_timeout(bundle, name, args, context=context)
 
 
 async def _emit(on_event: OnReviewEvent | None, event: ReviewEvent) -> None:
@@ -423,27 +650,35 @@ def _build_tool_executor(
     used_tools: list[str],
     on_event: OnReviewEvent | None,
     context: dict[str, Any] | None = None,
+    budget_state: dict[str, int] | None = None,
+    activity_sink: Callable[[str], None] | None = None,
 ) -> Callable[[str, dict[str, Any]], Awaitable[str]]:
     """Build the Agent-loop ``execute`` callback with SSE progress events.
 
+    ``budget_state["tool_calls"]`` (when given) counts non-plan calls that pass
+    the budget gate so the per-round progress line and the total-call refusal
+    share one number; circuit-breaker refusals refund their slot.
+    ``activity_sink`` receives one compact label per executed non-plan call and
+    feeds the deterministic step-note fallback in ``ReviewProcess``.
     Kept as a factory (instead of inline closures) so ``run_resume_review``
     stays orchestration-only and the executor is independently testable.
     """
     tool_seq = 0
-    error_streak: dict[str, int] = {}
+    budget = budget_state if budget_state is not None else {"tool_calls": 0}
+    # Breaker key: tool + canonical arguments. Only the exact same call is
+    # blocked after repeated failures; different arguments stay the model's
+    # decision.
+    error_streaks: dict[tuple[str, str], int] = {}
 
-    def _circuit_open_observation(tool: str) -> str:
-        """Refuse a repeatedly failing tool without spending another call."""
+    def _args_key(args: dict[str, Any]) -> str:
+        try:
+            return json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)[:500]
+        except Exception:
+            return str(args)[:500]
+
+    def _blocked_observation(kind: str, tool: str, message: str) -> str:
         return json.dumps(
-            {
-                "error": "circuit_open",
-                "tool": tool,
-                "message": (
-                    f"{tool} failed {_TOOL_CIRCUIT_BREAKER_STREAK} times in a row; "
-                    "further calls are blocked to protect the tool budget. "
-                    "Continue with other tools or the evidence already gathered."
-                ),
-            },
+            {"error": kind, "tool": tool, "message": message},
             ensure_ascii=False,
         )
 
@@ -454,6 +689,22 @@ def _build_tool_executor(
         if name.startswith(PLAN_TOOL_PREFIX):
             raw, _status = await _invoke_review_tool(bundle, name, args, context)
             return raw
+        if budget["tool_calls"] >= REVIEW_MAX_TOTAL_TOOL_CALLS:
+            # Soft ceiling: refuse the call, keep the loop alive so the model
+            # can always write its final answer.
+            return _blocked_observation(
+                "tool_budget_exhausted",
+                name,
+                f"Tool-call budget exhausted ({REVIEW_MAX_TOTAL_TOOL_CALLS} calls). "
+                "Write the final answer with the evidence already gathered.",
+            )
+        # Reserve the slot before the first await point: every call in a
+        # parallel round passes the check above, and an after-the-fact
+        # increment would let them jointly overshoot the soft ceiling.
+        # Circuit-blocked calls below refund it — they never reach the
+        # provider, so they cost no budget.
+        budget["tool_calls"] += 1
+        key = (name, _args_key(args))
         tool_seq += 1
         step_id = f"tool-{tool_seq}"
         query = _query_from_args(name, args)
@@ -469,14 +720,24 @@ def _build_tool_executor(
                 "args": public_args,
             },
         )
-        if error_streak.get(name, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
-            raw, status = _circuit_open_observation(name), "error"
+        if error_streaks.get(key, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
+            budget["tool_calls"] -= 1  # refusal costs no provider budget
+            raw, status = _blocked_observation(
+                "circuit_open",
+                name,
+                f"This exact call ({name} with the same arguments) failed "
+                f"{_TOOL_CIRCUIT_BREAKER_STREAK} times in a row and is temporarily "
+                "blocked. Change the arguments, use a different tool, or move on "
+                "to writing the final answer.",
+            ), "error"
         else:
             raw, status = await _invoke_review_tool(bundle, name, args, context)
             if status == "error":
-                error_streak[name] = error_streak.get(name, 0) + 1
+                error_streaks[key] = error_streaks.get(key, 0) + 1
             else:
-                error_streak.pop(name, None)
+                error_streaks.pop(key, None)
+            if activity_sink is not None:
+                activity_sink(f"{name}({_query_from_args(name, args)})")
         await _emit(
             on_event,
             {
@@ -503,7 +764,12 @@ async def run_resume_review(
     locale: str,
     on_event: OnReviewEvent | None = None,
 ) -> dict[str, Any]:
-    """Run the tool loop and return a raw analysis dict (not yet normalized)."""
+    """Run the tool loop and return a raw analysis dict (not yet normalized).
+
+    No wall-clock budget: rounds are paced by the per-round progress line, the
+    countdown ladder, and a tool-free final round — the model is steered to the
+    answer, never cut off mid-thought.
+    """
     context_window = resolve_context_window(getattr(llm, "context_window", 0))
     max_output = resolve_max_output_tokens(getattr(llm, "max_tokens", 0))
     # Bound every round: a huge advertised ceiling lets reasoning models ramble
@@ -543,7 +809,15 @@ async def run_resume_review(
         snapshot=snapshot, db=db, process=process, search_queries=search_queries
     )
     error_context = {"domain": "resume", "session": str(getattr(resume, "id", "") or "")}
-    execute_tool_call = _build_tool_executor(bundle, used_tools, on_event, error_context)
+    budget_state = {"tool_calls": 0}
+    execute_tool_call = _build_tool_executor(
+        bundle,
+        used_tools,
+        on_event,
+        error_context,
+        budget_state,
+        activity_sink=process.record_activity,
+    )
 
     llm_round_index = 0
     plan_reminders = 0
@@ -565,17 +839,53 @@ async def run_resume_review(
             base = list(messages)
         else:
             base = upsert_memory_block(_reinsert_first_user(messages, compacted), memory)
+        # Retire page images once the layout review has concluded (or after a
+        # bounded share of rounds): the findings live in the step notes, and
+        # re-sending 8 images per round dominates latency on slow models.
+        images_retired = _layout_review_concluded(process) or (
+            round_index + 1
+            >= max(
+                _IMAGE_RETIRE_MIN_ROUND,
+                int(REVIEW_MAX_ROUNDS * _IMAGE_RETIRE_ROUND_RATIO),
+            )
+        )
+        if images_retired:
+            base = [
+                _retire_page_images(m) if m.get("role") == "user" else m for m in base
+            ]
+        # Transient suffix only: appending at the end keeps the stable prefix
+        # (system / overview / working history) byte-identical for provider
+        # prefix caches, and the end position carries the most attention.
+        suffix: list[dict[str, Any]] = []
         if _needs_plan_reminder(
             has_plan=bool(process.steps),
             round_index=round_index,
             reminders_used=plan_reminders,
         ):
             plan_reminders += 1
-            return [{"role": "system", "content": _plan_reminder_text()}, *base]
-        return base
-
-    async def compact_observation(text: str) -> str:
-        return await compress_text_blob(llm, text, purpose="resume review tool result")
+            suffix.append({"role": "system", "content": _plan_reminder_text()})
+        if process.steps and all(
+            step.status in ("done", "skipped") for step in process.steps
+        ):
+            # The plan is finished but the model is still calling tools: pin a
+            # strong finalize instruction until it produces the answer.
+            suffix.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "All plan steps are complete. Output the complete "
+                        "evaluation JSON as your final answer now — no further "
+                        "tool calls."
+                    ),
+                }
+            )
+        suffix.append(
+            {
+                "role": "system",
+                "content": _progress_line(round_index + 1, budget_state["tool_calls"]),
+            }
+        )
+        return [*base, *suffix]
 
     async def on_thinking(text: str) -> None:
         await _emit(on_event, {"type": "thinking", "content": text})
@@ -595,10 +905,13 @@ async def run_resume_review(
             temperature=REVIEW_AGENT_TEMPERATURE,
             on_thinking=on_thinking,
             drift_retry=True,
-            wrap_up_hint=_WRAP_UP_MESSAGE,
+            wrap_up_hint=_WRAP_UP_TOOL_FREE_MESSAGE,
             prepare_messages=prepare_messages,
-            compact_observation=compact_observation,
+            compact_observation=_truncate_observation,
             error_context=error_context,
+            countdown_rounds=REVIEW_COUNTDOWN_ROUNDS,
+            round_retries=1,
+            final_round_tool_free=True,
         )
     except ApiBusinessError:
         _restore_max_tokens(llm, original_max_tokens)
@@ -608,13 +921,37 @@ async def run_resume_review(
         _restore_max_tokens(llm, original_max_tokens)
         raise_error("C0001", cause=exc)
 
+    # The loop ends with tools used but no final content when a round LLM call
+    # failed (after retry) or the model returned an empty reply. Answer that
+    # with one tool-free call over the gathered evidence, hard-bounded so a
+    # hung request still leaves time for the lighter repair pass before the
+    # frontend budget ends the run.
+    if not (loop.final_content or "").strip() and loop.tool_used:
+        await _emit_finalize_notice(on_event, locale, "forced_final")
+        try:
+            forced = await asyncio.wait_for(
+                _request_forced_final_answer(llm, loop, locale=locale),
+                timeout=REVIEW_FORCED_FINAL_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            logger.warning("Resume review forced final answer did not finish: %s", exc)
+            forced = None
+        if forced is not None:
+            loop = LoopResult(
+                messages=loop.messages,
+                final_content=forced,
+                tool_used=True,
+                halted=loop.halted,
+                thinking=loop.thinking,
+            )
+
     _restore_max_tokens(llm, original_max_tokens)
 
     if not process.steps:
         await process.set_plan(plan_titles_from_tool_names(used_tools))
 
     payload = await finalize_review_json(
-        loop, llm, locale=locale, max_output=max_output
+        loop, llm, locale=locale, max_output=max_output, on_event=on_event
     )
 
     return _attach_review_audit(payload, search_queries, process)

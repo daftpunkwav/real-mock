@@ -179,15 +179,6 @@ Visual / layout:
     )
 
 
-# Backward-compatible aliases used by older imports/tests.
-def _normalize_locale(locale: str | None) -> str:
-    return normalize_analysis_locale(locale)
-
-
-def _dimension_scores_schema_fragment() -> str:
-    return dimension_scores_schema_fragment()
-
-
 __all__ = [
     "dimension_scores_schema_fragment",
     "get_review_agent_prompt",

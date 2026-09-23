@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from realmock.domains.resume.schemas.limits import MIN_SCORED_DIMENSIONS
+from realmock.domains.resume.schemas.limits import REVIEW_MIN_SCORED_DIMENSIONS
 
 
 def _clip_list(values: object, limit: int, item_max: int = 160) -> list[str]:
@@ -51,7 +51,7 @@ def compact_score_anchor(analysis: dict[str, Any] | None) -> dict[str, Any] | No
         if score is None:
             continue
         scores[str(key)[:64]] = max(0, min(100, score))
-    if len(scores) < MIN_SCORED_DIMENSIONS:
+    if len(scores) < REVIEW_MIN_SCORED_DIMENSIONS:
         return None
     overall = analysis.get("score")
     try:

@@ -3,14 +3,16 @@
 Covers: _parsed_dict/_query_from_args/_content_as_text/evidence_for_repair/
 finalize_review_json/_reinsert_first_user/_vision_notice_message/
 _restore_max_tokens/_merge_search_queries_used/_attach_review_audit/
-_build_tool_executor/build_resume_snapshot/build_review_bundle/run_resume_review
-success/reminder/notice/error branches (LLM/loop mocked).
+_request_forced_final_answer/_build_tool_executor/build_resume_snapshot/
+build_review_bundle/run_resume_review success/reminder/notice/error/forced-answer
+branches (LLM/loop mocked).
 Conventions: no real network/model downloads (all clients mocked); faked LLM/DB;
 rate limits reset per test.
 """
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -97,13 +99,6 @@ async def test_finalize_evidence_empty_and_repair_failures(monkeypatch) -> None:
     assert exc.value.error_code == "C0001"
 
     # repair raises -> C0002
-    import realmock.domains.resume.agents.review as rev
-
-    async def _boom_blob(llm, text, purpose=""):
-        return "evidence"
-
-    monkeypatch.setattr(rev, "compress_text_blob", _boom_blob)
-
     class _BoomLLM:
         async def chat_json(self, *a, **k):
             raise RuntimeError("llm-down")
@@ -255,11 +250,6 @@ async def test_run_resume_review_success_and_reminder(monkeypatch, db) -> None:
 
     monkeypatch.setattr(rev, "compact_with_summary", _boom_compact)
 
-    async def _fake_compress(llm_, text, purpose=""):
-        return "compressed"
-
-    monkeypatch.setattr(rev, "compress_text_blob", _fake_compress)
-
     class SimpleBundle:
         def definitions(self):
             return []
@@ -279,12 +269,7 @@ async def test_run_resume_review_success_and_reminder(monkeypatch, db) -> None:
 
     monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
 
-    async def _fake_compress2(llm_, text, purpose=""):
-        return "c"
-
-    monkeypatch.setattr(rev, "compress_text_blob", _fake_compress2)
-
-    async def _fake_finalize(loop, llm_, locale, max_output):
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
         return {"score": 5}
 
     monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
@@ -364,3 +349,787 @@ async def test_run_resume_review_visual_notice_and_errors(monkeypatch, db) -> No
     with pytest.raises(ApiBusinessError) as exc2:
         await rev.run_resume_review(row, db, _LLM(), locale="en")  # type: ignore[arg-type]
     assert exc2.value.error_code == "C0001"
+
+
+@pytest.mark.asyncio
+async def test_forced_final_answer_branches() -> None:
+    from realmock.domains.resume.agents.review import _request_forced_final_answer
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content=None,
+        tool_used=True,
+    )
+
+    seen: dict = {}
+
+    class _LLM:
+        async def chat(self, messages, **kwargs):
+            seen["messages"] = messages
+            seen["kwargs"] = kwargs
+            return '{"score": 9}'
+
+    out = await _request_forced_final_answer(_LLM(), loop, locale="en")  # type: ignore[arg-type]
+    assert out == '{"score": 9}'
+    # History is reused and the call offers no tools.
+    assert seen["messages"][0] == {"role": "user", "content": "overview"}
+    assert "Tools are now disabled" in seen["messages"][-1]["content"]
+    assert "tools" not in seen["kwargs"]
+
+    class _EmptyLLM:
+        async def chat(self, *a, **k):
+            return "  "
+
+    assert await _request_forced_final_answer(_EmptyLLM(), loop, locale="en") is None  # type: ignore[arg-type]
+
+    class _BoomLLM:
+        async def chat(self, *a, **k):
+            raise RuntimeError("llm-down")
+
+    assert await _request_forced_final_answer(_BoomLLM(), loop, locale="en") is None  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_forces_final_answer_on_exhaustion(monkeypatch, db) -> None:
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    row = _resume_row()
+    row.id = 13
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda r, d: "")
+
+    async def _user_msg(*a, **k):
+        return {"role": "user", "content": "u"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _user_msg)
+    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: []))
+
+    async def _loop_exhausted(llm_, messages, **kwargs):
+        return LoopResult(messages=[{"role": "user", "content": "u"}], final_content=None, tool_used=True)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _loop_exhausted)
+
+    chat_calls: list = []
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+        async def chat(self, messages, **kwargs):
+            chat_calls.append((messages, kwargs))
+            return '{"score": 7}'
+
+    captured: dict = {}
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        captured["final_content"] = loop.final_content
+        return {"score": 7}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, _LLM(), locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 7
+    assert captured["final_content"] == '{"score": 7}'
+    assert len(chat_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_skips_forced_answer_without_tools(monkeypatch, db) -> None:
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    row = _resume_row()
+    row.id = 14
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda r, d: "")
+
+    async def _user_msg(*a, **k):
+        return {"role": "user", "content": "u"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _user_msg)
+    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: []))
+
+    async def _loop_silent(llm_, messages, **kwargs):
+        return LoopResult(messages=[], final_content=None, tool_used=False)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _loop_silent)
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+        async def chat(self, *a, **k):
+            raise AssertionError("forced answer must not run without tool evidence")
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 1}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, _LLM(), locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 1
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_soft_controls(monkeypatch, db) -> None:
+    """The loop gets the tool-free final round, ladder window, and one retry."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _Bundle:
+        def definitions(self):
+            return []
+
+    row = _resume_row()
+    row.id = 21
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return {"role": "user", "content": "overview"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: _Bundle())
+
+    captured: dict = {}
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        captured.update(kwargs)
+        return LoopResult(messages=messages, final_content='{"score": 3}', tool_used=False)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 3}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert "deadline" not in captured, "no wall-clock budget may reach the loop"
+    assert captured["final_round_tool_free"] is True
+    assert captured["countdown_rounds"] == rev.REVIEW_COUNTDOWN_ROUNDS
+    assert captured["round_retries"] == 1
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_progress_line_is_transient_suffix(monkeypatch, db) -> None:
+    """The budget line is appended at the end, never prepended (prefix cache)."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _Bundle:
+        def definitions(self):
+            return []
+
+    row = _resume_row()
+    row.id = 22
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return {"role": "user", "content": "overview"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: _Bundle())
+
+    last_call: list = []
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        prepared = await kwargs["prepare_messages"]([{"role": "user", "content": "u"}])
+        last_call.append(prepared)
+        assert prepared[-1]["role"] == "system"
+        assert "Progress: LLM round 1/" in prepared[-1]["content"]
+        assert all("Progress: LLM round" not in str(m) for m in prepared[:-1])
+        return LoopResult(messages=prepared, final_content='{"score": 4}', tool_used=False)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 4}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert last_call
+
+
+@pytest.mark.asyncio
+async def test_finalize_self_correction_recovers() -> None:
+    """A malformed draft is fixed by one self-correction round, not repair."""
+    from realmock.domains.resume.agents.review import finalize_review_json
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _LLM:
+        async def chat(self, messages, **k):
+            # The draft rides along as an assistant message before the ask.
+            assert any(m.get("role") == "assistant" and "prose" in str(m.get("content")) for m in messages)
+            return '{"score": 8, "dimension_scores": {}}'
+
+        async def chat_json(self, *a, **k):
+            raise AssertionError("repair must not run when self-correction succeeds")
+
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content="some prose {broken json",
+        tool_used=True,
+    )
+    out = await finalize_review_json(loop, _LLM(), locale="en", max_output=512)  # type: ignore[arg-type]
+    assert out["score"] == 8
+
+
+@pytest.mark.asyncio
+async def test_finalize_self_correction_failure_falls_to_repair() -> None:
+    """When the correction round also fails to parse, repair still runs."""
+    from realmock.domains.resume.agents.review import finalize_review_json
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _LLM:
+        async def chat(self, messages, **k):
+            return "still not json"
+
+        async def chat_json(self, messages, **k):
+            return {"score": 9}
+
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content="prose {broken",
+        tool_used=True,
+    )
+    out = await finalize_review_json(loop, _LLM(), locale="en", max_output=512)  # type: ignore[arg-type]
+    assert out == {"score": 9}
+
+
+@pytest.mark.asyncio
+async def test_finalize_self_correction_is_bounded(monkeypatch) -> None:
+    """A hung self-correction round is cut off and the chain falls through to repair.
+
+    Without the outer bound this phase could consume the rest of the frontend
+    budget on a flaky network and the whole run would deliver nothing.
+    """
+    import asyncio
+
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _HangLLM:
+        async def chat(self, messages, **k):
+            del messages, k
+            await asyncio.sleep(5.0)
+            return "late"  # pragma: no cover
+
+        async def chat_json(self, messages, **k):
+            del messages, k
+            return {"score": 6}
+
+    monkeypatch.setattr(rev, "REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS", 0.05)
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content="prose {broken",
+        tool_used=True,
+    )
+    out = await rev.finalize_review_json(loop, _HangLLM(), locale="en", max_output=512)  # type: ignore[arg-type]
+    assert out == {"score": 6}
+
+
+@pytest.mark.asyncio
+async def test_finalize_skips_self_correction_on_empty_draft() -> None:
+    """No draft means nothing to self-correct; repair handles it directly."""
+    from realmock.domains.resume.agents.review import finalize_review_json
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _LLM:
+        async def chat(self, *a, **k):
+            raise AssertionError("self-correction must not run on an empty draft")
+
+        async def chat_json(self, messages, **k):
+            return {"score": 6}
+
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content="",
+        tool_used=True,
+    )
+    out = await finalize_review_json(loop, _LLM(), locale="en", max_output=512)  # type: ignore[arg-type]
+    assert out == {"score": 6}
+
+
+@pytest.mark.asyncio
+async def test_build_tool_executor_budget_and_args_keyed_breaker(monkeypatch) -> None:
+    """Total budget refuses without executing; the breaker keys on tool+args."""
+
+    async def _fake_invoke(bundle, name, args, context=None):
+        if name == "web_search":
+            return '{"hits": 1}', "done"
+        return '{"error": "timeout"}', "error"
+
+    import realmock.domains.resume.agents.review as rev
+
+    monkeypatch.setattr(rev, "_invoke_review_tool", _fake_invoke)
+
+    used: list[str] = []
+    budget = {"tool_calls": 0}
+    activity: list[str] = []
+    ex = rev._build_tool_executor(
+        object(), used, None, None, budget, activity_sink=activity.append  # type: ignore[arg-type]
+    )
+
+    # Same call failing three times in a row arms the breaker...
+    for _ in range(3):
+        out = await ex("github_get_readme", {"repo": "a/b"})
+        assert "timeout" in out
+    blocked = await ex("github_get_readme", {"repo": "a/b"})
+    assert '"circuit_open"' in blocked
+    # ...but different arguments are a different workload: allowed.
+    ok = await ex("github_get_readme", {"repo": "c/d"})
+    assert "timeout" in ok, "different arguments must not be blocked"
+
+    # Budget refusal: no execution once the ceiling is reached.
+    budget["tool_calls"] = rev.REVIEW_MAX_TOTAL_TOOL_CALLS
+    refused = await ex("web_search", {"query": "fresh"})
+    assert '"tool_budget_exhausted"' in refused
+    assert used[-1] == "web_search"
+
+    # Executed calls (success or error) feed the step-note activity sink;
+    # blocked calls do not.
+    assert activity == [
+        "github_get_readme(a/b)",
+        "github_get_readme(a/b)",
+        "github_get_readme(a/b)",
+        "github_get_readme(c/d)",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_build_tool_executor_budget_slot_reservation(monkeypatch) -> None:
+    """The budget slot is reserved before the first await point.
+
+    Concurrent calls in one parallel round all pass the same gate check, so a
+    check-then-increment-after-execution scheme lets them jointly overshoot
+    the soft ceiling; circuit-open refusals refund their reserved slot.
+    """
+
+    async def _fake_invoke(bundle, name, args, context=None):
+        # The real invoker always suspends (asyncio.wait_for around the tool
+        # call); sleep(0) reproduces that yield so the parallel burst below
+        # actually interleaves instead of running sequentially.
+        await asyncio.sleep(0)
+        return '{"error": "timeout"}', "error"
+
+    import realmock.domains.resume.agents.review as rev
+
+    monkeypatch.setattr(rev, "_invoke_review_tool", _fake_invoke)
+
+    budget = {"tool_calls": 0}
+    ex = rev._build_tool_executor(object(), [], None, None, budget)  # type: ignore[arg-type]
+
+    for _ in range(3):
+        await ex("github_get_readme", {"repo": "a/b"})
+    assert budget["tool_calls"] == 3
+    blocked = await ex("github_get_readme", {"repo": "a/b"})
+    assert '"circuit_open"' in blocked
+    assert budget["tool_calls"] == 3, "circuit-open refusal must refund the slot"
+
+    # One slot left: a parallel burst executes exactly one call, the rest are
+    # refused at the gate, and the ceiling ends up exact.
+    budget["tool_calls"] = rev.REVIEW_MAX_TOTAL_TOOL_CALLS - 1
+    outs = await asyncio.gather(
+        ex("web_search", {"query": "q1"}),
+        ex("web_search", {"query": "q2"}),
+        ex("web_search", {"query": "q3"}),
+    )
+    executed = [o for o in outs if "tool_budget_exhausted" not in o]
+    refused = [o for o in outs if "tool_budget_exhausted" in o]
+    assert len(executed) == 1
+    assert len(refused) == 2
+    assert budget["tool_calls"] == rev.REVIEW_MAX_TOTAL_TOOL_CALLS
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_plan_complete_nudge(monkeypatch, db) -> None:
+    """Once every plan step is done, rounds get a strong finalize instruction."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    row = _resume_row()
+    row.id = 23
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return {"role": "user", "content": "overview"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+
+    nudge = "All plan steps are complete"
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        execute = kwargs["execute"]
+        await execute(
+            "review_set_plan",
+            {"steps": [f"step {i}" for i in range(1, 8)] + ["Generate evaluation JSON"]},
+        )
+        prepared = await kwargs["prepare_messages"]([{"role": "user", "content": "u"}])
+        assert not any(nudge in str(m.get("content")) for m in prepared)
+        for index in range(1, 9):
+            await execute("review_update_step", {"id": str(index), "status": "done"})
+        prepared_done = await kwargs["prepare_messages"]([{"role": "user", "content": "u"}])
+        assert any(nudge in str(m.get("content")) for m in prepared_done)
+        return LoopResult(messages=prepared_done, final_content='{"score": 2}', tool_used=True)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 2}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 2
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_forced_final_is_bounded(monkeypatch, db) -> None:
+    """A hung forced-final call times out and the run still reaches finalize."""
+    import asyncio
+
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _Bundle:
+        def definitions(self):
+            return []
+
+    row = _resume_row()
+    row.id = 24
+
+    class _HangLLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+        async def chat(self, messages, **k):
+            del messages, k
+            await asyncio.sleep(5.0)
+            return "late"  # pragma: no cover
+
+    llm = _HangLLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return {"role": "user", "content": "overview"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: _Bundle())
+    monkeypatch.setattr(rev, "REVIEW_FORCED_FINAL_TIMEOUT_SECONDS", 0.05)
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        return LoopResult(messages=messages, final_content=None, tool_used=True)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    finalize_called: list = []
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        finalize_called.append(loop)
+        return {"score": 1}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 1
+    assert finalize_called and finalize_called[0].final_content is None, (
+        "the hung forced-final must not feed a partial answer into finalize"
+    )
+    assert llm.max_tokens == 4000, "client budget restored even on the timeout path"
+
+
+@pytest.mark.asyncio
+async def test_finalize_emits_progress_notices() -> None:
+    """Self-correction and repair announce themselves on the event stream."""
+    from realmock.domains.resume.agents.review import finalize_review_json
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    events: list[dict] = []
+
+    async def _on_event(event):
+        events.append(event)
+
+    class _LLM:
+        async def chat(self, messages, **k):
+            del messages, k
+            return "still not json"
+
+        async def chat_json(self, messages, **k):
+            del messages, k
+            return {"score": 5}
+
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content="prose {broken",
+        tool_used=True,
+    )
+    out = await finalize_review_json(
+        loop, _LLM(), locale="zh-CN", max_output=512, on_event=_on_event  # type: ignore[arg-type]
+    )
+    assert out == {"score": 5}
+    kinds = [str(e.get("message")) for e in events if e.get("type") == "notice"]
+    assert any("重新输出" in m for m in kinds)
+    assert any("重建评价 JSON" in m for m in kinds)
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_progress_line_counts_executed_tools(monkeypatch, db) -> None:
+    """The budget line tracks executed non-plan calls, and the create-plan nudge
+    coexists with it as transient suffixes of the same round."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    class _StubBundle:
+        def definitions(self):
+            return []
+
+        async def execute(self, name, args):
+            return '{"ok": true}'
+
+    row = _resume_row()
+    row.id = 26
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return {"role": "user", "content": "overview"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: _StubBundle())
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        prepare = kwargs["prepare_messages"]
+        execute = kwargs["execute"]
+        first = await prepare([{"role": "user", "content": "u"}])
+        assert "Tool calls used: 0/" in str(first[-1]["content"])
+        await execute("review_get_plan", {})  # plan bookkeeping: no budget cost
+        for _ in range(3):
+            await execute("resume_overview", {})
+        second = await prepare([{"role": "user", "content": "u"}])
+        assert "LLM round 2/" in str(second[-1]["content"])
+        assert "Tool calls used: 3/" in str(second[-1]["content"])
+        # 催收提示与预算行同轮共存：plan reminder (suffix -2) + progress line (suffix -1)
+        assert "Create the review plan" in str(second[-2].get("content"))
+        return LoopResult(messages=second, final_content='{"score": 5}', tool_used=True)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 5}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 5
+
+
+@pytest.mark.asyncio
+async def test_run_resume_review_plan_reminder_is_capped(monkeypatch, db) -> None:
+    """Without a declared plan, the create-plan nudge repeats at most three times."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    row = _resume_row()
+    row.id = 27
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = False
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return {"role": "user", "content": "overview"}
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        prepare = kwargs["prepare_messages"]
+        reminders = 0
+        for _ in range(5):
+            prepared = await prepare([{"role": "user", "content": "u"}])
+            if any(
+                "Create the review plan" in str(m.get("content")) for m in prepared
+            ):
+                reminders += 1
+        assert reminders == 3, "the nudge must stop after three rounds, not nag forever"
+        return LoopResult(messages=prepared, final_content='{"score": 7}', tool_used=True)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 7}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 7
+
+
+@pytest.mark.asyncio
+async def test_prepare_messages_retires_images_by_round_ratio_without_layout_step(
+    monkeypatch, db
+) -> None:
+    """Fallback retirement: no plan step owns the layout review, so the page
+    images still stop being re-sent once two thirds of the rounds are spent."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    # 15 rounds -> threshold max(8, int(15 * 2/3)) = 10: retire at round 10.
+    monkeypatch.setattr(rev, "REVIEW_MAX_ROUNDS", 15)
+
+    image_part = {"type": "image_url", "image_url": {"url": "data:image/png;base64,x"}}
+    multimodal = {
+        "role": "user",
+        "content": [{"type": "text", "text": "overview"}, image_part],
+    }
+
+    row = _resume_row()
+    row.id = 28
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = True
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return multimodal
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        prepare = kwargs["prepare_messages"]
+        images_by_round: list[bool] = []
+        for _ in range(10):
+            prepared = await prepare([multimodal])
+            first_user = next(m for m in prepared if m.get("role") == "user")
+            images_by_round.append(
+                any(
+                    isinstance(part, dict) and part.get("type") == "image_url"
+                    for part in first_user["content"]
+                )
+            )
+        assert all(images_by_round[:9]), "images stay attached through round 9"
+        assert not images_by_round[9], "the ratio bound retires them at round 10"
+        assert any(
+            "page images" in str(part.get("text")) for part in first_user["content"]
+        ), "retirement replaces images with an explicit text marker"
+        return LoopResult(messages=prepared, final_content='{"score": 8}', tool_used=False)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 8}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 8
+
+
+@pytest.mark.asyncio
+async def test_prepare_messages_retires_images_after_layout_step(monkeypatch, db) -> None:
+    """Once the layout step is done, page images are replaced by a marker."""
+    import realmock.domains.resume.agents.review as rev
+    from realmock.platform.capabilities.ai.agent import LoopResult
+
+    image_part = {"type": "image_url", "image_url": {"url": "data:image/png;base64,x"}}
+    multimodal = {
+        "role": "user",
+        "content": [{"type": "text", "text": "overview"}, image_part],
+    }
+
+    row = _resume_row()
+    row.id = 25
+
+    class _LLM:
+        context_window = 8000
+        max_tokens = 4000
+        supports_vision = True
+        api_key = "k"
+
+    llm = _LLM()
+    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
+
+    async def _fake_user_msg(*a, **k):
+        return multimodal
+
+    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
+
+    async def _fake_loop(llm_, messages, **kwargs):
+        execute = kwargs["execute"]
+        await execute(
+            "review_set_plan",
+            {"steps": ["step a", "从页面图像评审版式与排版", "step c", "step d",
+                       "step e", "step f", "step g", "Generate evaluation JSON"]},
+        )
+        before = await kwargs["prepare_messages"]([multimodal])
+        first_before = next(m for m in before if m.get("role") == "user")
+        assert any(
+            isinstance(part, dict) and part.get("type") == "image_url"
+            for part in first_before["content"]
+        ), "images must stay attached while the layout step is open"
+        await execute("review_update_step", {"id": "2", "status": "done"})
+        after = await kwargs["prepare_messages"]([multimodal])
+        first_after = next(m for m in after if m.get("role") == "user")
+        assert not any(
+            isinstance(part, dict) and part.get("type") == "image_url"
+            for part in first_after["content"]
+        )
+        assert any("page images" in str(part.get("text")) for part in first_after["content"])
+        return LoopResult(messages=after, final_content='{"score": 6}', tool_used=False)
+
+    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
+
+    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
+        return {"score": 6}
+
+    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
+
+    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
+    assert out["score"] == 6

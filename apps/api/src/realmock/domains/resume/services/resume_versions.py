@@ -13,7 +13,7 @@ from __future__ import annotations
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from realmock.domains.resume.schemas.limits import MIN_SCORED_DIMENSIONS
+from realmock.domains.resume.schemas.limits import REVIEW_MIN_SCORED_DIMENSIONS
 from realmock.domains.resume.services.resume_mappers import load_analysis_dict
 from realmock.platform.models import Resume
 
@@ -67,7 +67,7 @@ def latest_in_family(
 
 
 def previous_scored_row(db: Session, row: Resume) -> Resume | None:
-    """Nearest lower version with dimension coverage >= MIN_SCORED_DIMENSIONS.
+    """Nearest lower version with dimension coverage >= REVIEW_MIN_SCORED_DIMENSIONS.
 
     Rows whose analysis JSON is missing or covers too few dimensions are
     skipped, so calibration never anchors on a thin prior review.
@@ -84,7 +84,7 @@ def previous_scored_row(db: Session, row: Resume) -> Resume | None:
     for item in candidates:
         blob = load_analysis_dict(item.analysis, item.id)
         dims = blob.get("dimension_scores")
-        if isinstance(dims, dict) and len(dims) >= MIN_SCORED_DIMENSIONS:
+        if isinstance(dims, dict) and len(dims) >= REVIEW_MIN_SCORED_DIMENSIONS:
             return item
     return None
 

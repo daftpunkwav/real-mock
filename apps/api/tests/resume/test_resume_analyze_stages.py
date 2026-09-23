@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from realmock.domains.resume.services import analysis as analysis_module
@@ -78,7 +80,7 @@ def test_analyze_runs_agent_and_persists(api_db, monkeypatch: pytest.MonkeyPatch
     """Agent payload is normalized, scored, and written to the resume row."""
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload()
 
@@ -110,7 +112,7 @@ def test_analyze_without_github_evidence_succeeds(api_db, monkeypatch: pytest.Mo
     """Non-engineering resumes can omit GitHub fields entirely."""
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload(
             repo_evidence=[],
@@ -139,7 +141,7 @@ def test_score_is_deterministic_mean_of_dims(api_db, monkeypatch: pytest.MonkeyP
     dims = {f"dim{i}": {"score": 50 + (i % 5) * 10, "comment": f"c{i}"} for i in range(12)}
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload(score=99, dimension_scores=dims, headline="h")
 
@@ -164,7 +166,7 @@ def test_score_is_deterministic_mean_of_dims(api_db, monkeypatch: pytest.MonkeyP
 def test_invalid_agent_json_raises_c0002(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         from realmock.platform.core.errors import raise_error
 
@@ -184,7 +186,7 @@ def test_zero_score_without_dims_raises_c0002(api_db, monkeypatch: pytest.Monkey
     """A long narrative with overall score 0 and no dimensions must not persist."""
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload(
             score=0,
@@ -227,7 +229,7 @@ def test_zero_score_recovers_from_chat_json(api_db, monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(analysis_module, "LLMClient", _RecoverStub)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload(
             score=0,
@@ -244,6 +246,98 @@ def test_zero_score_recovers_from_chat_json(api_db, monkeypatch: pytest.MonkeyPa
     analysis = asyncio.run(analyze_resume_with_llm(row, api_db))
     assert analysis.score == 64
     assert len(analysis.dimension_scores) >= 4
+
+
+def test_analyze_passes_recovery_deadline_to_score_recovery(
+    api_db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The production recovery deadline (REVIEW_SCORE_RECOVERY_TIMEOUT_SECONDS)
+    actually reaches the recovery call — a swapped or dropped bound must fail here."""
+    from realmock.domains.resume.schemas.limits import DIMENSION_KEYS
+
+    class _LLM:
+        api_key = "k"
+
+        @classmethod
+        def from_db(cls, db, **k):
+            return cls()
+
+    monkeypatch.setattr(analysis_module, "LLMClient", _LLM)
+
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
+        del resume, db, llm, locale, on_event
+        return _payload(
+            score=0,
+            dimension_scores={},
+            content_review="A" * 300,
+            headline="Persona line that looks complete",
+            first_impression="First impression text that looks complete",
+        )
+
+    monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
+    keys = list(DIMENSION_KEYS)[:4]
+    recovery = AsyncMock(
+        return_value={
+            "score": 64,
+            "dimension_scores": {key: {"score": 64, "comment": "ok"} for key in keys},
+        }
+    )
+    monkeypatch.setattr(analysis_module, "_request_score_recovery", recovery)
+
+    row = Resume(filename="deadline.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    api_db.add(row)
+    api_db.commit()
+    api_db.refresh(row)
+
+    analysis = asyncio.run(analyze_resume_with_llm(row, api_db))
+    assert analysis.score == 64
+    assert recovery.await_args.kwargs.get("timeout") == (
+        analysis_module.REVIEW_SCORE_RECOVERY_TIMEOUT_SECONDS
+    ), "the score-recovery call must run under the production timeout"
+
+
+def test_analyze_locked_commit_retries_and_persists(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A SQLite lock during the analysis write retries the real write, not an
+    empty transaction: without the reapply hook the rollback discards the
+    score/analysis columns and the review is lost while the caller sees success."""
+    import sqlalchemy.exc
+
+    _stub_llm(monkeypatch)
+
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
+        del resume, db, llm, locale, on_event
+        return _payload()
+
+    monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
+
+    async def _no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(analysis_module.asyncio, "sleep", _no_sleep)
+
+    row = Resume(filename="locked.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    api_db.add(row)
+    api_db.commit()
+    api_db.refresh(row)
+
+    real_commit = api_db.commit
+    attempts = {"n": 0}
+
+    def _locked_once() -> None:
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise sqlalchemy.exc.OperationalError("stmt", {}, Exception("database is locked"))
+        real_commit()
+
+    monkeypatch.setattr(api_db, "commit", _locked_once)
+    analysis = asyncio.run(analyze_resume_with_llm(row, api_db))
+
+    assert attempts["n"] == 2, "one locked attempt plus exactly one successful retry"
+    api_db.expire_all()
+    persisted = api_db.get(Resume, row.id)
+    assert persisted is not None
+    assert persisted.score == analysis.score == 78
+    assert json.loads(persisted.analysis or "")["content_review"] == "Content is acceptable"
 
 
 def test_score_only_recovery_raises_c0002(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -265,7 +359,7 @@ def test_score_only_recovery_raises_c0002(api_db, monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(analysis_module, "LLMClient", _ScoreOnlyStub)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload(
             score=0,
@@ -288,7 +382,7 @@ def test_empty_agent_payload_raises_c0002(api_db, monkeypatch: pytest.MonkeyPatc
     """A truncated/empty evaluation must not persist as a successful score-0 review."""
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return {}
 
@@ -305,7 +399,7 @@ def test_empty_agent_payload_raises_c0002(api_db, monkeypatch: pytest.MonkeyPatc
 def test_agent_loop_failure_raises_c0001(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         raise RuntimeError("upstream down")
 
@@ -324,7 +418,7 @@ def test_analyze_uses_resume_language_not_ui_locale(api_db, monkeypatch: pytest.
     _stub_llm(monkeypatch)
     seen: list[str] = []
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, on_event
         seen.append(locale)
         return _payload(score=50)
@@ -359,7 +453,7 @@ def test_zero_overall_without_dims_raises_c0002(api_db, monkeypatch: pytest.Monk
     """Section scores must not silently become an overall score without dimensions."""
     _stub_llm(monkeypatch)
 
-    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None):
+    async def fake_review(resume, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         del resume, db, llm, locale, on_event
         return _payload(
             score=0,

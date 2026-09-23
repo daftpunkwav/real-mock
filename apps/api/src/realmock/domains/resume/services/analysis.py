@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy.exc import OperationalError
@@ -19,17 +20,19 @@ from realmock.domains.resume.schemas.analysis import ResumeAnalysis
 from realmock.domains.resume.schemas.limits import (
     COMMIT_RETRY_ATTEMPTS,
     COMMIT_RETRY_DELAY_SECONDS,
-    DIMENSION_HINTS,
-    DIMENSION_KEYS,
-    MIN_REVIEW_TEXT_CHARS,
-    MIN_SCORED_DIMENSIONS,
     RAW_TEXT_STORE_CHARS,
+    REVIEW_MIN_SCORED_DIMENSIONS,
+    REVIEW_MIN_TEXT_CHARS,
+    REVIEW_SCORE_RECOVERY_TIMEOUT_SECONDS,
 )
 from realmock.domains.resume.schemas.locale import infer_resume_text_locale
 from realmock.domains.resume.services.analysis_normalize import (
     benchmark_percentile_from_score,
     compute_score_from_dims,
     normalize_resume_analysis_payload,
+)
+from realmock.domains.resume.services.analysis_prompt import (
+    dimension_scores_schema_fragment,
 )
 from realmock.domains.resume.services.extract import extract_resume_text
 from realmock.domains.resume.services.files import find_resume_file
@@ -39,12 +42,15 @@ from realmock.platform.models import Resume
 
 logger = logging.getLogger(__name__)
 
-# NOTE: OnReviewEvent is defined once in agents.review and re-exported here
-# via the import above, so the SSE callback contract has a single source.
 
-
-async def _commit_with_retry(db: Session) -> None:
+async def _commit_with_retry(
+    db: Session, *, reapply: Callable[[], None] | None = None
+) -> None:
     """Commit and briefly retry on SQLite ``database is locked``.
+
+    ``reapply`` re-applies in-memory writes after a rollback: ``Session.rollback()``
+    expires instances and discards pending changes, so a bare retry would commit
+    an empty transaction and silently drop the write it claims to retry.
 
     Runs on the event loop — wait with ``asyncio.sleep`` so SSE/event-loop tasks are not blocked.
     """
@@ -59,11 +65,13 @@ async def _commit_with_retry(db: Session) -> None:
             logger.warning(
                 "Resume analysis commit hit SQLite lock, retry %s: %s", attempt, e
             )
+            if reapply is not None:
+                reapply()
             await asyncio.sleep(COMMIT_RETRY_DELAY_SECONDS * attempt)
 
 
-def _analysis_has_substance(analysis: ResumeAnalysis) -> bool:
-    """Reject empty/truncated payloads that would otherwise persist as score 0."""
+def _review_text_len(analysis: ResumeAnalysis) -> int:
+    """Total review-narrative length across the six text fields."""
     texts = (
         analysis.content_review,
         analysis.layout_review,
@@ -72,16 +80,22 @@ def _analysis_has_substance(analysis: ResumeAnalysis) -> bool:
         analysis.headline,
         analysis.first_impression,
     )
-    text_len = sum(len((part or "").strip()) for part in texts)
-    scored = len(analysis.dimension_scores)
-    return text_len >= MIN_REVIEW_TEXT_CHARS or scored >= MIN_SCORED_DIMENSIONS
+    return sum(len((part or "").strip()) for part in texts)
+
+
+def _analysis_has_substance(analysis: ResumeAnalysis) -> bool:
+    """Reject empty/truncated payloads that would otherwise persist as score 0."""
+    return (
+        _review_text_len(analysis) >= REVIEW_MIN_TEXT_CHARS
+        or len(analysis.dimension_scores) >= REVIEW_MIN_SCORED_DIMENSIONS
+    )
 
 
 def _scoring_needs_recovery(analysis: ResumeAnalysis) -> bool:
-    """True when score is 0 and dimension coverage below MIN_SCORED_DIMENSIONS."""
+    """True when score is 0 and dimension coverage below REVIEW_MIN_SCORED_DIMENSIONS."""
     if analysis.score > 0:
         return False
-    return len(analysis.dimension_scores) < MIN_SCORED_DIMENSIONS
+    return len(analysis.dimension_scores) < REVIEW_MIN_SCORED_DIMENSIONS
 
 
 def _to_resume_analysis(payload: dict[str, Any], *, locale: str) -> ResumeAnalysis:
@@ -93,17 +107,7 @@ def _to_resume_analysis(payload: dict[str, Any], *, locale: str) -> ResumeAnalys
     if not _analysis_has_substance(analysis):
         logger.warning(
             "Resume analysis lacks substance text_len=%s dims=%s keys=%s",
-            sum(
-                len((part or "").strip())
-                for part in (
-                    analysis.content_review,
-                    analysis.layout_review,
-                    analysis.typography_review,
-                    analysis.overall_narrative,
-                    analysis.headline,
-                    analysis.first_impression,
-                )
-            ),
+            _review_text_len(analysis),
             len(analysis.dimension_scores),
             sorted(str(k) for k in (payload or {}).keys())[:24],
         )
@@ -117,24 +121,17 @@ def _to_resume_analysis(payload: dict[str, Any], *, locale: str) -> ResumeAnalys
     return analysis
 
 
-def resolve_review_locale(r: Resume) -> str:
+def resolve_review_locale(resume: Resume) -> str:
     """Plan titles and evaluation language follow the resume body, not the UI locale."""
-    return infer_resume_text_locale(r.raw_text, r.parsed_profile, r.filename)
+    return infer_resume_text_locale(resume.raw_text, resume.parsed_profile, resume.filename)
 
 
-def _repair_prompt_schema() -> str:
-    lines = [
-        f'    "{key}": {{"score": 0-100, "comment": "{DIMENSION_HINTS[key]}"}}'
-        for key in DIMENSION_KEYS
-    ]
-    return "{\n" + ",\n".join(lines) + "\n  }"
-
-
-async def _request_score_repair(
+async def _request_score_recovery(
     llm: LLMClient,
     analysis: ResumeAnalysis,
     *,
     locale: str,
+    timeout: float | None = None,
 ) -> dict[str, Any] | None:
     chat_json = getattr(llm, "chat_json", None)
     if chat_json is None:
@@ -148,25 +145,28 @@ async def _request_score_repair(
         "typography_review": analysis.typography_review,
         "strengths": analysis.strengths,
         "weaknesses": analysis.weaknesses,
-        "dimension_scores_schema": _repair_prompt_schema(),
+        "dimension_scores_schema": dimension_scores_schema_fragment(),
     }
+    call = chat_json(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "The resume review narrative is present but overall score / "
+                    "dimension_scores are missing or stuck at 0. Return JSON with "
+                    "keys score and dimension_scores only. Every catalog key is "
+                    f"required. Write comments in {locale}. Scores must match the "
+                    "narrative; do not invent new critique text."
+                ),
+            },
+            {"role": "user", "content": json.dumps(source, ensure_ascii=False)[:12_000]},
+        ],
+        temperature=0.1,
+        max_tokens=4_000,
+    )
     try:
-        recovered = await chat_json(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        "The resume review narrative is present but overall score / "
-                        "dimension_scores are missing or stuck at 0. Return JSON with "
-                        "keys score and dimension_scores only. Every catalog key is "
-                        f"required. Write comments in {locale}. Scores must match the "
-                        "narrative; do not invent new critique text."
-                    ),
-                },
-                {"role": "user", "content": json.dumps(source, ensure_ascii=False)[:12_000]},
-            ],
-            temperature=0.1,
-            max_tokens=4_000,
+        recovered = await (
+            asyncio.wait_for(call, timeout=timeout) if timeout is not None else call
         )
     except Exception as exc:
         logger.warning("Resume score recovery failed: %s", exc)
@@ -179,8 +179,9 @@ async def _recover_incomplete_scores(
     analysis: ResumeAnalysis,
     *,
     locale: str,
+    timeout: float | None = None,
 ) -> ResumeAnalysis:
-    recovered = await _request_score_repair(llm, analysis, locale=locale)
+    recovered = await _request_score_recovery(llm, analysis, locale=locale, timeout=timeout)
     if not isinstance(recovered, dict):
         raise_error("C0002")
     merged = analysis.model_dump()
@@ -195,13 +196,13 @@ async def _recover_incomplete_scores(
         raise
     except Exception as exc:
         raise_error("C0002", cause=exc)
-    if len(repaired.dimension_scores) < MIN_SCORED_DIMENSIONS:
+    if len(repaired.dimension_scores) < REVIEW_MIN_SCORED_DIMENSIONS:
         raise_error("C0002")
     return repaired
 
 
 async def analyze_resume_with_llm(
-    r: Resume,
+    resume: Resume,
     db: Session,
     *,
     locale: str | None = None,
@@ -220,19 +221,30 @@ async def analyze_resume_with_llm(
     if not llm.api_key:
         raise_error("A0006")
 
-    if not (r.raw_text or "").strip():
-        file_path = find_resume_file(r)
+    if not (resume.raw_text or "").strip():
+        file_path = find_resume_file(resume)
         if file_path is None:
             raise_error("A1004")
-        r.raw_text = (await extract_resume_text(file_path, r.file_type, llm, db))[:RAW_TEXT_STORE_CHARS]
-        await _commit_with_retry(db)
+        extracted = (await extract_resume_text(file_path, resume.file_type, llm, db))[
+            :RAW_TEXT_STORE_CHARS
+        ]
+        try:
+            resume.raw_text = extracted
+            await _commit_with_retry(
+                db, reapply=lambda: setattr(resume, "raw_text", extracted)
+            )
+        except Exception as e:
+            # Same envelope as the analysis write below: a local DB failure is
+            # B1001, not an unwrapped OperationalError that would surface as a
+            # generic C0001/B0001 with the wrong recovery hint.
+            logger.exception("Resume raw text DB write failed")
+            db.rollback()
+            raise_error("B1001", cause=e)
 
-    review_locale = resolve_review_locale(r)
+    review_locale = resolve_review_locale(resume)
 
     try:
-        payload = await run_resume_review(
-            r, db, llm, locale=review_locale, on_event=on_event
-        )
+        payload = await run_resume_review(resume, db, llm, locale=review_locale, on_event=on_event)
     except ApiBusinessError:
         raise
     except Exception as e:
@@ -249,12 +261,21 @@ async def analyze_resume_with_llm(
         raise_error("C0002", cause=e)
 
     if _scoring_needs_recovery(analysis):
-        analysis = await _recover_incomplete_scores(llm, analysis, locale=review_locale)
+        analysis = await _recover_incomplete_scores(
+            llm, analysis, locale=review_locale, timeout=REVIEW_SCORE_RECOVERY_TIMEOUT_SECONDS
+        )
 
     try:
-        r.score = analysis.score
-        r.analysis = analysis.model_dump_json()
-        await _commit_with_retry(db)
+        score = analysis.score
+        analysis_json = analysis.model_dump_json()
+
+        def _reapply_analysis_write() -> None:
+            resume.score = score
+            resume.analysis = analysis_json
+
+        resume.score = score
+        resume.analysis = analysis_json
+        await _commit_with_retry(db, reapply=_reapply_analysis_write)
     except Exception as e:
         logger.exception("Resume analysis DB write failed")
         db.rollback()

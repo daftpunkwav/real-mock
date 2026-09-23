@@ -1,6 +1,6 @@
 """Analysis service tests for src/realmock/domains/resume/services/analysis.py.
 
-Covers: _commit_with_retry locked/non-locked branches, _request_score_repair
+Covers: _commit_with_retry locked/non-locked branches, _request_score_recovery
 no-client/exception/non-dict branches, _recover_incomplete_scores C0002 paths,
 analyze_resume_with_llm missing-key/missing-file/agent-crash/db-write branches.
 Conventions: no real network/model downloads (all clients mocked); faked LLM/DB;
@@ -75,28 +75,77 @@ async def test_commit_locked_on_last_attempt_raises(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_request_repair_no_chat_json() -> None:
-    out = await amod._request_score_repair(SimpleNamespace(), _analysis(), locale="en")
+async def test_commit_retry_reapplies_write_after_rollback(monkeypatch) -> None:
+    """A locked commit must retry the actual write, not an empty transaction.
+
+    ``Session.rollback()`` discards pending in-memory changes, so without
+    ``reapply`` the retry commit succeeds vacuously and the write is silently
+    lost while the caller sees success.
+    """
+    async def _no_sleep(s):
+        return None
+
+    monkeypatch.setattr(amod.asyncio, "sleep", _no_sleep)
+    db = MagicMock()
+    db.commit.side_effect = [
+        sqlalchemy.exc.OperationalError("s", {}, Exception("database is locked")),
+        None,
+    ]
+    reapplied = {"n": 0}
+
+    def _reapply() -> None:
+        reapplied["n"] += 1
+
+    await amod._commit_with_retry(db, reapply=_reapply)
+    assert db.commit.call_count == 2
+    assert db.rollback.called
+    assert reapplied["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_request_score_recovery_no_chat_json() -> None:
+    out = await amod._request_score_recovery(SimpleNamespace(), _analysis(), locale="en")
     assert out is None
 
 
 @pytest.mark.asyncio
-async def test_request_repair_exception_returns_none() -> None:
+async def test_request_score_recovery_exception_returns_none() -> None:
     llm = SimpleNamespace(chat_json=AsyncMock(side_effect=RuntimeError("llm down")))
-    out = await amod._request_score_repair(llm, _analysis(), locale="en")
+    out = await amod._request_score_recovery(llm, _analysis(), locale="en")
     assert out is None
 
 
 @pytest.mark.asyncio
-async def test_request_repair_non_dict_returns_none() -> None:
+async def test_request_score_recovery_hung_call_times_out() -> None:
+    """A hung recovery call is cut off by its timeout and yields None, leaving
+    the caller free to fail fast (C0002) instead of hanging the whole run."""
+    import asyncio
+
+    class _HangLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def chat_json(self, messages, **kwargs):
+            self.calls += 1
+            await asyncio.sleep(5.0)
+            return {}  # pragma: no cover
+
+    llm = _HangLLM()
+    out = await amod._request_score_recovery(llm, _analysis(), locale="en", timeout=0.05)
+    assert out is None
+    assert llm.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_request_score_recovery_non_dict_returns_none() -> None:
     llm = SimpleNamespace(chat_json=AsyncMock(return_value=["not-a-dict"]))
-    out = await amod._request_score_repair(llm, _analysis(), locale="en")
+    out = await amod._request_score_recovery(llm, _analysis(), locale="en")
     assert out is None
 
 
 @pytest.mark.asyncio
 async def test_recover_not_dict_raises_c0002(monkeypatch) -> None:
-    monkeypatch.setattr(amod, "_request_score_repair", AsyncMock(return_value=None))
+    monkeypatch.setattr(amod, "_request_score_recovery", AsyncMock(return_value=None))
     with pytest.raises(ApiBusinessError) as e:
         await amod._recover_incomplete_scores(SimpleNamespace(), _analysis(), locale="en")
     assert e.value.error_code == "C0002"
@@ -105,7 +154,7 @@ async def test_recover_not_dict_raises_c0002(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_recover_generic_validation_error_raises_c0002(monkeypatch) -> None:
     monkeypatch.setattr(
-        amod, "_request_score_repair", AsyncMock(return_value={"score": 80, "dimension_scores": {}})
+        amod, "_request_score_recovery", AsyncMock(return_value={"score": 80, "dimension_scores": {}})
     )
 
     def _boom(payload, *, locale):
@@ -175,7 +224,7 @@ async def test_analyze_db_write_fail_raises_b1001(monkeypatch, api_db) -> None:
 
     monkeypatch.setattr(amod, "LLMClient", _LLM)
 
-    async def _fake_review(r, db, llm, *, locale="zh-CN", on_event=None):
+    async def _fake_review(r, db, llm, *, locale="zh-CN", on_event=None, **kwargs):
         return {
             "content_review": "c" * 300,
             "layout_review": "l" * 100,

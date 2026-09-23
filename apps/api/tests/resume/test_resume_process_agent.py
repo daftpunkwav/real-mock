@@ -75,3 +75,56 @@ async def test_process_tool_specs_invalid_plan_and_get() -> None:
     assert out2["steps"] == []
     out3 = json.loads(await specs["review_update_step"].handler({"id": "ghost", "status": "done"}))
     assert out3["error"] == "unknown_step"
+
+
+@pytest.mark.asyncio
+async def test_update_step_backfills_note_from_activity() -> None:
+    """A done step without a model note gets the deterministic activity digest."""
+    from realmock.domains.resume.agents.process import ReviewProcess
+
+    p = ReviewProcess()
+    await p.set_plan([f"step {i}" for i in range(7)] + ["Generate evaluation JSON"])
+    p.record_activity("github_get_readme(real-mock)")
+    p.record_activity("web_search(Agent 工程师 招聘)")
+    await p.update_step("1", "done", "")
+    assert p.steps[0].note == "github_get_readme(real-mock) · web_search(Agent 工程师 招聘)"
+    # The consumed actions belong to the closed step; the next starts clean.
+    assert p._activity == []
+    await p.update_step("2", "done", "")
+    assert p.steps[1].note == ""
+
+    # An in_progress transition never backfills or clears.
+    p.record_activity("github_get_repo(a/b)")
+    await p.update_step("3", "in_progress", "")
+    assert p.steps[2].note == ""
+    assert len(p._activity) == 1
+
+
+@pytest.mark.asyncio
+async def test_update_step_model_note_wins_and_is_kept() -> None:
+    """A model-written note is preferred; re-marking done keeps it."""
+    from realmock.domains.resume.agents.process import ReviewProcess
+
+    p = ReviewProcess()
+    await p.set_plan([f"step {i}" for i in range(7)] + ["Generate evaluation JSON"])
+    p.record_activity("github_get_repo(a/b)")
+    await p.update_step("1", "done", "two-column layout confirmed")
+    assert p.steps[0].note == "two-column layout confirmed"
+    assert p._activity == [], "activity is consumed even when the model note wins"
+
+    # A later noteless re-mark must not overwrite the model note with "".
+    await p.update_step("1", "done", "")
+    assert p.steps[0].note == "two-column layout confirmed"
+
+
+@pytest.mark.asyncio
+async def test_record_activity_caps_labels_and_length() -> None:
+    from realmock.domains.resume.agents.process import ReviewProcess
+
+    p = ReviewProcess()
+    for index in range(12):
+        p.record_activity(f"tool_{index}({'x' * 100})")
+    assert len(p._activity) == p._ACTIVITY_MAX_LABELS
+    assert all(len(label) <= p._ACTIVITY_LABEL_MAX_CHARS for label in p._activity)
+    p.record_activity("   ")
+    assert len(p._activity) == p._ACTIVITY_MAX_LABELS
