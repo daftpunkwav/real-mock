@@ -95,8 +95,13 @@ export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => voi
       return;
     }
     if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+    // Cleared on cleanup so a tick finishing after unmount cannot re-arm the
+    // timer — otherwise the schedule chain outlives the hook and keeps
+    // polling (until the budget expires) with no component left to update.
+    let alive = true;
 
     const schedule = () => {
+      if (!alive) return;
       if (pollTimerRef.current) return;
       if (!hasPendingRef.current) return;
       if (Date.now() - pollStartRef.current > PARSE_POLL_MAX_MS) return;
@@ -130,6 +135,7 @@ export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => voi
 
     pollTimerRef.current = setTimeout(tick, PARSE_POLL_INTERVAL_MS);
     return () => {
+      alive = false;
       if (pollTimerRef.current) {
         clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
