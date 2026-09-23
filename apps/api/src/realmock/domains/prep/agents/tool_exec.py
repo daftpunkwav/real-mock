@@ -121,14 +121,6 @@ def build_execute_callback(
             return "", ""
         return str(error_context.get("domain") or ""), str(error_context.get("session") or "")
 
-    def _circuit_note(streak: int) -> str:
-        """Transparency line: the model must see how close the breaker is."""
-        remaining = _TOOL_CIRCUIT_BREAKER_STREAK - streak
-        return (
-            f"Circuit breaker {streak}/{_TOOL_CIRCUIT_BREAKER_STREAK}: "
-            f"{max(remaining, 0)} more consecutive failure(s) will block this tool."
-        )
-
     def _failure_observation(kind: str, tool: str, message: str, streak: int) -> str:
         payload = {
             "error": kind,
