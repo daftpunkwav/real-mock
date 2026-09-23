@@ -234,6 +234,7 @@ def web_fetch_tool_spec() -> ToolSpec:
             "required": ["url"],
         },
         handler=handler,
+        timeout_seconds=45.0,
     )
 
 

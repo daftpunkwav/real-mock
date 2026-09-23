@@ -76,15 +76,6 @@ class SessionStatus(StrEnum):
     ARCHIVED = "archived"
 
 
-# ── SSE Events ────────────────────────────────────────
-
-
-class SSEMessageType(StrEnum):
-    TOKEN = "token"
-    DONE = "done"
-    ERROR = "error"
-
-
 # ── Rate Limit ──────────────────────────────────────
 
 DEFAULT_RATE_LIMIT_PER_MINUTE = 60
@@ -118,4 +109,3 @@ RESUME_ALLOWED_EXTENSIONS: frozenset[str] = frozenset({"pdf", "docx", "md", "txt
 HEARTBEAT_TIMEOUT_SEC = 30.0
 HEARTBEAT_MAX_MISSES = 3
 AUDIO_BUFFER_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
-TTS_QUEUE_MAX_SIZE = 50

@@ -638,3 +638,236 @@ async def test_plain_tool_error_is_logged_once(monkeypatch) -> None:
     assert logged[0]["kind"] == "tool_failed"
     assert logged[0]["tool"] == "lookup"
     assert logged[0]["domain"] == "interview"
+
+
+def _tool_call_reply(name: str = "lookup") -> dict:
+    return {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{"id": "c1", "function": {"name": name, "arguments": "{}"}}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_final_round_omits_tools() -> None:
+    """final_round_tool_free: the last request carries no tools; its text is the answer."""
+    seen_tools: list = []
+
+    class _RecordingLLM:
+        calls = 0
+
+        async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
+            del messages, temperature, kwargs
+            self.calls += 1
+            seen_tools.append(tools)
+            if self.calls == 1:
+                return _tool_call_reply()
+            return {"role": "assistant", "content": "final answer text", "tool_calls": None}
+
+    llm = _RecordingLLM()
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=2,
+        final_round_tool_free=True,
+    )
+    assert seen_tools[0] is not None, "tool rounds keep the tools parameter"
+    assert seen_tools[1] is None, "the final round must not carry tools"
+    assert result.final_content == "final answer text"
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_round_retry_recovers_transient_failure() -> None:
+    """One transient round failure is retried; the second attempt answers."""
+
+    class _FlakyLLM(_FakeLLM):
+        async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
+            self.seen_messages.append([dict(m) for m in messages])
+            self.calls += 1
+            if self.calls == 1:
+                raise TimeoutError("hung round")
+            return self.replies[0]
+
+    llm = _FlakyLLM([{"role": "assistant", "content": "recovered", "tool_calls": None}])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+        round_retries=1,
+    )
+    assert llm.calls == 2
+    assert result.final_content == "recovered"
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_round_retry_exhausts_and_breaks() -> None:
+    """With retries exhausted the loop breaks exactly like the old fail-fast."""
+
+    class _BoomLLM:
+        calls = 0
+
+        async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
+            del messages, temperature, tools, kwargs
+            self.calls += 1
+            raise RuntimeError("provider down")
+
+    llm = _BoomLLM()
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+        round_retries=1,
+    )
+    assert llm.calls == 2, "one initial attempt plus exactly one retry"
+    assert result.final_content is None
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_no_retry_by_default() -> None:
+    """round_retries defaults to 0: other loops keep the fail-fast behavior."""
+
+    class _BoomLLM:
+        calls = 0
+
+        async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
+            del messages, temperature, tools, kwargs
+            self.calls += 1
+            raise RuntimeError("provider down")
+
+    llm = _BoomLLM()
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+    )
+    assert llm.calls == 1
+    assert result.final_content is None
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_countdown_ladder_tiers() -> None:
+    """Outer countdown window is advisory, inner half urgent, last round wrap-up."""
+    llm = _FakeLLM([_tool_call_reply() for _ in range(6)])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=6,
+        countdown_rounds=4,
+    )
+    contents = [[str(m.get("content")) for m in call] for call in llm.seen_messages]
+    soft = "Start concluding your evidence gathering"
+    urgent = "Do not start new explorations"
+    wrapup = "last round of tool calling"
+    assert not any(soft in c or urgent in c for c in contents[0])
+    assert any("Only 4" in c and soft in c for c in contents[1])
+    assert any("Only 3" in c and soft in c for c in contents[2])
+    assert any("Only 2" in c and urgent in c for c in contents[3])
+    assert any("Only 1" in c and urgent in c for c in contents[4])
+    assert any(wrapup in c for c in contents[5])
+    assert not any(soft in c or urgent in c for c in contents[5])
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_countdown_hint_lands_after_prepare() -> None:
+    """The per-round nudge is appended after the prepare hook, not inside it.
+
+    Domain prepare hooks rewrite/compact history; a per-round varying nudge
+    that flows through them ends up in the stable head and breaks the
+    provider prefix cache.
+    """
+    llm = _FakeLLM([_tool_call_reply() for _ in range(2)])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    async def prepare(messages: list[dict]) -> list[dict]:
+        return [*messages, {"role": "system", "content": "prepared-tail"}]
+
+    await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=2,
+        countdown_rounds=1,
+        prepare_messages=prepare,
+    )
+    contents = [str(m.get("content")) for m in llm.seen_messages[0]]
+    assert "prepared-tail" in contents
+    assert contents.index("prepared-tail") < len(contents) - 1, (
+        "the countdown nudge must be appended after the prepare hook"
+    )
+    assert "Only 1" in contents[-1]
+    assert "Do not start new explorations" in contents[-1], (
+        "countdown_rounds=1 has no outer half: its single in-window nudge "
+        "must be urgent, not advisory"
+    )
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_wrap_up_hint_lands_after_prepare() -> None:
+    """The closing prompt is appended after the prepare hook, like the countdown nudge.
+
+    A domain compaction hook hoists system-role messages to the stable head;
+    a closing prompt flowing through it would leave the strongest attention
+    position exactly when the tool-free final answer matters most.
+    """
+    llm = _FakeLLM([
+        _tool_call_reply(),
+        {"role": "assistant", "content": "Closing answer", "tool_calls": None},
+    ])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    async def prepare(messages: list[dict]) -> list[dict]:
+        return [*messages, {"role": "system", "content": "prepared-tail"}]
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=2,
+        wrap_up_hint={"role": "system", "content": "last round of tool calling"},
+        prepare_messages=prepare,
+    )
+    contents = [str(m.get("content")) for m in llm.seen_messages[1]]
+    assert "prepared-tail" in contents
+    assert contents[-1].startswith("last round of tool calling"), (
+        "the closing prompt must be appended after the prepare hook"
+    )
+    assert result.final_content == "Closing answer"
+    assert not any(
+        "last round of tool calling" in str(m.get("content")) for m in result.messages
+    ), "The closing prompt must not be persisted in the message sequence"

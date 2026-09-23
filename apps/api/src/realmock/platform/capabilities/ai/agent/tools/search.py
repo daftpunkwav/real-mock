@@ -127,6 +127,7 @@ def search_tool_spec(
             "required": ["query"],
         },
         handler=handler,
+        timeout_seconds=30.0,
     )
 
 

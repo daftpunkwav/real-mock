@@ -170,6 +170,7 @@ def profile_tool_specs(snapshot: ProfileSnapshot) -> list[ToolSpec]:
             ),
             parameters={"type": "object", "properties": {}, "required": []},
             handler=list_sections,
+            timeout_seconds=10.0,
         ),
         ToolSpec(
             name="profile_get_section",
@@ -188,6 +189,7 @@ def profile_tool_specs(snapshot: ProfileSnapshot) -> list[ToolSpec]:
                 "required": ["section"],
             },
             handler=get_section,
+            timeout_seconds=10.0,
         ),
     ]
 

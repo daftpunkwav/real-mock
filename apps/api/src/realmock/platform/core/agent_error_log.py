@@ -35,6 +35,17 @@ def _log_path() -> Path:
     return Path(override) if override else Path(DEFAULT_PATH)
 
 
+def error_scope(context: dict[str, Any] | None) -> tuple[str, str]:
+    """Best-effort ``(domain, session)`` pair for persisted error records.
+
+    Single source for the Agent loop and the tool executor, which both attach
+    this scope to :func:`log_agent_error` calls.
+    """
+    if not isinstance(context, dict):
+        return "", ""
+    return str(context.get("domain") or ""), str(context.get("session") or "")
+
+
 def log_agent_error(
     *,
     domain: str = "",
@@ -66,4 +77,11 @@ def log_agent_error(
         logger.warning("Agent error log write failed: %s", exc)
 
 
-__all__ = ["DEFAULT_PATH", "FLAG_ENV", "PATH_ENV", "enabled", "log_agent_error"]
+__all__ = [
+    "DEFAULT_PATH",
+    "FLAG_ENV",
+    "PATH_ENV",
+    "enabled",
+    "error_scope",
+    "log_agent_error",
+]

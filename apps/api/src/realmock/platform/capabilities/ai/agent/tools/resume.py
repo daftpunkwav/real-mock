@@ -262,6 +262,7 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
             ),
             parameters={"type": "object", "properties": {}, "required": []},
             handler=overview,
+            timeout_seconds=10.0,
         ),
         ToolSpec(
             name="resume_get_section",
@@ -293,6 +294,7 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
                 "required": ["section"],
             },
             handler=get_section,
+            timeout_seconds=10.0,
         ),
     ]
 

@@ -30,12 +30,19 @@ class OpenAIToolSchema(Protocol):
 
 @dataclass(frozen=True)
 class ToolSpec:
-    """One function-calling tool: OpenAI schema fields plus an execute body."""
+    """One function-calling tool: OpenAI schema fields plus an execute body.
+
+    ``timeout_seconds`` is the tool's reference wall-clock budget used by
+    ``invoke_with_timeout`` when the caller does not pass an explicit timeout.
+    ``None`` falls back to the executor default. The model never sets timeouts;
+    workload size is controlled through the tool's own schema parameters.
+    """
 
     name: str
     description: str
     parameters: dict[str, Any]
     handler: ToolHandler
+    timeout_seconds: float | None = None
 
 
 def openai_tool(spec: OpenAIToolSchema) -> dict[str, Any]:
@@ -71,6 +78,11 @@ class ToolBundle:
 
     def names(self) -> frozenset[str]:
         return frozenset(self._specs)
+
+    def spec_timeout(self, name: str) -> float | None:
+        """The tool's reference timeout, or ``None`` when unknown/undeclared."""
+        spec = self._specs.get(name)
+        return spec.timeout_seconds if spec is not None else None
 
     async def execute(self, name: str, args: dict[str, Any]) -> str:
         spec = self._specs.get(name)

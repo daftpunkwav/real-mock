@@ -20,11 +20,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from realmock.platform.capabilities.ai.llm.tool_args import parse_tool_arguments
-from realmock.platform.core.agent_error_log import log_agent_error
+from realmock.platform.core.agent_error_log import error_scope, log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
 
 from .halt import AgentHalt
-from .hints import _DRIFT_HINT, _DRIFT_MAX_CHARS, _WRAP_UP_HINT
+from .hints import _DRIFT_HINT, _DRIFT_MAX_CHARS, _WRAP_UP_HINT, countdown_hint
 from .llm_round import (
     ExecuteFn,
     OnThinkFn,
@@ -41,13 +41,6 @@ def _join_thinking(parts: list[str]) -> str:
     return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
 
-def _error_scope(error_context: dict[str, Any] | None) -> tuple[str, str]:
-    """Best-effort (domain, session) for persisted error records."""
-    if not isinstance(error_context, dict):
-        return "", ""
-    return str(error_context.get("domain") or ""), str(error_context.get("session") or "")
-
-
 @dataclass
 class LoopResult:
     """The result of one or more tool cycles."""
@@ -56,7 +49,8 @@ class LoopResult:
     final_content: str | None
     tool_used: bool
     halted: bool = False
-    # The reasoning (thinking process) of each round of model is spliced, for display only; if the supplier does not return it, it will be an empty string.
+    # Reasoning from every round, joined for display only; empty when the
+    # provider does not return any.
     thinking: str = ""
     extras: dict[str, Any] = field(default_factory=dict)
 
@@ -79,6 +73,9 @@ async def run_agent_loop(
     prepare_messages: Callable[[list[dict[str, Any]]], Awaitable[list[dict[str, Any]]]] | None = None,
     compact_observation: Callable[[str], Awaitable[str]] | None = None,
     error_context: dict[str, Any] | None = None,
+    countdown_rounds: int = 0,
+    round_retries: int = 0,
+    final_round_tool_free: bool = False,
 ) -> LoopResult:
     """Execute the tool loop until the model stops requesting tools or ``max_rounds`` is reached.
 
@@ -104,6 +101,22 @@ async def run_agent_loop(
     ``wrap_up_hint``: last-round system reminder; defaults to the shared wrap-up copy.
     ``error_context``: optional ``{"domain": ..., "session": ...}`` attached to
     persisted agent-error records (see ``platform.core.agent_error_log``).
+    ``drift_retry``: when True, a pre-tool text-only round that merely
+    narrates an action ("I will now search...") instead of working gets a
+    one-shot correction hint and an immediate retry; only the first such
+    round is corrected, and the last round is exempt (it must return text).
+    ``countdown_rounds``: size of the soft-landing window before the round cap.
+    Rounds that still have 1..countdown_rounds rounds after them (except the
+    last, which gets ``wrap_up_hint``) receive a transient countdown nudge —
+    advisory in the outer half ("conclude evidence gathering"), urgent in the
+    inner half ("no new explorations, output the final answer").
+    ``round_retries``: how many times a failed round LLM call is retried
+    (bounded); 0 keeps the fail-fast behavior.
+    ``final_round_tool_free``: when True, the last round's request omits the
+    tools parameter entirely, so the model can only answer with text — a
+    protocol-level guarantee of a final answer instead of an advisory hint the
+    model can ignore. The caller's ``wrap_up_hint`` copy should match (no
+    "call only one tool" phrasing).
 
     Error contract: :class:`AgentHalt` ends the loop with its observation;
     :class:`ApiBusinessError` raised by ``execute`` propagates to the caller
@@ -120,7 +133,8 @@ async def run_agent_loop(
     thinking_parts: list[str] = []
     thinking_emitted = False
     drift_corrected = False
-    # One-time reminder (correction) temporary storage area: only visible for the next LLM call, not written to working
+    # Holding area for one-shot reminders (correction / closing): visible
+    # only to the next LLM call, never persisted to working.
     transient: list[dict[str, Any]] = []
 
     for round_i in range(max_rounds):
@@ -128,13 +142,31 @@ async def run_agent_loop(
             # Round boundary: lets per-round stateful consumers (protocol
             # parsers, stream filters) reset before the next LLM call.
             await on_round_start()
-        call_messages = [*working, *transient]
-        transient = []
-        # The last round of injection closing prompts (only visible for this call, no working persistent message is written)
-        if round_i == max_rounds - 1 and round_i > 0:
-            call_messages.append(closing_hint)
+        call_messages = list(working)
+        is_last_round = round_i == max_rounds - 1
         if prepare_messages is not None:
             call_messages = await prepare_messages(call_messages)
+        # Transient hints (one-call correction / closing prompt) are injected
+        # after prepare_messages, for the same reason as the countdown nudge
+        # below: domain rewrites (LLM compaction) hoist system-role messages
+        # to the stable head, which would bury these one-call nudges far from
+        # the generation point instead of at the strongest attention position.
+        call_messages.extend(transient)
+        transient = []
+        # Inject the closing hint on the last round (visible only to this
+        # call; never persisted to working).
+        if is_last_round and round_i > 0:
+            call_messages.append(closing_hint)
+        # The countdown nudge is injected after prepare_messages: its text
+        # changes every round, so placing it before the prepare hook would let
+        # domain context rewrites move it into the stable head and punch
+        # through the provider prefix cache. As a transient suffix it also
+        # sits at the strongest attention position.
+        if countdown_rounds > 0 and not is_last_round:
+            remaining_rounds = max_rounds - round_i - 1
+            if 0 < remaining_rounds <= countdown_rounds:
+                urgent = remaining_rounds <= max(1, countdown_rounds // 2)
+                call_messages.append(countdown_hint(remaining_rounds, urgent=urgent))
 
         round_thinking: list[str] = []
 
@@ -142,7 +174,9 @@ async def run_agent_loop(
             nonlocal thinking_emitted
             if not text:
                 return
-            # Display channel: only the "first segment of a new round" is added to the inter-round separation; the persistence channel retains the original segments
+            # Display channel: the inter-round separator is prepended only at
+            # the first segment of a new round; round_thinking keeps the
+            # original segments.
             display = ("\n\n" + text) if (thinking_emitted and not round_thinking) else text
             thinking_emitted = True
             round_thinking.append(text)
@@ -151,32 +185,60 @@ async def run_agent_loop(
                 if maybe is not None and inspect.isawaitable(maybe):
                     await maybe
 
-        try:
+        # Tool-free final round: without a tools parameter the model can only
+        # answer with text, so the cap produces a real answer instead of
+        # another round of tool calls that ignores the advisory hint.
+        round_tools = None if (final_round_tool_free and is_last_round) else tools
+
+        async def call_round_llm() -> dict[str, Any]:
             # Speculative content streaming only after the first tool round: a
             # pre-tool content round may still be drift-retried (its text would
             # then be generated twice), so pre-tool text stays buffered and
             # reaches the display through the caller's replay path. After tools
             # have run, a content-only round is always the final answer.
             emit_content = on_content if (on_content is not None and tool_used) else None
-            msg = await _call_llm_round(
+            return await _call_llm_round(
                 llm,
                 call_messages,
                 temperature=temperature,
-                tools=tools,
+                tools=round_tools,
                 emit_thinking=emit_thinking,
                 emit_content=emit_content,
             )
-        except Exception as e:
-            logger.warning("Agent round LLM failed round=%s: %s", round_i, e)
-            domain, session = _error_scope(error_context)
-            log_agent_error(
-                domain=domain, session=session, kind="llm_round_failed",
-                message=f"round {round_i}: {e}",
-            )
+
+        msg: dict[str, Any] | None = None
+        attempts_left = 1 + max(0, round_retries)
+        while attempts_left > 0:
+            attempts_left -= 1
+            try:
+                msg = await call_round_llm()
+                break
+            except Exception as e:
+                if attempts_left == 0:
+                    logger.warning(
+                        "Agent round LLM failed round=%s: %s: %s",
+                        round_i, type(e).__name__, e,
+                    )
+                    domain, session = error_scope(error_context)
+                    log_agent_error(
+                        domain=domain, session=session, kind="llm_round_failed",
+                        message=f"round {round_i}: {e}",
+                    )
+                    break
+                # A failed mid-stream attempt may have already emitted partial
+                # reasoning deltas; drop them so the retry forms one clean
+                # thinking segment instead of duplicating the head.
+                round_thinking.clear()
+                logger.warning(
+                    "Agent round LLM call failed (%s: %s); retrying round=%s",
+                    type(e).__name__, e, round_i,
+                )
+        if msg is None:
             break
 
         if not round_thinking:
-            # Non-streaming path: reasoning is sent back once with the message, and will be reissued here.
+            # Non-streaming path: reasoning arrives once with the message;
+            # emit it here.
             reasoning = msg.get("reasoning")
             if isinstance(reasoning, str) and reasoning.strip():
                 await emit_thinking(reasoning)
@@ -259,7 +321,7 @@ async def run_agent_loop(
                 # The attributes are a duck-typed contract: absent ones fall
                 # back to a plain tool failure, exactly one record per failure.
                 if not getattr(tool_exc, "already_logged", False):
-                    domain, session = _error_scope(error_context)
+                    domain, session = error_scope(error_context)
                     log_agent_error(
                         domain=domain, session=session, tool=name,
                         kind=getattr(tool_exc, "error_kind", "tool_failed"),

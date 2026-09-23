@@ -14,7 +14,7 @@ import json
 import pytest
 
 from realmock.platform.capabilities.ai.agent import emit_agent_event, run_agent_loop
-from realmock.platform.capabilities.ai.agent.tools import ToolBundle, ToolSpec
+from realmock.platform.capabilities.ai.agent.tools import ToolBundle, ToolSpec, invoke_with_timeout
 from realmock.platform.capabilities.ai.llm.json_extract import (
     extract_json_object,
     iter_balanced_objects,
@@ -23,8 +23,14 @@ from realmock.platform.capabilities.ai.llm.json_extract import (
 from realmock.platform.core.errors import ApiBusinessError, raise_error
 
 
-def _spec(name: str, handler) -> ToolSpec:
-    return ToolSpec(name=name, description="test tool", parameters={}, handler=handler)
+def _spec(name: str, handler, *, timeout_seconds: float | None = None) -> ToolSpec:
+    return ToolSpec(
+        name=name,
+        description="test tool",
+        parameters={},
+        handler=handler,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 async def _ok_handler(args: dict) -> str:
@@ -74,13 +80,14 @@ async def test_invoke_with_timeout_maps_timeout_to_canonical_error() -> None:
 
     bundle = ToolBundle()
     bundle.add(_spec("slow", _slow))
-    raw, status = await _invoke(bundle, "slow", {}, timeout=0.05)
+    raw, status = await _invoke(bundle, "slow", {"q": "x"}, timeout=0.05)
     assert status == "error"
-    assert json.loads(raw) == {
-        "error": "timeout",
-        "tool": "slow",
-        "message": "Tool exceeded 0s",
-    }
+    payload = json.loads(raw)
+    assert payload["error"] == "timeout"
+    assert payload["tool"] == "slow"
+    assert "exceeded" in payload["message"]
+    assert payload["args"] == '{"q": "x"}'
+    assert "Narrow the arguments" in payload["hint"]
 
 
 async def test_invoke_with_timeout_maps_failure_to_canonical_error() -> None:
@@ -96,6 +103,102 @@ async def test_invoke_with_timeout_maps_failure_to_canonical_error() -> None:
     assert payload["error"] == "tool_failed"
     assert payload["tool"] == "broken"
     assert "boom" in payload["message"]
+    assert payload["args"] == "{}"
+    assert "hint" not in payload, "unknown failure classes carry no invented hint"
+
+
+async def test_invoke_with_timeout_classifies_provider_error_hints() -> None:
+    """Known provider failure classes carry an actionable hint; none are retried."""
+    cases = [
+        ("HTTP 404: Not Found", "Target not found"),
+        ("409 Conflict: empty repository", "empty repository"),
+        ("rate limit exceeded (429)", "Quota or access limited"),
+    ]
+    for message, expected_hint in cases:
+        calls: list[int] = []
+
+        async def _fail(args: dict, _message: str = message) -> str:
+            del args
+            calls.append(1)
+            raise RuntimeError(_message)
+
+        bundle = ToolBundle()
+        bundle.add(_spec("target", _fail))
+        raw, status = await _invoke(bundle, "target", {"id": "x"}, timeout=5.0)
+        assert status == "error", message
+        payload = json.loads(raw)
+        assert payload["error"] == "tool_failed", message
+        assert expected_hint in payload["hint"], message
+        assert len(calls) == 1, "provider rejections are never retried here"
+
+
+async def test_invoke_with_timeout_truncates_args_echo() -> None:
+    """The echoed call arguments in an error observation are capped at 400 chars."""
+    async def _boom(args: dict) -> str:
+        del args
+        raise RuntimeError("kaboom")
+
+    bundle = ToolBundle()
+    bundle.add(_spec("wide", _boom))
+    raw, status = await _invoke(bundle, "wide", {"query": "y" * 5000}, timeout=5.0)
+    assert status == "error"
+    payload = json.loads(raw)
+    assert len(payload["args"]) == 400
+    assert payload["args"].startswith('{"query": "yyy')
+
+
+async def test_invoke_with_timeout_falls_back_to_declared_spec_timeout() -> None:
+    """No explicit timeout: the spec's reference value applies, then the default."""
+
+    async def _slow(args: dict) -> str:
+        del args
+        await asyncio.sleep(5.0)
+        return "late"  # pragma: no cover
+
+    bundle = ToolBundle()
+    bundle.add(_spec("slowish", _slow, timeout_seconds=0.05))
+    raw, status = await invoke_with_timeout(bundle, "slowish", {})
+    assert status == "error"
+    assert "exceeded 0s" in json.loads(raw)["message"]
+
+    # A tool without a declared timeout falls back to the platform default
+    # (asserted indirectly: a fast handler still succeeds).
+    bundle.add(_spec("plain", _ok_handler))
+    raw2, status2 = await invoke_with_timeout(bundle, "plain", {})
+    assert status2 == "done"
+    assert json.loads(raw2) == {"ok": True}
+
+
+async def test_invoke_with_timeout_retries_transient_connection_error_once() -> None:
+    calls: list[int] = []
+
+    async def _flaky(args: dict) -> str:
+        del args
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConnectionResetError("peer reset")
+        return json.dumps({"ok": True})
+
+    bundle = ToolBundle()
+    bundle.add(_spec("flaky", _flaky))
+    raw, status = await invoke_with_timeout(bundle, "flaky", {}, timeout=5.0)
+    assert status == "done"
+    assert len(calls) == 2, "exactly one connection retry"
+
+    calls.clear()
+
+    async def _always_down(args: dict) -> str:
+        del args
+        calls.append(1)
+        raise ConnectionResetError("peer reset")
+
+    bundle.add(_spec("down", _always_down))
+    raw2, status2 = await invoke_with_timeout(bundle, "down", {}, timeout=5.0)
+    assert status2 == "error"
+    payload = json.loads(raw2)
+    assert payload["error"] == "tool_failed"
+    assert "Transient network failure" in payload["hint"]
+    assert len(calls) == 2, "one initial attempt plus exactly one retry"
 
 
 async def test_invoke_with_timeout_reraises_business_error() -> None:

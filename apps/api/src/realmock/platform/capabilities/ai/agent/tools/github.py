@@ -29,12 +29,16 @@ def github_tool_specs(*, names: frozenset[str] | None = None) -> list[ToolSpec]:
         async def handler(args: dict[str, Any], *, _name: str = name) -> str:
             return await execute_github_tool(_name, args)
 
+        # Content endpoints return potentially large bodies; metadata endpoints
+        # are single JSON round-trips.
+        timeout = 25.0 if ("readme" in name or "content" in name or "file" in name) else 20.0
         specs.append(
             ToolSpec(
                 name=name,
                 description=str(fn.get("description") or ""),
                 parameters=dict(fn.get("parameters") or {"type": "object"}),
                 handler=handler,
+                timeout_seconds=timeout,
             )
         )
     return specs

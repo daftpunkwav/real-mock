@@ -137,10 +137,6 @@ def _reset_cache() -> None:
     _master_bytes.cache_clear()
 
 
-def _aesgcm() -> "AESGCM":
-    return AESGCM(_master_bytes())
-
-
 def encrypt_secret(plaintext: str | None) -> str | None:
     """Encrypted string; ``None`` / NULL value is returned unchanged."""
     if not plaintext:
