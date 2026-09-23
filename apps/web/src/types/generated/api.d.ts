@@ -3986,6 +3986,16 @@ export interface components {
              * @default 0
              */
             cached_tokens: number;
+            /**
+             * Last Round Prompt Tokens
+             * @default 0
+             */
+            last_round_prompt_tokens: number;
+            /**
+             * Last Round Completion Tokens
+             * @default 0
+             */
+            last_round_completion_tokens: number;
         };
         /** PrepCreateRequest */
         PrepCreateRequest: {
@@ -4216,6 +4226,16 @@ export interface components {
              * @default 0
              */
             cached_tokens: number;
+            /**
+             * Last Round Prompt Tokens
+             * @default 0
+             */
+            last_round_prompt_tokens: number;
+            /**
+             * Last Round Completion Tokens
+             * @default 0
+             */
+            last_round_completion_tokens: number;
             /**
              * Message Count
              * @default 0

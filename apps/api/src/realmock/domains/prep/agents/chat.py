@@ -132,14 +132,20 @@ async def _final_answer_with_overflow_retry(
     context_session_ids: list[int] | None,
 ) -> str:
     """Non-streaming final answer; on context overflow, force-compact and retry once."""
+    usage_before = agent.usage_snapshot()
     try:
-        return await agent.llm.chat(working, temperature=0.7)
+        answer = await agent.llm.chat(working, temperature=0.7)
+        agent.note_round_usage(usage_before)
+        return answer
     except Exception as e:
         if not is_context_overflow(e):
             raise
         logger.warning("Prep final answer overflowed; force-compacting and retrying once")
         working = await _force_compact_context(agent, policy, db, context_session_ids)
-        return await agent.llm.chat(working, temperature=0.7)
+        retry_before = agent.usage_snapshot()
+        answer = await agent.llm.chat(working, temperature=0.7)
+        agent.note_round_usage(retry_before)
+        return answer
 
 
 async def _prepare_turn(
@@ -416,6 +422,7 @@ async def run_chat_stream(
                 # exception, or early text sanitized to nothing) — stream a closing
                 # answer live instead of ending the turn empty.
                 final = ""
+                usage_before = agent.usage_snapshot()
                 try:
                     async for token in agent.llm.chat_stream(working, temperature=0.7):
                         final += token
@@ -427,9 +434,11 @@ async def run_chat_stream(
                     # answer once instead of failing the turn.
                     logger.warning("Prep stream final overflowed; force-compacting and retrying once")
                     working = await _force_compact_context(agent, policy, db, context_session_ids)
+                    usage_before = agent.usage_snapshot()
                     async for token in agent.llm.chat_stream(working, temperature=0.7):
                         final += token
                         yield token
+                agent.note_round_usage(usage_before)
         elif not final:
             # Dialog rescued from an otherwise-empty body: keep the waiting line.
             final = agent.pending_reply_text()

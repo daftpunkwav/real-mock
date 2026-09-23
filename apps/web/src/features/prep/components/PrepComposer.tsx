@@ -31,6 +31,8 @@ interface PrepComposerProps {
   /** Backend-measured context buckets by stable key (null until first fetch). */
   contextBuckets: Record<string, number> | null;
   contextTotal: number;
+  /** Provider-reported usage of the last LLM call (real context occupancy). */
+  reportedContext: { prompt: number; completion: number };
   /** Latest turn's mechanical input estimate (display fallback only). */
   estimatedPrompt: number;
   chatModels: ModelProfile[];
@@ -75,6 +77,7 @@ export function PrepComposer({
   usage,
   contextBuckets,
   contextTotal,
+  reportedContext,
   estimatedPrompt,
   chatModels,
   selectedModelId,
@@ -118,7 +121,14 @@ export function PrepComposer({
         { label: t("tokens.gauge.replies"), value: est.assistantEst, color: "#8b5cf6" },
         { label: t("tokens.gauge.system"), value: est.systemEst, color: "#94a3b8" },
       ];
-  const used = Math.max(est.used, contextTotal || 0, tokenUsage || 0);
+  // Provider-reported truth wins for the ring: the last LLM call's prompt
+  // includes the full history, so prompt+completion IS the context occupancy.
+  // Fall back to the mechanical estimates (flagged as estimated) when the
+  // provider reported nothing.
+  const reportedUsed = (reportedContext.prompt || 0) + (reportedContext.completion || 0);
+  const used = reportedUsed > 0
+    ? reportedUsed
+    : Math.max(est.used, contextTotal || 0, tokenUsage || 0);
   // Mechanical input fallback when the provider reported no prompt usage.
   const estimated = Math.max(estimatedPrompt || 0, contextTotal || 0, Math.round(est.measuredTotal));
 

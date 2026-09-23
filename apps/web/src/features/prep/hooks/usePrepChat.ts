@@ -70,6 +70,7 @@ interface UsePrepChat {
   usage: PrepUsageStats | null;
   contextBuckets: Record<string, number> | null;
   contextTotal: number;
+  reportedContext: { prompt: number; completion: number };
   estimatedPrompt: number;
   showJump: boolean;
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
@@ -217,6 +218,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     stickToBottom: scroll.stickToBottom,
     mergeUsage: session.mergeUsage,
     syncUsage: session.syncUsage,
+    syncReportedContext: session.syncReportedContext,
     setEstimatedPrompt: session.setEstimatedPrompt,
     refreshContext: session.refreshContext,
     onAskUser,
@@ -367,6 +369,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     usage: session.usage,
     contextBuckets: session.contextBuckets,
     contextTotal: session.contextTotal,
+    reportedContext: session.reportedContext,
     estimatedPrompt: session.estimatedPrompt,
     showJump: scroll.showJump,
     chatScrollRef: scroll.chatScrollRef,

@@ -61,3 +61,41 @@ async def test_persist_cancel_never_raises(monkeypatch) -> None:
     monkeypatch.setattr(persist_mod, "finalize", _boom)
     # Must not raise even when finalize fails.
     persist_mod.persist_cancel(agent, [], "", {"filtered_text": "x"}, object())  # type: ignore[arg-type]
+
+
+def test_finalize_persists_last_round_usage(monkeypatch) -> None:
+    """finalize writes the turn's last LLM call usage into the session columns."""
+    from realmock.domains.prep.agents import persist as persist_mod
+    from realmock.domains.prep.agents.agent import PrepAgent
+
+    sess = SimpleNamespace(messages="[]", resume_id=None, target_company="",
+                           target_role="", token_usage=0, prompt_tokens=0,
+                           completion_tokens=0, cached_tokens=0,
+                           last_round_prompt_tokens=0, last_round_completion_tokens=0,
+                           status="active", access_token="", linked_session_id=None,
+                           summary="", message_count=0)
+    saved: list[SimpleNamespace] = []
+
+    class _Agent(PrepAgent):
+        def _save(self, db):
+            saved.append(self.session)
+
+    agent = _Agent(sess, SimpleNamespace(context_window=8000))  # type: ignore[arg-type]
+    agent.messages = [{"role": "user", "content": "hi"}]
+    agent.last_round_usage = {"prompt_tokens": 150, "completion_tokens": 10, "cached_tokens": 120}
+
+    monkeypatch.setattr(persist_mod, "prepare_llm_context", lambda messages, *a, **k: messages)
+    persist_mod.finalize(agent, [{"role": "user", "content": "hi"}], "answer", object())  # type: ignore[arg-type]
+
+    assert saved, "finalize must persist"
+    assert sess.last_round_prompt_tokens == 150
+    assert sess.last_round_completion_tokens == 10
+    # Without a recorded last round, the columns stay untouched (0).
+    sess2 = SimpleNamespace(**{**vars(sess), "last_round_prompt_tokens": 0,
+                               "last_round_completion_tokens": 0})
+    agent2 = _Agent(sess2, SimpleNamespace(context_window=8000))  # type: ignore[arg-type]
+    agent2.messages = [{"role": "user", "content": "hi"}]
+    agent2.last_round_usage = None
+    persist_mod.finalize(agent2, [{"role": "user", "content": "hi"}], "answer", object())  # type: ignore[arg-type]
+    assert sess2.last_round_prompt_tokens == 0
+    assert sess2.last_round_completion_tokens == 0

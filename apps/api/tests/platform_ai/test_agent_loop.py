@@ -871,3 +871,58 @@ async def test_agent_loop_wrap_up_hint_lands_after_prepare() -> None:
     assert not any(
         "last round of tool calling" in str(m.get("content")) for m in result.messages
     ), "The closing prompt must not be persisted in the message sequence"
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_reports_last_round_usage() -> None:
+    """extras["last_round_usage"] carries the LAST round's provider-reported delta, not the sum."""
+
+    class _Usage:
+        def __init__(self) -> None:
+            self.prompt_tokens = 0
+            self.completion_tokens = 0
+            self.cached_tokens = 0
+
+    llm = _FakeStreamLLM(
+        rounds=[
+            [
+                {"type": "message", "message": {"role": "assistant", "content": None,
+                 "tool_calls": [{"id": "c1", "type": "function",
+                                 "function": {"name": "lookup", "arguments": "{}"}}]}},
+            ],
+            [
+                {"type": "message", "message": {"role": "assistant", "content": "Final answer."}},
+            ],
+        ]
+    )
+    llm.usage = _Usage()
+
+    async def _spy_stream(self, messages, temperature=0.7, tools=None, **kwargs):
+        # Each round's provider report reflects the FULL history sent so far:
+        # round 1 totals 100/10/80, round 2 totals 250/20/200.
+        idx = self.calls
+        self.calls += 1
+        if idx == 0:
+            self.usage.prompt_tokens, self.usage.completion_tokens, self.usage.cached_tokens = 100, 10, 80
+        else:
+            self.usage.prompt_tokens, self.usage.completion_tokens, self.usage.cached_tokens = 250, 20, 200
+        for event in self.rounds[min(idx, len(self.rounds) - 1)]:
+            yield event
+
+    llm.chat_message_stream = _spy_stream.__get__(llm)  # type: ignore[method-assign]
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=4,
+    )
+    reported = result.extras.get("last_round_usage")
+    assert reported is not None
+    # Last round only (250-100=150 prompt over the previous total), NOT the
+    # cumulative sum across rounds (100+250=350).
+    assert reported == {"prompt_tokens": 150, "completion_tokens": 10, "cached_tokens": 120}

@@ -183,11 +183,9 @@ class UnifiedLLMClient:
         Emits ``{"type": "reasoning", "text": ...}`` delta events, raw
         ``{"type": "text", "text": ...}`` body-delta events, then finally
         ``{"type": "message", "message": {...}}`` (with the same shape as non-streaming ``chat_message``;
-        reasoning has already been sent in real time and is not included again). Raises :class:`NotImplementedError`
-        when the openai_responses protocol is unsupported, allowing the caller to fall back to non-streaming.
+        reasoning has already been sent in real time and is not included again). All three protocols
+        are supported.
         """
-        if self.protocol == LLMProtocol.OPENAI_RESPONSES:
-            raise NotImplementedError("responses protocol does not support streaming toolwheel")
         self._safe_check()
         url, payload = self._build_url_and_payload(
             messages, system=system, stream=True, temperature=temperature, tools=tools

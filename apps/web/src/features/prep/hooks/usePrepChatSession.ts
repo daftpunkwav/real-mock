@@ -128,6 +128,8 @@ export function usePrepChatSession({
   const [switchFailedId, setSwitchFailedId] = useState<number | null>(null);
   const [tokenUsage, setTokenUsage] = useState(0);
   const [usage, setUsage] = useState<PrepUsageStats | null>(null);
+  /** Provider-reported usage of the last LLM call (real context occupancy; 0s until reported). */
+  const [reportedContext, setReportedContext] = useState({ prompt: 0, completion: 0 });
   /** Backend-measured context buckets by stable key (null until first fetch). */
   const [contextBuckets, setContextBuckets] = useState<Record<string, number> | null>(null);
   const [contextTotal, setContextTotal] = useState(0);
@@ -151,6 +153,7 @@ export function usePrepChatSession({
     setContextBuckets(null);
     setContextTotal(0);
     setEstimatedPrompt(0);
+    setReportedContext({ prompt: 0, completion: 0 });
   }, []);
 
   /** Fetch the backend-measured context breakdown for a session. */
@@ -164,8 +167,20 @@ export function usePrepChatSession({
       }
       setContextBuckets(buckets);
       setContextTotal(Number(breakdown.total_estimate) || 0);
+      // Last-call provider truth rides along (real context occupancy).
+      setReportedContext({
+        prompt: Number(breakdown.last_round_prompt_tokens) || 0,
+        completion: Number(breakdown.last_round_completion_tokens) || 0,
+      });
     } catch {
       // Keep the previous (or local-estimate fallback) on failure.
+    }
+  }, []);
+
+  /** Done-envelope sync of the last LLM call's provider-reported usage. */
+  const syncReportedContext = useCallback((prompt: number, completion: number) => {
+    if (prompt > 0 || completion > 0) {
+      setReportedContext({ prompt, completion });
     }
   }, []);
 
@@ -354,6 +369,8 @@ export function usePrepChatSession({
     usage,
     mergeUsage,
     syncUsage,
+    reportedContext,
+    syncReportedContext,
     contextBuckets,
     contextTotal,
     estimatedPrompt,
