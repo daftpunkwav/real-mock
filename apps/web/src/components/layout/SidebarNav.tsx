@@ -4,7 +4,8 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, PanelLeftClose } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronRight, Loader2, PanelLeftClose } from "lucide-react";
 import { NAV_ITEMS } from "@/config/nav";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/brand/LogoMark";
@@ -66,6 +67,14 @@ export function NavContent({
   const pathname = usePathname();
   const t = useT("nav");
   const tc = useT("common");
+  // Optimistic click feedback: App Router keeps the old page mounted while the
+  // target route compiles/fetches, so highlight the clicked item immediately
+  // instead of waiting for the pathname to change. Cleared on arrival.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   return (
     <>
@@ -115,19 +124,27 @@ export function NavContent({
           const { href, labelKey, icon: Icon } = item;
           const label = t(labelKey);
           const isActive = isNavActive(pathname, href, item.extraActivePrefixes);
+          // Clicks on the already-active route navigate nowhere, so they never
+          // produce a pending flight; only highlight genuine departures.
+          const isPendingNav = pendingHref === href && !isActive;
+          const highlighted = isActive || isPendingNav;
           return (
             <Link
               key={href}
               href={href}
-              onClick={onNavigate}
+              onClick={() => {
+                if (href !== pathname) setPendingHref(href);
+                onNavigate?.();
+              }}
               className="block"
               title={collapsed ? label : undefined}
               aria-current={isActive ? "page" : undefined}
+              aria-busy={isPendingNav || undefined}
             >
               <div
                 className={cn(
                   "group/nav relative flex items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-2 text-[13px] transition-colors duration-base ease-google",
-                  isActive
+                  highlighted
                     ? "bg-[var(--sidebar-active)] font-medium text-[var(--sidebar-accent-foreground)]"
                     : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-hover)]",
                 )}
@@ -135,10 +152,10 @@ export function NavContent({
                 <NavPendingBar />
                 <Icon
                   size={17}
-                  strokeWidth={isActive ? 2 : 1.75}
+                  strokeWidth={highlighted ? 2 : 1.75}
                   className={cn(
                     "shrink-0 transition-all duration-base ease-google group-hover/nav:scale-110",
-                    isActive
+                    highlighted
                       ? "text-[var(--sidebar-primary)]"
                       : "text-[var(--muted-foreground)] group-hover/nav:text-[var(--sidebar-foreground)]",
                   )}
@@ -152,14 +169,22 @@ export function NavContent({
                 >
                   {label}
                 </span>
-                <ChevronRight
-                  size={13}
-                  className={cn(
-                    "shrink-0 -translate-x-1 text-ink-subtle opacity-0 transition-all duration-base ease-google",
-                    !collapsed && "group-hover/nav:translate-x-0 group-hover/nav:opacity-100",
-                    isActive && !collapsed && "translate-x-0 text-[var(--sidebar-primary)] opacity-60",
-                  )}
-                />
+                {isPendingNav ? (
+                  <Loader2
+                    size={13}
+                    role="status"
+                    className="anim-spin shrink-0 text-[var(--sidebar-primary)]"
+                  />
+                ) : (
+                  <ChevronRight
+                    size={13}
+                    className={cn(
+                      "shrink-0 -translate-x-1 text-ink-subtle opacity-0 transition-all duration-base ease-google",
+                      !collapsed && "group-hover/nav:translate-x-0 group-hover/nav:opacity-100",
+                      isActive && !collapsed && "translate-x-0 text-[var(--sidebar-primary)] opacity-60",
+                    )}
+                  />
+                )}
               </div>
             </Link>
           );
