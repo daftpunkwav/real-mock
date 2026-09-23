@@ -23,6 +23,7 @@ from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
     COMPACTION_SUMMARY_MARKER,
+    _align_split_start,
     _prune_stale_tool_pairs,
 )
 from realmock.platform.capabilities.ai.context.estimation import (
@@ -385,6 +386,12 @@ async def compact_with_summary(
         if 0 < len(rest) <= 2:
             keep = 0
     start = max(0, len(rest) - keep)
+    # Protocol safety: the verbatim tail must not open with an orphan tool
+    # result whose assistant(tool_calls) partner was folded into the summary —
+    # providers reject that shape with a hard 400 the loop cannot recover from.
+    # An explicit keep_from pin keeps priority (min below), so pinned callers
+    # stay responsible for their own index as documented.
+    start = _align_split_start(rest, start)
     if keep_from is not None:
         # Pin semantics: everything from keep_from on stays verbatim, while
         # the retain window still holds — hence the minimum of both cutoffs.

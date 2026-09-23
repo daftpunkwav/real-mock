@@ -49,6 +49,22 @@ def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _align_split_start(rest: list[dict[str, Any]], start: int) -> int:
+    """Move a fold boundary forward so the verbatim tail never opens with an
+    orphan ``tool`` result.
+
+    Tool results are contiguous after their assistant message, so walking past
+    every ``tool`` message either (a) leaves the assistant with ``tool_calls``
+    in the folded head together with all of its results, or (b) starts the tail
+    on a fresh assistant/user turn. Without this, a boundary landing mid-pair
+    sends the provider an unpaired ``tool`` message — a hard 400 every
+    subsequent round, unrecoverable inside the loop.
+    """
+    while start < len(rest) and rest[start].get("role") == "tool":
+        start += 1
+    return start
+
+
 def compress_messages(
     messages: list[dict[str, Any]],
     max_tokens: int,
@@ -74,8 +90,9 @@ def compress_messages(
     if max_tokens > 0 and estimate_messages_tokens(system + rest) <= max_tokens * threshold:
         return system + rest
 
-    trimmed = rest[-keep_recent:]
-    omitted = rest[: max(0, len(rest) - len(trimmed))]
+    start = _align_split_start(rest, max(0, len(rest) - keep_recent))
+    trimmed = rest[start:]
+    omitted = rest[:start]
     if memory is not None and omitted:
         memory.absorb_omitted(omitted)
 
