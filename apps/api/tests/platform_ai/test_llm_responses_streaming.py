@@ -132,6 +132,15 @@ def test_stream_message_round_dispatches_responses_assembler(monkeypatch) -> Non
         def record_stream_event(self, event, protocol):
             return None
 
+        def note_request_start(self):
+            return None
+
+        def note_response_meta(self, headers):
+            return None
+
+        def note_request_error(self, exc):
+            return None
+
     monkeypatch.setattr(stream_mod, "make_pinned_async_client", lambda *a, **k: _FakeClient())
     client = SimpleNamespace(usage=_Usage(), extra_headers=None)
     events = asyncio.run(_gather(stream_mod.stream_message_round(

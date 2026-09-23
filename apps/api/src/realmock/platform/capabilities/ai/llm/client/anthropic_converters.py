@@ -66,8 +66,23 @@ def _anthropic_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             )
             continue
         tool_calls = message.get("tool_calls") or []
-        if role == "assistant" and tool_calls:
+        if role == "assistant" and (tool_calls or message.get("thinking_blocks")):
             blocks: list[dict[str, Any]] = []
+            # Echo thinking blocks (with signatures) back first: the official
+            # Anthropic API requires the previous assistant turn's thinking to
+            # lead the content array verbatim during tool loops when thinking
+            # is enabled. Compat gateways ignore what they don't send.
+            for thinking in message.get("thinking_blocks") or []:
+                if not isinstance(thinking, dict):
+                    continue
+                block: dict[str, Any] = {
+                    "type": "thinking",
+                    "thinking": str(thinking.get("thinking") or ""),
+                }
+                signature = str(thinking.get("signature") or "")
+                if signature:
+                    block["signature"] = signature
+                blocks.append(block)
             if message.get("content"):
                 blocks.append({"type": "text", "text": str(message["content"])})
             for call in tool_calls:

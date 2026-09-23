@@ -32,9 +32,10 @@ from realmock.platform.capabilities.ai.llm.defaults import (
 )
 from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
 
-from .base import _extract_message_text, _is_local_allowed, _require_https
+from .base import LLMUpstreamError, _extract_message_text, _is_local_allowed, _require_https
 from .from_db import build_from_db, build_from_stage_config
 from .openai_transport import build_payload, chat_completions
+from .response_extract import extract_finish_reason, extract_reasoning, provider_business_error
 from .retry_stream import stream_message_round_retry, stream_text_retry
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ class LLMClient:
         full_url: bool = False,
         extra_body: dict[str, Any] | None = None,
         extra_headers: dict[str, str] | None = None,
+        reasoning_variants: list[str] | None = None,
     ):
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -67,6 +69,8 @@ class LLMClient:
         self.max_tokens = max_tokens
         self.protocol = protocol
         self.reasoning_effort = reasoning_effort
+        # Model-declared custom thinking levels; passed through to requests verbatim.
+        self.reasoning_variants = [str(v) for v in (reasoning_variants or []) if str(v).strip()] or None
         # Full-URL providers: api_base is the verbatim endpoint, protocol path appending is skipped.
         self.full_url = bool(full_url)
         # Vendor-specific request customization from model-entry extras (any standard key wins replacement).
@@ -137,6 +141,7 @@ class LLMClient:
             full_url=self.full_url,
             extra_body=self.extra_body or None,
             extra_headers=self.extra_headers or None,
+            reasoning_variants=self.reasoning_variants,
         )
 
     async def chat(
@@ -180,9 +185,19 @@ class LLMClient:
             log_label="LLM chat",
             model=self.model,
             extra_headers=self.extra_headers or None,
+            usage=self.usage,
         )
         msg = data["choices"][0]["message"]
         self.usage.record_response(data, self.protocol)
+        business_error = provider_business_error(data, self.protocol)
+        if business_error:
+            # HTTP 200 but the provider body reports a business failure
+            # (MiniMax base_resp convention): fail loudly with the verbatim text.
+            self.usage.note_request_error(LLMUpstreamError(business_error))
+            raise LLMUpstreamError(business_error)
+        finish = extract_finish_reason(data, self.protocol)
+        if finish in ("length", "max_tokens") or finish.startswith("incomplete"):
+            logger.warning("LLM chat answer truncated (finish=%s) model=%s", finish, self.model)
         return _extract_message_text(msg)
 
     async def chat_message(
@@ -217,9 +232,14 @@ class LLMClient:
             log_label="LLM chat_message",
             model=self.model,
             extra_headers=self.extra_headers or None,
+            usage=self.usage,
         )
         msg = data["choices"][0]["message"]
         self.usage.record_response(data, self.protocol)
+        business_error = provider_business_error(data, self.protocol)
+        if business_error:
+            self.usage.note_request_error(LLMUpstreamError(business_error))
+            raise LLMUpstreamError(business_error)
         result: dict[str, Any] = {
             "role": msg.get("role") or "assistant",
             "content": msg.get("content"),
@@ -228,10 +248,16 @@ class LLMClient:
             result["tool_calls"] = msg["tool_calls"]
         # The thinking process (reasoning_content) is only returned with the message for display, and is not written into the message sequence.
         reasoning = msg.get("reasoning_content") or msg.get("reasoning") or ""
+        if not reasoning:
+            # MiniMax structured reasoning array fallback.
+            reasoning = extract_reasoning(data, self.protocol)
         if isinstance(reasoning, str) and reasoning.strip():
             from realmock.platform.core.prompts import strip_emojis
 
             result["reasoning"] = strip_emojis(reasoning)
+        finish = extract_finish_reason(data, self.protocol)
+        if finish:
+            result["finish_reason"] = finish
         return result
 
     async def chat_message_stream(

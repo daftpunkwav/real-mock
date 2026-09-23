@@ -54,6 +54,10 @@ def build_payload(
     # every standard key, so any provider field can be set from the settings page.
     if extra_body:
         payload.update(extra_body)
+        # Newer providers deprecate ``max_tokens`` for ``max_completion_tokens``; when a
+        # vendor overrides the field, the legacy key must leave the payload entirely.
+        if "max_completion_tokens" in payload:
+            payload.pop("max_tokens", None)
     return payload
 
 
@@ -77,20 +81,32 @@ async def chat_completions(
     log_label: str,
     model: str,
     extra_headers: dict[str, str] | None = None,
+    usage: Any = None,
 ) -> dict[str, Any]:
-    """POST Chat Completions and return JSON; retry semantics for 4xx/429/5xx are defined in base."""
+    """POST Chat Completions and return JSON; retry semantics for 4xx/429/5xx are defined in base.
+
+    ``usage`` (optional :class:`UsageAccumulator`) receives request diagnostics:
+    latency, upstream request-id headers, and the last error summary.
+    """
     async with make_pinned_async_client(
         api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=timeout
     ) as client:
         try:
+            if usage is not None:
+                usage.note_request_start()
             resp = await _retry_request(
                 lambda: client.post(
                     url, headers=chat_completions_headers(api_key, extra_headers), json=payload
                 )
             )
             resp.raise_for_status()
+            if usage is not None:
+                usage.note_response_meta(getattr(resp, "headers", None))
             return resp.json()
         except httpx.HTTPStatusError as e:
+            if usage is not None:
+                usage.note_response_meta(getattr(e.response, "headers", None))
+                usage.note_request_error(e)
             logger.warning(
                 "%s failed: model=%s status=%s key=%s",
                 log_label,
@@ -98,6 +114,10 @@ async def chat_completions(
                 e.response.status_code,
                 redact_api_key(api_key),
             )
+            raise
+        except BaseException as e:
+            if usage is not None:
+                usage.note_request_error(e)
             raise
 
 

@@ -2,6 +2,10 @@
 
 Keep each protocol's request-body shape distinct instead of unifying them; delegate protocol-specific
 message/tool conversion to :mod:`anthropic_converters` / :mod:`responses_converters`.
+
+Reasoning effort: the default scale is low/medium/high/max. A model may declare its own ordered
+level list (``reasoning_variants``); any level outside the default scale is then passed through
+verbatim — providers ignore or reject what they do not know, and the user picked it deliberately.
 """
 
 from __future__ import annotations
@@ -11,15 +15,52 @@ from typing import Any
 from realmock.platform.core.constants import LLMProtocol
 
 from .anthropic_converters import _anthropic_messages, _anthropic_tool_choice, _anthropic_tools
-from .responses_converters import _responses_input, _responses_tools
+from .responses_converters import _responses_input, _responses_tool_choice, _responses_tools
 
-# Thinking intensity → Anthropic extended thinking budget (tokens)
+# Default thinking scale → Anthropic extended thinking budget (tokens).
 _ANTHROPIC_THINKING_BUDGET = {
     "low": 4096,
     "medium": 8192,
     "high": 16384,
     "max": 32768,
 }
+
+# Labels with dedicated Anthropic thinking shapes (compat endpoints).
+_ANTHROPIC_THINKING_MODES = {"adaptive": "adaptive", "off": "disabled", "none": "disabled", "disabled": "disabled"}
+
+# OpenAI's reasoning_effort/effort fields have no "max" level.
+_OPENAI_EFFORT_ALIASES = {"max": "high"}
+
+
+def _anthropic_thinking_param(effort: str, variants: list[str] | None) -> dict[str, Any]:
+    """Map an effort label to the Anthropic ``thinking`` parameter.
+
+    Known labels use the budget table; ``adaptive``/off-style labels pass as
+    modes; any other custom label interpolates a budget from its position in
+    the model's declared variant list (4k → 32k).
+    """
+    mode = _ANTHROPIC_THINKING_MODES.get(effort.lower())
+    if mode is not None:
+        return {"type": mode}
+    budget = _ANTHROPIC_THINKING_BUDGET.get(effort)
+    if budget is None:
+        budget = _interpolated_budget(effort, variants)
+    return {"type": "enabled", "budget_tokens": budget}
+
+
+def _interpolated_budget(effort: str, variants: list[str] | None) -> int:
+    """Budget for a custom label: position-based between low (4k) and max (32k)."""
+    if variants and effort in variants:
+        index = variants.index(effort)
+        last = max(len(variants) - 1, 1)
+        return 4096 + int((32768 - 4096) * index / last)
+    return 8192
+
+
+def _openai_effort(effort: str) -> str:
+    """Effort label for OpenAI-shaped fields: alias "max"→"high", pass
+    everything else (including custom declared variants) through verbatim."""
+    return _OPENAI_EFFORT_ALIASES.get(effort, effort)
 
 
 def _system_text(messages: list[dict[str, Any]], system: str | None) -> str:
@@ -42,6 +83,7 @@ def build_request(
     tools: list[dict[str, Any]] | None = None,
     tool_choice: str | dict[str, Any] | None = None,
     full_url: bool = False,
+    reasoning_variants: list[str] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Construct the request URL and payload according to the protocol (the three shapes are maintained separately and are not unified with each other).
 
@@ -69,9 +111,14 @@ def build_request(
             # Thinking effort → extended thinking budget. Anthropic semantics: max_tokens
             # Covers both parts of thinking + answers, and must be greater than budget_tokens; the answer limit is
             # The caller retains max_tokens in full and thinks the budget is appended on top of it.
-            budget = _ANTHROPIC_THINKING_BUDGET.get(reasoning_effort, 8192)
-            payload["max_tokens"] = budget + max(max_tokens, 1024)
-            payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
+            thinking = _anthropic_thinking_param(reasoning_effort, reasoning_variants)
+            payload["max_tokens"] = max_tokens
+            if thinking.get("type") == "enabled":
+                payload["max_tokens"] = thinking["budget_tokens"] + max(max_tokens, 1024)
+            # The official API rejects temperature when thinking is enabled.
+            payload["thinking"] = thinking
+        elif temperature is not None:
+            payload["temperature"] = temperature
         return url, payload
 
     if protocol == LLMProtocol.OPENAI_RESPONSES:
@@ -89,12 +136,12 @@ def build_request(
         if response_format:
             payload["text"] = {"format": response_format}
         if reasoning_effort:
-            payload["reasoning"] = {"effort": "high" if reasoning_effort == "max" else reasoning_effort}
+            payload["reasoning"] = {"effort": _openai_effort(reasoning_effort)}
         responses_tools = _responses_tools(tools)
         if responses_tools:
             payload["tools"] = responses_tools
         if tool_choice is not None:
-            payload["tool_choice"] = tool_choice
+            payload["tool_choice"] = _responses_tool_choice(tool_choice)
         return url, payload
 
     # Default openai_chat
@@ -113,7 +160,7 @@ def build_request(
     if tool_choice is not None:
         payload["tool_choice"] = tool_choice
     if reasoning_effort:
-        payload["reasoning_effort"] = "high" if reasoning_effort == "max" else reasoning_effort
+        payload["reasoning_effort"] = _openai_effort(reasoning_effort)
     return url, payload
 
 

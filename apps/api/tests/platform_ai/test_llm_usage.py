@@ -41,7 +41,12 @@ def test_cache_hit_rate_capped_at_one() -> None:
 
 def test_to_dict_and_merge() -> None:
     acc = UsageAccumulator(prompt_tokens=1, completion_tokens=2, cached_tokens=3)
-    assert acc.to_dict() == {"prompt_tokens": 1, "completion_tokens": 2, "cached_tokens": 3}
+    assert acc.to_dict() == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "cached_tokens": 3,
+        "reasoning_tokens": 0,
+    }
     other = UsageAccumulator(prompt_tokens=10, completion_tokens=20, cached_tokens=30, requests=2)
     acc.merge(other)
     assert acc.prompt_tokens == 11
@@ -180,3 +185,60 @@ def test_absorb_anthropic_empty_returns_false() -> None:
     acc = UsageAccumulator()
     assert acc.record_response({"usage": {}}, ANTH) is False
     assert acc.requests == 0
+
+
+def test_record_response_openai_reasoning_tokens() -> None:
+    acc = UsageAccumulator()
+    data = {
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "completion_tokens_details": {"reasoning_tokens": 3},
+        }
+    }
+    assert acc.record_response(data, CHAT) is True
+    assert acc.reasoning_tokens == 3
+
+
+def test_record_response_openai_reasoning_flat_fallback() -> None:
+    acc = UsageAccumulator()
+    data = {"usage": {"prompt_tokens": 10, "completion_tokens": 5, "reasoning_tokens": 2}}
+    assert acc.record_response(data, CHAT) is True
+    assert acc.reasoning_tokens == 2
+
+
+def test_record_response_responses_reasoning_tokens() -> None:
+    acc = UsageAccumulator()
+    data = {
+        "usage": {
+            "input_tokens": 6,
+            "output_tokens": 4,
+            "output_tokens_details": {"reasoning_tokens": 3},
+        }
+    }
+    assert acc.record_response(data, RESP) is True
+    assert acc.reasoning_tokens == 3
+
+
+def test_note_response_meta_captures_headers_and_latency() -> None:
+    import time
+
+    acc = UsageAccumulator()
+    acc.note_request_start()
+    time.sleep(0.01)
+
+    class _Headers(dict):
+        def get(self, key, default=None):
+            return super().get(key.lower(), default)
+
+    acc.note_response_meta(_Headers({"x-request-id": "req-123"}))
+    assert acc.last_request_id == "req-123"
+    assert acc.last_latency_ms >= 10.0
+
+
+def test_note_request_error_truncates() -> None:
+    acc = UsageAccumulator()
+    acc.note_request_error(RuntimeError("boom " * 100))
+    assert acc.last_error.startswith("RuntimeError: boom")
+    assert len(acc.last_error) <= 300
+    assert acc.last_error.endswith("...")

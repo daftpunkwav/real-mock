@@ -146,7 +146,8 @@ async def test_msg_500_retries_then_exhausted(monkeypatch: pytest.MonkeyPatch) -
         await _collect(
             rs_mod.stream_message_round_retry(client, "https://x", "k", "m", "https://u", {})
         )
-    assert pinned.http.calls["n"] == 4  # type: ignore[attr-defined]
+    # Shared ladder: 10 retries (11 attempts total) before exhaustion.
+    assert pinned.http.calls["n"] == 11  # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio

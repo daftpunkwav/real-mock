@@ -13,8 +13,24 @@ import httpx
 
 from realmock.platform.config import get_settings
 from realmock.platform.core.prompts import strip_emojis
+from realmock.platform.capabilities.ai.llm.retry_policy import (
+    RETRY_DELAYS,
+    is_retryable_exception,
+    is_retryable_status,
+    sleep_retry,
+)
 
 logger = logging.getLogger(__name__)
+
+
+class LLMUpstreamError(RuntimeError):
+    """Upstream provider reported a business-level failure inside an HTTP-success body.
+
+    MiniMax-style ``base_resp`` codes, Responses ``status=failed/incomplete``,
+    and terminal SSE error events all surface here with their verbatim
+    message so callers (and the user) can see the real cause instead of a
+    generic failure — and the model can adapt (quota, rate limit, filter).
+    """
 
 
 def _extract_message_text(msg: dict[str, Any] | None) -> str:
@@ -54,14 +70,14 @@ def _extract_message_text(msg: dict[str, Any] | None) -> str:
 async def _retry_request(
     coro_factory,
     *,
-    max_retries: int = 3,
-    backoff: float = 0.5,
+    max_retries: int = len(RETRY_DELAYS),
     is_stream: bool = False,
 ) -> httpx.Response:
-    """Retry 429/5xx responses with exponential backoff; raise immediately for 4xx responses.
+    """Retry 429/5xx and connection errors on the shared ladder; raise immediately for other 4xx.
 
     ``coro_factory`` is a no-argument callable that returns a new coroutine each time (avoiding multiple awaits on the same
-    response). When ``is_stream=True``, the caller handles closing the stream.
+    response). When ``is_stream=True``, the caller handles closing the stream. A provider
+    ``Retry-After`` header overrides the ladder delay for the immediate retry.
     """
     last_exc: Exception | None = None
     for attempt in range(max_retries + 1):
@@ -70,7 +86,7 @@ async def _retry_request(
             resp = await coro
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code if e.response else 0
-            if status_code == 429 or status_code >= 500:
+            if is_retryable_status(status_code):
                 last_exc = e
                 if attempt < max_retries:
                     if is_stream:
@@ -78,14 +94,8 @@ async def _retry_request(
                             await e.response.aclose()
                         except Exception:
                             logger.debug("Failed to close streaming response before retrying", exc_info=True)
-                    await asyncio.sleep(backoff * (2 ** attempt))
+                    await sleep_retry(attempt, headers=getattr(e.response, "headers", None))
                     continue
-            raise
-        except (httpx.ConnectError, httpx.WriteError, httpx.RemoteProtocolError) as e:
-            last_exc = e
-            if attempt < max_retries:
-                await asyncio.sleep(backoff * (2 ** attempt))
-                continue
             raise
         except httpx.ReadTimeout:
             # Never retried: the request timeouts are minutes-scale, so a read
@@ -93,7 +103,14 @@ async def _retry_request(
             # retrying would multiply an already-long wait (up to 4x) and is
             # the caller's decision to make with its own budget.
             raise
-        if resp.status_code == 429 or resp.status_code >= 500:
+        except Exception as e:
+            if is_retryable_exception(e):
+                last_exc = e
+                if attempt < max_retries:
+                    await sleep_retry(attempt)
+                    continue
+            raise
+        if is_retryable_status(resp.status_code):
             last_exc = httpx.HTTPStatusError(
                 f"transient {resp.status_code}",
                 request=resp.request,
@@ -105,7 +122,7 @@ async def _retry_request(
                         await resp.aclose()
                     except Exception:
                         logger.debug("Failed to close streaming response before retrying", exc_info=True)
-                await asyncio.sleep(backoff * (2 ** attempt))
+                await sleep_retry(attempt, headers=getattr(resp, "headers", None))
                 continue
             resp.raise_for_status()
         return resp

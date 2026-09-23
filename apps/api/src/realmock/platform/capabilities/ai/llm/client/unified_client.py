@@ -45,7 +45,8 @@ class UnifiedLLMClient:
         usage_sink: UsageAccumulator | None = None,
         full_url: bool = False,
         extra_body: dict[str, Any] | None = None,
-        extra_headers: dict[str, str] | None = None,
+        extra_headers: dict[str, Any] | None = None,
+        reasoning_variants: list[str] | None = None,
     ):
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -53,6 +54,9 @@ class UnifiedLLMClient:
         self.protocol = protocol
         self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort or None
+        # Model-declared custom thinking levels (order-significant); labels outside
+        # the default scale are passed verbatim into requests.
+        self.reasoning_variants = [str(v) for v in (reasoning_variants or []) if str(v).strip()] or None
         # Full-URL providers: api_base is the verbatim endpoint, protocol path appending is skipped.
         self.full_url = bool(full_url)
         # Vendor-specific request-body customization from model-entry extras; merged after
@@ -118,9 +122,13 @@ class UnifiedLLMClient:
             tools=tools,
             tool_choice=tool_choice,
             full_url=self.full_url,
+            reasoning_variants=getattr(self, "reasoning_variants", None),
         )
         if self.extra_body:
             payload.update(self.extra_body)
+            # Vendor override of the deprecated max_tokens key: drop the legacy field.
+            if "max_completion_tokens" in payload:
+                payload.pop("max_tokens", None)
         return url, payload
 
     async def chat(

@@ -98,7 +98,22 @@ def _responses_tools(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]
     return converted
 
 
+def _responses_tool_choice(value: str | dict[str, Any]) -> str | dict[str, Any]:
+    """Translate chat-shaped tool_choice to the Responses shape.
+
+    Responses uses a flat function type (``{"type": "function", "name": ...}``),
+    not the nested chat ``{"type": "function", "function": {"name": ...}}``.
+    """
+    if isinstance(value, str):
+        return value
+    if value.get("type") == "function":
+        function = value.get("function") or {}
+        return {"type": "function", "name": function.get("name") or ""}
+    return value
+
+
 __all__ = [
     "_responses_input",
+    "_responses_tool_choice",
     "_responses_tools",
 ]

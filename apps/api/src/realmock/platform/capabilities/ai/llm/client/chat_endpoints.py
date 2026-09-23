@@ -24,9 +24,17 @@ from realmock.platform.capabilities.ai.llm.defaults import (
     LLM_TEST_CONNECTION_TIMEOUT_SECONDS,
 )
 
-from .base import _is_local_allowed, _require_https, _retry_request
+from .base import LLMUpstreamError, _is_local_allowed, _require_https, _retry_request
 from .protocol_utils import _headers
-from .response_extract import extract_reasoning, extract_text, extract_tool_calls
+from .response_extract import (
+    extract_citations,
+    extract_finish_reason,
+    extract_reasoning,
+    extract_server_tool_notes,
+    extract_text,
+    extract_tool_calls,
+    provider_business_error,
+)
 
 if TYPE_CHECKING:
     from .unified_client import UnifiedLLMClient
@@ -54,14 +62,18 @@ async def chat(
     ) as http:
         try:
             # 429/5xx exponential backoff retry, consistent with non-streaming openai_chat path semantics
+            client.usage.note_request_start()
             resp = await _retry_request(
                 lambda: http.post(
                     url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
                 )
             )
             resp.raise_for_status()
+            client.usage.note_response_meta(getattr(resp, "headers", None))
             data = resp.json()
         except httpx.HTTPStatusError as e:
+            client.usage.note_response_meta(getattr(e.response, "headers", None))
+            client.usage.note_request_error(e)
             logger.warning(
                 "Unified LLM chat failed: model=%s status=%s key=%s",
                 client.model,
@@ -69,7 +81,21 @@ async def chat(
                 redact_api_key(client.api_key),
             )
             raise
+        except BaseException as e:
+            client.usage.note_request_error(e)
+            raise
     client.usage.record_response(data, client.protocol)
+    business_error = provider_business_error(data, client.protocol)
+    if business_error:
+        # HTTP 200 but the provider's body reports a business failure (MiniMax
+        # base_resp convention): surface verbatim instead of an empty answer.
+        client.usage.note_request_error(LLMUpstreamError(business_error))
+        raise LLMUpstreamError(business_error)
+    finish = extract_finish_reason(data, client.protocol)
+    if finish in ("length", "max_tokens") or finish.startswith("incomplete"):
+        logger.warning(
+            "LLM chat answer truncated (finish=%s) model=%s", finish, client.model
+        )
     return extract_text(data, client.protocol)
 
 
@@ -127,12 +153,22 @@ async def chat_message(
         require_https=_require_https(),
         timeout=LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
     ) as http:
-        resp = await http.post(
-            url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        client.usage.note_request_start()
+        try:
+            resp = await http.post(
+                url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
+            )
+            resp.raise_for_status()
+            client.usage.note_response_meta(getattr(resp, "headers", None))
+            data = resp.json()
+        except BaseException as e:
+            client.usage.note_request_error(e)
+            raise
     client.usage.record_response(data, client.protocol)
+    business_error = provider_business_error(data, client.protocol)
+    if business_error:
+        client.usage.note_request_error(LLMUpstreamError(business_error))
+        raise LLMUpstreamError(business_error)
     result: dict[str, Any] = {
         "role": "assistant",
         "content": extract_text(data, client.protocol),
@@ -142,6 +178,17 @@ async def chat_message(
     reasoning = extract_reasoning(data, client.protocol)
     if reasoning.strip():
         result["reasoning"] = strip_emojis(reasoning)
+    # Terminal reason rides along ("length" = the answer hit the output cap);
+    # citations and server-tool notes are surfaced instead of silently dropped.
+    finish = extract_finish_reason(data, client.protocol)
+    if finish:
+        result["finish_reason"] = finish
+    citations = extract_citations(data, client.protocol)
+    if citations:
+        result["citations"] = citations
+    notes = extract_server_tool_notes(data, client.protocol)
+    if notes:
+        result["server_tool_notes"] = notes
     return result
 
 

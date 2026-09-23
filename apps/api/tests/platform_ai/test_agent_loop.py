@@ -173,7 +173,9 @@ async def test_agent_loop_drift_retry_nudges_short_preamble_once() -> None:
     assert llm.calls == 2, "A short narration should trigger exactly one corrective retry"
     # Inject the corrective prompt only with the second call, and do not persist it in the message sequence
     assert "called no tool" in llm.seen_messages[1][-1]["content"]
-    assert llm.seen_messages[0][-1].get("content") == "Search recent interview notes"
+    # Round 1 ends with the transient datetime anchor; the user message sits below it.
+    assert "[Context] Current local date" in llm.seen_messages[0][-1]["content"]
+    assert llm.seen_messages[0][-2].get("content") == "Search recent interview notes"
     assert not any(
         "called no tool" in str(m.get("content")) for m in result.messages
     )
@@ -422,8 +424,10 @@ async def test_agent_loop_last_round_injects_wrap_up_hint() -> None:
         execute=execute,
         max_rounds=2,
     )
-    # No prompt in the first round; the final round (the last tool opportunity) includes a closing prompt
-    assert llm.seen_messages[0][-1]["role"] != "system"
+    # Round 1 carries only the transient datetime anchor (never the closing prompt);
+    # the final round (the last tool opportunity) includes the closing prompt last.
+    assert "[Context] Current local date" in llm.seen_messages[0][-1]["content"]
+    assert "last round of tool calling" not in str(llm.seen_messages[0][-1]["content"])
     hint = llm.seen_messages[1][-1]
     assert hint["role"] == "system" and "last round of tool calling" in hint["content"]
     assert result.final_content == "Closing answer"
@@ -926,3 +930,134 @@ async def test_agent_loop_reports_last_round_usage() -> None:
     # Last round only (250-100=150 prompt over the previous total), NOT the
     # cumulative sum across rounds (100+250=350).
     assert reported == {"prompt_tokens": 150, "completion_tokens": 10, "cached_tokens": 120}
+
+
+def _tool_call_reply() -> dict:
+    return {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_budget_hint_transient_per_round() -> None:
+    """Rounds after the first carry a transient [Budget] line with per-round numbers.
+
+    The hint must never persist into the returned message sequence, and the
+    tool-call counter must reflect executed calls only.
+    """
+    llm = _FakeLLM([
+        _tool_call_reply(),
+        _tool_call_reply(),
+        {"role": "assistant", "content": "done", "tool_calls": None},
+    ])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+        max_tools_per_round=4,
+    )
+    # Round 1: no budget hint. Round 2: 1 call spent. Round 3: 2 calls spent.
+    first = [str(m.get("content")) for m in llm.seen_messages[0]]
+    assert not any("[Budget]" in c for c in first)
+    second = [str(m.get("content")) for m in llm.seen_messages[1]]
+    budget2 = [c for c in second if "[Budget]" in c]
+    assert len(budget2) == 1
+    assert "Round 2 of 3" in budget2[0]
+    assert "1 tool call(s) spent" in budget2[0]
+    third = [str(m.get("content")) for m in llm.seen_messages[2]]
+    budget3 = [c for c in third if "[Budget]" in c]
+    assert len(budget3) == 1
+    assert "2 tool call(s) spent" in budget3[0]
+    # Never persisted.
+    assert not any("[Budget]" in str(m.get("content")) for m in result.messages)
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_budget_hint_can_be_disabled() -> None:
+    llm = _FakeLLM([
+        _tool_call_reply(),
+        {"role": "assistant", "content": "done", "tool_calls": None},
+    ])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=2,
+        budget_hint_enabled=False,
+    )
+    assert all(
+        "[Budget]" not in str(m.get("content"))
+        for call in llm.seen_messages
+        for m in call
+    )
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_continues_once_after_truncated_answer() -> None:
+    """finish_reason=length: the partial answer is kept, the loop resumes once,
+    and the parts are stitched into one seamless final answer."""
+    llm = _FakeLLM([
+        {"role": "assistant", "content": "part one", "finish_reason": "length"},
+        {"role": "assistant", "content": " part two", "finish_reason": "stop"},
+    ])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+    )
+    assert result.final_content == "part one part two"
+    # The continuation hint rode only the second call, as a transient suffix.
+    assert "cut off by the output token limit" in str(llm.seen_messages[1][-1]["content"])
+    assert not any(
+        "cut off by the output token limit" in str(m.get("content"))
+        for m in result.messages
+    )
+    # The partial answer persisted into working memory as an assistant turn.
+    assert any(
+        m.get("role") == "assistant" and m.get("content") == "part one"
+        for m in result.messages
+    )
+    # A clean continuation carries no truncation marker.
+    assert "[Note:" not in (result.final_content or "")
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_marks_answer_when_continuation_is_spent() -> None:
+    """A second truncation cannot loop forever: the answer ships with an
+    explicit incompleteness marker instead of another silent amputation."""
+    llm = _FakeLLM([
+        {"role": "assistant", "content": "part one", "finish_reason": "length"},
+        {"role": "assistant", "content": " part two", "finish_reason": "length"},
+    ])
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=3,
+    )
+    assert result.final_content.startswith("part one part two")
+    assert result.final_content.endswith("may be incomplete.]")

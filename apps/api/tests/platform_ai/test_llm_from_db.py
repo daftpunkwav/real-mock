@@ -105,16 +105,24 @@ def test_explicit_effort_overrides_default_variant() -> None:
     assert out.kw["reasoning_effort"] == "low"
 
 
-def test_default_reasoning_variant_missing_or_invalid_is_none() -> None:
+def test_default_reasoning_variant_falls_back_to_middle() -> None:
+    """Thinking-capable without a declared default: middle of the declared
+    variants — or of the default four-level scale when none are declared."""
     base = {"api_base": "https://x", "api_key": "k", "model": "m", "reasoning_capable": True}
-    for extras in (None, {}, {"reasoning": {}}, {"reasoning": {"variants": ["high"]}}):
+    cases = [
+        (None, "medium"),
+        ({}, "medium"),
+        ({"reasoning": {}}, "medium"),
+        ({"reasoning": {"variants": ["high"]}}, "high"),
+    ]
+    for extras, expected in cases:
         cfg = dict(base)
         if extras is not None:
             cfg["extras"] = extras
         ctx, ctx2, ctx3 = _patch(cfg)
         with ctx, ctx2, ctx3:
             out = build_from_db(_FakeClient, MagicMock())  # type: ignore[arg-type]
-        assert out.kw["reasoning_effort"] is None
+        assert out.kw["reasoning_effort"] == expected, f"extras={extras!r}"
 
 
 def test_explicit_profile_without_credentials_keeps_identity() -> None:

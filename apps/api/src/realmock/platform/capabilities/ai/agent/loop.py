@@ -41,6 +41,70 @@ def _join_thinking(parts: list[str]) -> str:
     return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
 
+def budget_hint(
+    round_i: int,
+    max_rounds: int,
+    max_tools_per_round: int,
+    tool_calls_so_far: int,
+) -> dict[str, str]:
+    """Transient per-round budget line (never persisted into working memory).
+
+    The model plans better when it knows the shape of its own budget: which
+    round it is on, how many remain, how wide each round is, and how many
+    calls it has already spent. Numbers change every round, so — like the
+    countdown nudge — this rides as a transient suffix instead of a tools
+    description to keep the provider prefix cache stable.
+    """
+    remaining = max_rounds - round_i - 1
+    return {
+        "role": "system",
+        "content": (
+            f"[Budget] Round {round_i + 1} of {max_rounds} ({remaining} remaining). "
+            f"Up to {max_tools_per_round} tool calls this round; "
+            f"{tool_calls_so_far} tool call(s) spent so far this turn. "
+            "Plan batches within these limits."
+        ),
+    }
+
+
+def _build_datetime_hint() -> dict[str, str] | None:
+    """Wall-clock anchor line, one per request, never persisted.
+
+    Interview prep is time-sensitive (this season's processes, "recent"
+    experience posts); without an anchor the model guesses the year.
+    """
+    import datetime as _dt
+
+    now = _dt.datetime.now().astimezone()
+    # tzname() can be empty for exotic zoneinfo zones; fall back explicitly
+    # (an f-string format spec cannot express this fallback).
+    tz_name = now.tzname() or "UTC"
+    return {
+        "role": "system",
+        "content": (
+            f"[Context] Current local date and time: {now:%Y-%m-%d} "
+            f"({now:%A}) {now:%H:%M}, timezone {tz_name}."
+        ),
+    }
+
+
+# One-shot continuation instruction when a final answer was cut by the model's
+# output limit. The partial answer is already in history as an assistant turn.
+_CONTINUATION_HINT = {
+    "role": "system",
+    "content": (
+        "Your previous answer was cut off by the output token limit. Continue "
+        "the answer seamlessly from exactly where it stopped — do not repeat "
+        "any earlier text, do not re-greet, and do not add preamble."
+    ),
+}
+
+# Visible marker when the answer still hits the cap after one continuation.
+_TRUNCATION_MARKER = (
+    "\n\n[Note: this answer reached the model's maximum output limit and may be incomplete.]"
+)
+
+
 def _usage_totals(llm: Any) -> tuple[int, int, int] | None:
     """(prompt, completion, cached) snapshot of the client accumulator; None when absent."""
     usage = getattr(llm, "usage", None)
@@ -100,6 +164,7 @@ async def run_agent_loop(
     countdown_rounds: int = 0,
     round_retries: int = 0,
     final_round_tool_free: bool = False,
+    budget_hint_enabled: bool = True,
 ) -> LoopResult:
     """Execute the tool loop until the model stops requesting tools or ``max_rounds`` is reached.
 
@@ -141,6 +206,9 @@ async def run_agent_loop(
     protocol-level guarantee of a final answer instead of an advisory hint the
     model can ignore. The caller's ``wrap_up_hint`` copy should match (no
     "call only one tool" phrasing).
+    ``budget_hint_enabled``: when True (default), every round's request
+    carries a transient ``[Budget]`` system line (see :func:`budget_hint`)
+    stating round/max-rounds/per-round width/calls spent. Never persisted.
 
     Error contract: :class:`AgentHalt` ends the loop with its observation;
     :class:`ApiBusinessError` raised by ``execute`` propagates to the caller
@@ -165,6 +233,16 @@ async def run_agent_loop(
     # Holding area for one-shot reminders (correction / closing): visible
     # only to the next LLM call, never persisted to working.
     transient: list[dict[str, Any]] = []
+    # Total executed tool calls across rounds (budget-excluded declarations
+    # never ran, so they don't count toward the model's spend either).
+    tool_calls_so_far = 0
+    # Wall-clock anchor: exactly ONE date/time line per request as a transient
+    # suffix — never persisted, so history carries no stale timestamps.
+    datetime_hint = _build_datetime_hint()
+    # Output-cap continuation: one seamless resumption when a final answer was
+    # cut by the model's max-output limit.
+    continuation_used = False
+    continuation_prefix = ""
 
     for round_i in range(max_rounds):
         if on_round_start is not None:
@@ -180,6 +258,16 @@ async def run_agent_loop(
         # below: domain rewrites (LLM compaction) hoist system-role messages
         # to the stable head, which would bury these one-call nudges far from
         # the generation point instead of at the strongest attention position.
+        # Budget awareness rides the same transient-suffix slot but FIRST:
+        # it is informational, while the countdown / correction / closing
+        # lines that follow it carry actionable instructions and keep the
+        # strongest (last) attention position.
+        if datetime_hint:
+            call_messages.append(datetime_hint)
+        if budget_hint_enabled and round_i > 0:
+            call_messages.append(
+                budget_hint(round_i, max_rounds, max_tools_per_round, tool_calls_so_far)
+            )
         call_messages.extend(transient)
         transient = []
         # Inject the closing hint on the last round (visible only to this
@@ -280,6 +368,31 @@ async def run_agent_loop(
         if not tool_calls:
             content = msg.get("content")
             text = str(content or "").strip()
+            finish_reason = str(msg.get("finish_reason") or "")
+            truncated = finish_reason in ("length", "max_tokens") or finish_reason.startswith(
+                "incomplete"
+            )
+            if (
+                truncated
+                and text
+                and not continuation_used
+                and round_i < max_rounds - 1
+            ):
+                # The answer hit the model's output cap mid-stream: keep the
+                # partial answer in history and resume seamlessly next round
+                # instead of shipping a silently amputated reply.
+                continuation_used = True
+                continuation_prefix += str(content or "")
+                working.append({
+                    "role": "assistant",
+                    "content": content,
+                })
+                transient = [_CONTINUATION_HINT]
+                logger.info(
+                    "Agent final answer truncated (finish=%s, round=%s); continuing once",
+                    finish_reason, round_i,
+                )
+                continue
             if (
                 drift_retry
                 and not tool_used
@@ -305,9 +418,14 @@ async def run_agent_loop(
                 )
                 continue
             if content:
+                final_text = continuation_prefix + str(content)
+                if truncated:
+                    # Continuation already spent: mark honestly instead of
+                    # shipping a second silent amputation.
+                    final_text += _TRUNCATION_MARKER
                 return LoopResult(
                     messages=working,
-                    final_content=str(content),
+                    final_content=final_text,
                     tool_used=tool_used,
                     thinking=_join_thinking(thinking_parts),
                     extras={"last_round_usage": last_round_usage} if last_round_usage else {},
@@ -319,11 +437,17 @@ async def run_agent_loop(
         dropped = tool_calls[max_tools_per_round:]
         # Declare every requested call so truncated ones stay protocol-paired;
         # their synthetic observations below tell the model what happened.
-        working.append({
+        assistant_turn: dict[str, Any] = {
             "role": "assistant",
             "content": msg.get("content"),
             "tool_calls": tool_calls,
-        })
+        }
+        # Anthropic tool loops require the prior turn's thinking blocks
+        # (with signatures) to be echoed back verbatim.
+        thinking_blocks = msg.get("thinking_blocks")
+        if thinking_blocks:
+            assistant_turn["thinking_blocks"] = thinking_blocks
+        working.append(assistant_turn)
 
         async def _run_one(tc: dict[str, Any]) -> tuple[str, bool]:
             fn = tc.get("function") or {}
@@ -362,6 +486,7 @@ async def run_agent_loop(
                 return f"Tool execution failed: {tool_exc}", False
 
         outcomes = await asyncio.gather(*(_run_one(tc) for tc in limited))
+        tool_calls_so_far += len(limited)
         halted = False
         # Position suffix keeps fallback ids collision-free even when the model
         # emitted several id-less calls of the same name in one round.

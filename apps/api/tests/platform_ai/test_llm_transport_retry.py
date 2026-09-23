@@ -116,7 +116,7 @@ async def test_retry_429_exception_then_success(monkeypatch: pytest.MonkeyPatch)
             raise exc
         return _ok_response(200)
 
-    out = await base_mod._retry_request(_factory, max_retries=3, backoff=0.1)
+    out = await base_mod._retry_request(_factory, max_retries=3)
     assert out.status_code == 200
     assert calls["n"] == 3
 
@@ -169,7 +169,7 @@ async def test_retry_connect_error_then_success(monkeypatch: pytest.MonkeyPatch)
 async def test_retry_connect_error_exhausted() -> None:
     with pytest.raises(httpx.ConnectError):
         await base_mod._retry_request(
-            lambda: _raise(httpx.ConnectError("down")), max_retries=1, backoff=0.01
+            lambda: _raise(httpx.ConnectError("down")), max_retries=1
         )
 
 
@@ -295,4 +295,4 @@ async def test_retry_exception_is_stream_close_failure_then_retry(
 async def test_retry_no_response_status_zero_raises() -> None:
     exc = httpx.HTTPStatusError("x", request=MagicMock(), response=None)
     with pytest.raises(httpx.HTTPStatusError):
-        await base_mod._retry_request(lambda: _raise(exc), max_retries=2, backoff=0.01)
+        await base_mod._retry_request(lambda: _raise(exc), max_retries=2)

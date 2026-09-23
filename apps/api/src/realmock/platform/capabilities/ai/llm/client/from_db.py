@@ -38,19 +38,41 @@ def _extras_body_headers(cfg: dict[str, Any]) -> tuple[dict | None, dict | None]
     )
 
 
-def _default_reasoning_effort(cfg: dict[str, Any]) -> str | None:
-    """Profile-declared default thinking level (``extras.reasoning.defaultVariant``).
+def _reasoning_variants(cfg: dict[str, Any]) -> list[str] | None:
+    """Model-declared custom thinking levels (``extras.reasoning.variants``).
 
-    Applies only to reasoning-capable entries; entries without a declared default
-    keep the previous behavior of sending no reasoning parameter.
+    Levels outside the default low/medium/high/max scale are passed verbatim
+    into requests; the list also anchors Anthropic budget interpolation.
+    """
+    reasoning = (cfg.get("extras") or {}).get("reasoning")
+    if not isinstance(reasoning, dict):
+        return None
+    variants = reasoning.get("variants")
+    if not isinstance(variants, list):
+        return None
+    cleaned = [str(v).strip() for v in variants if str(v).strip()]
+    return cleaned or None
+
+
+def _default_reasoning_effort(cfg: dict[str, Any]) -> str | None:
+    """Profile-declared default thinking level for reasoning-capable entries.
+
+    Order: explicit ``extras.reasoning.defaultVariant`` → the middle of the
+    model's declared variants → "medium" (middle of the default four-level
+    scale). A thinking-capable model therefore always requests thinking at a
+    predictable level instead of leaving it to the provider's mood.
     """
     if not cfg.get("reasoning_capable"):
         return None
     reasoning = (cfg.get("extras") or {}).get("reasoning")
-    if not isinstance(reasoning, dict):
-        return None
-    variant = str(reasoning.get("defaultVariant") or "").strip()
-    return variant or None
+    if isinstance(reasoning, dict):
+        variant = str(reasoning.get("defaultVariant") or "").strip()
+        if variant:
+            return variant
+        variants = _reasoning_variants(cfg)
+        if variants:
+            return variants[len(variants) // 2]
+    return "medium"
 
 
 def build_from_db(
@@ -130,6 +152,7 @@ def build_from_db(
         max_tokens=max_tokens,
         protocol=protocol or DEFAULT_LLM_PROTOCOL,
         reasoning_effort=reasoning,
+        reasoning_variants=_reasoning_variants(cfg),
         context_window=resolve_context_window(cfg.get("context_window")),
         supports_vision=bool(cfg.get("supports_vision")),
         full_url=bool(cfg.get("full_url")),
