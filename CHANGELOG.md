@@ -3,6 +3,27 @@
 User-visible changes to this project are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versioning follows Semantic Versioning (SemVer).
 
+## [Unreleased]
+
+### Added
+
+- Agent resilience: LLM calls retry on a 10-step ladder honoring provider `Retry-After`; tool calls auto-retry transient failures twice with per-tool default timeouts the model can extend per call; the circuit-breaker tally is written into every failure observation so the model sees how close a tool is to being blocked
+- Agent perception: transient current-date/time anchor per request and a per-round budget line (rounds, width, calls spent); a final answer cut by the output cap resumes once seamlessly and is marked if still truncated
+- Thinking levels: models can declare custom level lists (`extras.reasoning.variants`) passed verbatim to the provider, with Anthropic budgets interpolated and a default level applied when none is set; the effort selector follows the chosen model
+- Prep tools: `web_fetch` reads a search hit's full text on demand; `web_search` exposes `max_results`
+- Long-term memory: end-of-turn curation asks once whether the turn is worth saving (at most one write); prep settings add a memory-index injection width (0 = all memories)
+- Context compaction: folded turns keep a deterministic tool-call ledger (tool, args, result digest, referenced URLs) and the summarizer reads tool observations with a larger budget
+- Context panel: provider request diagnostics (request count, request id, latency, reasoning tokens, last error)
+
+### Fixed
+
+- Provider responses: finish reasons and business-error bodies (e.g. MiniMax `base_resp`) are no longer silently swallowed — truncated answers are continued and marked, refusal text is shown, upstream errors surface verbatim (credential-redacted) instead of a generic copy
+- Streaming: retries before the first delta on all three protocols, terminal provider error events raise instead of ending silently, space-less SSE `data:` lines parse
+- Anthropic tool loops with thinking enabled echo signed thinking blocks back, as the official API requires
+- MiniMax chat: seeded entries request `reasoning_split` so thinking content is actually returned
+- Prep UI: inline code in markdown tables no longer breaks mid-token, the thinking/tool trace uses the full bubble width, the context-ring popover is no longer clipped
+- Prep context: thinking is persisted without the display-only 20k truncation
+
 ## [0.1.0] - 2026-09-21
 
 ### Added

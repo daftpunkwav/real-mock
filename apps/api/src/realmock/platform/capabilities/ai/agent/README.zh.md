@@ -8,7 +8,7 @@ prep agent 都跑在本包上;域特定的工具留在各自域内。上层地�
 
 | 模块 | 职责 |
 | --- | --- |
-| `loop.py` | `run_agent_loop`:一步 = 一次 LLM 调用 + 本轮工具执行。域工具注册 OpenAI tools schema 加一个 `execute` 回调;不引入 MCP、shell 或子 agent |
+| `loop.py` | `run_agent_loop`:一步 = 一次 LLM 调用 + 本轮工具执行。域工具注册 OpenAI tools schema 加一个 `execute` 回调;不引入 MCP、shell 或子 agent。瞬态单请求后缀:日期时间锚点、预算行(轮数/宽度/已消耗);被输出上限截断的最终答案自动无缝续写一次 |
 | `llm_round.py` | 单轮 LLM 调用:优先流式、非流式兜底,超长工具结果截断 |
 | `events.py` | 进度事件契约(`AgentEvent`、`OnAgentEvent`);发射有守卫,UI 回调失败不会打断循环 |
 | `halt.py` | `AgentHalt`:工具请求立即终止循环(如 `ask_user` 等待用户输入) |

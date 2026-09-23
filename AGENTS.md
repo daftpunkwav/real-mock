@@ -1,9 +1,19 @@
-## Commit Convention
+## Git conventions
 
-- Format: `<type>(<scope>): <subject>`, e.g. `feat(auth): add login endpoint`
-- type: feat / fix / refactor / chore / docs / test / perf
+### Commit messages (Conventional Commits)
 
-## Branch Naming
+Format: `<type>(<scope>): <subject>` — `<scope>` is optional; omit the parentheses when there is none.
 
-- Format: `<type>/<short-description>`, description in lowercase kebab-case, e.g. `feat/prep-agent-memory`, `fix/resume-pdf-preview`
-- type matches the commit convention: feat / fix / refactor / chore / docs / test / perf
+- `type`: `feat` / `fix` / `docs` / `refactor` / `chore` / `test` / `perf`
+
+Examples: `feat: initialize project repository`, `fix: long-session context overflow`, `feat(parser): support nested generics`, `fix(api): reject expired tokens`
+
+### Branch naming
+
+```
+<type>/<kebab-case-description>
+```
+
+`type` as above; the description is kebab-case.
+
+Examples: `feat/context-compaction`, `fix/memory-dedup`

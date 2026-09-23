@@ -6,7 +6,7 @@ Shared agent kernel: the think-then-act loop, working memory, and the tool regis
 
 | Module | Purpose |
 | --- | --- |
-| `loop.py` | `run_agent_loop`: one step = one LLM call + that round's tool execution. Domain tools register an OpenAI tools schema plus an `execute` callback; no MCP, shell, or sub-agents |
+| `loop.py` | `run_agent_loop`: one step = one LLM call + that round's tool execution. Domain tools register an OpenAI tools schema plus an `execute` callback; no MCP, shell, or sub-agents. Transient per-request suffixes: datetime anchor, budget line (round / width / calls spent); a final answer cut by the output cap resumes once seamlessly |
 | `llm_round.py` | Single-round LLM call: prefer streaming with non-streaming fallback, truncate oversized tool results |
 | `events.py` | Progress-event contract (`AgentEvent`, `OnAgentEvent`); emission is guarded so a UI callback failure never breaks the loop |
 | `halt.py` | `AgentHalt`: a tool requests immediate loop termination (for example `ask_user` waiting for input) |
