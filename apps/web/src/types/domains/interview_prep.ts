@@ -44,6 +44,9 @@ export interface PrepContextBreakdown {
   prompt_tokens: number;
   completion_tokens: number;
   cached_tokens: number;
+  /** Provider-reported usage of the last LLM call (real context occupancy). */
+  last_round_prompt_tokens: number;
+  last_round_completion_tokens: number;
 }
 
 /** Result of the /compact management endpoint. */
@@ -131,6 +134,8 @@ export type PrepSSEEvent =
       prompt_tokens?: number;
       completion_tokens?: number;
       cached_tokens?: number;
+      last_round_prompt_tokens?: number;
+      last_round_completion_tokens?: number;
       prompt_tokens_estimated?: number;
       turn_id?: string;
       prefix_fingerprint?: string;

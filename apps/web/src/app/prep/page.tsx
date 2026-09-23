@@ -55,6 +55,7 @@ export default function PrepPage() {
     usage,
     contextBuckets,
     contextTotal,
+    reportedContext,
     estimatedPrompt,
     showJump,
     chatScrollRef,
@@ -224,6 +225,7 @@ export default function PrepPage() {
                 usage={usage}
                 contextBuckets={contextBuckets}
                 contextTotal={contextTotal}
+                reportedContext={reportedContext}
                 estimatedPrompt={estimatedPrompt}
                 chatModels={chatModels}
                 selectedModelId={selectedModelId}

@@ -9823,6 +9823,16 @@
             "type": "integer",
             "title": "Cached Tokens",
             "default": 0
+          },
+          "last_round_prompt_tokens": {
+            "type": "integer",
+            "title": "Last Round Prompt Tokens",
+            "default": 0
+          },
+          "last_round_completion_tokens": {
+            "type": "integer",
+            "title": "Last Round Completion Tokens",
+            "default": 0
           }
         },
         "type": "object",
@@ -10406,6 +10416,16 @@
           "cached_tokens": {
             "type": "integer",
             "title": "Cached Tokens",
+            "default": 0
+          },
+          "last_round_prompt_tokens": {
+            "type": "integer",
+            "title": "Last Round Prompt Tokens",
+            "default": 0
+          },
+          "last_round_completion_tokens": {
+            "type": "integer",
+            "title": "Last Round Completion Tokens",
             "default": 0
           },
           "message_count": {

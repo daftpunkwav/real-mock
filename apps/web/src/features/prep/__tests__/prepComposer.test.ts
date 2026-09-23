@@ -19,6 +19,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     usage: null,
     contextBuckets: null,
     contextTotal: 0,
+    reportedContext: { prompt: 0, completion: 0 },
     estimatedPrompt: 0,
     chatModels: [],
     selectedModelId: null,
@@ -104,5 +105,32 @@ describe("PrepComposer multiline input", () => {
     const trigger = screen.getByRole("combobox", { name: /model/i });
     expect(trigger.textContent).toMatch(/MiniMax-M3/);
     expect(trigger.textContent).toMatch(/1M|100万/);
+  });
+
+  it("prefers provider-reported usage over mechanical estimates for the ring", () => {
+    const model = (id: number, provider: string, label: string, context_window: number) => ({
+      id,
+      provider_id: id,
+      provider_name: provider,
+      model: label,
+      display_name: label,
+      label,
+      context_window,
+      max_output: 8000,
+      capabilities: { chat: true, vision: false, audio_input: false, audio_output: false, reasoning: false },
+      extras: {},
+      enabled: true,
+    });
+    // 50k reported of a 100k window → 50%; the estimate channels report far
+    // less, so this ratio is only reachable when reported usage wins.
+    setup({
+      chatModels: [model(1, "M", "M", 100_000)],
+      selectedModelId: 1,
+      reportedContext: { prompt: 45_000, completion: 5_000 },
+      contextTotal: 0,
+      estimatedPrompt: 0,
+    });
+    const ring = screen.getByRole("img", { name: /50%/ });
+    expect(ring).toBeTruthy();
   });
 });

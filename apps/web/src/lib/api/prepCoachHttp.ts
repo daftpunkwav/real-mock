@@ -90,6 +90,8 @@ export const prepCoachHttp = {
     prompt_tokens: number;
     completion_tokens: number;
     cached_tokens: number;
+    last_round_prompt_tokens: number;
+    last_round_completion_tokens: number;
     prompt_tokens_estimated: number;
     turn_id: string;
     prefix_fingerprint: string;
@@ -168,6 +170,8 @@ export const prepCoachHttp = {
       let promptTokens = 0;
       let completionTokens = 0;
       let cachedTokens = 0;
+      let lastRoundPrompt = 0;
+      let lastRoundCompletion = 0;
       let promptEstimated = 0;
       let turnId = "";
       let prefixFingerprint = "";
@@ -218,6 +222,9 @@ export const prepCoachHttp = {
         promptTokens = Number(event.prompt_tokens) || 0;
         completionTokens = Number(event.completion_tokens) || 0;
         cachedTokens = Number(event.cached_tokens) || 0;
+        // Last LLM call of the turn (provider-reported real context occupancy).
+        lastRoundPrompt = Number(event.last_round_prompt_tokens) || 0;
+        lastRoundCompletion = Number(event.last_round_completion_tokens) || 0;
         // Mechanical estimate of the turn's model input; display fallback only.
         promptEstimated = Number(event.prompt_tokens_estimated) || 0;
         // Turn correlation id (persisted on the assistant message) and the
@@ -233,7 +240,7 @@ export const prepCoachHttp = {
         throw new ApiError(event.message || getTranslator("common")("stream.failed"), res.status);
       }
     }, touch);
-      return { token_usage: tokenUsage, prompt_tokens: promptTokens, completion_tokens: completionTokens, cached_tokens: cachedTokens, prompt_tokens_estimated: promptEstimated, turn_id: turnId, prefix_fingerprint: prefixFingerprint, message_count: messageCount, usage };
+      return { token_usage: tokenUsage, prompt_tokens: promptTokens, completion_tokens: completionTokens, cached_tokens: cachedTokens, last_round_prompt_tokens: lastRoundPrompt, last_round_completion_tokens: lastRoundCompletion, prompt_tokens_estimated: promptEstimated, turn_id: turnId, prefix_fingerprint: prefixFingerprint, message_count: messageCount, usage };
     } catch (err) {
       // A watchdog abort mid-stream rejects the reader with AbortError; convert
       // it so the caller does not mistake the stall for a user stop.

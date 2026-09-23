@@ -69,6 +69,8 @@ export function usePrepSend(opts: {
   mergeUsage: (u: PrepUsageStats) => void;
   /** Overwrite session totals with server truth (stream `done` envelope). */
   syncUsage: (u: PrepUsageStats) => void;
+  /** Done-envelope sync of the last LLM call's provider-reported usage. */
+  syncReportedContext?: (prompt: number, completion: number) => void;
   /** Latest turn's mechanical input estimate (display fallback only). */
   setEstimatedPrompt: (v: number) => void;
   /** Refetch the backend-measured context breakdown for a session. */
@@ -119,6 +121,7 @@ export function usePrepSend(opts: {
     stickToBottom,
     mergeUsage,
     syncUsage,
+    syncReportedContext,
     setEstimatedPrompt,
     refreshContext,
     onAskUser,
@@ -337,6 +340,8 @@ export function usePrepSend(opts: {
             cached_tokens: result.cached_tokens,
           });
         }
+        // Last LLM call provider truth: the ring's real context occupancy.
+        syncReportedContext?.(result.last_round_prompt_tokens, result.last_round_completion_tokens);
         if (result.prompt_tokens_estimated > 0) {
           setEstimatedPrompt(result.prompt_tokens_estimated);
         }
