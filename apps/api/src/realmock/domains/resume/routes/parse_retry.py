@@ -17,7 +17,6 @@ from realmock.domains.resume.schemas.response import ResumeResponse
 from realmock.domains.resume.services import resume_mappers, store
 from realmock.domains.resume.services.files import find_resume_file
 from realmock.domains.resume.services.ingest import (
-    PARSE_STATUS_FAILED,
     PARSE_STATUS_PENDING,
     schedule_resume_parse,
 )
