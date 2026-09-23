@@ -6,7 +6,8 @@ Changes:
 - Validate ``api_base`` for safety on every request (SSRF defense, with dev/prod behavior controlled by settings);
 - chat / chat_message timeouts come from the LLM_CHAT_*_TIMEOUT_SECONDS defaults;
 - Redact API Keys in error logs;
-- Do not retry 4xx; automatically retry 429/5xx with exponential backoff (3 attempts by default).
+- Do not retry 4xx; 429/5xx and connection errors retry on the shared ladder
+  (see :mod:`retry_policy`); read timeouts never retry.
 
 Assembly lives in :mod:`from_db`, openai_chat transport in :mod:`openai_transport`,
 streaming retries in :mod:`retry_stream`, and protocol translation in :mod:`protocol_translate`.
