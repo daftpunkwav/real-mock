@@ -2,9 +2,9 @@
 
 Rule-based compression, LLM summary compression, and mechanical estimation are split into grouped modules in the same directory:
 
-- ``context_estimation``: token estimation and plain-text/digest helpers
-- ``context_compress``: rule-based ``compress_messages`` + tool-pair collapsing
-- ``context_summarize``: LLM summary-style ``compact_with_summary``
+- ``estimation``: token estimation and plain-text/digest helpers
+- ``compress``: rule-based ``compress_messages`` + tool-pair collapsing
+- ``summarize``: LLM summary-style ``compact_with_summary``
 
 This file retains the public functions and ``prepare_llm_context`` orchestration: compression + working-memory injection.
 Working memory is injected as a separate system section so the model can still see structured facts after truncation.
@@ -14,7 +14,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from realmock.platform.capabilities.ai.agent.working_memory import MEMORY_MARKER, WorkingMemory
+from realmock.platform.capabilities.ai.agent.working_memory import (
+    LEGACY_MEMORY_MARKER,
+    MEMORY_MARKER,
+    WorkingMemory,
+)
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
     COMPACTION_SUMMARY_MARKER,
@@ -51,7 +55,7 @@ def upsert_memory_block(
             and isinstance(m.get("content"), str)
             and (
                 str(m.get("content")).startswith(MEMORY_MARKER)
-                or str(m.get("content")).startswith("[working memory]")
+                or str(m.get("content")).startswith(LEGACY_MEMORY_MARKER)
             )
         )
     ]

@@ -15,6 +15,9 @@ _MAX_LIST = 16
 _ITEM_CHARS = 160
 
 MEMORY_MARKER = "[Working memory]"
+# Marker written by an older build; still recognized on load so history
+# persisted before an upgrade is parsed instead of silently dropped.
+LEGACY_MEMORY_MARKER = "[working memory]"
 
 
 def _clip(text: str, n: int = _ITEM_CHARS) -> str:
@@ -144,13 +147,17 @@ class WorkingMemory:
             content = m.get("content")
             if not isinstance(content, str):
                 continue
-            # Accept legacy Chinese marker during upgrades
+            # Accept the legacy marker during upgrades
             if not (
                 content.startswith(MEMORY_MARKER)
-                or content.startswith("[working memory]")
+                or content.startswith(LEGACY_MEMORY_MARKER)
             ):
                 continue
-            marker = MEMORY_MARKER if content.startswith(MEMORY_MARKER) else "[working memory]"
+            marker = (
+                MEMORY_MARKER
+                if content.startswith(MEMORY_MARKER)
+                else LEGACY_MEMORY_MARKER
+            )
             rest = content[len(marker):].lstrip("\n")
             first, _, _tail = rest.partition("\n")
             try:
