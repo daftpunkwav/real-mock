@@ -14,6 +14,7 @@ import ast
 import json
 import re
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from realmock.domains.resume.schemas.limits import (
     DIMENSION_WEIGHTS,
@@ -293,6 +294,26 @@ def _normalize_company_fit(raw: object) -> list[dict]:
     return out
 
 
+def _safe_public_url(raw: object, *, limit: int = 500) -> str:
+    """Keep only absolute http(s) URLs from model-emitted fields.
+
+    The analysis JSON comes from the model and can carry prompt-injected
+    content; a ``javascript:`` / ``data:`` URL persisted here would later be
+    bound to an ``href`` in the web UI. Non-http(s) values are dropped
+    (empty string) instead of clipped.
+    """
+    value = str(raw or "").strip()[:limit]
+    if not value:
+        return ""
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return ""
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return value
+
+
 def _normalize_repo_evidence(raw: object) -> list[dict]:
     """Keep schema fields from collector dicts; drop extra GitHub blobs."""
     if not isinstance(raw, list):
@@ -306,7 +327,7 @@ def _normalize_repo_evidence(raw: object) -> list[dict]:
         out.append(
             {
                 "repo": str(item.get("repo") or "")[:120],
-                "url": str(item.get("url") or "")[:500],
+                "url": _safe_public_url(item.get("url")),
                 "stars": stars,
                 "forks": forks,
                 "language": str(item.get("language") or "")[:80],
