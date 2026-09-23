@@ -26,6 +26,10 @@ description = "RealMock mock-interview platform API (modular FastAPI monolith)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0,<1",
+    # Declared explicitly: platform/core/error_handlers.py and app_factory.py
+    # import starlette directly (it is a mandatory fastapi dependency, but a
+    # direct import should not rely on that transitive guarantee).
+    "starlette>=0.40.0,<2",
     "uvicorn[standard]>=0.32.0,<1",
     "sqlalchemy>=2.0.36,<3",
     "pydantic>=2.10.0,<3",
