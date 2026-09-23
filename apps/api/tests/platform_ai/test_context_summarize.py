@@ -305,3 +305,52 @@ async def test_compact_force_failure_raises_but_auto_falls_back() -> None:
     assert "12" not in str(body) or "omitted" in str(body)
     assert "User demands" in str(body)
     assert "[provenance" in str(body)
+
+
+def _parallel_tool_round_history(rounds: int) -> list[dict[str, Any]]:
+    """Resume-review-shaped history: one user overview, then rounds of one
+    assistant(tool_calls) followed by two tool results (parallel tools)."""
+    msgs: list[dict[str, Any]] = [
+        {"role": "system", "content": "rules"},
+        {"role": "user", "content": "RESUME_OVERVIEW " + "x" * 400},
+    ]
+    for i in range(rounds):
+        msgs.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": f"c{i}a", "type": "function",
+                 "function": {"name": "web_search", "arguments": "{}"}},
+                {"id": f"c{i}b", "type": "function",
+                 "function": {"name": "github_get_repo", "arguments": "{}"}},
+            ],
+        })
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}a", "content": "A" * 300})
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}b", "content": "B" * 300})
+    return msgs
+
+
+def _assert_protocol_paired(out: list[dict[str, Any]]) -> None:
+    """Every tool result must directly follow its assistant(tool_calls) pair;
+    the verbatim tail must not open with an orphan tool message."""
+    non_system = [m for m in out if m.get("role") != "system"]
+    assert non_system[0]["role"] != "tool"
+    open_ids: set[str] = set()
+    for m in out:
+        if m.get("role") == "assistant":
+            open_ids = {str(tc.get("id")) for tc in m.get("tool_calls") or []}
+        elif m.get("role") == "tool":
+            assert m.get("tool_call_id") in open_ids, (
+                "tool result severed from its assistant tool_calls"
+            )
+
+
+@pytest.mark.asyncio
+async def test_compact_split_never_severs_tool_pairs() -> None:
+    # A fold boundary landing mid-pair used to open the verbatim tail with an
+    # orphan tool result — providers reject that shape with a hard 400 on
+    # every later round. The boundary must walk forward to pair safety.
+    msgs = _parallel_tool_round_history(16)
+    out = await sum_mod.compact_with_summary(msgs, 200, llm=None, keep_recent=32)
+    assert any(str(m.get("content")).startswith("[Context compression]") for m in out)
+    _assert_protocol_paired(out)

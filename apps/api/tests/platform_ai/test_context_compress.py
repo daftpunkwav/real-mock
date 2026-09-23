@@ -614,3 +614,35 @@ async def test_compact_invalid_threshold_falls_back_to_default() -> None:
     llm = _SummarizerLLM(reply="Notes")
     await compact_with_summary(_big_history(), 500, llm=llm, keep_recent=4, threshold=7.0)
     assert llm.chat_calls, "out-of-range threshold must fall back to the default"
+
+
+def test_compress_messages_never_severs_tool_pairs() -> None:
+    """Rule-based folding must not open the kept tail with an orphan tool
+    result: its assistant(tool_calls) partner would sit in the folded head and
+    providers reject the unpaired tool message with a hard 400."""
+    msgs: list = [
+        {"role": "system", "content": "rules"},
+        {"role": "user", "content": "OVERVIEW " + "x" * 400},
+    ]
+    for i in range(16):
+        msgs.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": f"c{i}a", "type": "function",
+                 "function": {"name": "web_search", "arguments": "{}"}},
+                {"id": f"c{i}b", "type": "function",
+                 "function": {"name": "github_get_repo", "arguments": "{}"}},
+            ],
+        })
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}a", "content": "A" * 300})
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}b", "content": "B" * 300})
+    out = compress_messages(msgs, max_tokens=100, keep_recent=32)
+    non_system = [m for m in out if m.get("role") != "system"]
+    assert non_system[0]["role"] != "tool"
+    open_ids: set[str] = set()
+    for m in out:
+        if m.get("role") == "assistant":
+            open_ids = {str(tc.get("id")) for tc in m.get("tool_calls") or []}
+        elif m.get("role") == "tool":
+            assert m.get("tool_call_id") in open_ids
