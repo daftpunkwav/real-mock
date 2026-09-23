@@ -6,7 +6,7 @@ import base64
 from typing import TYPE_CHECKING, Any
 
 from .github_http import MAX_TEXT_CHARS
-from .rest_ops_common import _clamp_per_page, _is_error
+from .rest_ops_common import _clamp_per_page, _content_path, _is_error, _path_segment
 
 if TYPE_CHECKING:
     from .client import GitHubClient
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 async def _get_repo(client: "GitHubClient", owner: str, repo: str) -> dict[str, Any]:
     """Get individual warehouse metadata."""
-    data = await client._get(f"/repos/{owner}/{repo}")
+    data = await client._get(f"/repos/{_path_segment(owner)}/{_path_segment(repo)}")
     if _is_error(data):
         return data
     return {
@@ -39,7 +39,7 @@ async def _get_repo(client: "GitHubClient", owner: str, repo: str) -> dict[str, 
 async def _get_readme(client: "GitHubClient", owner: str, repo: str) -> dict[str, Any]:
     """Get README text (decoded base64)."""
     data = await client._get(
-        f"/repos/{owner}/{repo}/readme",
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/readme",
         params={"accept": "application/vnd.github.raw"},
     )
     if isinstance(data, dict) and data.get("content") and data.get("encoding") == "base64":
@@ -81,7 +81,9 @@ async def _list_commits(
     params: dict[str, Any] = {"per_page": per_page}
     if author:
         params["author"] = author
-    data = await client._get(f"/repos/{owner}/{repo}/commits", params=params)
+    data = await client._get(
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/commits", params=params
+    )
     if _is_error(data):
         return data
     if not isinstance(data, list):
@@ -111,7 +113,7 @@ async def _list_pull_requests(
     """List PRs."""
     per_page = _clamp_per_page(per_page, 20)
     data = await client._get(
-        f"/repos/{owner}/{repo}/pulls",
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/pulls",
         params={"state": state, "per_page": per_page, "sort": "updated"},
     )
     if _is_error(data):
@@ -143,7 +145,7 @@ async def _list_issues(
     """List Issues (without PRs)."""
     per_page = _clamp_per_page(per_page, 20)
     data = await client._get(
-        f"/repos/{owner}/{repo}/issues",
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/issues",
         params={"state": state, "per_page": per_page},
     )
     if _is_error(data):
@@ -176,7 +178,10 @@ async def _get_tree(
 ) -> dict[str, Any]:
     """Get the git file tree of the branch (recursively with subdirectories by default)."""
     params = {"recursive": "1"} if recursive else None
-    data = await client._get(f"/repos/{owner}/{repo}/git/trees/{branch}", params=params)
+    data = await client._get(
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/git/trees/{_path_segment(branch)}",
+        params=params,
+    )
     if _is_error(data):
         return data
     if not isinstance(data, dict) or not isinstance(data.get("tree"), list):
@@ -203,7 +208,10 @@ async def _get_file_content(
 ) -> dict[str, Any]:
     """Read the contents of the warehouse file (text)."""
     params = {"ref": ref} if ref else None
-    data = await client._get(f"/repos/{owner}/{repo}/contents/{path.lstrip('/')}", params=params)
+    data = await client._get(
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/contents/{_content_path(path)}",
+        params=params,
+    )
     if _is_error(data):
         return data
     if isinstance(data, list):
@@ -233,7 +241,9 @@ async def _get_file_content(
 
 async def _get_languages(client: "GitHubClient", owner: str, repo: str) -> dict[str, Any]:
     """Warehouse language proportion."""
-    data = await client._get(f"/repos/{owner}/{repo}/languages")
+    data = await client._get(
+        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/languages"
+    )
     if _is_error(data):
         return data
     if not isinstance(data, dict):

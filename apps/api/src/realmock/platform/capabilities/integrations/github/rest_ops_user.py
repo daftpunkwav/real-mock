@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .rest_ops_common import _clamp_per_page, _is_error
+from .rest_ops_common import _clamp_per_page, _is_error, _path_segment
 
 if TYPE_CHECKING:
     from .client import GitHubClient
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 async def _get_user(client: "GitHubClient", username: str) -> dict[str, Any]:
     """Get user public information."""
-    data = await client._get(f"/users/{username}")
+    data = await client._get(f"/users/{_path_segment(username)}")
     if _is_error(data):
         return data
     return {
@@ -40,7 +40,7 @@ async def _list_repos(
     """List user public repositories (by update time)."""
     per_page = _clamp_per_page(per_page, 30)
     data = await client._get(
-        f"/users/{username}/repos",
+        f"/users/{_path_segment(username)}/repos",
         params={"sort": sort, "per_page": per_page, "type": "owner"},
     )
     if _is_error(data):
