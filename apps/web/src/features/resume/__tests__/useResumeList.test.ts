@@ -133,6 +133,44 @@ describe("useResumeList", () => {
     expect(toastError).toHaveBeenCalledTimes(1);
   });
 
+  it("does not toast degraded resumes that were already done on first load", async () => {
+    const degradedRow = makeResumeResponse({
+      id: 11,
+      parsed_profile: { ...row.parsed_profile, parse_degraded: true },
+    });
+    listMock.mockResolvedValue([degradedRow]);
+    renderHook(() => useResumeList());
+    await act(async () => {});
+    expect(toastWarning).not.toHaveBeenCalled();
+  });
+
+  it("toasts uploadedFallback once a pending row settles degraded", async () => {
+    const pendingRow = makeResumeResponse({ id: 12, parse_status: "pending" });
+    const degradedRow = makeResumeResponse({
+      id: 12,
+      parsed_profile: { ...row.parsed_profile, parse_degraded: true },
+    });
+    listMock.mockResolvedValue([pendingRow]);
+    const { result } = await renderLoaded();
+    expect(toastWarning).not.toHaveBeenCalled();
+
+    // The poller observes the pending -> done(degraded) transition.
+    await act(async () => {
+      listMock.mockResolvedValueOnce([degradedRow]);
+      await result.current.load({ silent: true });
+    });
+    expect(toastWarning).toHaveBeenCalledTimes(1);
+    expect(toastWarning).toHaveBeenCalledWith(enResume["toast.uploadedFallback"], {
+      durationMs: 6_000,
+    });
+
+    // Reporting fires once per row, not once per reload.
+    await act(async () => {
+      await result.current.load({ silent: true });
+    });
+    expect(toastWarning).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks analyze beyond the catalog parallel cap", async () => {
     const { result } = await renderLoaded();
     analyzeMock.mockReturnValue(new Promise(() => undefined) as Promise<never>);
