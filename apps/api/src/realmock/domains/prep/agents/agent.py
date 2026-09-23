@@ -93,6 +93,9 @@ class PrepAgent:
         self.llm = llm
         # Context window for model entry declarations; falls back to old value when unknown
         self.context_window = getattr(llm, "context_window", 0) or FALLBACK_CONTEXT_TOKENS
+        # Provider-reported usage of the last LLM call of the current turn
+        # (dict or None); persisted to the session at finalize time.
+        self.last_round_usage: dict[str, int] | None = None
         # Visible waiting-line locale (set on first turn; product default zh-CN).
         self.reply_locale = "zh-CN"
         self._load_messages()
@@ -308,6 +311,28 @@ class PrepAgent:
             error_context={"domain": "prep", "session": str(getattr(self.session, "id", "") or "")},
         )
 
+    def usage_snapshot(self) -> tuple[int, int, int] | None:
+        """(prompt, completion, cached) totals of the client accumulator; None when absent."""
+        usage = getattr(self.llm, "usage", None)
+        if usage is None:
+            return None
+        return (
+            int(usage.prompt_tokens or 0),
+            int(usage.completion_tokens or 0),
+            int(usage.cached_tokens or 0),
+        )
+
+    def note_round_usage(self, before: tuple[int, int, int] | None) -> None:
+        """Record the provider-reported delta of the LLM call that just completed."""
+        usage = getattr(self.llm, "usage", None)
+        if usage is None or before is None:
+            return
+        self.last_round_usage = {
+            "prompt_tokens": max(0, int(usage.prompt_tokens or 0) - before[0]),
+            "completion_tokens": max(0, int(usage.completion_tokens or 0) - before[1]),
+            "cached_tokens": max(0, int(usage.cached_tokens or 0) - before[2]),
+        }
+
     async def _run_tool_rounds(
         self,
         working: list[dict[str, Any]],
@@ -374,6 +399,7 @@ class PrepAgent:
                 )
 
         error_scope = {"domain": "prep", "session": str(getattr(self.session, "id", "") or "")}
+        loop = None
         try:
             loop = await asyncio.wait_for(
                 run_agent_loop(
@@ -411,6 +437,13 @@ class PrepAgent:
         except Exception as e:
             logger.warning("Prep tool round failed: %s", e)
             return working, None, search_groups, tool_steps, ""
+        finally:
+            # Loop extras carry the provider-reported usage of the loop's final
+            # round; a closing stream call afterwards overwrites it (chat.py).
+            extras = getattr(loop, "extras", None) if loop is not None else None
+            self.last_round_usage = (
+                extras.get("last_round_usage") if isinstance(extras, dict) else None
+            ) or None
         return (
             loop.messages,
             loop.final_content,

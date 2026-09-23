@@ -121,6 +121,9 @@ class PrepMessageResponse(BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cached_tokens: int = 0
+    # Last LLM call of the turn (provider-reported; real context occupancy).
+    last_round_prompt_tokens: int = 0
+    last_round_completion_tokens: int = 0
     # Backend-truth persisted length after this turn (client resync source).
     message_count: int = 0
     # Mechanical estimate of this turn's model input (working context incl.
@@ -157,6 +160,10 @@ class PrepContextResponse(BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cached_tokens: int = 0
+    # Provider-reported usage of the last LLM call of the most recent turn;
+    # prompt here includes the full history, i.e. the real context occupancy.
+    last_round_prompt_tokens: int = 0
+    last_round_completion_tokens: int = 0
 
 
 class PrepCompactRequest(BaseModel):

@@ -167,6 +167,12 @@ def _accumulate_usage(agent: "PrepAgent") -> None:
             agent.session.completion_tokens or 0
         ) + (usage.completion_tokens or 0)
         agent.session.cached_tokens = (agent.session.cached_tokens or 0) + (usage.cached_tokens or 0)
+    # Last LLM call of the turn (per-call provider truth; the ring's context
+    # occupancy comes from here, not from the text estimate).
+    last_round = getattr(agent, "last_round_usage", None)
+    if isinstance(last_round, dict):
+        agent.session.last_round_prompt_tokens = int(last_round.get("prompt_tokens") or 0)
+        agent.session.last_round_completion_tokens = int(last_round.get("completion_tokens") or 0)
 
 
 def finalize(

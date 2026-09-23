@@ -58,6 +58,11 @@ class PrepSession(SessionsBase):
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cached_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    # Provider-reported usage of the LAST LLM call of the most recent turn.
+    # Each call's prompt includes the full history, so the last call's prompt
+    # is the real context occupancy (summing calls would inflate it N-fold).
+    last_round_prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    last_round_completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     # Matches column_migrations.SESSIONS_MIGRATIONS["prep_sessions"]; the
     # startup migration adds the column when missing on older databases.
     status: Mapped[str] = mapped_column(String(20), default="active")

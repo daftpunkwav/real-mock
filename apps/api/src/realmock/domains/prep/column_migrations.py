@@ -15,6 +15,8 @@ SESSIONS_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE prep_sessions ADD COLUMN prompt_tokens INTEGER DEFAULT 0",
         "ALTER TABLE prep_sessions ADD COLUMN completion_tokens INTEGER DEFAULT 0",
         "ALTER TABLE prep_sessions ADD COLUMN cached_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE prep_sessions ADD COLUMN last_round_prompt_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE prep_sessions ADD COLUMN last_round_completion_tokens INTEGER DEFAULT 0",
         "ALTER TABLE prep_sessions ADD COLUMN linked_session_id INTEGER DEFAULT NULL",
         "ALTER TABLE prep_sessions ADD COLUMN summary VARCHAR(100) DEFAULT ''",
         "ALTER TABLE prep_sessions ADD COLUMN message_count INTEGER DEFAULT 0",

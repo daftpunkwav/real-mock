@@ -104,6 +104,8 @@ async def prep_message(
         prompt_tokens=session.prompt_tokens or 0,
         completion_tokens=session.completion_tokens or 0,
         cached_tokens=session.cached_tokens or 0,
+        last_round_prompt_tokens=session.last_round_prompt_tokens or 0,
+        last_round_completion_tokens=session.last_round_completion_tokens or 0,
         prompt_tokens_estimated=agent.last_prompt_estimate,
         message_count=agent.last_message_count,
     )
@@ -161,6 +163,8 @@ async def prep_message_stream(
                 "prompt_tokens": session.prompt_tokens or 0,
                 "completion_tokens": session.completion_tokens or 0,
                 "cached_tokens": session.cached_tokens or 0,
+                "last_round_prompt_tokens": session.last_round_prompt_tokens or 0,
+                "last_round_completion_tokens": session.last_round_completion_tokens or 0,
                 "prompt_tokens_estimated": agent.last_prompt_estimate,
                 "turn_id": agent.last_turn_id or "",
                 "prefix_fingerprint": agent.last_prefix_fingerprint or "",
@@ -226,6 +230,8 @@ def get_prep_context(
         prompt_tokens=session.prompt_tokens or 0,
         completion_tokens=session.completion_tokens or 0,
         cached_tokens=session.cached_tokens or 0,
+        last_round_prompt_tokens=session.last_round_prompt_tokens or 0,
+        last_round_completion_tokens=session.last_round_completion_tokens or 0,
     )
 
 __all__ = [

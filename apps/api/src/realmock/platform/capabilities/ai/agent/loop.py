@@ -41,6 +41,30 @@ def _join_thinking(parts: list[str]) -> str:
     return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
 
+def _usage_totals(llm: Any) -> tuple[int, int, int] | None:
+    """(prompt, completion, cached) snapshot of the client accumulator; None when absent."""
+    usage = getattr(llm, "usage", None)
+    if usage is None:
+        return None
+    return (
+        int(getattr(usage, "prompt_tokens", 0) or 0),
+        int(getattr(usage, "completion_tokens", 0) or 0),
+        int(getattr(usage, "cached_tokens", 0) or 0),
+    )
+
+
+def _round_usage_delta(llm: Any, before: tuple[int, int, int] | None) -> dict[str, int] | None:
+    """Provider-reported usage delta of the round that just completed."""
+    after = _usage_totals(llm)
+    if before is None or after is None:
+        return None
+    return {
+        "prompt_tokens": max(0, after[0] - before[0]),
+        "completion_tokens": max(0, after[1] - before[1]),
+        "cached_tokens": max(0, after[2] - before[2]),
+    }
+
+
 @dataclass
 class LoopResult:
     """The result of one or more tool cycles."""
@@ -133,6 +157,11 @@ async def run_agent_loop(
     thinking_parts: list[str] = []
     thinking_emitted = False
     drift_corrected = False
+    # Provider-reported usage of the LAST completed round (snapshot diff of the
+    # client accumulator). Each round's prompt includes the full history, so the
+    # final round's prompt is the real context occupancy; summing rounds would
+    # inflate it N-fold.
+    last_round_usage: dict[str, int] | None = None
     # Holding area for one-shot reminders (correction / closing): visible
     # only to the next LLM call, never persisted to working.
     transient: list[dict[str, Any]] = []
@@ -211,7 +240,9 @@ async def run_agent_loop(
         while attempts_left > 0:
             attempts_left -= 1
             try:
+                before = _usage_totals(llm)
                 msg = await call_round_llm()
+                last_round_usage = _round_usage_delta(llm, before)
                 break
             except Exception as e:
                 if attempts_left == 0:
@@ -279,6 +310,7 @@ async def run_agent_loop(
                     final_content=str(content),
                     tool_used=tool_used,
                     thinking=_join_thinking(thinking_parts),
+                    extras={"last_round_usage": last_round_usage} if last_round_usage else {},
                 )
             break
 
@@ -372,4 +404,5 @@ async def run_agent_loop(
         tool_used=tool_used,
         halted=halted,
         thinking=_join_thinking(thinking_parts),
+        extras={"last_round_usage": last_round_usage} if last_round_usage else {},
     )
