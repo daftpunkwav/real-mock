@@ -22,8 +22,10 @@ async def run_web_fetch(args: dict[str, Any], memory: WorkingMemory) -> tuple[st
         memory: Working memory (the fetched URL is noted for later turns).
 
     Returns:
-        ``(observation_text, hits)``; failures arrive as structured
-        FETCH_FAILED payloads so the executor's circuit breaker sees them.
+        ``(observation_text, hits)``; fetch failures never raise — they arrive
+        as plain-text ``FETCH_FAILED`` observations the model reads directly
+        (the executor's breaker only tallies timeouts, exceptions, and
+        retrieval-outage markers, not per-page fetch failures).
     """
     url = str(args.get("url", "") or "").strip()
     if url:
