@@ -130,6 +130,8 @@ async def test_final_answer_overflow_retry(monkeypatch) -> None:
             return "recovered"
 
     agent = SimpleNamespace(session=SimpleNamespace(id=1), llm=_LLM(), _turn_state=TurnState())
+    agent.usage_snapshot = lambda: None  # type: ignore[attr-defined]
+    agent.note_round_usage = lambda before: None  # type: ignore[attr-defined]
     agent._build_context = None  # type: ignore[attr-defined]
 
     async def _fake_force(agent_, policy, db, ids):
@@ -146,6 +148,8 @@ async def test_final_answer_overflow_retry(monkeypatch) -> None:
             raise RuntimeError("boom-not-overflow")
 
     agent2 = SimpleNamespace(session=SimpleNamespace(id=1), llm=_BoomLLM(), _turn_state=TurnState())
+    agent2.usage_snapshot = lambda: None  # type: ignore[attr-defined]
+    agent2.note_round_usage = lambda before: None  # type: ignore[attr-defined]
     with pytest.raises(RuntimeError, match="boom-not-overflow"):
         await chat_mod._final_answer_with_overflow_retry(
             agent2, [], CompactionOptions(), _FakeDB(), None  # type: ignore[arg-type]

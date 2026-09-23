@@ -125,11 +125,25 @@ async def test_test_connection_and_chat_message_delegate() -> None:
 
 
 @pytest.mark.asyncio
-async def test_chat_message_stream_responses_not_implemented() -> None:
+async def test_chat_message_stream_responses_delegates() -> None:
+    """The responses protocol streams through ``stream_message_round`` (no hard rejection)."""
     c = _client(protocol=LLMProtocol.OPENAI_RESPONSES)
-    with pytest.raises(NotImplementedError):
-        async for _ in c.chat_message_stream([{"role": "user", "content": "hi"}]):
-            pass
+    c._safe_check = MagicMock()  # type: ignore[method-assign]
+    seen: dict[str, Any] = {}
+
+    async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+        seen["protocol"] = protocol
+        yield {"type": "message", "message": {"role": "assistant", "content": "hi"}}
+        return
+        yield  # make it an async generator
+
+    with (
+        patch.object(uc_mod, "build_request", return_value=("https://u", {"model": "m"})),
+        patch.object(uc_mod, "stream_message_round", side_effect=_fake),
+    ):
+        events = await _collect(c.chat_message_stream([{"role": "user", "content": "hi"}]))
+    assert events[0]["message"]["content"] == "hi"
+    assert seen["protocol"] == "openai_responses"
 
 
 async def _collect(agen: Any) -> list[Any]:
