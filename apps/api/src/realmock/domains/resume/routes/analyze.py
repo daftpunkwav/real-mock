@@ -50,7 +50,10 @@ async def _parse_analyze_body(request: Request) -> ResumeAnalyzeRequest:
         return ResumeAnalyzeRequest()
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        # UnicodeDecodeError: a body that is not valid UTF-8 at all (json.loads
+        # decodes bytes before parsing) — same malformed-input contract as a
+        # JSON syntax error, not a 500.
         raise_error("A0001", cause=e)
     if data is None or data == {}:
         return ResumeAnalyzeRequest()
