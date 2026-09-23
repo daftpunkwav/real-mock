@@ -1,6 +1,7 @@
 """Unit tests for shared SSE error-event helpers and the queue pump."""
 
 import asyncio
+import json
 
 from realmock.platform.core.errors import ApiBusinessError, get_spec
 from realmock.platform.core.sse import (
@@ -68,6 +69,18 @@ def test_unexpected_error_unknown_code_falls_back_to_b0001():
 
 def test_format_sse_line_exact_shape():
     assert format_sse_line({"type": "done"}) == 'data: {"type": "done"}\n\n'
+
+
+def test_format_sse_line_replaces_lone_surrogates():
+    """A lone surrogate (e.g. a half-emitted \\udXXX escape from model text)
+    cannot be UTF-8 encoded and would kill the stream mid-write."""
+    event = {"type": "plan", "steps": [{"id": "1", "note": "bad \ud800 tail"}]}
+    line = format_sse_line(event)
+    line.encode("utf-8")  # must not raise
+    payload = json.loads(line[len("data: "):])
+    note = payload["steps"][0]["note"]
+    assert "\ud800" not in note
+    assert "bad" in note and "tail" in note
 
 
 class _Request:

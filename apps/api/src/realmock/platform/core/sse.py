@@ -56,8 +56,19 @@ def sse_error_event(
 
 
 def format_sse_line(event: dict[str, Any]) -> str:
-    """Render one SSE ``data:`` line from an event dict."""
-    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    """Render one SSE ``data:`` line from an event dict.
+
+    Lone surrogate code points (possible in model-emitted text, e.g. a
+    half-emitted ``\\ud83d`` escape parsed from tool arguments) cannot be
+    UTF-8 encoded and would kill the stream mid-write; they are replaced at
+    this single serialization boundary instead of crashing the pump.
+    """
+    line = f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    try:
+        line.encode("utf-8")
+    except UnicodeEncodeError:
+        line = line.encode("utf-8", "replace").decode("utf-8")
+    return line
 
 
 QueuePut = Callable[[dict[str, Any] | None], Awaitable[None]]
