@@ -173,6 +173,49 @@ class TestEnsureProviderChannels:
         profile = api_db.query(ModelProfile).filter(ModelProfile.provider_id == p.id).first()
         assert profile.kind == "stt"
 
+    def test_pre_full_url_flat_columns_still_backfill(self, api_db) -> None:
+        """A database created before ``full_url`` existed carries only
+        api_base/protocol/api_key; the backfill must still read those real
+        values instead of skipping legacy data because one column is missing."""
+        from sqlalchemy import inspect, text
+
+        _wipe(api_db)
+        from realmock.platform.models import LlmProviderChannel
+
+        p = self._provider(api_db, "OldVendor")
+        for stmt in (
+            "ALTER TABLE llm_providers ADD COLUMN api_base VARCHAR(500) DEFAULT ''",
+            "ALTER TABLE llm_providers ADD COLUMN protocol VARCHAR(50) DEFAULT 'openai_chat'",
+            "ALTER TABLE llm_providers ADD COLUMN api_key VARCHAR(500) DEFAULT ''",
+        ):
+            try:
+                api_db.execute(text(stmt))
+            except Exception:
+                pass  # column already added by an earlier call in the same test
+        api_db.execute(
+            text(
+                "UPDATE llm_providers SET api_base = :b, protocol = :pr, api_key = :k WHERE id = :id"
+            ),
+            {"b": "https://old.example.com/v1", "pr": "anthropic_messages", "k": "enc:oldkey", "id": p.id},
+        )
+        api_db.commit()
+
+        assert pmig.ensure_provider_channels(api_db) is True
+        channel = (
+            api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == p.id).first()
+        )
+        assert channel is not None
+        assert channel.api_base == "https://old.example.com/v1"
+        assert channel.protocol == "anthropic_messages"
+        assert channel.api_key == "enc:oldkey"
+        assert channel.full_url is False
+        # Whatever flat columns exist on this database are droppable afterwards
+        # (the schema may carry extra columns left by earlier tests in this file).
+        dropped = pmig.drop_legacy_provider_columns(api_db)
+        cols = {c["name"] for c in inspect(api_db.bind).get_columns("llm_providers")}
+        assert not ({"api_base", "protocol", "api_key"} & set(dropped) & cols)
+        assert "api_base" in dropped
+
     def test_twin_model_repoints_bindings(self, api_db) -> None:
         _wipe(api_db)
         from realmock.platform.models import ModelProfile, TaskBinding

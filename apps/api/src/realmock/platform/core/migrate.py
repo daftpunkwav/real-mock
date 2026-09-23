@@ -81,7 +81,11 @@ API_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE llm_settings ADD COLUMN tts_model VARCHAR(100) DEFAULT ''",
     ],
     "llm_providers": [
-        "ALTER TABLE llm_providers ADD COLUMN full_url BOOLEAN DEFAULT 0",
+        # Note: the legacy flat full_url/api_base/protocol/api_key columns are
+        # NOT re-added here — they were superseded by llm_provider_channels and
+        # are read-then-dropped by the pipeline legacy migration
+        # (ensure_provider_channels + drop_legacy_provider_columns); re-adding
+        # them would cause an add/drop roundtrip on every startup.
         "ALTER TABLE llm_providers ADD COLUMN website_url VARCHAR(500) DEFAULT ''",
         "ALTER TABLE llm_providers ADD COLUMN notes TEXT DEFAULT ''",
     ],

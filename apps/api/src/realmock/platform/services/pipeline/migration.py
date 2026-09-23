@@ -203,16 +203,19 @@ def _guess_vendor(name: str) -> str:
 def _legacy_flat_columns(db: Session) -> dict[int, dict[str, object]]:
     """Read the pre-channel flat columns straight from llm_providers (missing on fresh DBs).
 
-    The ORM no longer declares these columns, so the backfill goes through raw SQL; when the
-    columns are absent (fresh install) the mapping stays empty and channels are created blank.
+    The ORM no longer declares these columns, so the backfill goes through raw SQL; only the
+    columns physically present are read, so a pre-``full_url`` database still backfills its
+    real api_base/protocol/api_key values (missing keys default in :func:`_channel_from_legacy`).
+    Returns an empty mapping when none of the columns exist (fresh install).
     """
     inspector = inspect(db.bind)
     if inspector is None:
         return {}
     existing = {column["name"] for column in inspector.get_columns("llm_providers")}
-    if not all(column in existing for column in _LEGACY_FLAT_COLUMNS):
+    legacy_cols = [column for column in _LEGACY_FLAT_COLUMNS if column in existing]
+    if not legacy_cols:
         return {}
-    columns_sql = ", ".join(_LEGACY_FLAT_COLUMNS)
+    columns_sql = ", ".join(legacy_cols)
     rows = db.execute(text(f"SELECT id, {columns_sql} FROM llm_providers")).mappings().all()
     return {row["id"]: dict(row) for row in rows}
 
