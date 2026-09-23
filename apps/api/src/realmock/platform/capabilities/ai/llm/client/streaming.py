@@ -15,7 +15,7 @@ from typing import Any
 from realmock.platform.core.prompts import strip_emojis
 from realmock.platform.core.security import make_pinned_async_client
 
-from .assemblers import _AnthropicRoundAssembler, _OpenAIRoundAssembler
+from .assemblers import _AnthropicRoundAssembler, _OpenAIRoundAssembler, _ResponsesRoundAssembler
 from .base import _is_local_allowed, _require_https
 from .protocol_utils import _headers
 from .response_extract import parse_sse_event
@@ -43,6 +43,8 @@ async def stream_message_round(
     """
     if protocol == "anthropic_messages":
         assembler: Any = _AnthropicRoundAssembler()
+    elif protocol == "openai_responses":
+        assembler = _ResponsesRoundAssembler()
     else:
         assembler = _OpenAIRoundAssembler()
     async with make_pinned_async_client(

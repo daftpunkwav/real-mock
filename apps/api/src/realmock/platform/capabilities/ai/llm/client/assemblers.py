@@ -145,5 +145,94 @@ class _AnthropicRoundAssembler:
         return message
 
 
-__all__ = ["_OpenAIRoundAssembler", "_AnthropicRoundAssembler"]
+class _ResponsesRoundAssembler:
+    """openai_responses stream events → (reasoning deltas, drained text deltas, assembled message).
+
+    Reasoning-summary / reasoning-text deltas return immediately from ``feed``; output-text deltas
+    additionally queue for ``drain_content``. Function calls buffer from ``output_item.added``
+    (call_id/name) plus ``function_call_arguments.delta`` fragments. A ``response.completed``
+    terminal snapshot is authoritative for ``message()`` (no delta-stitching drift); buffers are
+    only the fallback when the gateway ends the stream without it.
+    """
+
+    def __init__(self) -> None:
+        self._content: list[str] = []
+        self._calls: dict[str, dict[str, str]] = {}
+        self._call_order: list[str] = []
+        self._pending_content: list[str] = []
+        self._completed_response: dict[str, Any] | None = None
+
+    def drain_content(self) -> str:
+        """Pop the content deltas accumulated since the last drain ("" when none)."""
+        text = "".join(self._pending_content)
+        self._pending_content.clear()
+        return text
+
+    def _call_slot(self, key: str) -> dict[str, str]:
+        if key not in self._calls:
+            self._calls[key] = {"id": "", "name": "", "args": ""}
+            self._call_order.append(key)
+        return self._calls[key]
+
+    def feed(self, event: dict[str, Any]) -> str:
+        etype = event.get("type")
+        if etype == "response.output_text.delta":
+            text = str(event.get("delta") or "")
+            if text:
+                self._content.append(text)
+                self._pending_content.append(text)
+            return ""
+        if etype in ("response.reasoning_summary_text.delta", "response.reasoning_text.delta"):
+            return str(event.get("delta") or "")
+        if etype == "response.output_item.added":
+            item = event.get("item") or {}
+            if item.get("type") == "function_call":
+                key = str(item.get("id") or item.get("call_id") or len(self._call_order))
+                slot = self._call_slot(key)
+                slot["id"] = str(item.get("call_id") or item.get("id") or slot["id"])
+                slot["name"] = str(item.get("name") or slot["name"])
+            return ""
+        if etype == "response.function_call_arguments.delta":
+            key = str(event.get("item_id") or "")
+            if key in self._calls:
+                self._calls[key]["args"] += str(event.get("delta") or "")
+            return ""
+        if etype == "response.completed":
+            response = event.get("response")
+            if isinstance(response, dict):
+                self._completed_response = response
+            return ""
+        return ""
+
+    def message(self) -> dict[str, Any]:
+        if self._completed_response is not None:
+            from .response_extract import extract_text, extract_tool_calls
+
+            data = self._completed_response
+            message: dict[str, Any] = {
+                "role": "assistant",
+                "content": extract_text(data, "openai_responses") or None,
+            }
+            tool_calls = extract_tool_calls(data, "openai_responses")
+            if tool_calls:
+                message["tool_calls"] = tool_calls
+            return message
+        tool_calls = [
+            {
+                "id": self._calls[key]["id"] or f"call_{idx}",
+                "type": "function",
+                "function": {
+                    "name": self._calls[key]["name"],
+                    "arguments": self._calls[key]["args"] or "{}",
+                },
+            }
+            for idx, key in enumerate(sorted(self._call_order))
+        ]
+        message = {"role": "assistant", "content": "".join(self._content) or None}
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+        return message
+
+
+__all__ = ["_AnthropicRoundAssembler", "_OpenAIRoundAssembler", "_ResponsesRoundAssembler"]
 

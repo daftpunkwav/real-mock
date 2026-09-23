@@ -92,7 +92,8 @@ def extract_reasoning(data: dict[str, Any], protocol: str) -> str:
 
     - anthropic_messages: concatenate ``thinking`` blocks in content;
     - openai_chat: use the message's ``reasoning_content`` / ``reasoning``;
-    - openai_responses: reasoning items contain summaries only and most gateways do not return them, so do not extract.
+    - openai_responses: concatenate ``summary`` texts of reasoning output items
+      (many gateways omit them; the empty string then signals "no reasoning").
     """
     if protocol == LLMProtocol.ANTHROPIC_MESSAGES:
         content = data.get("content", [])
@@ -103,6 +104,21 @@ def extract_reasoning(data: dict[str, Any], protocol: str) -> str:
                 if isinstance(item, dict) and item.get("type") == "thinking"
             )
         return ""
+    if protocol == LLMProtocol.OPENAI_RESPONSES:
+        parts: list[str] = []
+        for item in data.get("output", []) or []:
+            if not isinstance(item, dict) or item.get("type") != "reasoning":
+                continue
+            summary = item.get("summary")
+            if isinstance(summary, list):
+                parts.extend(
+                    str(part.get("text") or "")
+                    for part in summary
+                    if isinstance(part, dict)
+                )
+            elif isinstance(summary, str):
+                parts.append(summary)
+        return "".join(parts)
     msg = (data.get("choices") or [{}])[0].get("message", {}) if data.get("choices") else {}
     for key in ("reasoning_content", "reasoning"):
         val = msg.get(key)
@@ -123,6 +139,8 @@ def parse_sse_event(event: dict[str, Any], protocol: str) -> tuple[str, str]:
     if protocol == LLMProtocol.OPENAI_RESPONSES:
         if event.get("type") == "response.output_text.delta":
             return str(event.get("delta") or ""), ""
+        if event.get("type") in ("response.reasoning_summary_text.delta", "response.reasoning_text.delta"):
+            return "", str(event.get("delta") or "")
         return "", ""
     # openai_chat
     choices = event.get("choices") or []
