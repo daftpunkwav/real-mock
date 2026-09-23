@@ -11,6 +11,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -105,7 +107,7 @@ async def _raise(exc: Exception) -> Any:
 
 @pytest.mark.asyncio
 async def test_retry_429_exception_then_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     err_resp = MagicMock(status_code=429)
     exc = httpx.HTTPStatusError("429", request=MagicMock(), response=err_resp)
     calls = {"n": 0}
@@ -124,7 +126,7 @@ async def test_retry_429_exception_then_success(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.asyncio
 async def test_retry_4xx_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
     sleeper = AsyncMock()
-    monkeypatch.setattr(base_mod.asyncio, "sleep", sleeper)
+    monkeypatch.setattr(asyncio, "sleep", sleeper)
     err_resp = MagicMock(status_code=400)
     exc = httpx.HTTPStatusError("400", request=MagicMock(), response=err_resp)
     with pytest.raises(httpx.HTTPStatusError):
@@ -134,7 +136,7 @@ async def test_retry_4xx_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.asyncio
 async def test_retry_5xx_status_code_then_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     seq = [_ok_response(500), _ok_response(200)]
     it = iter(seq)
     out = await base_mod._retry_request(lambda: _coro(next(it)), max_retries=3)
@@ -143,7 +145,7 @@ async def test_retry_5xx_status_code_then_success(monkeypatch: pytest.MonkeyPatc
 
 @pytest.mark.asyncio
 async def test_retry_status_exhausted_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     resp = _ok_response(500)
     resp.raise_for_status.side_effect = httpx.HTTPStatusError("500", request=MagicMock(), response=resp)
     with pytest.raises(httpx.HTTPStatusError):
@@ -152,7 +154,7 @@ async def test_retry_status_exhausted_raises(monkeypatch: pytest.MonkeyPatch) ->
 
 @pytest.mark.asyncio
 async def test_retry_connect_error_then_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     calls = {"n": 0}
 
     async def _factory() -> Any:
@@ -175,7 +177,7 @@ async def test_retry_connect_error_exhausted() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_write_error_and_remote_protocol_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     for exc in (
         httpx.WriteError("w"),
         httpx.RemoteProtocolError("p"),
@@ -196,7 +198,7 @@ async def test_retry_write_error_and_remote_protocol_errors(monkeypatch: pytest.
 async def test_read_timeout_is_never_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """A minutes-scale read timeout means the model is still generating —
     retrying would multiply the wait, so it must raise immediately."""
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     calls = {"n": 0}
 
     async def _factory() -> Any:
@@ -210,7 +212,7 @@ async def test_read_timeout_is_never_retried(monkeypatch: pytest.MonkeyPatch) ->
 
 @pytest.mark.asyncio
 async def test_retry_is_stream_closes_before_retry(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     bad = _ok_response(503)
     good = _ok_response(200)
     seq = [bad, good]
@@ -222,7 +224,7 @@ async def test_retry_is_stream_closes_before_retry(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_retry_is_stream_close_failure_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     bad = _ok_response(500)
     bad.aclose = AsyncMock(side_effect=OSError("nope"))
     good = _ok_response(200)
@@ -234,7 +236,7 @@ async def test_retry_is_stream_close_failure_swallowed(monkeypatch: pytest.Monke
 
 @pytest.mark.asyncio
 async def test_retry_exception_is_stream_closes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     err_resp = MagicMock()
     err_resp.status_code = 500
     err_resp.aclose = AsyncMock()
@@ -256,7 +258,7 @@ async def test_retry_exception_is_stream_closes(monkeypatch: pytest.MonkeyPatch)
 async def test_retry_exception_is_stream_close_raises_swallowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     err_resp = MagicMock()
     err_resp.status_code = 500
     err_resp.aclose = AsyncMock(side_effect=RuntimeError("bad"))
@@ -273,7 +275,7 @@ async def test_retry_exception_is_stream_close_raises_swallowed(
 async def test_retry_exception_is_stream_close_failure_then_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(base_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     err_resp = MagicMock()
     err_resp.status_code = 500
     err_resp.aclose = AsyncMock(side_effect=OSError("close-fail"))

@@ -5,7 +5,6 @@ Shared helpers extracted from the original ``client.py`` and ``unified_client.py
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 

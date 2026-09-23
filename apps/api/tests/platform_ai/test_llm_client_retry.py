@@ -91,7 +91,7 @@ async def test_chat_429_retries_then_returns(monkeypatch: pytest.MonkeyPatch) ->
     with patch("realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client") as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
-        with patch("realmock.platform.capabilities.ai.llm.client.base.asyncio.sleep", new=AsyncMock()):
+        with patch("realmock.platform.capabilities.ai.llm.retry_policy.asyncio.sleep", new=AsyncMock()):
             text = await client.chat([{"role": "user", "content": "hi"}])
     assert text == "ok"
     assert http_client.post.await_count == 3
