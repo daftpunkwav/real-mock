@@ -25,7 +25,7 @@ from realmock.platform.core.constants import (
 logger = logging.getLogger(__name__)
 
 # Aligned with the revision id in alembic/versions (the version chain manages only the api-domain schema)
-ALEMBIC_HEAD_REVISION = "20260917_0005"
+ALEMBIC_HEAD_REVISION = "20260923_0006"
 
 # api.db:archive/resume/processor-config
 API_MIGRATIONS: dict[str, list[str]] = {
@@ -112,6 +112,10 @@ API_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE resumes ADD COLUMN analysis TEXT DEFAULT '{}'",
         "ALTER TABLE resumes ADD COLUMN family_id INTEGER DEFAULT 0",
         "ALTER TABLE resumes ADD COLUMN version_n INTEGER DEFAULT 1",
+        # Rows that predate async parsing finished synchronously inside the
+        # upload request, so they are backfilled as done.
+        "ALTER TABLE resumes ADD COLUMN parse_status VARCHAR(10) DEFAULT 'done'",
+        "ALTER TABLE resumes ADD COLUMN parse_error VARCHAR(20) DEFAULT ''",
     ],
 }
 

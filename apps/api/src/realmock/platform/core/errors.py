@@ -61,6 +61,7 @@ CATALOG: dict[str, ErrorSpec] = {
     "A1006": ErrorSpec("A1006", 400, "Image-based PDF has no extractable text", "For scanned/image-exported resumes, bind a vision-capable model to the chat task in Settings and re-upload; or use a text-based PDF / DOCX"),
     "A1007": ErrorSpec("A1007", 429, "3 resumes are already under review", "Deep review runs at most 3 resumes in parallel; wait for one to finish", True),
     "A1008": ErrorSpec("A1008", 409, "This resume already has {max} versions", "Delete an older version or upload it as a new resume"),
+    "A1009": ErrorSpec("A1009", 409, "This resume is already being parsed", "Wait for parsing to finish; the list page updates automatically"),
     # A2 interview
     "A2001": ErrorSpec("A2001", 404, "Interview session not found", "The session may have expired or been deleted; create a new interview"),
     "A2002": ErrorSpec("A2002", 400, "Interview already finished", "This interview is complete; see the report page for results"),
@@ -82,6 +83,7 @@ CATALOG: dict[str, ErrorSpec] = {
     # B system
     "B0001": ErrorSpec("B0001", 500, "Internal server error, please try again later", "If it persists, report it to the developer with the trace_id", True),
     "B1001": ErrorSpec("B1001", 500, "Failed to persist the result, please try again later", "Local write error (file/database); if it persists, check disk space and file permissions", True),
+    "B1002": ErrorSpec("B1002", 409, "Resume parsing was interrupted by a restart", "Click retry to parse this resume again", True),
     # C third-party
     "C0001": ErrorSpec("C0001", 502, "AI service temporarily unavailable, please try again later", "Check the API Key quota and network; if it persists, test connectivity in Settings", True),
     "C0002": ErrorSpec("C0002", 502, "The model returned no valid result, please try again later", "The model may be incompatible (reasoning-only/empty output); try another model", True),

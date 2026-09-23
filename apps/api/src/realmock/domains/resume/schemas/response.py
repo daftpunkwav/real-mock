@@ -23,12 +23,15 @@ from realmock.domains.resume.schemas.limits import client_limits_payload
 
 
 class ResumeResponse(BaseModel):
-    """One resume row as returned by list / get / upload / activate."""
+    """One resume row as returned by list / get / upload / activate / retry."""
 
     id: int
     filename: str
     file_type: str
     parsed_profile: CandidateProfile
+    # Background parse lifecycle: pending | done | failed (legacy rows: done).
+    parse_status: str = "done"
+    parse_error: str = ""
     is_active: bool = False
     score: int | None = None
     analysis: dict[str, Any] = Field(default_factory=dict)

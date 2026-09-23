@@ -123,12 +123,15 @@ def insert_upload(
     raw_text: str,
     parsed: CandidateProfile,
     family_id: int | None = None,
+    parse_status: str = "done",
 ) -> Resume:
     """Insert a newly uploaded resume and return the refreshed row.
 
     ``family_id is None`` starts a new family (version 1). Otherwise append
     the next version in that family. Cap and family existence are enforced
-    here so HTTP prechecks cannot race past the limit.
+    here so HTTP prechecks cannot race past the limit. ``parse_status``
+    defaults to ``done`` for direct/legacy callers; the async ingest path
+    passes ``pending``.
     """
     row = Resume(
         filename=filename,
@@ -137,6 +140,7 @@ def insert_upload(
         parsed_profile=parsed.model_dump_json(),
         version_n=1,
         family_id=0,
+        parse_status=parse_status,
     )
     if family_id is None:
         db.add(row)
