@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
     else:
         await asyncio.to_thread(_bootstrap_db_and_seed)
     await ensure_rag_index()
+    sweep_interrupted_resume_parses()
     cfg = get_settings()
     logger.info("RealMock backend started env=%s", cfg.env)
     try:
@@ -86,6 +87,16 @@ async def lifespan(app: FastAPI):
 def _bootstrap_db_and_seed() -> None:
     bootstrap_databases_and_seed()
     _wire_platform_contracts()
+
+
+def sweep_interrupted_resume_parses() -> None:
+    """Startup cleanup: rows stuck ``pending`` lost their parse task to a restart."""
+    from realmock.domains.resume.services.ingest import sweep_stale_pending_parses
+
+    try:
+        sweep_stale_pending_parses()
+    except Exception:
+        logger.exception("resume parse sweep failed")
 
 
 def _wire_platform_contracts() -> None:

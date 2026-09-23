@@ -47,6 +47,7 @@ export default function ResumePage() {
     handleAnalyze,
     handleActivate,
     handleDelete,
+    handleRetryParse,
   } = useResumeList();
 
   return (
@@ -81,6 +82,7 @@ export default function ResumePage() {
               onAnalyze={handleAnalyze}
               onDelete={handleDelete}
               onUploadVersion={handleUploadVersion}
+              onRetryParse={handleRetryParse}
             />
 
             <ResumeDetailPanel

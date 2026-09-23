@@ -8,7 +8,7 @@
  */
 
 import { useRef, useState } from "react";
-import { ChevronRight, FileText, Sparkles, Trash2, Upload } from "lucide-react";
+import { ChevronRight, FileText, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Spinner } from "@/components/Spinner";
 import { useT } from "@/i18n";
@@ -25,6 +25,7 @@ interface ResumeListItemProps {
   onAnalyze: (id: number) => void;
   onDelete: (id: number) => void;
   onUploadVersion: (id: number, file: File) => void;
+  onRetryParse: (id: number) => void;
 }
 
 export function ResumeListItem({
@@ -37,6 +38,7 @@ export function ResumeListItem({
   onAnalyze,
   onDelete,
   onUploadVersion,
+  onRetryParse,
 }: ResumeListItemProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const versionInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +50,8 @@ export function ResumeListItem({
   const selected = selectedMember != null;
   const analyzing = analyzingIds.includes(r.id);
   const atVersionCap = !canAddVersion(group.members.length);
+  const parsing = r.parse_status === "pending";
+  const parseFailed = r.parse_status === "failed";
 
   return (
     <li>
@@ -79,6 +83,15 @@ export function ResumeListItem({
             {r.is_active && <span className="chip chip-blue">{t("item.chipActive")}</span>}
             {r.score != null && (
               <span className="chip chip-green">{t("item.scoreChip", { score: r.score })}</span>
+            )}
+            {parsing && (
+              <span className="chip chip-gray inline-flex items-center gap-1">
+                <Spinner className="h-2.5 w-2.5" />
+                {t("item.chipParsing")}
+              </span>
+            )}
+            {parseFailed && (
+              <span className="chip chip-red">{t("item.chipParseFailed")}</span>
             )}
           </div>
           <p className="mt-0.5 text-[11px] text-ink-subtle">
@@ -134,6 +147,19 @@ export function ResumeListItem({
             <Upload size={12} />
             {t("item.uploadVersion")}
           </button>
+          {parseFailed && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRetryParse(r.id);
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-surface-border bg-surface-card px-3 text-[12px] font-medium text-ink-muted hover:border-[var(--primary)] hover:text-[var(--primary)]"
+            >
+              <RefreshCw size={12} />
+              {t("item.retryParse")}
+            </button>
+          )}
           <input
             ref={versionInputRef}
             type="file"

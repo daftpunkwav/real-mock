@@ -5,8 +5,11 @@ without raising an error—silently persisting it would make AI evaluation treat
 
 - ``extract_text_from_file`` returns an empty string for an image-only PDF (the trigger condition);
 - ``render_pdf_pages_as_data_urls`` can render pages as PNG data URLs;
-- Upload without vision capability → explicitly reject with A1006 and do not persist;
-- Upload with vision capability → persist the transcribed text and perform LLM structured parsing as usual;
+- Upload without vision capability → row is persisted as ``parse_status="failed"`` with A1006
+  (the upload request itself succeeds; the file is kept so a retry can pick it up
+  after a vision model is bound);
+- Upload with vision capability → background task persists the transcribed text and performs
+  LLM structured parsing as usual;
 - Deep evaluation encountering a historical empty-text row → re-extract from the original file and persist it (self-healing).
 """
 
@@ -89,10 +92,34 @@ def _stub_llm_client(api_key: str) -> type:
     return _StubLLMClient
 
 
-def test_upload_image_pdf_without_vision_rejected(
+def _poll_parse_status(
+    client: TestClient, resume_id: int
+) -> tuple[str, str]:
+    """Poll ``/list`` until this row's background parse settles (done/failed).
+
+    Each request pumps the TestClient's event loop, giving the fire-and-forget
+    parse task room to run — the same way the real frontend observes progress.
+    Returns ``(parse_status, parse_error)``.
+    """
+    import time
+
+    status, error = "pending", ""
+    for _ in range(300):
+        rows = client.get("/api/v1/resume/list").json()
+        row = next((r for r in rows if r["id"] == resume_id), None)
+        assert row is not None, "uploaded row missing from list"
+        status, error = row["parse_status"], row["parse_error"]
+        if status != "pending":
+            return status, error
+        time.sleep(0.02)
+    return status, error
+
+
+def test_upload_image_pdf_without_vision_fails_later(
     tmp_path: Path, api_db, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Uploading an image-only PDF without vision capability → A1006, with no database write."""
+    """Uploading an image-only PDF without vision capability → upload 200, then the
+    background task marks the row failed with A1006 (file kept for retry)."""
     monkeypatch.setattr(ingest_module, "LLMClient", _stub_llm_client(api_key="k"))
     monkeypatch.setattr(
         extract_module,
@@ -108,16 +135,31 @@ def test_upload_image_pdf_without_vision_rejected(
             "/api/v1/resume/upload",
             files={"file": ("scan.pdf", pdf.read_bytes(), "application/pdf")},
         )
-    assert resp.status_code == 400
-    assert resp.json()["error"]["code"] == "A1006"
-    # In the full suite, other tests may insert rows first; assert only that this test's file was not persisted
-    assert api_db.query(Resume).filter(Resume.filename == "scan.pdf").count() == 0
+        assert resp.status_code == 200, resp.text
+        # The response reflects the row at insert time; failure lands later.
+        assert resp.json()["parse_status"] == "pending"
+        resume_id = resp.json()["id"]
+
+        status, error = _poll_parse_status(client, resume_id)
+
+    assert status == "failed"
+    assert error == "A1006"
+
+    row = api_db.query(Resume).filter(Resume.id == resume_id).one()
+    assert row.parse_status == "failed"
+    assert row.parse_error == "A1006"
+    assert row.raw_text == ""
+    # The file stays on disk so the row can be retried after binding a vision model.
+    from realmock.domains.resume.services.files import find_resume_file
+
+    assert find_resume_file(row) is not None
 
 
 def test_upload_image_pdf_with_vision_transcribes(
     tmp_path: Path, api_db, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When vision is available: render pages → persist the visual transcription → perform structured parsing as usual."""
+    """When vision is available: upload returns pending → background task renders pages,
+    persists the visual transcription, and performs structured parsing."""
     monkeypatch.setattr(ingest_module, "LLMClient", _stub_llm_client(api_key="k"))
     monkeypatch.setattr(
         extract_module,
@@ -145,17 +187,25 @@ def test_upload_image_pdf_with_vision_transcribes(
             "/api/v1/resume/upload",
             files={"file": ("scan.pdf", pdf.read_bytes(), "application/pdf")},
         )
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["parsed_profile"]["name"] == "Xiao Guoqiang"
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["parse_status"] == "pending"
+        resume_id = resp.json()["id"]
+
+        # Poll the list endpoint until the background parse settles.
+        status, _ = _poll_parse_status(client, resume_id)
+
+    assert status == "done"
     assert seen == {"pages": 1, "raw_len": len("# Xiao Guoqiang\nSkills: Python")}
-
-    row = api_db.query(Resume).filter(Resume.filename == "scan.pdf").one()
+    row = api_db.query(Resume).filter(Resume.id == resume_id).one()
     assert row.raw_text == "# Xiao Guoqiang\nSkills: Python"
+    assert row.parse_status == "done"
 
 
-def test_upload_empty_txt_rejected(tmp_path: Path, api_db, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Empty text extracted from a non-PDF (an empty file) → A1004, matching the semantics for an empty PDF."""
+def test_upload_empty_txt_fails_later(
+    tmp_path: Path, api_db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Empty text extracted from a non-PDF (an empty file) → row failed with A1004,
+    matching the semantics for an empty PDF."""
     monkeypatch.setattr(ingest_module, "LLMClient", _stub_llm_client(api_key="k"))
 
     empty = tmp_path / "empty.txt"
@@ -166,8 +216,14 @@ def test_upload_empty_txt_rejected(tmp_path: Path, api_db, monkeypatch: pytest.M
             "/api/v1/resume/upload",
             files={"file": ("empty.txt", empty.read_bytes(), "text/plain")},
         )
-    assert resp.status_code == 400
-    assert resp.json()["error"]["code"] == "A1004"
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["parse_status"] == "pending"
+        resume_id = resp.json()["id"]
+
+        status, error = _poll_parse_status(client, resume_id)
+
+    assert status == "failed"
+    assert error == "A1004"
 
 
 def test_upload_doc_extension_rejected(api_db) -> None:

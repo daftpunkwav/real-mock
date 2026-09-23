@@ -32,8 +32,9 @@ import type { ResumeAnalyzeSSEEvent } from "@/lib/api/resumeAnalyzeEvents";
 /** 3x the backend SSE heartbeat (15s): stall longer than this and the stream is dead. */
 const SSE_IDLE_TIMEOUT_MS = 45_000;
 
-/** Multipart uploads bypass request(): bound slow networks so the UI never hangs forever. */
-const UPLOAD_TIMEOUT_MS = 180_000;
+/** Multipart uploads bypass request(): bound slow networks so the UI never hangs forever.
+ * Parsing is asynchronous server-side, so the request only covers transfer + row insert. */
+const UPLOAD_TIMEOUT_MS = 60_000;
 
 function expectBody<T>(data: T, message: string): T {
   if (data === undefined || data === null) {
@@ -121,6 +122,12 @@ export const resumeHttp = {
     expectBody(
       await request<ResumeResponse[]>("/v1/resume/list", { signal: options?.signal }),
       "Failed to load resumes: server returned an empty response",
+    ),
+  /** Re-run background parsing for a failed (or finished) resume row. */
+  retryResumeParse: async (id: number) =>
+    expectBody(
+      await request<ResumeResponse>(`/v1/resume/${id}/parse`, { method: "POST" }),
+      "Failed to retry resume parsing: server returned an empty response",
     ),
   getLimits: async (options?: { signal?: AbortSignal }) =>
     expectBody(

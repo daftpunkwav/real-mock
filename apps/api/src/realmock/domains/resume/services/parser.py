@@ -11,8 +11,8 @@ Must not import FastAPI or ORM.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any
 
 from realmock.domains.resume.services.text_extract import truncate_text
 from realmock.platform.core.prompts import with_agent_output_rules
@@ -21,6 +21,7 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.domains.resume.schemas.limits import (
     PARSE_FALLBACK_SUMMARY_CHARS,
     PARSE_LLM_CHARS,
+    TRANSCRIBE_CONCURRENCY,
 )
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 
@@ -61,17 +62,37 @@ async def transcribe_pages_with_vision(
     page_images: list[str],
     llm: LLMClient,
 ) -> str:
-    """Use the visual model to convert image-based PDF pages into plain text (text extraction)."""
-    content: list[dict[str, Any]] = [{"type": "text", "text": "Please transcribe this resume verbatim."}]
-    content.extend({"type": "image_url", "image_url": {"url": url}} for url in page_images)
-    text = await llm.chat(
-        [
-            {"role": "system", "content": TRANSCRIBE_SYSTEM_PROMPT},
-            {"role": "user", "content": content},
-        ],
-        temperature=0.2,
+    """Use the visual model to convert image-based PDF pages into plain text.
+
+    Pages are transcribed concurrently (``TRANSCRIBE_CONCURRENCY`` cap) so a
+    multi-page scan takes roughly one page's latency instead of the sum; page
+    order is preserved in the joined output. One page failure fails the whole
+    transcription — a partial resume text would silently truncate content.
+    """
+    if not page_images:
+        return ""
+
+    sem = asyncio.Semaphore(TRANSCRIBE_CONCURRENCY)
+
+    async def one(idx: int, image: str) -> str:
+        content = [
+            {"type": "text", "text": "Please transcribe this resume page verbatim."},
+            {"type": "image_url", "image_url": {"url": image}},
+        ]
+        async with sem:
+            text = await llm.chat(
+                [
+                    {"role": "system", "content": TRANSCRIBE_SYSTEM_PROMPT},
+                    {"role": "user", "content": content},
+                ],
+                temperature=0.2,
+            )
+        return f"<!-- page {idx + 1} -->\n{text.strip()}"
+
+    pages = await asyncio.gather(
+        *(one(i, url) for i, url in enumerate(page_images))
     )
-    return truncate_text(text.strip())
+    return truncate_text("\n\n".join(pages))
 
 
 async def parse_resume_with_llm(

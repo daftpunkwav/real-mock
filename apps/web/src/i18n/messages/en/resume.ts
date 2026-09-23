@@ -21,9 +21,12 @@ export const resume = {
 
   // ResumeListItem: list item and action bar
   "item.chipActive": "Active",
+  "item.chipParsing": "Parsing",
+  "item.chipParseFailed": "Parse failed",
   "item.scoreChip": "Score {score}",
   "item.currentActive": "Current",
   "item.setActive": "Set as active",
+  "item.retryParse": "Retry parsing",
   "item.analyzing": "Reviewing…",
   "item.analyze": "AI Deep Review",
   "item.delete": "Delete",
@@ -230,6 +233,10 @@ export const resume = {
 
   // useResumeList / previewRoute: error fallbacks and toasts
   "hook.loadFailed": "Load failed",
+  "toast.uploadQueued": "Uploaded; parsing runs in the background and the list updates automatically",
+  "toast.parseFailed":
+    "Resume parsing failed; click \"Retry parsing\" (bind a vision model in Settings for scanned files)",
+  "toast.parseRetryFailed": "Failed to retry parsing",
   "toast.uploaded": "Resume uploaded and parsed",
   "toast.uploadedFallback":
     "Resume uploaded, but structured parsing fell back to a raw-text summary. Deep review can still run.",

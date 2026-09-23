@@ -252,6 +252,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/resume/{resume_id}/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Resume Parse
+         * @description Re-run background parsing for a failed resume row.
+         *
+         *     ``done`` rows are also accepted (re-parse overwrites the stored result);
+         *     only an in-flight ``pending`` row is rejected.
+         */
+        post: operations["retry_resume_parse_api_v1_resume__resume_id__parse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/resume/{resume_id}/activate": {
         parameters: {
             query?: never;
@@ -1772,6 +1795,29 @@ export interface paths {
          * @description Append a file as a new version of an existing family.
          */
         post: operations["upload_resume_version_api_resume__resume_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resume/{resume_id}/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Resume Parse
+         * @description Re-run background parsing for a failed resume row.
+         *
+         *     ``done`` rows are also accepted (re-parse overwrites the stored result);
+         *     only an in-flight ``pending`` row is rejected.
+         */
+        post: operations["retry_resume_parse_api_resume__resume_id__parse_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4734,7 +4780,7 @@ export interface components {
         };
         /**
          * ResumeResponse
-         * @description One resume row as returned by list / get / upload / activate.
+         * @description One resume row as returned by list / get / upload / activate / retry.
          */
         ResumeResponse: {
             /** Id */
@@ -4744,6 +4790,16 @@ export interface components {
             /** File Type */
             file_type: string;
             parsed_profile: components["schemas"]["CandidateProfile"];
+            /**
+             * Parse Status
+             * @default done
+             */
+            parse_status: string;
+            /**
+             * Parse Error
+             * @default
+             */
+            parse_error: string;
             /**
              * Is Active
              * @default false
@@ -5817,6 +5873,37 @@ export interface operations {
                 "multipart/form-data": components["schemas"]["Body_upload_resume_version_api_v1_resume__resume_id__versions_post"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_resume_parse_api_v1_resume__resume_id__parse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -8435,6 +8522,37 @@ export interface operations {
                 "multipart/form-data": components["schemas"]["Body_upload_resume_version_api_resume__resume_id__versions_post"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_resume_parse_api_resume__resume_id__parse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

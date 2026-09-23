@@ -46,6 +46,10 @@ class Resume(ApiBase):
     file_type: Mapped[str] = mapped_column(String(20))
     raw_text: Mapped[str] = mapped_column(Text, default="")
     parsed_profile: Mapped[str] = mapped_column(Text, default="{}")
+    # Background parse lifecycle: pending (task queued/running), done, failed.
+    # Legacy rows predate async parsing and are backfilled as done.
+    parse_status: Mapped[str] = mapped_column(String(10), default="pending")
+    parse_error: Mapped[str] = mapped_column(String(20), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     analysis: Mapped[str] = mapped_column(Text, default="{}")  # Rating suggestions JSON

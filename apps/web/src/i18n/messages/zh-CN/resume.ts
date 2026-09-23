@@ -21,9 +21,12 @@ export const resume = {
 
   // ResumeListItem:列表项与操作条
   "item.chipActive": "投递",
+  "item.chipParsing": "解析中",
+  "item.chipParseFailed": "解析失败",
   "item.scoreChip": "评分 {score}",
   "item.currentActive": "当前投递",
   "item.setActive": "设为投递",
+  "item.retryParse": "重试解析",
   "item.analyzing": "评价中…",
   "item.analyze": "AI 深度评价",
   "item.delete": "删除",
@@ -227,6 +230,9 @@ export const resume = {
 
   // useResumeList / previewRoute:错误兜底与 toast
   "hook.loadFailed": "加载失败",
+  "toast.uploadQueued": "已上传，正在后台解析，完成后自动更新",
+  "toast.parseFailed": "简历解析失败，可点击「重试解析」（扫描件需先在设置里绑定视觉模型）",
+  "toast.parseRetryFailed": "重试解析失败",
   "toast.uploaded": "简历已上传并解析",
   "toast.uploadedFallback": "简历已上传，但结构化解析未成功，目前只用了原文摘要。仍可做深度评价。",
   "toast.uploadFailed": "上传失败",

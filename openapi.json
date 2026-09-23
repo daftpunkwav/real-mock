@@ -497,6 +497,49 @@
         }
       }
     },
+    "/api/v1/resume/{resume_id}/parse": {
+      "post": {
+        "tags": [
+          "resume"
+        ],
+        "summary": "Retry Resume Parse",
+        "description": "Re-run background parsing for a failed resume row.\n\n``done`` rows are also accepted (re-parse overwrites the stored result);\nonly an in-flight ``pending`` row is rejected.",
+        "operationId": "retry_resume_parse_api_v1_resume__resume_id__parse_post",
+        "parameters": [
+          {
+            "name": "resume_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Resume Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/resume/{resume_id}/activate": {
       "post": {
         "tags": [
@@ -4364,6 +4407,49 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resume/{resume_id}/parse": {
+      "post": {
+        "tags": [
+          "resume"
+        ],
+        "summary": "Retry Resume Parse",
+        "description": "Re-run background parsing for a failed resume row.\n\n``done`` rows are also accepted (re-parse overwrites the stored result);\nonly an in-flight ``pending`` row is rejected.",
+        "operationId": "retry_resume_parse_api_resume__resume_id__parse_post",
+        "parameters": [
+          {
+            "name": "resume_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Resume Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -11523,6 +11609,16 @@
           "parsed_profile": {
             "$ref": "#/components/schemas/CandidateProfile"
           },
+          "parse_status": {
+            "type": "string",
+            "title": "Parse Status",
+            "default": "done"
+          },
+          "parse_error": {
+            "type": "string",
+            "title": "Parse Error",
+            "default": ""
+          },
           "is_active": {
             "type": "boolean",
             "title": "Is Active",
@@ -11569,7 +11665,7 @@
           "created_at"
         ],
         "title": "ResumeResponse",
-        "description": "One resume row as returned by list / get / upload / activate."
+        "description": "One resume row as returned by list / get / upload / activate / retry."
       },
       "RewriteExample": {
         "properties": {
