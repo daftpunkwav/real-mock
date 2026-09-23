@@ -52,7 +52,13 @@ WEB_SEARCH_SPEC = ToolSpec(
     description="Search public interview tips / tech material. Use only when you need timely info.",
     parameters={
         "type": "object",
-        "properties": {"query": {"type": "string"}},
+        "properties": {
+            "query": {"type": "string"},
+            "max_results": {
+                "type": "integer",
+                "description": "Result count, default 3, maximum 5. Raise it when a broad survey matters more than speed.",
+            },
+        },
         "required": ["query"],
     },
     handler=run_web_search,

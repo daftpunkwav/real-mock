@@ -41,8 +41,10 @@ function toolLabel(t: ReturnType<typeof useT>, name: string): string {
   return key ? t(key) : name;
 }
 
-/** Single-line shortening for previews. */
-function shortenInline(text: string, limit = 48): string {
+/** Single-line shortening for collapsed previews. Generous limit: the row
+ * truncates visually via CSS ellipsis anyway, so this only bounds the DOM
+ * text for very long streams (the old hard 48-char cut wasted the panel). */
+function shortenInline(text: string, limit = 200): string {
   const flat = text.trim().replace(/\s+/g, " ");
   return flat.length > limit ? `${flat.slice(0, limit)}…` : flat;
 }

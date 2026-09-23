@@ -16,8 +16,76 @@ import { Download, Save, X } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import type { ChannelModelCatalog } from "@/types";
-import { applyCapabilityConfig, capsConfigFromDraft } from "./capabilityConfig";
+import { applyCapabilityConfig, capsConfigFromDraft, updateReasoningVariants } from "./capabilityConfig";
 import { CAP_OPTIONS, type ModelDraft } from "./constants";
+
+/** Custom thinking-level editor (extras.reasoning.variants). Levels are
+ * provider-specific (some models have two, some five); labels are sent
+ * verbatim, and the default variant applies when the user picks none. */
+function ReasoningVariantsEditor({
+  draft,
+  setDraft,
+}: {
+  draft: ModelDraft;
+  setDraft: (d: ModelDraft) => void;
+}) {
+  const t = useT("settings");
+  const { variants, defaultVariant } = capsConfigFromDraft(draft).reasoning;
+  const [text, setText] = useState(variants.join(", "));
+  // Re-derive when the draft is replaced externally (JSON Apply).
+  useEffect(() => {
+    setText(capsConfigFromDraft(draft).reasoning.variants.join(", "));
+  }, [draft]);
+  const commit = (raw: string) => {
+    const list = raw
+      .split(/[,，]/)
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0)
+      .slice(0, 8);
+    setDraft(updateReasoningVariants(draft, list, defaultVariant));
+  };
+  return (
+    <div className="mt-1.5">
+      <label className="mb-1 block text-[11px] text-ink-muted">
+        {t("modelForm.reasoningVariants.label")}
+      </label>
+      <input
+        className="field-input !h-8 font-mono text-[11px]"
+        value={text}
+        placeholder="low, medium, high, max"
+        onChange={(e) => setText(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit((e.target as HTMLInputElement).value);
+          }
+        }}
+      />
+      {variants.length > 0 && (
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="text-[11px] text-ink-muted">
+            {t("modelForm.reasoningVariants.default")}
+          </span>
+          <select
+            className="field-input !h-7 !w-auto text-[11px]"
+            value={defaultVariant}
+            onChange={(e) =>
+              setDraft(updateReasoningVariants(draft, variants, e.target.value))
+            }
+          >
+            <option value="">{t("modelForm.reasoningVariants.none")}</option>
+            {variants.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ModelForm({
   draft,
@@ -182,6 +250,9 @@ export function ModelForm({
             </label>
           ))}
         </div>
+        {draft.capabilities.reasoning && (
+          <ReasoningVariantsEditor draft={draft} setDraft={setDraft} />
+        )}
       </div>
 
       <details className="mt-2.5">

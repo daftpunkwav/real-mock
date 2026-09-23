@@ -41,6 +41,10 @@ export const AssistantBubble = memo(function AssistantBubble({
   // Width grows with streamed content up to the bubble cap, then locks:
   // expanding/collapsing the timeline must not resize the bubble.
   const { ref: widthRef, minWidth } = useMonotonicWidth<HTMLDivElement>();
+  // A trace timeline needs the full bubble width — hugging content (w-fit)
+  // left the panel narrow with dead space to the right. Plain text replies
+  // keep the hugging fit.
+  const hasTrace = !!msg.trace && msg.trace.length > 0;
   return (
     <div className="flex gap-2.5">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--info-soft)] text-[var(--info-ink)]">
@@ -49,7 +53,7 @@ export const AssistantBubble = memo(function AssistantBubble({
       <div
         ref={widthRef}
         style={minWidth === undefined ? undefined : { minWidth }}
-        className="min-w-0 w-fit max-w-[88%] rounded-md rounded-bl-sm border border-surface-border bg-surface-alt px-3.5 py-2.5 text-[13px] leading-relaxed text-ink"
+        className={`min-w-0 max-w-[88%] rounded-md rounded-bl-sm border border-surface-border bg-surface-alt px-3.5 py-2.5 text-[13px] leading-relaxed text-ink ${hasTrace ? "w-full" : "w-fit"}`}
       >
         <div className="space-y-2">
           {msg.streaming && msg.statusText ? (
@@ -58,7 +62,7 @@ export const AssistantBubble = memo(function AssistantBubble({
               {msg.statusText}
             </p>
           ) : null}
-          {msg.trace && msg.trace.length > 0 ? (
+          {hasTrace && msg.trace ? (
             <TraceTimeline trace={msg.trace} streaming={!!msg.streaming} />
           ) : null}
           {msg.searchGroups && msg.searchGroups.length > 0 ? (

@@ -29,14 +29,17 @@ import {
   COMPACT_RETAIN_MIN,
   COMPACT_THRESHOLD_DEFAULT,
   COMPACT_THRESHOLD_OPTIONS,
+  MEMORY_INDEX_LIMIT_DEFAULT,
   readCompactDirective,
   readCompactIntensity,
   readCompactRetain,
   readCompactThreshold,
+  readMemoryIndexLimit,
   writeCompactDirective,
   writeCompactIntensity,
   writeCompactRetain,
   writeCompactThreshold,
+  writeMemoryIndexLimit,
   type CompactThresholdSetting,
   type CompactionIntensity,
 } from "@/lib/compactThreshold";
@@ -54,6 +57,9 @@ export function PrepSettingsPanel() {
   );
   const [compactDirective, setCompactDirective] = useState<string>(() => readCompactDirective());
   const [compactRetain, setCompactRetain] = useState<number>(() => readCompactRetain());
+  const [memoryIndexLimit, setMemoryIndexLimit] = useState<number>(() =>
+    readMemoryIndexLimit(),
+  );
   const [confirmingPurge, setConfirmingPurge] = useState(false);
   const [purging, setPurging] = useState(false);
   const [confirmingPurgeAll, setConfirmingPurgeAll] = useState(false);
@@ -235,6 +241,44 @@ export function PrepSettingsPanel() {
               onChange={(e) => changeCompactRetain(e.target.value)}
             />
           </div>
+        </div>
+      </div>
+      <div className="surface-card p-4">
+        <div className="mb-1 flex items-center gap-2">
+          <GraduationCap size={16} className="text-[var(--primary)]" />
+          <h2 className="text-[14px] font-semibold">{t("prep.memoryIndex.title")}</h2>
+        </div>
+        <p className="text-[13px] leading-relaxed text-ink-muted">
+          {t("prep.memoryIndex.desc")}
+        </p>
+        <div className="mt-3 max-w-xs">
+          <label
+            htmlFor="prep-memory-index-limit"
+            className="block text-[12px] font-medium text-ink-muted"
+          >
+            {t("prep.memoryIndex.label")}
+          </label>
+          <input
+            id="prep-memory-index-limit"
+            type="number"
+            className="field-input !h-9 mt-1 w-28 text-[13px]"
+            min={0}
+            max={500}
+            step={1}
+            value={memoryIndexLimit}
+            onChange={(e) => {
+              const parsed = Number(e.target.value);
+              if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 500) {
+                setMemoryIndexLimit(parsed);
+                writeMemoryIndexLimit(parsed);
+              }
+            }}
+          />
+          <p className="mt-1 text-[11px] text-ink-subtle">
+            {memoryIndexLimit === 0
+              ? t("prep.memoryIndex.allHint")
+              : t("prep.memoryIndex.defaultHint", { n: MEMORY_INDEX_LIMIT_DEFAULT })}
+          </p>
         </div>
       </div>
       <div className="surface-card p-4">

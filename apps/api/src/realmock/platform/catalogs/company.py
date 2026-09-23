@@ -2,6 +2,11 @@
 
 Shared by interview / prep: style, focus areas, sample questions.
 No DB / LLM / HTTP.
+
+Extension seam: ``get_company_context`` is the single lookup entry. A future
+RAG-backed source (retrieval over curated company dossiers) replaces the
+builtin lookup behind the same signature and miss-fallback contract, so
+callers never change.
 """
 
 from __future__ import annotations

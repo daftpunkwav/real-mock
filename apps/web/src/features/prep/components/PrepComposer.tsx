@@ -337,15 +337,13 @@ export function PrepComposer({
         {/* Bottom toolbar: one compact row huddled right (reference:
             adjacent ghost controls + send, never spread full width). */}
         <div className="flex items-center justify-end gap-1 px-1 pb-1 pt-1.5">
-          <div className="min-w-0 shrink-0 overflow-hidden">
-            <ContextGauge
-              used={used}
-              window={win}
-              usage={usage}
-              estimatedPrompt={estimated}
-              breakdown={breakdown}
-            />
-          </div>
+          <ContextGauge
+            used={used}
+            window={win}
+            usage={usage}
+            estimatedPrompt={estimated}
+            breakdown={breakdown}
+          />
           {/* Selectors stay enabled while streaming: the in-flight turn already
               snapshotted its model/effort, so switching only affects the next send. */}
           <div className="min-w-0 shrink-0">

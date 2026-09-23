@@ -85,7 +85,13 @@ DIRECTIVE_MAX_CHARS = 500
 class PrepMessageRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=MAX_USER_TEXT_CHARS)
     model_profile_id: int | None = None
-    reasoning_effort: str | None = Field(default=None, pattern="^(low|medium|high|max)$")
+    # Thinking level: labels ride the model's declared variant list. The
+    # default scale is low/medium/high/max, but models may declare their own
+    # (e.g. low/mid/high/xhigh/max); the selected label is passed verbatim.
+    reasoning_effort: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_\-]{1,32}$")
+    # Long-term memory index entries injected into the session seed (0 = all).
+    # Default 10 keeps the head small; a larger value widens recall.
+    memory_index_limit: int | None = Field(default=None, ge=0, le=500)
     # Regenerate support: drop the trailing assistant message before this turn.
     drop_last_assistant: bool = False
     # UI locale for first-turn reply-language context (zh-CN/en; others ignored).

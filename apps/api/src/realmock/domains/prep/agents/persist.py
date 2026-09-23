@@ -32,10 +32,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# The upper limit of the length of the persisted thinking (metadata for display)
-_MAX_PERSISTED_THINKING_CHARS = 20_000
-
-
 def _summary_markers(messages: list[dict[str, Any]]) -> set[str]:
     """Fingerprints of compaction record blocks — LLM minutes and rule digests (turn-start vs post-build diffing)."""
     marks: set[str] = set()
@@ -147,7 +143,9 @@ def _build_assistant_message(
         assistant_msg["search_groups"] = search_groups
     combined = (thinking or "").strip()
     if combined:
-        assistant_msg["thinking"] = combined[:_MAX_PERSISTED_THINKING_CHARS]
+        # Persisted in full: thinking is display metadata only (never enters
+        # the model context), and truncating it would lose reasoning history.
+        assistant_msg["thinking"] = combined
     return assistant_msg
 
 
@@ -244,12 +242,19 @@ def usage_event(agent: "PrepAgent") -> dict[str, Any] | None:
     """This turn's LLM usage delta; absent when the provider reported none.
 
     The frontend adds each turn delta into its session totals (additive merge);
-    on session restore it reseeds from the summary columns instead.
+    on session restore it reseeds from the summary columns instead. Request
+    diagnostics (request id / latency / last error) ride along when known so
+    the context panel can show them.
     """
     usage = getattr(agent.llm, "usage", None)
     if usage is None or not (usage.prompt_tokens or usage.completion_tokens):
         return None
-    return {"type": "usage", **usage.to_dict()}
+    event = {"type": "usage", **usage.to_dict()}
+    for key in ("requests", "last_request_id", "last_latency_ms", "last_error"):
+        value = getattr(usage, key, None)
+        if value:
+            event[key] = value
+    return event
 
 
 def finalize_with_delta(

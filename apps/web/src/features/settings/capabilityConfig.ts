@@ -109,6 +109,31 @@ function toOptionalInt(value: unknown): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
+/** Replace extras.reasoning (variants + default variant) on a draft's extras JSON.
+ * Custom thinking levels: ordered labels passed verbatim to the provider. */
+export function updateReasoningVariants(
+  draft: ModelDraft,
+  variants: string[],
+  defaultVariant: string,
+): ModelDraft {
+  const nextExtras: Record<string, unknown> = { ...parseExtras(draft.extras_text) };
+  const cleaned = variants.map((v) => v.trim().toLowerCase()).filter((v) => v.length > 0);
+  const def = cleaned.includes(defaultVariant) ? defaultVariant : "";
+  if (cleaned.length > 0 || def) {
+    nextExtras.reasoning = {
+      ...(cleaned.length > 0 ? { variants: cleaned } : {}),
+      ...(def ? { defaultVariant: def } : {}),
+    };
+  } else {
+    delete nextExtras.reasoning;
+  }
+  return {
+    ...draft,
+    extras_text:
+      Object.keys(nextExtras).length > 0 ? JSON.stringify(nextExtras, null, 2) : "",
+  };
+}
+
 export function applyCapabilityConfig(
   text: string,
   draft: ModelDraft,

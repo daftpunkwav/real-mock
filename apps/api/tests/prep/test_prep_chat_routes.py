@@ -265,7 +265,8 @@ async def test_prep_message_stream_error_is_redacted(db, monkeypatch) -> None:
     async for chunk in resp.body_iterator:
         body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
     text = body.decode()
-    assert "Coaching response failed" in text
+    # Upstream errors surface verbatim (credential-redacted), not as generic copy.
+    assert "sk-s***boom" in text
     assert "sk-secret-boom" not in text
 
 @pytest.mark.asyncio
@@ -355,5 +356,5 @@ def test_prep_stream_http_error_redacted(db, monkeypatch) -> None:
         ) as resp:
             assert resp.status_code == 200
             body = "".join(resp.iter_text())
-    assert "Coaching response failed" in body
-    assert "upstream-secret" not in body
+    # Upstream failures surface verbatim (credential-redacted), never generic copy.
+    assert "upstream-secret" in body

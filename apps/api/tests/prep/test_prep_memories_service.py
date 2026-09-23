@@ -71,3 +71,19 @@ def test_find_memory_by_summary_empty(db) -> None:
     row = _make_memory(db, summary="unique-find-me")
     found = find_memory_by_summary(db, "unique-find-me")
     assert found is not None and found.id == row.id
+
+def test_list_memories_zero_limit_means_scan_window(db) -> None:
+    """limit=0 is the seed's "all memories" setting: the full scan window, not
+    the default page size. Positive values pass through up to the window."""
+    from realmock.domains.prep.services import memories as memories_mod
+    from realmock.domains.prep.services.memories import list_memories
+
+    # Earlier tests in this module share the DB: assert on deltas, not totals.
+    baseline = len(list_memories(db, limit=0))
+    assert baseline >= 1
+    _make_memory(db, summary="zero-limit-extra")
+    assert len(list_memories(db, limit=0)) == baseline + 1
+    # A positive limit still caps the page; the window is the hard cap.
+    assert len(list_memories(db, limit=1)) == 1
+    assert memories_mod.MEMORY_SCAN_LIMIT == 500
+    assert len(list_memories(db, limit=10_000)) == baseline + 1

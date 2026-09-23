@@ -67,11 +67,21 @@ export interface ContextBucket {
   hint?: string;
 }
 
-/** Provider-reported token usage; cache rate is cached divided by prompt. */
+/** Provider-reported token usage; cache rate is cached divided by prompt.
+ * Request diagnostics are optional best-effort fields (provider-dependent). */
 export interface UsageSummary {
   prompt_tokens: number;
   completion_tokens: number;
   cached_tokens: number;
+  reasoning_tokens?: number;
+  /** Provider requests made for the measured span (turn or session). */
+  requests?: number;
+  /** Upstream request id of the most recent request (echo header). */
+  last_request_id?: string;
+  /** Wall-clock latency of the most recent request in milliseconds. */
+  last_latency_ms?: number;
+  /** Compact summary of the most recent failed request, empty when none. */
+  last_error?: string;
 }
 
 /** Clickable context gauge with measured buckets and provider-reported usage. */
@@ -193,6 +203,17 @@ export const ContextGauge = memo(function ContextGauge({
                       {formatTokens(reportedCompletion)}
                     </span>
                   </div>
+                  {(usage?.reasoning_tokens ?? 0) > 0 && (
+                    <div
+                      className="flex items-center justify-between text-[11px]"
+                      title={t("context.reasoningHint")}
+                    >
+                      <span className="pl-2 text-ink-subtle">{t("context.reasoningTokens")}</span>
+                      <span className="num-tabular text-ink-subtle">
+                        {formatTokens(usage?.reasoning_tokens ?? 0)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-ink-muted">{t("context.cacheRate")}</span>
                     <span className="num-tabular text-ink-subtle">
@@ -204,6 +225,40 @@ export const ContextGauge = memo(function ContextGauge({
                         : "—"}
                     </span>
                   </div>
+                </div>
+              </>
+            )}
+            {(usage?.requests ?? 0) > 0 && (
+              <>
+                <div className="my-2.5 border-t border-surface-border" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-ink-muted">{t("context.requests")}</span>
+                    <span className="num-tabular text-ink-subtle">{usage?.requests}</span>
+                  </div>
+                  {(usage?.last_latency_ms ?? 0) > 0 && (
+                    <div
+                      className="flex items-center justify-between text-[11px]"
+                      title={usage?.last_request_id ? `request id: ${usage.last_request_id}` : undefined}
+                    >
+                      <span className="text-ink-muted">{t("context.lastLatency")}</span>
+                      <span className="num-tabular text-ink-subtle">
+                        {t("context.latencyValue", {
+                          ms: Math.round(usage?.last_latency_ms ?? 0).toLocaleString(),
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {usage?.last_error ? (
+                    <div className="flex items-start justify-between gap-2 text-[11px]">
+                      <span className="shrink-0 text-[var(--danger)]">{t("context.lastError")}</span>
+                      <span className="min-w-0 break-all text-right text-ink-subtle" title={usage.last_error}>
+                        {usage.last_error.length > 80
+                          ? `${usage.last_error.slice(0, 80)}…`
+                          : usage.last_error}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </>
             )}

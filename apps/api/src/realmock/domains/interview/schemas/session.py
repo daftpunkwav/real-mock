@@ -17,7 +17,9 @@ class AiOverrides(BaseModel):
     chat_profile_id: int | None = None
     stt_profile_id: int | None = None
     tts_profile_id: int | None = None
-    reasoning_effort: Literal["low", "medium", "high", "max"] | None = None
+    # Custom model-declared levels ride through verbatim; the default scale is
+    # low/medium/high/max and anything else must be a declared model variant.
+    reasoning_effort: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_\-]{0,32}$")
 
 
 class InterviewConfig(BaseModel):

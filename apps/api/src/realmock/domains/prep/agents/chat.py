@@ -31,6 +31,7 @@ from realmock.platform.capabilities.ai.llm.provider_errors import is_context_ove
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
 from .ask_user import extract_inline_ask_user
+from .memory_precipitate import precipitate_turn_memory
 from .context import format_linked_sessions
 from .persist import (
     compaction_event,
@@ -158,6 +159,7 @@ async def _prepare_turn(
     context_session_ids: list[int] | None = None,
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
+    memory_index_limit: int | None = None,
 ) -> tuple[CompactionOptions, str, list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Shared turn setup for both channels.
 
@@ -180,6 +182,10 @@ async def _prepare_turn(
     """
     policy = _begin_turn(agent, compact_options)
     turn_id = agent.last_turn_id or uuid.uuid4().hex
+    # Memory-index width applies when the seed is first built; stored on the
+    # agent so the request value reaches the (threaded) seed builder.
+    if memory_index_limit is not None:
+        agent.memory_index_limit = memory_index_limit
     await agent._ensure_system(db, ui_locale)
     if drop_last_assistant:
         _drop_trailing_assistant(agent)
@@ -200,6 +206,7 @@ async def run_chat(
     context_session_ids: list[int] | None = None,
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
+    memory_index_limit: int | None = None,
 ) -> str:
     """Synchronous single-round reply (non-streaming channel).
 
@@ -225,6 +232,7 @@ async def run_chat(
         context_session_ids=context_session_ids,
         compact_threshold=compact_threshold,
         compact_options=compact_options,
+        memory_index_limit=memory_index_limit,
     )
 
     asked_user: dict[str, bool] = {"on": False}
@@ -247,6 +255,8 @@ async def run_chat(
         agent, working, final, db, tool_steps=steps, search_groups=groups, thinking=thinking,
         compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
     )
+    # End-of-turn curation: one advisory call, write only on a positive verdict.
+    await precipitate_turn_memory(agent, db, user_text, final if isinstance(final, str) else "")
     return final if isinstance(final, str) else ""
 
 
@@ -284,6 +294,7 @@ async def run_chat_stream(
     context_session_ids: list[int] | None = None,
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
+    memory_index_limit: int | None = None,
 ) -> AsyncIterator[str | dict[str, Any]]:
     """Think-then-act tool loop (events pushed immediately) → then stream the final answer.
 
@@ -310,6 +321,7 @@ async def run_chat_stream(
         context_session_ids=context_session_ids,
         compact_threshold=compact_threshold,
         compact_options=compact_options,
+        memory_index_limit=memory_index_limit,
     )
 
     start_event = compaction_event(
@@ -453,6 +465,9 @@ async def run_chat_stream(
         finalized = True
         if delta:
             yield delta
+        # End-of-turn curation runs after the completion envelope: the user
+        # already has the answer, so this advisory call delays nothing visible.
+        await precipitate_turn_memory(agent, db, user_text, final)
     except (asyncio.CancelledError, GeneratorExit):
         # Client stopped the stream: persist the partial turn so the question
         # and whatever was produced survive a refresh. Never yield here, and

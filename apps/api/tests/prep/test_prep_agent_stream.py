@@ -686,7 +686,8 @@ async def test_execute_short_circuits_duplicate_tool_calls(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_execute_failed_call_not_cached(monkeypatch) -> None:
-    """Timed-out / failed calls skip the dedupe cache so same-arg retries still run."""
+    """Timed-out calls auto-retry (new semantics); after recovery the success is
+    cached, so a same-arg re-issue is answered from the dedupe cache."""
     attempts: list[str] = []
 
     import asyncio as _asyncio
@@ -706,8 +707,10 @@ async def test_execute_failed_call_not_cached(monkeypatch) -> None:
     first = await execute("web_search", {"query": "Interview notes"})
     second = await execute("web_search", {"query": "Interview notes"})
 
-    assert attempts == ["Interview notes", "Interview notes"], "failed same-arg retries should still run"
-    assert "timed out" in first and "Duplicate call" not in second
+    # Attempt 1 timed out, attempt 2 (automatic retry) succeeded.
+    assert attempts == ["Interview notes", "Interview notes"]
+    assert "[1] ok" in first and "timed out" not in first
+    assert "Duplicate call skipped" in second
 
 
 @pytest.mark.asyncio

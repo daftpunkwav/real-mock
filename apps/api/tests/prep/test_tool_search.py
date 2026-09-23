@@ -87,9 +87,9 @@ def test_mini_spec_carries_params_not_schema() -> None:
     assert "description" not in card
 
 
-def test_secondary_catalog_is_the_agreed_eight() -> None:
-    # 6 github tools + 3 memory query tools load on demand; everything else
-    # stays declared every turn.
+def test_secondary_catalog_is_the_agreed_ten() -> None:
+    # 6 github tools + 3 memory query tools + web_fetch load on demand;
+    # everything else stays declared every turn.
     assert set(SECONDARY_TOOLS) == {
         "github_list_repos",
         "github_get_readme",
@@ -100,6 +100,7 @@ def test_secondary_catalog_is_the_agreed_eight() -> None:
         "memory_list_tags",
         "memory_list_summaries",
         "memory_get_detail",
+        "web_fetch",
     }
 
 

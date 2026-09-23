@@ -32,6 +32,12 @@ class ToolSpec:
     tier: str = "primary"
     #: Search aliases (Chinese + English) for ``search_tools`` matching.
     keywords: tuple[str, ...] = ()
+    #: Default execution timeout for this tool (seconds). Tools differ wildly
+    #: (a memory lookup is instant, a search scrapes the web, an LLM-powered
+    #: compaction takes tens of seconds), so the timeout is declared per tool;
+    #: the model may override per call via the injected ``timeout_seconds``
+    #: argument (clamped by the executor).
+    timeout_seconds: float = 18.0
 
 
 #: Loading tiers (capability names, no vendor terms).

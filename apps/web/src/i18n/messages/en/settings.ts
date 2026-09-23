@@ -120,6 +120,9 @@ export const settings = {
   "modelForm.capabilities.label":
     "Capabilities (multi-select; one model can serve multiple tasks)",
   "modelForm.extras.summary": "Advanced params (JSON, e.g. voice credentials)",
+  "modelForm.reasoningVariants.label": "Custom thinking levels (comma-separated, sent verbatim; blank = default low/medium/high/max)",
+  "modelForm.reasoningVariants.default": "Default level",
+  "modelForm.reasoningVariants.none": "None",
   "modelForm.capsConfig.summary": "Capability config (JSON; Apply writes back to the form)",
   "modelForm.capsConfig.apply": "Apply to form",
   "modelForm.cancel": "Cancel",
@@ -230,6 +233,11 @@ export const settings = {
   "prep.compact.directiveLabel": "Compression directive (focus)",
   "prep.compact.directivePlaceholder": "e.g. prioritize stack traces and confirmed plans…",
   "prep.compact.retainLabel": "Retained messages (auto-compact keeps the latest N verbatim)",
+  "prep.memoryIndex.title": "Long-term memory injection",
+  "prep.memoryIndex.desc": "How many long-term memory index entries are injected into a new session's system prompt (0 = all memories).",
+  "prep.memoryIndex.label": "Memory index entries",
+  "prep.memoryIndex.allHint": "0 = every memory is injected (widest recall).",
+  "prep.memoryIndex.defaultHint": "Default {n}; applies to newly created sessions.",
   // Interview prep behavior
   "prep.timeout.title": "Question dialog wait",
   "prep.timeout.desc":

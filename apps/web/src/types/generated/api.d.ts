@@ -3135,7 +3135,7 @@ export interface components {
             /** Tts Profile Id */
             tts_profile_id?: number | null;
             /** Reasoning Effort */
-            reasoning_effort?: ("low" | "medium" | "high" | "max") | null;
+            reasoning_effort?: string | null;
         };
         /** AvatarOption */
         AvatarOption: {
@@ -4184,6 +4184,8 @@ export interface components {
             model_profile_id?: number | null;
             /** Reasoning Effort */
             reasoning_effort?: string | null;
+            /** Memory Index Limit */
+            memory_index_limit?: number | null;
             /**
              * Drop Last Assistant
              * @default false

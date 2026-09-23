@@ -91,12 +91,14 @@ async def prep_message(
         "prep turn sid=%s model=%s window=%s profile_id=%s",
         session_id, llm.model, agent.context_window, body.model_profile_id,
     )
+    agent.memory_index_limit = body.memory_index_limit
     reply = await agent.chat(
         body.content, db,
         drop_last_assistant=body.drop_last_assistant, ui_locale=body.ui_locale,
         context_session_ids=body.context_session_ids,
         compact_threshold=body.compact_threshold,
         compact_options=_turn_policy(body),
+        memory_index_limit=body.memory_index_limit,
     )
     return PrepMessageResponse(
         reply=reply,
@@ -138,12 +140,15 @@ async def prep_message_stream(
     turn_policy = _turn_policy(body)
 
     async def event_stream():
+        usage_acc = getattr(llm, "usage", None)
         try:
+            agent.memory_index_limit = body.memory_index_limit
             async for chunk in agent.chat_stream(
                 body.content, db, drop_last_assistant=drop_last, ui_locale=ui_locale,
                 context_session_ids=body.context_session_ids,
                 compact_threshold=compact_threshold,
                 compact_options=turn_policy,
+                memory_index_limit=body.memory_index_limit,
             ):
                 # Stop button / closed tab: abandon the SSE body; the agent's
                 # cancel path still persists the partial turn server-side.
@@ -169,12 +174,22 @@ async def prep_message_stream(
                 "turn_id": agent.last_turn_id or "",
                 "prefix_fingerprint": agent.last_prefix_fingerprint or "",
                 "message_count": agent.last_message_count,
+                # Turn-level request diagnostics. ``last_*`` are latest-wins;
+                # ``requests``/``reasoning_tokens`` deliberately absent — the
+                # per-turn values ride the ``usage`` event instead (this
+                # envelope's token columns are session totals, so a per-turn
+                # count would be misread as one and clobber accumulation).
+                "last_request_id": getattr(usage_acc, "last_request_id", "") or "",
+                "last_latency_ms": getattr(usage_acc, "last_latency_ms", 0.0) or 0.0,
             })
         except Exception as e:
-            # Desensitization: Only write the original text of the log, and only return the general copy to the outside world
+            # Redact credentials, keep the original wording: upstream errors
+            # (quota exhausted, rate limited, context overflow) must reach the
+            # user verbatim so the cause is diagnosable — only truly opaque
+            # internals fall back to the generic copy.
             safe_detail = redact_api_key(str(e)) or _SSE_ERR_GENERIC
             logger.exception("Prep streaming generation failed sid=%s: %s", session_id, safe_detail)
-            yield format_sse_line(sse_error_event(e, message=_SSE_ERR_GENERIC))
+            yield format_sse_line(sse_error_event(e, message=safe_detail))
 
     return StreamingResponse(
         event_stream(),

@@ -6,6 +6,7 @@ first, then the OpenAI-compatible ``GET /models`` endpoint for unadapted channel
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -110,7 +111,13 @@ def apply_vendor(db: Session, vendor_id: str) -> dict[str, Any]:
             )
             if not has_entry:
                 db.add(
-                    ModelProfile(provider_id=provider.id, kind=kind, model=default_model, **_KIND_CAPABILITY_CAPS[kind])
+                    ModelProfile(
+                        provider_id=provider.id,
+                        kind=kind,
+                        model=default_model,
+                        **_KIND_CAPABILITY_CAPS[kind],
+                        **_vendor_default_extras(vendor_id, kind),
+                    )
                 )
     db.commit()
     return {
@@ -119,6 +126,25 @@ def apply_vendor(db: Session, vendor_id: str) -> dict[str, Any]:
         "created_provider": created_provider,
         "configured_kinds": configured_kinds,
     }
+
+
+# Vendor-specific default request-body extras for seeded chat entries.
+# MiniMax's chat endpoint only returns reasoning_content when the split flag
+# is on; without it thinking models look silent.
+_VENDOR_CHAT_DEFAULT_EXTRAS: dict[str, dict[str, Any]] = {
+    "minimax": {"extra_body": {"reasoning_split": True}},
+}
+
+
+def _vendor_default_extras(vendor_id: str, kind: str) -> dict[str, Any]:
+    """Seed-time extras for a vendor's chat model entry (empty when none).
+
+    The extras column stores a JSON string, matching the settings-page writer.
+    """
+    if kind != "chat":
+        return {}
+    extras = _VENDOR_CHAT_DEFAULT_EXTRAS.get(vendor_id)
+    return {"extras": json.dumps(extras)} if extras else {}
 
 
 def _fetch_remote_models(channel: LlmProviderChannel) -> list[str]:

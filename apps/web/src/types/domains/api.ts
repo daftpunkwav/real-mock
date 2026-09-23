@@ -202,7 +202,10 @@ export interface TaskBindingInfo {
 export type TaskBindings = Record<"chat" | "stt" | "tts", TaskBindingInfo>;
 
 /** Reasoning effort (only profiles with capabilities.reasoning === true) */
-export type ReasoningEffort = "low" | "medium" | "high" | "max";
+/** Thinking level label: the default scale is low/medium/high/max, and a
+ * model may declare its own ordered variant list (extras.reasoning.variants);
+ * selected labels are sent to the provider verbatim. */
+export type ReasoningEffort = "low" | "medium" | "high" | "max" | (string & {});
 
 /** Reference-answer depth: fast outline bullets (default) or tool-grounded full model answer */
 export type ReferenceDetail = "outline" | "full";

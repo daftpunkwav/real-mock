@@ -14,11 +14,17 @@ export interface SSEErrorEvent {
   retryable?: boolean;
 }
 
-/** One turn DELTA of LLM token usage (backend `usage` event); cache hit rate = cached_tokens / prompt_tokens. */
+/** One turn DELTA of LLM token usage (backend `usage` event); cache hit rate = cached_tokens / prompt_tokens.
+ * Request diagnostics are optional best-effort fields (provider-dependent). */
 export interface PrepUsageStats {
   prompt_tokens: number;
   completion_tokens: number;
   cached_tokens: number;
+  reasoning_tokens?: number;
+  requests?: number;
+  last_request_id?: string;
+  last_latency_ms?: number;
+  last_error?: string;
 }
 
 /** Stable context-breakdown bucket keys (backend contract, GET .../context). */
@@ -140,5 +146,8 @@ export type PrepSSEEvent =
       turn_id?: string;
       prefix_fingerprint?: string;
       message_count?: number;
+      requests?: number;
+      last_request_id?: string;
+      last_latency_ms?: number;
     }
   | SSEErrorEvent;

@@ -18,7 +18,8 @@ from realmock.platform.core.prompts import with_agent_output_rules
 from realmock.platform.database import api_db_session, sessions_db_session
 from realmock.platform.services.candidate_read import format_profile_summary, format_resume_summary
 
-# Long-term memories injected into the system prompt (index only; details on demand).
+# Long-term memories injected into the system prompt (index only; details on
+# demand). Default 10; callers may pass a wider limit (0 = all memories).
 _MEMORY_INDEX_LIMIT = 10
 _MEMORY_SUMMARY_CHARS = 120
 
@@ -52,22 +53,24 @@ Output rules:
 - When a tool result contains 'SEARCH_UNAVAILABLE / search temporarily unavailable / not found': do not invent result lists, concrete links, or citation numbers; continue with general knowledge and label it as 'based on general knowledge, not live search'""")
 
 
-def format_memory_index(db: Session | None = None) -> str:
+def format_memory_index(db: Session | None = None, *, limit: int | None = None) -> str:
     """Render the long-term memory index block for the system prompt (never raises).
 
     Args:
         db: Optional live sessions Session to reuse (seed path passes its own
             session to avoid opening a second connection). When None, a short
             session is opened internally for standalone callers.
+        limit: Entries injected (0 = every memory); None keeps the default 10.
     """
     if db is None:
         try:
             with sessions_db_session() as owned:
-                return format_memory_index(owned)
+                return format_memory_index(owned, limit=limit)
         except Exception:
             return ""
+    effective = _MEMORY_INDEX_LIMIT if limit is None else max(0, int(limit))
     try:
-        rows = list_memories(db, limit=_MEMORY_INDEX_LIMIT)
+        rows = list_memories(db, limit=effective)
     except Exception:
         return ""
     if not rows:
@@ -95,6 +98,7 @@ def build_system_message(
     target_company: str,
     ui_locale: str | None = None,
     linked_session_id: int | None = None,
+    memory_index_limit: int | None = None,
 ) -> str:
     """Legacy single-string seed: the system blocks joined with blank lines.
 
@@ -106,6 +110,7 @@ def build_system_message(
         block for block in _system_blocks(
             db, resume_id=resume_id, target_company=target_company,
             linked_session_id=linked_session_id,
+            memory_index_limit=memory_index_limit,
         )
         if block
     )
@@ -117,6 +122,7 @@ def build_system_messages(
     resume_id: int | None,
     target_company: str,
     linked_session_id: int | None = None,
+    memory_index_limit: int | None = None,
 ) -> list[dict[str, str]]:
     """First-turn system seed as an ordered stable-first block run.
 
@@ -129,6 +135,7 @@ def build_system_messages(
         block for block in _system_blocks(
             db, resume_id=resume_id, target_company=target_company,
             linked_session_id=linked_session_id,
+            memory_index_limit=memory_index_limit,
         )
         if block
     ]
@@ -143,13 +150,14 @@ def _system_blocks(
     resume_id: int | None,
     target_company: str,
     linked_session_id: int | None,
+    memory_index_limit: int | None = None,
 ) -> list[str]:
     """Shared block builders for the single-string and multi-message seeds."""
     with api_db_session() as api_db:
         ctx = format_resume_summary(api_db, resume_id)
         profile = format_profile_summary(api_db)
     company = get_company_context(target_company or "")
-    memories = format_memory_index(db)
+    memories = format_memory_index(db, limit=memory_index_limit)
     linked = format_linked_session(db, linked_session_id)
     context_block = "\n".join(part for part in (company, ctx, profile) if part)
     tail_block = "\n".join(part for part in (memories, linked) if part)

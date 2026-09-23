@@ -12,6 +12,14 @@ failure becomes a model observation. Only one dialog (1–8 questions) per turn:
 after ``ask_user`` fires, further tool calls in the same turn are refused without
 executing (same-round parallel siblings still run to completion and their
 results are discarded; the dialog gate only stops later rounds).
+
+Resilience contract: every tool declares its own default timeout (a memory
+lookup is instant, a web search scrapes live pages); the model may override it
+per call through the injected ``timeout_seconds`` argument (clamped). Transient
+failures (timeout / exception / retrieval outage) are retried automatically
+twice with a short pause before they count; the circuit breaker tally is
+written into every failure observation so the model sees exactly how close the
+tool is to being refused (``2/3 — one more failure opens the breaker``).
 """
 
 from __future__ import annotations
@@ -31,10 +39,24 @@ from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.core.security import redact_api_key
 
 from .ask_user import dispatch_ask_user
+from .tools.registry import TOOL_REGISTRY
 
 logger = logging.getLogger(__name__)
 
+#: Fallback timeout for tools without a spec timeout (candidate/profile
+#: declarations and registry-less control tools).
 _TOOL_TIMEOUT_SEC = 18.0
+#: Timeouts for registry-less control tools handled inside the agent.
+_CONTROL_TOOL_TIMEOUTS: dict[str, float] = {
+    "compact_context": 150.0,
+    "ask_user": 30.0,
+}
+#: Per-call override bounds (the model may not stall a turn forever).
+_TIMEOUT_OVERRIDE_MIN = 5.0
+_TIMEOUT_OVERRIDE_MAX = 180.0
+#: Automatic retries for transient failures before the failure counts.
+_TOOL_RETRY_ATTEMPTS = 2
+_RETRY_PAUSE_SECONDS = 1.0
 # Circuit breaker: a tool failing this many times in a row is refused without
 # spending another call (mirrors the resume-review executor). Bounds retries:
 # failed calls stay retryable with different args, but never spin forever.
@@ -47,6 +69,17 @@ _RETRIEVAL_LEGACY_MARKERS = ("SEARCH_UNAVAILABLE", "search temporarily unavailab
 
 ToolRunner = Callable[[str, dict[str, Any], Session], Awaitable[tuple[str, list[SearchHit]]]]
 ToolExecutor = Callable[[str, dict[str, Any]], Awaitable[str]]
+
+
+def _resolve_timeout(name: str, args: dict[str, Any]) -> float:
+    """Per-call timeout: model override (clamped) → tool default → fallbacks."""
+    override = args.get("timeout_seconds")
+    if isinstance(override, (int, float)) and override > 0:
+        return float(min(max(override, _TIMEOUT_OVERRIDE_MIN), _TIMEOUT_OVERRIDE_MAX))
+    spec = TOOL_REGISTRY.get(name)
+    if spec is not None:
+        return float(spec.timeout_seconds)
+    return float(_CONTROL_TOOL_TIMEOUTS.get(name, _TOOL_TIMEOUT_SEC))
 
 
 def build_execute_callback(
@@ -87,6 +120,28 @@ def build_execute_callback(
         if not isinstance(error_context, dict):
             return "", ""
         return str(error_context.get("domain") or ""), str(error_context.get("session") or "")
+
+    def _circuit_note(streak: int) -> str:
+        """Transparency line: the model must see how close the breaker is."""
+        remaining = _TOOL_CIRCUIT_BREAKER_STREAK - streak
+        return (
+            f"Circuit breaker {streak}/{_TOOL_CIRCUIT_BREAKER_STREAK}: "
+            f"{max(remaining, 0)} more consecutive failure(s) will block this tool."
+        )
+
+    def _failure_observation(kind: str, tool: str, message: str, streak: int) -> str:
+        payload = {
+            "error": kind,
+            "tool": tool,
+            "message": message,
+            "consecutive_failures": streak,
+            "breaker": f"{streak}/{_TOOL_CIRCUIT_BREAKER_STREAK}",
+        }
+        note = "" if streak < _TOOL_CIRCUIT_BREAKER_STREAK else (
+            f" {tool} is now blocked for the rest of this turn; continue with "
+            "other tools or general knowledge."
+        )
+        return json.dumps(payload, ensure_ascii=False) + note
 
     def _circuit_open_observation(tool: str) -> str:
         """Refuse a repeatedly failing tool without spending another call."""
@@ -155,78 +210,81 @@ def build_execute_callback(
         if key:
             attempted[key] = ""
         domain, session = _scope()
-        try:
-            obs, hits = await asyncio.wait_for(
-                run_named_tool(name, args, db),
-                timeout=_TOOL_TIMEOUT_SEC,
-            )
-        except ApiBusinessError:
-            # Business failures (auth/quota/validation) must surface as HTTP
-            # errors via the route layer, never as model observations.
-            # ApiBusinessError subclasses HTTPException, so the FastAPI
-            # envelope handler renders the catalog copy and status code.
-            raise
-        except asyncio.TimeoutError:
-            logger.warning("Tool timeout %s (%.0fs)", name, _TOOL_TIMEOUT_SEC)
-            log_agent_error(
-                domain=domain, session=session, tool=name, kind="timeout",
-                message=f"Tool exceeded {_TOOL_TIMEOUT_SEC:.0f}s",
-            )
-            error_streak[name] = error_streak.get(name, 0) + 1
+        timeout = _resolve_timeout(name, args)
+        attempts_left = 1 + max(0, _TOOL_RETRY_ATTEMPTS)
+        obs: str | None = None
+        hits: list[SearchHit] = []
+        failure: tuple[str, str] | None = None  # (kind, message)
+        while attempts_left > 0:
+            attempts_left -= 1
+            try:
+                obs, hits = await asyncio.wait_for(
+                    run_named_tool(name, args, db),
+                    timeout=timeout,
+                )
+                if obs is not None and not _is_retrieval_failure(obs):
+                    failure = None
+                    break
+                # Retrieval outage: retryable — the tool ran but its source failed.
+                failure = ("retrieval_failed", str(obs or "")[:400])
+                obs = None
+            except ApiBusinessError:
+                # Business failures (auth/quota/validation) must surface as HTTP
+                # errors via the route layer, never as model observations.
+                # ApiBusinessError subclasses HTTPException, so the FastAPI
+                # envelope handler renders the catalog copy and status code.
+                raise
+            except asyncio.TimeoutError:
+                logger.warning("Tool timeout %s (%.0fs)", name, timeout)
+                failure = ("tool_timeout", f"{name} exceeded its {timeout:.0f}s timeout")
+            except Exception as exc:
+                # Convert to a JSON observation (resume-executor contract) so the model
+                # always sees the failure and the streak counts it; never propagate
+                # (ApiBusinessError above is the only exception that propagates).
+                # Redact before exposing to the model: tracebacks may carry keys/paths.
+                safe_detail = redact_api_key(str(exc))[:400]
+                logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
+                failure = ("tool_failed", safe_detail)
+            if attempts_left > 0:
+                # Transient failures get a short pause, then one more shot;
+                # only the final outcome tallies the circuit breaker.
+                await asyncio.sleep(_RETRY_PAUSE_SECONDS * (1 + (_TOOL_RETRY_ATTEMPTS - attempts_left)))
+        if failure is not None or obs is None:
+            kind, message = failure or ("tool_failed", "unknown failure")
+            streak = error_streak.get(name, 0) + 1
+            error_streak[name] = streak
             if key:
                 attempted.pop(key, None)
-            obs = (
-                "SEARCH_UNAVAILABLE\n"
-                + json.dumps(
-                    {
-                        "error": RETRIEVAL_ERROR_CODE,
-                        "tool": name,
-                        "message": (
-                            f"Search timed out (>{_TOOL_TIMEOUT_SEC:.0f}s). "
-                            "Do not invent results; continue with general knowledge."
-                        ),
-                    },
-                    ensure_ascii=False,
+            if kind == "tool_timeout":
+                log_agent_error(
+                    domain=domain, session=session, tool=name, kind="timeout",
+                    message=f"Tool exceeded {timeout:.0f}s (after {_TOOL_RETRY_ATTEMPTS} retries)",
                 )
-            )
-            hits = []
-        except Exception as exc:
-            # Convert to a JSON observation (resume-executor contract) so the model
-            # always sees the failure and the streak counts it; never propagate
-            # (ApiBusinessError above is the only exception that propagates).
-            # Redact before exposing to the model: tracebacks may carry keys/paths.
-            safe_detail = redact_api_key(str(exc))[:400]
-            logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
-            log_agent_error(
-                domain=domain, session=session, tool=name, kind="tool_failed",
-                message=safe_detail,
-            )
-            error_streak[name] = error_streak.get(name, 0) + 1
-            if key:
-                attempted.pop(key, None)
-            return (
-                f"{header}\n"
-                + json.dumps(
-                    {"error": "tool_failed", "tool": name, "message": safe_detail},
-                    ensure_ascii=False,
+            elif kind == "retrieval_failed":
+                log_agent_error(
+                    domain=domain, session=session, tool=name, kind="retrieval_failed",
+                    message=message,
                 )
-            )
+            else:
+                log_agent_error(
+                    domain=domain, session=session, tool=name, kind="tool_failed",
+                    message=message,
+                )
+            observation = _failure_observation(kind, name, message, streak)
+            if kind == "retrieval_failed":
+                observation += (
+                    "\n\n[System constraint] Retrieval failed. Do not invent search result "
+                    "lists, links, or citations; continue coaching with general knowledge "
+                    "and state that it is based on general knowledge, not live search."
+                )
+            if name == "web_search":
+                observation += (
+                    "\n[Hint] A timeout here usually means the network path is slow — "
+                    "retry with a higher timeout_seconds, or move on with general knowledge."
+                )
+            return f"{header}\n{observation}"
         if name == "web_search" and hits:
             search_groups.append({"query": str(query or ""), "results": hits})
-        if _is_retrieval_failure(obs):
-            error_streak[name] = error_streak.get(name, 0) + 1
-            if key:
-                attempted.pop(key, None)
-            log_agent_error(
-                domain=domain, session=session, tool=name, kind="retrieval_failed",
-                message=str(obs)[:400],
-            )
-            obs += (
-                "\n\n[System constraint] Retrieval failed. Do not invent search result "
-                "lists, links, or citations; continue coaching with general knowledge "
-                "and state that it is based on general knowledge, not live search."
-            )
-            return f"{header}\n{obs}"
         error_streak.pop(name, None)
         if key:
             attempted[key] = f"{header}\n{obs}"

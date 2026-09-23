@@ -83,6 +83,7 @@ export const prepCoachHttp = {
       compactIntensity?: "light" | "balanced" | "aggressive" | null;
       compactDirective?: string | null;
       compactRetain?: number | null;
+      memoryIndexLimit?: number | null;
       signal?: AbortSignal;
     },
   ): Promise<{
@@ -96,6 +97,9 @@ export const prepCoachHttp = {
     turn_id: string;
     prefix_fingerprint: string;
     message_count: number;
+    requests?: number;
+    last_request_id?: string;
+    last_latency_ms?: number;
     usage: PrepUsageStats | null;
   }> => {
     const { onToken, onThinking, onSearchResults, onStatus, onToolStep, onAskUser, onUsage, onCompaction } = callbacks;
@@ -137,6 +141,8 @@ export const prepCoachHttp = {
           compact_intensity: opts?.compactIntensity ?? undefined,
           compact_directive: opts?.compactDirective || undefined,
           compact_retain: typeof opts?.compactRetain === "number" ? opts.compactRetain : undefined,
+          memory_index_limit:
+            typeof opts?.memoryIndexLimit === "number" ? opts.memoryIndexLimit : undefined,
           context_session_ids:
             opts?.contextSessionIds && opts.contextSessionIds.length > 0
               ? opts.contextSessionIds
@@ -176,6 +182,8 @@ export const prepCoachHttp = {
       let turnId = "";
       let prefixFingerprint = "";
       let messageCount = 0;
+      let lastRequestId: string | undefined;
+      let lastLatencyMs: number | undefined;
       let usage: PrepUsageStats | null = null;
       await consumeSSE<PrepSSEEvent>(res, (event) => {
       touch();
@@ -214,6 +222,13 @@ export const prepCoachHttp = {
           prompt_tokens: Number(event.prompt_tokens) || 0,
           completion_tokens: Number(event.completion_tokens) || 0,
           cached_tokens: Number(event.cached_tokens) || 0,
+          ...(Number(event.reasoning_tokens) > 0 ? { reasoning_tokens: Number(event.reasoning_tokens) } : {}),
+          ...(Number(event.requests) > 0 ? { requests: Number(event.requests) } : {}),
+          ...(typeof event.last_request_id === "string" && event.last_request_id
+            ? { last_request_id: event.last_request_id }
+            : {}),
+          ...(Number(event.last_latency_ms) > 0 ? { last_latency_ms: Number(event.last_latency_ms) } : {}),
+          ...(typeof event.last_error === "string" && event.last_error ? { last_error: event.last_error } : {}),
         };
         onUsage?.(usage);
       } else if (event.type === "done") {
@@ -233,6 +248,9 @@ export const prepCoachHttp = {
         prefixFingerprint = typeof event.prefix_fingerprint === "string" ? event.prefix_fingerprint : "";
         // Backend-truth length: tool/trim rounds make client +2 reservations drift.
         messageCount = Number(event.message_count) || 0;
+        // Turn-level request diagnostics (present when the provider reported them).
+        if (typeof event.last_request_id === "string" && event.last_request_id) lastRequestId = event.last_request_id;
+        if (Number(event.last_latency_ms) > 0) lastLatencyMs = Number(event.last_latency_ms);
       } else if (event.type === "error") {
         // Backend error-event message is data — pass through; localize only when missing.
         // NOTE: res.status is 200 here by construction (headers preceded the
@@ -240,7 +258,21 @@ export const prepCoachHttp = {
         throw new ApiError(event.message || getTranslator("common")("stream.failed"), res.status);
       }
     }, touch);
-      return { token_usage: tokenUsage, prompt_tokens: promptTokens, completion_tokens: completionTokens, cached_tokens: cachedTokens, last_round_prompt_tokens: lastRoundPrompt, last_round_completion_tokens: lastRoundCompletion, prompt_tokens_estimated: promptEstimated, turn_id: turnId, prefix_fingerprint: prefixFingerprint, message_count: messageCount, usage };
+      return {
+        token_usage: tokenUsage,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        cached_tokens: cachedTokens,
+        last_round_prompt_tokens: lastRoundPrompt,
+        last_round_completion_tokens: lastRoundCompletion,
+        prompt_tokens_estimated: promptEstimated,
+        turn_id: turnId,
+        prefix_fingerprint: prefixFingerprint,
+        message_count: messageCount,
+        ...(lastRequestId !== undefined ? { last_request_id: lastRequestId } : {}),
+        ...(lastLatencyMs !== undefined ? { last_latency_ms: lastLatencyMs } : {}),
+        usage,
+      };
     } catch (err) {
       // A watchdog abort mid-stream rejects the reader with AbortError; convert
       // it so the caller does not mistake the stall for a user stop.

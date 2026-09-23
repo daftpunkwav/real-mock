@@ -171,3 +171,28 @@ export function resolveCompactParams(): ResolvedCompactParams {
     retain: readCompactRetain(),
   };
 }
+
+/** localStorage key for the long-term memory index width (entries injected
+ * into the session seed). Default 10; 0 injects every memory. */
+export const MEMORY_INDEX_LIMIT_KEY = "realmock_prep_memory_index_limit";
+
+/** Default memory-index entries injected into the seed. */
+export const MEMORY_INDEX_LIMIT_DEFAULT = 10;
+
+/** Read the memory-index width; 0 means "all memories". */
+export function readMemoryIndexLimit(): number {
+  const raw = readStored(MEMORY_INDEX_LIMIT_KEY);
+  if (raw === null) return MEMORY_INDEX_LIMIT_DEFAULT;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 500)
+    return MEMORY_INDEX_LIMIT_DEFAULT;
+  return parsed;
+}
+
+/** Persist the memory-index width (clamped to 0-500). */
+export function writeMemoryIndexLimit(value: number): void {
+  const parsed = Number(value);
+  const valid =
+    Number.isInteger(parsed) && parsed >= 0 ? Math.min(parsed, 500) : MEMORY_INDEX_LIMIT_DEFAULT;
+  writeStored(MEMORY_INDEX_LIMIT_KEY, String(valid));
+}

@@ -156,13 +156,16 @@ def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LI
             on the quoted tag, which is an exact-element match since tags
             persist as a JSON string array via :func:`clean_tags`, so deep
             history beyond any scan window is still reachable.
-        limit: Max rows returned, clamped to 1..MEMORY_LIST_MAX_LIMIT.
+        limit: Max rows returned. ``0`` (or negative) means the full scan
+            window ("all memories" — the session-seed index setting uses this).
+            Positive values clamp to 1..MEMORY_SCAN_LIMIT; the tool and HTTP
+            callers clamp themselves to MEMORY_LIST_MAX_LIMIT before calling.
 
     Returns:
         At most ``limit`` rows newest-first (tag path hits SQL directly;
         unfiltered path reads the newest MEMORY_SCAN_LIMIT scan window).
     """
-    limit = max(1, min(MEMORY_LIST_MAX_LIMIT, limit or MEMORY_LIST_DEFAULT_LIMIT))
+    limit = MEMORY_SCAN_LIMIT if limit <= 0 else min(limit, MEMORY_SCAN_LIMIT)
     if tag:
         # Tags persist as JSON arrays (e.g. '["a", "b"]'); the surrounding
         # double quotes give a strict element boundary, avoiding prefix hits.

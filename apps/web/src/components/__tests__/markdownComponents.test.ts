@@ -47,13 +47,21 @@ describe("table", () => {
     expect(classOf(table)).toContain("tabular-nums");
   });
 
-  it("lets long cell content wrap anywhere and stripes rows", () => {
+  it("wraps cell prose at word boundaries and stripes rows", () => {
     const td = markdownComponents.td as unknown as (p: WrapProps) => ReactNode;
-    expect(classOf(td({}))).toContain("[overflow-wrap:anywhere]");
+    // break-word (not anywhere): prose wraps normally, and inline code keeps
+    // whole identifiers ("resume_overview") intact — the table scrolls instead.
+    expect(classOf(td({}))).toContain("[overflow-wrap:break-word]");
+    expect(classOf(td({}))).not.toContain("[overflow-wrap:anywhere]");
     const tr = markdownComponents.tr as unknown as (p: WrapProps) => ReactNode;
     // Zebra keeps the faint fill; hover takes the deeper muted tone.
     expect(classOf(tr({}))).toContain("even:bg-surface-alt");
     expect(classOf(tr({}))).toContain("hover:bg-surface-muted");
+  });
+
+  it("keeps inline code from breaking mid-token", () => {
+    const el = renderCode({ children: "resume_overview" });
+    expect(classOf(el)).toContain("whitespace-nowrap");
   });
 
   it("renders a distinct header surface (not background-alt) for contrast", () => {

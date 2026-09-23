@@ -59,15 +59,17 @@ from .turn_tools import (
 
 logger = logging.getLogger(__name__)
 
-# Per-turn tool budget: 12 rounds x 3 tools (36 calls max). Chat turns are
+# Per-turn tool budget: 12 rounds x 6 tools (72 calls max). Chat turns are
 # interactive, so rounds stay well below the resume-review budget (18x4);
 # 12 rounds leave headroom for GitHub deep-dives (readme -> file -> commits)
 # while the loop's last-round wrap-up hint still forces a timely close.
-# Width stays at 3: wider parallel batches invite junk calls in chat context.
+# Width 6 lets the model batch a whole probe group (e.g. overview + two
+# sections + a search) in one round instead of spending three rounds nibbling;
+# the transient per-round budget line keeps the model aware of the cap.
 _MAX_TOOL_ROUNDS = 12
-_MAX_TOOLS_PER_ROUND = 3
+_MAX_TOOLS_PER_ROUND = 6
 # Whole-turn budget: bounds worker + DB-session hold time. Worst case without
-# it is 12 rounds x (an LLM call + up to 3x18s tools + compression) — tens of
+# it is 12 rounds x (an LLM call + up to 6x18s tools + compression) — tens of
 # minutes. On timeout the tool loop aborts and the caller falls back to a
 # closing answer.
 _TURN_TIMEOUT_SECONDS = 600.0
@@ -98,6 +100,9 @@ class PrepAgent:
         self.last_round_usage: dict[str, int] | None = None
         # Visible waiting-line locale (set on first turn; product default zh-CN).
         self.reply_locale = "zh-CN"
+        # Long-term memory index entries seeded into the system head (0 = all);
+        # settable per turn from the request (default keeps 10).
+        self.memory_index_limit: int | None = None
         self._load_messages()
         self.memory = WorkingMemory.load_from_messages(self.messages)
         # Mechanical prompt-size estimate of the latest turn's model input,
@@ -170,6 +175,7 @@ class PrepAgent:
                 db, resume_id=self.session.resume_id,
                 target_company=self.session.target_company or "",
                 linked_session_id=getattr(self.session, "linked_session_id", None),
+                memory_index_limit=self.memory_index_limit,
             )
         except Exception as exc:
             logger.warning(
@@ -458,6 +464,7 @@ class PrepAgent:
         context_session_ids: list[int] | None = None,
         compact_threshold: float | None = None,
         compact_options: CompactionOptions | None = None,
+        memory_index_limit: int | None = None,
     ) -> str:
         """Synchronous single-round reply (arrangement and storage in :mod:`chat`).
 
@@ -479,6 +486,7 @@ class PrepAgent:
             context_session_ids=context_session_ids,
             compact_threshold=compact_threshold,
             compact_options=compact_options,
+            memory_index_limit=memory_index_limit,
         )
 
     async def chat_stream(
@@ -487,6 +495,7 @@ class PrepAgent:
         context_session_ids: list[int] | None = None,
         compact_threshold: float | None = None,
         compact_options: CompactionOptions | None = None,
+        memory_index_limit: int | None = None,
     ) -> AsyncIterator[str | dict[str, Any]]:
         """Think-then-act tool loop (events pushed immediately) → then stream the final answer (orchestration in :mod:`chat`).
 
@@ -508,5 +517,6 @@ class PrepAgent:
             context_session_ids=context_session_ids,
             compact_threshold=compact_threshold,
             compact_options=compact_options,
+            memory_index_limit=memory_index_limit,
         ):
             yield item

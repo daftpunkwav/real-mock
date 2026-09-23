@@ -7932,12 +7932,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [
-                  "low",
-                  "medium",
-                  "high",
-                  "max"
-                ]
+                "pattern": "^[a-zA-Z0-9_\\-]{0,32}$"
               },
               {
                 "type": "null"
@@ -10296,13 +10291,26 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^(low|medium|high|max)$"
+                "pattern": "^[a-zA-Z0-9_\\-]{1,32}$"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Reasoning Effort"
+          },
+          "memory_index_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 500.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Index Limit"
           },
           "drop_last_assistant": {
             "type": "boolean",

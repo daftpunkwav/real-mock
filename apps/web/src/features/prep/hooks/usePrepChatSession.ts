@@ -336,21 +336,36 @@ export function usePrepChatSession({
   const mergeUsage = useCallback((u: PrepUsageStats) => {
     // Backend `usage` events carry per-turn DELTAS: add them into the session
     // totals. Session switches reseed from the summary columns instead.
+    // Token counts accumulate; request diagnostics are latest-wins.
     setUsage((prev) => ({
       prompt_tokens: (prev?.prompt_tokens ?? 0) + u.prompt_tokens,
       completion_tokens: (prev?.completion_tokens ?? 0) + u.completion_tokens,
       cached_tokens: (prev?.cached_tokens ?? 0) + u.cached_tokens,
+      reasoning_tokens: (prev?.reasoning_tokens ?? 0) + (u.reasoning_tokens ?? 0),
+      ...(u.requests !== undefined || prev?.requests !== undefined
+        ? { requests: (prev?.requests ?? 0) + (u.requests ?? 0) }
+        : {}),
+      ...(u.last_request_id !== undefined ? { last_request_id: u.last_request_id } : {}),
+      ...(u.last_latency_ms !== undefined ? { last_latency_ms: u.last_latency_ms } : {}),
+      ...(u.last_error !== undefined ? { last_error: u.last_error } : {}),
     }));
   }, []);
 
   const syncUsage = useCallback((u: PrepUsageStats) => {
     // Server-truth overwrite from the stream `done` envelope: heals drift from
     // missed deltas or background turns finalized while away.
-    setUsage({
+    setUsage((prev) => ({
       prompt_tokens: u.prompt_tokens,
       completion_tokens: u.completion_tokens,
       cached_tokens: u.cached_tokens,
-    });
+      reasoning_tokens: u.reasoning_tokens ?? prev?.reasoning_tokens ?? 0,
+      ...(u.requests !== undefined || prev?.requests !== undefined
+        ? { requests: u.requests ?? prev?.requests ?? 0 }
+        : {}),
+      ...(u.last_request_id !== undefined ? { last_request_id: u.last_request_id } : prev?.last_request_id !== undefined ? { last_request_id: prev.last_request_id } : {}),
+      ...(u.last_latency_ms !== undefined ? { last_latency_ms: u.last_latency_ms } : prev?.last_latency_ms !== undefined ? { last_latency_ms: prev.last_latency_ms } : {}),
+      ...(u.last_error !== undefined ? { last_error: u.last_error } : prev?.last_error !== undefined ? { last_error: prev.last_error } : {}),
+    }));
   }, []);
 
   return {

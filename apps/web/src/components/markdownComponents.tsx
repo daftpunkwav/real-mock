@@ -56,7 +56,10 @@ export const markdownComponents: Components = {
       return <CodeBlock text={text.replace(/\n$/, "")} />;
     }
     return (
-      <code className="rounded border border-surface-border bg-surface-muted px-1 py-0.5 font-mono text-[0.85em] text-ink">
+      // Identifiers must not break mid-token even inside narrow table cells
+      // ([overflow-wrap:anywhere] would otherwise split "resume_overview");
+      // the table wrapper scrolls horizontally instead.
+      <code className="whitespace-nowrap rounded border border-surface-border bg-surface-muted px-1 py-0.5 font-mono text-[0.85em] text-ink">
         {children}
       </code>
     );
@@ -111,7 +114,9 @@ export const markdownComponents: Components = {
     </th>
   ),
   td: ({ children }) => (
-    <td className="min-w-0 px-3 py-2 align-top leading-relaxed text-ink-muted [overflow-wrap:anywhere]">
+    // break-word (not anywhere): long prose wraps at word boundaries, while
+    // identifiers break only as a last resort instead of mid-token greedily.
+    <td className="min-w-0 px-3 py-2 align-top leading-relaxed text-ink-muted [overflow-wrap:break-word]">
       {children}
     </td>
   ),

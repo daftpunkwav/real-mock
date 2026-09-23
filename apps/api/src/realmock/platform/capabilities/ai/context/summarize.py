@@ -16,6 +16,7 @@ trailing last; volatile content never enters the prefix.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -51,8 +52,11 @@ _SUMMARY_SNIPPETS_PER_CHUNK = 60
 #: Upper bound on chained summarizer calls per compaction; beyond this the
 #: earliest remainder folds into an explicit counted marker (visible, not silent).
 _MAX_SUMMARY_CHUNKS = 6
-#: Per-message snippet clip (characters) for the summarizer input.
+#: Per-message snippet clip (characters) for the summarizer input. Tool
+#: observations carry the densest facts (numbers, links, errors), so they get
+#: a much larger budget than prose — the minutes must not lose them.
 _SNIPPET_CLIP_CHARS = 200
+_TOOL_SNIPPET_CLIP_CHARS = 1200
 #: Cooldown: skip the automatic gate while fewer than this many fresh
 #: non-system messages arrived since the last summary (refolding a barely
 #: grown history rewrites the record every turn for ~zero gain). Manual
@@ -209,10 +213,70 @@ def _transcript_lines(omitted: list[dict[str, Any]]) -> list[str]:
             snippet = f"{snippet} [+{images} image(s)]"
         if not snippet:
             continue
-        if len(snippet) > _SNIPPET_CLIP_CHARS:
-            snippet = snippet[: _SNIPPET_CLIP_CHARS - 1] + "…"
+        clip = (
+            _TOOL_SNIPPET_CLIP_CHARS if m.get("role") == "tool" else _SNIPPET_CLIP_CHARS
+        )
+        if len(snippet) > clip:
+            snippet = snippet[: clip - 1] + "…"
         lines.append(f"{m.get('role')}: {snippet}")
     return lines
+
+
+# URL extractor for the deterministic tool ledger (citations survive folding).
+_URL_RE = re.compile(r"https?://[^\s)\"'>\]]+")
+
+
+def format_tool_ledger(
+    omitted: list[dict[str, Any]],
+    *,
+    max_entries: int = 30,
+    result_chars: int = 220,
+    args_chars: int = 120,
+    max_urls: int = 20,
+) -> str:
+    """Deterministic register of folded tool calls (names, args, result heads, URLs).
+
+    LLM minutes compress; facts paraphrase away. The ledger keeps one line per
+    folded tool observation verbatim-abridged plus every referenced URL, so a
+    later turn can still see what was executed and where it came from without
+    recovering the full history.
+    """
+    calls: dict[str, tuple[str, str]] = {}
+    for m in omitted:
+        for tc in m.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            fn = tc.get("function") or {}
+            if isinstance(fn, dict):
+                calls[str(tc.get("id") or "")] = (
+                    str(fn.get("name") or "tool"),
+                    str(fn.get("arguments") or ""),
+                )
+    lines: list[str] = []
+    urls: list[str] = []
+    seen_urls: set[str] = set()
+    for m in omitted:
+        if m.get("role") != "tool":
+            continue
+        name, raw_args = calls.get(str(m.get("tool_call_id") or ""), ("tool", ""))
+        result = _plain_text(m.get("content")).replace("\n", " ").strip()
+        if not result:
+            continue
+        for url in _URL_RE.findall(result):
+            if url not in seen_urls:
+                seen_urls.add(url)
+                urls.append(url)
+        args_head = raw_args.replace("\n", " ").strip()[:args_chars]
+        result_head = result[:result_chars] + ("…" if len(result) > result_chars else "")
+        lines.append(f"- {name}({args_head}) -> {result_head}")
+    if not lines and not urls:
+        return ""
+    if len(lines) > max_entries:
+        lines = ["- …(older entries omitted)…", *lines[-max_entries:]]
+    section = "Tool call ledger (folded turns; results abridged):\n" + "\n".join(lines)
+    if urls:
+        section += "\nReferenced URLs:\n" + "\n".join(urls[:max_urls])
+    return section
 
 
 async def _summarize_transcript(
@@ -453,11 +517,14 @@ async def compact_with_summary(
             logger.warning("LLM session record failed, rollback rule summary: %s", e)
             summary_text = ""
 
+    ledger = format_tool_ledger(omitted)
+
     if summary_text:
         kept_system = _without_prior_summaries(system)
         # Draft with a placeholder trailer first so the recorded delta is
         # honest, then stamp the real trailer (same shape, negligible drift).
-        draft_block = {"role": "system", "content": f"{COMPACTION_SUMMARY_MARKER} {summary_text}\n{_PROVENANCE_MARKER} v=1]"}
+        minutes_body = summary_text + (f"\n\n{ledger}" if ledger else "")
+        draft_block = {"role": "system", "content": f"{COMPACTION_SUMMARY_MARKER} {minutes_body}\n{_PROVENANCE_MARKER} v=1]"}
         after_est = estimate_messages_tokens(kept_system + [draft_block] + trimmed)
         if not force and after_est >= before_est:
             # Folding a tiny history costs a summary block plus suffixes while
@@ -474,7 +541,7 @@ async def compact_with_summary(
             base=len(trimmed),
         )
         return kept_system + [
-            {"role": "system", "content": f"{COMPACTION_SUMMARY_MARKER} {summary_text}\n{trailer}"}
+            {"role": "system", "content": f"{COMPACTION_SUMMARY_MARKER} {minutes_body}\n{trailer}"}
         ] + trimmed
 
     digest = _omitted_digest(omitted)
@@ -484,6 +551,8 @@ async def compact_with_summary(
     )
     if digest:
         body += "\nSummary:\n" + digest
+    if ledger:
+        body += "\n\n" + ledger
     # Rule fallback does not chain prior records into the new note, so older
     # summary-like blocks stay (unlike the LLM path above, which supersedes
     # after folding the previous record in). The trailer still records the

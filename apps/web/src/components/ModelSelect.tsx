@@ -19,6 +19,23 @@ export const EFFORT_OPTIONS: {
   { value: "max", labelKey: "model.effort.max" },
 ];
 
+/** Custom thinking levels declared on the model (extras.reasoning.variants);
+ * labels outside the default scale are passed verbatim to the provider. */
+export function modelEffortOptions(model: ModelProfile | null): ReasoningEffort[] {
+  const reasoning = model?.extras?.reasoning;
+  if (typeof reasoning === "object" && reasoning !== null && !Array.isArray(reasoning)) {
+    const raw = (reasoning as Record<string, unknown>).variants;
+    if (Array.isArray(raw)) {
+      const cleaned = raw
+        .map((v) => String(v).trim())
+        .filter((v) => v.length > 0)
+        .slice(0, 8);
+      if (cleaned.length > 0) return cleaned;
+    }
+  }
+  return EFFORT_OPTIONS.map((o) => o.value);
+}
+
 /** Model select (value=profile id; null=follow default handler binding, shown as a normal selected item) */
 export const ModelSelect = memo(function ModelSelect({
   models,
@@ -84,6 +101,11 @@ export const EffortSelect = memo(function EffortSelect({
 }) {
   const t = useT("common");
   if (!forceVisible && !model?.capabilities.reasoning) return null;
+  // Model-declared custom levels win; default four-level scale otherwise.
+  const options = modelEffortOptions(model).map((value) => {
+    const known = EFFORT_OPTIONS.find((o) => o.value === value);
+    return { value, label: known ? t(known.labelKey) : value };
+  });
   return (
     <div className="flex w-full items-center gap-1.5">
       {!hideIcon && <Brain size={14} className="shrink-0 text-ink-subtle" />}
@@ -91,7 +113,7 @@ export const EffortSelect = memo(function EffortSelect({
         className={`w-auto flex-1 !py-0 text-[12px] ${className ?? ""}`}
         ariaLabel={t("model.effort.aria")}
         value={value}
-        options={EFFORT_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+        options={options}
         onChange={onChange}
         disabled={disabled}
       />

@@ -22,7 +22,12 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import { prepCoachHttp as api } from "@/lib/api/clients";
 import { getTranslator } from "@/i18n/resolve";
-import { readCompactThreshold, resolveCompactParams, toCompactThresholdParam } from "@/lib/compactThreshold";
+import {
+  readCompactThreshold,
+  readMemoryIndexLimit,
+  resolveCompactParams,
+  toCompactThresholdParam,
+} from "@/lib/compactThreshold";
 import type { AskUserDialog, ModelProfile, PrepUsageStats, ReasoningEffort } from "@/types";
 import { resolveSelectedModel } from "../modelChoice";
 import { appendTraceThinking, appendTraceTool } from "../history";
@@ -322,6 +327,7 @@ export function usePrepSend(opts: {
         // Auto-compact trigger follows the prep settings choice (read fresh
         // per turn so a settings change applies without reload).
         compactThreshold: toCompactThresholdParam(readCompactThreshold()),
+        memoryIndexLimit: readMemoryIndexLimit(),
         compactIntensity: params.intensity,
         compactDirective: params.directive || undefined,
         compactRetain: params.retain,
@@ -338,6 +344,8 @@ export function usePrepSend(opts: {
             prompt_tokens: result.prompt_tokens,
             completion_tokens: result.completion_tokens,
             cached_tokens: result.cached_tokens,
+            last_request_id: result.last_request_id,
+            last_latency_ms: result.last_latency_ms,
           });
         }
         // Last LLM call provider truth: the ring's real context occupancy.

@@ -216,23 +216,43 @@ def _callback(run_named_tool, **kwargs):
     )
 
 
-async def test_execute_timeout_reports_search_unavailable(
+def _stub_registry_timeouts(monkeypatch: pytest.MonkeyPatch, seconds: float) -> None:
+    """Point every registry timeout lookup at a stub spec with the given value."""
+    from types import SimpleNamespace
+
+    import realmock.domains.prep.agents.tool_exec as tool_exec
+
+    monkeypatch.setattr(
+        tool_exec, "TOOL_REGISTRY",
+        {"web_search": SimpleNamespace(timeout_seconds=seconds)},
+    )
+
+
+async def test_execute_timeout_reports_tool_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A timed-out call auto-retries twice, then reports a structured tool_timeout."""
+    calls = 0
+
     async def slow(name, args, db):
+        nonlocal calls
+        calls += 1
         await asyncio.sleep(5)
         return "late", []
 
     import realmock.domains.prep.agents.tool_exec as tool_exec
 
-    monkeypatch.setattr(tool_exec, "_TOOL_TIMEOUT_SEC", 0.05)
+    _stub_registry_timeouts(monkeypatch, 0.05)
     execute = _callback(slow)
     out = await execute("web_search", {"query": "slow q"})
-    assert "SEARCH_UNAVAILABLE" in out
-    assert "Do not invent results" in out
+    # The transient timeout got the full automatic-retry treatment first.
+    assert calls == 1 + tool_exec._TOOL_RETRY_ATTEMPTS
+    assert "tool_timeout" in out
+    assert "exceeded its" in out
 
 
 async def test_execute_search_failure_appends_constraint_and_allows_retry() -> None:
+    """Retrieval outages auto-retry; failed calls stay uncached for real retries."""
     calls = 0
 
     async def flaky(name, args, db):
@@ -243,13 +263,14 @@ async def test_execute_search_failure_appends_constraint_and_allows_retry() -> N
     execute = _callback(flaky)
     first = await execute("web_search", {"query": "q"})
     assert "[System constraint] Retrieval failed." in first
-    # Failed calls are not cached: the same args run again instead of deduping.
     second = await execute("web_search", {"query": "q"})
     assert "Duplicate call skipped" not in second
-    assert calls == 2
+    # Each execute burns 1 + automatic retries; two executes = 6 runs.
+    assert calls == 2 * (1 + 2)
 
 
 async def test_execute_circuit_opens_after_three_consecutive_failures() -> None:
+    """The streak counts execute() outcomes; retries collapse into one tally."""
     calls = 0
 
     async def always_down(name, args, db):
@@ -261,33 +282,34 @@ async def test_execute_circuit_opens_after_three_consecutive_failures() -> None:
     for i in range(3):
         out = await execute("web_search", {"query": f"q{i}"})
         assert "circuit_open" not in out
-    assert calls == 3
+        assert f'"breaker": "{i + 1}/3"' in out, "failures must expose the tally"
+    assert calls == 3 * (1 + 2)
     # Fourth call is refused without spending another tool call.
     blocked = await execute("web_search", {"query": "q3"})
     assert "circuit_open" in blocked
-    assert calls == 3
+    assert calls == 3 * (1 + 2)
 
 
 async def test_execute_success_resets_error_streak() -> None:
+    """A recovered call (auto-retry success) clears the breaker streak."""
     calls = 0
 
     async def flaky_then_ok(name, args, db):
         nonlocal calls
         calls += 1
-        if calls <= 2:
+        if calls == 1:
             return "SEARCH_UNAVAILABLE\nbackend down", []
         return "ok result", []
 
     execute = _callback(flaky_then_ok)
-    await execute("web_search", {"query": "q0"})
-    await execute("web_search", {"query": "q1"})
-    assert "ok result" in await execute("web_search", {"query": "q2"})
-    # Streak was reset by the success: three more failures needed to trip.
+    # First execute: attempt 1 fails, attempt 2 (auto-retry) succeeds.
+    assert "ok result" in await execute("web_search", {"query": "q0"})
+    assert "ok result" in await execute("web_search", {"query": "q1"})
+    # Streak was reset by the recovery: three more full failures needed to trip.
+    await execute("web_search", {"query": "q2"})
     await execute("web_search", {"query": "q3"})
-    await execute("web_search", {"query": "q4"})
-    out = await execute("web_search", {"query": "q5"})
+    out = await execute("web_search", {"query": "q4"})
     assert "circuit_open" not in out
-    assert calls == 6
 
 
 async def test_execute_unexpected_exception_returns_json_and_logs(
@@ -325,14 +347,14 @@ async def test_execute_timeout_is_logged(
 
     import realmock.domains.prep.agents.tool_exec as tool_exec
 
-    monkeypatch.setattr(tool_exec, "_TOOL_TIMEOUT_SEC", 0.05)
+    _stub_registry_timeouts(monkeypatch, 0.05)
     monkeypatch.setattr(
         tool_exec, "log_agent_error",
         lambda **kw: records.append(kw),
     )
     execute = _callback(slow, error_context={"domain": "prep", "session": "9"})
     out = await execute("web_search", {"query": "slow q"})
-    assert "SEARCH_UNAVAILABLE" in out
+    assert "tool_timeout" in out
     assert records and records[0]["kind"] == "timeout"
     assert records[0]["tool"] == "web_search"
 
@@ -341,9 +363,9 @@ def test_tool_round_policy_constants() -> None:
     import realmock.domains.prep.agents.agent as prep_agent
     import realmock.domains.prep.agents.tool_exec as tool_exec
 
-    # Per-turn budget 12 rounds x 3 tools; breaker trips on 3 straight failures.
+    # Per-turn budget 12 rounds x 6 tools; breaker trips on 3 straight failures.
     assert prep_agent._MAX_TOOL_ROUNDS == 12
-    assert prep_agent._MAX_TOOLS_PER_ROUND == 3
+    assert prep_agent._MAX_TOOLS_PER_ROUND == 6
     assert tool_exec._TOOL_CIRCUIT_BREAKER_STREAK == 3
 
 
@@ -653,17 +675,14 @@ async def test_timeout_observation_carries_structured_code(
         await asyncio.sleep(5)
         return "late", []
 
-    import realmock.domains.prep.agents.tool_exec as tool_exec
-
-    monkeypatch.setattr(tool_exec, "_TOOL_TIMEOUT_SEC", 0.05)
+    _stub_registry_timeouts(monkeypatch, 0.05)
     execute = _callback(slow)
     out = await execute("web_search", {"query": "slow q"})
-    # Legacy marker stays for older prompts; the structured code is authoritative.
-    assert "SEARCH_UNAVAILABLE" in out
-    assert tool_exec.RETRIEVAL_ERROR_CODE in out
     line = next(text for text in out.splitlines() if text.startswith("{"))
     payload = json.loads(line)
-    assert payload["error"] == tool_exec.RETRIEVAL_ERROR_CODE
+    assert payload["error"] == "tool_timeout"
+    assert payload["consecutive_failures"] == 1
+    assert payload["breaker"] == "1/3"
 
 
 def test_definitions_cover_registry() -> None:
@@ -845,3 +864,25 @@ def test_message_request_context_refs_bounded() -> None:
     assert PrepMessageRequest(content="hi").context_session_ids is None
     with pytest.raises(pydantic.ValidationError):
         PrepMessageRequest(content="hi", context_session_ids=[1, 2, 3, 4, 5, 6])
+
+
+def test_resolve_timeout_clamps_override_and_falls_back() -> None:
+    """Model-supplied timeout_seconds clamps to 5-180; otherwise the spec
+    default (or the control-tool/fallback values) applies."""
+    from realmock.domains.prep.agents.tool_exec import (
+        _CONTROL_TOOL_TIMEOUTS,
+        _TOOL_TIMEOUT_SEC,
+        _resolve_timeout,
+    )
+
+    # Overrides clamp into the 5-180 window from both sides.
+    assert _resolve_timeout("web_search", {"timeout_seconds": 10_000}) == 180.0
+    assert _resolve_timeout("web_search", {"timeout_seconds": 0.5}) == 5.0
+    # Non-positive / non-numeric overrides are ignored, not clamped.
+    spec_default = _resolve_timeout("web_search", {})
+    assert _resolve_timeout("web_search", {"timeout_seconds": -3}) == spec_default
+    assert _resolve_timeout("web_search", {"timeout_seconds": "soon"}) == spec_default
+    assert spec_default == 25.0  # registry-declared web_search default
+    # Registry-less control tools and unknown names use their fallbacks.
+    assert _resolve_timeout("ask_user", {}) == _CONTROL_TOOL_TIMEOUTS["ask_user"]
+    assert _resolve_timeout("no_such_tool", {}) == _TOOL_TIMEOUT_SEC
