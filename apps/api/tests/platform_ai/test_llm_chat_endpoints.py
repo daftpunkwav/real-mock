@@ -105,6 +105,21 @@ async def test_test_connection_http_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_test_connection_business_error_body_is_failure() -> None:
+    """MiniMax HTTP-200 base_resp error body must not read as a successful probe."""
+    client = _client()
+    http = AsyncMock()
+    resp = MagicMock(spec=httpx.Response)
+    resp.raise_for_status = MagicMock()
+    resp.json.return_value = {"base_resp": {"status_code": 1004, "status_msg": "invalid api key"}}
+    http.post = AsyncMock(return_value=resp)
+    with patch.object(ce_mod, "make_pinned_async_client", return_value=_pinned(http)):
+        ok, text = await ce_mod.test_connection(client)
+    assert ok is False
+    assert "invalid api key" in text
+
+
+@pytest.mark.asyncio
 async def test_test_connection_generic_error() -> None:
     client = _client()
     http = AsyncMock()

@@ -119,6 +119,12 @@ async def test_connection(client: "UnifiedLLMClient") -> tuple[bool, str]:
             )
             resp.raise_for_status()
             data = resp.json()
+            # Business failure in an HTTP-success body (MiniMax base_resp
+            # convention) must read as a failed probe, matching the LLMClient
+            # path where the same body raises out of chat().
+            business_error = provider_business_error(data, client.protocol)
+            if business_error:
+                return False, business_error
             text = extract_text(data, client.protocol)
             return True, text[:100]
         except httpx.HTTPStatusError as e:
