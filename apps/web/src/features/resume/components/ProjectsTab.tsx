@@ -8,6 +8,7 @@
 import { ExternalLink, Github, Star } from "lucide-react";
 import type { ResumeAnalysis, RepoEvidence, RepoVerification } from "../types";
 import { normalizeCnPunctuation } from "@/lib/cnText";
+import { safeAbsoluteHttpUrl } from "@/components/markdownSafeUrl";
 import { useT } from "@/i18n";
 import { ProjectCards } from "./ProjectCards";
 import { EvalNumberedStack } from "./EvalNumberedStack";
@@ -25,8 +26,11 @@ function RepoEvidenceCards({ items }: { items: RepoEvidence[] }) {
           <div key={i} className="surface-card !bg-surface-alt p-3.5 text-[12px] leading-relaxed">
             <div className="mb-1.5 flex items-center gap-2">
               <Github size={13} className="shrink-0 text-ink-subtle" />
+              {/* repo_evidence.url is model-emitted: only absolute http(s)
+                  URLs may become links (render-boundary guard mirroring the
+                  backend normalize allowlist). */}
               <a
-                href={ev.url || undefined}
+                href={safeAbsoluteHttpUrl(ev.url) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-w-0 flex-1 truncate font-mono text-[12px] font-semibold text-[var(--primary)] hover:underline"
