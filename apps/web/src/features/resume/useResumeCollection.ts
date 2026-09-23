@@ -4,6 +4,8 @@
  *
  * Responsibilities:
  * - Load the list with AbortSignal (cancel stale loads on retry/unmount)
+ * - Poll while any row is still parsing (parse_status="pending") so the UI
+ *   converges without a manual refresh; stops when visible or after a budget
  * - Pick a stable preview id (keep current → active → first)
  * - Expose the selected row and its narrowed analysis
  * - Support silent reloads after mutations (no page-level spinner; keep the list on failure)
@@ -26,12 +28,23 @@ export type ResumeLoadOptions = {
   silent?: boolean;
 };
 
-export function useResumeCollection() {
+/** Poll cadence while at least one row is parsing. */
+const PARSE_POLL_INTERVAL_MS = 4_000;
+/** Hard stop for polling (~20 min); a manual refresh re-arms it. */
+const PARSE_POLL_MAX_MS = 20 * 60_000;
+
+export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => void) {
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [previewId, setPreviewId] = useState<number | null>(null);
   const loadAbortRef = useRef<AbortController | null>(null);
+  // Guards: only one poll request in flight; poller state readable in timers.
+  const pollInFlightRef = useRef(false);
+  const pollStartRef = useRef<number>(0);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settledRef = useRef(onParseSettled);
+  settledRef.current = onParseSettled;
 
   const load = (options?: ResumeLoadOptions) => {
     const silent = options?.silent === true;
@@ -49,6 +62,7 @@ export function useResumeCollection() {
         const next = normalizeResumeList(list);
         setResumes(next);
         setPreviewId((prev) => pickPreviewId(next, prev));
+        settledRef.current?.(next);
       })
       .catch((e) => {
         if (controller.signal.aborted || isRequestAborted(e)) return;
@@ -66,6 +80,62 @@ export function useResumeCollection() {
     load();
     return () => loadAbortRef.current?.abort();
   }, []);
+
+  // Background-parse polling: one silent reload every PARSE_POLL_INTERVAL_MS
+  // while any row is pending; a hidden tab and poll failures both just skip a
+  // tick. `hasPending` re-runs the effect, so the timer self-cleans when the
+  // last row settles; the budget only resets once nothing is pending anymore.
+  const hasPending = resumes.some((row) => row.parse_status === "pending");
+  const hasPendingRef = useRef(hasPending);
+  hasPendingRef.current = hasPending;
+
+  useEffect(() => {
+    if (!hasPending) {
+      pollStartRef.current = 0;
+      return;
+    }
+    if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+
+    const schedule = () => {
+      if (pollTimerRef.current) return;
+      if (!hasPendingRef.current) return;
+      if (Date.now() - pollStartRef.current > PARSE_POLL_MAX_MS) return;
+      pollTimerRef.current = setTimeout(tick, PARSE_POLL_INTERVAL_MS);
+    };
+
+    const tick = async () => {
+      pollTimerRef.current = null;
+      if (typeof document !== "undefined" && document.hidden) {
+        schedule();
+        return;
+      }
+      if (pollInFlightRef.current) {
+        schedule();
+        return;
+      }
+      pollInFlightRef.current = true;
+      try {
+        const list = await api.listResumes();
+        const next = normalizeResumeList(list);
+        setResumes(next);
+        setPreviewId((prev) => pickPreviewId(next, prev));
+        settledRef.current?.(next);
+      } catch {
+        // Transient poll failure: keep the current list, the next tick retries.
+      } finally {
+        pollInFlightRef.current = false;
+      }
+      schedule();
+    };
+
+    pollTimerRef.current = setTimeout(tick, PARSE_POLL_INTERVAL_MS);
+    return () => {
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [hasPending]);
 
   const previewResume = useMemo(
     () => resumes.find((row) => row.id === previewId) ?? null,

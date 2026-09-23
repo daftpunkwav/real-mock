@@ -21,6 +21,7 @@ interface ResumeListProps {
   onAnalyze: (id: number) => void;
   onDelete: (id: number) => void;
   onUploadVersion: (id: number, file: File) => void;
+  onRetryParse: (id: number) => void;
 }
 
 export function ResumeList({
@@ -33,6 +34,7 @@ export function ResumeList({
   onAnalyze,
   onDelete,
   onUploadVersion,
+  onRetryParse,
 }: ResumeListProps) {
   const t = useT("resume");
   const groups = groupResumeFamilies(resumes);
@@ -64,6 +66,7 @@ export function ResumeList({
               onAnalyze={onAnalyze}
               onDelete={onDelete}
               onUploadVersion={onUploadVersion}
+              onRetryParse={onRetryParse}
             />
           ))}
         </ul>

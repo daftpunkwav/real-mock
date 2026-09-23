@@ -33,6 +33,7 @@ afterEach(() => {
 const toastSuccess = vi.hoisted(() => vi.fn());
 const toastError = vi.hoisted(() => vi.fn());
 const toastInfo = vi.hoisted(() => vi.fn());
+const toastWarning = vi.hoisted(() => vi.fn());
 const toastClear = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/clients", () => ({
@@ -40,6 +41,7 @@ vi.mock("@/lib/api/clients", () => ({
     listResumes: vi.fn(),
     uploadResume: vi.fn(),
     uploadVersion: vi.fn(),
+    retryResumeParse: vi.fn(),
     analyzeResume: vi.fn(),
     analyzeResumeStream: vi.fn(),
     activateResume: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/components/Toast", () => ({
     success: toastSuccess,
     error: toastError,
     info: toastInfo,
+    warning: toastWarning,
     clear: toastClear,
   },
 }));
@@ -101,26 +104,33 @@ describe("useResumeList", () => {
       await result.current.handleUpload(asUploadEvent(pdf()));
     });
     expect(uploadMock).toHaveBeenCalled();
-    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploaded"]);
+    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploadQueued"]);
     expect(toastError).not.toHaveBeenCalled();
     expect(listMock).toHaveBeenCalledTimes(2);
   });
 
-  it("toasts uploadedFallback when structured parse is degraded", async () => {
-    uploadMock.mockResolvedValue(
-      makeResumeResponse({
-        parsed_profile: {
-          ...row.parsed_profile,
-          parse_degraded: true,
-        },
-      }),
-    );
+  it("toasts parseFailed once the poller observes a failed row", async () => {
+    uploadMock.mockResolvedValue(row);
+    const failedRow = makeResumeResponse({ id: 9, parse_status: "failed", parse_error: "A1006" });
     const { result } = await renderLoaded();
+
     await act(async () => {
       await result.current.handleUpload(asUploadEvent(pdf()));
     });
-    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploadedFallback"]);
-    expect(toastSuccess).not.toHaveBeenCalledWith(enResume["toast.uploaded"]);
+    toastError.mockClear();
+
+    // Simulate a poll reload returning a row that settled as failed.
+    await act(async () => {
+      listMock.mockResolvedValueOnce([row, failedRow]);
+      await result.current.load({ silent: true });
+    });
+    expect(toastError).toHaveBeenCalledWith(enResume["toast.parseFailed"], { durationMs: 8_000 });
+
+    // Reporting fires once per row, not once per reload.
+    await act(async () => {
+      await result.current.load({ silent: true });
+    });
+    expect(toastError).toHaveBeenCalledTimes(1);
   });
 
   it("blocks analyze beyond the catalog parallel cap", async () => {
@@ -184,7 +194,7 @@ describe("useResumeList", () => {
       await finished;
     });
     expect(result.current.loading).toBe(false);
-    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploaded"]);
+    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploadQueued"]);
   });
 
   it("keeps the list and toasts listRefreshFailed when silent reload fails", async () => {
@@ -266,7 +276,7 @@ describe("useResumeList", () => {
       await result.current.handleUploadVersion(7, pdf());
     });
     expect(uploadVersionMock).toHaveBeenCalled();
-    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploaded"]);
+    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.uploadQueued"]);
     expect(listMock).toHaveBeenCalledTimes(2);
   });
 });

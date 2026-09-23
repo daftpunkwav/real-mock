@@ -67,9 +67,10 @@ export function useResumeMutations({ resumes, load, setPreviewId }: ResumeMutati
     setUploadError("");
     try {
       const uploaded = await api.uploadResume(file);
-      await toastSaved(
-        uploaded.parsed_profile.parse_degraded ? t("toast.uploadedFallback") : t("toast.uploaded"),
-      );
+      // Parsing is asynchronous: the row lands as pending and the poller in
+      // useResumeCollection reports the settled (degraded/failed) state.
+      await toastSaved(t("toast.uploadQueued"));
+      if (uploaded.parse_status === "pending") setPreviewId(uploaded.id);
     } catch (err) {
       setUploadError(toUserMessage(err, t("toast.uploadFailed")));
     } finally {
@@ -98,13 +99,21 @@ export function useResumeMutations({ resumes, load, setPreviewId }: ResumeMutati
     try {
       const uploaded = await api.uploadVersion(anchorId, file);
       setPreviewId(uploaded.id);
-      await toastSaved(
-        uploaded.parsed_profile.parse_degraded ? t("toast.uploadedFallback") : t("toast.uploaded"),
-      );
+      await toastSaved(t("toast.uploadQueued"));
     } catch (err) {
       setUploadError(toUserMessage(err, t("toast.uploadFailed")));
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleRetryParse = async (id: number) => {
+    const t = getTranslator("resume");
+    try {
+      await api.retryResumeParse(id);
+      await refreshAfterMutation();
+    } catch (err) {
+      toast.error(toUserMessage(err, t("toast.parseRetryFailed")));
     }
   };
 
@@ -140,5 +149,6 @@ export function useResumeMutations({ resumes, load, setPreviewId }: ResumeMutati
     handleAnalyze: analyze.handleAnalyze,
     handleActivate,
     handleDelete,
+    handleRetryParse,
   };
 }

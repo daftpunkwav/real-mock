@@ -4,6 +4,7 @@
  *
  * Responsibilities:
  * - Wire useResumeCollection + useResumeMutations
+ * - Report settled background parses (degraded / failed) via toast
  * - Expose a stable API for the resume page
  *
  * Must not render UI; page components consume the returned API.
@@ -12,11 +13,39 @@
 
 "use client";
 
+import { useRef } from "react";
+import { toast } from "@/components/Toast";
+import { getTranslator } from "@/i18n/resolve";
 import { useResumeCollection } from "./useResumeCollection";
 import { useResumeMutations } from "./useResumeMutations";
+import type { ResumeItem } from "./resumeNormalize";
 
 export function useResumeList() {
-  const collection = useResumeCollection();
+  // Tracks which pending rows have already been reported so a settled row is
+  // toasted exactly once (poll reloads and manual reloads both pass here).
+  const reportedRef = useRef<Set<number>>(new Set());
+
+  const onParseSettled = (rows: ResumeItem[]) => {
+    const t = getTranslator("resume");
+    for (const row of rows) {
+      if (row.parse_status === "pending") {
+        reportedRef.current.delete(row.id);
+        continue;
+      }
+      if (reportedRef.current.has(row.id)) continue;
+      if (row.parse_status === "failed") {
+        reportedRef.current.add(row.id);
+        toast.error(t("toast.parseFailed"), { durationMs: 8_000 });
+      } else if (row.parse_status === "done" && row.parsed_profile.parse_degraded) {
+        // Only rows that actually went through the pending window get the
+        // degraded toast; rows already done on first load never registered.
+        reportedRef.current.add(row.id);
+        toast.warning(t("toast.uploadedFallback"), { durationMs: 6_000 });
+      }
+    }
+  };
+
+  const collection = useResumeCollection(onParseSettled);
   const mutations = useResumeMutations({
     resumes: collection.resumes,
     load: collection.load,

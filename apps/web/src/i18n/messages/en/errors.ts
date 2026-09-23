@@ -50,6 +50,10 @@ export const errors = {
   "A1007.hint": "Deep review runs at most 3 resumes in parallel; wait for one to finish",
   "A1008": "This resume already has {max} versions",
   "A1008.hint": "Delete an older version or upload it as a new resume",
+  "A1009": "This resume is already being parsed",
+  "A1009.hint": "Wait for parsing to finish; the list page updates automatically",
+  "B1002": "Resume parsing was interrupted by a restart",
+  "B1002.hint": "Click retry to parse this resume again",
   // A2 interview
   "A2001": "Interview session not found",
   "A2001.hint": "The session may have expired or been deleted; create a new interview",

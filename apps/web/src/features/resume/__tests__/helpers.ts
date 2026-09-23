@@ -34,6 +34,8 @@ export function makeResumeResponse(overrides: Partial<ResumeResponse> = {}): Res
     created_at: "2026-01-01T00:00:00Z",
     family_id: id,
     version_n: 1,
+    parse_status: "done",
+    parse_error: "",
     ...overrides,
   };
 }
