@@ -108,14 +108,17 @@ def build_request(
         if tool_choice is not None:
             payload["tool_choice"] = _anthropic_tool_choice(tool_choice)
         if reasoning_effort:
-            # Thinking effort → extended thinking budget. Anthropic semantics: max_tokens
-            # Covers both parts of thinking + answers, and must be greater than budget_tokens; the answer limit is
-            # The caller retains max_tokens in full and thinks the budget is appended on top of it.
+            # Thinking effort → the ``thinking`` parameter. Anthropic semantics:
+            # when thinking is enabled, max_tokens must cover thinking + answer
+            # and exceed budget_tokens, so the budget is appended on top of the
+            # caller's max_tokens (floored at 1024 for the answer part). Mode
+            # shapes (adaptive/disabled) carry no budget, so max_tokens is sent
+            # as-is. Temperature is only sent without thinking: the official
+            # API rejects the combination when thinking is on.
             thinking = _anthropic_thinking_param(reasoning_effort, reasoning_variants)
             payload["max_tokens"] = max_tokens
             if thinking.get("type") == "enabled":
                 payload["max_tokens"] = thinking["budget_tokens"] + max(max_tokens, 1024)
-            # The official API rejects temperature when thinking is enabled.
             payload["thinking"] = thinking
         elif temperature is not None:
             payload["temperature"] = temperature
