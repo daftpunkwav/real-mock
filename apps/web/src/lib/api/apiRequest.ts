@@ -6,8 +6,13 @@ import { ApiError, parseStructuredErrorResponse } from "./apiError";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 /** Heavy LLM work: model inference + long JSON often needs 1–3 minutes */
 export const LLM_HEAVY_TIMEOUT_MS = 180_000;
-/** Resume deep review: Agent tool loop + web search; typically 2–4 minutes, longer when tools run */
-export const ANALYZE_TIMEOUT_MS = 480_000;
+/**
+ * Resume deep review: Agent tool loop paced by prompt nudges (up to 30 rounds
+ * plus finalize), typically 5–15 minutes. This is only a backstop — the SSE
+ * idle timeout (45s) is the real liveness guard while heartbeats keep the
+ * stream open.
+ */
+export const ANALYZE_TIMEOUT_MS = 1_200_000;
 
 export async function request<T>(
   path: string,

@@ -96,7 +96,12 @@ export function applyAnalyzeEvent(
   const current: ReviewLiveState = prev ?? { steps: [], timeline: [] };
 
   if (event.type === "plan" && Array.isArray(event.steps)) {
-    return { ...current, steps: event.steps };
+    // Drop malformed entries (null / non-object): PlanSpine reads step fields
+    // directly, so one corrupted row must not crash the whole progress view.
+    const steps = event.steps.filter(
+      (step): step is ReviewPlanStep => Boolean(step) && typeof step === "object",
+    );
+    return { ...current, steps };
   }
 
   if (event.type === "thinking") {

@@ -3,9 +3,10 @@
  * @description REST client for the resume resource (`/v1/resume`).
  *
  * Responsibilities:
- * - Upload / list / activate / delete / analyze / original-file preview URLs
- * - Reject empty 200 JSON bodies so callers never treat `undefined` as a list
- * - Forward AbortSignal for list cancellation
+ * - Upload (file + version) / list / limits / activate / delete / clear
+ *   endpoints / analyze (JSON + SSE stream) / file preview (URL, text, page meta)
+ * - Reject empty 200 JSON bodies so callers never treat `undefined` as data
+ * - Forward AbortSignal for cancellable REST calls
  *
  * Must not own list selection, analysis formatting, or UI state.
  *
@@ -251,7 +252,7 @@ export const resumeHttp = {
         }
         if (controller.signal.aborted) {
           throw new ApiError(
-            `Request timed out (${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s). Deep review and other LLM tasks can be slow; retry later or check the model/network`,
+            `Request timed out (${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s). Deep review and other LLM tasks can be slow; the run may still finish in the background - refresh the page later to check the result`,
             0,
             { code: "NET0001", params: { seconds: Math.round(ANALYZE_TIMEOUT_MS / 1000) } },
           );
@@ -284,9 +285,11 @@ export const resumeHttp = {
           markAlive,
         );
       } catch (e) {
-        // The idle or total-budget abort can land mid-stream; convert the raw
-        // AbortError so callers get the catalog NET0001 copy instead of it.
-        if (e instanceof DOMException && e.name === "AbortError") {
+        // The idle or total-budget abort can land mid-stream; classify by the
+        // controller flag, not the rejection shape: abort() without a reason
+        // rejects with an AbortError DOMException, while abort(reason) rejects
+        // with that reason Error — both must map to the catalog NET0001 copy.
+        if (controller.signal.aborted) {
           if (idleTimedOut) {
             throw new ApiError(
               `Request timed out (${SSE_IDLE_TIMEOUT_MS / 1000}s). The live review stream stalled; retry the analysis`,
@@ -295,10 +298,16 @@ export const resumeHttp = {
             );
           }
           throw new ApiError(
-            `Request timed out (${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s). Deep review and other LLM tasks can be slow; retry later or check the model/network`,
+            `Request timed out (${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s). Deep review and other LLM tasks can be slow; the run may still finish in the background - refresh the page later to check the result`,
             0,
             { code: "NET0001", params: { seconds: Math.round(ANALYZE_TIMEOUT_MS / 1000) } },
           );
+        }
+        // A proxy/backend kill mid-stream surfaces as a raw TypeError from
+        // reader.read(); map it to the localized NET0000 copy. SSE ``error``
+        // events already arrive as ApiError and pass through untouched.
+        if (!(e instanceof ApiError)) {
+          throw new ApiError("Cannot reach the backend", 0, { code: "NET0000", params: { url } });
         }
         throw e;
       }

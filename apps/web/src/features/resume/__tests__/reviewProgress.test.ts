@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { applyAnalyzeEvent, type ReviewLiveState } from "../reviewProgress";
+import { applyAnalyzeEvent, type ReviewLiveState, type ReviewPlanStep } from "../reviewProgress";
 
 const empty: ReviewLiveState = { steps: [], timeline: [] };
 
@@ -24,6 +24,19 @@ describe("applyAnalyzeEvent", () => {
       content: "Look at projects",
       startedAt: 1_000,
     });
+  });
+
+  it("drops malformed plan step entries instead of crashing the spine", () => {
+    const state = applyAnalyzeEvent(empty, {
+      type: "plan",
+      steps: [
+        { id: "1", title: "Read resume", status: "pending" },
+        null,
+        42,
+      ] as unknown as ReviewPlanStep[],
+    });
+    expect(state.steps).toHaveLength(1);
+    expect(state.steps[0]).toMatchObject({ id: "1", title: "Read resume" });
   });
 
   it("closes thinking when a tool starts and updates the same tool id", () => {

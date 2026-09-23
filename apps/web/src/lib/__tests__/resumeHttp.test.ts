@@ -14,7 +14,7 @@ const requestMock = vi.hoisted(() => vi.fn());
 const getLocaleMock = vi.hoisted(() => vi.fn(() => "en"));
 
 vi.mock("../api/base", () => ({
-  ANALYZE_TIMEOUT_MS: 480_000,
+  ANALYZE_TIMEOUT_MS: 1_200_000,
   ApiError: class ApiError extends Error {
     status: number;
     code?: string;

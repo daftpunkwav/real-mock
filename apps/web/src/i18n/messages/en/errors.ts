@@ -110,11 +110,12 @@ export const errors = {
     "Make sure the backend is running (NEXT_PUBLIC_API_BASE / STREAM_API_BASE), or check your network",
   "NET0001": "Request timed out ({seconds}s)",
   "NET0001.hint":
-    "Heavy LLM tasks (e.g. deep review) can be slow; retry later and verify the backend is running (NEXT_PUBLIC_API_BASE / STREAM_API_BASE)",
+    "Heavy LLM tasks (e.g. deep review) can be slow; retry later and verify the backend is running (NEXT_PUBLIC_API_BASE / STREAM_API_BASE). The run may still finish in the background - refresh the page later to check",
   "NET0002": "Request cancelled",
   "NET0003": "Server returned an empty response",
   "NET0004": "Server returned invalid JSON",
   "NET0005": "Streaming response unavailable",
+  "NET0006": "Live stream stalled with no events ({url}); please resend",
   "http_400": "Invalid request",
   "http_400.hint": "Check the input and try again",
   "http_401": "Unauthorized request",

@@ -192,6 +192,61 @@ describe("analyzeResumeStream", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("down")));
     await expect(resumeHttp.analyzeResumeStream(9)).rejects.toMatchObject({ code: "NET0000" });
   });
+
+  it("maps a mid-stream connection kill to NET0000", async () => {
+    // A proxy/backend kill mid-stream surfaces as a raw TypeError from
+    // reader.read(); it must reach the caller as the localized NET0000 copy.
+    const encoder = new TextEncoder();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: "plan", steps: [] })}\n\n`),
+              );
+              controller.error(new TypeError("network error"));
+            },
+          }),
+        ),
+      ),
+    );
+    await expect(resumeHttp.analyzeResumeStream(9)).rejects.toMatchObject({ code: "NET0000" });
+  });
+
+  it("maps a mid-stream idle-stall abort (reason rejection) to the stall copy", async () => {
+    // abort(reason) rejects reader.read() with that reason Error, not an
+    // AbortError DOMException; the stall must still surface as the localized
+    // idle-timeout copy instead of NET0000.
+    vi.useFakeTimers();
+    const encoder = new TextEncoder();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        const signal = init?.signal;
+        return Promise.resolve(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: "plan", steps: [] })}\n\n`),
+                );
+                signal?.addEventListener("abort", () => controller.error(signal.reason));
+              },
+            }),
+          ),
+        );
+      }),
+    );
+    const pending = resumeHttp.analyzeResumeStream(9);
+    const pendingAssert = expect(pending).rejects.toMatchObject({
+      code: "NET0001",
+      message: expect.stringContaining("stalled"),
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    await pendingAssert;
+  });
 });
 
 describe("path-only helpers", () => {

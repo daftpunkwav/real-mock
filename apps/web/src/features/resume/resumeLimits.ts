@@ -67,7 +67,7 @@ export const MAX_RESUME_VERSIONS = 6;
 export const PERCENTILE_FLOOR = 8;
 export const PERCENTILE_CEILING = 92;
 
-/** Persist-time floor; aligned with api `MIN_SCORED_DIMENSIONS` via OpenAPI catalog. */
+/** Persist-time floor; aligned with api `REVIEW_MIN_SCORED_DIMENSIONS` via OpenAPI catalog. */
 export const MIN_SCORED_DIMENSIONS = 4;
 
 /** Clamp a preview zoom factor to the catalog min/max. */
