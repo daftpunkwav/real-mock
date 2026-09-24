@@ -60,3 +60,26 @@ def test_build_github_specs_skips_missing(monkeypatch) -> None:
     specs = github_mod._build_github_specs()
     assert len(specs) >= 1
     assert any("skipping" in w for w in warnings)
+
+
+def test_platform_github_definitions_never_mutated_through_specs() -> None:
+    """Specs handed out by the platform factory own their parameter trees.
+
+    The factory draws from a module-level constants list shared by every
+    domain; a shallow copy would alias the nested properties dict, so a
+    consumer mutation (prep injects timeout_seconds into every schema at
+    import time) would leak into interview/resume/records declarations.
+    """
+    import copy as copy_mod
+
+    from realmock.platform.capabilities.ai.agent.tools.github import github_tool_specs
+    from realmock.platform.capabilities.integrations.github.tools import (
+        GITHUB_TOOL_DEFINITIONS,
+    )
+
+    snapshot = copy_mod.deepcopy(GITHUB_TOOL_DEFINITIONS)
+    specs = github_tool_specs()
+    assert specs
+    for spec in specs:
+        spec.parameters.setdefault("properties", {})["__probe__"] = {"type": "string"}
+    assert GITHUB_TOOL_DEFINITIONS == snapshot

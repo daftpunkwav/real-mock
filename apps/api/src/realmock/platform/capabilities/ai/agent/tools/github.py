@@ -6,6 +6,7 @@ schema + execute path. This module must not import domain packages.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
@@ -32,11 +33,15 @@ def github_tool_specs(*, names: frozenset[str] | None = None) -> list[ToolSpec]:
         # Content endpoints return potentially large bodies; metadata endpoints
         # are single JSON round-trips.
         timeout = 25.0 if ("readme" in name or "content" in name or "file" in name) else 20.0
+        # Deep copy: the source definitions are module-level constants shared
+        # by every domain; a shallow copy would alias the nested properties
+        # dict, so any consumer mutation (e.g. prep's timeout-override
+        # injection) would leak into other domains' declarations.
         specs.append(
             ToolSpec(
                 name=name,
                 description=str(fn.get("description") or ""),
-                parameters=dict(fn.get("parameters") or {"type": "object"}),
+                parameters=copy.deepcopy(fn.get("parameters") or {"type": "object"}),
                 handler=handler,
                 timeout_seconds=timeout,
             )
