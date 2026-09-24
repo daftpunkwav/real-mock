@@ -97,6 +97,21 @@ describe("tokenizeEvalText", () => {
     expect(parts).toEqual([{ type: "text", value: "Docker/K8s 部署" }]);
   });
 
+  it("does not highlight metrics glued to a preceding word", () => {
+    // "ABC95%" must not degrade to "5%" by starting inside the digit run.
+    expect(tokenizeEvalText("ABC95%")).toEqual([{ type: "text", value: "ABC95%" }]);
+    expect(tokenizeEvalText("AP99")).toEqual([{ type: "text", value: "AP99" }]);
+    expect(tokenizeEvalText("HTTP200 状态")).toEqual([
+      { type: "text", value: "HTTP200 状态" },
+    ]);
+  });
+
+  it("still highlights standalone percentages and latency percentiles", () => {
+    const parts = tokenizeEvalText("覆盖率 95%，P99 延迟");
+    expect(parts).toContainEqual({ type: "bold", value: "95%" });
+    expect(parts).toContainEqual({ type: "bold", value: "P99" });
+  });
+
   it("still bolds standalone metrics with spaces around units", () => {
     const parts = tokenizeEvalText("耗时 3 s，约 2 倍，权重 10 k");
     expect(parts).toContainEqual({ type: "bold", value: "3 s" });

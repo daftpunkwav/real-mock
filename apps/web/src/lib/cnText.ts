@@ -102,11 +102,12 @@ export type EvalTextPart =
   | { type: "code"; value: string };
 
 const MARK_SPLIT = /(\*\*[^*]+\*\*|`[^`]+`)/g;
-// Letter guards on both sides keep unit matches inside word-shaped tokens:
-// without them "K8s" yields "8s", "687KB" yields "687K", and "2026-07 sonara"
-// yields "07 s" (swallowing the first letter of the following word).
+// Guards keep matches on token boundaries. The leading guard excludes digits
+// too: with a letter-only guard "ABC95%" still matches "5%" by starting at the
+// second digit; a metric must start at a digit-run boundary. The trailing
+// guard stops unit matches from swallowing a following word ("07 sonara").
 const METRIC_RE =
-  /(\d+(?:\.\d+)?%|(?<![A-Za-z])\d+(?:\.\d+)?\s?(?:ms|s|EPS|[kK]|x|倍)(?![A-Za-z])|P\d{2,3}|pass@\d+|「[^」]{1,48}」|『[^』]{1,48}』)/g;
+  /((?<![A-Za-z0-9])\d+(?:\.\d+)?(?:%|\s?(?:ms|s|EPS|[kK]|x|倍)(?![A-Za-z]))|(?<![A-Za-z0-9])P\d{2,3}|pass@\d+|「[^」]{1,48}」|『[^』]{1,48}』)/g;
 
 function pushMetricParts(out: EvalTextPart[], segment: string) {
   if (!segment) return;
