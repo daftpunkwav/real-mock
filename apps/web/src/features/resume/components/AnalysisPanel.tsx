@@ -28,6 +28,7 @@ import type { ResumeAnalysis } from "../types";
 import type { ResumeItem } from "../resumeNormalize";
 import { visibleAnalysisTabIds, TAB_LABEL_KEYS, type TabId } from "../analysisTabs";
 import { DIM_LABEL_KEYS, dimComment, dimScore, percentileFromScore, type RadarDim } from "../analysisFormat";
+import { EvalRichText } from "./EvalRichText";
 import { ScoreRing } from "./ScoreRing";
 import { FirstImpressionCard, HeadlineBanner } from "./ImpressionCards";
 import { OverviewTab } from "./OverviewTab";
@@ -94,7 +95,10 @@ export function AnalysisPanel({
           <div className="eval-masthead-meta">
             {analysis.seniority_estimate?.trim() ? (
               <p>
-                {t("overview.seniorityLabel")} · <strong>{analysis.seniority_estimate}</strong>
+                {t("overview.seniorityLabel")} ·{" "}
+                <strong>
+                  <EvalRichText text={analysis.seniority_estimate} />
+                </strong>
               </p>
             ) : null}
             {percentile != null ? (
