@@ -3874,6 +3874,70 @@ export interface components {
              */
             archived: boolean;
         };
+        /** PrepAskEvent */
+        PrepAskEvent: {
+            /**
+             * Question
+             * @default
+             */
+            question: string;
+            /** Options */
+            options?: string[];
+            /**
+             * Selection
+             * @default single
+             */
+            selection: string;
+            /**
+             * Widget
+             * @default options
+             */
+            widget: string;
+            /** Scale */
+            scale?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Allow Custom
+             * @default true
+             */
+            allow_custom: boolean;
+            /** Suggested */
+            suggested?: string | null;
+            /** Questions */
+            questions?: components["schemas"]["PrepAskQuestion"][] | null;
+        };
+        /** PrepAskQuestion */
+        PrepAskQuestion: {
+            /**
+             * Question
+             * @default
+             */
+            question: string;
+            /** Options */
+            options?: string[];
+            /**
+             * Selection
+             * @default single
+             */
+            selection: string;
+            /**
+             * Widget
+             * @default options
+             */
+            widget: string;
+            /** Scale */
+            scale?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Allow Custom
+             * @default true
+             */
+            allow_custom: boolean;
+            /** Suggested */
+            suggested?: string | null;
+        };
         /** PrepCompactRequest */
         PrepCompactRequest: {
             /** Intensity */
@@ -4208,6 +4272,7 @@ export interface components {
         PrepMessageResponse: {
             /** Reply */
             reply: string;
+            ask_user?: components["schemas"]["PrepAskEvent"] | null;
             /**
              * Token Usage
              * @default 0

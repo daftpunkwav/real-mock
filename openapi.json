@@ -9625,6 +9625,118 @@
         "type": "object",
         "title": "PrepArchiveRequest"
       },
+      "PrepAskEvent": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "default": ""
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "selection": {
+            "type": "string",
+            "title": "Selection",
+            "default": "single"
+          },
+          "widget": {
+            "type": "string",
+            "title": "Widget",
+            "default": "options"
+          },
+          "scale": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scale"
+          },
+          "allow_custom": {
+            "type": "boolean",
+            "title": "Allow Custom",
+            "default": true
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested"
+          },
+          "questions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PrepAskQuestion"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "title": "PrepAskEvent"
+      },
+      "PrepAskQuestion": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "default": ""
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "selection": {
+            "type": "string",
+            "title": "Selection",
+            "default": "single"
+          },
+          "widget": {
+            "type": "string",
+            "title": "Widget",
+            "default": "options"
+          },
+          "scale": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scale"
+          },
+          "allow_custom": {
+            "type": "boolean",
+            "title": "Allow Custom",
+            "default": true
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested"
+          }
+        },
+        "type": "object",
+        "title": "PrepAskQuestion"
+      },
       "PrepCompactRequest": {
         "properties": {
           "intensity": {
@@ -10405,6 +10517,16 @@
           "reply": {
             "type": "string",
             "title": "Reply"
+          },
+          "ask_user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrepAskEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "token_usage": {
             "type": "integer",

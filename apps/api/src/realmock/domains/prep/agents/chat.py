@@ -38,6 +38,7 @@ from .persist import (
     finalize,
     finalize_with_delta,
     persist_cancel,
+    persist_failed_turn,
     usage_event,
 )
 from .quiz_render import prep_quiz_renderer
@@ -105,6 +106,7 @@ def _begin_turn(agent: "PrepAgent", options: CompactionOptions | None) -> Compac
     # the working-memory block for the rest of the session.
     agent.memory.pending_quiz = ""
     agent.last_turn_id = uuid.uuid4().hex
+    agent.last_ask_event = None
     return agent._turn_state.policy
 
 
@@ -226,38 +228,64 @@ async def run_chat(
     Returns:
         The sanitized final reply text.
     """
-    policy, turn_id, working, _, _ = await _prepare_turn(
-        agent, user_text, db,
-        drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
-        context_session_ids=context_session_ids,
-        compact_threshold=compact_threshold,
-        compact_options=compact_options,
-        memory_index_limit=memory_index_limit,
-    )
+    try:
+        policy, turn_id, working, _, _ = await _prepare_turn(
+            agent, user_text, db,
+            drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+            context_session_ids=context_session_ids,
+            compact_threshold=compact_threshold,
+            compact_options=compact_options,
+            memory_index_limit=memory_index_limit,
+        )
 
-    asked_user: dict[str, bool] = {"on": False}
-    working, early, groups, steps, thinking = await agent._run_tool_rounds(
-        working, db, asked_user=asked_user
-    )
-    if asked_user["on"]:
-        # The ask_user tool fired; on this non-streaming channel no dialog event
-        # is emitted (events=None), so return the pending text and wait for the
-        # user's answer instead of fabricating one.
-        final = agent.pending_reply_text()
-    elif early:
-        # Trailing model text is the final answer; ask-user events cannot be sent on non-streaming channels, so only polish it.
-        final, _ = polish_final(early)
-        final = final or agent.pending_reply_text()
-    else:
-        final = await _final_answer_with_overflow_retry(agent, working, policy, db, context_session_ids)
+        asked_user: dict[str, Any] = {"on": False}
+        working, early, groups, steps, thinking = await agent._run_tool_rounds(
+            working, db, asked_user=asked_user
+        )
+        ask_event: dict[str, Any] | None = None
+        final: str | None = None
+        if asked_user["on"]:
+            # The ask_user tool fired; the dialog payload rides the response's
+            # ask_user field (the stream channel emits it as a live event instead).
+            final = agent.pending_reply_text()
+            gate_event = asked_user.get("event")
+            ask_event = dict(gate_event) if isinstance(gate_event, dict) else None
+        else:
+            inline_ask = None
+            if early:
+                # Trailing model text is the final answer; an inline ask_user
+                # drift is rescued into the response's dialog field while the
+                # prose stays as the reply body (mirrors the stream channel).
+                final, inline_ask = polish_final(early)
+                if inline_ask is not None:
+                    ask_event = inline_ask
+            if ask_event is not None:
+                if not final:
+                    # Dialog rescued from an otherwise-empty body: keep the
+                    # waiting line under it.
+                    final = agent.pending_reply_text()
+            elif not final:
+                # Nothing user-visible exists: generate a closing answer, same as
+                # the stream channel (never fall back to the waiting line without
+                # a dialog — that copy would be misleading).
+                final = await _final_answer_with_overflow_retry(agent, working, policy, db, context_session_ids)
+        agent.last_ask_event = ask_event
 
-    finalize(
-        agent, working, final, db, tool_steps=steps, search_groups=groups, thinking=thinking,
-        compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
-    )
-    # End-of-turn curation: one advisory call, write only on a positive verdict.
-    await precipitate_turn_memory(agent, db, user_text, final if isinstance(final, str) else "")
-    return final if isinstance(final, str) else ""
+        finalize(
+            # The history contract requires string content (None coerces to an
+            # empty, hidden reply — finalize applies the same rule).
+            agent, working, final or "", db, tool_steps=steps, search_groups=groups, thinking=thinking,
+            compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
+        )
+        # End-of-turn curation: one advisory call, write only on a positive verdict.
+        await precipitate_turn_memory(agent, user_text, final if isinstance(final, str) else "")
+        return final if isinstance(final, str) else ""
+    except Exception:
+        # The turn died before finalize (LLM quota/auth errors, closing-stream
+        # failures): persist the just-typed question so it survives a refresh,
+        # then let the error surface.
+        persist_failed_turn(agent, db)
+        raise
 
 
 def _new_content_state() -> dict[str, Any]:
@@ -315,14 +343,20 @@ async def run_chat_stream(
     ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events,
     plus ``{"type": "token"}`` payloads streamed live from inside the tool rounds).
     """
-    policy, turn_id, working, pre_build, build_report = await _prepare_turn(
-        agent, user_text, db,
-        drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
-        context_session_ids=context_session_ids,
-        compact_threshold=compact_threshold,
-        compact_options=compact_options,
-        memory_index_limit=memory_index_limit,
-    )
+    try:
+        policy, turn_id, working, pre_build, build_report = await _prepare_turn(
+            agent, user_text, db,
+            drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+            context_session_ids=context_session_ids,
+            compact_threshold=compact_threshold,
+            compact_options=compact_options,
+            memory_index_limit=memory_index_limit,
+        )
+    except Exception:
+        # Prepare-window failure after the user message was appended: persist
+        # the question so it survives a refresh, then surface the error.
+        persist_failed_turn(agent, db)
+        raise
 
     start_event = compaction_event(
         pre_build, working, build_report,
@@ -341,7 +375,7 @@ async def run_chat_stream(
     # Bounded queue: backpressure when the SSE consumer lags instead of
     # unbounded memory growth on slow connections.
     events: asyncio.Queue = asyncio.Queue(maxsize=_EVENT_QUEUE_MAXSIZE)
-    asked_user: dict[str, bool] = {"on": False}
+    asked_user: dict[str, Any] = {"on": False}
     # Speculative content-streaming state: one display filter held across rounds
     # so its rules (the display mirror of polish_final) apply across chunk and
     # round boundaries; the loop-end flush releases any held-back tail.
@@ -465,9 +499,8 @@ async def run_chat_stream(
         finalized = True
         if delta:
             yield delta
-        # End-of-turn curation runs after the completion envelope: the user
-        # already has the answer, so this advisory call delays nothing visible.
-        await precipitate_turn_memory(agent, db, user_text, final)
+        # End-of-turn curation: one advisory call, write only on a positive verdict.
+        await precipitate_turn_memory(agent, user_text, final)
     except (asyncio.CancelledError, GeneratorExit):
         # Client stopped the stream: persist the partial turn so the question
         # and whatever was produced survive a refresh. Never yield here, and
@@ -481,6 +514,12 @@ async def run_chat_stream(
                 thinking=thinking, compact_threshold=compact_threshold,
                 compact_options=policy, turn_id=turn_id,
             )
+        raise
+    except Exception:
+        # The turn died before finalize (LLM quota/auth errors, closing-stream
+        # failures): persist the just-typed question so it survives a refresh,
+        # then let the route render the error event.
+        persist_failed_turn(agent, db)
         raise
 
 

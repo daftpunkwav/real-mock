@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -120,8 +121,29 @@ class PrepMessageRequest(BaseModel):
         return text
 
 
+class PrepAskQuestion(BaseModel):
+    # One dialog question (same shape as the stream ask_user event items).
+    question: str = ""
+    options: list[str] = Field(default_factory=list)
+    selection: str = "single"
+    widget: str = "options"
+    scale: dict[str, Any] = Field(default_factory=dict)
+    allow_custom: bool = True
+    # Auto-submit answer on UI timeout (options/slider only; null for rating).
+    suggested: str | None = None
+
+
+class PrepAskEvent(PrepAskQuestion):
+    # Dialog payload surfaced by the sync channel (the stream channel emits it
+    # as a live event). ``questions`` is present only when the dialog carries
+    # several questions (1–8); the flat fields then mirror the first one.
+    questions: list[PrepAskQuestion] | None = None
+
+
 class PrepMessageResponse(BaseModel):
     reply: str
+    # Dialog awaiting the user's answer (ask_user turn); None otherwise.
+    ask_user: PrepAskEvent | None = None
     token_usage: int = 0
     # Session-level provider-reported totals (mirrors the stream ``done`` envelope).
     prompt_tokens: int = 0
@@ -283,6 +305,8 @@ __all__ = [
     "MEMORY_ORIGINS",
     "RETAIN_MAX",
     "RETAIN_MIN",
+    "PrepAskEvent",
+    "PrepAskQuestion",
     "PrepArchiveRequest",
     "PrepCompactRequest",
     "PrepCompactResponse",

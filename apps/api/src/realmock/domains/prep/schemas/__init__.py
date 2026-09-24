@@ -6,6 +6,8 @@ from realmock.platform.schemas import ResumePickerItem
 
 from realmock.domains.prep.schemas.prep import (
     MEMORY_ORIGINS,
+    PrepAskEvent,
+    PrepAskQuestion,
     PrepArchiveRequest,
     PrepCompactRequest,
     PrepCompactResponse,
@@ -32,6 +34,8 @@ from realmock.domains.prep.schemas.prep import (
 
 __all__ = [
     "MEMORY_ORIGINS",
+    "PrepAskEvent",
+    "PrepAskQuestion",
     "PrepArchiveRequest",
     "PrepCompactRequest",
     "PrepCompactResponse",

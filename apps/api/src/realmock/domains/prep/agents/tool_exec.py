@@ -89,7 +89,7 @@ def build_execute_callback(
     db: Session,
     search_groups: list[dict[str, Any]],
     events: asyncio.Queue | None,
-    asked_user: dict[str, bool] | None,
+    asked_user: dict[str, Any] | None,
     error_context: dict[str, Any] | None = None,
 ) -> ToolExecutor:
     """Build the tool execution callback; ``events``/``asked_user`` enable immediate reporting through the streaming channel.

@@ -449,6 +449,9 @@ async def test_ask_dispatch_emits_full_event() -> None:
     except AgentHalt:
         pass
     assert asked_user["on"] is True
+    # The dialog payload also rides the gate dict for event-less channels.
+    assert asked_user["event"]["question"] == "Which areas?"
+    assert asked_user["event"]["selection"] == "multi"
     event = await events.get()
     assert event["type"] == "ask_user"
     assert event["selection"] == "multi"
@@ -574,6 +577,35 @@ async def test_memory_write_requires_summary_and_validates_id(db) -> None:
 def test_load_messages_corrupt_json_recovers_empty() -> None:
     agent = _agent(messages="not-json{{{")
     assert agent.messages == []
+
+
+def test_corrupt_history_backed_up_before_overwrite(db) -> None:
+    """The unreadable payload is archived before a save overwrites it."""
+    from realmock.platform.core.constants import SessionStatus
+
+    raw = "not-json{{{"
+    session = PrepSession(access_token="tok", status="active", messages=raw)
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    agent = PrepAgent(session, SimpleNamespace(context_window=8000))
+    assert agent.messages == []
+    agent.messages.append({"role": "user", "content": "q"})
+    agent._save(db)
+    archived = (
+        db.query(PrepSession)
+        .filter(PrepSession.status == SessionStatus.ARCHIVED.value)
+        .all()
+    )
+    assert any(b.messages == raw for b in archived)
+    # The flag clears: a second save must not duplicate the backup.
+    agent._save(db)
+    archived = (
+        db.query(PrepSession)
+        .filter(PrepSession.status == SessionStatus.ARCHIVED.value)
+        .all()
+    )
+    assert sum(1 for b in archived if b.messages == raw) == 1
 
 
 async def test_ensure_system_seeds_coach_prompt() -> None:

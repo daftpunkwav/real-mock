@@ -185,17 +185,19 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
         chat_mod, "finalize", lambda *a, **k: finalized.update({"ok": True})
     )
 
-    # asked_user branch returns pending text without LLM call
+    # asked_user branch returns pending text and surfaces the dialog payload
     agent = _make_agent()
     agent.pending_reply_text = lambda: "waiting-line"  # type: ignore[method-assign]
 
     async def _rounds_asked(working, db, asked_user=None):
         asked_user["on"] = True
+        asked_user["event"] = {"question": "Which?", "options": ["A", "B"]}
         return working, None, [], [], ""
 
     monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_asked)
     out = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
     assert out == "waiting-line"
+    assert agent.last_ask_event == {"question": "Which?", "options": ["A", "B"]}
 
     # early branch polishes model tail text
     async def _rounds_early(working, db, asked_user=None):
@@ -204,14 +206,48 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_early)
     out2 = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
     assert "early answer" in out2
+    assert agent.last_ask_event is None
 
-    # early empty falls back to pending text
+    # an inline ask_user rescued from the body becomes the dialog payload;
+    # surrounding prose stays as the reply body (mirrors the stream channel)
+    async def _rounds_inline(working, db, asked_user=None):
+        return working, (
+            'some prose first '
+            '<tool_call>{"name": "ask_user", "arguments": '
+            '{"question": "Q?", "options": ["A", "B"]}}</tool_call>'
+        ), [], [], ""
+
+    monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_inline)
+    out2b = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
+    assert out2b == "some prose first"
+    assert agent.last_ask_event is not None
+    assert agent.last_ask_event["question"] == "Q?"
+
+    # a dialog rescued from an otherwise-empty body keeps the waiting line
+    async def _rounds_inline_bare(working, db, asked_user=None):
+        return working, (
+            '<tool_call>{"name": "ask_user", "arguments": '
+            '{"question": "Q?", "options": ["A", "B"]}}</tool_call>'
+        ), [], [], ""
+
+    monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_inline_bare)
+    out2c = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
+    assert out2c == "waiting-line"
+    assert agent.last_ask_event is not None
+
+    # early empty (no dialog) falls through to the closing answer, never the
+    # waiting line — that copy would be misleading without a dialog
     async def _rounds_empty(working, db, asked_user=None):
         return working, "<|im_start|>", [], [], ""
 
+    async def _fake_closing(agent_, working, policy, db, ids):
+        return "closing answer"
+
     monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_empty)
+    monkeypatch.setattr(chat_mod, "_final_answer_with_overflow_retry", _fake_closing)
     out3 = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
-    assert out3 == "waiting-line"
+    assert out3 == "closing answer"
+    assert agent.last_ask_event is None
 
     # non-string final coerced to empty
     async def _rounds_none(working, db, asked_user=None):
@@ -425,3 +461,61 @@ def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None
     items = asyncio.run(_collect(chat_mod.run_chat_stream(agent, "hi", _FakeDB())))  # type: ignore[arg-type]
     assert any(isinstance(i, dict) and i.get("type") == "ask_user" for i in items)
     assert "wait-line" in "".join(i for i in items if isinstance(i, str))
+
+
+@pytest.mark.asyncio
+async def test_run_chat_persists_question_when_turn_fails(monkeypatch) -> None:
+    """A turn that dies before finalize still persists the typed question."""
+    import realmock.domains.prep.agents.chat as chat_mod
+    from realmock.platform.core.errors import ApiBusinessError, CATALOG
+
+    async def _prep(agent, user_text, db, **kwargs):
+        agent.messages.append({"role": "user", "content": user_text})
+        return CompactionOptions(), "turn1", [{"role": "user", "content": user_text}], [], {}
+
+    monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
+
+    agent = _make_agent()
+
+    async def _boom(working, db, asked_user=None):
+        raise ApiBusinessError(CATALOG["A3001"], message="quota gone")
+
+    monkeypatch.setattr(agent, "_run_tool_rounds", _boom)
+    saved: dict = {}
+    monkeypatch.setattr(
+        agent, "_save", lambda db: saved.setdefault("last", list(agent.messages))
+    )
+
+    with pytest.raises(ApiBusinessError):
+        await chat_mod.run_chat(agent, "my typed question", _FakeDB())  # type: ignore[arg-type]
+    assert agent.messages[-1]["content"] == "my typed question"
+    assert saved["last"][-1]["content"] == "my typed question"
+
+
+@pytest.mark.asyncio
+async def test_run_chat_stream_error_persists_question(monkeypatch) -> None:
+    """Stream-channel failures persist the question before the error surfaces."""
+    import realmock.domains.prep.agents.chat as chat_mod
+
+    async def _prep(agent, user_text, db, **kwargs):
+        agent.messages.append({"role": "user", "content": user_text})
+        return CompactionOptions(), "turn1", [{"role": "user", "content": user_text}], [], {}
+
+    monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
+
+    async def _boom_run(*args, **kwargs):
+        raise RuntimeError("stream exploded")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _boom_run)
+
+    agent = _make_agent()
+    saved: dict = {}
+    monkeypatch.setattr(
+        agent, "_save", lambda db: saved.setdefault("last", list(agent.messages))
+    )
+
+    with pytest.raises(RuntimeError):
+        async for _ in chat_mod.run_chat_stream(agent, "typed question", _FakeDB()):  # type: ignore[arg-type]
+            pass
+    assert saved["last"][-1]["content"] == "typed question"

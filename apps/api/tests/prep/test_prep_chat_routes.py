@@ -48,12 +48,13 @@ def _patch_llm(monkeypatch, fake=None):
     return fake, _fake_from_db
 
 class _FakeAgent:
-    def __init__(self, reply="hello-reply") -> None:
+    def __init__(self, reply="hello-reply", ask_event=None) -> None:
         self.context_window = 8000
         self.last_prompt_estimate = 11
         self.last_message_count = 3
         self.last_turn_id = "t1"
         self.last_prefix_fingerprint = "fp1"
+        self.last_ask_event = ask_event
         self._reply = reply
         self.chat_kwargs = None
 
@@ -336,6 +337,32 @@ def test_prep_message_http_success(db, monkeypatch) -> None:
         )
     assert resp.status_code == 200, resp.text
     assert resp.json()["reply"] == "http-ok"
+    assert resp.json()["ask_user"] is None
+
+def test_prep_message_http_surfaces_ask_dialog(db, monkeypatch) -> None:
+    """A turn that ended on ask_user carries the dialog in the response body."""
+    row = _session(db)
+    _patch_llm(monkeypatch)
+    dialog = {
+        "question": "Which direction?",
+        "options": ["backend", "frontend"],
+        "selection": "single",
+        "widget": "options",
+        "scale": {},
+        "allow_custom": True,
+        "suggested": "backend",
+    }
+    _patch_agent(monkeypatch, _FakeAgent(reply="waiting", ask_event=dialog))
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/prep/sessions/{row.id}/message",
+            json={"content": "hi"},
+            headers={"X-Interview-Token": row.access_token},
+        )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ask_user"]["question"] == "Which direction?"
+    assert body["ask_user"]["options"] == ["backend", "frontend"]
 
 def test_prep_stream_http_error_redacted(db, monkeypatch) -> None:
     row = _session(db)

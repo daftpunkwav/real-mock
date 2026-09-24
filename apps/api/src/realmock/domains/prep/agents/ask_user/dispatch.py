@@ -16,7 +16,7 @@ async def dispatch_ask_user(
     memory: WorkingMemory,
     events: asyncio.Queue | None = None,
     search_groups: list[dict[str, Any]] | None = None,
-    asked_user: dict[str, bool] | None = None,
+    asked_user: dict[str, Any] | None = None,
 ) -> str:
     """Execute the ask_user tool: validate, write memory, emit a dialog event, and terminate the loop.
 
@@ -33,7 +33,8 @@ async def dispatch_ask_user(
         memory: Working memory receiving the asked-questions note.
         events: Optional event queue for the ``ask_user`` event (None emits nothing).
         search_groups: Optional search cards re-emitted before the dialog for ordering.
-        asked_user: Optional one-dialog gate flag set when the dialog fires.
+        asked_user: Optional one-dialog gate flag; set to True on fire and given
+            the dialog payload under ``asked_user["event"]`` for event-less channels.
 
     Returns:
         Observation text (only when validation fails; otherwise raises).
@@ -52,8 +53,16 @@ async def dispatch_ask_user(
         )
     questions_line = " | ".join(str(e["question"]) for e in dialog_events)
     memory.remember("note", f"Asked user: {questions_line}")
+    # Flat first-question fields plus a questions list only when several
+    # survived, so the single-question contract stays unchanged.
+    event: dict[str, Any] = dict(dialog_events[0])
+    if len(dialog_events) > 1:
+        event["questions"] = dialog_events
     if asked_user is not None:
         asked_user["on"] = True
+        # The dialog payload rides the gate dict so channels without an event
+        # queue (sync `/message`) can surface it in their response body.
+        asked_user["event"] = dict(event)
     if events is not None:
         # Re-emit the previously generated search cards first so card events keep their order before the ask-user dialog.
         if search_groups:
@@ -61,9 +70,6 @@ async def dispatch_ask_user(
                 "type": "search_results",
                 "groups": list(search_groups),
             })
-        event: dict[str, Any] = dict(dialog_events[0])
-        if len(dialog_events) > 1:
-            event["questions"] = dialog_events
         await events.put({"type": "ask_user", **event})
     raise AgentHalt(
         "Dialog shown to the user; waiting for their answer. "

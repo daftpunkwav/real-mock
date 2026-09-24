@@ -122,7 +122,7 @@ def _build_assistant_message(
         final: Sanitized reply body ("", non-str coerced to "").
         tool_steps: Display/persist tool progress cards (or None).
         search_groups: Retrieval cards for the search_results event (or None).
-        thinking: Model reasoning text, truncated to 20k chars (or None).
+        thinking: Model reasoning text, persisted in full (display metadata only).
         stopped: True when the client disconnected mid-stream (partial turn).
         turn_id: Correlation id stamped on the assistant message (or None).
 
@@ -196,7 +196,7 @@ def finalize(
         db: Session committed via PrepAgent._save (rollback on failure).
         tool_steps: Display/persist tool progress cards (or None).
         search_groups: Retrieval cards for the search_results event (or None).
-        thinking: Model reasoning text, truncated to 20k chars (or None).
+        thinking: Model reasoning text, persisted in full (display metadata only).
         stopped: True when the client disconnected mid-stream (partial turn).
         compact_threshold: Persist-path budget, same semantics as turn-start.
         compact_options: Verbatim-tail policy (retain raised by intensity floor).
@@ -328,10 +328,25 @@ def persist_cancel(
         logger.warning("Prep cancel-time persist failed: %s", persist_exc)
 
 
+def persist_failed_turn(agent: "PrepAgent", db: Session) -> None:
+    """Best-effort persist of a turn that died before finalize (never raises).
+
+    The user message is already appended to history when a turn fails (LLM
+    quota/auth errors, closing-stream failures); without this save the typed
+    question would vanish on refresh. History is stored as it stands — the
+    question without a reply, which the next turn picks up naturally.
+    """
+    try:
+        agent._save(db)
+    except Exception as save_exc:
+        logger.warning("Prep failed-turn persist skipped: %s", save_exc)
+
+
 __all__ = [
     "compaction_event",
     "finalize",
     "finalize_with_delta",
     "persist_cancel",
+    "persist_failed_turn",
     "usage_event",
 ]

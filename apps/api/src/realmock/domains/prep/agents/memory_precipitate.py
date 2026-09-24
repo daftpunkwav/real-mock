@@ -12,10 +12,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
-
 from realmock.domains.prep.services import list_memories
 from realmock.platform.core.prompts import strip_emojis
+from realmock.platform.database import sessions_db_session
 
 if TYPE_CHECKING:
     from .agent import PrepAgent
@@ -47,18 +46,22 @@ or
 
 
 async def precipitate_turn_memory(
-    agent: "PrepAgent", db: Session, user_text: str, final: str
+    agent: "PrepAgent", user_text: str, final: str
 ) -> None:
     """Ask once whether the finished turn is worth remembering; write at most one memory.
 
-    Never raises: called after the user already has their answer, so any
-    failure here must not surface.
+    Never raises: the user already has their answer, so any failure here must
+    not surface. Runs as a detached task after the turn completes — it must
+    own everything it touches (the LLM client opens a per-call HTTP session;
+    DB reads open their own sessions.db connection). The provider usage of
+    this advisory call is deliberately not counted in session totals.
     """
     try:
         if len((final or "").strip()) < 80:
             return  # Too little substance to curate.
         try:
-            rows = list_memories(db, limit=10)
+            with sessions_db_session() as db:
+                rows = list_memories(db, limit=10)
         except Exception:
             rows = []
         memory_index = "; ".join(
@@ -95,6 +98,7 @@ async def precipitate_turn_memory(
         logger.info("Prep turn memory precipitation: %s", observation[:160])
     except Exception as exc:
         logger.warning("Prep turn memory precipitation skipped: %s", exc)
+
 
 
 __all__ = ["precipitate_turn_memory"]

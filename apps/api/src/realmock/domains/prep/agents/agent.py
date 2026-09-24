@@ -35,7 +35,9 @@ from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
+from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError
+from realmock.platform.core.session_auth import new_access_token
 
 from .ask_user import fallback_reply as _fallback_reply
 from .chat import run_chat, run_chat_stream
@@ -77,6 +79,7 @@ _TURN_TIMEOUT_SECONDS = 600.0
 # jobs; interactive chat converges to 30s so one slow blob cannot stall a turn.
 _COMPRESSION_TIMEOUT_SECONDS = 30.0
 
+
 __all__ = ["PREP_TOOL_DEFINITIONS", "PrepAgent"]
 
 
@@ -110,6 +113,9 @@ class PrepAgent:
         self.last_prompt_estimate: int = 0
         # Per-turn mutable state (reset at every turn start in run_chat/_stream).
         self._turn_state = TurnState()
+        # Dialog payload when the turn ended on an ask_user (sync response
+        # body; the stream channel emits it as a live event instead).
+        self.last_ask_event: dict[str, Any] | None = None
         # Observability for the stream envelope (set per turn, read by routes).
         self.last_turn_id: str = ""
         self.last_prefix_fingerprint: str = ""
@@ -127,6 +133,9 @@ class PrepAgent:
         )
 
     def _load_messages(self) -> None:
+        # Raw payload of an unreadable history; backed up before the first
+        # save would overwrite it (see _save).
+        self._history_corrupt_raw: str | None = None
         try:
             loaded = json.loads(self.session.messages or "[]")
         except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
@@ -134,6 +143,7 @@ class PrepAgent:
                 "Prep history corrupt, resetting to empty sid=%s",
                 getattr(self.session, "id", ""),
             )
+            self._history_corrupt_raw = self.session.messages
             self.messages: list[dict[str, Any]] = []
             return
         if not isinstance(loaded, list):
@@ -141,11 +151,44 @@ class PrepAgent:
                 "Prep history not a list, resetting to empty sid=%s",
                 getattr(self.session, "id", ""),
             )
+            self._history_corrupt_raw = self.session.messages
             self.messages = []
             return
         self.messages = loaded
 
+    def _backup_corrupt_history(self, db: Session) -> None:
+        """Archive an unreadable history before the reset empties it (never raises).
+
+        ``_load_messages`` resets corrupt history to [] so the turn can proceed;
+        without this backup the next ``_save`` would permanently overwrite the
+        stored payload (possibly a locally repairable JSON defect).
+        """
+        raw = self._history_corrupt_raw
+        self._history_corrupt_raw = None
+        if not raw:
+            return
+        try:
+            backup = PrepSession(
+                resume_id=getattr(self.session, "resume_id", None),
+                target_role=getattr(self.session, "target_role", "") or "",
+                target_company=getattr(self.session, "target_company", "") or "",
+                messages=raw,
+                status=SessionStatus.ARCHIVED.value,
+                access_token=new_access_token(),
+                linked_session_id=getattr(self.session, "linked_session_id", None),
+            )
+            db.add(backup)
+            commit_session(db)
+            logger.warning(
+                "Prep corrupt history archived as backup session sid=%s",
+                getattr(backup, "id", ""),
+            )
+        except Exception as exc:
+            logger.warning("Prep corrupt-history backup failed: %s", exc)
+
     def _save(self, db: Session) -> None:
+        if self._history_corrupt_raw is not None:
+            self._backup_corrupt_history(db)
         self.session.messages = json.dumps(self.messages, ensure_ascii=False)
         summary, count = compute_session_summary_and_count(self.messages)
         self.session.summary = summary
@@ -308,7 +351,7 @@ class PrepAgent:
         db: Session,
         search_groups: list[dict[str, Any]],
         events: asyncio.Queue | None,
-        asked_user: dict[str, bool] | None,
+        asked_user: dict[str, Any] | None,
     ):
         """Tool execution callback: ask_user dispatch, same-args dedup, circuit breaker, and timeout/retrieval-failure handling (see :mod:`tool_exec`)."""
         return build_execute_callback(
@@ -345,7 +388,7 @@ class PrepAgent:
         db: Session,
         *,
         events: asyncio.Queue | None = None,
-        asked_user: dict[str, bool] | None = None,
+        asked_user: dict[str, Any] | None = None,
         content_state: dict[str, Any] | None = None,
     ) -> tuple[
         list[dict[str, Any]],

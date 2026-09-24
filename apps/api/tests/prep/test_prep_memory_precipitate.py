@@ -51,14 +51,14 @@ def _stub_env(monkeypatch: pytest.MonkeyPatch):
 
 async def test_short_final_skips_curation(_stub_env) -> None:
     llm = _FakeLLM(verdict={"save": True, "summary": "s"})
-    await precipitate_turn_memory(_agent(llm), None, "hi", "too short")
+    await precipitate_turn_memory(_agent(llm), "hi", "too short")
     assert llm.calls == []
     assert _stub_env == []
 
 
 async def test_negative_verdict_writes_nothing(_stub_env) -> None:
     llm = _FakeLLM(verdict={"save": False})
-    await precipitate_turn_memory(_agent(llm), None, "q", "a" * 100)
+    await precipitate_turn_memory(_agent(llm), "q", "a" * 100)
     assert len(llm.calls) == 1
     assert _stub_env == []
 
@@ -73,7 +73,7 @@ async def test_positive_verdict_writes_one_clamped_memory(_stub_env) -> None:
         "origin": "agent_note",
     }
     llm = _FakeLLM(verdict=verdict)
-    await precipitate_turn_memory(_agent(llm), None, "user text", "a" * 100)
+    await precipitate_turn_memory(_agent(llm), "user text", "a" * 100)
 
     assert len(_stub_env) == 1
     args = _stub_env[0]
@@ -88,12 +88,14 @@ async def test_positive_verdict_writes_one_clamped_memory(_stub_env) -> None:
 
 async def test_positive_verdict_without_summary_writes_nothing(_stub_env) -> None:
     llm = _FakeLLM(verdict={"save": True, "summary": "   "})
-    await precipitate_turn_memory(_agent(llm), None, "q", "a" * 100)
+    await precipitate_turn_memory(_agent(llm), "q", "a" * 100)
     assert _stub_env == []
 
 
 async def test_llm_failure_is_swallowed(_stub_env) -> None:
     llm = _FakeLLM(error=RuntimeError("provider down"))
     # Must not raise: the user already has their answer.
-    await precipitate_turn_memory(_agent(llm), None, "q", "a" * 100)
+    await precipitate_turn_memory(_agent(llm), "q", "a" * 100)
     assert _stub_env == []
+
+

@@ -30,6 +30,7 @@ from realmock.domains.prep.routes.history import (
     _prune_dangling_tool_tail,  # noqa: F401  # backward-compatible re-export
 )
 from realmock.domains.prep.schemas import (
+    PrepAskEvent,
     PrepContextBucket,
     PrepContextResponse,
     PrepHistoryMessage,
@@ -102,6 +103,12 @@ async def prep_message(
     )
     return PrepMessageResponse(
         reply=reply,
+        # Dialog awaiting the user's answer when the turn ended on ask_user.
+        ask_user=(
+            PrepAskEvent.model_validate(agent.last_ask_event)
+            if isinstance(agent.last_ask_event, dict)
+            else None
+        ),
         token_usage=session.token_usage or 0,
         prompt_tokens=session.prompt_tokens or 0,
         completion_tokens=session.completion_tokens or 0,
@@ -129,15 +136,15 @@ async def prep_message_stream(
     if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
         raise_error("A3002")
     llm = _build_prep_llm(api_db, body)
+    drop_last = body.drop_last_assistant
+    ui_locale = body.ui_locale
+    compact_threshold = body.compact_threshold
+    turn_policy = _turn_policy(body)
     agent = PrepAgent(session, llm)
     logger.info(
         "prep stream turn sid=%s model=%s window=%s profile_id=%s",
         session_id, llm.model, agent.context_window, body.model_profile_id,
     )
-    drop_last = body.drop_last_assistant
-    ui_locale = body.ui_locale
-    compact_threshold = body.compact_threshold
-    turn_policy = _turn_policy(body)
 
     async def event_stream():
         usage_acc = getattr(llm, "usage", None)
@@ -163,22 +170,22 @@ async def prep_message_stream(
             if await request.is_disconnected():
                 return
             yield format_sse_line({
-                "type": "done",
-                "token_usage": session.token_usage,
-                "prompt_tokens": session.prompt_tokens or 0,
-                "completion_tokens": session.completion_tokens or 0,
-                "cached_tokens": session.cached_tokens or 0,
-                "last_round_prompt_tokens": session.last_round_prompt_tokens or 0,
-                "last_round_completion_tokens": session.last_round_completion_tokens or 0,
-                "prompt_tokens_estimated": agent.last_prompt_estimate,
-                "turn_id": agent.last_turn_id or "",
-                "prefix_fingerprint": agent.last_prefix_fingerprint or "",
-                "message_count": agent.last_message_count,
-                # Turn-level request diagnostics. ``last_*`` are latest-wins;
-                # ``requests``/``reasoning_tokens`` deliberately absent — the
-                # per-turn values ride the ``usage`` event instead (this
-                # envelope's token columns are session totals, so a per-turn
-                # count would be misread as one and clobber accumulation).
+                    "type": "done",
+                    "token_usage": session.token_usage,
+                    "prompt_tokens": session.prompt_tokens or 0,
+                    "completion_tokens": session.completion_tokens or 0,
+                    "cached_tokens": session.cached_tokens or 0,
+                    "last_round_prompt_tokens": session.last_round_prompt_tokens or 0,
+                    "last_round_completion_tokens": session.last_round_completion_tokens or 0,
+                    "prompt_tokens_estimated": agent.last_prompt_estimate,
+                    "turn_id": agent.last_turn_id or "",
+                    "prefix_fingerprint": agent.last_prefix_fingerprint or "",
+                    "message_count": agent.last_message_count,
+                    # Turn-level request diagnostics. ``last_*`` are latest-wins;
+                    # ``requests``/``reasoning_tokens`` deliberately absent — the
+                    # per-turn values ride the ``usage`` event instead (this
+                    # envelope's token columns are session totals, so a per-turn
+                    # count would be misread as one and clobber accumulation).
                 "last_request_id": getattr(usage_acc, "last_request_id", "") or "",
                 "last_latency_ms": getattr(usage_acc, "last_latency_ms", 0.0) or 0.0,
             })
