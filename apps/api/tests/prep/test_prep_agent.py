@@ -189,3 +189,24 @@ def test_tool_definitions_empty_user_text() -> None:
     names = {str((d.get("function") or {}).get("name") or "") for d in defs}
     assert "compact_context" in names
     assert json.dumps(defs, ensure_ascii=False) != ""
+
+
+@pytest.mark.asyncio
+async def test_run_tool_rounds_final_round_is_tool_free(monkeypatch) -> None:
+    """The round cap ends with a tool-free request and a matching hint."""
+    import realmock.domains.prep.agents.agent as agent_mod
+
+    captured: dict = {}
+
+    async def _fake_loop(llm, working, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(messages=working, final_content="done", thinking="t")
+
+    monkeypatch.setattr(agent_mod, "run_agent_loop", _fake_loop)
+    agent = _agent()
+    await agent._run_tool_rounds([{"role": "user", "content": "hi"}], _FakeDB())  # type: ignore[arg-type]
+    assert captured.get("final_round_tool_free") is True
+    hint = captured.get("wrap_up_hint") or {}
+    assert "tools are unavailable" in hint.get("content", ""), (
+        "the closing hint must not offer a tool call the model cannot make"
+    )
