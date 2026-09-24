@@ -17,7 +17,7 @@ prep agent 的工具面:声明、注册表装配与五个工具族。上层地�
 | --- | --- | --- |
 | `basic/` | `code_exec`(沙箱代码验证)、`company_info`(目标公司面试风格)、`quiz`(练习提问)、`take_note`(把轮次结论写入工作记忆)、`web_search`、`web_fetch`(读取单页正文) | 每轮核心能力;`web_fetch` 按需加载 |
 | `candidate/` | `profile`、`resume` + `shared.py` | 候选人数据检视,每次调用实时 ORM 绑定,绝不跨调用缓存 |
-| `memory/` | `write`(持久、幂等)、`list_summaries`、`get_detail`、`list_tags` | 长期记忆访问 |
+| `memory/` | `write`(持久、幂等)、`list_summaries`、`list_tags`、`get_detail` | 长期记忆访问;索引查询每回合都声明,仅全文详情按需加载 |
 | `repo/` | `github.py` | 六个工具共用一个工厂(基于平台 GitHub specs 外加一个 repo 交流工具);按需加载 |
 | `system/` | `availability`(轮初按名字门控的静态子集策略)、`compact`(agent 主动压缩;只声明、有意不加载)、`search_tools`(对二级目录按需发现,轮中惰性加载 schema) | 管理工具集自身的元工具 |
 

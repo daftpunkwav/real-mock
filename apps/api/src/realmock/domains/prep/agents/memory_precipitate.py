@@ -4,7 +4,9 @@ After a turn finalizes, a single cheap call asks whether the turn produced a
 durable fact worth keeping (target direction, confirmed weak spot, style
 preference). Nothing is written unconditionally — the model decides, mirroring
 the ``memory_write`` tool's semantics. Every failure is swallowed (logged):
-precipitation is an enhancement, never a turn blocker.
+precipitation is an enhancement, never a turn blocker. The call runs detached
+(:func:`schedule_turn_memory_precipitation`) so it delays neither the sync
+reply nor the stream's ``done`` envelope.
 """
 
 from __future__ import annotations

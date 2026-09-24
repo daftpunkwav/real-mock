@@ -6,7 +6,7 @@ Shared agent kernel: the think-then-act loop, working memory, and the tool regis
 
 | Module | Purpose |
 | --- | --- |
-| `loop.py` | `run_agent_loop`: one step = one LLM call + that round's tool execution. Domain tools register an OpenAI tools schema plus an `execute` callback; no MCP, shell, or sub-agents. Transient per-request suffixes: datetime anchor, budget line (round / width / calls spent); a final answer cut by the output cap resumes once seamlessly |
+| `loop.py` | `run_agent_loop`: one step = one LLM call + that round's tool execution. Domain tools register an OpenAI tools schema plus an `execute` callback; no MCP, shell, or sub-agents. Transient per-request suffixes: datetime anchor, budget line (round / width / calls spent); a final answer cut by the output cap resumes once seamlessly; the last round can omit the tools parameter entirely (`final_round_tool_free`) so the cap produces a real answer |
 | `llm_round.py` | Single-round LLM call: prefer streaming with non-streaming fallback, truncate oversized tool results |
 | `events.py` | Progress-event contract (`AgentEvent`, `OnAgentEvent`); emission is guarded so a UI callback failure never breaks the loop |
 | `halt.py` | `AgentHalt`: a tool requests immediate loop termination (for example `ask_user` waiting for input) |
@@ -22,7 +22,7 @@ Shared agent kernel: the think-then-act loop, working memory, and the tool regis
 | `codeexec.py` | Sandboxed snippet runner for agent self-verification; execution isolation lives in [`tools/isolation/`](tools/isolation/) (`process.py` default, `linux_job.py` on Linux) |
 | `fetch.py` | Outbound web fetch through the SSRF-checked pinned client |
 | `search.py` | Web search tool |
-| `github.py` | GitHub lookups via `platform/capabilities/integrations/github/` |
+| `github.py` | GitHub lookups via `platform/capabilities/integrations/github/`; returned specs deep-copy the shared definitions, so consumers may mutate their own parameters freely |
 | `profile.py` / `resume.py` | Candidate context tools: hierarchical section inspection over a caller-supplied profile/resume payload |
 
 Tests: `apps/api/tests/platform_ai/`.

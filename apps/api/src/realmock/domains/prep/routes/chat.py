@@ -3,6 +3,9 @@ and context breakdown (with capability-token validation).
 
 SSE streaming errors return only a redacted user-facing message; the original exception goes to logger.exception.
 All operations here require the capability token issued at creation (``X-Interview-Token``).
+Turns are serialized per session (``services.turn_lock``): a queued request
+reloads the committed history inside the lock instead of acting on the
+snapshot it took while waiting.
 History surgery (compact / summary / fork / truncate) lives in ``history.py``.
 
 Usage envelopes: per-turn ``usage`` events carry provider-reported turn DELTAS

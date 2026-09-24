@@ -106,10 +106,11 @@ async def build_turn_context(
     Compaction occurs only at the start of each conversation turn (and may trigger one LLM summary call).
     ``threshold`` carries the user's auto-compact setting (``None`` = agent-decided default);
     ``force`` (manual ``/compact``) always attempts an LLM summary.
-    ``options`` carries intensity/directive/retain; ``keep_from`` pins the
-    verbatim cutoff for mid-turn agent-invoked compaction; ``provenance``
-    stamps the new summary trailer; ``report`` collects compaction cost
-    without raising.
+    ``options`` carries intensity/directive/retain; ``keep_from`` is a
+    verbatim-cutoff pin forwarded to the platform compaction (kept for
+    signature parity; current prep callers rely on the retain window
+    instead); ``provenance`` stamps the new summary trailer; ``report``
+    collects compaction cost without raising.
     """
     return await build_working_context(
         messages, context_window, memory=memory, llm=llm,

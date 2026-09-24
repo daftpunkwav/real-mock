@@ -106,7 +106,8 @@ def build_execute_callback(
         search_groups: Mutable list collecting web-search cards for display.
         events: Optional event queue for live thinking/tool/dialog callbacks
             (None disables emission; the non-streaming channel passes None).
-        asked_user: Optional one-dialog gate flag (None disables the gate).
+        asked_user: Optional gate dict (None disables the gate); on fire it
+            carries the dialog payload under ``event`` for event-less channels.
         error_context: Optional ``{"domain": ..., "session": ...}`` scoping
             persisted error records.
 
