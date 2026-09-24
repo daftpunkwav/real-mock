@@ -88,3 +88,18 @@ def test_dump_and_load_block() -> None:
     ])
     assert broken.notes == []
     assert WorkingMemory.load_from_messages([]).notes == []
+
+
+def test_absorb_omitted_digest_survives_the_note_clip() -> None:
+    """The digest note gets its own budget: several exchanges must survive,
+    not just the first one and a half (regular notes clip at 160 chars)."""
+    m = WorkingMemory()
+    m.absorb_omitted([
+        {"role": "user", "content": f"question number {i} about topic {i}"} for i in range(6)
+    ])
+    note = m.notes[0]
+    assert len(note) <= 560
+    assert "question number 5" in note, "later collected exchanges must survive the clip"
+    assert "question number 0" in note
+    # The digest stays a normal bounded note afterwards (16-slot eviction).
+    assert len(m.notes) == 1

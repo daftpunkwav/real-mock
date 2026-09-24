@@ -13,6 +13,9 @@ from typing import Any
 
 _MAX_LIST = 16
 _ITEM_CHARS = 160
+# Digest note budget for absorbed dialogue: room for ~6 clipped exchanges
+# instead of the single-message regular note clip.
+_ABSORB_NOTE_CHARS = 560
 
 MEMORY_MARKER = "[Working memory]"
 # Marker written by an older build; still recognized on load so history
@@ -27,8 +30,10 @@ def _clip(text: str, n: int = _ITEM_CHARS) -> str:
     return s[: n - 1] + "…"
 
 
-def _bounded_append(items: list[str], value: str, limit: int = _MAX_LIST) -> None:
-    v = _clip(value)
+def _bounded_append(
+    items: list[str], value: str, limit: int = _MAX_LIST, *, item_chars: int = _ITEM_CHARS
+) -> None:
+    v = _clip(value, item_chars)
     if not v:
         return
     if v in items:
@@ -95,8 +100,14 @@ class WorkingMemory:
         else:
             _bounded_append(self.notes, text)
 
-    def absorb_omitted(self, omitted: list[dict[str, Any]], *, limit: int = 12) -> None:
-        """Compress dropped dialogue into short notes so only counts are not retained."""
+    def absorb_omitted(self, omitted: list[dict[str, Any]], *, limit: int = 6) -> None:
+        """Compress dropped dialogue into one digest note that survives the clip.
+
+        Regular notes are clipped to ``_ITEM_CHARS``; this digest collects
+        several exchanges, so it gets its own larger budget (a few hundred
+        chars) — otherwise the joined lines would be cut back to one message
+        and the collection below would be wasted.
+        """
         lines: list[str] = []
         for m in omitted:
             role = m.get("role")
@@ -115,7 +126,11 @@ class WorkingMemory:
             if len(lines) >= limit:
                 break
         if lines:
-            _bounded_append(self.notes, "Earlier dialogue summary: " + " | ".join(lines), limit=_MAX_LIST)
+            _bounded_append(
+                self.notes,
+                "Earlier dialogue summary: " + " | ".join(lines),
+                item_chars=_ABSORB_NOTE_CHARS,
+            )
 
     def render(self) -> str:
         """Model-visible memory paragraph (without marker)."""

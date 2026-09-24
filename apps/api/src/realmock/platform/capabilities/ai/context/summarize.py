@@ -52,10 +52,12 @@ _SUMMARY_SNIPPETS_PER_CHUNK = 60
 #: Upper bound on chained summarizer calls per compaction; beyond this the
 #: earliest remainder folds into an explicit counted marker (visible, not silent).
 _MAX_SUMMARY_CHUNKS = 6
-#: Per-message snippet clip (characters) for the summarizer input. Tool
-#: observations carry the densest facts (numbers, links, errors), so they get
-#: a much larger budget than prose — the minutes must not lose them.
+#: Per-message snippet clip (characters) for the summarizer input. Facts dense
+#: in conclusions get larger budgets than prose: tool observations carry the
+#: numbers/links/errors and assistant replies carry the coach's conclusions —
+#: the minutes must not lose either.
 _SNIPPET_CLIP_CHARS = 200
+_ASSISTANT_SNIPPET_CLIP_CHARS = 500
 _TOOL_SNIPPET_CLIP_CHARS = 1200
 #: Cooldown: skip the automatic gate while fewer than this many fresh
 #: non-system messages arrived since the last summary (refolding a barely
@@ -213,9 +215,13 @@ def _transcript_lines(omitted: list[dict[str, Any]]) -> list[str]:
             snippet = f"{snippet} [+{images} image(s)]"
         if not snippet:
             continue
-        clip = (
-            _TOOL_SNIPPET_CLIP_CHARS if m.get("role") == "tool" else _SNIPPET_CLIP_CHARS
-        )
+        clip: int
+        if m.get("role") == "tool":
+            clip = _TOOL_SNIPPET_CLIP_CHARS
+        elif m.get("role") == "assistant":
+            clip = _ASSISTANT_SNIPPET_CLIP_CHARS
+        else:
+            clip = _SNIPPET_CLIP_CHARS
         if len(snippet) > clip:
             snippet = snippet[: clip - 1] + "…"
         lines.append(f"{m.get('role')}: {snippet}")

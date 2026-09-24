@@ -77,6 +77,19 @@ def test_transcript_lines_images_and_clips() -> None:
     assert sum_mod._count_images([{"image_url": "u"}, {"text": "t"}]) == 1
 
 
+def test_transcript_clips_by_role() -> None:
+    """Conclusions-dense messages get bigger budgets than user prose."""
+    lines = sum_mod._transcript_lines([
+        {"role": "user", "content": "u" * 400},
+        {"role": "assistant", "content": "a" * 400},
+        {"role": "tool", "content": "t" * 400},
+    ])
+    assert lines[0].endswith("…")
+    assert len(lines[0]) == len("user: ") + 199 + 1, "user prose clips at 200"
+    assert "a" * 400 in lines[1], "assistant conclusions survive at 500 chars"
+    assert "t" * 400 in lines[2], "tool observations survive at 1200 chars"
+
+
 def test_usage_snapshot_and_delta() -> None:
     llm = SimpleNamespace(usage=UsageAccumulator(prompt_tokens=3, completion_tokens=1))
     assert sum_mod._usage_snapshot(llm)["prompt_tokens"] == 3
