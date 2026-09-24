@@ -762,7 +762,7 @@ async def test_memory_write_per_turn_budget(db) -> None:
     kw = {"db": db}
     # An invalid call (missing summary) is refused without burning budget.
     wasted, _ = await agent._run_named_tool("memory_write", {"tags": ["x"]}, **kw)
-    assert "missing summary" in wasted
+    assert "[memory_write] Missing summary" in wasted
     assert agent._turn_state.memory_writes == 0
     first, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact one"}, **kw)
     second, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact two"}, **kw)

@@ -330,7 +330,7 @@ class PrepAgent:
             # Mirror run_memory_write's summary refusal here so an invalid call
             # never burns the per-turn budget (only real dispatches count).
             if not str((args if isinstance(args, dict) else {}).get("summary") or "").strip():
-                return "memory_write missing summary; nothing recorded.", []
+                return "[memory_write] Missing summary; nothing recorded.", []
             if self._turn_state.memory_writes >= MAX_MEMORY_WRITES_PER_TURN:
                 return (
                     f"[memory_write] Budget exhausted this turn "
