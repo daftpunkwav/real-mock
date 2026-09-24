@@ -33,10 +33,12 @@ from realmock.domains.prep.services.session_stats import (
     SESSION_SUMMARY_SNIPPET_MAX_CHARS,
     compute_session_summary_and_count,
 )
+from realmock.domains.prep.services.turn_lock import session_turn_lock
 
 __all__ = [
     "SESSION_SUMMARY_SNIPPET_MAX_CHARS",
     "compute_session_summary_and_count",
+    "session_turn_lock",
     "LINKED_BLOCK_MARKER",
     "REF_BLOCK_MARKER",
     "format_linked_session",

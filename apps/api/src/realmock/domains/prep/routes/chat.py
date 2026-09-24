@@ -37,6 +37,7 @@ from realmock.domains.prep.schemas import (
     PrepMessageRequest,
     PrepMessageResponse,
 )
+from realmock.domains.prep.services import session_turn_lock
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
@@ -87,20 +88,32 @@ async def prep_message(
     if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
         raise_error("A3002")
     llm = _build_prep_llm(api_db, body)
-    agent = PrepAgent(session, llm)
-    logger.info(
-        "prep turn sid=%s model=%s window=%s profile_id=%s",
-        session_id, llm.model, agent.context_window, body.model_profile_id,
-    )
-    agent.memory_index_limit = body.memory_index_limit
-    reply = await agent.chat(
-        body.content, db,
-        drop_last_assistant=body.drop_last_assistant, ui_locale=body.ui_locale,
-        context_session_ids=body.context_session_ids,
-        compact_threshold=body.compact_threshold,
-        compact_options=_turn_policy(body),
-        memory_index_limit=body.memory_index_limit,
-    )
+    # One turn at a time per session: concurrent requests would each load the
+    # same history and save last-writer-wins, silently dropping a turn.
+    async with session_turn_lock(session_id):
+        # A queued request may have loaded its session snapshot before the
+        # previous turn committed: drop the identity map so the agent reads
+        # the freshly saved history, and revalidate existence/status.
+        db.expire_all()
+        session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
+        if not session:
+            raise_error("A3001")
+        if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
+            raise_error("A3002")
+        agent = PrepAgent(session, llm)
+        logger.info(
+            "prep turn sid=%s model=%s window=%s profile_id=%s",
+            session_id, llm.model, agent.context_window, body.model_profile_id,
+        )
+        agent.memory_index_limit = body.memory_index_limit
+        reply = await agent.chat(
+            body.content, db,
+            drop_last_assistant=body.drop_last_assistant, ui_locale=body.ui_locale,
+            context_session_ids=body.context_session_ids,
+            compact_threshold=body.compact_threshold,
+            compact_options=_turn_policy(body),
+            memory_index_limit=body.memory_index_limit,
+        )
     return PrepMessageResponse(
         reply=reply,
         # Dialog awaiting the user's answer when the turn ended on ask_user.
@@ -140,36 +153,47 @@ async def prep_message_stream(
     ui_locale = body.ui_locale
     compact_threshold = body.compact_threshold
     turn_policy = _turn_policy(body)
-    agent = PrepAgent(session, llm)
-    logger.info(
-        "prep stream turn sid=%s model=%s window=%s profile_id=%s",
-        session_id, llm.model, agent.context_window, body.model_profile_id,
-    )
 
     async def event_stream():
         usage_acc = getattr(llm, "usage", None)
         try:
-            agent.memory_index_limit = body.memory_index_limit
-            async for chunk in agent.chat_stream(
-                body.content, db, drop_last_assistant=drop_last, ui_locale=ui_locale,
-                context_session_ids=body.context_session_ids,
-                compact_threshold=compact_threshold,
-                compact_options=turn_policy,
-                memory_index_limit=body.memory_index_limit,
-            ):
-                # Stop button / closed tab: abandon the SSE body; the agent's
-                # cancel path still persists the partial turn server-side.
+            # One turn at a time per session (see prep_message): the agent is
+            # constructed inside the lock, after dropping this request's
+            # identity map so a queued request reads the freshly saved
+            # history instead of its pre-wait snapshot.
+            async with session_turn_lock(session_id):
+                db.expire_all()
+                session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
+                if not session:
+                    raise_error("A3001")
+                if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
+                    raise_error("A3002")
+                agent = PrepAgent(session, llm)
+                logger.info(
+                    "prep stream turn sid=%s model=%s window=%s profile_id=%s",
+                    session_id, llm.model, agent.context_window, body.model_profile_id,
+                )
+                agent.memory_index_limit = body.memory_index_limit
+                async for chunk in agent.chat_stream(
+                    body.content, db, drop_last_assistant=drop_last, ui_locale=ui_locale,
+                    context_session_ids=body.context_session_ids,
+                    compact_threshold=compact_threshold,
+                    compact_options=turn_policy,
+                    memory_index_limit=body.memory_index_limit,
+                ):
+                    # Stop button / closed tab: abandon the SSE body; the agent's
+                    # cancel path still persists the partial turn server-side.
+                    if await request.is_disconnected():
+                        break
+                    if isinstance(chunk, dict):
+                        # Structured events (such as search_results) generated by the Agent are directly transmitted transparently
+                        event = chunk if chunk.get("type") else {"type": "token", "content": str(chunk)}
+                        yield format_sse_line(event)
+                    else:
+                        yield format_sse_line({"type": "token", "content": chunk})
                 if await request.is_disconnected():
-                    break
-                if isinstance(chunk, dict):
-                    # Structured events (such as search_results) generated by the Agent are directly transmitted transparently
-                    event = chunk if chunk.get("type") else {"type": "token", "content": str(chunk)}
-                    yield format_sse_line(event)
-                else:
-                    yield format_sse_line({"type": "token", "content": chunk})
-            if await request.is_disconnected():
-                return
-            yield format_sse_line({
+                    return
+                yield format_sse_line({
                     "type": "done",
                     "token_usage": session.token_usage,
                     "prompt_tokens": session.prompt_tokens or 0,
@@ -186,9 +210,9 @@ async def prep_message_stream(
                     # per-turn values ride the ``usage`` event instead (this
                     # envelope's token columns are session totals, so a per-turn
                     # count would be misread as one and clobber accumulation).
-                "last_request_id": getattr(usage_acc, "last_request_id", "") or "",
-                "last_latency_ms": getattr(usage_acc, "last_latency_ms", 0.0) or 0.0,
-            })
+                    "last_request_id": getattr(usage_acc, "last_request_id", "") or "",
+                    "last_latency_ms": getattr(usage_acc, "last_latency_ms", 0.0) or 0.0,
+                })
         except Exception as e:
             # Redact credentials, keep the original wording: upstream errors
             # (quota exhausted, rate limited, context overflow) must reach the
