@@ -227,10 +227,17 @@ def find_memory_by_summary(db: Session, summary: str) -> PrepMemory | None:
     text = str(summary or "").strip()
     if not text:
         return None
+    # select() style: the legacy Query.order_by stubs drift between
+    # SQLAlchemy releases (OrderByList appeared in newer 2.0.x), while the
+    # 2.0-style select API typechecks stably across the supported range.
     return (
-        db.query(PrepMemory)
-        .filter(PrepMemory.summary == text)
-        .order_by(desc(PrepMemory.id))
+        db.execute(
+            select(PrepMemory)
+            .where(PrepMemory.summary == text)
+            .order_by(desc(PrepMemory.id))
+            .limit(1)
+        )
+        .scalars()
         .first()
     )
 
