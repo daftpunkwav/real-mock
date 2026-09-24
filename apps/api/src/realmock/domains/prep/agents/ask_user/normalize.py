@@ -40,7 +40,7 @@ def _normalize_ask_option(raw: Any) -> str:
         text = raw.strip()
         if text[:1] in "{[":
             try:
-                    obj = json.loads(text)
+                obj = json.loads(text)
             except json.JSONDecodeError:
                 try:
                     obj = ast.literal_eval(text)
@@ -64,15 +64,17 @@ def _normalize_ask_option(raw: Any) -> str:
 def normalize_ask_options(raw_options: Any) -> list[str]:
     """Normalize the option list into plain-text labels (each ≤80 chars, at most 8 kept).
 
-    Duplicates are dropped (order kept): repeated labels would collide as
-    dialog keys and toggle ambiguously in multi-select.
+    Dedup runs on the clipped labels: two long options sharing a prefix would
+    otherwise collapse into identical clickable labels — exactly the
+    multi-select toggle ambiguity dedup exists to prevent.
     """
     seen: set[str] = set()
     cleaned: list[str] = []
     for opt in (_normalize_ask_option(o) for o in (raw_options or [])):
-        if opt and opt not in seen:
-            seen.add(opt)
-            cleaned.append(opt[:_ASK_OPT_MAX_CHARS])
+        label = opt[:_ASK_OPT_MAX_CHARS]
+        if label and label not in seen:
+            seen.add(label)
+            cleaned.append(label)
     return cleaned[:_ASK_MAX_OPTIONS]
 
 

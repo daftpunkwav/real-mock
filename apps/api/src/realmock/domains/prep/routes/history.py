@@ -192,6 +192,16 @@ def _copy_session_row(
     return forked
 
 
+def _write_session_messages(db: Session, session: PrepSession, kept: list[dict]) -> None:
+    """Persist a rewritten history and refresh the cached list columns."""
+    session.messages = json.dumps(kept, ensure_ascii=False)
+    summary, message_count = compute_session_summary_and_count(kept)
+    session.summary = summary
+    session.message_count = message_count
+    session.updated_at = utcnow()
+    commit_session(db)
+
+
 async def compact_prep_session(
     session_id: int,
     request: Request,
@@ -226,7 +236,10 @@ async def compact_prep_session(
         previous = parse_provenance(_current_summary_text(agent.messages)).get("backup_session")
         if isinstance(previous, int) and previous not in (session_id, backup_session_id):
             stale = db.query(PrepSession).filter(PrepSession.id == previous).first()
-            if stale is not None:
+            # Only retire rows that still look like backups: the trailer is
+            # server-written, but a hand-edited one must never delete a live
+            # session.
+            if stale is not None and stale.status == SessionStatus.ARCHIVED.value:
                 db.delete(stale)
                 commit_session(db)
 
@@ -302,13 +315,13 @@ async def update_prep_summary(
     """Replace the current compaction summary text (user-edited correction)."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_writable_session(session_id, db)
-    agent = PrepAgent(session, llm=None)  # type: ignore[arg-type]
-    if body.expected_message_count is not None and body.expected_message_count != len(agent.messages):
+    messages = _load_session_messages(session)
+    if body.expected_message_count is not None and body.expected_message_count != len(messages):
         raise_error("A3003")
-    idx = _find_summary_block(agent.messages)
+    idx = _find_summary_block(messages)
     if idx < 0:
         raise_error("A3004")
-    old = parse_provenance(str(agent.messages[idx].get("content") or ""))
+    old = parse_provenance(str(messages[idx].get("content") or ""))
 
     def _opt_int(value: Any) -> int | None:
         return value if isinstance(value, int) else None
@@ -322,15 +335,15 @@ async def update_prep_summary(
         after=_opt_int(old.get("after")),
         base=_opt_int(old.get("base")),
     )
-    agent.messages[idx] = {
+    messages[idx] = {
         "role": "system",
         "content": f"{COMPACTION_SUMMARY_MARKER} {body.text.strip()}\n{trailer}",
     }
-    await asyncio.to_thread(agent._save, db)
-    summary_text, summary_version = _current_summary(agent.messages)
-    estimate = estimate_messages_tokens(agent.messages)
+    await asyncio.to_thread(_write_session_messages, db, session, messages)
+    summary_text, summary_version = _current_summary(messages)
+    estimate = estimate_messages_tokens(messages)
     return PrepCompactResponse(
-        message_count=len(agent.messages),
+        message_count=len(messages),
         summarized=False,
         estimate_before=estimate,
         estimate_after=estimate,
@@ -386,12 +399,7 @@ async def truncate_prep_messages(
         raise_error("A3003")
     cut = max(0, min(len(messages), body.from_index))
     kept = _prune_dangling_tool_tail(messages[:cut])
-    session.messages = json.dumps(kept, ensure_ascii=False)
-    summary, message_count = compute_session_summary_and_count(kept)
-    session.summary = summary
-    session.message_count = message_count
-    session.updated_at = utcnow()
-    commit_session(db)
+    _write_session_messages(db, session, kept)
     return {"message_count": len(kept)}
 
 

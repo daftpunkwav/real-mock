@@ -119,6 +119,19 @@ async def build_turn_context(
     )
 
 
+def latest_user_text(messages: list[dict[str, Any]] | None) -> str:
+    """Content of the most recent user message ("" when history has none).
+
+    Shared by the turn toolset freeze (turn-relevant availability gates) and
+    the cache-prefix fingerprint so both see the same declaration set.
+    """
+    for m in reversed(messages or []):
+        if isinstance(m, dict) and m.get("role") == "user":
+            content = m.get("content")
+            return content if isinstance(content, str) else ""
+    return ""
+
+
 async def compact_current_round(
     *,
     messages: list[dict[str, Any]],
@@ -160,11 +173,7 @@ async def compact_current_round(
             )
         )
     rest = [m for m in messages if isinstance(m, dict) and m.get("role") != "system"]
-    last_user = max(
-        (i for i, m in enumerate(rest) if m.get("role") == "user"),
-        default=-1,
-    )
-    if last_user < 0:
+    if not any(m.get("role") == "user" for m in rest):
         return MidTurnCompaction(text="No user turn to protect yet; compaction refused.")
     before = usage
     report: dict[str, Any] = {}
@@ -174,10 +183,13 @@ async def compact_current_round(
         default=turn_state.policy,
     )
     try:
+        # Forced folding keeps the latest 2 non-system messages verbatim, which
+        # always includes the live user turn (history ends at it when the tool
+        # loop calls this — in-flight rounds run on the loop's working copy).
         compacted = await build_turn_context(
             messages=messages, context_window=context_window, memory=memory,
             llm=llm, reply_locale=reply_locale,
-            force=True, options=policy, keep_from=last_user, report=report,
+            force=True, options=policy, report=report,
             default_focus=objective_line or None,
         )
     except Exception as e:
@@ -197,13 +209,17 @@ async def compact_current_round(
         "completion_tokens": int(report.get("completion_tokens", 0)),
         "latency_ms": round(float(report.get("latency_ms", 0.0)), 1),
     }
-    # Same refresh the agent always ran after a mid-turn fold: re-freeze the
-    # turn toolset (empty user text, matching the original call) so the
-    # fingerprint covers the declarations actually in force.
-    fingerprint = prefix_fingerprint(
-        compacted,
-        freeze_turn_tools(resume_id=resume_id, user_text="", turn_state=turn_state),
+    # Fingerprint over the LIVE turn toolset (frozen at turn start, possibly
+    # mid-turn expanded) so the cache-hit observation matches the declarations
+    # the loop actually sends.
+    live_tools = (
+        turn_state.tools
+        if turn_state.tools is not None
+        else freeze_turn_tools(
+            resume_id=resume_id, user_text=latest_user_text(messages), turn_state=turn_state,
+        )
     )
+    fingerprint = prefix_fingerprint(compacted, live_tools)
     return MidTurnCompaction(
         text=(
             f"Context compacted by summarizer ({policy.intensity}"
@@ -222,5 +238,6 @@ __all__ = [
     "MidTurnCompaction",
     "build_turn_context",
     "compact_current_round",
+    "latest_user_text",
     "prefix_fingerprint",
 ]

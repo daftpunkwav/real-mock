@@ -20,15 +20,15 @@ async def run_web_search(args: dict[str, Any], memory: WorkingMemory) -> tuple[s
 
     Args:
         args: Tool arguments (``query`` required, ``max_results`` optional, clamped 1..5).
-        memory: Working memory (the query is noted for later turns).
+        memory: Unused (queries are visible in the turn's tool steps; writing
+            them into working memory would evict real facts from its 16 slots).
 
     Returns:
         ``(observation_text, search_hits)``; unparseable upstream payloads
         pass through as raw text with no hits.
     """
+    del memory
     query = str(args.get("query", "") or "")
-    if query:
-        memory.remember("note", f"search:{query}")
     try:
         requested = int(args.get("max_results") or _WEB_SEARCH_MAX_RESULTS)
     except (TypeError, ValueError):

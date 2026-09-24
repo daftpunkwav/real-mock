@@ -151,7 +151,11 @@ async def test_web_search_empty_query_skips_memory(
     assert memory.notes == []
 
 
-async def test_web_search_remembers_query(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_web_search_does_not_pollute_working_memory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Search queries stay out of working memory (tool steps already show them);
+    the bounded note slots are reserved for real facts."""
     async def fake_search(args: dict, **kwargs) -> str:
         return json.dumps({"results": [{"title": "t"}], "text": "body"})
 
@@ -162,7 +166,7 @@ async def test_web_search_remembers_query(monkeypatch: pytest.MonkeyPatch) -> No
     )
     assert text == "body"
     assert hits == [{"title": "t"}]
-    assert "search:raft consensus" in memory.notes
+    assert memory.notes == []
 
 
 async def test_web_search_non_json_passthrough(
@@ -756,14 +760,18 @@ async def test_memory_write_per_turn_budget(db) -> None:
     """At most 2 memory_write dispatches per turn; the 3rd is refused without side effects."""
     agent = _agent()
     kw = {"db": db}
+    # An invalid call (missing summary) is refused without burning budget.
+    wasted, _ = await agent._run_named_tool("memory_write", {"tags": ["x"]}, **kw)
+    assert "missing summary" in wasted
+    assert agent._turn_state.memory_writes == 0
     first, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact one"}, **kw)
     second, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact two"}, **kw)
-    assert "budget exhausted" not in first + second
+    assert "Budget exhausted" not in first + second
     third, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact three"}, **kw)
-    assert "budget exhausted" in third
+    assert "Budget exhausted" in third
     agent._turn_state.reset()
     fourth, _ = await agent._run_named_tool("memory_write", {"summary": "Budget fact four"}, **kw)
-    assert "budget exhausted" not in fourth
+    assert "Budget exhausted" not in fourth
 
 
 # --- Context cache layout ---
@@ -902,7 +910,6 @@ def test_resolve_timeout_clamps_override_and_falls_back() -> None:
     """Model-supplied timeout_seconds clamps to 5-180; otherwise the spec
     default (or the control-tool/fallback values) applies."""
     from realmock.domains.prep.agents.tool_exec import (
-        _CONTROL_TOOL_TIMEOUTS,
         _TOOL_TIMEOUT_SEC,
         _resolve_timeout,
     )
@@ -916,5 +923,8 @@ def test_resolve_timeout_clamps_override_and_falls_back() -> None:
     assert _resolve_timeout("web_search", {"timeout_seconds": "soon"}) == spec_default
     assert spec_default == 25.0  # registry-declared web_search default
     # Registry-less control tools and unknown names use their fallbacks.
-    assert _resolve_timeout("ask_user", {}) == _CONTROL_TOOL_TIMEOUTS["ask_user"]
+    # ask_user never reaches timeout resolution (early dispatch), so it falls
+    # back like any unknown name.
+    assert _resolve_timeout("ask_user", {}) == _TOOL_TIMEOUT_SEC
+    assert _resolve_timeout("compact_context", {}) == 150.0
     assert _resolve_timeout("no_such_tool", {}) == _TOOL_TIMEOUT_SEC

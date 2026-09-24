@@ -169,9 +169,10 @@ def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LI
     if tag:
         # Tags persist as JSON arrays (e.g. '["a", "b"]'); the surrounding
         # double quotes give a strict element boundary, avoiding prefix hits.
-        # A literal '"' in the tag would break that boundary, so fall back to
-        # Python-side matching for such pathological input.
-        if '"' in tag:
+        # A literal '"' would break that boundary, and a lone '\' is stored
+        # JSON-escaped ('\\'), which byte matching would miss — either way
+        # fall back to Python-side matching for such pathological input.
+        if '"' in tag or "\\" in tag:
             rows = db.execute(
                 select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
             ).scalars().all()

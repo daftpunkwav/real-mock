@@ -46,6 +46,7 @@ from .round_compaction import (
     FALLBACK_CONTEXT_TOKENS,
     build_turn_context,
     compact_current_round,
+    latest_user_text,
     prefix_fingerprint,
 )
 from .streaming import event_loopbacks
@@ -260,7 +261,11 @@ class PrepAgent:
             options=options, keep_from=keep_from, provenance=provenance, report=report,
             default_focus=self._objective_line or None,
         )
-        self.last_prefix_fingerprint = prefix_fingerprint(working, self._tool_definitions())
+        # Fingerprint over the declarations the loop will actually send: the
+        # toolset is frozen from the latest user input (turn-relevant gates).
+        self.last_prefix_fingerprint = prefix_fingerprint(
+            working, self._tool_definitions(latest_user_text(self.messages))
+        )
         return working
 
     def _tool_definitions(self, user_text: str = "") -> list[dict[str, Any]]:
@@ -311,9 +316,14 @@ class PrepAgent:
         if name == "compact_context":
             return await self._compact_current_round(args, db)
         if name == "memory_write":
+            # Mirror run_memory_write's summary refusal here so an invalid call
+            # never burns the per-turn budget (only real dispatches count).
+            if not str((args if isinstance(args, dict) else {}).get("summary") or "").strip():
+                return "memory_write missing summary; nothing recorded.", []
             if self._turn_state.memory_writes >= MAX_MEMORY_WRITES_PER_TURN:
                 return (
-                    f"memory_write budget exhausted this turn (max {MAX_MEMORY_WRITES_PER_TURN}); "
+                    f"[memory_write] Budget exhausted this turn "
+                    f"(max {MAX_MEMORY_WRITES_PER_TURN}); "
                     "continue coaching without more writes.",
                     [],
                 )
@@ -419,13 +429,7 @@ class PrepAgent:
         # Turn-relevant static subset, resolved once per turn from the latest
         # user input; the SAME list object feeds every round so mid-turn
         # search_tools expansion (append-only) is visible next round.
-        user_text = ""
-        for m in reversed(working or []):
-            if isinstance(m, dict) and m.get("role") == "user":
-                content = m.get("content")
-                user_text = content if isinstance(content, str) else ""
-                break
-        turn_tools = self._tool_definitions(user_text)
+        turn_tools = self._tool_definitions(latest_user_text(working))
 
         async def compact_observation(text: str) -> str:
             try:

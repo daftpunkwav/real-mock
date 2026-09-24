@@ -46,10 +46,10 @@ logger = logging.getLogger(__name__)
 #: Fallback timeout for tools without a spec timeout (candidate/profile
 #: declarations and registry-less control tools).
 _TOOL_TIMEOUT_SEC = 18.0
-#: Timeouts for registry-less control tools handled inside the agent.
+# Timeouts for registry-less control tools handled inside the agent. ask_user
+# is dispatched before timeout resolution ever runs, so it needs no entry.
 _CONTROL_TOOL_TIMEOUTS: dict[str, float] = {
     "compact_context": 150.0,
-    "ask_user": 30.0,
 }
 #: Per-call override bounds (the model may not stall a turn forever).
 _TIMEOUT_OVERRIDE_MIN = 5.0
