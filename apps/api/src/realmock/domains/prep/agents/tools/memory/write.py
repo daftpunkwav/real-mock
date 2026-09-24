@@ -125,8 +125,8 @@ MEMORY_WRITE_SPEC = ToolSpec(
         "Record a durable long-term memory (user facts, preferences, rated feedback). "
         "Summary must be one line (≤200 chars), topic-organized; only record what "
         "future turns cannot infer. Never record turn trivia. "
-        "Before writing, use search_tools to find the memory query tools and "
-        "check for duplicate topics. At most 2 writes per turn; batch distinct "
+        "Before writing, check memory_list_summaries/memory_list_tags for "
+        "duplicate topics. At most 2 writes per turn; batch distinct "
         "facts into fewer calls."
     ),
     parameters={

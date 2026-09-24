@@ -70,8 +70,9 @@ def test_search_specs_rank_name_over_keyword() -> None:
     hits = search_specs("仓库文件")
     names = [s.name for s in hits]
     assert "github_get_file" in names
-    hits = search_specs("记忆标签")
-    assert hits and hits[0].name == "memory_list_tags"
+    # Keyword matching still reaches the remaining memory detail tool.
+    hits = search_specs("记忆详情")
+    assert hits and hits[0].name == "memory_get_detail"
 
 
 def test_search_specs_empty_query_matches_nothing() -> None:
@@ -87,9 +88,10 @@ def test_mini_spec_carries_params_not_schema() -> None:
     assert "description" not in card
 
 
-def test_secondary_catalog_is_the_agreed_ten() -> None:
-    # 6 github tools + 3 memory query tools + web_fetch load on demand;
-    # everything else stays declared every turn.
+def test_secondary_catalog_is_the_agreed_eight() -> None:
+    # 6 github tools + the deep memory detail tool + web_fetch load on demand;
+    # the cheap memory index tools are declared every turn (no search_tools
+    # friction before a dedupe check).
     assert set(SECONDARY_TOOLS) == {
         "github_list_repos",
         "github_get_readme",
@@ -97,8 +99,6 @@ def test_secondary_catalog_is_the_agreed_ten() -> None:
         "github_list_commits",
         "github_get_user",
         "github_get_file",
-        "memory_list_tags",
-        "memory_list_summaries",
         "memory_get_detail",
         "web_fetch",
     }
@@ -131,7 +131,11 @@ def test_tool_definitions_filter_per_turn() -> None:
 
     repo = names(agent._tool_definitions("review https://github.com/a/b"))
     assert "github_get_file" in repo
-    assert "memory_list_tags" not in repo, "secondary tier never declares upfront"
+    # Cheap memory index tools are first-tier (declared every turn); only the
+    # deep detail read waits for search_tools.
+    assert "memory_list_tags" in repo
+    assert "memory_list_summaries" in repo
+    assert "memory_get_detail" not in repo
 
     agent.session.resume_id = 3
     bound = names(agent._tool_definitions("hello"))

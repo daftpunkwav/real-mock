@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Any
 
-from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec, TOOL_TIER_SECONDARY
+from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.database import sessions_db_session
 from realmock.domains.prep.services import (
@@ -62,8 +62,6 @@ MEMORY_LIST_SUMMARIES_SPEC = ToolSpec(
         },
     },
     handler=run_memory_list_summaries,
-    tier=TOOL_TIER_SECONDARY,
-    keywords=("memory", "summary", "记忆", "摘要", "summaries", "index", "索引", "list"),
 )
 
 

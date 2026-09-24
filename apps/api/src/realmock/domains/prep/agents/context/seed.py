@@ -86,7 +86,9 @@ def format_memory_index(db: Session | None = None, *, limit: int | None = None) 
         suffix = f" [{tag_text}]" if tag_text else ""
         lines.append(f"- [memory #{row.id}]{suffix} {summary}")
     return (
-        "Long-term memories (concise index; use memory_get_detail for full text):\n"
+        "Long-term memories (concise index; use memory_get_detail for full text). "
+        "This index is a snapshot from session start — memories saved during this "
+        "session are not listed, so query memory_list_summaries before writing:\n"
         + "\n".join(lines)
     )
 

@@ -114,16 +114,17 @@ SEARCH_TOOLS_SPEC = ToolSpec(
     name="search_tools",
     description=(
         "Find on-demand tools by keyword when the declared tools lack what this "
-        "turn needs (repository tools, memory query tools). Returns matching "
-        "candidates with one-line summaries; names passed in select are loaded "
-        "immediately and become callable next round, at most once per turn."
+        "turn needs (deep repository tools, the full-text memory detail tool). "
+        "Returns matching candidates with one-line summaries; names passed in "
+        "select are loaded immediately and become callable next round, at most "
+        "once per turn."
     ),
     parameters={
         "type": "object",
         "properties": {
             "query": {
                 "type": "string",
-                "description": "Keywords for the capability needed, e.g. repo file, memory tags",
+                "description": "Keywords for the capability needed, e.g. repo file",
             },
             "select": {
                 "type": "array",
