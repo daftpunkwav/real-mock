@@ -23,7 +23,7 @@ export function CareerTab({ analysis }: { analysis: ResumeAnalysis }) {
       {analysis.salary_positioning?.trim() && (
         <section className="eval-callout">
           <span className="eval-label">{t("career.salary")}</span>
-          <p className="eval-prose eval-prose-sm">
+          <p className="eval-prose eval-prose-sm eval-prose-fill">
             <EvalRichText text={cn(analysis.salary_positioning)} />
           </p>
         </section>
