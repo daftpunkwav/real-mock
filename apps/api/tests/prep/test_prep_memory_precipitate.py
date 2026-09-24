@@ -15,7 +15,10 @@ from types import SimpleNamespace
 import pytest
 
 import realmock.domains.prep.agents.memory_precipitate as mp_mod
-from realmock.domains.prep.agents.memory_precipitate import precipitate_turn_memory
+from realmock.domains.prep.agents.memory_precipitate import (
+    precipitate_turn_memory,
+    schedule_turn_memory_precipitation,
+)
 
 
 class _FakeLLM:
@@ -99,3 +102,15 @@ async def test_llm_failure_is_swallowed(_stub_env) -> None:
     assert _stub_env == []
 
 
+async def test_schedule_runs_detached_and_survives(_stub_env) -> None:
+    """The scheduler fires the curation task without blocking the caller."""
+    import asyncio
+
+    llm = _FakeLLM(verdict={"save": True, "summary": "durable fact for later"})
+    schedule_turn_memory_precipitation(_agent(llm), "user text", "a" * 100)
+    # Give the event loop a few ticks so the detached task completes.
+    for _ in range(20):
+        if _stub_env:
+            break
+        await asyncio.sleep(0.01)
+    assert len(_stub_env) == 1

@@ -9,6 +9,7 @@ precipitation is an enhancement, never a turn blocker.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -100,5 +101,29 @@ async def precipitate_turn_memory(
         logger.warning("Prep turn memory precipitation skipped: %s", exc)
 
 
+# Strong references keep fire-and-forget tasks alive until they finish
+# (asyncio only holds weak refs; an unreferenced task can be GC'd mid-flight).
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
-__all__ = ["precipitate_turn_memory"]
+
+def schedule_turn_memory_precipitation(
+    agent: "PrepAgent", user_text: str, final: str
+) -> None:
+    """Run end-of-turn curation as a detached task (never raises here).
+
+    Curation must not delay the sync response body or the stream's ``done``
+    envelope, and a client disconnect after the last token must not cancel it
+    (an awaited call used to die with the generator). Detached execution is
+    safe: the task opens its own DB connection and the LLM client's HTTP
+    session is per call.
+    """
+    try:
+        task = asyncio.create_task(precipitate_turn_memory(agent, user_text, final))
+    except RuntimeError:
+        # No running loop (should not happen on request paths): skip quietly.
+        return
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+
+
+__all__ = ["precipitate_turn_memory", "schedule_turn_memory_precipitation"]

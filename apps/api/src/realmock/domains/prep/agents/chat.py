@@ -31,7 +31,7 @@ from realmock.platform.capabilities.ai.llm.provider_errors import is_context_ove
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
 from .ask_user import extract_inline_ask_user
-from .memory_precipitate import precipitate_turn_memory
+from .memory_precipitate import schedule_turn_memory_precipitation
 from .context import format_linked_sessions
 from .persist import (
     compaction_event,
@@ -277,8 +277,10 @@ async def run_chat(
             agent, working, final or "", db, tool_steps=steps, search_groups=groups, thinking=thinking,
             compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
         )
-        # End-of-turn curation: one advisory call, write only on a positive verdict.
-        await precipitate_turn_memory(agent, user_text, final if isinstance(final, str) else "")
+        # End-of-turn curation runs detached: the reply returns immediately.
+        schedule_turn_memory_precipitation(
+            agent, user_text, final if isinstance(final, str) else ""
+        )
         return final if isinstance(final, str) else ""
     except Exception:
         # The turn died before finalize (LLM quota/auth errors, closing-stream
@@ -499,8 +501,10 @@ async def run_chat_stream(
         finalized = True
         if delta:
             yield delta
-        # End-of-turn curation: one advisory call, write only on a positive verdict.
-        await precipitate_turn_memory(agent, user_text, final)
+        # End-of-turn curation runs detached after the completion envelope: the
+        # done event is no longer delayed by the advisory LLM call, and a client
+        # disconnect after the last token cannot cancel it anymore.
+        schedule_turn_memory_precipitation(agent, user_text, final)
     except (asyncio.CancelledError, GeneratorExit):
         # Client stopped the stream: persist the partial turn so the question
         # and whatever was produced survive a refresh. Never yield here, and
