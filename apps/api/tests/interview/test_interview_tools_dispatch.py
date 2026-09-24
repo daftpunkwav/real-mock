@@ -27,6 +27,7 @@ def test_tool_definitions_include_local_and_github() -> None:
     assert "lookup_company_profile" in names
     assert "lookup_resume_projects" in names
     assert "web_search_interview_exp" in names
+    assert "web_fetch" in names
     assert "issue_coding_challenge" in names
     assert "inspect_candidate_code" in names
     assert "github_get_user" in names
@@ -283,6 +284,30 @@ async def test_web_search_failure_turns_observation(monkeypatch) -> None:
     data = json.loads(out)
     assert data["error"] == "search_failed"
     assert "net down" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_success(monkeypatch) -> None:
+    async def fake_fetch(args):
+        return json.dumps({"url": args["url"], "title": "T", "text": "page body"})
+
+    monkeypatch.setattr(tmod, "execute_web_fetch", fake_fetch)
+    out = await execute_interview_tool(
+        "web_fetch", {"url": "https://example.com/post"}, db=None
+    )
+    assert "page body" in out
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_failure_stays_observation(monkeypatch) -> None:
+    async def unavailable(args):
+        return "FETCH_FAILED could not fetch the page"
+
+    monkeypatch.setattr(tmod, "execute_web_fetch", unavailable)
+    out = await execute_interview_tool(
+        "web_fetch", {"url": "https://example.com/post"}, db=None
+    )
+    assert out.startswith("FETCH_FAILED")
 
 
 @pytest.mark.asyncio

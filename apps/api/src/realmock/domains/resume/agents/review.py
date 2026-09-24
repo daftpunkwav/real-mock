@@ -68,6 +68,7 @@ from realmock.platform.capabilities.ai.agent.tools import (
     resume_tool_specs,
     search_tool_spec,
     snapshot_from_payload,
+    web_fetch_tool_spec,
 )
 from realmock.platform.capabilities.ai.context.manager import compact_with_summary, upsert_memory_block
 from realmock.platform.capabilities.ai.llm.client import LLMClient
@@ -612,6 +613,7 @@ def build_review_bundle(
             force_job_boards=True,
         )
     )
+    bundle.add(web_fetch_tool_spec())
     return bundle
 
 

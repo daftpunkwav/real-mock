@@ -23,6 +23,7 @@ from realmock.platform.capabilities.ai.agent.tools import (
     profile_tool_specs,
     resume_tool_specs,
     snapshot_from_payload,
+    execute_web_fetch,
     execute_web_search,
 )
 from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapshot
@@ -93,6 +94,24 @@ _LOCAL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "query": {"type": "string"},
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_fetch",
+            "description": (
+                "Fetch ONE public web page found via web_search_interview_exp and "
+                "read its actual content. Use it to verify a claim or quote a "
+                "source accurately; do not guess page contents without fetching."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "Absolute http(s) URL to fetch"},
+                },
+                "required": ["url"],
             },
         },
     },
@@ -303,6 +322,10 @@ async def execute_interview_tool(
         result = await _cap_result(json.dumps(payload, ensure_ascii=False), llm)
         _note_company_finding(agent_state, tool=name, subject=focus or "*", result=result)
         return result
+
+    if name == "web_fetch":
+        raw = await execute_web_fetch(arguments or {})
+        return await _cap_result(raw, llm)
 
     if name == "web_search_interview_exp":
         query = str(arguments.get("query") or "")

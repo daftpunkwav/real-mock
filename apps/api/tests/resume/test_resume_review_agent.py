@@ -220,6 +220,17 @@ def test_build_snapshot_and_bundle(db) -> None:
     names = {d["function"]["name"] for d in bundle.definitions()}
     assert "review_set_plan" in names
     assert "web_search" in names
+    assert "web_fetch" in names
+
+
+def test_market_sites_include_job_boards() -> None:
+    from realmock.domains.resume.services.sites import RESUME_MARKET_SEARCH_SITES
+
+    assert "nowcoder.com" in RESUME_MARKET_SEARCH_SITES
+    assert "zhipin.com" in RESUME_MARKET_SEARCH_SITES
+    assert "linkedin.com" in RESUME_MARKET_SEARCH_SITES
+    assert "levels.fyi" in RESUME_MARKET_SEARCH_SITES
+    assert len(RESUME_MARKET_SEARCH_SITES) >= 8
 
 
 @pytest.mark.asyncio
