@@ -26,7 +26,7 @@ export function HeadlineBanner({ text }: { text: string }) {
           {t("overview.headlineTag")}
         </p>
         <p className="mt-1 text-[17px] font-semibold leading-snug tracking-tight text-ink sm:text-[19px]">
-          {cn}
+          <EvalRichText text={cn} />
         </p>
       </div>
     </div>

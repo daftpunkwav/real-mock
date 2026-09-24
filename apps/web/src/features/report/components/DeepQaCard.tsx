@@ -175,12 +175,14 @@ export function DeepQaCard({ note, index }: { note: TurnNote; index?: number }) 
       {!hasDeep && hasLegacy && (
         <div className="mt-2 space-y-1.5">
           {note.user_review?.summary && (
-            <p className="text-[13px] leading-relaxed text-ink">{note.user_review.summary}</p>
+            <p className="text-[13px] leading-relaxed text-ink">
+              <ReportRichText text={note.user_review.summary} />
+            </p>
           )}
           {note.interviewer_review?.intent && (
             <p className="text-[12px] text-ink-muted">
               <span className="font-medium text-ink">{t("turns.intentLabel")}</span>
-              {note.interviewer_review.intent}
+              <ReportRichText text={note.interviewer_review.intent} />
             </p>
           )}
         </div>
