@@ -19,8 +19,6 @@ resume 域业务逻辑:摄取、深度评价、市场分析、渲染、存储。
 | `analysis.py` | 评价编排:文本自愈 → agent 循环 → 持久化 |
 | `review_context.py` | 评价 agent 的 DB 输入构建 |
 | `analysis_prompt.py` | 评价 system prompt 与共享 JSON schema 文本 |
-| `analysis_market.py` | 市场检索:规划查询、抓取网页上下文、缓存 |
-| `market_queries.py` / `market_keywords.py` | 市场查询 / 关键词生成 |
 | `sites.py` | 市场搜索的站点白名单 |
 | `repo_evidence.py` | GitHub 仓库取证 |
 | `analysis_normalize.py` | 评价载荷归一化 |

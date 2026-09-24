@@ -144,12 +144,6 @@ KEY_FILE_PATTERNS: tuple[str, ...] = (
     "index.ts",
 )
 
-# ── Market retrieval cache ──────────────────────────────────────────────
-
-MAX_SEARCH_QUERIES: int = 5
-MARKET_CACHE_MAX: int = 8
-MARKET_SEARCH_HITS_PER_QUERY: int = 8
-
 # ── Equal-weight review dimensions (prompt + frontend radar) ────────────
 
 DIMENSION_KEYS: tuple[str, ...] = (

@@ -19,8 +19,6 @@ Business logic for the resume domain: ingest, deep review, market analysis, rend
 | `analysis.py` | Review orchestration: heal text → agent loop → persist |
 | `review_context.py` | DB-backed input builders for the review agent |
 | `analysis_prompt.py` | Review system prompt and shared JSON schema text |
-| `analysis_market.py` | Market search: plan queries, fetch web context, cache |
-| `market_queries.py` / `market_keywords.py` | Market query / keyword generation |
 | `sites.py` | Site allowlist for market web search |
 | `repo_evidence.py` | GitHub repository evidence gathering |
 | `analysis_normalize.py` | Review payload normalization |

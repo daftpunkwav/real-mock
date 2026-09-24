@@ -529,37 +529,6 @@ def test_commit_retry_yields_event_loop_during_backoff(
     assert sleeps == [1.5, 3.0]
 
 
-def test_market_context_cached_per_resume(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
-    from realmock.domains.resume.services import analysis_market
-
-    calls = {"n": 0}
-
-    async def fake_queries(r, llm):
-        calls["n"] += 1
-        return ([f"q{calls['n']}"], True)
-
-    async def fake_gather(r, queries):
-        return (f"ctx-{queries[0]}", list(queries))
-
-    monkeypatch.setattr(analysis_market, "generate_market_queries", fake_queries)
-    monkeypatch.setattr(analysis_market, "gather_resume_market_context", fake_gather)
-
-    async def run(r) -> tuple[str, list[str]]:
-        return await analysis_market.get_market_context_cached(r, llm=None)
-
-    row_a = Resume(filename="a.pdf", file_type="pdf", raw_text="Resume A", parsed_profile="{}")
-    row_a2 = Resume(filename="a-again.pdf", file_type="pdf", raw_text="Resume A", parsed_profile="{}")
-    row_b = Resume(filename="b.pdf", file_type="pdf", raw_text="Resume B", parsed_profile="{}")
-
-    ctx1, q1 = asyncio.run(run(row_a))
-    ctx2, q2 = asyncio.run(run(row_a2))
-    ctx3, q3 = asyncio.run(run(row_b))
-
-    assert calls["n"] == 2
-    assert ctx1 == ctx2 and q1 == q2
-    assert ctx3 != ctx1
-
-
 def test_extract_github_repos_dedup_and_cap() -> None:
     from realmock.domains.resume.services.repo_evidence import extract_github_repos
 
