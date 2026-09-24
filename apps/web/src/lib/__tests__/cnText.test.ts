@@ -81,6 +81,29 @@ describe("tokenizeEvalText", () => {
     expect(parts).toContainEqual({ type: "bold", value: "95%" });
   });
 
+  it("does not bold units that continue into a word", () => {
+    // "07 s" used to swallow the first letter of "sonara".
+    expect(tokenizeEvalText("2026-07 sonara")).toEqual([
+      { type: "text", value: "2026-07 sonara" },
+    ]);
+    expect(tokenizeEvalText("687KB")).toEqual([{ type: "text", value: "687KB" }]);
+    expect(tokenizeEvalText("size 51411KB；语言 Python")).toEqual([
+      { type: "text", value: "size 51411KB；语言 Python" },
+    ]);
+  });
+
+  it("does not split letter-digit tokens like K8s", () => {
+    const parts = tokenizeEvalText("Docker/K8s 部署");
+    expect(parts).toEqual([{ type: "text", value: "Docker/K8s 部署" }]);
+  });
+
+  it("still bolds standalone metrics with spaces around units", () => {
+    const parts = tokenizeEvalText("耗时 3 s，约 2 倍，权重 10 k");
+    expect(parts).toContainEqual({ type: "bold", value: "3 s" });
+    expect(parts).toContainEqual({ type: "bold", value: "2 倍" });
+    expect(parts).toContainEqual({ type: "bold", value: "10 k" });
+  });
+
   it("returns an empty array for empty input", () => {
     expect(tokenizeEvalText("")).toEqual([]);
     expect(tokenizeEvalText(null as unknown as string)).toEqual([]);
