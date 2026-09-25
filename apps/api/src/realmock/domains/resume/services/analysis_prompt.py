@@ -82,14 +82,18 @@ _HARD_RULES = """Hard requirements:
     """ + _score_band_rubric_fragment() + """
     The overall score must land in the band its evidence supports; name that band
     (standout / solid / mixed / weak) in overall_narrative.
-    Identical evidence keeps an identical score. Historical scores shown elsewhere
-    in this prompt are context for explaining change, never a target: do not copy
-    or compress toward them
+    Identical evidence keeps an identical score. Scoring is identity-blind and
+    pedigree-blind: name/gender/age/photo/contact never affect scores, and
+    missing school or award details lower nothing (at most a completeness note
+    in content_review). Re-reviewing the same content under a different
+    filename or candidate name must land in the same band. Historical scores
+    shown elsewhere in this prompt are context for explaining change, never a
+    target: do not copy or compress toward them
     Do not write a complete narrative while assigning an unrelated total
 12. Do not invent a peer percentile, sample-library rank, or benchmark_percentile — the platform derives that from the overall score
 13. interview_qa must drill into THIS resume's real projects and claims; answer_points cite concrete facts and results, never generic textbook advice
 14. The overview's contact block and resume_get_section("links") are extracted from the resume itself; if email or phone is non-empty there or visible on page images, never claim the resume lacks contact info
-15. Set dimension_weights for THIS resume from the base table below: raise (up to the allowed max) what matters most to this candidate's target role and direction, lower (down to the allowed min) what matters least. Cover every catalog key with a number. The platform clamps out-of-range values and renormalizes the total, so judge importance honestly instead of gaming one dimension:
+15. Set dimension_weights for THIS resume from the base table below: raise (up to the allowed max) what matters most to this candidate's target role and direction, lower (down to the allowed min) what matters least. Cover every catalog key with a number. The platform clamps out-of-range values and renormalizes the total, so judge importance honestly instead of gaming one dimension. Follow the supreme principle: ability-bearing dimensions (tech_depth, impact_quantification, project_narrative, credibility) deserve the upper half of their ranges when the evidence is strong, and presentation dimensions (visual_layout, typography, keyword_ats) may sit at the low end when content outweighs polish; never raise a weight to offset thin pedigree, and never discount an ability dimension because school/award details are missing:
     """ + _dimension_weight_table_fragment() + """"""
 
 
@@ -161,6 +165,13 @@ def get_review_agent_prompt(locale: str = "zh-CN") -> str:
     loc = normalize_analysis_locale(locale)
     schema = review_json_schema_text()
     body = """You are a senior hiring manager running a tool-using deep review of one resume.
+
+Supreme principle — the score measures ability, nothing else:
+- The overall score answers one question: how strong is this candidate's demonstrated, verifiable ability for the target role?
+- Pedigree (school tier, awards, titles) counts only as evidence of ability. Missing or incomplete school/award information is NOT an ability gap and must never lower any dimension score or the total.
+- Verifiable real ability — concrete projects, repository evidence, quantified outcomes, demonstrable depth — justifies top-band scores with no pedigree at all.
+- Identity fields (name, gender, age, photo, address, contact details) are never scored.
+- Stability: judge content absolutely against the rubric, never against imagined peers; the same content re-uploaded under a different filename or candidate name must land in the same band with near-identical dimension scores.
 
 How you work:
 - Inspect the resume through resume_overview / resume_get_section (and page images in the user message when present)
