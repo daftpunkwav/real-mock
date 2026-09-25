@@ -4,6 +4,7 @@
 
 import { TrendingUp } from "lucide-react";
 import { LoadError } from "@/components/LoadError";
+import { PageSkeleton } from "@/components/loading/PageSkeleton";
 import { useT } from "@/i18n";
 import { useGrowthPage } from "@/features/growth/useGrowthPage";
 import { TopWeaknessesSection } from "@/features/growth/components/TopWeaknessesSection";
@@ -32,10 +33,7 @@ export default function GrowthPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
-          <span className="block h-4 w-4 anim-spin rounded-full border-2 border-current border-t-transparent" />
-          {t("page.loading")}
-        </div>
+        <PageSkeleton variant="stats" header={false} shell={false} />
       ) : loadError ? (
         <LoadError message={loadError} onRetry={load} />
       ) : (

@@ -4,6 +4,7 @@
 
 import { BarChart3 } from "lucide-react";
 import { LoadError } from "@/components/LoadError";
+import { PageSkeleton } from "@/components/loading/PageSkeleton";
 import { useT } from "@/i18n";
 import { useHistoryPage } from "@/features/history/useHistoryPage";
 import { HistoryListCard } from "@/features/history/components/HistoryListCard";
@@ -44,10 +45,7 @@ export default function HistoryPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
-          <span className="block h-4 w-4 anim-spin rounded-full border-2 border-current border-t-transparent" />
-          {t("list.loading")}
-        </div>
+        <PageSkeleton variant="split" header={false} shell={false} />
       ) : loadError ? (
         <LoadError message={loadError} onRetry={load} />
       ) : (

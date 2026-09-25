@@ -5,6 +5,7 @@
 import { useT } from "@/i18n";
 import { Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageSkeleton } from "@/components/loading/PageSkeleton";
 
 export function SetupHeader({ action }: { action?: ReactNode }) {
   const t = useT("interview");
@@ -27,13 +28,8 @@ export function SetupHeader({ action }: { action?: ReactNode }) {
 }
 
 export function SetupLoading() {
-  const t = useT("interview");
-  return (
-    <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-ink-muted">
-      <span className="block h-4 w-4 anim-spin rounded-full border-2 border-current border-t-transparent" />
-      {t("setup.loading")}
-    </div>
-  );
+  // Real header stays above; the body shimmers as setup cards load.
+  return <PageSkeleton variant="board" header={false} shell={false} />;
 }
 
 export function SetupMain({ left, preview }: { left: ReactNode; preview: ReactNode }) {

@@ -12,8 +12,7 @@
  */
 
 import { LoadError } from "@/components/LoadError";
-import { Spinner } from "@/components/Spinner";
-import { useT } from "@/i18n";
+import { PageSkeleton } from "@/components/loading/PageSkeleton";
 import {
   useResumeList,
   ResumePageHead,
@@ -26,7 +25,6 @@ import {
 } from "@/features/resume";
 
 export default function ResumePage() {
-  const t = useT("resume");
   const {
     resumes,
     loading,
@@ -55,10 +53,7 @@ export default function ResumePage() {
       <ResumePageHead />
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
-          <Spinner />
-          {t("page.loading")}
-        </div>
+        <PageSkeleton variant="split" header={false} shell={false} />
       ) : loadError ? (
         <LoadError message={loadError} onRetry={load} />
       ) : (

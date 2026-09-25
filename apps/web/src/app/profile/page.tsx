@@ -19,6 +19,7 @@ import { Eraser, Save } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadError } from "@/components/LoadError";
 import { Spinner } from "@/components/Spinner";
+import { PageSkeleton } from "@/components/loading/PageSkeleton";
 import { useT } from "@/i18n";
 import {
   BasicInfoSection,
@@ -60,15 +61,7 @@ export default function ProfilePage() {
   const busy = saving || clearing;
 
   if (loading) {
-    return (
-      <div className={PAGE_SHELL}>
-        <PageHead />
-        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
-          <Spinner className="h-4 w-4" />
-          {t("page.loading")}
-        </div>
-      </div>
-    );
+    return <PageSkeleton variant="form" />;
   }
 
   if (loadError) {
