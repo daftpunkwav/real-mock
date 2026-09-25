@@ -1,6 +1,7 @@
 /** Growth tracking REST client. */
 
 import type { GrowthRecord } from "@/types";
+import { getLocale } from "@/i18n/resolve";
 import { request } from "@/lib/api/base";
 
 /** Growth-domain system-insights (not modeled in OpenAPI) */
@@ -69,9 +70,11 @@ export const growthHttp = {
   getSystemInsights: () => request<SystemGrowthInsights>("/v1/growth/system-insights"),
   getAggregated: () => request<GrowthAggregatedStats>("/v1/growth/aggregated"),
   getInsight: () => request<GrowthInsightEnvelope>("/v1/growth/insight"),
+  // Manual refresh follows the UI locale (backend defaults to zh-CN without
+  // one, which would freeze the insight language for English-UI users).
   refreshInsight: (locale?: string) =>
     request<{ scheduled: boolean; status: string }>(
-      `/v1/growth/insight/refresh${locale ? `?locale=${encodeURIComponent(locale)}` : ""}`,
+      `/v1/growth/insight/refresh?locale=${encodeURIComponent(locale ?? getLocale())}`,
       { method: "POST" },
     ),
 };
