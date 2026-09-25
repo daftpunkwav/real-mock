@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 
@@ -28,7 +29,9 @@ class BaiduProvider:
             return ""
 
         try:
-            async with make_pinned_async_client(_TOKEN_URL, timeout=20.0) as client:
+            # Keep DNS resolution off the event loop (same convention as web_fetch).
+            pinned = await asyncio.to_thread(make_pinned_async_client, _TOKEN_URL, timeout=20.0)
+            async with pinned as client:
                 tr = await client.get(
                     _TOKEN_URL,
                     params={
@@ -68,7 +71,9 @@ class BaiduProvider:
             "dev_pid": 1537,
         }
         try:
-            async with make_pinned_async_client(_ASR_URL, timeout=25.0) as client:
+            # Keep DNS resolution off the event loop (same convention as web_fetch).
+            pinned = await asyncio.to_thread(make_pinned_async_client, _ASR_URL, timeout=25.0)
+            async with pinned as client:
                 resp = await client.post(_ASR_URL, json=body)
                 resp.raise_for_status()
                 payload = resp.json()

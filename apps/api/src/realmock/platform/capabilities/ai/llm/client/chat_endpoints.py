@@ -7,6 +7,7 @@ remain unchanged.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -50,16 +51,19 @@ async def chat(
     response_format: dict[str, str] | None = None,
     tools: list[dict[str, Any]] | None = None,
 ) -> str:
-    client._safe_check()
+    await client._safe_check()
     url, payload = client._build_url_and_payload(
         messages, system=system, stream=False, temperature=temperature, response_format=response_format, tools=tools
     )
-    async with make_pinned_async_client(
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
         client.api_base,
         allow_local=_is_local_allowed(),
         require_https=_require_https(),
         timeout=LLM_CHAT_TIMEOUT_SECONDS,
-    ) as http:
+    )
+    async with pinned as http:
         try:
             # 429/5xx exponential backoff retry, consistent with non-streaming openai_chat path semantics
             client.usage.note_request_start()
@@ -100,19 +104,22 @@ async def chat(
 
 
 async def test_connection(client: "UnifiedLLMClient") -> tuple[bool, str]:
-    client._safe_check()
+    await client._safe_check()
     url, payload = client._build_url_and_payload(
         [{"role": "user", "content": "Please reply: Connection successful"}],
         system="Reply with plain text only, no emojis.",
         stream=False,
         temperature=0,
     )
-    async with make_pinned_async_client(
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
         client.api_base,
         allow_local=_is_local_allowed(),
         require_https=_require_https(),
         timeout=LLM_TEST_CONNECTION_TIMEOUT_SECONDS,
-    ) as http:
+    )
+    async with pinned as http:
         try:
             resp = await http.post(
                 url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
@@ -143,7 +150,7 @@ async def chat_message(
     tool_choice: str | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Returns the text and unified function tool calls."""
-    client._safe_check()
+    await client._safe_check()
     url, payload = client._build_url_and_payload(
         messages,
         system=system,
@@ -153,12 +160,15 @@ async def chat_message(
         tools=tools,
         tool_choice=tool_choice,
     )
-    async with make_pinned_async_client(
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
         client.api_base,
         allow_local=_is_local_allowed(),
         require_https=_require_https(),
         timeout=LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
-    ) as http:
+    )
+    async with pinned as http:
         client.usage.note_request_start()
         try:
             resp = await http.post(

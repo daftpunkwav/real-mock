@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 
@@ -51,12 +52,15 @@ class MimoAudioProvider:
 
         settings = get_settings()
         try:
-            async with make_pinned_async_client(
+            # Keep DNS resolution off the event loop (same convention as web_fetch).
+            pinned = await asyncio.to_thread(
+                make_pinned_async_client,
                 api_base,
                 allow_local=settings.allow_local_llm,
                 require_https=bool(settings.is_prod),
                 timeout=30.0,
-            ) as client:
+            )
+            async with pinned as client:
                 resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()

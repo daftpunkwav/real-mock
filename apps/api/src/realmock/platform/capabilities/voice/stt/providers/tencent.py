@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -108,9 +109,12 @@ class TencentProvider:
             secret_id=secret_id, secret_key=secret_key, payload=payload, timestamp=ts
         )
         try:
-            async with make_pinned_async_client(
+            # Keep DNS resolution off the event loop (same convention as web_fetch).
+            pinned = await asyncio.to_thread(
+                make_pinned_async_client,
                 f"https://{_HOST}", timeout=25.0
-            ) as client:
+            )
+            async with pinned as client:
                 resp = await client.post(
                     f"https://{_HOST}", headers=headers, content=payload
                 )

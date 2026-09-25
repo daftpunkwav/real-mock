@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -40,7 +41,9 @@ class AliyunProvider:
             "Content-Type": "application/octet-stream",
         }
         try:
-            async with make_pinned_async_client(url, timeout=25.0) as client:
+            # Keep DNS resolution off the event loop (same convention as web_fetch).
+            pinned = await asyncio.to_thread(make_pinned_async_client, url, timeout=25.0)
+            async with pinned as client:
                 resp = await client.post(url, headers=headers, content=wav)
                 resp.raise_for_status()
                 payload = resp.json()

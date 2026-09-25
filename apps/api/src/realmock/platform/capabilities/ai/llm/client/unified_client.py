@@ -8,6 +8,7 @@ client state, SSRF checks, URL+payload construction, and streaming orchestration
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
@@ -94,8 +95,16 @@ class UnifiedLLMClient:
             extra_headers=extra_headers if isinstance(extra_headers, dict) else None,
         )
 
-    def _safe_check(self) -> None:
-        if not is_safe_http_url(self.api_base, allow_local=_is_local_allowed(), require_https=_require_https()):
+    async def _safe_check(self) -> None:
+        # Policy validation resolves DNS; run it in a worker thread so a slow
+        # resolver cannot stall every stream (same convention as web_fetch).
+        ok = await asyncio.to_thread(
+            is_safe_http_url,
+            self.api_base,
+            allow_local=_is_local_allowed(),
+            require_https=_require_https(),
+        )
+        if not ok:
             raise UnsafeURLError(f"LLM api_base is not secure: {self.api_base}")
 
     def _build_url_and_payload(
@@ -194,7 +203,7 @@ class UnifiedLLMClient:
         reasoning has already been sent in real time and is not included again). All three protocols
         are supported.
         """
-        self._safe_check()
+        await self._safe_check()
         url, payload = self._build_url_and_payload(
             messages, system=system, stream=True, temperature=temperature, tools=tools
         )
@@ -230,7 +239,7 @@ class UnifiedLLMClient:
         uniformly in ``<think>...</think>``; pass response text through ``StreamSanitizer`` to
         strip template tokens.
         """
-        self._safe_check()
+        await self._safe_check()
         url, payload = self._build_url_and_payload(
             messages,
             system=system,

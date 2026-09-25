@@ -9,7 +9,7 @@ Conventions: no real network (httpx/pinned client mocked); asyncio_mode=auto.
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -85,15 +85,15 @@ def test_from_stage_config_defaults() -> None:
     assert c.protocol == DEFAULT_LLM_PROTOCOL
 
 
-def test_safe_check_ok_and_fail() -> None:
+async def test_safe_check_ok_and_fail() -> None:
     c = _client()
     with patch.object(uc_mod, "is_safe_http_url", return_value=True):
-        c._safe_check()
+        await c._safe_check()
     with (
         patch.object(uc_mod, "is_safe_http_url", return_value=False),
         pytest.raises(UnsafeURLError),
     ):
-        c._safe_check()
+        await c._safe_check()
 
 
 def test_build_url_and_payload_delegates() -> None:
@@ -128,7 +128,7 @@ async def test_test_connection_and_chat_message_delegate() -> None:
 async def test_chat_message_stream_responses_delegates() -> None:
     """The responses protocol streams through ``stream_message_round`` (no hard rejection)."""
     c = _client(protocol=LLMProtocol.OPENAI_RESPONSES)
-    c._safe_check = MagicMock()  # type: ignore[method-assign]
+    c._safe_check = AsyncMock()  # type: ignore[method-assign]
     seen: dict[str, Any] = {}
 
     async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
@@ -153,7 +153,7 @@ async def _collect(agen: Any) -> list[Any]:
 @pytest.mark.asyncio
 async def test_chat_message_stream_success_adds_stream_options() -> None:
     c = _client()
-    c._safe_check = MagicMock()  # type: ignore[method-assign]
+    c._safe_check = AsyncMock()  # type: ignore[method-assign]
     seen: dict[str, Any] = {}
 
     async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
@@ -174,7 +174,7 @@ async def test_chat_message_stream_success_adds_stream_options() -> None:
 @pytest.mark.asyncio
 async def test_chat_message_stream_fallback_on_unsupported() -> None:
     c = _client()
-    c._safe_check = MagicMock()  # type: ignore[method-assign]
+    c._safe_check = AsyncMock()  # type: ignore[method-assign]
     calls = {"n": 0}
 
     async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
@@ -198,7 +198,7 @@ async def test_chat_message_stream_fallback_on_unsupported() -> None:
 @pytest.mark.asyncio
 async def test_chat_message_stream_anthropic_no_stream_options() -> None:
     c = _client(protocol=LLMProtocol.ANTHROPIC_MESSAGES)
-    c._safe_check = MagicMock()  # type: ignore[method-assign]
+    c._safe_check = AsyncMock()  # type: ignore[method-assign]
     seen: dict[str, Any] = {}
 
     async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
@@ -218,7 +218,7 @@ async def test_chat_message_stream_anthropic_no_stream_options() -> None:
 @pytest.mark.asyncio
 async def test_chat_stream_success_and_fallback() -> None:
     c = _client()
-    c._safe_check = MagicMock()  # type: ignore[method-assign]
+    c._safe_check = AsyncMock()  # type: ignore[method-assign]
 
     async def _ok(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
         yield "hi"
@@ -233,7 +233,7 @@ async def test_chat_stream_success_and_fallback() -> None:
 
     # Fallback path: first raises, second yields.
     c2 = _client()
-    c2._safe_check = MagicMock()  # type: ignore[method-assign]
+    c2._safe_check = AsyncMock()  # type: ignore[method-assign]
     calls = {"n": 0}
 
     async def _flaky(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:

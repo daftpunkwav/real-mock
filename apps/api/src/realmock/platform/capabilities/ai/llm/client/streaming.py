@@ -112,9 +112,15 @@ async def stream_message_round(
     else:
         assembler = _OpenAIRoundAssembler()
     usage = getattr(client, "usage", None)
-    async with make_pinned_async_client(
-        api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
-    ) as c:
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
+        api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=180.0,
+    )
+    async with pinned as c:
         ctx, resp = await _open_stream_with_retry(client, c, url, payload, protocol, api_key, usage)
         try:
             if "stream_options" in payload and resp.status_code in (400, 422):
@@ -173,9 +179,15 @@ async def stream_text_payload(
     """
     sanitizer = StreamSanitizer()
     usage = getattr(client, "usage", None)
-    async with make_pinned_async_client(
-        api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
-    ) as c:
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
+        api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=180.0,
+    )
+    async with pinned as c:
         ctx, resp = await _open_stream_with_retry(client, c, url, payload, protocol, api_key, usage)
         try:
             if "stream_options" in payload and resp.status_code in (400, 422):

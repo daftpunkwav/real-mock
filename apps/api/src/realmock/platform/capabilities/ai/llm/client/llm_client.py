@@ -15,6 +15,7 @@ streaming retries in :mod:`retry_stream`, and protocol translation in :mod:`prot
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
@@ -120,8 +121,16 @@ class LLMClient:
             extra_body=self.extra_body or None,
         )
 
-    def _safe_check(self) -> None:
-        if not is_safe_http_url(self.api_base, allow_local=_is_local_allowed(), require_https=_require_https()):
+    async def _safe_check(self) -> None:
+        # Policy validation resolves DNS; run it in a worker thread so a slow
+        # resolver cannot stall every stream (same convention as web_fetch).
+        ok = await asyncio.to_thread(
+            is_safe_http_url,
+            self.api_base,
+            allow_local=_is_local_allowed(),
+            require_https=_require_https(),
+        )
+        if not ok:
             raise UnsafeURLError(f"LLM api_base is not secure: {self.api_base}")
 
     def _endpoint(self, path: str) -> str:
@@ -168,7 +177,7 @@ class LLMClient:
             payload_messages = [{"role": "system", "content": system}, *payload_messages]
         if self.protocol != DEFAULT_LLM_PROTOCOL:
             return await self._delegate().chat(payload_messages, temperature=temperature, response_format=response_format, tools=tools)
-        self._safe_check()
+        await self._safe_check()
         url = self._endpoint("/chat/completions")
         payload = self._build_payload(
             payload_messages,
@@ -219,7 +228,7 @@ class LLMClient:
             if not message.get("tool_calls"):
                 message.pop("tool_calls", None)
             return message
-        self._safe_check()
+        await self._safe_check()
         url = self._endpoint("/chat/completions")
         payload = self._build_payload(
             messages, temperature, response_format=response_format, tools=tools
@@ -285,7 +294,7 @@ class LLMClient:
             ):
                 yield event
             return
-        self._safe_check()
+        await self._safe_check()
         url = self._endpoint("/chat/completions")
         payload = self._build_payload(messages, temperature, stream=True, tools=tools)
         if not self._stream_usage_disabled:
@@ -308,7 +317,7 @@ class LLMClient:
             ):
                 yield token
             return
-        self._safe_check()
+        await self._safe_check()
         url = self._endpoint("/chat/completions")
         payload = self._build_payload(messages, temperature, stream=True, tools=tools)
         if not self._stream_usage_disabled:

@@ -55,15 +55,15 @@ def test_build_payload_delegates() -> None:
         assert m.called
 
 
-def test_safe_check() -> None:
+async def test_safe_check() -> None:
     c = _client()
     with patch.object(lc_mod, "is_safe_http_url", return_value=True):
-        c._safe_check()
+        await c._safe_check()
     with (
         patch.object(lc_mod, "is_safe_http_url", return_value=False),
         pytest.raises(UnsafeURLError),
     ):
-        c._safe_check()
+        await c._safe_check()
 
 
 def test_delegate_shares_usage() -> None:

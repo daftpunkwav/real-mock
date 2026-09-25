@@ -7,6 +7,8 @@ the StepFun-managed index; it does not touch the protocol surface (``query`` / `
 
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from typing import Any
 
@@ -56,7 +58,9 @@ class StepFunIndexHttp:
         if not is_safe_http_url(url, allow_local=False):
             raise UnsafeURLError(f"StepFun URL rejected: {url}")
         payload = {"name": _STEPFUN_VS_NAME}
-        async with self._pinned_client(api_base) as client:
+        # Keep DNS resolution off the event loop (same convention as web_fetch).
+        pinned = await asyncio.to_thread(self._pinned_client, api_base)
+        async with pinned as client:
             resp = await client.post(url, headers=self._headers(), json=payload)
             if resp.status_code >= 400:
                 logger.warning(
@@ -84,7 +88,9 @@ class StepFunIndexHttp:
         files = {"file": (_STEPFUN_FILE_NAME, content, "application/jsonl")}
         data = {"purpose": "retrieval"}
         headers = {"Authorization": f"Bearer {api_key}"}
-        async with self._pinned_client(api_base) as client:
+        # Keep DNS resolution off the event loop (same convention as web_fetch).
+        pinned = await asyncio.to_thread(self._pinned_client, api_base)
+        async with pinned as client:
             resp = await client.post(url, headers=headers, data=data, files=files)
             resp.raise_for_status()
             payload = resp.json()
@@ -105,7 +111,9 @@ class StepFunIndexHttp:
         if not is_safe_http_url(url, allow_local=False):
             raise UnsafeURLError(f"StepFun URL rejected: {url}")
         payload = {"file_ids": file_id}
-        async with self._pinned_client(api_base) as client:
+        # Keep DNS resolution off the event loop (same convention as web_fetch).
+        pinned = await asyncio.to_thread(self._pinned_client, api_base)
+        async with pinned as client:
             resp = await client.post(url, headers=self._headers(), json=payload)
             resp.raise_for_status()
 
@@ -119,7 +127,9 @@ class StepFunIndexHttp:
         url = f"{api_base}/vector_stores/{vector_store_id}"
         if not is_safe_http_url(url, allow_local=False):
             raise UnsafeURLError(f"StepFun URL rejected: {url}")
-        async with self._pinned_client(api_base) as client:
+        # Keep DNS resolution off the event loop (same convention as web_fetch).
+        pinned = await asyncio.to_thread(self._pinned_client, api_base)
+        async with pinned as client:
             resp = await client.get(url, headers=self._headers())
             if resp.status_code == 404:
                 raise RuntimeError(f"StepFun vector_store does not exist: id={vector_store_id}")

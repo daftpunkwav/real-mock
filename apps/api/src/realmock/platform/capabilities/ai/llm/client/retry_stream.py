@@ -47,9 +47,15 @@ async def stream_message_round_retry(
     """
     headers = chat_completions_headers(api_key, getattr(client, "extra_headers", None))
     usage = getattr(client, "usage", None)
-    async with make_pinned_async_client(
-        api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=180.0
-    ) as c:
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
+        api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=180.0,
+    )
+    async with pinned as c:
         attempt = 0
         while True:
             assembler = _OpenAIRoundAssembler()
@@ -135,9 +141,15 @@ async def stream_text_retry(
     usage = getattr(client, "usage", None)
     last_exc: Exception | None = None
     tokens_yielded = False
-    async with make_pinned_async_client(
-        api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=120.0
-    ) as c:
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
+        api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=120.0,
+    )
+    async with pinned as c:
         attempt = 0
         while True:
             # sanitizer rebuilds according to attempt: discards the last remaining data when retrying fails.

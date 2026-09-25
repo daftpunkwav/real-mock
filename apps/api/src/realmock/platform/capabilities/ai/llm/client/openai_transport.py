@@ -6,6 +6,7 @@ call (and are not repeated here), while retries consistently use ``base._retry_r
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -88,9 +89,16 @@ async def chat_completions(
     ``usage`` (optional :class:`UsageAccumulator`) receives request diagnostics:
     latency, upstream request-id headers, and the last error summary.
     """
-    async with make_pinned_async_client(
-        api_base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=timeout
-    ) as client:
+    # DNS pinning resolves DNS synchronously; keep it off the event loop so a
+    # slow resolver cannot stall every stream (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
+        api_base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=timeout,
+    )
+    async with pinned as client:
         try:
             if usage is not None:
                 usage.note_request_start()
@@ -208,9 +216,15 @@ async def embed_texts(
         "Authorization": f"Bearer {embed_key}",
         "Content-Type": "application/json",
     }
-    async with make_pinned_async_client(
-        base, allow_local=_is_local_allowed(), require_https=_require_https(), timeout=60.0
-    ) as client:
+    # Keep DNS resolution off the event loop (same convention as web_fetch).
+    pinned = await asyncio.to_thread(
+        make_pinned_async_client,
+        base,
+        allow_local=_is_local_allowed(),
+        require_https=_require_https(),
+        timeout=60.0,
+    )
+    async with pinned as client:
         try:
             resp = await _retry_request(
                 lambda: client.post(url, headers=headers, json=payload)

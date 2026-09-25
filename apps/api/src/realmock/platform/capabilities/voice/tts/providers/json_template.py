@@ -22,6 +22,7 @@ by the user against the vendor's own API docs:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -74,12 +75,15 @@ async def synthesize_json_template_to_base64(text: str, *, creds) -> str:
 
     settings = get_settings()
     try:
-        async with make_pinned_async_client(
+        # Keep DNS resolution off the event loop (same convention as web_fetch).
+        pinned = await asyncio.to_thread(
+            make_pinned_async_client,
             url,
             allow_local=settings.allow_local_llm,
             require_https=bool(settings.is_prod),
             timeout=60.0,
-        ) as client:
+        )
+        async with pinned as client:
             resp = await client.request(
                 method, url, headers=headers, content=json.dumps(body, ensure_ascii=False)
             )

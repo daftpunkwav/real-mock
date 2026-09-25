@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import uuid
@@ -57,7 +58,9 @@ class VolcengineProvider:
             },
         }
         try:
-            async with make_pinned_async_client(_URL, timeout=25.0) as client:
+            # Keep DNS resolution off the event loop (same convention as web_fetch).
+            pinned = await asyncio.to_thread(make_pinned_async_client, _URL, timeout=25.0)
+            async with pinned as client:
                 resp = await client.post(_URL, headers=headers, json=body)
                 resp.raise_for_status()
                 payload = resp.json()

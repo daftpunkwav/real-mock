@@ -26,7 +26,7 @@ def _client(**kw: Any) -> MagicMock:
     c.model = "m"
     c.protocol = LLMProtocol.OPENAI_CHAT
     c.usage = UsageAccumulator()
-    c._safe_check = MagicMock()
+    c._safe_check = AsyncMock()
     c._build_url_and_payload = MagicMock(return_value=("https://api.test/v1/chat", {"model": "m"}))
     for k, v in kw.items():
         setattr(c, k, v)
