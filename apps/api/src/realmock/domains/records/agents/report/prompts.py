@@ -137,11 +137,38 @@ def notes_json_schema_text() -> str:
     return _TURN_NOTE_CONTRACT
 
 
+
+# Per-agent wrap-up hints: tools are omitted from the final wrap-up request,
+# so the copy demands the JSON object directly.
+TURN_NOTES_WRAP_UP_HINT = {
+    "role": "system",
+    "content": "Wrap up now: output the final JSON object covering every assigned turn_id. No tool calls.",
+}
+
+SYNTHESIS_WRAP_UP_HINT = {
+    "role": "system",
+    "content": "Wrap up now: output the final report JSON object. No tool calls.",
+}
+
+
+def report_repair_system(schema_text: str) -> str:
+    """System prompt for the grounded evidence-to-JSON repair pass."""
+    return (
+        "Repair the following evidence into one JSON object matching this "
+        f"schema exactly — same keys, same shapes, every field present:\n"
+        f"{schema_text}\n"
+        "Use only facts present in the evidence; do not invent scores or "
+        "quotes. No tool calls. Return JSON only."
+    )
+
 __all__ = [
     "SYNTHESIS_SYSTEM_PROMPT",
+    "SYNTHESIS_WRAP_UP_HINT",
     "TURN_NOTES_SYSTEM_PROMPT",
+    "TURN_NOTES_WRAP_UP_HINT",
     "notes_json_schema_text",
     "report_json_schema_text",
+    "report_repair_system",
     "synthesis_user_message",
     "turn_notes_user_message",
 ]

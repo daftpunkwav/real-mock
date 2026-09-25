@@ -11,6 +11,7 @@ import asyncio
 import logging
 from typing import Any
 
+from realmock.domains.records.agents.report.prompts import report_repair_system
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.ai.llm.json_extract import (
     extract_json_object,
@@ -67,13 +68,7 @@ async def repair_json(
                 [
                     {
                         "role": "system",
-                        "content": (
-                            "Repair the following evidence into one JSON object matching this "
-                            f"schema exactly — same keys, same shapes, every field present:\n"
-                            f"{schema_text}\n"
-                            "Use only facts present in the evidence; do not invent scores or "
-                            "quotes. No tool calls. Return JSON only."
-                        ),
+                        "content": report_repair_system(schema_text),
                     },
                     {"role": "user", "content": compressed},
                 ],

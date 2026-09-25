@@ -41,6 +41,7 @@ from realmock.platform.core.session_auth import new_access_token
 
 from .ask_user import fallback_reply as _fallback_reply
 from .chat import run_chat, run_chat_stream
+from realmock.domains.prep.prompts import PREP_CLOSING_HINT
 from .context import PREP_SYSTEM, build_system_messages, normalize_ui_locale
 from .round_compaction import (
     FALLBACK_CONTEXT_TOKENS,
@@ -79,18 +80,6 @@ _TURN_TIMEOUT_SECONDS = 600.0
 # Tool-observation compression budget. The platform default (120s) targets batch
 # jobs; interactive chat converges to 30s so one slow blob cannot stall a turn.
 _COMPRESSION_TIMEOUT_SECONDS = 30.0
-
-# Last-round closing: tools are omitted from the request entirely, so the
-# round cap yields a real answer instead of another tool round (protocol-level
-# guarantee, same as the resume-review loop). The wrap-up hint matches — it
-# must not offer a tool call the model cannot make.
-_CLOSING_HINT = {
-    "role": "system",
-    "content": (
-        "This is the final round and tools are unavailable now. Deliver your "
-        "complete, user-facing answer from the evidence gathered so far."
-    ),
-}
 
 __all__ = ["PREP_TOOL_DEFINITIONS", "PrepAgent"]
 
@@ -481,7 +470,7 @@ class PrepAgent:
                     compact_observation=compact_observation,
                     error_context=error_scope,
                     final_round_tool_free=True,
-                    wrap_up_hint=_CLOSING_HINT,
+                    wrap_up_hint=PREP_CLOSING_HINT,
                 ),
                 timeout=_TURN_TIMEOUT_SECONDS,
             )

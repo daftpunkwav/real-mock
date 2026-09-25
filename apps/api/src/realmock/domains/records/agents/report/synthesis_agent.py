@@ -15,6 +15,7 @@ from realmock.domains.records.agents.report.ledger_tools import (
     notes_tool_specs,
 )
 from realmock.domains.records.agents.report.prompts import (
+    SYNTHESIS_WRAP_UP_HINT,
     SYNTHESIS_SYSTEM_PROMPT,
     report_json_schema_text,
     synthesis_user_message,
@@ -173,10 +174,7 @@ async def run_agent_loop_safe(llm, messages, tools, execute, on_tool, on_thinkin
         temperature=0.2,
         on_tool=on_tool,
         on_thinking=on_thinking,
-        wrap_up_hint={
-            "role": "system",
-            "content": "Wrap up now: output the final report JSON object. No tool calls.",
-        },
+        wrap_up_hint=SYNTHESIS_WRAP_UP_HINT,
     )
 
 

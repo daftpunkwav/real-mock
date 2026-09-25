@@ -14,6 +14,7 @@ from typing import Any
 from realmock.domains.records.agents.report.finalize import finalize_json
 from realmock.domains.records.agents.report.ledger_tools import ledger_tool_specs
 from realmock.domains.records.agents.report.prompts import (
+    TURN_NOTES_WRAP_UP_HINT,
     TURN_NOTES_SYSTEM_PROMPT,
     notes_json_schema_text,
     turn_notes_user_message,
@@ -124,10 +125,7 @@ async def _run_loop(
         temperature=0.2,
         on_tool=on_tool,
         on_thinking=on_thinking,
-        wrap_up_hint={
-            "role": "system",
-            "content": "Wrap up now: output the final JSON object covering every assigned turn_id. No tool calls.",
-        },
+        wrap_up_hint=TURN_NOTES_WRAP_UP_HINT,
     )
 
 
