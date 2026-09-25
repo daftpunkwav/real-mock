@@ -217,19 +217,13 @@ def _check_rate_limit_db(
                 raise
 
 
-def check_rate_limit(
-    request: Request,
+def _check_rate_limit_memory(
     *,
-    key: str,
+    bucket_key: tuple[str, str],
     limit: int,
     window_seconds: int,
 ) -> None:
-    """Check the current limit and throw ``ApiBusinessError(A0002, 429)`` when it exceeds the limit."""
-    ip = _resolve_client_ip(request)
-    bucket_key = (key, ip)
-    if _use_db_ratelimit():
-        _check_rate_limit_db(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
-        return
+    """In-process sliding-window check, shared by request-IP and client-id keys."""
     _ensure_cleanup_thread()
     now = time.monotonic()
     with _LOCK:
@@ -251,6 +245,22 @@ def check_rate_limit(
         bucket.last_access = now
 
 
+def check_rate_limit(
+    request: Request,
+    *,
+    key: str,
+    limit: int,
+    window_seconds: int,
+) -> None:
+    """Check the current limit and throw ``ApiBusinessError(A0002, 429)`` when it exceeds the limit."""
+    ip = _resolve_client_ip(request)
+    bucket_key = (key, ip)
+    if _use_db_ratelimit():
+        _check_rate_limit_db(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
+        return
+    _check_rate_limit_memory(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
+
+
 def check_rate_limit_by_id(
     *,
     key: str,
@@ -268,24 +278,7 @@ def check_rate_limit_by_id(
             bucket_key=bucket_key, limit=limit, window_seconds=window_seconds
         )
         return
-    _ensure_cleanup_thread()
-    now = time.monotonic()
-    with _LOCK:
-        bucket = _BUCKETS.get(bucket_key)
-        if bucket is None:
-            bucket = _Bucket(timestamps=deque())
-            _BUCKETS[bucket_key] = bucket
-        while bucket.timestamps and bucket.timestamps[0] <= now - window_seconds:
-            bucket.timestamps.popleft()
-        if len(bucket.timestamps) >= limit:
-            retry_after = max(1, int(window_seconds - (now - bucket.timestamps[0])))
-            raise ApiBusinessError(
-                get_spec("A0002"),
-                message=f"The request is too frequent, please try again after {retry_after}s",
-                headers={"Retry-After": str(retry_after)},
-            )
-        bucket.timestamps.append(now)
-        bucket.last_access = now
+    _check_rate_limit_memory(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
 
 
 def try_rate_limit_by_id(
