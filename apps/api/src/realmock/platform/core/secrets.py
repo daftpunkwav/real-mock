@@ -71,8 +71,18 @@ class LegacySecretFormatError(ValueError):
     """The old encryption format cannot be decrypted, please save the API Key again."""
 
 
+@lru_cache(maxsize=128)
 def _derive_key(master: bytes, salt: bytes) -> bytes:
-    """Derive 32-byte AES keys from master + salt per ciphertext."""
+    """Derive 32-byte AES keys from master + salt per ciphertext.
+
+    PBKDF2 at ``_KDF_ITERATIONS`` costs tens of milliseconds of pure CPU, and
+    the same stored ciphertext (API key, GitHub token) is re-decrypted on
+    every client build — the derivation is cached per ``(master, salt)`` so
+    repeat decryptions of unchanged rows are free. Bounded LRU: encryptions
+    mint a fresh salt each time, so entries are per-ciphertext, not
+    per-call; the master key is already cached in process memory, so holding
+    a bounded set of derived keys adds no new exposure class.
+    """
     import hashlib
 
     return hashlib.pbkdf2_hmac(
@@ -135,6 +145,7 @@ def _master_bytes() -> bytes:
 def _reset_cache() -> None:
     """For testing purposes only: after clearing the cache, the next encrypt/decrypt will reload the master."""
     _master_bytes.cache_clear()
+    _derive_key.cache_clear()
 
 
 def encrypt_secret(plaintext: str | None) -> str | None:
