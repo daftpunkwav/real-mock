@@ -22,9 +22,6 @@ from sqlalchemy.orm import Session
 from realmock.domains.growth.agents.tools import history_tool_specs
 from realmock.domains.growth.prompts import (
     GROWTH_INSIGHT_SYSTEM,
-    GROWTH_MAX_ROUNDS,
-    GROWTH_MAX_TOOLS_PER_ROUND,
-    GROWTH_MAX_TOTAL_TOOL_CALLS,
     GROWTH_WRAP_UP_TOOL_FREE_MESSAGE,
     growth_insight_user_message,
 )
@@ -58,6 +55,12 @@ from realmock.platform.services.candidate_read import (
 logger = logging.getLogger(__name__)
 
 GROWTH_INSIGHT_TEMPERATURE = 0.2
+# Tool-loop budgets for one insight regeneration, fed to run_agent_loop and
+# the ToolRunGuard below; the platform loop surfaces these shapes to the model
+# as per-round budget hints.
+GROWTH_MAX_ROUNDS = 15
+GROWTH_MAX_TOOLS_PER_ROUND = 5
+GROWTH_MAX_TOTAL_TOOL_CALLS = 40
 # Hard wall around the whole loop: the regen runs as a background task, so
 # this only bounds a pathological hang (LLM attempts retry internally; a hung
 # request would otherwise hold the single-flight slot forever).
@@ -329,6 +332,9 @@ async def generate_growth_insight(
 
 __all__ = [
     "GROWTH_LOOP_TIMEOUT_SECONDS",
+    "GROWTH_MAX_ROUNDS",
+    "GROWTH_MAX_TOOLS_PER_ROUND",
+    "GROWTH_MAX_TOTAL_TOOL_CALLS",
     "build_growth_bundle",
     "generate_growth_insight",
     "normalize_growth_insight",

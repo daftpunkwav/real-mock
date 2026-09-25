@@ -8,12 +8,6 @@ from __future__ import annotations
 
 from realmock.platform.core.prompts import with_agent_output_rules
 
-# Loop bounds surfaced inside the prompts (single source: agents/insight.py
-# imports these; keep the numbers in sync with its module constants).
-GROWTH_MAX_ROUNDS = 15
-GROWTH_MAX_TOOLS_PER_ROUND = 5
-GROWTH_MAX_TOTAL_TOOL_CALLS = 40
-
 # Output-language instruction keyed by UI locale (growth analysis is
 # user-facing; the ingest-triggered regen defaults to zh-CN).
 _GROWTH_LANG_INSTRUCTIONS: dict[str, str] = {
@@ -112,9 +106,6 @@ def growth_insight_user_message(
 
 __all__ = [
     "GROWTH_INSIGHT_SYSTEM",
-    "GROWTH_MAX_ROUNDS",
-    "GROWTH_MAX_TOOLS_PER_ROUND",
-    "GROWTH_MAX_TOTAL_TOOL_CALLS",
     "GROWTH_WRAP_UP_TOOL_FREE_MESSAGE",
     "growth_insight_user_message",
     "growth_language_instruction",
