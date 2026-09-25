@@ -53,6 +53,7 @@ jobs:
           python -m pytest -q
           --cov=realmock.platform --cov=realmock.domains.profile --cov=realmock.domains.resume
           --cov=realmock.domains.settings --cov=realmock.domains.prep --cov=realmock.domains.interview
+          --cov=realmock.domains.growth
           --cov-report=term-missing --cov-fail-under=90
 
       - name: pip-audit dependency scan
