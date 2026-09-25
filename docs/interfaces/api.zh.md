@@ -104,3 +104,5 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 | GET | `/growth/history` | 面试历史统计 |
 | GET | `/growth/system-insights` | 系统洞察报告 |
 | GET | `/growth/aggregated` | 成长聚合视图 |
+| GET | `/growth/insight` | 最新 LLM 成长洞见与重生成状态(`empty` / `generating` / `ready`) |
+| POST | `/growth/insight/refresh` | 调度一次后台洞见重生成(单飞) |

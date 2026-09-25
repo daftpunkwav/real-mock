@@ -17,6 +17,7 @@ Kernel utilities shared by every domain: configuration-adjacent constants, the e
 | `local_only.py` | Local-exposure guards: `require_local_peer` (loopback-only management endpoints) and the mount-level cross-site guard (`Sec-Fetch-Site` / Origin-Referer, error `A0403`) |
 | `secrets.py` | AES-256-GCM authenticated encryption for stored provider keys (`enc:v2:...`); key from `SECRET_KEY` env or `data/.secret.key` |
 | `prompts.py` | Shared agent/LLM prompt fragments; output rules go through `with_agent_output_rules` |
+| `background.py` | `spawn_background`: fire-and-forget task spawning that holds in-flight references (GC-safe) and logs crashes instead of raising |
 | `agent_error_log.py` | Opt-in JSONL log for agent tool/loop failures (`REALMOCK_AGENT_ERROR_LOG=1`); disabled by default |
 
 ## `security/` — input and URL safety

@@ -20,7 +20,7 @@ prep agent 都跑在本包上;域特定的工具留在各自域内。上层地�
 | 模块 | 职责 |
 | --- | --- |
 | `spec.py` | `ToolSpec`(JSON schema + 异步 execute)与运行时分发器 `ToolBundle`;各域自行组装工具集,互不导入 |
-| `executor.py` | 单次工具调用的超时 + 错误分类包装;统一结果契约 `(raw, status)`,`done` / `error` |
+| `executor.py` | `invoke_with_timeout`:单次工具调用的超时 + 错误分类包装,统一结果契约 `(raw, status)`,`done` / `error`;另有 `ToolRunGuard`——工具调用 agent 共享的每循环策略(总调用预算 + 同参熔断) |
 | `codeexec.py` | 供 agent 自证的沙箱代码执行;隔离后端在 [`tools/isolation/`](tools/isolation/)(默认 `process.py`,Linux 上 `linux_job.py`) |
 | `fetch.py` | 经 SSRF 校验的 pinned client 出站网页抓取 |
 | `search.py` | 联网搜索工具 |

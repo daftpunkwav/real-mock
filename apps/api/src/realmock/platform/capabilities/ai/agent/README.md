@@ -18,7 +18,7 @@ Shared agent kernel: the think-then-act loop, working memory, and the tool regis
 | Module | Purpose |
 | --- | --- |
 | `spec.py` | `ToolSpec` (JSON schema + async execute) and `ToolBundle`, the runtime dispatcher; domains assemble toolsets without importing each other |
-| `executor.py` | Timeout + error-classification wrapper for one tool call; canonical outcome contract `(raw, status)` with `done` / `error` |
+| `executor.py` | `invoke_with_timeout`: timeout + error-classification wrapper for one tool call, canonical outcome contract `(raw, status)` with `done` / `error`; plus `ToolRunGuard`, the per-loop policy (total-call budget + same-args circuit breaker) shared by tool-calling agents |
 | `codeexec.py` | Sandboxed snippet runner for agent self-verification; execution isolation lives in [`tools/isolation/`](tools/isolation/) (`process.py` default, `linux_job.py` on Linux) |
 | `fetch.py` | Outbound web fetch through the SSRF-checked pinned client |
 | `search.py` | Web search tool |

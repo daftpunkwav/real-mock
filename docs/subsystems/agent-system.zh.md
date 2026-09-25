@@ -18,7 +18,7 @@
 | 模块 | 用途 |
 | --- | --- |
 | `spec.py` | `ToolSpec`(OpenAI 函数 schema + 异步 handler)与 `ToolBundle`(agent 循环使用的有序注册表/分发器)。 |
-| `executor.py` | `invoke_with_timeout()` — 单次调用的超时 + 错误分类;超时与意外异常以 JSON 观察返回(`"timeout"` / `"tool_failed"`),`ApiBusinessError` 向上抛出。 |
+| `executor.py` | `invoke_with_timeout()` — 单次调用的超时 + 错误分类;超时与意外异常以 JSON 观察返回(`"timeout"` / `"tool_failed"`),`ApiBusinessError` 向上抛出。另有 `ToolRunGuard`:工具调用 agent 共享的每循环策略(总调用预算 + 同参熔断)。 |
 | `github.py` | 包装 `capabilities/integrations/github/tools`(`GITHUB_TOOL_DEFINITIONS`、`execute_github_tool`),各域共享同一 schema + 执行路径。 |
 | `search.py` | 公网搜索工具;结果数受 `SEARCH_DEFAULT_MAX_RESULTS`(8)/ `SEARCH_HARD_MAX_RESULTS`(12)约束。 |
 | `fetch.py` | 公网网页抓取,带 SSRF 防护(见 [security.zh.md](../operations/security.zh.md));重定向逐跳跟随(最多 5 跳),输出硬上限(6,000 / 12,000 字符)。 |
@@ -76,3 +76,4 @@ HTTP 面:`domains/settings/routes/models.py` 与 `domains/settings/routes/model_
 
 - **Prep agents** — [`domains/prep/agents/`](../../apps/api/src/realmock/domains/prep/agents/README.md):轮次编排(`chat.py`、`agent.py`)、每轮工具集策略(`turn_tools.py`)、带 `ask_user` 分发的工具执行回调(`tool_exec.py`;`ask_user` 工具发出 `ask_user` 事件并抛出 `AgentHalt`)、轮内压缩(`round_compaction.py`,`MidTurnCompaction`)、投机流式(`streaming.py`)、持久化(`persist.py`);子包 `context/`、`ask_user/`、`tools/`(家族 `basic/`、`candidate/`、`memory/`、`repo/`、`system/`)。
 - **Interview agents** — [`domains/interview/agents/`](../../apps/api/src/realmock/domains/interview/agents/README.md):每角色一个子包(`interviewer/`、`topology/`、`hint/`、`planning/`、`research/`、`memory/`),共享内核平铺在包根。包 `__init__` 即 facade:`realtime` / `routes` / `process` 只依赖它以及两个叶契约 `agents.events` 与 `agents.agent_text`。`say_first.py` 为面试轮次解析 say-first 协议。
+- **Growth insight agent** — [`domains/growth/agents/insight.py`](../../apps/api/src/realmock/domains/growth/agents/insight.py):跨会话分析,在历史 / 简历 / 档案证据上跑有界工具循环(与 resume-review 循环同一套守卫语义);结果持久化到 `growth_insights`,并在每场面试结束后由 `insight_scheduler` 单飞重生成。

@@ -104,3 +104,5 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | GET | `/growth/history` | interview history statistics |
 | GET | `/growth/system-insights` | system insight report |
 | GET | `/growth/aggregated` | aggregated growth view |
+| GET | `/growth/insight` | latest LLM growth insight + regen status (`empty` / `generating` / `ready`) |
+| POST | `/growth/insight/refresh` | schedule a background insight regeneration (single-flight) |

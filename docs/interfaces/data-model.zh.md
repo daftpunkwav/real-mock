@@ -52,6 +52,7 @@
 | `company_briefs` | interview | 公司 / 岗位 / 级别 / 面试类型的缓存简报：`company_key` 唯一 |
 | `interview_reports` | records | 每会话一份复盘报告：`session_id` 唯一、status、payload、model_meta |
 | `growth_records` | growth | 每会话的成长快照：`session_id` 唯一、weak_skills、common_mistakes、training_plan |
+| `growth_insights` | growth | 最新 LLM 成长洞见：每档案一行（payload JSON、locale、session_count） |
 
 ## 运行时数据位置
 

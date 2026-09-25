@@ -17,6 +17,7 @@
 | `local_only.py` | 本地暴露防护:`require_local_peer`(管理端点仅限 loopback 对端)与挂载层跨站防护(`Sec-Fetch-Site` / Origin-Referer,错误码 `A0403`) |
 | `secrets.py` | 存储供应商密钥的 AES-256-GCM 认证加密(`enc:v2:...`);密钥来自 `SECRET_KEY` 环境变量或 `data/.secret.key` |
 | `prompts.py` | 共享 agent/LLM 提示词片段;输出规则统一走 `with_agent_output_rules` |
+| `background.py` | `spawn_background`:fire-and-forget 后台任务派生,持有在飞任务引用(防 GC 提前回收),崩溃只记日志不外抛 |
 | `agent_error_log.py` | agent 工具/循环失败的可选 JSONL 日志(`REALMOCK_AGENT_ERROR_LOG=1`);默认关闭 |
 
 ## `security/` — 输入与 URL 安全

@@ -52,6 +52,7 @@ Business ORM models must be registered before `create_all` but cannot live in `p
 | `company_briefs` | interview | Cached company / role / level / interview-type brief: `company_key` unique |
 | `interview_reports` | records | Debrief report per session: `session_id` unique, status, payload, model_meta |
 | `growth_records` | growth | Per-session growth snapshot: `session_id` unique, weak_skills, common_mistakes, training_plan |
+| `growth_insights` | growth | Latest LLM growth insight: one row per profile (payload JSON, locale, session_count) |
 
 ## Runtime data location
 
