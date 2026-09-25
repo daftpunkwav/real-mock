@@ -137,7 +137,6 @@ def notes_json_schema_text() -> str:
     return _TURN_NOTE_CONTRACT
 
 
-
 # Per-agent wrap-up hints: tools are omitted from the final wrap-up request,
 # so the copy demands the JSON object directly.
 TURN_NOTES_WRAP_UP_HINT = {

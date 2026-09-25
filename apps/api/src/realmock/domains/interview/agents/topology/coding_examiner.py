@@ -17,8 +17,8 @@ from realmock.domains.interview.agents.memory.cognitive_graph import (
     CognitiveMemoryGraph,
     CompetencyStatus,
 )
+from realmock.domains.interview.agents.topology.prompts import CODE_EVAL_PROMPT, CODING_CHALLENGE_PROMPT
 from realmock.platform.capabilities.ai.llm.client import LLMClient
-from realmock.domains.interview.agents.topology.prompts import CODING_CHALLENGE_PROMPT, CODE_EVAL_PROMPT
 
 logger = logging.getLogger(__name__)
 

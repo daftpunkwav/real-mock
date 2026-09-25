@@ -250,7 +250,8 @@ REVIEW_FORCED_FINAL_INSTRUCTION = (
 )
 
 # Shown when the plan is finished but the model keeps calling tools: pins a
-# strong finalize instruction until it produces the answer.
+# strong finalize instruction until it produces the answer. Shared singleton —
+# append as-is, never mutate (same convention as the platform wrap-up hint).
 REVIEW_PLAN_COMPLETE_MESSAGE = {
     "role": "system",
     "content": (

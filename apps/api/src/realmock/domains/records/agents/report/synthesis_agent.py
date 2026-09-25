@@ -15,8 +15,8 @@ from realmock.domains.records.agents.report.ledger_tools import (
     notes_tool_specs,
 )
 from realmock.domains.records.agents.report.prompts import (
-    SYNTHESIS_WRAP_UP_HINT,
     SYNTHESIS_SYSTEM_PROMPT,
+    SYNTHESIS_WRAP_UP_HINT,
     report_json_schema_text,
     synthesis_user_message,
 )

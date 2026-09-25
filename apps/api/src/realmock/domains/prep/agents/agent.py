@@ -32,6 +32,7 @@ from realmock.domains.prep.services.session_stats import compute_session_summary
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
+from realmock.domains.prep.prompts import PREP_CLOSING_HINT
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
@@ -41,7 +42,6 @@ from realmock.platform.core.session_auth import new_access_token
 
 from .ask_user import fallback_reply as _fallback_reply
 from .chat import run_chat, run_chat_stream
-from realmock.domains.prep.prompts import PREP_CLOSING_HINT
 from .context import PREP_SYSTEM, build_system_messages, normalize_ui_locale
 from .round_compaction import (
     FALLBACK_CONTEXT_TOKENS,
