@@ -119,6 +119,25 @@ def test_insight_response_null_and_payload() -> None:
     assert body["insight"]["session_count"] == 5
 
 
+def test_insight_response_tolerates_non_object_payload() -> None:
+    """Valid JSON that is not an object must degrade to empty, not raise.
+
+    A stored "[]" or "null" parses fine, so the JSONDecodeError guard does not
+    fire; spreading a non-mapping would raise TypeError and 500 the GET route.
+    """
+    from realmock.domains.growth.services.insight_store import insight_response
+
+    row = MagicMock()
+    row.updated_at = datetime(2026, 9, 25, 10, 0, tzinfo=timezone.utc)
+    row.session_count = 0
+    row.locale = "zh-CN"
+    for raw in ("[]", "null", '"text"', "3"):
+        row.payload = raw
+        body = insight_response(row)
+        assert body["insight"]["generated_at"] is not None
+        assert body["insight"]["session_count"] == 0
+
+
 def test_routes_insight_endpoints(_insight_table) -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

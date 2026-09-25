@@ -73,6 +73,12 @@ def insight_response(row: GrowthInsight | None) -> dict[str, Any]:
     except (json.JSONDecodeError, TypeError):
         logger.warning("growth insight payload corrupted id=%s", row.id)
         payload = {}
+    # Corruption tolerance must also cover valid JSON that is not an object
+    # (e.g. "[]" or "null"): spreading a non-mapping would raise TypeError
+    # and turn the degraded read into a 500.
+    if not isinstance(payload, dict):
+        logger.warning("growth insight payload is not an object id=%s", row.id)
+        payload = {}
     return {
         "insight": {
             **payload,
