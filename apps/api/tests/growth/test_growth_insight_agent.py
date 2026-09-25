@@ -298,3 +298,27 @@ def test_user_message_carries_index_and_language() -> None:
     assert "history_get_report" in msg
     en_msg = growth_insight_user_message(session_index_json="[]", locale="en")
     assert "in English" in en_msg
+
+
+def test_generate_none_on_llm_upstream_error(_index, _no_side_tools) -> None:
+    from realmock.platform.capabilities.ai.llm.client.base import LLMUpstreamError
+
+    async def fake_run_agent_loop(*a, **k):
+        raise LLMUpstreamError("provider down")
+
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+    ):
+        assert _run(_generate()) is None
+
+
+def test_generate_none_on_unexpected_error(_index, _no_side_tools) -> None:
+    async def fake_run_agent_loop(*a, **k):
+        raise RuntimeError("loop blew up")
+
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+    ):
+        assert _run(_generate()) is None
