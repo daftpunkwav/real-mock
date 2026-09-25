@@ -31,7 +31,10 @@ from realmock.domains.growth.prompts import (
 )
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.agent.tools import ToolBundle
-from realmock.platform.capabilities.ai.agent.tools.executor import invoke_with_timeout
+from realmock.platform.capabilities.ai.agent.tools.executor import (
+    ToolRunGuard,
+    invoke_with_timeout,
+)
 from realmock.platform.capabilities.ai.agent.tools.profile import (
     profile_from_orm,
     profile_tool_specs,
@@ -242,38 +245,43 @@ async def generate_growth_insight(
 
     llm = LLMClient.from_db(api_db)
     bundle = build_growth_bundle(api_db, sessions_db)
-    budget = {"tool_calls": 0}
-    error_streaks: dict[tuple[str, str], int] = {}
+
+    def _budget_refusal(name: str, limit: int) -> str:
+        return json.dumps(
+            {
+                "error": "tool_budget_exhausted",
+                "message": (
+                    f"Tool-call budget exhausted ({limit} calls). "
+                    "Write the final analysis with the evidence already gathered."
+                ),
+            },
+            ensure_ascii=False,
+        )
+
+    def _circuit_refusal(name: str, streak: int) -> str:
+        return json.dumps(
+            {
+                "error": "circuit_open",
+                "message": (
+                    f"This exact call failed {streak} times in a row and is "
+                    "temporarily blocked. Change the arguments, use a different "
+                    "tool, or move on to writing the final analysis."
+                ),
+            },
+            ensure_ascii=False,
+        )
+
+    guard = ToolRunGuard(
+        max_total_calls=GROWTH_MAX_TOTAL_TOOL_CALLS,
+        circuit_streak=_TOOL_CIRCUIT_BREAKER_STREAK,
+        budget_refusal=_budget_refusal,
+        circuit_refusal=_circuit_refusal,
+    )
 
     async def execute_tool_call(name: str, args: dict[str, Any]) -> str:
-        key = (name, json.dumps(args, sort_keys=True, ensure_ascii=False, default=str))
-        if budget["tool_calls"] >= GROWTH_MAX_TOTAL_TOOL_CALLS:
-            # Soft ceiling: refuse but keep the loop alive so the model can
-            # always write its final answer.
-            return json.dumps(
-                {
-                    "error": "tool_budget_exhausted",
-                    "message": (
-                        f"Tool-call budget exhausted ({GROWTH_MAX_TOTAL_TOOL_CALLS} calls). "
-                        "Write the final analysis with the evidence already gathered."
-                    ),
-                },
-                ensure_ascii=False,
-            )
-        budget["tool_calls"] += 1
-        if error_streaks.get(key, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
-            budget["tool_calls"] -= 1  # refusal costs no budget
-            return json.dumps(
-                {
-                    "error": "circuit_open",
-                    "message": (
-                        f"This exact call failed {_TOOL_CIRCUIT_BREAKER_STREAK} times in a "
-                        "row and is temporarily blocked. Change the arguments, use a "
-                        "different tool, or move on to writing the final analysis."
-                    ),
-                },
-                ensure_ascii=False,
-            )
+        refusal = guard.acquire(name, args)
+        if refusal is not None:
+            return refusal
         raw, status = await invoke_with_timeout(
             bundle,
             name,
@@ -281,10 +289,7 @@ async def generate_growth_insight(
             timeout=_TOOL_TIMEOUT_SECONDS,
             context={"domain": "growth"},
         )
-        if status == "error":
-            error_streaks[key] = error_streaks.get(key, 0) + 1
-        else:
-            error_streaks.pop(key, None)
+        guard.report(name, args, failed=(status == "error"))
         return raw
 
     async def prepare_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -293,7 +298,7 @@ async def generate_growth_insight(
             *messages,
             {
                 "role": "system",
-                "content": growth_progress_line(len(messages), budget["tool_calls"]),
+                "content": growth_progress_line(len(messages), guard.used),
             },
         ]
 

@@ -695,11 +695,18 @@ async def test_build_tool_executor_budget_and_args_keyed_breaker(monkeypatch) ->
 
     monkeypatch.setattr(rev, "_invoke_review_tool", _fake_invoke)
 
+    from realmock.platform.capabilities.ai.agent.tools import ToolRunGuard
+
     used: list[str] = []
-    budget = {"tool_calls": 0}
+    guard = ToolRunGuard(
+        max_total_calls=rev.REVIEW_MAX_TOTAL_TOOL_CALLS,
+        circuit_streak=rev._TOOL_CIRCUIT_BREAKER_STREAK,
+        budget_refusal=rev._budget_refusal_text,
+        circuit_refusal=rev._circuit_refusal_text,
+    )
     activity: list[str] = []
     ex = rev._build_tool_executor(
-        object(), used, None, None, budget, activity_sink=activity.append  # type: ignore[arg-type]
+        object(), used, None, None, guard=guard, activity_sink=activity.append  # type: ignore[arg-type]
     )
 
     # Same call failing three times in a row arms the breaker...
@@ -713,7 +720,7 @@ async def test_build_tool_executor_budget_and_args_keyed_breaker(monkeypatch) ->
     assert "timeout" in ok, "different arguments must not be blocked"
 
     # Budget refusal: no execution once the ceiling is reached.
-    budget["tool_calls"] = rev.REVIEW_MAX_TOTAL_TOOL_CALLS
+    guard.used = rev.REVIEW_MAX_TOTAL_TOOL_CALLS
     refused = await ex("web_search", {"query": "fresh"})
     assert '"tool_budget_exhausted"' in refused
     assert used[-1] == "web_search"
@@ -748,19 +755,26 @@ async def test_build_tool_executor_budget_slot_reservation(monkeypatch) -> None:
 
     monkeypatch.setattr(rev, "_invoke_review_tool", _fake_invoke)
 
-    budget = {"tool_calls": 0}
-    ex = rev._build_tool_executor(object(), [], None, None, budget)  # type: ignore[arg-type]
+    from realmock.platform.capabilities.ai.agent.tools import ToolRunGuard
+
+    guard = ToolRunGuard(
+        max_total_calls=rev.REVIEW_MAX_TOTAL_TOOL_CALLS,
+        circuit_streak=rev._TOOL_CIRCUIT_BREAKER_STREAK,
+        budget_refusal=rev._budget_refusal_text,
+        circuit_refusal=rev._circuit_refusal_text,
+    )
+    ex = rev._build_tool_executor(object(), [], None, None, guard=guard)  # type: ignore[arg-type]
 
     for _ in range(3):
         await ex("github_get_readme", {"repo": "a/b"})
-    assert budget["tool_calls"] == 3
+    assert guard.used == 3
     blocked = await ex("github_get_readme", {"repo": "a/b"})
     assert '"circuit_open"' in blocked
-    assert budget["tool_calls"] == 3, "circuit-open refusal must refund the slot"
+    assert guard.used == 3, "circuit-open refusal must refund the slot"
 
     # One slot left: a parallel burst executes exactly one call, the rest are
     # refused at the gate, and the ceiling ends up exact.
-    budget["tool_calls"] = rev.REVIEW_MAX_TOTAL_TOOL_CALLS - 1
+    guard.used = rev.REVIEW_MAX_TOTAL_TOOL_CALLS - 1
     outs = await asyncio.gather(
         ex("web_search", {"query": "q1"}),
         ex("web_search", {"query": "q2"}),
@@ -770,7 +784,7 @@ async def test_build_tool_executor_budget_slot_reservation(monkeypatch) -> None:
     refused = [o for o in outs if "tool_budget_exhausted" in o]
     assert len(executed) == 1
     assert len(refused) == 2
-    assert budget["tool_calls"] == rev.REVIEW_MAX_TOTAL_TOOL_CALLS
+    assert guard.used == rev.REVIEW_MAX_TOTAL_TOOL_CALLS
 
 
 @pytest.mark.asyncio

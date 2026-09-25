@@ -16,6 +16,8 @@ are retried once — they fail fast, unlike timeouts, which consume their whole
 budget and are never retried here.
 
 Single source for the resume-review invoker and the records report agents.
+:class:`ToolRunGuard` is the shared per-loop policy (call budget + same-args
+circuit breaker) on top of single-call execution.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from realmock.platform.core.agent_error_log import error_scope, log_agent_error
@@ -173,4 +176,66 @@ async def invoke_with_timeout(
 
 
 
-__all__ = ["DEFAULT_TOOL_TIMEOUT_SECONDS", "invoke_with_timeout"]
+class ToolRunGuard:
+    """Per-loop tool-run policy shared by tool-calling agents: a total-call
+    budget with a soft ceiling plus a same-args circuit breaker.
+
+    Semantics (resume-review parity, now the shared contract):
+    - ``acquire`` checks the budget first, then the breaker, and reserves the
+      slot before any await point so parallel rounds cannot jointly overshoot
+      the soft ceiling. A breaker refusal refunds its slot — the call never
+      reached the provider, so it costs no budget.
+    - ``report`` records the outcome: a failure extends that exact call's
+      breaker streak, a success clears it. Different arguments are never
+      blocked — the workload differs, so retrying with new args stays the
+      model's decision.
+    - Refusal observations are produced by the caller-provided factories so
+      each domain keeps its own copy; the guard only decides *whether*.
+
+    Not shared across loops: one guard per ``run_agent_loop`` invocation.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_total_calls: int,
+        circuit_streak: int = 3,
+        budget_refusal: Callable[[str, int], str],
+        circuit_refusal: Callable[[str, int], str],
+    ) -> None:
+        self._max = max(1, int(max_total_calls))
+        self._streak = max(1, int(circuit_streak))
+        self._budget_refusal = budget_refusal
+        self._circuit_refusal = circuit_refusal
+        self.used = 0
+        self._streaks: dict[tuple[str, str], int] = {}
+
+    @staticmethod
+    def default_args_key(args: dict[str, Any]) -> str:
+        """Canonical breaker key for one call's arguments (bounded)."""
+        try:
+            return json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)[:500]
+        except Exception:
+            return str(args)[:500]
+
+    def acquire(self, name: str, args: dict[str, Any]) -> str | None:
+        """Refusal observation when blocked/exhausted; else None (slot reserved)."""
+        if self.used >= self._max:
+            return self._budget_refusal(name, self._max)
+        self.used += 1
+        key = (name, self.default_args_key(args))
+        if self._streaks.get(key, 0) >= self._streak:
+            self.used -= 1  # refusal costs no provider budget
+            return self._circuit_refusal(name, self._streak)
+        return None
+
+    def report(self, name: str, args: dict[str, Any], *, failed: bool) -> None:
+        """Record one dispatched call's outcome for the breaker."""
+        key = (name, self.default_args_key(args))
+        if failed:
+            self._streaks[key] = self._streaks.get(key, 0) + 1
+        else:
+            self._streaks.pop(key, None)
+
+
+__all__ = ["DEFAULT_TOOL_TIMEOUT_SECONDS", "invoke_with_timeout", "ToolRunGuard"]

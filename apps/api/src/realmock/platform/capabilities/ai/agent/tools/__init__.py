@@ -10,7 +10,7 @@ from .codeexec import (
     format_observation,
     run_code_snippet,
 )
-from .executor import invoke_with_timeout
+from .executor import ToolRunGuard, invoke_with_timeout
 from .fetch import (
     FETCH_DEFAULT_MAX_CHARS,
     FETCH_HARD_MAX_CHARS,
@@ -43,6 +43,7 @@ __all__ = [
     "execute_web_search",
     "format_observation",
     "github_tool_specs",
+    "ToolRunGuard",
     "invoke_with_timeout",
     "openai_tool",
     "profile_from_orm",

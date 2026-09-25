@@ -74,7 +74,8 @@ from realmock.platform.capabilities.ai.agent.tools import (
     search_tool_spec,
     snapshot_from_payload,
     web_fetch_tool_spec,
-)
+
+    ToolRunGuard,)
 from realmock.platform.capabilities.ai.context.manager import compact_with_summary, upsert_memory_block
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.defaults import resolve_context_window, resolve_max_output_tokens
@@ -589,41 +590,60 @@ def _attach_review_audit(
     return payload
 
 
+def _budget_refusal_text(name: str, limit: int) -> str:
+    return json.dumps(
+        {
+            "error": "tool_budget_exhausted",
+            "tool": name,
+            "message": (
+                f"Tool-call budget exhausted ({limit} calls). "
+                "Write the final answer with the evidence already gathered."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
+def _circuit_refusal_text(name: str, streak: int) -> str:
+    return json.dumps(
+        {
+            "error": "circuit_open",
+            "tool": name,
+            "message": (
+                f"This exact call ({name} with the same arguments) failed "
+                f"{streak} times in a row and is temporarily blocked. Change the "
+                "arguments, use a different tool, or move on to writing the "
+                "final answer."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
 def _build_tool_executor(
     bundle: ToolBundle,
     used_tools: list[str],
     on_event: OnReviewEvent | None,
     context: dict[str, Any] | None = None,
-    budget_state: dict[str, int] | None = None,
+    guard: ToolRunGuard | None = None,
     activity_sink: Callable[[str], None] | None = None,
 ) -> Callable[[str, dict[str, Any]], Awaitable[str]]:
     """Build the Agent-loop ``execute`` callback with SSE progress events.
 
-    ``budget_state["tool_calls"]`` (when given) counts non-plan calls that pass
-    the budget gate so the per-round progress line and the total-call refusal
-    share one number; circuit-breaker refusals refund their slot.
+    ``guard`` (shared :class:`ToolRunGuard` policy) counts non-plan calls that
+    pass the budget gate so the per-round progress line and the total-call
+    refusal share one number; circuit-breaker refusals refund their slot.
     ``activity_sink`` receives one compact label per executed non-plan call and
     feeds the deterministic step-note fallback in ``ReviewProcess``.
     Kept as a factory (instead of inline closures) so ``run_resume_review``
     stays orchestration-only and the executor is independently testable.
     """
     tool_seq = 0
-    budget = budget_state if budget_state is not None else {"tool_calls": 0}
-    # Breaker key: tool + canonical arguments. Only the exact same call is
-    # blocked after repeated failures; different arguments stay the model's
-    # decision.
-    error_streaks: dict[tuple[str, str], int] = {}
-
-    def _args_key(args: dict[str, Any]) -> str:
-        try:
-            return json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)[:500]
-        except Exception:
-            return str(args)[:500]
-
-    def _blocked_observation(kind: str, tool: str, message: str) -> str:
-        return json.dumps(
-            {"error": kind, "tool": tool, "message": message},
-            ensure_ascii=False,
+    if guard is None:
+        guard = ToolRunGuard(
+            max_total_calls=REVIEW_MAX_TOTAL_TOOL_CALLS,
+            circuit_streak=_TOOL_CIRCUIT_BREAKER_STREAK,
+            budget_refusal=_budget_refusal_text,
+            circuit_refusal=_circuit_refusal_text,
         )
 
     async def execute_tool_call(name: str, args: dict[str, Any]) -> str:
@@ -633,22 +653,9 @@ def _build_tool_executor(
         if name.startswith(PLAN_TOOL_PREFIX):
             raw, _status = await _invoke_review_tool(bundle, name, args, context)
             return raw
-        if budget["tool_calls"] >= REVIEW_MAX_TOTAL_TOOL_CALLS:
-            # Soft ceiling: refuse the call, keep the loop alive so the model
-            # can always write its final answer.
-            return _blocked_observation(
-                "tool_budget_exhausted",
-                name,
-                f"Tool-call budget exhausted ({REVIEW_MAX_TOTAL_TOOL_CALLS} calls). "
-                "Write the final answer with the evidence already gathered.",
-            )
-        # Reserve the slot before the first await point: every call in a
-        # parallel round passes the check above, and an after-the-fact
-        # increment would let them jointly overshoot the soft ceiling.
-        # Circuit-blocked calls below refund it — they never reach the
-        # provider, so they cost no budget.
-        budget["tool_calls"] += 1
-        key = (name, _args_key(args))
+        refusal = guard.acquire(name, args)
+        if refusal is not None:
+            return refusal
         tool_seq += 1
         step_id = f"tool-{tool_seq}"
         query = _query_from_args(name, args)
@@ -664,24 +671,10 @@ def _build_tool_executor(
                 "args": public_args,
             },
         )
-        if error_streaks.get(key, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
-            budget["tool_calls"] -= 1  # refusal costs no provider budget
-            raw, status = _blocked_observation(
-                "circuit_open",
-                name,
-                f"This exact call ({name} with the same arguments) failed "
-                f"{_TOOL_CIRCUIT_BREAKER_STREAK} times in a row and is temporarily "
-                "blocked. Change the arguments, use a different tool, or move on "
-                "to writing the final answer.",
-            ), "error"
-        else:
-            raw, status = await _invoke_review_tool(bundle, name, args, context)
-            if status == "error":
-                error_streaks[key] = error_streaks.get(key, 0) + 1
-            else:
-                error_streaks.pop(key, None)
-            if activity_sink is not None:
-                activity_sink(f"{name}({_query_from_args(name, args)})")
+        raw, status = await _invoke_review_tool(bundle, name, args, context)
+        guard.report(name, args, failed=(status == "error"))
+        if activity_sink is not None:
+            activity_sink(f"{name}({_query_from_args(name, args)})")
         await _emit(
             on_event,
             {
@@ -753,13 +746,18 @@ async def run_resume_review(
         snapshot=snapshot, db=db, process=process, search_queries=search_queries
     )
     error_context = {"domain": "resume", "session": str(getattr(resume, "id", "") or "")}
-    budget_state = {"tool_calls": 0}
+    tool_guard = ToolRunGuard(
+        max_total_calls=REVIEW_MAX_TOTAL_TOOL_CALLS,
+        circuit_streak=_TOOL_CIRCUIT_BREAKER_STREAK,
+        budget_refusal=_budget_refusal_text,
+        circuit_refusal=_circuit_refusal_text,
+    )
     execute_tool_call = _build_tool_executor(
         bundle,
         used_tools,
         on_event,
         error_context,
-        budget_state,
+        guard=tool_guard,
         activity_sink=process.record_activity,
     )
 
@@ -817,7 +815,7 @@ async def run_resume_review(
         suffix.append(
             {
                 "role": "system",
-                "content": review_progress_line(round_index + 1, budget_state["tool_calls"]),
+                "content": review_progress_line(round_index + 1, tool_guard.used),
             }
         )
         return [*base, *suffix]
