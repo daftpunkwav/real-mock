@@ -102,6 +102,7 @@ export const prep = {
 
   // Agent 工具名
   "agent.tool.webSearch": "搜索面经",
+  "agent.tool.webFetch": "查看网页",
   "agent.tool.companyInfo": "查询公司",
   "agent.tool.quiz": "出练习题",
   "agent.tool.askUser": "向你提问",

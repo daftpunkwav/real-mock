@@ -57,6 +57,7 @@ export const resume = {
   "stage.toolName": "Tool",
   "stage.toolFallback": "Tool",
   "stage.toolName.web_search": "Search the web",
+  "stage.toolName.web_fetch": "Read web page",
   "stage.toolName.resume_overview": "Read resume overview",
   "stage.toolName.resume_get_section": "Read resume section",
   "stage.toolName.profile_list_sections": "List profile sections",

@@ -17,6 +17,7 @@ import type { PrepTraceItem } from "../types";
 /** Tool name to label key; falls back to the raw name. */
 const TOOL_LABEL_KEYS: Record<string, MessageKey<"prep">> = {
   web_search: "agent.tool.webSearch",
+  web_fetch: "agent.tool.webFetch",
   company_info: "agent.tool.companyInfo",
   quiz: "agent.tool.quiz",
   ask_user: "agent.tool.askUser",

@@ -102,6 +102,7 @@ export const prep = {
 
   // Agent tool names
   "agent.tool.webSearch": "Search interview experiences",
+  "agent.tool.webFetch": "Read web page",
   "agent.tool.companyInfo": "Look up company",
   "agent.tool.quiz": "Create practice questions",
   "agent.tool.askUser": "Ask you a question",

@@ -56,6 +56,7 @@ export const resume = {
   "stage.toolName": "工具名",
   "stage.toolFallback": "工具",
   "stage.toolName.web_search": "检索信息",
+  "stage.toolName.web_fetch": "查看网页",
   "stage.toolName.resume_overview": "阅读简历概览",
   "stage.toolName.resume_get_section": "查看简历分节",
   "stage.toolName.profile_list_sections": "列出档案分区",
