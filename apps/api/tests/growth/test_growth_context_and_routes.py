@@ -105,6 +105,32 @@ def test_store_upsert_and_get(_insight_table) -> None:
     db.add.assert_called_once()
 
 
+def test_store_upsert_retries_as_update_after_integrity_race() -> None:
+    """A unique-constraint race retries as an update on the winner's row."""
+    from sqlalchemy.exc import IntegrityError
+
+    from realmock.domains.growth.services.insight_store import upsert_insight
+
+    db = MagicMock()
+    raced_row = MagicMock()
+    # 1st read -> nothing stored (insert branch); 2nd read -> the concurrent
+    # winner's row is now visible after the rollback.
+    db.query.return_value.filter.return_value.order_by.return_value.first.side_effect = [
+        None,
+        raced_row,
+    ]
+    db.commit.side_effect = [IntegrityError("ux", None, Exception("unique")), None]
+
+    out = upsert_insight(db, {"headline": "v2"}, locale="en", session_count=1)
+
+    assert out is raced_row
+    assert raced_row.payload == json.dumps({"headline": "v2"}, ensure_ascii=False)
+    assert raced_row.locale == "en"
+    assert raced_row.session_count == 1
+    assert db.commit.call_count == 2
+    db.rollback.assert_called_once()
+
+
 def test_insight_response_null_and_payload() -> None:
     from realmock.domains.growth.services.insight_store import insight_response
 
