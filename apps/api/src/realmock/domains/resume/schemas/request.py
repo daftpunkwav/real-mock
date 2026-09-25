@@ -15,11 +15,10 @@ from pydantic import BaseModel, field_validator
 from realmock.domains.resume.schemas.limits import DEFAULT_ANALYSIS_LOCALE
 
 
+# Optional body for ``POST /resume/{id}/analyze``.
+#
+# Missing or empty body defaults to ``zh-CN`` for backward compatibility.
 class ResumeAnalyzeRequest(BaseModel):
-    """Optional body for ``POST /resume/{id}/analyze``.
-
-    Missing or empty body defaults to ``zh-CN`` for backward compatibility.
-    """
 
     locale: Literal["zh-CN", "en"] = DEFAULT_ANALYSIS_LOCALE
 

@@ -11,8 +11,8 @@ from realmock.domains.interview.constants import MAX_INTERVIEW_ROUNDS
 from realmock.domains.interview.schemas.session import AiOverrides
 
 
+# Start a multi-round process; round-1 session is created together.
 class ProcessCreateRequest(BaseModel):
-    """Start a multi-round process; round-1 session is created together."""
 
     role: str = Field(..., max_length=100)
     level: str = Field(..., max_length=50)
@@ -32,8 +32,8 @@ class ProcessCreateRequest(BaseModel):
     reference_detail: Literal["outline", "full"] = "outline"
 
 
+# One round inside a process (session projection).
 class ProcessRoundItem(BaseModel):
-    """One round inside a process (session projection)."""
 
     session_id: int
     round_no: int
@@ -43,8 +43,8 @@ class ProcessRoundItem(BaseModel):
     created_at: datetime | None = None
 
 
+# One planned round of the realistic chain (kind drives i18n labels).
 class ProcessRoundPlanItem(BaseModel):
-    """One planned round of the realistic chain (kind drives i18n labels)."""
 
     round_no: int
     kind: str
@@ -55,8 +55,8 @@ class ProcessRoundPlanItem(BaseModel):
     pass_criteria: str = ""
 
 
+# Process view with round lineage and next-round eligibility.
 class InterviewProcessResponse(BaseModel):
-    """Process view with round lineage and next-round eligibility."""
 
     id: int
     role: str
@@ -73,8 +73,8 @@ class InterviewProcessResponse(BaseModel):
     created_at: datetime | None = None
 
 
+# Process + first session created together.
 class ProcessCreatedResponse(BaseModel):
-    """Process + first session created together."""
 
     process: InterviewProcessResponse
     session_id: int

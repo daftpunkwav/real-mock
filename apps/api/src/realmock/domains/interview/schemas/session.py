@@ -11,8 +11,8 @@ from realmock.domains.interview.constants import DEFAULT_INTERVIEW_STYLE, DEFAUL
 from realmock.platform.core.constants import MAX_CONFIG_STR_CHARS, MAX_USER_TEXT_CHARS
 
 
+# Processor selection for mock interviews: thinking / voice input / voice output + thinking intensity.
 class AiOverrides(BaseModel):
-    """Processor selection for mock interviews: thinking / voice input / voice output + thinking intensity."""
 
     chat_profile_id: int | None = None
     stt_profile_id: int | None = None
@@ -41,8 +41,8 @@ class InterviewConfig(BaseModel):
     reference_detail: Literal["outline", "full"] = "outline"
 
 
+# Light plan-step projection for room UI (flow spine).
 class PlanStepView(BaseModel):
-    """Light plan-step projection for room UI (flow spine)."""
 
     id: str
     title: str

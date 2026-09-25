@@ -40,8 +40,8 @@ class TurnNoteInterviewerReview(BaseModel):
     notes: str = ""
 
 
+# Deep analysis of one dialogue round (interviewer question + candidate answer).
 class TurnNote(BaseModel):
-    """Deep analysis of one dialogue round (interviewer question + candidate answer)."""
 
     turn_id: str
     phase: str = ""
@@ -65,8 +65,8 @@ class TurnNote(BaseModel):
     )
 
 
+# Full debrief payload stored in ``interview_reports.payload`` when ready.
 class DebriefReport(BaseModel):
-    """Full debrief payload stored in ``interview_reports.payload`` when ready."""
 
     overall_score: int = 0
     score_breakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
@@ -90,8 +90,8 @@ class DebriefReport(BaseModel):
     turn_notes: list[TurnNote] = Field(default_factory=list)
 
 
+# GET /reports/{session_id} response shape for the frontend.
 class ReportResponse(BaseModel):
-    """GET /reports/{session_id} response shape for the frontend."""
 
     session_id: int
     report: DebriefReport

@@ -3123,10 +3123,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * AiOverrides
-         * @description Processor selection for mock interviews: thinking / voice input / voice output + thinking intensity.
-         */
+        /** AiOverrides */
         AiOverrides: {
             /** Chat Profile Id */
             chat_profile_id?: number | null;
@@ -3184,13 +3181,7 @@ export interface components {
             /** File */
             file: string;
         };
-        /**
-         * CandidateProfile
-         * @description Structured candidate resume profile.
-         *
-         *     Produced by the resume domain parser and read by the interview Agent to build the candidate persona;
-         *     shared by both domains, so it belongs in the platform contract layer.
-         */
+        /** CandidateProfile */
         CandidateProfile: {
             /**
              * Name
@@ -3258,10 +3249,7 @@ export interface components {
              */
             parse_degraded: boolean;
         };
-        /**
-         * CareerAnalysis
-         * @description Career trajectory analysis.
-         */
+        /** CareerAnalysis */
         CareerAnalysis: {
             /**
              * Trajectory
@@ -3285,10 +3273,7 @@ export interface components {
             /** Name */
             name: string;
         };
-        /**
-         * ChannelUpdate
-         * @description Partial channel update; ``None`` fields keep their current value.
-         */
+        /** ChannelUpdate */
         ChannelUpdate: {
             /** Vendor */
             vendor?: string | null;
@@ -3301,10 +3286,7 @@ export interface components {
             /** Api Key */
             api_key?: string | null;
         };
-        /**
-         * ChannelWrite
-         * @description Per-kind connection settings attached to a provider (create or upsert).
-         */
+        /** ChannelWrite */
         ChannelWrite: {
             /** Kind */
             kind: string;
@@ -3371,10 +3353,7 @@ export interface components {
              */
             locale: string;
         };
-        /**
-         * CompanyFit
-         * @description Fit score for a company tier.
-         */
+        /** CompanyFit */
         CompanyFit: {
             /**
              * Tier
@@ -3412,10 +3391,7 @@ export interface components {
              */
             pressure_level: string;
         };
-        /**
-         * DebriefReport
-         * @description Full debrief payload stored in ``interview_reports.payload`` when ready.
-         */
+        /** DebriefReport */
         DebriefReport: {
             /**
              * Overall Score
@@ -3467,10 +3443,7 @@ export interface components {
             /** Turn Notes */
             turn_notes?: components["schemas"]["TurnNote"][];
         };
-        /**
-         * DimensionScore
-         * @description Single dimension score for a resume review.
-         */
+        /** DimensionScore */
         DimensionScore: {
             /** Score */
             score: number;
@@ -3583,10 +3556,7 @@ export interface components {
             /** Phases Remaining */
             phases_remaining?: string[];
         };
-        /**
-         * InterviewProcessResponse
-         * @description Process view with round lineage and next-round eligibility.
-         */
+        /** InterviewProcessResponse */
         InterviewProcessResponse: {
             /** Id */
             id: number;
@@ -3618,10 +3588,7 @@ export interface components {
             /** Created At */
             created_at?: string | null;
         };
-        /**
-         * InterviewQa
-         * @description One predicted interview question with the interviewer's intent and a model answer.
-         */
+        /** InterviewQa */
         InterviewQa: {
             /**
              * Question
@@ -3856,10 +3823,7 @@ export interface components {
             /** Description */
             description: string;
         };
-        /**
-         * PlanStepView
-         * @description Light plan-step projection for room UI (flow spine).
-         */
+        /** PlanStepView */
         PlanStepView: {
             /** Id */
             id: string;
@@ -4447,10 +4411,7 @@ export interface components {
             /** Expected Message Count */
             expected_message_count?: number | null;
         };
-        /**
-         * ProcessCreateRequest
-         * @description Start a multi-round process; round-1 session is created together.
-         */
+        /** ProcessCreateRequest */
         ProcessCreateRequest: {
             /** Role */
             role: string;
@@ -4508,19 +4469,13 @@ export interface components {
              */
             reference_detail: "outline" | "full";
         };
-        /**
-         * ProcessCreatedResponse
-         * @description Process + first session created together.
-         */
+        /** ProcessCreatedResponse */
         ProcessCreatedResponse: {
             process: components["schemas"]["InterviewProcessResponse"];
             /** Session Id */
             session_id: number;
         };
-        /**
-         * ProcessRoundItem
-         * @description One round inside a process (session projection).
-         */
+        /** ProcessRoundItem */
         ProcessRoundItem: {
             /** Session Id */
             session_id: number;
@@ -4535,10 +4490,7 @@ export interface components {
             /** Created At */
             created_at?: string | null;
         };
-        /**
-         * ProcessRoundPlanItem
-         * @description One planned round of the realistic chain (kind drives i18n labels).
-         */
+        /** ProcessRoundPlanItem */
         ProcessRoundPlanItem: {
             /** Round No */
             round_no: number;
@@ -4556,10 +4508,7 @@ export interface components {
              */
             pass_criteria: string;
         };
-        /**
-         * ProjectCard
-         * @description Deep-dive card for one project.
-         */
+        /** ProjectCard */
         ProjectCard: {
             /**
              * Name
@@ -4602,10 +4551,7 @@ export interface components {
             /** Channels */
             channels?: components["schemas"]["ChannelWrite"][];
         };
-        /**
-         * ProviderUpdate
-         * @description Partial provider update; ``None`` fields keep their current value.
-         */
+        /** ProviderUpdate */
         ProviderUpdate: {
             /** Name */
             name?: string | null;
@@ -4616,10 +4562,7 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /**
-         * RepoEvidence
-         * @description GitHub repo evidence: metadata plus commit/source observations.
-         */
+        /** RepoEvidence */
         RepoEvidence: {
             /**
              * Repo
@@ -4658,10 +4601,7 @@ export interface components {
             /** Evidence Notes */
             evidence_notes?: string[];
         };
-        /**
-         * RepoVerification
-         * @description Cross-check of resume claims against repository facts.
-         */
+        /** RepoVerification */
         RepoVerification: {
             /**
              * Repo
@@ -4679,10 +4619,7 @@ export interface components {
              */
             details: string;
         };
-        /**
-         * ReportResponse
-         * @description GET /reports/{session_id} response shape for the frontend.
-         */
+        /** ReportResponse */
         ReportResponse: {
             /** Session Id */
             session_id: number;
@@ -4705,12 +4642,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
-        /**
-         * ResumeAnalysis
-         * @description Multi-dimension resume Agent review result.
-         *
-         *     Keeps legacy strengths/weaknesses/… fields and extends with dimension_scores etc.
-         */
+        /** ResumeAnalysis */
         ResumeAnalysis: {
             /** Score */
             score: number;
@@ -4810,14 +4742,7 @@ export interface components {
             /** Repo Verification */
             repo_verification?: components["schemas"]["RepoVerification"][];
         };
-        /**
-         * ResumeDomainLimits
-         * @description Public, stable limits the frontend catalog must match.
-         *
-         *     Source of truth is ``schemas.limits``; this model is the OpenAPI surface.
-         *     ``x-resume-catalog`` embeds the live payload so frontend tests can
-         *     compare values, not just property names.
-         */
+        /** ResumeDomainLimits */
         ResumeDomainLimits: {
             /** Allowed Extensions */
             allowed_extensions: string[];
@@ -4848,10 +4773,7 @@ export interface components {
             /** Score Band Standout */
             score_band_standout: number;
         };
-        /**
-         * ResumePickerItem
-         * @description Resume drop-down read-only summary: shared by prep/interview configuration pages, does not include analysis text and in-depth evaluation.
-         */
+        /** ResumePickerItem */
         ResumePickerItem: {
             /** Id */
             id: number;
@@ -4865,10 +4787,7 @@ export interface components {
             /** Score */
             score?: number | null;
         };
-        /**
-         * ResumeResponse
-         * @description One resume row as returned by list / get / upload / activate / retry.
-         */
+        /** ResumeResponse */
         ResumeResponse: {
             /** Id */
             id: number;
@@ -4914,10 +4833,7 @@ export interface components {
              */
             version_n: number;
         };
-        /**
-         * RewriteExample
-         * @description Before/after rewrite pair for a resume bullet.
-         */
+        /** RewriteExample */
         RewriteExample: {
             /**
              * Before
@@ -4968,10 +4884,7 @@ export interface components {
              */
             overall: number;
         };
-        /**
-         * SectionReview
-         * @description Per-section review (education / work / projects / skills / layout).
-         */
+        /** SectionReview */
         SectionReview: {
             /**
              * Section
@@ -4991,10 +4904,7 @@ export interface components {
              */
             detail: string;
         };
-        /**
-         * SessionHistoryItem
-         * @description Session metadata for the history page (no access token).
-         */
+        /** SessionHistoryItem */
         SessionHistoryItem: {
             /** Id */
             id: number;
@@ -5046,10 +4956,7 @@ export interface components {
              */
             ledger_frozen: boolean;
         };
-        /**
-         * SkillTrust
-         * @description Three-tier skill trust: evidenced / claimed-only / missing for target role.
-         */
+        /** SkillTrust */
         SkillTrust: {
             /** Solid */
             solid?: string[];
@@ -5058,10 +4965,7 @@ export interface components {
             /** Missing */
             missing?: string[];
         };
-        /**
-         * StageConfigResponse
-         * @description Single stage handler returns.
-         */
+        /** StageConfigResponse */
         StageConfigResponse: {
             /** Stage */
             stage: string;
@@ -5088,10 +4992,7 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
-        /**
-         * StageConfigUpdate
-         * @description A single stage handler saves the request.
-         */
+        /** StageConfigUpdate */
         StageConfigUpdate: {
             /**
              * Provider
@@ -5136,10 +5037,7 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /**
-         * StageConfigsResponse
-         * @description The new version of the three-stage configuration returns.
-         */
+        /** StageConfigsResponse */
         StageConfigsResponse: {
             recognize: components["schemas"]["StageConfigResponse"];
             reason: components["schemas"]["StageConfigResponse"];
@@ -5147,10 +5045,7 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
-        /**
-         * StageFallbackConfig
-         * @description Staged downgrade handling configuration.
-         */
+        /** StageFallbackConfig */
         StageFallbackConfig: {
             /**
              * Handler
@@ -5163,10 +5058,7 @@ export interface components {
              */
             mode: string;
         };
-        /**
-         * StageModelCapability
-         * @description Single model capability switch.
-         */
+        /** StageModelCapability */
         StageModelCapability: {
             /**
              * Supports Vision
@@ -5189,10 +5081,7 @@ export interface components {
              */
             supports_video_input: boolean;
         };
-        /**
-         * TurnNote
-         * @description Deep analysis of one dialogue round (interviewer question + candidate answer).
-         */
+        /** TurnNote */
         TurnNote: {
             /** Turn Id */
             turn_id: string;
@@ -5278,10 +5167,7 @@ export interface components {
             /** Suggestions */
             suggestions?: string[];
         };
-        /**
-         * UserProfileResponse
-         * @description Profile read response, built from an ORM row plus id/updated_at.
-         */
+        /** UserProfileResponse */
         UserProfileResponse: {
             /** Id */
             id: number;
@@ -5428,10 +5314,7 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
-        /**
-         * UserProfileUpdate
-         * @description Full profile update body.
-         */
+        /** UserProfileUpdate */
         UserProfileUpdate: {
             /** Name */
             name: string;

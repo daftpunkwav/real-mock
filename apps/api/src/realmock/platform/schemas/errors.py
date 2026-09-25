@@ -11,8 +11,8 @@ class ErrorBody(BaseModel):
     trace_id: str = ""
 
 
+# Unify the error response shape and align it one by one with the envelope of the aggregation entry.
 class APIError(BaseModel):
-    """Unify the error response shape and align it one by one with the envelope of the aggregation entry."""
 
     model_config = {"extra": "forbid"}
 

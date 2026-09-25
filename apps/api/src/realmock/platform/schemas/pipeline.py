@@ -13,8 +13,8 @@ from realmock.platform.core.constants import (
 )
 
 
+# Single model capability switch.
 class StageModelCapability(BaseModel):
-    """Single model capability switch."""
 
     supports_vision: bool = False
     supports_audio_input: bool = False
@@ -22,15 +22,15 @@ class StageModelCapability(BaseModel):
     supports_video_input: bool = False
 
 
+# Staged downgrade handling configuration.
 class StageFallbackConfig(BaseModel):
-    """Staged downgrade handling configuration."""
 
     handler: str = ""
     mode: str = ""
 
 
+# A single stage handler saves the request.
 class StageConfigUpdate(BaseModel):
-    """A single stage handler saves the request."""
 
     provider: str = ""
     api_base: str = ""
@@ -44,8 +44,8 @@ class StageConfigUpdate(BaseModel):
     extras: dict[str, Any] = Field(default_factory=dict)
 
 
+# Single stage handler returns.
 class StageConfigResponse(BaseModel):
-    """Single stage handler returns."""
 
     stage: str
     provider: str
@@ -61,8 +61,8 @@ class StageConfigResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+# The new version of the three-stage configuration returns.
 class StageConfigsResponse(BaseModel):
-    """The new version of the three-stage configuration returns."""
 
     recognize: StageConfigResponse
     reason: StageConfigResponse
@@ -80,7 +80,7 @@ class LLMTestResponse(BaseModel):
     latency_ms: int | None = None
 
 
+# Optional override; default configuration is saved in the library.
 class StageTestRequest(BaseModel):
-    """Optional override; default configuration is saved in the library."""
 
     stage: Literal["recognize", "reason", "speak"] | None = None

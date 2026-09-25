@@ -17,8 +17,8 @@ from pydantic import BaseModel, ConfigDict
 from realmock.domains.profile.schemas.tech_domains import OrmTechDomains
 
 
+# Profile read response, built from an ORM row plus id/updated_at.
 class UserProfileResponse(BaseModel):
-    """Profile read response, built from an ORM row plus id/updated_at."""
 
     # from_attributes: build directly from an ORM row without hand-written mapping
     model_config = ConfigDict(from_attributes=True)

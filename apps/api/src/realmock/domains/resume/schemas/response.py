@@ -22,8 +22,8 @@ from realmock.platform.schemas import CandidateProfile
 from realmock.domains.resume.schemas.limits import client_limits_payload
 
 
+# One resume row as returned by list / get / upload / activate / retry.
 class ResumeResponse(BaseModel):
-    """One resume row as returned by list / get / upload / activate / retry."""
 
     id: int
     filename: str
@@ -40,13 +40,12 @@ class ResumeResponse(BaseModel):
     version_n: int = 1
 
 
+# Public, stable limits the frontend catalog must match.
+#
+# Source of truth is ``schemas.limits``; this model is the OpenAPI surface.
+# ``x-resume-catalog`` embeds the live payload so frontend tests can
+# compare values, not just property names.
 class ResumeDomainLimits(BaseModel):
-    """Public, stable limits the frontend catalog must match.
-
-    Source of truth is ``schemas.limits``; this model is the OpenAPI surface.
-    ``x-resume-catalog`` embeds the live payload so frontend tests can
-    compare values, not just property names.
-    """
 
     model_config = ConfigDict(
         json_schema_extra={"x-resume-catalog": cast("dict[str, Any]", client_limits_payload())}

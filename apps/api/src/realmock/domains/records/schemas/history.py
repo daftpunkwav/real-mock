@@ -7,8 +7,8 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+# Session metadata for the history page (no access token).
 class SessionHistoryItem(BaseModel):
-    """Session metadata for the history page (no access token)."""
 
     id: int
     role: str

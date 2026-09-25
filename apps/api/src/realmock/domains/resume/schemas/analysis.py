@@ -13,22 +13,22 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+# Single dimension score for a resume review.
 class DimensionScore(BaseModel):
-    """Single dimension score for a resume review."""
 
     score: int = Field(ge=0, le=100)
     comment: str = ""
 
 
+# Before/after rewrite pair for a resume bullet.
 class RewriteExample(BaseModel):
-    """Before/after rewrite pair for a resume bullet."""
 
     before: str = ""
     after: str = ""
 
 
+# Per-section review (education / work / projects / skills / layout).
 class SectionReview(BaseModel):
-    """Per-section review (education / work / projects / skills / layout)."""
 
     section: str = ""
     score: int = Field(ge=0, le=100)
@@ -36,8 +36,8 @@ class SectionReview(BaseModel):
     detail: str = ""
 
 
+# One predicted interview question with the interviewer's intent and a model answer.
 class InterviewQa(BaseModel):
-    """One predicted interview question with the interviewer's intent and a model answer."""
 
     question: str = ""
     intent: str = ""
@@ -45,8 +45,8 @@ class InterviewQa(BaseModel):
     follow_ups: list[str] = Field(default_factory=list)
 
 
+# Deep-dive card for one project.
 class ProjectCard(BaseModel):
-    """Deep-dive card for one project."""
 
     name: str = ""
     score: int = Field(ge=0, le=100)
@@ -56,16 +56,16 @@ class ProjectCard(BaseModel):
     deep_questions: list[InterviewQa] = Field(default_factory=list)
 
 
+# Three-tier skill trust: evidenced / claimed-only / missing for target role.
 class SkillTrust(BaseModel):
-    """Three-tier skill trust: evidenced / claimed-only / missing for target role."""
 
     solid: list[str] = Field(default_factory=list)
     claimed: list[str] = Field(default_factory=list)
     missing: list[str] = Field(default_factory=list)
 
 
+# Career trajectory analysis.
 class CareerAnalysis(BaseModel):
-    """Career trajectory analysis."""
 
     trajectory: str = ""
     stability_score: int = Field(ge=0, le=100)
@@ -73,16 +73,16 @@ class CareerAnalysis(BaseModel):
     notes: str = ""
 
 
+# Fit score for a company tier.
 class CompanyFit(BaseModel):
-    """Fit score for a company tier."""
 
     tier: str = ""
     fit_score: int = Field(ge=0, le=100)
     reason: str = ""
 
 
+# GitHub repo evidence: metadata plus commit/source observations.
 class RepoEvidence(BaseModel):
-    """GitHub repo evidence: metadata plus commit/source observations."""
 
     repo: str = ""
     url: str = ""
@@ -95,19 +95,18 @@ class RepoEvidence(BaseModel):
     evidence_notes: list[str] = Field(default_factory=list)
 
 
+# Cross-check of resume claims against repository facts.
 class RepoVerification(BaseModel):
-    """Cross-check of resume claims against repository facts."""
 
     repo: str = ""
     verdict: str = ""
     details: str = ""
 
 
+# Multi-dimension resume Agent review result.
+#
+# Keeps legacy strengths/weaknesses/… fields and extends with dimension_scores etc.
 class ResumeAnalysis(BaseModel):
-    """Multi-dimension resume Agent review result.
-
-    Keeps legacy strengths/weaknesses/… fields and extends with dimension_scores etc.
-    """
 
     score: int = Field(ge=0, le=100)
     strengths: list[str] = Field(default_factory=list)

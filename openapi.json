@@ -7942,8 +7942,7 @@
           }
         },
         "type": "object",
-        "title": "AiOverrides",
-        "description": "Processor selection for mock interviews: thinking / voice input / voice output + thinking intensity."
+        "title": "AiOverrides"
       },
       "AvatarOption": {
         "properties": {
@@ -8172,8 +8171,7 @@
           }
         },
         "type": "object",
-        "title": "CandidateProfile",
-        "description": "Structured candidate resume profile.\n\nProduced by the resume domain parser and read by the interview Agent to build the candidate persona;\nshared by both domains, so it belongs in the platform contract layer."
+        "title": "CandidateProfile"
       },
       "CareerAnalysis": {
         "properties": {
@@ -8205,8 +8203,7 @@
         "required": [
           "stability_score"
         ],
-        "title": "CareerAnalysis",
-        "description": "Career trajectory analysis."
+        "title": "CareerAnalysis"
       },
       "CatalogOption": {
         "properties": {
@@ -8287,8 +8284,7 @@
           }
         },
         "type": "object",
-        "title": "ChannelUpdate",
-        "description": "Partial channel update; ``None`` fields keep their current value."
+        "title": "ChannelUpdate"
       },
       "ChannelWrite": {
         "properties": {
@@ -8330,8 +8326,7 @@
         "required": [
           "kind"
         ],
-        "title": "ChannelWrite",
-        "description": "Per-kind connection settings attached to a provider (create or upsert)."
+        "title": "ChannelWrite"
       },
       "ChatMessage": {
         "properties": {
@@ -8430,8 +8425,7 @@
         "required": [
           "fit_score"
         ],
-        "title": "CompanyFit",
-        "description": "Fit score for a company tier."
+        "title": "CompanyFit"
       },
       "CompanyInfo": {
         "properties": {
@@ -8604,8 +8598,7 @@
           }
         },
         "type": "object",
-        "title": "DebriefReport",
-        "description": "Full debrief payload stored in ``interview_reports.payload`` when ready."
+        "title": "DebriefReport"
       },
       "DimensionScore": {
         "properties": {
@@ -8625,8 +8618,7 @@
         "required": [
           "score"
         ],
-        "title": "DimensionScore",
-        "description": "Single dimension score for a resume review."
+        "title": "DimensionScore"
       },
       "FinishInterviewResponse": {
         "properties": {
@@ -8983,8 +8975,7 @@
           "current_round",
           "status"
         ],
-        "title": "InterviewProcessResponse",
-        "description": "Process view with round lineage and next-round eligibility."
+        "title": "InterviewProcessResponse"
       },
       "InterviewQa": {
         "properties": {
@@ -9014,8 +9005,7 @@
           }
         },
         "type": "object",
-        "title": "InterviewQa",
-        "description": "One predicted interview question with the interviewer's intent and a model answer."
+        "title": "InterviewQa"
       },
       "InterviewSessionResponse": {
         "properties": {
@@ -9611,8 +9601,7 @@
           "id",
           "title"
         ],
-        "title": "PlanStepView",
-        "description": "Light plan-step projection for room UI (flow spine)."
+        "title": "PlanStepView"
       },
       "PrepArchiveRequest": {
         "properties": {
@@ -10937,8 +10926,7 @@
           "level",
           "company"
         ],
-        "title": "ProcessCreateRequest",
-        "description": "Start a multi-round process; round-1 session is created together."
+        "title": "ProcessCreateRequest"
       },
       "ProcessCreatedResponse": {
         "properties": {
@@ -10955,8 +10943,7 @@
           "process",
           "session_id"
         ],
-        "title": "ProcessCreatedResponse",
-        "description": "Process + first session created together."
+        "title": "ProcessCreatedResponse"
       },
       "ProcessRoundItem": {
         "properties": {
@@ -11013,8 +11000,7 @@
           "round_no",
           "status"
         ],
-        "title": "ProcessRoundItem",
-        "description": "One round inside a process (session projection)."
+        "title": "ProcessRoundItem"
       },
       "ProcessRoundPlanItem": {
         "properties": {
@@ -11052,8 +11038,7 @@
           "label",
           "focus"
         ],
-        "title": "ProcessRoundPlanItem",
-        "description": "One planned round of the realistic chain (kind drives i18n labels)."
+        "title": "ProcessRoundPlanItem"
       },
       "ProjectCard": {
         "properties": {
@@ -11099,8 +11084,7 @@
         "required": [
           "score"
         ],
-        "title": "ProjectCard",
-        "description": "Deep-dive card for one project."
+        "title": "ProjectCard"
       },
       "ProviderCreate": {
         "properties": {
@@ -11193,8 +11177,7 @@
           }
         },
         "type": "object",
-        "title": "ProviderUpdate",
-        "description": "Partial provider update; ``None`` fields keep their current value."
+        "title": "ProviderUpdate"
       },
       "RepoEvidence": {
         "properties": {
@@ -11259,8 +11242,7 @@
           }
         },
         "type": "object",
-        "title": "RepoEvidence",
-        "description": "GitHub repo evidence: metadata plus commit/source observations."
+        "title": "RepoEvidence"
       },
       "RepoVerification": {
         "properties": {
@@ -11281,8 +11263,7 @@
           }
         },
         "type": "object",
-        "title": "RepoVerification",
-        "description": "Cross-check of resume claims against repository facts."
+        "title": "RepoVerification"
       },
       "ReportResponse": {
         "properties": {
@@ -11338,8 +11319,7 @@
           "session_id",
           "report"
         ],
-        "title": "ReportResponse",
-        "description": "GET /reports/{session_id} response shape for the frontend."
+        "title": "ReportResponse"
       },
       "ResumeAnalysis": {
         "properties": {
@@ -11579,8 +11559,7 @@
         "required": [
           "score"
         ],
-        "title": "ResumeAnalysis",
-        "description": "Multi-dimension resume Agent review result.\n\nKeeps legacy strengths/weaknesses/… fields and extends with dimension_scores etc."
+        "title": "ResumeAnalysis"
       },
       "ResumeDomainLimits": {
         "properties": {
@@ -11668,7 +11647,6 @@
           "score_band_standout"
         ],
         "title": "ResumeDomainLimits",
-        "description": "Public, stable limits the frontend catalog must match.\n\nSource of truth is ``schemas.limits``; this model is the OpenAPI surface.\n``x-resume-catalog`` embeds the live payload so frontend tests can\ncompare values, not just property names.",
         "x-resume-catalog": {
           "allowed_extensions": [
             "docx",
@@ -11739,8 +11717,7 @@
           "id",
           "filename"
         ],
-        "title": "ResumePickerItem",
-        "description": "Resume drop-down read-only summary: shared by prep/interview configuration pages, does not include analysis text and in-depth evaluation."
+        "title": "ResumePickerItem"
       },
       "ResumeResponse": {
         "properties": {
@@ -11814,8 +11791,7 @@
           "parsed_profile",
           "created_at"
         ],
-        "title": "ResumeResponse",
-        "description": "One resume row as returned by list / get / upload / activate / retry."
+        "title": "ResumeResponse"
       },
       "RewriteExample": {
         "properties": {
@@ -11831,8 +11807,7 @@
           }
         },
         "type": "object",
-        "title": "RewriteExample",
-        "description": "Before/after rewrite pair for a resume bullet."
+        "title": "RewriteExample"
       },
       "ScoreBreakdown": {
         "properties": {
@@ -11903,8 +11878,7 @@
         "required": [
           "score"
         ],
-        "title": "SectionReview",
-        "description": "Per-section review (education / work / projects / skills / layout)."
+        "title": "SectionReview"
       },
       "SessionHistoryItem": {
         "properties": {
@@ -12057,8 +12031,7 @@
           "status",
           "current_phase"
         ],
-        "title": "SessionHistoryItem",
-        "description": "Session metadata for the history page (no access token)."
+        "title": "SessionHistoryItem"
       },
       "SkillTrust": {
         "properties": {
@@ -12085,8 +12058,7 @@
           }
         },
         "type": "object",
-        "title": "SkillTrust",
-        "description": "Three-tier skill trust: evidenced / claimed-only / missing for target role."
+        "title": "SkillTrust"
       },
       "StageConfigResponse": {
         "properties": {
@@ -12160,8 +12132,7 @@
           "extras",
           "has_api_key"
         ],
-        "title": "StageConfigResponse",
-        "description": "Single stage handler returns."
+        "title": "StageConfigResponse"
       },
       "StageConfigUpdate": {
         "properties": {
@@ -12220,8 +12191,7 @@
           }
         },
         "type": "object",
-        "title": "StageConfigUpdate",
-        "description": "A single stage handler saves the request."
+        "title": "StageConfigUpdate"
       },
       "StageConfigsResponse": {
         "properties": {
@@ -12253,8 +12223,7 @@
           "reason",
           "speak"
         ],
-        "title": "StageConfigsResponse",
-        "description": "The new version of the three-stage configuration returns."
+        "title": "StageConfigsResponse"
       },
       "StageFallbackConfig": {
         "properties": {
@@ -12270,8 +12239,7 @@
           }
         },
         "type": "object",
-        "title": "StageFallbackConfig",
-        "description": "Staged downgrade handling configuration."
+        "title": "StageFallbackConfig"
       },
       "StageModelCapability": {
         "properties": {
@@ -12297,8 +12265,7 @@
           }
         },
         "type": "object",
-        "title": "StageModelCapability",
-        "description": "Single model capability switch."
+        "title": "StageModelCapability"
       },
       "TurnNote": {
         "properties": {
@@ -12383,8 +12350,7 @@
         "required": [
           "turn_id"
         ],
-        "title": "TurnNote",
-        "description": "Deep analysis of one dialogue round (interviewer question + candidate answer)."
+        "title": "TurnNote"
       },
       "TurnNoteInterviewerReview": {
         "properties": {
@@ -12606,8 +12572,7 @@
           "tech_domains",
           "target_role"
         ],
-        "title": "UserProfileResponse",
-        "description": "Profile read response, built from an ORM row plus id/updated_at."
+        "title": "UserProfileResponse"
       },
       "UserProfileUpdate": {
         "properties": {
@@ -12811,8 +12776,7 @@
           "tech_domains",
           "target_role"
         ],
-        "title": "UserProfileUpdate",
-        "description": "Full profile update body."
+        "title": "UserProfileUpdate"
       },
       "ValidationError": {
         "properties": {

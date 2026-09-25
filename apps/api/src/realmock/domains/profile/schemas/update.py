@@ -34,8 +34,8 @@ from realmock.domains.profile.schemas.required import (
 from realmock.domains.profile.schemas.tech_domains import UpdateTechDomains
 
 
+# Full profile update body.
 class UserProfileUpdate(BaseModel):
-    """Full profile update body."""
 
     name: RequiredName
     gender: str = Field("", max_length=FIELD_MAX_LENGTH["gender"])

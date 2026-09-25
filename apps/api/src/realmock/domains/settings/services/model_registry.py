@@ -47,8 +47,8 @@ def _valid_kind(kind: str) -> bool:
     return kind in CHANNEL_KINDS
 
 
+# Per-kind connection settings attached to a provider (create or upsert).
 class ChannelWrite(BaseModel):
-    """Per-kind connection settings attached to a provider (create or upsert)."""
 
     kind: str = Field(..., min_length=1, max_length=10)
     vendor: str = Field(default="", max_length=50)
@@ -58,8 +58,8 @@ class ChannelWrite(BaseModel):
     api_key: str = ""
 
 
+# Partial channel update; ``None`` fields keep their current value.
 class ChannelUpdate(BaseModel):
-    """Partial channel update; ``None`` fields keep their current value."""
 
     vendor: str | None = Field(default=None, max_length=50)
     api_base: str | None = Field(default=None, max_length=500)
@@ -76,8 +76,8 @@ class ProviderCreate(BaseModel):
     channels: list[ChannelWrite] = Field(default_factory=list)
 
 
+# Partial provider update; ``None`` fields keep their current value.
 class ProviderUpdate(BaseModel):
-    """Partial provider update; ``None`` fields keep their current value."""
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
     enabled: bool | None = None
