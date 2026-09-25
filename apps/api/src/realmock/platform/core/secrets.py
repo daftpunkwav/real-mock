@@ -143,7 +143,11 @@ def _master_bytes() -> bytes:
 
 
 def _reset_cache() -> None:
-    """For testing purposes only: after clearing the cache, the next encrypt/decrypt will reload the master."""
+    """For testing purposes only: clear both the master-key cache and the derived-key LRU.
+
+    The next encrypt/decrypt reloads the master from env/keyfile and pays the
+    PBKDF2 derivation again.
+    """
     _master_bytes.cache_clear()
     _derive_key.cache_clear()
 

@@ -10,7 +10,7 @@
 | TurnStack | `stacks/turn_stack` ← `turn/` (coordinator, streaming, control) | Turn lock and coordination, streaming, turn control |
 | MediaStack | `stacks/media_stack` ← `voice/` (pipeline, tts_queue) + `control/hint` | STT/TTS pipeline, sentence TTS queue, reference outline |
 | MessageDispatcher | `core/message_dispatcher` | Client event dispatch |
-| ReportScheduler | `report_scheduler` | Background report generation |
+| ReportScheduler | `report_scheduler` | Background finish notify: freeze ledger via finish lifecycle + `interview_complete` push (debrief generation lives in the records domain) |
 
 Supporting subpackages:
 

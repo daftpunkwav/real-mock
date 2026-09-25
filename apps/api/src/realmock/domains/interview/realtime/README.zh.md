@@ -10,7 +10,7 @@
 | TurnStack | `stacks/turn_stack` ← `turn/`(coordinator、streaming、control) | 轮次锁与协调、流式、轮次控制 |
 | MediaStack | `stacks/media_stack` ← `voice/`(pipeline、tts_queue)+ `control/hint` | STT/TTS 管线、句子级 TTS 队列、参考提纲 |
 | MessageDispatcher | `core/message_dispatcher` | 客户端事件分发 |
-| ReportScheduler | `report_scheduler` | 后台报告生成 |
+| ReportScheduler | `report_scheduler` | 后台完成通知:经 finish lifecycle 冻结账本并推送 `interview_complete`(报告生成本体在 records 域) |
 
 支撑子包:
 
