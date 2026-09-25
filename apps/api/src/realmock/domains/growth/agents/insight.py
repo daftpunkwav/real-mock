@@ -51,6 +51,7 @@ from realmock.platform.capabilities.ai.llm.json_extract import (
 from realmock.platform.contracts.session_catalog import get_session_catalog
 from realmock.platform.services.candidate_read import (
     get_default_user_profile,
+    get_latest_scored_resume_id,
     get_resume_agent_payload,
 )
 
@@ -184,33 +185,13 @@ def build_growth_bundle(api_db: Session, sessions_db: Session) -> ToolBundle:
     """Compose the growth evidence bundle from shared platform tool factories."""
     bundle = ToolBundle()
     bundle.extend(history_tool_specs(sessions_db))
-    payload = get_resume_agent_payload(api_db, _latest_scored_resume_id(api_db))
+    payload = get_resume_agent_payload(api_db, get_latest_scored_resume_id(api_db))
     if payload is not None:
         bundle.extend(resume_tool_specs(snapshot_from_payload(payload)))
     profile = profile_from_orm(get_default_user_profile(api_db))
     if profile is not None and getattr(profile, "fields", None):
         bundle.extend(profile_tool_specs(profile))
     return bundle
-
-
-def _latest_scored_resume_id(api_db: Session) -> int | None:
-    """Newest active scored resume, else newest scored (platform model read)."""
-    from realmock.platform.models import Resume
-
-    row = (
-        api_db.query(Resume)
-        .filter(Resume.is_active.is_(True), Resume.score.isnot(None))
-        .order_by(Resume.id.desc())
-        .first()
-    )
-    if row is None:
-        row = (
-            api_db.query(Resume)
-            .filter(Resume.score.isnot(None))
-            .order_by(Resume.created_at.desc(), Resume.id.desc())
-            .first()
-        )
-    return int(row.id) if row is not None else None
 
 
 def _extract_analysis_json(text: str | None) -> dict[str, Any] | None:

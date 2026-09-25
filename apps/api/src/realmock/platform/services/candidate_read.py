@@ -187,6 +187,35 @@ def get_resume_agent_payload(db: Session, resume_id: int | None) -> dict[str, An
     }
 
 
+def get_latest_scored_resume_id(db: Session) -> int | None:
+    """Id of the newest active scored resume, else the newest scored one.
+
+    Growth-context read port: callers only need the id and pass it back into
+    the other resume readers here. Returns None when no scored resume exists
+    or the table is unavailable.
+    """
+    from realmock.platform.models import Resume
+
+    def _load():
+        active = (
+            db.query(Resume)
+            .filter(Resume.is_active.is_(True), Resume.score.isnot(None))
+            .order_by(Resume.id.desc())
+            .first()
+        )
+        if active is not None:
+            return active
+        return (
+            db.query(Resume)
+            .filter(Resume.score.isnot(None))
+            .order_by(Resume.created_at.desc(), Resume.id.desc())
+            .first()
+        )
+
+    row = _safe_orm_query(db, _load, table_label="Resume(scored)")
+    return int(row.id) if row is not None else None
+
+
 def format_resume_analysis_summary(db: Session, *, max_chars: int = 2000) -> str:
     """Deep-review summary of the latest scored resume (growth context).
 
@@ -256,6 +285,7 @@ __all__ = [
     "format_resume_summary",
     "get_candidate_profile",
     "get_default_user_profile",
+    "get_latest_scored_resume_id",
     "get_resume_agent_payload",
     "get_resume_detail",
     "get_user_profile",

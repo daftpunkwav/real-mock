@@ -108,6 +108,26 @@ class TestCandidateRead:
         assert cr.get_candidate_profile(api_db, row.id) is None
         assert cr.get_resume_agent_payload(api_db, row.id)["parsed"] == {}
 
+    def test_latest_scored_resume_id(self, api_db) -> None:
+        from realmock.platform.models import Resume
+        from realmock.platform.services import candidate_read as cr
+
+        # Shared engine: clear resumes so this test is order-independent.
+        api_db.query(Resume).delete()
+        api_db.commit()
+        assert cr.get_latest_scored_resume_id(api_db) is None
+        old = Resume(filename="old.pdf", file_type="pdf", score=60, is_active=False)
+        new = Resume(filename="new.pdf", file_type="pdf", score=80, is_active=True)
+        unscored = Resume(filename="draft.pdf", file_type="pdf")
+        api_db.add_all([old, new, unscored])
+        api_db.commit()
+        # active scored resume wins over other scored rows
+        assert cr.get_latest_scored_resume_id(api_db) == new.id
+        new.is_active = False
+        api_db.commit()
+        # fallback: newest scored row, ignoring newer-but-unscored rows
+        assert cr.get_latest_scored_resume_id(api_db) == new.id
+
     def test_safe_query_rollback_failure(self, api_db, monkeypatch) -> None:
         from realmock.platform.services import candidate_read as cr
 

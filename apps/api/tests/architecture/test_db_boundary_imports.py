@@ -9,6 +9,7 @@ FORBIDDEN = frozenset({"Resume", "UserProfile"})
 SCAN_ROOTS = (
     Path("src/realmock/domains/interview"),
     Path("src/realmock/domains/prep"),
+    Path("src/realmock/domains/growth"),
 )
 
 
@@ -37,7 +38,7 @@ def _imports_resume_or_profile(path: Path) -> list[str]:
     return hits
 
 
-def test_interview_agent_no_direct_shared_resume_imports() -> None:
+def test_agent_domains_no_direct_shared_resume_imports() -> None:
     services = Path(__file__).resolve().parents[2]
     violations: list[str] = []
     for root in SCAN_ROOTS:
