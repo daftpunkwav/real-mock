@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_PROFILE_ID = 1
 
 
-def get_latest_insight(db: Session, *, profile_id: int = DEFAULT_PROFILE_ID) -> GrowthInsight | None:
+def get_latest_insight(
+    db: Session, *, profile_id: int = DEFAULT_PROFILE_ID
+) -> GrowthInsight | None:
     """Latest insight row for the profile, or None."""
     try:
         return (

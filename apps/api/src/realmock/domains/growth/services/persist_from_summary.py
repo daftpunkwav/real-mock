@@ -37,9 +37,7 @@ def persist_growth_from_summary(
     weaknesses = list(payload.weaknesses or [])
     training = list(payload.training_plan or [])
     if payload.profile_id is None:
-        logger.warning(
-            "growth persist sid=%s missing profile_id; defaulting to 1", sid
-        )
+        logger.warning("growth persist sid=%s missing profile_id; defaulting to 1", sid)
         profile_id = 1
     else:
         profile_id = int(payload.profile_id)

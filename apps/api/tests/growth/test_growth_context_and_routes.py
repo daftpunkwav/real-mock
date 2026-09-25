@@ -36,54 +36,49 @@ def _snapshot(sid: int, score: int, *, report: dict | None = None, created: date
     return snap
 
 
-# ---- context builder ----
+# ---- session index (agent input) ----
 
 
-def test_builder_aggregates_scored_sessions_only() -> None:
-    from realmock.domains.growth.services.context_builder import build_growth_context
+def test_build_session_index_keeps_scored_only() -> None:
+    from realmock.domains.growth.agents.insight import _build_session_index
 
+    unscored = MagicMock(id=3, overall_score=None)
+    scored = MagicMock(id=2, overall_score=70, role="后端", company="ACME",
+                       level="mid", result="passed",
+                       ended_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                       created_at=None)
     catalog = MagicMock()
-    catalog.list_sessions.return_value = [MagicMock(id=2, overall_score=70), MagicMock(id=1, overall_score=55), MagicMock(id=3, overall_score=None)]
-    catalog.get_session.side_effect = lambda db, sid: {
-        2: _snapshot(2, 70),
-        1: _snapshot(1, 55),
-    }[sid]
+    catalog.list_sessions.return_value = [scored, unscored]
 
-    with (
-        patch("realmock.domains.growth.services.context_builder.get_session_catalog", return_value=catalog),
-        patch(
-            "realmock.domains.growth.services.context_builder.format_resume_analysis_summary",
-            return_value="RESUME",
-        ),
-        patch(
-            "realmock.domains.growth.services.context_builder.format_profile_summary",
-            return_value="PROFILE",
-        ),
+    with patch(
+        "realmock.domains.growth.agents.insight.get_session_catalog",
+        return_value=catalog,
     ):
-        context = build_growth_context(MagicMock(), MagicMock())
+        index = _build_session_index(MagicMock())
 
-    assert [s["session_id"] for s in context["sessions"]] == [2, 1]
-    assert context["sessions"][0]["weaknesses"][0] == "sql optimization"
-    assert context["resume_summary"] == "RESUME"
-    assert context["profile_summary"] == "PROFILE"
+    assert len(index) == 1
+    assert index[0]["session_id"] == 2
+    assert index[0]["date"] == "2026-09-01"
+    assert index[0]["overall_score"] == 70
 
 
-def test_builder_skips_bad_report_json() -> None:
-    from realmock.domains.growth.services.context_builder import build_growth_context
+def test_build_session_index_respects_limit() -> None:
+    from realmock.domains.growth.agents.insight import _build_session_index
 
+    rows = [
+        MagicMock(id=i, overall_score=60, role="r", company="c", level="l",
+                  result="passed", ended_at=None,
+                  created_at=datetime(2026, 8, 1, tzinfo=timezone.utc))
+        for i in range(10)
+    ]
     catalog = MagicMock()
-    catalog.list_sessions.return_value = [MagicMock(id=7, overall_score=40)]
-    broken = _snapshot(7, 40, report=None)
-    broken.report = "{not json"
-    catalog.get_session.return_value = broken
+    catalog.list_sessions.return_value = rows
 
-    with (
-        patch("realmock.domains.growth.services.context_builder.get_session_catalog", return_value=catalog),
-        patch("realmock.domains.growth.services.context_builder.format_resume_analysis_summary", return_value=""),
-        patch("realmock.domains.growth.services.context_builder.format_profile_summary", return_value=""),
+    with patch(
+        "realmock.domains.growth.agents.insight.get_session_catalog",
+        return_value=catalog,
     ):
-        context = build_growth_context(MagicMock(), MagicMock())
-    assert context["sessions"] == []
+        assert len(_build_session_index(MagicMock(), limit=3)) == 3
 
 
 # ---- insight store + routes ----

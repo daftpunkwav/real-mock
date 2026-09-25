@@ -19,8 +19,7 @@ SESSIONS_MIGRATIONS: dict[str, list[str]] = {
 }
 
 _UX_SESSION_ID = (
-    "CREATE UNIQUE INDEX IF NOT EXISTS ux_growth_records_session_id "
-    "ON growth_records (session_id)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_growth_records_session_id ON growth_records (session_id)"
 )
 
 

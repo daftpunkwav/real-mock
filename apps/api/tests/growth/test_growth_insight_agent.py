@@ -1,4 +1,4 @@
-"""Growth insight agent tests (normalize / degrade / generation contract).
+"""Growth insight agent tests (normalize / tool loop / degradation contract).
 
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only.
 """
@@ -7,9 +7,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def _run(coro):
+    return asyncio.run(coro)
 
 
 # ---- normalize_growth_insight ----
@@ -27,7 +32,7 @@ def test_normalize_clamps_fields() -> None:
             {"skill": "", "count": 5},  # dropped: empty skill
             "junk",  # dropped: non-dict
         ],
-        "improving_areas": ["debugging", "", 42],
+        "improving_areas": ["debugging", "", 42],  # non-str dropped
         "resume_gap_insights": ["gap"],
         "training_plan": [
             {"area": "system design", "based_on": "sid 3", "actions": ["draw", "", "review"]},
@@ -65,133 +70,230 @@ def test_insight_substantive_gate() -> None:
     assert _insight_is_substantive(full)
 
 
-# ---- generate_growth_insight (degradation contract) ----
+# ---- tool-loop agent (run_agent_loop stubbed) ----
 
 
 @pytest.fixture
-def _two_session_context():
-    """Patch context_builder to a fixed two-session context."""
-    context = {
-        "sessions": [
-            {"session_id": 2, "date": "2026-09-01", "role": "后端", "company": "ACME",
-             "level": "mid", "overall_score": 72, "verdict": "passed",
-             "score_breakdown": {}, "weaknesses": ["sql"], "strengths": [],
-             "training_plan": [], "key_problems": []},
-            {"session_id": 1, "date": "2026-08-01", "role": "后端", "company": "ACME",
-             "level": "mid", "overall_score": 60, "verdict": "failed",
-             "score_breakdown": {}, "weaknesses": ["sql"], "strengths": [],
-             "training_plan": [], "key_problems": []},
-        ],
-        "resume_summary": "Latest resume: r.pdf (score 61)",
-        "profile_summary": "Candidate profile:\nName: T",
-    }
+def _index():
+    idx = [
+        {"session_id": 2, "date": "2026-09-01", "role": "后端", "company": "ACME",
+         "level": "mid", "overall_score": 72, "verdict": "passed"},
+        {"session_id": 1, "date": "2026-08-01", "role": "后端", "company": "ACME",
+         "level": "mid", "overall_score": 60, "verdict": "failed"},
+    ]
     with patch(
-        "realmock.domains.growth.agents.insight.build_growth_context",
-        return_value=context,
+        "realmock.domains.growth.agents.insight._build_session_index", return_value=idx
     ):
-        yield context
+        yield idx
 
 
-def test_generate_returns_normalized_insight(_two_session_context) -> None:
+@pytest.fixture
+def _no_side_tools():
+    """Resume/profile reads return nothing so the bundle is history-only."""
+    with (
+        patch(
+            "realmock.domains.growth.agents.insight.get_resume_agent_payload",
+            return_value=None,
+        ),
+        patch(
+            "realmock.domains.growth.agents.insight.get_default_user_profile",
+            return_value=None,
+        ),
+    ):
+        yield
+
+
+def _fake_loop_result(content: str):
+    return SimpleNamespace(final_content=content)
+
+
+def _analysis_json() -> str:
+    return json.dumps(
+        {
+            "headline": "稳步上升",
+            "trajectory": "sid 2 分数高于 sid 1",
+            "trajectory_stage": "rising",
+            "recurring_weaknesses": [{"skill": "sql", "count": 2, "trend": "improving", "advice": "练习"}],
+            "improving_areas": [],
+            "resume_gap_insights": [],
+            "training_plan": [{"area": "SQL", "based_on": "sid 1/2", "actions": ["刷题"]}],
+        },
+        ensure_ascii=False,
+    )
+
+
+async def _generate():
     from realmock.domains.growth.agents.insight import generate_growth_insight
 
-    raw = {
-        "headline": "稳步上升",
-        "trajectory": "sid 2 分数高于 sid 1",
-        "trajectory_stage": "rising",
-        "recurring_weaknesses": [{"skill": "sql", "count": 2, "trend": "improving", "advice": "练习"}],
-        "improving_areas": [],
-        "resume_gap_insights": [],
-        "training_plan": [{"area": "SQL", "based_on": "sid 1/2", "actions": ["刷题"]}],
-    }
-    fake_llm = MagicMock()
-    fake_llm.chat_json = _async_return(raw)
+    return await generate_growth_insight(MagicMock(), MagicMock(), locale="zh-CN")
 
-    async def _run():
-        with patch(
-            "realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=fake_llm
-        ):
-            return await generate_growth_insight(MagicMock(), MagicMock(), locale="zh-CN")
 
-    result = asyncio.run(_run())
+def test_generate_parses_loop_json(_index, _no_side_tools) -> None:
+
+    recorded: dict = {}
+
+    async def fake_run_agent_loop(llm, messages, **kwargs):
+        recorded["tools"] = [d["function"]["name"] for d in (kwargs["tools"] or [])]
+        recorded["has_prepare"] = kwargs["prepare_messages"] is not None
+        recorded["tool_free_final"] = kwargs["final_round_tool_free"]
+        recorded["round_retries"] = kwargs["round_retries"]
+        return _fake_loop_result(_analysis_json())
+
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+    ):
+        result = _run(_generate())
+
     assert result is not None
     insight, count = result
     assert count == 2
     assert insight["trajectory_stage"] == "rising"
-    assert insight["recurring_weaknesses"][0]["skill"] == "sql"
-
-
-def _async_return(value):
-    async def _call(*args, **kwargs):
-        return value
-    return _call
+    assert "history_list_sessions" in recorded["tools"]
+    assert "history_get_report" in recorded["tools"]
+    assert recorded["tool_free_final"] is True
+    assert recorded["has_prepare"] is True
+    assert recorded["round_retries"] == 1
 
 
 def test_generate_skips_without_sessions() -> None:
-    from realmock.domains.growth.agents.insight import generate_growth_insight
 
     with patch(
-        "realmock.domains.growth.agents.insight.build_growth_context",
-        return_value={"sessions": [], "resume_summary": "", "profile_summary": ""},
+        "realmock.domains.growth.agents.insight._build_session_index", return_value=[]
     ):
-        result = asyncio.run(generate_growth_insight(MagicMock(), MagicMock()))
+        result = _run(_generate())
     assert result is None
 
 
-def test_generate_none_on_timeout(_two_session_context) -> None:
-    from realmock.domains.growth.agents.insight import (
-        GROWTH_INSIGHT_TIMEOUT_SECONDS,
-        generate_growth_insight,
-    )
-
+def test_generate_none_on_loop_timeout(_index, _no_side_tools) -> None:
     async def _hanging(*a, **k):
-        await asyncio.sleep(GROWTH_INSIGHT_TIMEOUT_SECONDS + 10)
+        await asyncio.sleep(3600)
 
-    fake_llm = MagicMock()
-    fake_llm.chat_json = _hanging
     with (
-        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=fake_llm),
-        patch("realmock.domains.growth.agents.insight.GROWTH_INSIGHT_TIMEOUT_SECONDS", 0.01),
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=_hanging),
+        patch("realmock.domains.growth.agents.insight.GROWTH_LOOP_TIMEOUT_SECONDS", 0.01),
     ):
-        result = asyncio.run(generate_growth_insight(MagicMock(), MagicMock()))
+        result = _run(_generate())
     assert result is None
 
 
-def test_generate_none_on_bad_json(_two_session_context) -> None:
-    from realmock.domains.growth.agents.insight import generate_growth_insight
+def test_generate_none_on_unparsable_final(_index, _no_side_tools) -> None:
+    async def fake_run_agent_loop(*a, **k):
+        return _fake_loop_result("no json here at all")
 
-    fake_llm = MagicMock()
-    fake_llm.chat_json = _async_return("not a dict")
-    with patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=fake_llm):
-        result = asyncio.run(generate_growth_insight(MagicMock(), MagicMock()))
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+    ):
+        result = _run(_generate())
     assert result is None
 
 
-def test_generate_none_on_empty_shell(_two_session_context) -> None:
-    from realmock.domains.growth.agents.insight import generate_growth_insight
+def test_generate_none_on_empty_shell(_index, _no_side_tools) -> None:
+    async def fake_run_agent_loop(*a, **k):
+        return _fake_loop_result(json.dumps({"headline": "", "trajectory": ""}))
 
-    fake_llm = MagicMock()
-    fake_llm.chat_json = _async_return({"headline": "", "trajectory": ""})
-    with patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=fake_llm):
-        result = asyncio.run(generate_growth_insight(MagicMock(), MagicMock()))
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+    ):
+        result = _run(_generate())
     assert result is None
 
 
-# ---- prompt module hygiene ----
+def test_generate_salvages_truncated_json(_index, _no_side_tools) -> None:
+    """A reply cut off by the output cap still yields the head of the object."""
+    raw = _analysis_json()
+    truncated = raw[: raw.rindex(",")] + "}"  # cut trailing fields, keep parseable
+
+    async def fake_run_agent_loop(*a, **k):
+        return _fake_loop_result(truncated)
+
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+    ):
+        result = _run(_generate())
+    assert result is not None
+    assert result[0]["headline"] == "稳步上升"
 
 
-def test_user_message_carries_context_and_language() -> None:
+# ---- execute_tool_call: circuit breaker + budget ceiling ----
+
+
+def test_execute_tool_call_circuit_breaker(_index, _no_side_tools) -> None:
+    from realmock.domains.growth.agents.insight import _TOOL_CIRCUIT_BREAKER_STREAK
+
+    captured: dict = {}
+
+    async def fake_run_agent_loop(llm, messages, **kwargs):
+        captured["execute"] = kwargs["execute"]
+        return _fake_loop_result(_analysis_json())
+
+    async def fail_invoke(bundle, name, args, **kwargs):
+        return json.dumps({"error": "boom"}), "error"
+
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch("realmock.domains.growth.agents.insight.invoke_with_timeout", side_effect=fail_invoke),
+    ):
+        _run(_generate())
+        execute = captured["execute"]
+        same_args = {"session_id": 1}
+        for _ in range(_TOOL_CIRCUIT_BREAKER_STREAK):
+            raw = _run(execute("history_get_report", same_args))
+            assert "boom" in raw
+        raw = _run(execute("history_get_report", same_args))
+        assert "circuit_open" in raw
+        # Different args are never blocked (different workload).
+        raw = _run(execute("history_get_report", {"session_id": 2}))
+        assert "boom" in raw
+
+
+def test_execute_tool_call_budget_refusal(_index, _no_side_tools) -> None:
+    from realmock.domains.growth.agents.insight import GROWTH_MAX_TOTAL_TOOL_CALLS
+
+    captured: dict = {}
+
+    async def fake_run_agent_loop(llm, messages, **kwargs):
+        captured["execute"] = kwargs["execute"]
+        return _fake_loop_result(_analysis_json())
+
+    async def ok_invoke(bundle, name, args, **kwargs):
+        return json.dumps({"ok": True}), "ok"
+
+    with (
+        patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
+        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch("realmock.domains.growth.agents.insight.invoke_with_timeout", side_effect=ok_invoke),
+    ):
+        _run(_generate())
+        execute = captured["execute"]
+
+        async def _exhaust():
+            last = ""
+            for i in range(GROWTH_MAX_TOTAL_TOOL_CALLS + 1):
+                last = await execute("history_list_sessions", {"limit": i})
+            return last
+
+        last = _run(_exhaust())
+        assert "tool_budget_exhausted" in last
+
+
+# ---- prompt module ----
+
+
+def test_user_message_carries_index_and_language() -> None:
     from realmock.domains.growth.prompts import growth_insight_user_message
 
     msg = growth_insight_user_message(
-        sessions_json=json.dumps([{"session_id": 1}]),
-        resume_summary="R",
-        profile_summary="P",
+        session_index_json=json.dumps([{"session_id": 1}]),
         locale="zh-CN",
     )
-    assert "session_id" in msg and "R" in msg and "P" in msg
+    assert "session_id" in msg
     assert "Simplified Chinese" in msg
-    en_msg = growth_insight_user_message(
-        sessions_json="[]", resume_summary="", profile_summary="", locale="en"
-    )
+    assert "history_get_report" in msg
+    en_msg = growth_insight_user_message(session_index_json="[]", locale="en")
     assert "in English" in en_msg

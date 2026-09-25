@@ -150,24 +150,28 @@ def record_interview_learning(
             # Effective probe clues (weak points)
             probes = data.setdefault("effective_probes", [])
             for wp in (state.get("weak_points") or [])[:5]:
-                probes.append({
-                    "company": company,
-                    "role": role,
-                    "point": str(wp)[:200],
-                    "session_id": session_id,
-                })
+                probes.append(
+                    {
+                        "company": company,
+                        "role": role,
+                        "point": str(wp)[:200],
+                        "session_id": session_id,
+                    }
+                )
             if len(probes) > 200:
                 del probes[:-200]
 
             if report:
                 for w in (report.get("weaknesses") or [])[:5]:
-                    probes.append({
-                        "company": company,
-                        "role": role,
-                        "point": str(w)[:200],
-                        "session_id": session_id,
-                        "source": "report",
-                    })
+                    probes.append(
+                        {
+                            "company": company,
+                            "role": role,
+                            "point": str(w)[:200],
+                            "session_id": session_id,
+                            "source": "report",
+                        }
+                    )
 
             _save_unlocked(data)
     logger.info("system learning updated session=%s company=%s", session_id, company)

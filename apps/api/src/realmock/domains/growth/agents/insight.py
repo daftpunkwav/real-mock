@@ -1,8 +1,13 @@
-"""LLM growth-insight agent: cross-session analysis from report digests.
+"""LLM growth-insight agent: cross-session analysis via a bounded tool loop.
 
-Single ``chat_json`` round (no tool loop): the input is already structured and
-bounded, so a ReAct cycle would add latency without adding information.
-Failures degrade to ``None`` — the ingest path must never crash.
+Unlike a single-shot call, the agent starts from a small session index and
+pulls per-session reports / resume / profile evidence on demand — truncating
+inputs up front would trade facts for context space, and the loop lets the
+model spend attention where the signal is.
+
+Robustness mirrors the resume-review loop: per-tool timeout, same-args circuit
+breaker, tool-call budget with budget-aware progress lines, countdown nudges,
+and a tool-free final round (protocol-level guarantee that the JSON lands).
 """
 
 from __future__ import annotations
@@ -14,15 +19,50 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.growth.prompts import GROWTH_INSIGHT_SYSTEM, growth_insight_user_message
-from realmock.domains.growth.services.context_builder import build_growth_context
+from realmock.domains.growth.agents.tools import history_tool_specs
+from realmock.domains.growth.prompts import (
+    GROWTH_INSIGHT_SYSTEM,
+    GROWTH_MAX_ROUNDS,
+    GROWTH_MAX_TOOLS_PER_ROUND,
+    GROWTH_MAX_TOTAL_TOOL_CALLS,
+    GROWTH_WRAP_UP_TOOL_FREE_MESSAGE,
+    growth_insight_user_message,
+    growth_progress_line,
+)
+from realmock.platform.capabilities.ai.agent import run_agent_loop
+from realmock.platform.capabilities.ai.agent.tools import ToolBundle
+from realmock.platform.capabilities.ai.agent.tools.executor import invoke_with_timeout
+from realmock.platform.capabilities.ai.agent.tools.profile import (
+    profile_from_orm,
+    profile_tool_specs,
+)
+from realmock.platform.capabilities.ai.agent.tools.resume import (
+    resume_tool_specs,
+    snapshot_from_payload,
+)
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.client.base import LLMUpstreamError
+from realmock.platform.capabilities.ai.llm.json_extract import (
+    extract_json_object as _extract_json_object,
+    salvage_truncated_object as _salvage_truncated_object,
+)
+from realmock.platform.contracts.session_catalog import get_session_catalog
+from realmock.platform.services.candidate_read import (
+    get_default_user_profile,
+    get_resume_agent_payload,
+)
 
 logger = logging.getLogger(__name__)
 
-GROWTH_INSIGHT_TIMEOUT_SECONDS = 180.0
 GROWTH_INSIGHT_TEMPERATURE = 0.2
+# Hard wall around the whole loop: the regen runs as a background task, so
+# this only bounds a pathological hang (LLM attempts retry internally; a hung
+# request would otherwise hold the single-flight slot forever).
+GROWTH_LOOP_TIMEOUT_SECONDS = 480.0
+# Same-args circuit breaker (resume-review parity): the exact same call
+# failing this many times in a row is refused without spending another call.
+_TOOL_CIRCUIT_BREAKER_STREAK = 3
+_TOOL_TIMEOUT_SECONDS = 20.0
 
 _VALID_STAGES = ("rising", "stalling", "plateau", "insufficient")
 
@@ -109,9 +149,78 @@ def normalize_growth_insight(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _insight_is_substantive(insight: dict[str, Any]) -> bool:
     """Reject empty shells (model returned the schema with no analysis)."""
-    return bool(
-        insight["trajectory"] and insight["headline"]
-    ) and bool(insight["recurring_weaknesses"] or insight["improving_areas"] or insight["training_plan"])
+    return bool(insight["trajectory"] and insight["headline"]) and bool(
+        insight["recurring_weaknesses"] or insight["improving_areas"] or insight["training_plan"]
+    )
+
+
+def _build_session_index(sessions_db: Session, *, limit: int = 20) -> list[dict[str, Any]]:
+    """Compact scored-session index (the model expands via history tools)."""
+    catalog = get_session_catalog()
+    rows = []
+    for item in catalog.list_sessions(sessions_db):
+        if item.overall_score is None:
+            continue
+        ended = item.ended_at or item.created_at
+        rows.append(
+            {
+                "session_id": int(item.id or 0),
+                "date": ended.strftime("%Y-%m-%d") if ended else "",
+                "role": item.role or "",
+                "company": item.company or "",
+                "level": item.level or "",
+                "overall_score": item.overall_score,
+                "verdict": item.result,
+            }
+        )
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def build_growth_bundle(api_db: Session, sessions_db: Session) -> ToolBundle:
+    """Compose the growth evidence bundle from shared platform tool factories."""
+    bundle = ToolBundle()
+    bundle.extend(history_tool_specs(sessions_db))
+    payload = get_resume_agent_payload(api_db, _latest_scored_resume_id(api_db))
+    if payload is not None:
+        bundle.extend(resume_tool_specs(snapshot_from_payload(payload)))
+    profile = profile_from_orm(get_default_user_profile(api_db))
+    if profile is not None and getattr(profile, "fields", None):
+        bundle.extend(profile_tool_specs(profile))
+    return bundle
+
+
+def _latest_scored_resume_id(api_db: Session) -> int | None:
+    """Newest active scored resume, else newest scored (platform model read)."""
+    from realmock.platform.models import Resume
+
+    row = (
+        api_db.query(Resume)
+        .filter(Resume.is_active.is_(True), Resume.score.isnot(None))
+        .order_by(Resume.id.desc())
+        .first()
+    )
+    if row is None:
+        row = (
+            api_db.query(Resume)
+            .filter(Resume.score.isnot(None))
+            .order_by(Resume.created_at.desc(), Resume.id.desc())
+            .first()
+        )
+    return int(row.id) if row is not None else None
+
+
+def _extract_analysis_json(text: str | None) -> dict[str, Any] | None:
+    """Pull the analysis JSON out of the loop's final content (or None)."""
+    draft = str(text or "").strip()
+    if not draft:
+        return None
+    extracted = _extract_json_object(draft)
+    if isinstance(extracted, dict):
+        return extracted
+    salvaged = _salvage_truncated_object(draft)
+    return salvaged if isinstance(salvaged, dict) else None
 
 
 async def generate_growth_insight(
@@ -125,33 +234,102 @@ async def generate_growth_insight(
     Returns ``(insight, session_count)`` — the count of scored sessions the
     analysis is based on (callers persist it alongside the payload).
     """
-    context = build_growth_context(sessions_db, api_db)
-    sessions = context["sessions"]
-    if not sessions:
+    index = _build_session_index(sessions_db)
+    if not index:
         logger.info("growth insight skipped: no scored sessions yet")
         return None
-    session_count = len(sessions)
+    session_count = len(index)
 
     llm = LLMClient.from_db(api_db)
+    bundle = build_growth_bundle(api_db, sessions_db)
+    budget = {"tool_calls": 0}
+    error_streaks: dict[tuple[str, str], int] = {}
+
+    async def execute_tool_call(name: str, args: dict[str, Any]) -> str:
+        key = (name, json.dumps(args, sort_keys=True, ensure_ascii=False, default=str))
+        if budget["tool_calls"] >= GROWTH_MAX_TOTAL_TOOL_CALLS:
+            # Soft ceiling: refuse but keep the loop alive so the model can
+            # always write its final answer.
+            return json.dumps(
+                {
+                    "error": "tool_budget_exhausted",
+                    "message": (
+                        f"Tool-call budget exhausted ({GROWTH_MAX_TOTAL_TOOL_CALLS} calls). "
+                        "Write the final analysis with the evidence already gathered."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        budget["tool_calls"] += 1
+        if error_streaks.get(key, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
+            budget["tool_calls"] -= 1  # refusal costs no budget
+            return json.dumps(
+                {
+                    "error": "circuit_open",
+                    "message": (
+                        f"This exact call failed {_TOOL_CIRCUIT_BREAKER_STREAK} times in a "
+                        "row and is temporarily blocked. Change the arguments, use a "
+                        "different tool, or move on to writing the final analysis."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        raw, status = await invoke_with_timeout(
+            bundle,
+            name,
+            args,
+            timeout=_TOOL_TIMEOUT_SECONDS,
+            context={"domain": "growth"},
+        )
+        if status == "error":
+            error_streaks[key] = error_streaks.get(key, 0) + 1
+        else:
+            error_streaks.pop(key, None)
+        return raw
+
+    async def prepare_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Budget awareness at the tail; keeps the prefix cacheable."""
+        return [
+            *messages,
+            {
+                "role": "system",
+                "content": growth_progress_line(len(messages), budget["tool_calls"]),
+            },
+        ]
+
     messages = [
         {"role": "system", "content": GROWTH_INSIGHT_SYSTEM},
         {
             "role": "user",
             "content": growth_insight_user_message(
-                sessions_json=json.dumps(sessions, ensure_ascii=False),
-                resume_summary=context["resume_summary"],
-                profile_summary=context["profile_summary"],
+                session_index_json=json.dumps(index, ensure_ascii=False),
                 locale=locale,
             ),
         },
     ]
+
     try:
-        raw = await asyncio.wait_for(
-            llm.chat_json(messages, temperature=GROWTH_INSIGHT_TEMPERATURE),
-            timeout=GROWTH_INSIGHT_TIMEOUT_SECONDS,
+        loop = await asyncio.wait_for(
+            run_agent_loop(
+                llm,
+                messages,
+                tools=bundle.definitions(),
+                execute=execute_tool_call,
+                max_rounds=GROWTH_MAX_ROUNDS,
+                max_tools_per_round=GROWTH_MAX_TOOLS_PER_ROUND,
+                temperature=GROWTH_INSIGHT_TEMPERATURE,
+                drift_retry=True,
+                wrap_up_hint=GROWTH_WRAP_UP_TOOL_FREE_MESSAGE,
+                prepare_messages=prepare_messages,
+                countdown_rounds=4,
+                round_retries=1,
+                final_round_tool_free=True,
+                error_context={"domain": "growth"},
+            ),
+            timeout=GROWTH_LOOP_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError:
-        logger.warning("growth insight timed out after %ss", GROWTH_INSIGHT_TIMEOUT_SECONDS)
+        logger.warning("growth insight loop timed out after %ss", GROWTH_LOOP_TIMEOUT_SECONDS)
         return None
     except LLMUpstreamError as exc:
         logger.warning("growth insight LLM upstream failure: %s", exc)
@@ -160,10 +338,14 @@ async def generate_growth_insight(
         logger.exception("growth insight generation failed")
         return None
 
-    if not isinstance(raw, dict):
-        logger.warning("growth insight returned non-dict payload (%s)", type(raw).__name__)
+    raw_payload = _extract_analysis_json(loop.final_content)
+    if not isinstance(raw_payload, dict):
+        logger.warning(
+            "growth insight produced no parseable JSON (rounds used, final len=%s)",
+            len(str(loop.final_content or "")),
+        )
         return None
-    insight = normalize_growth_insight(raw)
+    insight = normalize_growth_insight(raw_payload)
     if not _insight_is_substantive(insight):
         logger.warning("growth insight lacks substance; discarded")
         return None
@@ -171,7 +353,8 @@ async def generate_growth_insight(
 
 
 __all__ = [
-    "GROWTH_INSIGHT_TIMEOUT_SECONDS",
+    "GROWTH_LOOP_TIMEOUT_SECONDS",
+    "build_growth_bundle",
     "generate_growth_insight",
     "normalize_growth_insight",
 ]

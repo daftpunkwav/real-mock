@@ -43,7 +43,9 @@ def _safe_json_list(raw: str | None, *, field: str, record_id: int) -> list[Any]
 
 @router.get("/history")
 def get_growth_history(db: Session = Depends(get_sessions_db)) -> list[dict[str, Any]]:
-    records = db.query(GrowthRecord).order_by(GrowthRecord.created_at.desc()).limit(_HISTORY_LIMIT).all()
+    records = (
+        db.query(GrowthRecord).order_by(GrowthRecord.created_at.desc()).limit(_HISTORY_LIMIT).all()
+    )
     return [
         {
             "id": r.id,
@@ -75,7 +77,12 @@ def get_system_growth_insights() -> dict[str, Any]:
 @router.get("/aggregated")
 def get_aggregated_growth_stats(db: Session = Depends(get_sessions_db)) -> dict[str, Any]:
     """Aggregated growth stats computed on request (frontend can drop ``computeGrowthStats``)."""
-    records = db.query(GrowthRecord).order_by(GrowthRecord.created_at.desc()).limit(_AGGREGATED_LIMIT).all()
+    records = (
+        db.query(GrowthRecord)
+        .order_by(GrowthRecord.created_at.desc())
+        .limit(_AGGREGATED_LIMIT)
+        .all()
+    )
     return GrowthAgent().analyze(records)
 
 
