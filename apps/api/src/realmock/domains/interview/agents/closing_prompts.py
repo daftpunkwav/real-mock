@@ -61,8 +61,18 @@ def jump_to_summary_phase(state: InterviewSessionState, phase_ids: list[str]) ->
     return False
 
 
+def closing_verdict_grounding(score_section: str) -> str:
+    """Pin the wrap-up and passed/failed verdict to the round score trajectory."""
+    return (
+        score_section
+        + "\nGround the wrap-up evaluation and the passed/failed verdict "
+        "in this trajectory."
+    )
+
+
 __all__ = [
     "CLOSING_BY_PERSONALITY",
     "closing_system_prompt",
+    "closing_verdict_grounding",
     "jump_to_summary_phase",
 ]

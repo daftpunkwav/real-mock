@@ -22,6 +22,7 @@ from realmock.domains.interview.agents.tools import (
 )
 from realmock.domains.interview.agents.tool_guard import ToolGuard
 from realmock.platform.capabilities.ai.agent import run_agent_loop
+from realmock.domains.interview.agents.hint.hint_prompts import HINT_MODEL_ANSWER_WRITER_SYSTEM, hint_coach_system
 
 logger = logging.getLogger(__name__)
 
@@ -30,21 +31,6 @@ logger = logging.getLogger(__name__)
 FULL_HINT_BUDGET_SECONDS = 60.0
 #: Tool rounds for evidence gathering (bounded: this is assistance, not a turn).
 FULL_HINT_MAX_ROUNDS = 2
-
-_WRITER_SYSTEM = (
-    "You are an interview coach writing a MODEL ANSWER for the candidate to study. "
-    "Write in the first person (I / my), as if YOU are the candidate answering the "
-    "interviewer's question.\n"
-    "Rules:\n"
-    "1. Ground every claim in the verified evidence below (resume / profile / tool results). "
-    "Never invent project details, numbers, or experience that is not evidenced.\n"
-    "2. For anything you cannot verify, write an explicit [FILL IN: ...] placeholder "
-    "instead of making it up.\n"
-    "3. Structure: one opening line, 2-4 STAR-style body points (Situation/Task/Action/Result, "
-    "quantified where evidenced), one closing line. Keep it speakable in ~60-90 seconds.\n"
-    "4. Write the whole answer in {lang_name}; no headings, no bullet preaching, no meta commentary."
-)
-
 
 async def generate_full_reference_hint(
     *,
@@ -109,14 +95,7 @@ async def _generate(
     messages: list[dict[str, Any]] = [
         {
             "role": "system",
-            "content": (
-                "You are an interview coach helping the candidate prepare. "
-                f"Answer in {lang_name}. Use the available tools to verify the "
-                "candidate's background (profile, resume, GitHub) BEFORE writing. "
-                "When you have enough evidence — or when tools add nothing new — "
-                "write the final model answer directly as your reply text "
-                f"(first person, speakable, {lang_name})."
-            ),
+            "content": hint_coach_system(lang_name),
         },
         {
             "role": "user",
@@ -173,7 +152,7 @@ async def _generate(
             return cleaned
 
     writer_messages = [
-        {"role": "system", "content": _WRITER_SYSTEM.format(lang_name=lang_name)},
+        {"role": "system", "content": HINT_MODEL_ANSWER_WRITER_SYSTEM.format(lang_name=lang_name)},
         *[
             m for m in loop.messages
             if m.get("role") in ("user", "assistant", "tool", "system")

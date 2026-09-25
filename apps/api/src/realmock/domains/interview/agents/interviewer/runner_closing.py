@@ -17,6 +17,7 @@ from realmock.domains.interview.ledger.store import append_turn, take_pending_to
 from realmock.domains.interview.agents.closing_prompts import (
     CLOSING_BY_PERSONALITY,
     closing_system_prompt,
+    closing_verdict_grounding,
     jump_to_summary_phase,
 )
 from realmock.domains.interview.agents.events import StreamEvent
@@ -67,11 +68,7 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
         if score_section:
             api_messages.append({
                 "role": "system",
-                "content": (
-                    score_section
-                    + "\nGround the wrap-up evaluation and the passed/failed verdict "
-                    "in this trajectory."
-                ),
+                "content": closing_verdict_grounding(score_section),
             })
         api_messages = api_messages + [
             {"role": "user", "content": "(system) Complete the spoken wrap-up and evaluation as instructed."},

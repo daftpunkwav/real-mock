@@ -17,29 +17,9 @@ from realmock.domains.interview.agents.memory.cognitive_graph import (
     CompetencyStatus,
 )
 from realmock.platform.capabilities.ai.llm.client import LLMClient
+from realmock.domains.interview.agents.topology.prompts import SHADOW_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
-
-SHADOW_SYSTEM_PROMPT = """You are a senior principal engineer serving as the Shadow Technical Evaluator in an interview.
-You listen to the candidate's response to identify:
-1. Genuine engineering substance vs. superficial buzzwords.
-2. Logical contradictions with prior statements or known architectural facts.
-3. Specific blind spots or ambiguous claims that require immediate probing.
-4. Whether the discussion has reached a point where asking the candidate to write code is optimal.
-
-Format your response strictly as JSON:
-{
-  "substance_score": 7, // 1 to 10
-  "is_consistent": true,
-  "inconsistencies": ["any contradiction detected"],
-  "technical_holes": ["missing detail, e.g. didn't explain failure modes"],
-  "suggested_probe": "one sharp, targeted follow-up question for the lead interviewer",
-  "should_trigger_coding": false,
-  "assessed_topic": "specific topic name, e.g. Distributed Lock / Raft / Virtual DOM",
-  "topic_status": "verified | suspicious | failed"
-}
-"""
-
 
 @dataclass
 class ShadowEvaluation:

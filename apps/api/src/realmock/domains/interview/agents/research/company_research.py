@@ -21,6 +21,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.agents.research.prompts import RESEARCH_WRAP_UP_HINT
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.agent.tools import (
@@ -229,12 +230,7 @@ async def run_web_research(
                 max_rounds=max_rounds,
                 max_tools_per_round=3,
                 temperature=0.2,
-                wrap_up_hint={
-                    "role": "system",
-                    "content": (
-                        "Wrap up now: output the final JSON object. No tool calls."
-                    ),
-                },
+                wrap_up_hint=RESEARCH_WRAP_UP_HINT,
             ),
             timeout=max_seconds,
         )

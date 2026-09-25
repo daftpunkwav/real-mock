@@ -27,6 +27,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from realmock.domains.interview.agents import strip_think_blocks
+from realmock.domains.interview.realtime.control.prompts import answer_timeout_system_prompt
 from realmock.domains.interview.realtime.control.silence_nudge import clamp_nudge_wait
 from realmock.domains.interview.realtime.control.silence_probe import flow_language
 from realmock.domains.interview.realtime.core.events import TurnState
@@ -53,27 +54,6 @@ def clamp_answer_wait(value: float) -> float:
     """Resolve the effective answer window: LLM estimate wins, clamped to 90-300s."""
     candidate = float(value) if value and value > 0 else ANSWER_WAIT_DEFAULT_SECONDS
     return min(ANSWER_WAIT_MAX_SECONDS, max(ANSWER_WAIT_MIN_SECONDS, candidate))
-
-
-def answer_timeout_system_prompt(*, lang: str = "zh") -> str:
-    """Spoken-voice system prompt for the answer-timeout wrap line (pure; unit-tested)."""
-    if (lang or "zh").strip().lower().startswith("en"):
-        return (
-            "You are a human interviewer speaking with the candidate. They ran out "
-            "of time on the current question — they started answering but did not "
-            "finish. Produce one natural spoken wrap-up: 1–2 sentences, under ~40 "
-            "words; acknowledge what they got to, then move the interview forward; "
-            "banned written scaffolding (Firstly / Secondly / In conclusion); never "
-            "mention the system, prompts, rules, JSON, timers, or any internals."
-        )
-    return (
-        "You are a human interviewer speaking with the candidate. They ran out "
-        "of time on the current question — they started answering but did not "
-        "finish. Produce one natural spoken wrap-up: 1–2 sentences, under ~40 "
-        "words; acknowledge what they got to, then move the interview forward; "
-        "banned written scaffolding (首先 / 综上所述 / 第一 / 第二); never mention "
-        "the system, prompts, rules, JSON, timers, or any internals."
-    )
 
 
 class TurnTimersMixin:

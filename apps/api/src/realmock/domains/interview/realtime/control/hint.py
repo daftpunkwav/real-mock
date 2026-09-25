@@ -20,6 +20,7 @@ from realmock.domains.interview.agents import (
     strip_markers,
     strip_think_blocks,
 )
+from realmock.domains.interview.realtime.control.prompts import reference_hint_coach
 from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
@@ -206,24 +207,13 @@ class ReferenceHintMixin:
         system_ctx = self._hint_background()
         from realmock.platform.core.prompts import with_agent_output_rules
 
+        coach = reference_hint_coach(lang)
         if lang == "en":
-            coach = (
-                "You are an interview coach. From the candidate background, draft a concise "
-                "reference-answer outline for the interviewer's question.\n"
-                "Requirements: 3-5 bullets, one per line, starting with '- '; ground in resume "
-                "experience; keep it short; do not invent project details never mentioned; "
-                "do not output reasoning or <think> tags."
-            )
             user_content = (
                 f"Candidate background summary:\n{system_ctx or '(no detailed profile yet)'}\n\n"
                 f"Interviewer question: {question}\n\nProvide a reference-answer outline:"
             )
         else:
-            coach = (
-                "你是一名面试教练。根据候选人背景，为面试官的问题起草一份简洁的参考回答提纲。\n"
-                "要求：3-5 条要点，每行一条，以 '- ' 开头；紧扣简历经历；简短；不要编造从未提及的项目细节；"
-                "不要输出思考过程或 <think> 标签。"
-            )
             user_content = (
                 f"候选人背景摘要：\n{system_ctx or '(暂无详细画像)'}\n\n"
                 f"面试官问题：{question}\n\n请给出参考回答提纲："
