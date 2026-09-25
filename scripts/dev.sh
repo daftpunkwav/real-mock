@@ -52,6 +52,23 @@ stop() {
   return $rc
 }
 
+# Warm every frontend route in the background so the first click after a dev
+# restart never pays the on-demand compile (dev builds compile per route).
+# Sequential on purpose: parallel compiles contend for the same worker pool.
+warm_frontend_routes() {
+  (
+    cd "$ROOT/apps/web"
+    for i in $(seq 1 60); do
+      curl -sf -o /dev/null http://localhost:8080/ && break
+      sleep 1
+    done
+    for route in / resume prep profile interview history growth settings; do
+      curl -sf -o /dev/null "http://localhost:8080/$route" || true
+      sleep 0.3
+    done
+  ) >>"$FRONTEND_OUT" 2>&1 &
+}
+
 case "${1:-start}" in
   start)
     if [ -n "$(pid_on_port 8081 || true)" ] || [ -n "$(pid_on_port 8080 || true)" ]; then
@@ -60,9 +77,10 @@ case "${1:-start}" in
     fi
     start_backend
     start_frontend
+    warm_frontend_routes
     echo "Backend PID $(cat "$LOGS/backend.pid") → http://127.0.0.1:8081"
     echo "Frontend PID $(cat "$LOGS/frontend.pid") → http://127.0.0.1:8080"
-    echo "Logs: $LOGS"
+    echo "Logs: $LOGS (warming routes in background)"
     ;;
   stop)
     stop
