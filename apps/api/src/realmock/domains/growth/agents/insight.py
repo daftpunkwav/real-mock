@@ -27,7 +27,6 @@ from realmock.domains.growth.prompts import (
     GROWTH_MAX_TOTAL_TOOL_CALLS,
     GROWTH_WRAP_UP_TOOL_FREE_MESSAGE,
     growth_insight_user_message,
-    growth_progress_line,
 )
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.agent.tools import ToolBundle
@@ -292,15 +291,6 @@ async def generate_growth_insight(
         guard.report(name, args, failed=(status == "error"))
         return raw
 
-    async def prepare_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Budget awareness at the tail; keeps the prefix cacheable."""
-        return [
-            *messages,
-            {
-                "role": "system",
-                "content": growth_progress_line(len(messages), guard.used),
-            },
-        ]
 
     messages = [
         {"role": "system", "content": GROWTH_INSIGHT_SYSTEM},
@@ -325,7 +315,6 @@ async def generate_growth_insight(
                 temperature=GROWTH_INSIGHT_TEMPERATURE,
                 drift_retry=True,
                 wrap_up_hint=GROWTH_WRAP_UP_TOOL_FREE_MESSAGE,
-                prepare_messages=prepare_messages,
                 countdown_rounds=4,
                 round_retries=1,
                 final_round_tool_free=True,

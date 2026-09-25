@@ -134,7 +134,8 @@ def test_generate_parses_loop_json(_index, _no_side_tools) -> None:
 
     async def fake_run_agent_loop(llm, messages, **kwargs):
         recorded["tools"] = [d["function"]["name"] for d in (kwargs["tools"] or [])]
-        recorded["has_prepare"] = kwargs["prepare_messages"] is not None
+        # Budget lines come from the platform loop; no domain prepare hook.
+        recorded["no_prepare"] = kwargs.get("prepare_messages") is None
         recorded["tool_free_final"] = kwargs["final_round_tool_free"]
         recorded["round_retries"] = kwargs["round_retries"]
         return _fake_loop_result(_analysis_json())
@@ -152,7 +153,7 @@ def test_generate_parses_loop_json(_index, _no_side_tools) -> None:
     assert "history_list_sessions" in recorded["tools"]
     assert "history_get_report" in recorded["tools"]
     assert recorded["tool_free_final"] is True
-    assert recorded["has_prepare"] is True
+    assert recorded["no_prepare"] is True
     assert recorded["round_retries"] == 1
 
 

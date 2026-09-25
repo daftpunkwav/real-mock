@@ -47,7 +47,6 @@ from realmock.domains.resume.prompts import (
     get_review_agent_prompt,
     review_json_schema_text,
     review_plan_reminder_text,
-    review_progress_line,
     review_repair_system,
     review_self_correction_user,
 )
@@ -812,12 +811,10 @@ async def run_resume_review(
             # The plan is finished but the model is still calling tools: pin a
             # strong finalize instruction until it produces the answer.
             suffix.append(REVIEW_PLAN_COMPLETE_MESSAGE)
-        suffix.append(
-            {
-                "role": "system",
-                "content": review_progress_line(round_index + 1, tool_guard.used),
-            }
-        )
+        # Budget awareness is NOT appended here: the platform loop injects its
+        # own transient budget hint every round (loop.budget_hint), and a
+        # second overlapping line would spend the strongest attention slot
+        # twice on the same information.
         return [*base, *suffix]
 
     async def on_thinking(text: str) -> None:

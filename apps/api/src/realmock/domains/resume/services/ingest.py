@@ -12,13 +12,13 @@ family and version prechecks). This module must not import FastAPI.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from realmock.platform.core.background import spawn_background
 from realmock.domains.resume.schemas.limits import (
     PARSE_FALLBACK_SUMMARY_CHARS,
     RAW_TEXT_STORE_CHARS,
@@ -39,7 +39,7 @@ from realmock.platform.schemas import CandidateProfile
 logger = logging.getLogger(__name__)
 
 # Held references so fire-and-forget tasks are not garbage-collected mid-parse.
-_background_tasks: set[asyncio.Task] = set()
+
 
 PARSE_STATUS_PENDING = "pending"
 PARSE_STATUS_DONE = "done"
@@ -142,9 +142,7 @@ def schedule_resume_parse(row_id: int) -> None:
             logger.exception("Resume parse task crashed id=%s", row_id)
             _store_parse_failure(row_id, "B0001")
 
-    task = asyncio.create_task(_runner())
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+    spawn_background(_runner(), label=f"resume-parse-{row_id}")
 
 
 def _pending_profile() -> CandidateProfile:

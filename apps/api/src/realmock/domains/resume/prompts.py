@@ -15,9 +15,6 @@ from realmock.domains.resume.schemas.limits import (
     DIMENSION_KEYS,
     DIMENSION_WEIGHTS,
     REVIEW_MAX_PLAN_STEPS,
-    REVIEW_MAX_ROUNDS,
-    REVIEW_MAX_TOOLS_PER_ROUND,
-    REVIEW_MAX_TOTAL_TOOL_CALLS,
     REVIEW_MIN_PLAN_STEPS,
     SCORE_BAND_FAIR,
     SCORE_BANDS,
@@ -296,15 +293,6 @@ def review_plan_reminder_text() -> str:
     )
 
 
-def review_progress_line(round_no: int, tool_calls_used: int) -> str:
-    """Per-round budget awareness so the model can pace itself to the answer."""
-    return (
-        f"Progress: LLM round {round_no}/{REVIEW_MAX_ROUNDS}. "
-        f"Tool calls used: {tool_calls_used}/{REVIEW_MAX_TOTAL_TOOL_CALLS} "
-        f"(max {REVIEW_MAX_TOOLS_PER_ROUND} per round). Keep enough budget to "
-        "finish evidence gathering, then output the final answer."
-    )
-
 
 def review_self_correction_user(parse_error: str, locale: str) -> str:
     """User message driving the one tool-free re-emission of broken JSON."""
@@ -354,7 +342,6 @@ __all__ = [
     "review_intro_instruction",
     "review_json_schema_text",
     "review_plan_reminder_text",
-    "review_progress_line",
     "review_repair_system",
     "review_self_correction_user",
     "score_recovery_system",

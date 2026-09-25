@@ -534,8 +534,10 @@ async def test_run_resume_review_soft_controls(monkeypatch, db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_resume_review_progress_line_is_transient_suffix(monkeypatch, db) -> None:
-    """The budget line is appended at the end, never prepended (prefix cache)."""
+async def test_run_resume_review_prepare_has_no_budget_line(monkeypatch, db) -> None:
+    """Budget awareness is owned by the platform loop budget_hint; the domain
+    prepare hook adds only domain transients (plan reminders) and must not
+    append an overlapping budget/progress line."""
     import realmock.domains.resume.agents.review as rev
     from realmock.platform.capabilities.ai.agent import LoopResult
 
@@ -566,9 +568,9 @@ async def test_run_resume_review_progress_line_is_transient_suffix(monkeypatch, 
     async def _fake_loop(llm_, messages, **kwargs):
         prepared = await kwargs["prepare_messages"]([{"role": "user", "content": "u"}])
         last_call.append(prepared)
-        assert prepared[-1]["role"] == "system"
-        assert "Progress: LLM round 1/" in prepared[-1]["content"]
-        assert all("Progress: LLM round" not in str(m) for m in prepared[:-1])
+        assert all("Progress: LLM round" not in str(m) for m in prepared)
+        assert all("[Budget]" not in str(m) for m in prepared), (
+            "budget line must come from the platform loop, not prepare_messages")
         return LoopResult(messages=prepared, final_content='{"score": 4}', tool_used=False)
 
     monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
@@ -581,8 +583,6 @@ async def test_run_resume_review_progress_line_is_transient_suffix(monkeypatch, 
     await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
     assert last_call
 
-
-@pytest.mark.asyncio
 async def test_finalize_self_correction_recovers() -> None:
     """A malformed draft is fixed by one self-correction round, not repair."""
     from realmock.domains.resume.agents.review import finalize_review_json
@@ -929,62 +929,26 @@ async def test_finalize_emits_progress_notices() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_resume_review_progress_line_counts_executed_tools(monkeypatch, db) -> None:
-    """The budget line tracks executed non-plan calls, and the create-plan nudge
-    coexists with it as transient suffixes of the same round."""
+async def test_tool_executor_counts_skip_plan_tools() -> None:
+    """The shared guard counts executed non-plan calls only; plan
+    bookkeeping tools never spend budget."""
     import realmock.domains.resume.agents.review as rev
-    from realmock.platform.capabilities.ai.agent import LoopResult
+    from realmock.platform.capabilities.ai.agent.tools import ToolRunGuard
 
-    class _StubBundle:
-        def definitions(self):
-            return []
+    used: list[str] = []
+    guard = ToolRunGuard(
+        max_total_calls=rev.REVIEW_MAX_TOTAL_TOOL_CALLS,
+        circuit_streak=rev._TOOL_CIRCUIT_BREAKER_STREAK,
+        budget_refusal=rev._budget_refusal_text,
+        circuit_refusal=rev._circuit_refusal_text,
+    )
+    ex = rev._build_tool_executor(object(), used, None, None, guard=guard)  # type: ignore[arg-type]
 
-        async def execute(self, name, args):
-            return '{"ok": true}'
-
-    row = _resume_row()
-    row.id = 26
-
-    class _LLM:
-        context_window = 8000
-        max_tokens = 4000
-        supports_vision = False
-        api_key = "k"
-
-    llm = _LLM()
-    monkeypatch.setattr(rev, "_calibration_for_review", lambda resume, db: "")
-
-    async def _fake_user_msg(*a, **k):
-        return {"role": "user", "content": "overview"}
-
-    monkeypatch.setattr(rev, "build_review_user_message", _fake_user_msg)
-    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: _StubBundle())
-
-    async def _fake_loop(llm_, messages, **kwargs):
-        prepare = kwargs["prepare_messages"]
-        execute = kwargs["execute"]
-        first = await prepare([{"role": "user", "content": "u"}])
-        assert "Tool calls used: 0/" in str(first[-1]["content"])
-        await execute("review_get_plan", {})  # plan bookkeeping: no budget cost
-        for _ in range(3):
-            await execute("resume_overview", {})
-        second = await prepare([{"role": "user", "content": "u"}])
-        assert "LLM round 2/" in str(second[-1]["content"])
-        assert "Tool calls used: 3/" in str(second[-1]["content"])
-        # 催收提示与预算行同轮共存：plan reminder (suffix -2) + progress line (suffix -1)
-        assert "Create the review plan" in str(second[-2].get("content"))
-        return LoopResult(messages=second, final_content='{"score": 5}', tool_used=True)
-
-    monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
-
-    async def _fake_finalize(loop, llm_, locale, max_output, **kwargs):
-        return {"score": 5}
-
-    monkeypatch.setattr(rev, "finalize_review_json", _fake_finalize)
-
-    out = await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
-    assert out["score"] == 5
-
+    await ex("review_get_plan", {})  # plan bookkeeping: no budget cost
+    assert guard.used == 0
+    for _ in range(3):
+        await ex("resume_overview", {})
+    assert guard.used == 3
 
 @pytest.mark.asyncio
 async def test_run_resume_review_plan_reminder_is_capped(monkeypatch, db) -> None:

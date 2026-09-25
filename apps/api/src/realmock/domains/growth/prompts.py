@@ -81,15 +81,6 @@ The final assistant message (no tool calls) must be a single JSON object matchin
 )
 
 
-def growth_progress_line(round_no: int, tool_calls_used: int) -> str:
-    """Per-round budget awareness so the model can pace itself to the answer."""
-    return (
-        f"Progress: LLM round {round_no}/{GROWTH_MAX_ROUNDS}. "
-        f"Tool calls used: {tool_calls_used}/{GROWTH_MAX_TOTAL_TOOL_CALLS} "
-        f"(max {GROWTH_MAX_TOOLS_PER_ROUND} per round). Keep enough budget to "
-        "finish evidence gathering, then write the analysis."
-    )
-
 
 # Final-round wrap-up matching final_round_tool_free=True: the last round is
 # sent without a tools parameter, so the copy demands the complete JSON
@@ -127,5 +118,4 @@ __all__ = [
     "GROWTH_WRAP_UP_TOOL_FREE_MESSAGE",
     "growth_insight_user_message",
     "growth_language_instruction",
-    "growth_progress_line",
 ]

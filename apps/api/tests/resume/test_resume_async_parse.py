@@ -229,7 +229,8 @@ def test_parse_task_ignores_deleted_row(api_db, monkeypatch: pytest.MonkeyPatch)
     # schedule_resume_parse spawns a task on the running loop; run it to completion.
     async def _drive():
         schedule_resume_parse(row_id)
-        await asyncio.gather(*ingest_module._background_tasks)
+        from realmock.platform.core import background as _bg
+        await asyncio.gather(*_bg._tasks)
 
     asyncio.run(_drive())
 

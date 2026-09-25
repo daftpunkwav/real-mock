@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from realmock.platform.core.background import spawn_background
+
 from realmock.domains.growth.agents.insight import generate_growth_insight
 from realmock.domains.growth.services.insight_store import upsert_insight
 from realmock.platform.database import api_db_session, sessions_db_session
@@ -16,9 +18,6 @@ logger = logging.getLogger(__name__)
 # for this local, single-user deployment).
 _lock = asyncio.Lock()
 _state: dict[str, bool] = {"generating": False}
-# Hold task references so the fire-and-forget regen cannot be garbage-collected
-# mid-flight (same pattern as resume's schedule_resume_parse).
-_tasks: set[asyncio.Task] = set()
 
 
 def is_generating() -> bool:
@@ -63,13 +62,12 @@ def schedule_growth_insight_regen(*, locale: str = "zh-CN") -> bool:
     manual refresh will regenerate anyway.
     """
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         logger.warning("growth insight regen skipped: no running event loop")
         return False
-    task = loop.create_task(regenerate_growth_insight(locale=locale))
-    _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
+    spawn_background(regenerate_growth_insight(locale=locale),
+                    label="growth-insight-regen")
     return True
 
 
