@@ -38,8 +38,6 @@ from realmock.platform.schemas import CandidateProfile
 
 logger = logging.getLogger(__name__)
 
-# Held references so fire-and-forget tasks are not garbage-collected mid-parse.
-
 
 PARSE_STATUS_PENDING = "pending"
 PARSE_STATUS_DONE = "done"

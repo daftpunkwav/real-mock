@@ -15,7 +15,8 @@ decide its next move from the observation alone. Transient connection errors
 are retried once — they fail fast, unlike timeouts, which consume their whole
 budget and are never retried here.
 
-Single source for the resume-review invoker and the records report agents.
+Single source for the resume-review invoker, the records report agents,
+and the growth insight agent.
 :class:`ToolRunGuard` is the shared per-loop policy (call budget + same-args
 circuit breaker) on top of single-call execution.
 """
