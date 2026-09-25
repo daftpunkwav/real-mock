@@ -297,8 +297,8 @@ def test_plan_reminder_bounded_until_plan_exists() -> None:
     from realmock.domains.resume.agents.review import (
         _PLAN_REMINDER_MAX,
         _needs_plan_reminder,
-        _plan_reminder_text,
     )
+    from realmock.domains.resume.prompts import review_plan_reminder_text
 
     assert _needs_plan_reminder(has_plan=False, round_index=0, reminders_used=0) is False
     assert _needs_plan_reminder(has_plan=False, round_index=1, reminders_used=0) is True
@@ -309,7 +309,7 @@ def test_plan_reminder_bounded_until_plan_exists() -> None:
         )
         is False
     )
-    text = _plan_reminder_text()
+    text = review_plan_reminder_text()
     assert "review_set_plan" in text
     assert f"{REVIEW_MIN_PLAN_STEPS}-{REVIEW_MAX_PLAN_STEPS}" in text
 

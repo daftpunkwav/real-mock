@@ -31,8 +31,9 @@ from realmock.domains.resume.services.analysis_normalize import (
     compute_score_from_dims,
     normalize_resume_analysis_payload,
 )
-from realmock.domains.resume.services.analysis_prompt import (
+from realmock.domains.resume.prompts import (
     dimension_scores_schema_fragment,
+    score_recovery_system,
 )
 from realmock.domains.resume.services.extract import extract_resume_text
 from realmock.domains.resume.services.files import find_resume_file
@@ -151,13 +152,7 @@ async def _request_score_recovery(
         [
             {
                 "role": "system",
-                "content": (
-                    "The resume review narrative is present but overall score / "
-                    "dimension_scores are missing or stuck at 0. Return JSON with "
-                    "keys score and dimension_scores only. Every catalog key is "
-                    f"required. Write comments in {locale}. Scores must match the "
-                    "narrative; do not invent new critique text."
-                ),
+                "content": score_recovery_system(locale),
             },
             {"role": "user", "content": json.dumps(source, ensure_ascii=False)[:12_000]},
         ],

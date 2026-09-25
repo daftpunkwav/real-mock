@@ -32,19 +32,24 @@ from realmock.domains.resume.schemas.limits import (
     REVIEW_FORCED_FINAL_TIMEOUT_SECONDS,
     REVIEW_KEEP_RECENT_MESSAGES,
     REVIEW_MAX_OUTPUT_TOKENS,
-    REVIEW_MAX_PLAN_STEPS,
     REVIEW_MAX_ROUNDS,
     REVIEW_MAX_TOOLS_PER_ROUND,
     REVIEW_MAX_TOTAL_TOOL_CALLS,
-    REVIEW_MIN_PLAN_STEPS,
     REVIEW_OBSERVATION_MAX_CHARS,
     REVIEW_REPAIR_TIMEOUT_SECONDS,
     REVIEW_SEARCH_MAX_RESULTS,
     REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS,
 )
-from realmock.domains.resume.services.analysis_prompt import (
+from realmock.domains.resume.prompts import (
+    REVIEW_FORCED_FINAL_INSTRUCTION,
+    REVIEW_PLAN_COMPLETE_MESSAGE,
+    REVIEW_WRAP_UP_TOOL_FREE_MESSAGE,
     get_review_agent_prompt,
     review_json_schema_text,
+    review_plan_reminder_text,
+    review_progress_line,
+    review_repair_system,
+    review_self_correction_user,
 )
 from realmock.domains.resume.services.review_context import (
     build_review_calibration as _calibration_for_review,
@@ -98,59 +103,11 @@ _EVIDENCE_TOTAL_CHARS = 80_000
 # are never blocked — the workload differs, so the model decides.
 _TOOL_CIRCUIT_BREAKER_STREAK = 3
 
-# Final-round wrap-up matching final_round_tool_free=True: the last round is
-# sent without a tools parameter, so the copy demands the complete JSON
-# directly (unlike the platform _WRAP_UP_HINT, which still allows one last
-# essential tool call).
-_WRAP_UP_TOOL_FREE_MESSAGE = {
-    "role": "system",
-    "content": (
-        "This is the final round and tools are no longer available. Output the "
-        "complete evaluation JSON now: a single JSON object with every required "
-        "field, no tool calls, no prose before or after."
-    ),
-}
-
 # Bounded plan enforcement: the first user message already orders plan-first;
 # from the second round on, append a transient reminder at the tail until the
 # model declares a plan (tail position keeps the stable prefix cacheable). The
 # tool-derived fallback still applies so progress never stalls.
 _PLAN_REMINDER_MAX = 3
-
-# Last-resort instruction when the loop burns every round on tools and never
-# emits the evaluation: the follow-up call offers no tools, so the model can
-# only answer with text. Kept separate from _WRAP_UP_TOOL_FREE_MESSAGE because
-# that one closes the in-loop final round while the loop is still running;
-# this one drives the post-loop follow-up call after the loop already ended
-# empty.
-_FORCED_FINAL_INSTRUCTION = (
-    "Tools are now disabled. Output the complete resume evaluation as a single "
-    "JSON object that matches this schema exactly — same keys, same shapes, "
-    "every field present:\n"
-    "{schema}\n"
-    "Write user-facing fields in {locale}. Use only facts from the conversation "
-    "above. Do not invent scores, repos, or quotes. Output JSON only, no tool calls."
-)
-
-
-def _plan_reminder_text() -> str:
-    """One-shot prompt builder for the next LLM round when no plan exists."""
-    return (
-        "Create the review plan now: call review_set_plan before any other tool. "
-        f"Declare {REVIEW_MIN_PLAN_STEPS}-{REVIEW_MAX_PLAN_STEPS} steps in the resume's "
-        "language; the last step must generate the evaluation JSON. "
-        "Then keep the plan in sync with review_update_step as you work."
-    )
-
-
-def _progress_line(round_no: int, tool_calls_used: int) -> str:
-    """Per-round budget awareness so the model can pace itself to the answer."""
-    return (
-        f"Progress: LLM round {round_no}/{REVIEW_MAX_ROUNDS}. "
-        f"Tool calls used: {tool_calls_used}/{REVIEW_MAX_TOTAL_TOOL_CALLS} "
-        f"(max {REVIEW_MAX_TOOLS_PER_ROUND} per round). Keep enough budget to "
-        "finish evidence gathering, then output the final answer."
-    )
 
 
 async def _truncate_observation(text: str) -> str:
@@ -377,14 +334,7 @@ async def _request_json_self_correction(
                     {"role": "assistant", "content": loop.final_content},
                     {
                         "role": "user",
-                        "content": (
-                            "Your previous reply could not be parsed as JSON. Parser "
-                            f"error: {parse_error[:200]}\n"
-                            "Output the complete evaluation JSON again: a single JSON "
-                            "object matching the required schema exactly, with every "
-                            f"field present. Write user-facing fields in {locale}. "
-                            "JSON only — no tools, no prose before or after."
-                        ),
+                        "content": review_self_correction_user(parse_error, locale),
                     },
                 ],
                 temperature=REVIEW_AGENT_TEMPERATURE,
@@ -461,15 +411,7 @@ async def finalize_review_json(
                 [
                     {
                         "role": "system",
-                        "content": (
-                            "Repair the following resume-review evidence into the evaluation "
-                            "JSON schema below. Output a single JSON object that matches this "
-                            "schema exactly — same keys, same shapes, every field present:\n"
-                            f"{review_json_schema_text()}\n"
-                            f"Write user-facing fields in {locale}. "
-                            "Use only facts present in the evidence. Do not invent scores, repos, or quotes. "
-                            "No tool calls."
-                        ),
+                        "content": review_repair_system(locale),
                     },
                     {"role": "user", "content": evidence},
                 ],
@@ -517,7 +459,7 @@ async def _request_forced_final_answer(
             *loop.messages,
             {
                 "role": "system",
-                "content": _FORCED_FINAL_INSTRUCTION.format(
+                "content": REVIEW_FORCED_FINAL_INSTRUCTION.format(
                     schema=review_json_schema_text(), locale=locale
                 ),
             },
@@ -865,26 +807,17 @@ async def run_resume_review(
             reminders_used=plan_reminders,
         ):
             plan_reminders += 1
-            suffix.append({"role": "system", "content": _plan_reminder_text()})
+            suffix.append({"role": "system", "content": review_plan_reminder_text()})
         if process.steps and all(
             step.status in ("done", "skipped") for step in process.steps
         ):
             # The plan is finished but the model is still calling tools: pin a
             # strong finalize instruction until it produces the answer.
-            suffix.append(
-                {
-                    "role": "system",
-                    "content": (
-                        "All plan steps are complete. Output the complete "
-                        "evaluation JSON as your final answer now — no further "
-                        "tool calls."
-                    ),
-                }
-            )
+            suffix.append(REVIEW_PLAN_COMPLETE_MESSAGE)
         suffix.append(
             {
                 "role": "system",
-                "content": _progress_line(round_index + 1, budget_state["tool_calls"]),
+                "content": review_progress_line(round_index + 1, budget_state["tool_calls"]),
             }
         )
         return [*base, *suffix]
@@ -907,7 +840,7 @@ async def run_resume_review(
             temperature=REVIEW_AGENT_TEMPERATURE,
             on_thinking=on_thinking,
             drift_retry=True,
-            wrap_up_hint=_WRAP_UP_TOOL_FREE_MESSAGE,
+            wrap_up_hint=REVIEW_WRAP_UP_TOOL_FREE_MESSAGE,
             prepare_messages=prepare_messages,
             compact_observation=_truncate_observation,
             error_context=error_context,

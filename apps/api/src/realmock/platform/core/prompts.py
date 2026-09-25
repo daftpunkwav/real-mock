@@ -83,6 +83,26 @@ def with_agent_output_rules(system_prompt: str) -> str:
     return f"{text}\n\n{AGENT_OUTPUT_RULES}"
 
 
+def language_instruction(locale: str) -> str:
+    """Tell the model which language to use for user-facing JSON string values.
+
+    Shared fragment: every domain that emits user-facing structured output
+    appends this to its system prompt so the output language rules stay
+    identical across agents.
+    """
+    if locale == "en":
+        return """## Output language
+Write ALL user-facing JSON string values AND review_set_plan step titles in English.
+Use standard English (half-width) punctuation: , . ; : ! ?
+Keep JSON keys exactly as specified (English identifiers).
+Do not mix Chinese into user-facing string values."""
+    return """## Output language
+Write ALL user-facing JSON string values AND review_set_plan step titles in Simplified Chinese (zh-CN).
+Use full-width Chinese punctuation: ，。；：！？
+Keep JSON keys exactly as specified (English identifiers).
+English proper nouns, tech terms, code identifiers, and URLs may stay in Latin script."""
+
+
 def strip_emojis(text: str) -> str:
     """Hard-remove emoji / common kaomoji from model output for the UI.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from realmock.domains.resume.schemas.limits import DIMENSION_KEYS
-from realmock.domains.resume.services.analysis_prompt import (
+from realmock.domains.resume.prompts import (
     get_review_agent_prompt,
     language_instruction,
 )

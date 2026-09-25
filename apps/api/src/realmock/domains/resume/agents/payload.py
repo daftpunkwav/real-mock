@@ -12,11 +12,8 @@ import json
 import logging
 from typing import Any
 
-from realmock.domains.resume.schemas.limits import (
-    MAX_VISION_PAGES,
-    REVIEW_MAX_PLAN_STEPS,
-    REVIEW_MIN_PLAN_STEPS,
-)
+from realmock.domains.resume.prompts import review_intro_instruction
+from realmock.domains.resume.schemas.limits import MAX_VISION_PAGES
 from realmock.domains.resume.services.files import find_resume_file
 from realmock.domains.resume.services.render import render_pdf_pages_as_data_urls
 from realmock.platform.capabilities.ai.agent.tools.resume import (
@@ -57,11 +54,8 @@ def _overview_text(snapshot: ResumeSnapshot) -> str:
         },
     }
     return (
-        "Review this resume. Use tools for details; do not assume a software-engineer role.\n"
-        f"Plan first: your first tool call must be review_set_plan "
-        f"({REVIEW_MIN_PLAN_STEPS}-{REVIEW_MAX_PLAN_STEPS} steps, last step generates "
-        "the evaluation JSON). Keep it in sync with review_update_step as you work.\n"
-        f"Compact parsed map:\n{json.dumps(brief, ensure_ascii=False)}"
+        review_intro_instruction()
+        + f"Compact parsed map:\n{json.dumps(brief, ensure_ascii=False)}"
     )
 
 

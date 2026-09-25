@@ -14,8 +14,11 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from realmock.domains.resume.prompts import (
+    PARSE_SYSTEM_PROMPT,
+    TRANSCRIBE_SYSTEM_PROMPT,
+)
 from realmock.domains.resume.services.text_extract import truncate_text
-from realmock.platform.core.prompts import with_agent_output_rules
 from realmock.platform.schemas import CandidateProfile
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.domains.resume.schemas.limits import (
@@ -26,37 +29,6 @@ from realmock.domains.resume.schemas.limits import (
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 
 logger = logging.getLogger(__name__)
-
-PARSE_SYSTEM_PROMPT = with_agent_output_rules("""You are a professional resume parsing expert. Extract structured information from the resume text and return it as JSON.
-
-Return format:
-{
-  "name": "Name",
-  "email": "",
-  "phone": "",
-  "city": "",
-  "target_role": "Stated or clearly implied target role; empty if unknown — do not invent software engineer",
-  "education": [{"school": "", "degree": "", "major": "", "period": ""}],
-  "work_experience": [{"company": "", "title": "", "period": "", "description": ""}],
-  "skills": ["Skill 1", "Skill 2"],
-  "languages": ["spoken/written languages if listed"],
-  "awards": ["awards or honors"],
-  "publications": ["papers / patents if listed"],
-  "projects": [{"name": "", "role": "", "tech_stack": "", "description": "", "highlights": "", "challenges": ""}],
-  "github_urls": ["https://github.com/owner/repo"],
-  "links": ["other http(s) profile or portfolio URLs"],
-  "layout_notes": "Heading markers, tables, columns, or other structure visible in the source text",
-  "summary": "One-sentence professional summary"
-}
-
-skills must contain concise skill labels (no more than 16 characters each, such as "Python", "RAG", or "FastAPI"),\
-not full sentences in the form "Category: a long description". Preserve GitHub URLs exactly.\
-Return JSON only, with no other content. Emoji are forbidden in text fields.""")
-
-TRANSCRIBE_SYSTEM_PROMPT = """You are an OCR transcription assistant. Transcribe the resume in the image verbatim as plain text (you may organize it with Markdown headings and lists),\
-fully preserving all information, including the name, contact details, education, work experience, projects, and skills. Output only the transcription; do not comment, summarize, or add information that is not in the image;\
-return only an empty string if the content cannot be recognized."""
-
 
 async def transcribe_pages_with_vision(
     page_images: list[str],

@@ -18,7 +18,7 @@ import pytest
 from realmock.domains.resume.services import analysis as analysis_module
 from realmock.domains.resume.services import analyze_slots
 from realmock.domains.resume.services.analysis import analyze_resume_with_llm
-from realmock.domains.resume.services.analysis_prompt import get_review_agent_prompt
+from realmock.domains.resume.prompts import get_review_agent_prompt
 from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.models import Resume
 

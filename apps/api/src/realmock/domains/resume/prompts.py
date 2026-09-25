@@ -1,4 +1,8 @@
-"""System prompt for the resume-review Agent, plus the shared JSON schema text.
+"""Prompts for the resume domain: the review agent system prompt, the shared
+JSON schema text, and every prompt fragment embedded in review plumbing.
+
+All resume prompt text lives here; business modules import these names and
+must not inline their own prompt strings.
 
 The evaluation JSON contract stays ``ResumeAnalysis``. How the model gathers
 evidence is not staged here — tools and ``review_set_plan`` own the loop.
@@ -11,28 +15,16 @@ from realmock.domains.resume.schemas.limits import (
     DIMENSION_KEYS,
     DIMENSION_WEIGHTS,
     REVIEW_MAX_PLAN_STEPS,
+    REVIEW_MAX_ROUNDS,
+    REVIEW_MAX_TOOLS_PER_ROUND,
+    REVIEW_MAX_TOTAL_TOOL_CALLS,
     REVIEW_MIN_PLAN_STEPS,
     SCORE_BAND_FAIR,
     SCORE_BANDS,
     dimension_weight_range,
 )
 from realmock.domains.resume.schemas.locale import normalize_analysis_locale
-from realmock.platform.core.prompts import with_agent_output_rules
-
-
-def language_instruction(locale: str) -> str:
-    """Tell the model which language to use for user-facing JSON string values."""
-    if locale == "en":
-        return """## Output language
-Write ALL user-facing JSON string values AND review_set_plan step titles in English.
-Use standard English (half-width) punctuation: , . ; : ! ?
-Keep JSON keys exactly as specified (English identifiers).
-Do not mix Chinese into user-facing string values."""
-    return """## Output language
-Write ALL user-facing JSON string values AND review_set_plan step titles in Simplified Chinese (zh-CN).
-Use full-width Chinese punctuation: ，。；：！？
-Keep JSON keys exactly as specified (English identifiers).
-English proper nouns, tech terms, code identifiers, and URLs may stay in Latin script."""
+from realmock.platform.core.prompts import language_instruction, with_agent_output_rules
 
 
 def dimension_scores_schema_fragment() -> str:
@@ -191,9 +183,179 @@ Visual / layout:
     )
 
 
+# ── Parse / transcribe system prompts (consumed by services/parser.py) ──
+
+PARSE_SYSTEM_PROMPT = with_agent_output_rules("""You are a professional resume parsing expert. Extract structured information from the resume text and return it as JSON.
+
+Return format:
+{
+  "name": "Name",
+  "email": "",
+  "phone": "",
+  "city": "",
+  "target_role": "Stated or clearly implied target role; empty if unknown — do not invent software engineer",
+  "education": [{"school": "", "degree": "", "major": "", "period": ""}],
+  "work_experience": [{"company": "", "title": "", "period": "", "description": ""}],
+  "skills": ["Skill 1", "Skill 2"],
+  "languages": ["spoken/written languages if listed"],
+  "awards": ["awards or honors"],
+  "publications": ["papers / patents if listed"],
+  "projects": [{"name": "", "role": "", "tech_stack": "", "description": "", "highlights": "", "challenges": ""}],
+  "github_urls": ["https://github.com/owner/repo"],
+  "links": ["other http(s) profile or portfolio URLs"],
+  "layout_notes": "Heading markers, tables, columns, or other structure visible in the source text",
+  "summary": "One-sentence professional summary"
+}
+
+skills must contain concise skill labels (no more than 16 characters each, such as "Python", "RAG", or "FastAPI"),\
+not full sentences in the form "Category: a long description". Preserve GitHub URLs exactly.\
+Return JSON only, with no other content. Emoji are forbidden in text fields.""")
+
+TRANSCRIBE_SYSTEM_PROMPT = """You are an OCR transcription assistant. Transcribe the resume in the image verbatim as plain text (you may organize it with Markdown headings and lists),\
+fully preserving all information, including the name, contact details, education, work experience, projects, and skills. Output only the transcription; do not comment, summarize, or add information that is not in the image;\
+return only an empty string if the content cannot be recognized."""
+
+
+# ── Review-loop prompt fragments ────────────────────────────────────────
+# Consumed by agents/review.py and services/analysis.py; kept here so every
+# resume prompt text has exactly one home. Text is byte-stable — these feed
+# provider prefix caches and prompt-pinning tests.
+
+# Final-round wrap-up matching final_round_tool_free=True: the last round is
+# sent without a tools parameter, so the copy demands the complete JSON
+# directly (unlike the platform wrap-up hint, which still allows one last
+# essential tool call).
+REVIEW_WRAP_UP_TOOL_FREE_MESSAGE = {
+    "role": "system",
+    "content": (
+        "This is the final round and tools are no longer available. Output the "
+        "complete evaluation JSON now: a single JSON object with every required "
+        "field, no tool calls, no prose before or after."
+    ),
+}
+
+# Last-resort instruction when the loop burns every round on tools and never
+# emits the evaluation: the follow-up call offers no tools, so the model can
+# only answer with text. Kept separate from REVIEW_WRAP_UP_TOOL_FREE_MESSAGE
+# because that one closes the in-loop final round while the loop is still
+# running; this one drives the post-loop follow-up call after the loop already
+# ended empty.
+REVIEW_FORCED_FINAL_INSTRUCTION = (
+    "Tools are now disabled. Output the complete resume evaluation as a single "
+    "JSON object that matches this schema exactly — same keys, same shapes, "
+    "every field present:\n"
+    "{schema}\n"
+    "Write user-facing fields in {locale}. Use only facts from the conversation "
+    "above. Do not invent scores, repos, or quotes. Output JSON only, no tool calls."
+)
+
+# Shown when the plan is finished but the model keeps calling tools: pins a
+# strong finalize instruction until it produces the answer.
+REVIEW_PLAN_COMPLETE_MESSAGE = {
+    "role": "system",
+    "content": (
+        "All plan steps are complete. Output the complete "
+        "evaluation JSON as your final answer now — no further "
+        "tool calls."
+    ),
+}
+
+
+def review_intro_instruction() -> str:
+    """Opening instruction of the review user message; payload appends the
+    compact parsed-map JSON right after the trailing newline."""
+    return (
+        "Review this resume. Use tools for details; do not assume a software-engineer role.\n"
+        f"Plan first: your first tool call must be review_set_plan "
+        f"({REVIEW_MIN_PLAN_STEPS}-{REVIEW_MAX_PLAN_STEPS} steps, last step generates "
+        "the evaluation JSON). Keep it in sync with review_update_step as you work.\n"
+    )
+
+
+def prior_version_calibration_text(anchor_json: str, version_n: int) -> str:
+    """Reference-only prior-version calibration block; ``anchor_json`` is the
+    pre-serialized compact anchor (serialization stays in the service layer)."""
+    return (
+        f"Prior scored version in this family: v{version_n} (a different file). "
+        "Scores below are reference ONLY for explaining what changed between versions — "
+        "never a target. Score THIS file strictly from its own evidence against the "
+        "dimension rubric; do not copy or compress toward the prior totals. "
+        "Unchanged evidence keeps its score; changed evidence must move its score, with reasons.\n"
+        f"{anchor_json}"
+    )
+
+
+def review_plan_reminder_text() -> str:
+    """One-shot prompt builder for the next LLM round when no plan exists."""
+    return (
+        "Create the review plan now: call review_set_plan before any other tool. "
+        f"Declare {REVIEW_MIN_PLAN_STEPS}-{REVIEW_MAX_PLAN_STEPS} steps in the resume's "
+        "language; the last step must generate the evaluation JSON. "
+        "Then keep the plan in sync with review_update_step as you work."
+    )
+
+
+def review_progress_line(round_no: int, tool_calls_used: int) -> str:
+    """Per-round budget awareness so the model can pace itself to the answer."""
+    return (
+        f"Progress: LLM round {round_no}/{REVIEW_MAX_ROUNDS}. "
+        f"Tool calls used: {tool_calls_used}/{REVIEW_MAX_TOTAL_TOOL_CALLS} "
+        f"(max {REVIEW_MAX_TOOLS_PER_ROUND} per round). Keep enough budget to "
+        "finish evidence gathering, then output the final answer."
+    )
+
+
+def review_self_correction_user(parse_error: str, locale: str) -> str:
+    """User message driving the one tool-free re-emission of broken JSON."""
+    return (
+        "Your previous reply could not be parsed as JSON. Parser "
+        f"error: {parse_error[:200]}\n"
+        "Output the complete evaluation JSON again: a single JSON "
+        "object matching the required schema exactly, with every "
+        f"field present. Write user-facing fields in {locale}. "
+        "JSON only — no tools, no prose before or after."
+    )
+
+
+def review_repair_system(locale: str) -> str:
+    """System prompt for the grounded evidence-to-JSON repair pass."""
+    return (
+        "Repair the following resume-review evidence into the evaluation "
+        "JSON schema below. Output a single JSON object that matches this "
+        "schema exactly — same keys, same shapes, every field present:\n"
+        f"{review_json_schema_text()}\n"
+        f"Write user-facing fields in {locale}. "
+        "Use only facts present in the evidence. Do not invent scores, repos, or quotes. "
+        "No tool calls."
+    )
+
+
+def score_recovery_system(locale: str) -> str:
+    """System prompt recovering score/dimension fields from a complete narrative."""
+    return (
+        "The resume review narrative is present but overall score / "
+        "dimension_scores are missing or stuck at 0. Return JSON with "
+        "keys score and dimension_scores only. Every catalog key is "
+        f"required. Write comments in {locale}. Scores must match the "
+        "narrative; do not invent new critique text."
+    )
+
+
 __all__ = [
+    "PARSE_SYSTEM_PROMPT",
+    "REVIEW_FORCED_FINAL_INSTRUCTION",
+    "REVIEW_PLAN_COMPLETE_MESSAGE",
+    "REVIEW_WRAP_UP_TOOL_FREE_MESSAGE",
     "dimension_scores_schema_fragment",
     "get_review_agent_prompt",
     "language_instruction",
+    "prior_version_calibration_text",
+    "review_intro_instruction",
     "review_json_schema_text",
+    "review_plan_reminder_text",
+    "review_progress_line",
+    "review_repair_system",
+    "review_self_correction_user",
+    "score_recovery_system",
+    "TRANSCRIBE_SYSTEM_PROMPT",
 ]

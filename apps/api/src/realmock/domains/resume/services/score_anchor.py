@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from realmock.domains.resume.prompts import prior_version_calibration_text
 from realmock.domains.resume.schemas.limits import REVIEW_MIN_SCORED_DIMENSIONS
 
 
@@ -76,13 +77,8 @@ def format_prior_version_calibration(anchor: dict[str, Any], *, version_n: int) 
     Returns:
         Prompt text marking prior scores reference-only, never a target.
     """
-    return (
-        f"Prior scored version in this family: v{version_n} (a different file). "
-        "Scores below are reference ONLY for explaining what changed between versions — "
-        "never a target. Score THIS file strictly from its own evidence against the "
-        "dimension rubric; do not copy or compress toward the prior totals. "
-        "Unchanged evidence keeps its score; changed evidence must move its score, with reasons.\n"
-        f"{json.dumps(anchor, ensure_ascii=False)}"
+    return prior_version_calibration_text(
+        json.dumps(anchor, ensure_ascii=False), version_n=version_n
     )
 
 
