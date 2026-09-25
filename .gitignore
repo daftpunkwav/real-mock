@@ -84,6 +84,7 @@ AGENTS.local.md
 CLAUDE.local.md
 
 # Local agent CLI state
+.zcodeignore
 .claude/
 
 # Local ad-hoc probe scripts
