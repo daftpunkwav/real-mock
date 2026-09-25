@@ -1,7 +1,8 @@
 """Secrets tests for realmock.platform.core.secrets.
 
 Covers: master-key validation states, secret loading (plain/keyfile/
-  corrupt fallback), and decrypt failure branches.
+  corrupt fallback), decrypt failure branches, and the derived-key
+  LRU (hit on repeat decrypt, cleared by _reset_cache).
 Conventions: isolated tmp keyfiles; cache reset after each branch.
 """
 
@@ -63,5 +64,37 @@ class TestSecretsExtras:
             sec._reset_cache()
             with pytest.raises(ValueError, match="AES-GCM"):
                 sec.decrypt_secret(enc)
+        finally:
+            sec._reset_cache()
+
+    def test_derived_key_cache_hit_and_reset(self, monkeypatch, tmp_path) -> None:
+        """PBKDF2 derivations are cached per (master, salt): re-decrypting one
+        ciphertext re-derives nothing, and ``_reset_cache`` drops the derived
+        keys so the next decrypt pays the derivation again."""
+        import base64 as _b64
+
+        from realmock.platform.core import secrets as sec
+
+        monkeypatch.setattr(sec, "_SHARED_DATA", tmp_path)
+        monkeypatch.setattr(sec, "_DEFAULT_KEYFILE", tmp_path / ".secret.key")
+        monkeypatch.setenv("SECRET_KEY", _b64.b64encode(b"a" * 32).decode())
+        sec._reset_cache()
+        try:
+            enc = sec.encrypt_secret("cached-key")
+            assert enc is not None
+            assert sec.decrypt_secret(enc) == "cached-key"
+            first = sec._derive_key.cache_info()
+            assert first.misses == 1  # one derivation: the fresh encrypt salt
+            # Same ciphertext again: cache hit, no new derivation.
+            assert sec.decrypt_secret(enc) == "cached-key"
+            second = sec._derive_key.cache_info()
+            assert second.hits == first.hits + 1
+            assert second.misses == first.misses
+            # _reset_cache clears derived keys too (counters reset with the LRU);
+            # the next decrypt pays the derivation again.
+            sec._reset_cache()
+            assert sec._derive_key.cache_info().currsize == 0
+            assert sec.decrypt_secret(enc) == "cached-key"
+            assert sec._derive_key.cache_info().misses == 1
         finally:
             sec._reset_cache()

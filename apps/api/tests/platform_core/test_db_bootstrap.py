@@ -55,7 +55,10 @@ class TestBootstrap:
         monkeypatch.setenv("TEST_MODE", "0")
         monkeypatch.setattr(bs, "maybe_migrate_legacy_app_db", lambda: None)
         monkeypatch.setattr(bs, "_warn_inmemory_backends", lambda: None)
-        monkeypatch.setattr(bs, "seed_llm_settings", lambda db: None)
-        monkeypatch.setattr(bs, "ensure_pipeline_migrated", lambda db: None)
+        # Record the non-TEST_MODE seed branch: both hooks must actually run.
+        called = []
+        monkeypatch.setattr(bs, "seed_llm_settings", lambda db: called.append("seed"))
+        monkeypatch.setattr(bs, "ensure_pipeline_migrated", lambda db: called.append("pipeline"))
         bs.bootstrap_databases_and_seed(session_domains=set())
+        assert called == ["seed", "pipeline"]
         monkeypatch.setenv("TEST_MODE", "1")
