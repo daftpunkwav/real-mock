@@ -150,6 +150,50 @@ def _fake_db():
     return db
 
 
+async def _stub_regen(*, locale: str = "zh-CN"):
+    return None
+
+
+def test_routes_refresh_schedules_on_event_loop(_insight_table) -> None:
+    """Regression: the real scheduler needs the serving event loop.
+
+    A sync route runs in the threadpool where no loop exists, so the refresh
+    endpoint always returned ``scheduled: false`` and never spawned a regen.
+    The route must stay async; only the regen coroutine itself is stubbed.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from realmock.domains.growth.routes import router as growth_router
+    from realmock.domains.growth.services import insight_scheduler as sched
+
+    app = FastAPI()
+    app.include_router(growth_router, prefix="/growth")
+    client = TestClient(app)
+
+    with patch.object(sched, "regenerate_growth_insight", _stub_regen):
+        resp = client.post("/growth/insight/refresh", params={"locale": "en"})
+    assert resp.status_code == 200
+    assert resp.json()["scheduled"] is True
+
+
+def test_schedule_growth_insight_regen_requires_running_loop() -> None:
+    from realmock.domains.growth.services import insight_scheduler as sched
+
+    # Sync test body: no running loop, so scheduling gives up instead of raising.
+    assert sched.schedule_growth_insight_regen() is False
+
+
+async def test_schedule_growth_insight_regen_on_loop() -> None:
+    import asyncio
+
+    from realmock.domains.growth.services import insight_scheduler as sched
+
+    with patch.object(sched, "regenerate_growth_insight", _stub_regen):
+        assert sched.schedule_growth_insight_regen() is True
+        # Let the spawned task run so no pending task outlives the test loop.
+        await asyncio.sleep(0)
+
+
 # ---- ingest trigger ----
 
 

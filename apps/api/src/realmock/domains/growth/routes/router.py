@@ -98,8 +98,11 @@ def get_growth_insight(db: Session = Depends(get_sessions_db)) -> dict[str, Any]
 
 
 @router.post("/insight/refresh")
-def refresh_growth_insight(locale: str = "zh-CN") -> dict[str, Any]:
+async def refresh_growth_insight(locale: str = "zh-CN") -> dict[str, Any]:
     """Schedule a background regeneration; returns immediately (single-flight)."""
+    # Async on purpose: a sync route runs in the threadpool where no event
+    # loop exists, so schedule_growth_insight_regen could never spawn the
+    # regeneration task on the serving loop.
     scheduled = schedule_growth_insight_regen(locale=locale)
     return {"scheduled": scheduled, "status": "generating" if is_generating() else "ready"}
 
