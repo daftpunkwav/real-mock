@@ -187,8 +187,72 @@ def get_resume_agent_payload(db: Session, resume_id: int | None) -> dict[str, An
     }
 
 
+def format_resume_analysis_summary(db: Session, *, max_chars: int = 2000) -> str:
+    """Deep-review summary of the latest scored resume (growth context).
+
+    Prefers the active resume; falls back to the most recent row carrying a
+    non-empty ``analysis`` JSON. Emits a compact digest (score, dimension
+    scores, weaknesses, missing keywords, narrative head) — no layout prose.
+    Empty string when no scored resume exists.
+    """
+    from realmock.platform.models import Resume
+
+    def _load():
+        active = (
+            db.query(Resume)
+            .filter(Resume.is_active.is_(True), Resume.score.isnot(None))
+            .order_by(Resume.id.desc())
+            .first()
+        )
+        if active is not None:
+            return active
+        rows = (
+            db.query(Resume)
+            .filter(Resume.score.isnot(None))
+            .order_by(Resume.created_at.desc(), Resume.id.desc())
+            .limit(5)
+            .all()
+        )
+        return next((r for r in rows if (r.analysis or "").strip()), None)
+
+    row = _safe_orm_query(db, _load, table_label="Resume(analysis)")
+    if row is None or not (row.analysis or "").strip():
+        return ""
+    try:
+        data = json.loads(row.analysis)
+    except (json.JSONDecodeError, TypeError):
+        logger.debug("Invalid resume analysis JSON resume_id=%s", row.id)
+        return ""
+    if not isinstance(data, dict):
+        return ""
+
+    lines: list[str] = [f"Latest resume: {row.filename or '(unnamed)'} (score {row.score})"]
+    dims = data.get("dimension_scores")
+    if isinstance(dims, dict) and dims:
+        rendered = []
+        for key, value in list(dims.items())[:12]:
+            score = value.get("score") if isinstance(value, dict) else value
+            rendered.append(f"{key} {score}")
+        lines.append("Resume dimension scores: " + ", ".join(str(x) for x in rendered))
+    for field, label in (
+        ("weaknesses", "Resume weaknesses"),
+        ("missing_keywords", "Resume missing keywords"),
+        ("red_flags", "Resume red flags"),
+    ):
+        values = data.get(field)
+        if isinstance(values, list) and values:
+            items = [str(v).strip() for v in values[:5] if str(v).strip()]
+            if items:
+                lines.append(f"{label}: " + "; ".join(items))
+    narrative = str(data.get("overall_narrative") or "").strip()
+    if narrative:
+        lines.append("Resume review narrative: " + narrative[:600])
+    return "\n".join(lines)[:max_chars]
+
+
 __all__ = [
     "format_profile_summary",
+    "format_resume_analysis_summary",
     "format_resume_summary",
     "get_candidate_profile",
     "get_default_user_profile",

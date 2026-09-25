@@ -1,4 +1,4 @@
-"""Growth domain HTTP API (history, insights, aggregated stats)."""
+"""Growth domain HTTP API (history, insights, aggregated stats, AI insight)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,11 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.growth.agents.growth import GrowthAgent
 from realmock.domains.growth.models.growth import GrowthRecord
+from realmock.domains.growth.services.insight_scheduler import (
+    is_generating,
+    schedule_growth_insight_regen,
+)
+from realmock.domains.growth.services.insight_store import get_latest_insight, insight_response
 from realmock.domains.growth.services.learning import get_system_insights
 from realmock.platform.database import get_sessions_db
 
@@ -72,6 +77,24 @@ def get_aggregated_growth_stats(db: Session = Depends(get_sessions_db)) -> dict[
     """Aggregated growth stats computed on request (frontend can drop ``computeGrowthStats``)."""
     records = db.query(GrowthRecord).order_by(GrowthRecord.created_at.desc()).limit(_AGGREGATED_LIMIT).all()
     return GrowthAgent().analyze(records)
+
+
+@router.get("/insight")
+def get_growth_insight(db: Session = Depends(get_sessions_db)) -> dict[str, Any]:
+    """Latest LLM growth analysis (``insight: null`` until the first regen)."""
+    body = insight_response(get_latest_insight(db))
+    if body["insight"] is not None or is_generating():
+        body["status"] = "generating" if is_generating() else "ready"
+    else:
+        body["status"] = "empty"
+    return body
+
+
+@router.post("/insight/refresh")
+def refresh_growth_insight(locale: str = "zh-CN") -> dict[str, Any]:
+    """Schedule a background regeneration; returns immediately (single-flight)."""
+    scheduled = schedule_growth_insight_regen(locale=locale)
+    return {"scheduled": scheduled, "status": "generating" if is_generating() else "ready"}
 
 
 __all__ = ["router", "_safe_json_list"]

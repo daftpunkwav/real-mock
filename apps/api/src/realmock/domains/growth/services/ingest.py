@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from types import SimpleNamespace
 
+from realmock.domains.growth.services.insight_scheduler import schedule_growth_insight_regen
 from realmock.domains.growth.services.learning import record_interview_learning
 from realmock.domains.growth.services.persist_from_summary import persist_growth_from_summary
 from realmock.platform.contracts.lifecycle_hooks import set_on_report_summary
@@ -49,6 +50,13 @@ def handle_report_summary(payload: ReportSummaryPayload) -> None:
         )
     except Exception:
         logger.exception("growth learning failed sid=%s", sid)
+
+    # A new scored session changes the cross-session picture: regenerate the
+    # LLM growth insight in the background (single-flight, failures logged).
+    try:
+        schedule_growth_insight_regen()
+    except Exception:
+        logger.exception("growth insight regen scheduling failed sid=%s", sid)
 
 
 def register_growth_lifecycle_handlers() -> None:

@@ -3940,6 +3940,76 @@
         }
       }
     },
+    "/api/v1/growth/insight": {
+      "get": {
+        "tags": [
+          "growth"
+        ],
+        "summary": "Get Growth Insight",
+        "description": "Latest LLM growth analysis (``insight: null`` until the first regen).",
+        "operationId": "get_growth_insight_api_v1_growth_insight_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Growth Insight Api V1 Growth Insight Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/growth/insight/refresh": {
+      "post": {
+        "tags": [
+          "growth"
+        ],
+        "summary": "Refresh Growth Insight",
+        "description": "Schedule a background regeneration; returns immediately (single-flight).",
+        "operationId": "refresh_growth_insight_api_v1_growth_insight_refresh_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh-CN",
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Refresh Growth Insight Api V1 Growth Insight Refresh Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/profile": {
       "get": {
         "tags": [
@@ -7867,6 +7937,76 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Aggregated Growth Stats Api Growth Aggregated Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/growth/insight": {
+      "get": {
+        "tags": [
+          "growth"
+        ],
+        "summary": "Get Growth Insight",
+        "description": "Latest LLM growth analysis (``insight: null`` until the first regen).",
+        "operationId": "get_growth_insight_api_growth_insight_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Growth Insight Api Growth Insight Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/growth/insight/refresh": {
+      "post": {
+        "tags": [
+          "growth"
+        ],
+        "summary": "Refresh Growth Insight",
+        "description": "Schedule a background regeneration; returns immediately (single-flight).",
+        "operationId": "refresh_growth_insight_api_growth_insight_refresh_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh-CN",
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Refresh Growth Insight Api Growth Insight Refresh Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
