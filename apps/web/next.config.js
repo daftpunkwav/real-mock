@@ -110,6 +110,8 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const nextConfig = {
+  // Do not switch `next dev` to --turbopack: talkinghead's runtime-built
+  // import(moduleName) fails the Turbopack build with "Can't resolve <dynamic>".
   transpilePackages: ["@met4citizen/talkinghead", "three"],
   async headers() {
     return [
