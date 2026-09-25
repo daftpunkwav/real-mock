@@ -20,7 +20,14 @@ export { prepMemoryHttp } from "./prepMemoryHttp";
 export { interviewHttp } from "./interviewHttp";
 export { recordsHttp } from "./recordsHttp";
 export { reportHttp } from "./reportHttp";
-export { growthHttp, type SystemGrowthInsights } from "./growthHttp";
+export {
+  growthHttp,
+  type GrowthInsight,
+  type GrowthInsightEnvelope,
+  type GrowthTrainingFocus,
+  type GrowthWeaknessPattern,
+  type SystemGrowthInsights,
+} from "./growthHttp";
 
 /** OpenAPI contract types */
 export * from "./contract";

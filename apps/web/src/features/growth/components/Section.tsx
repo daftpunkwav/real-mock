@@ -8,10 +8,12 @@ type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?:
 export function Section({
   title,
   icon: Icon,
+  action,
   children,
 }: {
   title: string;
   icon: IconType;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -21,6 +23,7 @@ export function Section({
           <Icon size={15} strokeWidth={1.75} />
         </span>
         <h2 className="text-[14px] font-semibold tracking-tight text-ink">{title}</h2>
+        {action ? <span className="ml-auto">{action}</span> : null}
       </header>
       <div className="p-5">{children}</div>
     </section>

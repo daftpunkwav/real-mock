@@ -7,6 +7,27 @@ export const growth = {
   "page.loading": "加载中…",
   "page.loadFailed": "加载失败",
 
+  // AI 成长洞察(InsightCard)
+  "insight.title": "AI 成长洞察",
+  "insight.refresh": "重新生成",
+  "insight.generate": "生成成长分析",
+  "insight.generating": "AI 正在分析你的面试历史…",
+  "insight.loading": "加载中…",
+  "insight.empty": "完成面试后,AI 会基于全部面试报告、简历与档案生成跨场成长分析。",
+  "insight.stage.rising": "上升期",
+  "insight.stage.stalling": "停滞",
+  "insight.stage.plateau": "平台期",
+  "insight.stage.insufficient": "样本不足",
+  "insight.patterns": "反复出现的弱点",
+  "insight.appearedIn": "出现 {count} 场",
+  "insight.trend.worsening": "恶化",
+  "insight.trend.stable": "持平",
+  "insight.trend.improving": "好转",
+  "insight.improving": "明显进步",
+  "insight.gaps": "简历 vs 面试差距",
+  "insight.plan": "下一阶段训练计划",
+  "insight.basedOn": "基于最近 {count} 场面试报告",
+
   // 成长概览卡(GrowthSummaryCard + 本地档位词)
   "summary.level.none": "待启动",
   "summary.level.starting": "起步阶段",

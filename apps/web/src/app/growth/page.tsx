@@ -7,6 +7,7 @@ import { LoadError } from "@/components/LoadError";
 import { PageSkeleton } from "@/components/loading/PageSkeleton";
 import { useT } from "@/i18n";
 import { useGrowthPage } from "@/features/growth/useGrowthPage";
+import { InsightCard } from "@/features/growth/components/InsightCard";
 import { TopWeaknessesSection } from "@/features/growth/components/TopWeaknessesSection";
 import { SystemInsightsSection } from "@/features/growth/components/SystemInsightsSection";
 import { TrainingHistorySection } from "@/features/growth/components/TrainingHistorySection";
@@ -15,8 +16,20 @@ import { GrowthProgressCard } from "@/features/growth/components/GrowthProgressC
 
 export default function GrowthPage() {
   const t = useT("growth");
-  const { records, insights, loading, loadError, selectedId, setSelectedId, selected, stats, load } =
-    useGrowthPage();
+  const {
+    records,
+    insights,
+    loading,
+    loadError,
+    selectedId,
+    setSelectedId,
+    selected,
+    stats,
+    load,
+    aiInsight,
+    aiStatus,
+    refreshInsight,
+  } = useGrowthPage();
 
   return (
     <div className="page-shell anim-rise">
@@ -39,6 +52,11 @@ export default function GrowthPage() {
       ) : (
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0 space-y-4">
+            <InsightCard
+              insight={aiInsight}
+              status={aiStatus}
+              onRefresh={() => void refreshInsight()}
+            />
             <TopWeaknessesSection
               topWeaknesses={stats.topWeaknesses}
               totalInterviews={stats.totalInterviews}

@@ -33,6 +33,11 @@ function mapAggregated(raw: Record<string, unknown>): GrowthStats | null {
   }
 }
 
+const INSIGHT_POLL_INTERVAL_MS = 3000;
+const INSIGHT_POLL_MAX = 60;
+
+type InsightEnvelope = Awaited<ReturnType<typeof api.getInsight>>;
+
 /** Growth page load domain: history + insights + aggregated stats + LoadError retry. */
 export function useGrowthPage() {
   const [records, setRecords] = useState<GrowthRecord[]>([]);
@@ -41,23 +46,68 @@ export function useGrowthPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [aiInsight, setAiInsight] = useState<InsightEnvelope["insight"]>(null);
+  const [aiStatus, setAiStatus] = useState<"loading" | "empty" | "generating" | "ready">("loading");
   const seqRef = useRef(0);
+
+  const applyInsight = useCallback((env: InsightEnvelope | null) => {
+    if (!env) {
+      setAiStatus("empty");
+      return;
+    }
+    setAiInsight(env.insight);
+    setAiStatus(env.insight ? "ready" : env.status === "generating" ? "generating" : "empty");
+  }, []);
+
+  // While the backend reports a regen in flight, poll until it settles.
+  useEffect(() => {
+    if (aiStatus !== "generating") return;
+    let tries = 0;
+    const id = window.setInterval(async () => {
+      tries += 1;
+      if (tries > INSIGHT_POLL_MAX) {
+        window.clearInterval(id);
+        setAiStatus("ready");
+        return;
+      }
+      try {
+        const env = await api.getInsight();
+        if (env.status === "generating" && !env.insight) return;
+        window.clearInterval(id);
+        applyInsight(env);
+      } catch {
+        /* transient network errors: keep polling until the cap */
+      }
+    }, INSIGHT_POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [aiStatus, applyInsight]);
+
+  const refreshInsight = useCallback(async (locale?: string) => {
+    try {
+      await api.refreshInsight(locale);
+      setAiStatus("generating");
+    } catch {
+      /* refresh failures surface on the next manual attempt */
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const seq = ++seqRef.current;
     setLoading(true);
     setLoadError(null);
     try {
-      const [list, sys, agg] = await Promise.all([
+      const [list, sys, agg, insightEnv] = await Promise.all([
         api.getGrowthHistory(),
         api.getSystemInsights().catch(() => null),
         api.getAggregated().catch(() => null),
+        api.getInsight().catch(() => null),
       ]);
       if (seq !== seqRef.current) return;
       setRecords(list);
       setInsights(sys);
       setAggregated(agg ? mapAggregated(agg as Record<string, unknown>) : null);
       setSelectedId(list[0]?.id ?? null);
+      applyInsight(insightEnv);
     } catch (e) {
       if (seq !== seqRef.current) return;
       setLoadError(
@@ -67,7 +117,7 @@ export function useGrowthPage() {
       if (seq !== seqRef.current) return;
       setLoading(false);
     }
-  }, []);
+  }, [applyInsight]);
 
   useEffect(() => {
     void load();
@@ -91,5 +141,8 @@ export function useGrowthPage() {
     selected,
     stats,
     load,
+    aiInsight,
+    aiStatus,
+    refreshInsight,
   };
 }

@@ -31,8 +31,47 @@ export type GrowthAggregatedStats = {
   growth_level: string;
 };
 
+
+/** LLM growth insight payload (GET /growth/insight; hand-written contract). */
+export type GrowthWeaknessPattern = {
+  skill: string;
+  count: number;
+  trend: string;
+  advice: string;
+};
+
+export type GrowthTrainingFocus = {
+  area: string;
+  based_on: string;
+  actions: string[];
+};
+
+export type GrowthInsight = {
+  headline: string;
+  trajectory: string;
+  trajectory_stage: "rising" | "stalling" | "plateau" | "insufficient";
+  recurring_weaknesses: GrowthWeaknessPattern[];
+  improving_areas: string[];
+  resume_gap_insights: string[];
+  training_plan: GrowthTrainingFocus[];
+  generated_at: string | null;
+  session_count: number;
+  locale: string;
+};
+
+export type GrowthInsightEnvelope = {
+  insight: GrowthInsight | null;
+  status?: "ready" | "generating" | "empty";
+};
+
 export const growthHttp = {
   getGrowthHistory: () => request<GrowthRecord[]>("/v1/growth/history"),
   getSystemInsights: () => request<SystemGrowthInsights>("/v1/growth/system-insights"),
   getAggregated: () => request<GrowthAggregatedStats>("/v1/growth/aggregated"),
+  getInsight: () => request<GrowthInsightEnvelope>("/v1/growth/insight"),
+  refreshInsight: (locale?: string) =>
+    request<{ scheduled: boolean; status: string }>(
+      `/v1/growth/insight/refresh${locale ? `?locale=${encodeURIComponent(locale)}` : ""}`,
+      { method: "POST" },
+    ),
 };
