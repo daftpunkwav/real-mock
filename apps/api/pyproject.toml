@@ -31,7 +31,12 @@ dependencies = [
     # direct import should not rely on that transitive guarantee).
     "starlette>=0.40.0,<2",
     "uvicorn[standard]>=0.32.0,<1",
-    "sqlalchemy>=2.0.36,<3",
+    # Capped at the locally tested 2.0.51: SQLAlchemy 2.0.52+ tightened the
+    # legacy Query.order_by stubs (OrderByList), which broke mypy on CI while
+    # 2.0.51 passed (see commit migrating prep memories dedupe to select()).
+    # ~127 legacy Session.query() call sites remain across domains/platform;
+    # migrate them to the 2.0-style select() API before raising this cap.
+    "sqlalchemy>=2.0.36,<2.0.52",
     "pydantic>=2.10.0,<3",
     "pydantic-settings>=2.6.0,<3",
     "httpx>=0.28.0,<1",
