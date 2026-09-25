@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { growthHttp as api } from "@/lib/api/clients";
+import type { GrowthInsight } from "@/lib/api/clients";
 import { getTranslator } from "@/i18n/resolve";
 import type { GrowthRecord } from "@/types";
 import { computeGrowthStats } from "./growthStats";
@@ -38,6 +39,26 @@ const INSIGHT_POLL_MAX = 60;
 
 type InsightEnvelope = Awaited<ReturnType<typeof api.getInsight>>;
 
+/**
+ * Guarantee the array fields exist so the card never crashes on a degraded
+ * backend payload: the store falls back to an empty object when the stored
+ * insight JSON is corrupted, which yields an insight with no arrays at all.
+ */
+export function normalizeInsight(raw: GrowthInsight): GrowthInsight {
+  return {
+    ...raw,
+    recurring_weaknesses: Array.isArray(raw.recurring_weaknesses) ? raw.recurring_weaknesses : [],
+    improving_areas: Array.isArray(raw.improving_areas) ? raw.improving_areas : [],
+    resume_gap_insights: Array.isArray(raw.resume_gap_insights) ? raw.resume_gap_insights : [],
+    training_plan: Array.isArray(raw.training_plan)
+      ? raw.training_plan.map((focus) => ({
+          ...focus,
+          actions: Array.isArray(focus.actions) ? focus.actions : [],
+        }))
+      : [],
+  };
+}
+
 /** Growth page load domain: history + insights + aggregated stats + LoadError retry. */
 export function useGrowthPage() {
   const [records, setRecords] = useState<GrowthRecord[]>([]);
@@ -55,8 +76,11 @@ export function useGrowthPage() {
       setAiStatus("empty");
       return;
     }
-    setAiInsight(env.insight);
-    setAiStatus(env.insight ? "ready" : env.status === "generating" ? "generating" : "empty");
+    setAiInsight(env.insight ? normalizeInsight(env.insight) : null);
+    // A regen in flight wins over the stale snapshot: staying "generating"
+    // keeps the poller alive so the fresh analysis actually surfaces when it
+    // lands (an existing insight must not short-circuit that).
+    setAiStatus(env.status === "generating" ? "generating" : env.insight ? "ready" : "empty");
   }, []);
 
   // While the backend reports a regen in flight, poll until it settles.
@@ -72,7 +96,10 @@ export function useGrowthPage() {
       }
       try {
         const env = await api.getInsight();
-        if (env.status === "generating" && !env.insight) return;
+        // Keep polling while the backend is still regenerating, even when a
+        // previous insight is present; applying it now would stop the poll
+        // and the regenerated analysis would never reach the page.
+        if (env.status === "generating") return;
         window.clearInterval(id);
         applyInsight(env);
       } catch {
