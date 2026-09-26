@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { prepCoachHttp, settingsHttp } from "@/lib/api/clients";
+import { formatApiError } from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
 import type { PrepSessionSummary, ResumePickerItem } from "@/lib/api/contract";
 import type { ModelProfile, ReasoningEffort } from "@/types";
@@ -32,7 +33,9 @@ export function usePrepResources() {
       })
       .catch((e) => {
         setResumeLoadError(
-          e instanceof Error ? e.message : getTranslator("prep")("resources.resumeLoadFailed"),
+          e instanceof Error
+            ? formatApiError(e)
+            : getTranslator("prep")("resources.resumeLoadFailed"),
         );
       });
   }, []);

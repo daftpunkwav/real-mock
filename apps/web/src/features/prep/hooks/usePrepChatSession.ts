@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prepCoachHttp as api } from "@/lib/api/clients";
-import { ApiError, resolveBackendUrl } from "@/lib/api/base";
+import { ApiError, formatApiError, resolveBackendUrl } from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
 import type { PrepHistoryMessage, PrepSessionSummary } from "@/lib/api/contract";
 import type { AskUserDialog, PrepUsageStats } from "@/types";
@@ -277,7 +277,7 @@ export function usePrepChatSession({
           const t = getTranslator("prep");
           setSwitchError(
             e instanceof Error
-              ? t("sessions.switchFailed", { reason: e.message })
+              ? t("sessions.switchFailed", { reason: formatApiError(e) })
               : t("sessions.switchFailedFallback"),
           );
           // Keep the failed id so the UI can offer orphan cleanup (delete now
@@ -320,7 +320,7 @@ export function usePrepChatSession({
       refreshSessions();
       return id;
     } catch (e) {
-      setPrepError(e instanceof Error ? e.message : t("sessions.createFailed"));
+      setPrepError(e instanceof Error ? formatApiError(e) : t("sessions.createFailed"));
       return null;
     } finally {
       setStarting(false);

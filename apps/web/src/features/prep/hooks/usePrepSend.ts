@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import { prepCoachHttp as api } from "@/lib/api/clients";
+import { formatApiError } from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
 import {
   readCompactThreshold,
@@ -385,7 +386,7 @@ export function usePrepSend(opts: {
         }, 800);
       } else if (isViewing(sid)) {
         const t = getTranslator("prep");
-        const reason = e instanceof Error ? e.message : t("chat.sendFailedFallback");
+        const reason = e instanceof Error ? formatApiError(e) : t("chat.sendFailedFallback");
         setMessages((m) =>
           m.map((msg) =>
             msg.id === assistantId
