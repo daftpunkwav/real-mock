@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
+from realmock.domains.interview.agents.agent_policies import BACKGROUND
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
@@ -78,6 +79,7 @@ async def stream_turn(
         )
 
         context_window = runner.prompter.get_context_window(db)
+        step_msg = runner.agent.step_message()
         pace_msg = runner.agent.pace_message()
         api_messages = await runner.prompter.build_api_messages(
             user_text, face, image_b64, context_window=context_window
@@ -86,8 +88,9 @@ async def stream_turn(
         # persist it in message history: it would make messages[-1] a system
         # message and break the "user message is last" invariant, and on
         # image turns it would be replaced by the multimodal user content.
-        if pace_msg:
-            api_messages = [{"role": "system", "content": pace_msg}, *api_messages]
+        prefix = step_msg if not pace_msg else f"{step_msg}\n{pace_msg}"
+        if prefix:
+            api_messages = [{"role": "system", "content": prefix}, *api_messages]
 
         outcome: dict[str, Any] = {}
         t_tools = time.perf_counter()
@@ -199,7 +202,7 @@ async def stream_turn(
                         current_phase=turn_phase,
                         turn_index=turn_index,
                     ),
-                    timeout=45.0,
+                    timeout=BACKGROUND.shadow_seconds,
                 )
             except asyncio.TimeoutError:
                 logger.warning(
@@ -224,7 +227,7 @@ async def stream_turn(
                         recent_turns,
                         turn_index,
                     ),
-                    timeout=60.0,
+                    timeout=BACKGROUND.reflection_seconds,
                 )
             except asyncio.TimeoutError:
                 logger.warning(
@@ -257,7 +260,7 @@ async def stream_turn(
                         turn_index=turn_index,
                         elapsed_minutes=elapsed_minutes,
                     ),
-                    timeout=20.0,
+                    timeout=BACKGROUND.orchestrator_seconds,
                 )
                 # Advisory only: persisted for observability, never gates reply.
                 runner.agent.agent_state["_orchestrator_advice"] = {
@@ -303,4 +306,8 @@ async def stream_turn(
         )
     except Exception as e:
         logger.exception("Round execution failed: %s", e)
-        yield StreamEvent.make_error("AI interviewer temporarily unavailable; please retry later", code="C0001", retryable=True)
+        yield StreamEvent.make_error(
+            "AI interviewer temporarily unavailable; please retry later",
+            code="C0001",
+            retryable=True,
+        )

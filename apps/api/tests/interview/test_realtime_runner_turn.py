@@ -55,6 +55,10 @@ def _mk_runner_pace(qn=0):
     r.agent.messages = [{"role": "assistant", "content": "Q"}]
     r.agent.current_phase.return_value.id = "p1"
     r.agent.agent_state = {"asked_questions": []}
+    r.agent.step_message.return_value = (
+        "[Position] Step 1 of 5; this is question 1 of the current step. "
+        "You own the pacing: move on when the step's focus is covered."
+    )
     r.agent.pace_message.return_value = "[Pace: hurry]" if qn else None
     r.agent.record_assistant_text = MagicMock()
     r.agent.note_turn_output = MagicMock()
@@ -175,7 +179,8 @@ async def test_early_and_tool_yield_and_pace():
     r = _mk_runner_pace(qn=1)
     async def _tools(runner, outcome, msgs, db, temperature=0.75):
         from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
-        assert msgs[0]["content"].startswith("[Pace:")
+        assert msgs[0]["content"].startswith("[Position] Step")
+        assert "[Pace:" in msgs[0]["content"]
         outcome["value"] = ToolRoundResult(msgs, '{"say": "early hi", "v": 1}')
         yield StreamEvent.make_token("tool-tok")
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _tools):

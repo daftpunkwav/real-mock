@@ -10,7 +10,6 @@ Execution results are written to agent_state.github_findings / tool_trace for st
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Any, cast
@@ -29,7 +28,6 @@ from realmock.platform.capabilities.ai.agent.tools import (
 )
 from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapshot
 from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot
-from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.integrations.github.tools import execute_github_tool
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session
@@ -45,15 +43,10 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from realmock.platform.capabilities.ai.llm.client import LLMClient
 
-MAX_TOOL_ROUNDS = 3
-MAX_TOOL_RESULT_CHARS = 8_000
-
-#: Cap on the LLM compression of an oversized tool result. It must stay well
-#: below the ToolGuard per-call timeout (30s): the guard would kill the whole
-#: call before :func:`compress_text_blob`'s inner 120s timeout fires, so on
-#: timeout we degrade to the deterministic marked head+tail excerpt instead of
-#: failing the tool (and burning breaker streak) twice.
-_RESULT_COMPRESS_TIMEOUT_SEC = 15.0
+MAX_TOOL_ROUNDS = 8
+#: Attention cap for one tool observation — NOT a storage cap (1M-window
+#: policy): head+tail deterministic excerpt, never a lossy LLM rewrite.
+MAX_TOOL_RESULT_CHARS = 24_000
 
 # Non-GitHub local / company tools
 _LOCAL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -172,7 +165,10 @@ _PAST_RECORD_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Keywords, e.g. a project name or topic"},
+                    "query": {
+                        "type": "string",
+                        "description": "Keywords, e.g. a project name or topic",
+                    },
                 },
                 "required": ["query"],
             },
@@ -187,7 +183,10 @@ _PAST_RECORD_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "round_no": {"type": "integer", "description": "Earlier round number, e.g. 1"},
-                    "offset": {"type": "integer", "description": "Turn offset for paging (default 0)"},
+                    "offset": {
+                        "type": "integer",
+                        "description": "Turn offset for paging (default 0)",
+                    },
                 },
                 "required": ["round_no"],
             },
@@ -196,9 +195,28 @@ _PAST_RECORD_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 ]
 
 
-def get_interview_tool_definitions(
-    *, include_past_records: bool = False
-) -> list[dict[str, Any]]:
+#: Optional per-call timeout override, injected into every tool schema
+#: (prep-domain pattern): the model may extend a slow fetch, clamped 5-180s.
+_TIMEOUT_SECONDS_PARAM = {
+    "type": "number",
+    "description": (
+        "Optional per-call timeout in seconds (5-180). Raise it only for a "
+        "slow page fetch or a large repo scan; keep every other call fast."
+    ),
+}
+
+
+def _with_timeout_override(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for tool in tools:
+        fn = tool.get("function")
+        params = fn.get("parameters") if isinstance(fn, dict) else None
+        if isinstance(params, dict):
+            props = params.setdefault("properties", {})
+            props.setdefault("timeout_seconds", dict(_TIMEOUT_SECONDS_PARAM))
+    return tools
+
+
+def get_interview_tool_definitions(*, include_past_records: bool = False) -> list[dict[str, Any]]:
     """Returns all OpenAI tools definitions available to the interviewer."""
     github = [openai_tool(spec) for spec in github_tool_specs()]
     profile = [openai_tool(spec) for spec in profile_tool_specs(ProfileSnapshot(fields={}))]
@@ -209,36 +227,17 @@ def get_interview_tool_definitions(
     tools = github + list(_LOCAL_TOOL_DEFINITIONS) + profile + resume
     if include_past_records:
         tools += list(_PAST_RECORD_TOOL_DEFINITIONS)
-    return tools
+    return _with_timeout_override(tools)
 
 
-async def _cap_result(text: str, llm: Any | None) -> str:
-    try:
-        return await asyncio.wait_for(
-            compress_text_blob(
-                llm,
-                text,
-                soft_chars=MAX_TOOL_RESULT_CHARS,
-                target_chars=MAX_TOOL_RESULT_CHARS,
-                purpose="interview tool result",
-            ),
-            timeout=_RESULT_COMPRESS_TIMEOUT_SEC,
-        )
-    except asyncio.TimeoutError:
-        logger.warning(
-            "Tool result compression timed out after %.0fs; using head+tail excerpt (%d chars)",
-            _RESULT_COMPRESS_TIMEOUT_SEC,
-            len(text or ""),
-        )
-        # llm=None makes compress_text_blob return the marked head+tail excerpt
-        # synchronously — the tool call still succeeds with explicit truncation.
-        return await compress_text_blob(
-            None,
-            text,
-            soft_chars=MAX_TOOL_RESULT_CHARS,
-            target_chars=MAX_TOOL_RESULT_CHARS,
-            purpose="interview tool result",
-        )
+def _cap_result(text: str) -> str:
+    """Deterministic marked excerpt: the model's own args and the tool's
+    closing facts sit at both ends, so a head+tail cut preserves them."""
+    blob = text or ""
+    if len(blob) <= MAX_TOOL_RESULT_CHARS:
+        return blob
+    keep = max(2_000, (MAX_TOOL_RESULT_CHARS - 200) // 2)
+    return blob[:keep] + f"\n…[middle omitted; original {len(blob)} chars]\n" + blob[-keep:]
 
 
 def _note_company_finding(
@@ -257,7 +256,7 @@ def _note_company_finding(
     if agent_state is None:
         return
     findings = agent_state.setdefault("company_findings", [])
-    findings.append({"tool": tool, "args": subject, "preview": result[:500]})
+    findings.append({"tool": tool, "args": subject, "preview": result[:2000]})
     if len(findings) > 10:
         del findings[:-10]
 
@@ -289,20 +288,24 @@ async def execute_interview_tool(
         # Write to structured memory
         if agent_state is not None:
             findings = agent_state.setdefault("github_findings", [])
-            findings.append({"tool": name, "args": args, "preview": result[:500]})
+            findings.append({"tool": name, "args": args, "preview": result[:2000]})
             # Keep the last 20 items
             if len(findings) > 20:
                 del findings[:-20]
-        return await _cap_result(result, llm)
+        return _cap_result(result)
 
     if name.startswith("profile_"):
         with api_db_session() as api_db:
-            row = get_user_profile(api_db, profile_id) if profile_id else get_default_user_profile(api_db)
+            row = (
+                get_user_profile(api_db, profile_id)
+                if profile_id
+                else get_default_user_profile(api_db)
+            )
             specs = {spec.name: spec for spec in profile_tool_specs(profile_from_orm(row))}
         bound = specs.get(name)
         if bound is None:
             return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
-        return await _cap_result(await bound.handler(arguments or {}), llm)
+        return _cap_result(await bound.handler(arguments or {}))
 
     if name.startswith("resume_") and name != "lookup_resume_projects":
         with api_db_session() as api_db:
@@ -313,12 +316,12 @@ async def execute_interview_tool(
         bound = specs.get(name)
         if bound is None:
             return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
-        return await _cap_result(await bound.handler(arguments or {}), llm)
+        return _cap_result(await bound.handler(arguments or {}))
 
     if name == "lookup_company_profile":
         company_id = str(arguments.get("company_id") or "")
         ctx = get_company_context(company_id)
-        result = await _cap_result(ctx or f"No company knowledge found: {company_id}", llm)
+        result = _cap_result(ctx or f"No company knowledge found: {company_id}")
         _note_company_finding(agent_state, tool=name, subject=company_id, result=result)
         return result
 
@@ -334,25 +337,22 @@ async def execute_interview_tool(
         projects = profile.get("projects") or []
         skills = profile.get("skills") or []
         if focus:
-            projects = [
-                p for p in projects
-                if focus in json.dumps(p, ensure_ascii=False).lower()
-            ]
+            projects = [p for p in projects if focus in json.dumps(p, ensure_ascii=False).lower()]
             skills = [s for s in skills if focus in str(s).lower()]
         payload = {
             "filename": filename,
             "name": profile.get("name"),
-            "skills": skills[:40],
-            "projects": projects[:15],
-            "summary": (profile.get("summary") or "")[:800],
+            "skills": skills,
+            "projects": projects,
+            "summary": profile.get("summary") or "",
         }
-        result = await _cap_result(json.dumps(payload, ensure_ascii=False), llm)
+        result = _cap_result(json.dumps(payload, ensure_ascii=False))
         _note_company_finding(agent_state, tool=name, subject=focus or "*", result=result)
         return result
 
     if name == "web_fetch":
         raw = await execute_web_fetch(arguments or {})
-        return await _cap_result(raw, llm)
+        return _cap_result(raw)
 
     if name == "web_search":
         query = str(arguments.get("query") or "")
@@ -364,8 +364,10 @@ async def execute_interview_tool(
             text = str(data.get("text") or raw)
         except Exception as e:
             logger.warning("web_search failed: %s", e)
-            return json.dumps({"error": "search_failed", "message": str(e)[:200]}, ensure_ascii=False)
-        return await _cap_result(text, llm)
+            return json.dumps(
+                {"error": "search_failed", "message": str(e)[:200]}, ensure_ascii=False
+            )
+        return _cap_result(text)
 
     if name == "search_past_interviews" or name == "read_past_round":
         from realmock.domains.interview.agents import past_records
@@ -373,7 +375,9 @@ async def execute_interview_tool(
         if session is None:
             return json.dumps({"error": "no_process_context"}, ensure_ascii=False)
         if name == "search_past_interviews":
-            raw = past_records.search_past_interviews(db, session, str(arguments.get("query") or ""))
+            raw = past_records.search_past_interviews(
+                db, session, str(arguments.get("query") or "")
+            )
         else:
             raw = past_records.read_past_round(
                 db,
@@ -381,7 +385,7 @@ async def execute_interview_tool(
                 int(arguments.get("round_no") or 0),
                 int(arguments.get("offset") or 0),
             )
-        return await _cap_result(raw, llm)
+        return _cap_result(raw)
 
     if name == "issue_coding_challenge":
         from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
@@ -402,12 +406,15 @@ async def execute_interview_tool(
         challenge = await examiner.create_challenge(preferred_language=lang)
         state["active_coding_challenge"] = challenge.to_dict()
         state["cognitive_memory"] = mem_graph.to_dict()
-        return json.dumps({
-            "status": "challenge_issued",
-            "title": challenge.title,
-            "description": challenge.description,
-            "language": challenge.language,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "status": "challenge_issued",
+                "title": challenge.title,
+                "description": challenge.description,
+                "language": challenge.language,
+            },
+            ensure_ascii=False,
+        )
 
     if name == "inspect_candidate_code":
         raw_mem = cast("Any", agent_state).get("cognitive_memory")
@@ -415,7 +422,11 @@ async def execute_interview_tool(
             code = getattr(raw_mem.working_memory, "candidate_code", "")
             test_out = getattr(raw_mem.working_memory, "last_test_output", "")
         elif isinstance(raw_mem, dict):
-            wm = raw_mem.get("working_memory", {}) if isinstance(raw_mem.get("working_memory"), dict) else {}
+            wm = (
+                raw_mem.get("working_memory", {})
+                if isinstance(raw_mem.get("working_memory"), dict)
+                else {}
+            )
             code = str(wm.get("candidate_code", ""))
             test_out = str(wm.get("last_test_output", ""))
         else:
@@ -424,11 +435,14 @@ async def execute_interview_tool(
 
         if not code:
             return json.dumps({"status": "no_code_submitted_yet"}, ensure_ascii=False)
-        return json.dumps({
-            "status": "code_available",
-            "candidate_code": code[:2000],
-            "last_test_output": test_out[:1000],
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "status": "code_available",
+                "candidate_code": code[:2000],
+                "last_test_output": test_out[:1000],
+            },
+            ensure_ascii=False,
+        )
 
     return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
 

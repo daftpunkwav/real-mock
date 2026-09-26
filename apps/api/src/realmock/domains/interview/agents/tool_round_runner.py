@@ -25,8 +25,13 @@ from realmock.domains.interview.capabilities.rag.company_rag import (
     CompanyKnowledgeRAG,
     format_context as format_rag_context,
 )
-from realmock.domains.interview.ledger.store import append_pending_tool, begin_pending_tools, build_tool_preview
+from realmock.domains.interview.ledger.store import (
+    append_pending_tool,
+    begin_pending_tools,
+    build_tool_preview,
+)
 from realmock.domains.interview.agents.agent_prompts import TOOL_FREE_WRAP_UP_HINT
+from realmock.domains.interview.agents.agent_policies import INTERVIEWER_LOOP
 from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.session_state import InterviewSessionState
@@ -50,7 +55,7 @@ logger = logging.getLogger(__name__)
 # for tens of minutes. Per-tool timeout/retry/circuit-breaking lives in
 # :mod:`tool_guard`; the platform loop still converts tool exceptions into
 # observations.
-_TOOL_ROUND_BUDGET_SECONDS = 600.0
+_TOOL_ROUND_BUDGET_SECONDS = INTERVIEWER_LOOP.budget_seconds
 
 #: Pre-loop RAG retrieval budget: errors already degrade to None, but a hung
 #: embedding call would otherwise stall the turn for the full transport
@@ -130,7 +135,8 @@ class ToolRoundRunner:
         except asyncio.TimeoutError:
             logger.warning(
                 "RAG retrieval timed out after %.0fs session=%s",
-                _RAG_QUERY_TIMEOUT_SEC, self.session.id,
+                _RAG_QUERY_TIMEOUT_SEC,
+                self.session.id,
             )
             return None
         except Exception as e:
@@ -147,14 +153,18 @@ class ToolRoundRunner:
 
         logger.info(
             "RAG hits: session=%s company=%s hits=%d",
-            self.session.id, self.session.company, len(hits),
+            self.session.id,
+            self.session.company,
+            len(hits),
         )
         return {
             "role": "system",
             "content": format_rag_context(hits),
         }
 
-    def collect_chat_tools(self, *, include_function_tools: bool = True) -> list[dict[str, Any]] | None:
+    def collect_chat_tools(
+        self, *, include_function_tools: bool = True
+    ) -> list[dict[str, Any]] | None:
         """Collect the tools to inject into the current LLM call.
 
         Combines:
@@ -176,9 +186,7 @@ class ToolRoundRunner:
 
             with sessions_db_session() as sessions_db:
                 include_past = has_prior_rounds(sessions_db, self.session)
-            tools.extend(
-                get_interview_tool_definitions(include_past_records=include_past)
-            )
+            tools.extend(get_interview_tool_definitions(include_past_records=include_past))
         return tools or None
 
     async def run_tool_rounds(
@@ -209,7 +217,9 @@ class ToolRoundRunner:
         if not settings.interview_tools_enabled:
             return ToolRoundResult(api_messages, None)
 
-        max_rounds = min(settings.interview_max_tool_rounds, MAX_TOOL_ROUNDS)
+        max_rounds = min(
+            settings.interview_max_tool_rounds, MAX_TOOL_ROUNDS, INTERVIEWER_LOOP.max_rounds
+        )
         if max_rounds <= 0:
             return ToolRoundResult(api_messages, None)
 
@@ -253,8 +263,16 @@ class ToolRoundRunner:
         seen_calls: set[str] = set()
 
         async def execute(name: str, args: dict[str, Any]) -> str:
+            args = dict(args or {})
+            timeout_override: float | None = None
+            raw_timeout = args.pop("timeout_seconds", None)
+            if raw_timeout is not None:
+                try:
+                    timeout_override = max(5.0, min(180.0, float(raw_timeout)))
+                except (TypeError, ValueError):
+                    timeout_override = None
             try:
-                dedup_key = name + "|" + json.dumps(args or {}, sort_keys=True, default=str)
+                dedup_key = name + "|" + json.dumps(args, sort_keys=True, default=str)
             except (TypeError, ValueError):
                 dedup_key = None
             if dedup_key is not None and dedup_key in seen_calls:
@@ -272,6 +290,7 @@ class ToolRoundRunner:
                     llm=self.llm,
                     session=self.session,
                 ),
+                timeout_sec=timeout_override,
             )
             if dedup_key is not None:
                 seen_calls.add(dedup_key)
@@ -330,7 +349,8 @@ class ToolRoundRunner:
                 self.session.id,
             )
             return ToolRoundResult(
-                api_messages, None,
+                api_messages,
+                None,
                 await self._finish_streamed(
                     state["think"], state["parser"], say_parts, streamed, content_sink
                 ),

@@ -43,21 +43,25 @@ def append_followup_and_rag(
         pending_probe=pending_probe,
     )
     if signal.needs_followup:
-        state.messages.append({
-            "role": "system",
-            "content": f"[Follow-up guidance: {signal.category}] {signal.suggested_probe}",
-        })
+        state.messages.append(
+            {
+                "role": "system",
+                "content": f"[Follow-up guidance: {signal.category}] {signal.suggested_probe}",
+            }
+        )
         # The guidance wording is an examiner instruction, not a candidate
         # weakness fact — keep it out of weak_points so prompts and
         # cross-round digests stay factual. The category lands in
         # followup_clues for the growth learning loop.
         clues = state.agent_state.setdefault("followup_clues", [])
         clues.append(signal.category)
-        if len(clues) > 60:
-            del clues[:-60]
+        if len(clues) > 150:
+            del clues[:-150]
         logger.info(
             "Follow-up signal: session=%s cat=%s len=%d",
-            session_id, signal.category, len(user_text),
+            session_id,
+            signal.category,
+            len(user_text),
         )
 
     state.refresh_system_memory()
@@ -76,13 +80,16 @@ def append_followup_and_rag(
         if tail.get("role") != "system":
             break
         content = tail.get("content", "")
-        if not (isinstance(content, str) and (
-            content.startswith("[Follow-up guidance")
-            or content.startswith("[Question guidance")
-            or content.startswith("## Company knowledge")
-            or content.startswith("## Enterprise knowledge base")
-            or content.startswith("## Enterprise Knowledge Base")
-        )):
+        if not (
+            isinstance(content, str)
+            and (
+                content.startswith("[Follow-up guidance")
+                or content.startswith("[Question guidance")
+                or content.startswith("## Company knowledge")
+                or content.startswith("## Enterprise knowledge base")
+                or content.startswith("## Enterprise Knowledge Base")
+            )
+        ):
             break
         trailing_msgs.append(state.messages.pop())
     trailing_msgs.reverse()

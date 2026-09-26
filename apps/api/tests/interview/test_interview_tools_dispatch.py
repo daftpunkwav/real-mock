@@ -43,28 +43,22 @@ def test_tool_definitions_include_past_records_when_flag() -> None:
 
 @pytest.mark.asyncio
 async def test_cap_result_passthrough_small() -> None:
-    assert await _cap_result("hello", None) == "hello"
+    assert _cap_result("hello") == "hello"
 
 
 @pytest.mark.asyncio
 async def test_cap_result_large_no_llm_marks_excerpt() -> None:
-    big = "x" * 9000
-    out = await _cap_result(big, None)
-    assert "NO_LLM_EXCERPT" in out or "omitted" in out
+    big = "x" * 90000
+    out = _cap_result(big)
+    assert "middle omitted" in out
 
 
 @pytest.mark.asyncio
-async def test_cap_result_large_with_llm_compresses() -> None:
-    from tests.fakes import FakeLLMClient
-
-    big = "y" * 9000
-
-    class _Compressor(FakeLLMClient):
-        async def chat(self, messages, temperature=0.7, response_format=None, **kwargs):  # type: ignore[override]
-            return "compressed-summary"
-
-    out = await _cap_result(big, _Compressor())  # type: ignore[arg-type]
-    assert "compressed" in out
+async def test_cap_result_large_keeps_head_and_tail() -> None:
+    big = "y" * 90000
+    out = _cap_result(big)
+    assert "middle omitted" in out
+    assert out.startswith("y") and out.endswith("y")
 
 
 def test_note_company_finding_none_state_noop() -> None:
@@ -75,7 +69,7 @@ def test_note_company_finding_appends_and_caps() -> None:
     state: dict = {}
     _note_company_finding(state, tool="lookup_company_profile", subject="bytedance", result="r" * 600)
     assert state["company_findings"][0]["tool"] == "lookup_company_profile"
-    assert len(state["company_findings"][0]["preview"]) == 500
+    assert len(state["company_findings"][0]["preview"]) == 600
     for i in range(12):
         _note_company_finding(state, tool="t", subject=str(i), result="r")
     assert len(state["company_findings"]) == 10

@@ -80,13 +80,17 @@ class InterviewSessionState(SessionPromptMixin):
         try:
             self.agent_state: dict[str, Any] = json.loads(self.session.agent_state or "{}")
         except json.JSONDecodeError:
-            logger.debug("corrupt agent_state JSON sid=%s; start fresh", getattr(self.session, "id", None))
+            logger.debug(
+                "corrupt agent_state JSON sid=%s; start fresh", getattr(self.session, "id", None)
+            )
             self.agent_state = {}
 
         try:
             self.messages: list[dict[str, Any]] = json.loads(self.session.messages or "[]")
         except json.JSONDecodeError:
-            logger.debug("corrupt messages JSON sid=%s; start fresh", getattr(self.session, "id", None))
+            logger.debug(
+                "corrupt messages JSON sid=%s; start fresh", getattr(self.session, "id", None)
+            )
             self.messages = []
 
         self.workflow: Workflow = get_workflow(self.session.workflow_type)
@@ -121,7 +125,9 @@ class InterviewSessionState(SessionPromptMixin):
         try:
             return parse_plan(getattr(self.session, "plan", None))
         except Exception:
-            logger.warning("plan parse failed sid=%s; using static workflow", getattr(self.session, "id", None))
+            logger.warning(
+                "plan parse failed sid=%s; using static workflow", getattr(self.session, "id", None)
+            )
             return None
 
     def reload_plan(self) -> None:
@@ -132,12 +138,14 @@ class InterviewSessionState(SessionPromptMixin):
 
     def save_state(self, db: Session) -> None:
         """Write the current state back to the database."""
-        self.agent_state.update({
-            "phase_idx": self.current_phase_idx,
-            "questions_in_phase": self.questions_in_phase,
-            "asked_topics": self.asked_topics,
-            "cognitive_memory": self.cognitive_memory.to_dict(),
-        })
+        self.agent_state.update(
+            {
+                "phase_idx": self.current_phase_idx,
+                "questions_in_phase": self.questions_in_phase,
+                "asked_topics": self.asked_topics,
+                "cognitive_memory": self.cognitive_memory.to_dict(),
+            }
+        )
         self.session.agent_state = json.dumps(self.agent_state, ensure_ascii=False)
         self.session.messages = json.dumps(self.messages, ensure_ascii=False)
         self.session.current_phase = self.current_phase().id
@@ -152,12 +160,12 @@ class InterviewSessionState(SessionPromptMixin):
         if not q:
             return
         asked = self.agent_state.setdefault("asked_questions", [])
-        # Keep first 120 chars
-        snippet = q[:120]
-        if snippet not in asked:
-            asked.append(snippet)
-        if len(asked) > 80:
-            del asked[:-80]
+        # Full question text: the anti-repeat list is the interviewer's memory
+        # of what was already covered; trimming it is what caused repeats.
+        if q not in asked:
+            asked.append(q)
+        if len(asked) > 200:
+            del asked[:-200]
 
     def note_weak_point(self, point: str) -> None:
         """Record clues about candidate weaknesses."""
@@ -166,9 +174,9 @@ class InterviewSessionState(SessionPromptMixin):
             return
         weak = self.agent_state.setdefault("weak_points", [])
         if p not in weak:
-            weak.append(p[:200])
-        if len(weak) > 30:
-            del weak[:-30]
+            weak.append(p)
+        if len(weak) > 100:
+            del weak[:-100]
 
     def note_turn_output(self, output: TurnOutput) -> None:
         """Persistent round control information: questioning plan and real-time brief review (realistic questioning/report reuse)."""
@@ -184,13 +192,15 @@ class InterviewSessionState(SessionPromptMixin):
             # Full per-question trajectory: feeds the summary/verdict prompt
             # and the ledger turn flags (last_turn_score alone gets overwritten).
             scores = self.agent_state.setdefault("turn_scores", [])
-            scores.append({
-                "brief": ts.brief,
-                "rating": ts.rating,
-                "weak_points": list(ts.weak_points),
-            })
-            if len(scores) > 40:
-                del scores[:-40]
+            scores.append(
+                {
+                    "brief": ts.brief,
+                    "rating": ts.rating,
+                    "weak_points": list(ts.weak_points),
+                }
+            )
+            if len(scores) > 80:
+                del scores[:-80]
             for p in ts.weak_points:
                 self.note_weak_point(p)
 
@@ -199,6 +209,21 @@ class InterviewSessionState(SessionPromptMixin):
         if verdict not in ("passed", "failed"):
             return
         self.session.result = verdict
+
+    def step_message(self) -> str:
+        """Per-turn step-position line (transient; never persisted).
+
+        The planner supplies the flow, but pacing is the interviewer's own
+        sovereignty: this line only tells it where it stands.
+        """
+        total = len(self.phases)
+        step_no = self.current_phase_idx + 1
+        question_no = self.questions_in_phase + 1
+        return (
+            f"[Position] Step {step_no} of {total}; this is question "
+            f"{question_no} of the current step. You own the pacing: move on "
+            "when the step's focus is covered."
+        )
 
     def pace_message(self) -> str | None:
         """One-shot pacing system message when the interview crosses a time mark.
@@ -234,7 +259,7 @@ class InterviewSessionState(SessionPromptMixin):
 
     def phases_remaining(self) -> list[str]:
         """Display names of the current and all later phases/steps."""
-        return [p.name for p in self.phases[self.current_phase_idx:]]
+        return [p.name for p in self.phases[self.current_phase_idx :]]
 
     def phase_title_for_display(self) -> str:
         """Agent-authored step title for WS events; empty for the static flow
@@ -311,9 +336,7 @@ class InterviewSessionState(SessionPromptMixin):
         """Reset the per-phase question counter (used on start)."""
         self.questions_in_phase = value
 
-    def advance_phase_if_needed(
-        self, reply: str, *, phase_complete: bool | None = None
-    ) -> bool:
+    def advance_phase_if_needed(self, reply: str, *, phase_complete: bool | None = None) -> bool:
         """Decide whether to advance to the next phase based on the LLM response.
 
         ``phase_complete`` comes from the turn protocol's control section; when None, fall back
@@ -345,10 +368,12 @@ class InterviewSessionState(SessionPromptMixin):
             # stale "Current phase" lines (see SessionPromptMixin).
             self.refresh_system_head(phase)
             content = self._phase_entry_message(phase)
-            self.messages.append({
-                "role": "system",
-                "content": content,
-            })
+            self.messages.append(
+                {
+                    "role": "system",
+                    "content": content,
+                }
+            )
 
     def _phase_entry_message(self, phase: Any) -> str:
         """Build the system message when entering a new phase.
@@ -368,7 +393,7 @@ class InterviewSessionState(SessionPromptMixin):
                 "culture, team, tech stack, business direction, and growth opportunities.\n"
                 "Requirements:\n"
                 "1. Answer from the company material above; if uncovered, honestly say "
-                "\"I don't have exact information on that\"\n"
+                '"I don\'t have exact information on that"\n'
                 "2. Be professional and grounded; avoid empty slogans\n"
                 "3. You may still use web_search for public info\n"
                 "4. Do not use emoji in replies"
@@ -381,8 +406,7 @@ class InterviewSessionState(SessionPromptMixin):
             scores = self._score_section()
             if scores:
                 message += (
-                    scores
-                    + "\nGround your wrap-up evaluation and the passed/failed verdict "
+                    scores + "\nGround your wrap-up evaluation and the passed/failed verdict "
                     "in this trajectory, not just the last answer."
                 )
         return message

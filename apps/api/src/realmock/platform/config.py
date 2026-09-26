@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     github_token: str = ""
     # Whether the interview agent enables function calling tool loop
     interview_tools_enabled: bool = True
-    interview_max_tool_rounds: int = Field(default=3, ge=0, le=6)
+    interview_max_tool_rounds: int = Field(default=6, ge=0, le=8)
 
     # LLM call: Whether to allow local/private network base_url. Production must be False.
     allow_local_llm: bool = Field(default=False)
@@ -139,7 +139,9 @@ class Settings(BaseSettings):
             object.__setattr__(self, "sessions_database_url", legacy)
             object.__setattr__(self, "database_url", legacy)
         if self.is_prod and self.allow_local_llm:
-            raise ValueError("Allow_local_llm=True is not allowed in production environment (env=prod)")
+            raise ValueError(
+                "Allow_local_llm=True is not allowed in production environment (env=prod)"
+            )
         if self.rag_backend == RAGBackendKind.STEPFUN and not self.stepfun_vector_store_id:
             logger.warning(
                 "rag_backend=stepfun but stepfun_vector_store_id is not configured; startup will attempt to create a vector store automatically"

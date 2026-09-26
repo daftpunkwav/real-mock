@@ -73,13 +73,13 @@ def test_note_turn_output_accumulates_score_trajectory():
     assert len(agent.agent_state["turn_scores"]) == 1
 
 
-def test_score_trajectory_capped_at_40():
+def test_score_trajectory_capped_at_80():
     agent = _state_with_agent_state({})
-    for _ in range(45):
+    for _ in range(85):
         agent.note_turn_output(
             parse_turn_output({"turn_score": {"brief": "b", "rating": 3}}, say_text="x")
         )
-    assert len(agent.agent_state["turn_scores"]) == 40
+    assert len(agent.agent_state["turn_scores"]) == 80
 
 
 def test_score_section_renders_trajectory():

@@ -7,8 +7,10 @@ loop (:func:`run_agent_loop` via ``asyncio.gather``); this module bounds the
 other axis — how long one tool may burn and how often a broken tool is
 retried:
 
-- timeout: every call gets ``timeout_sec`` (default 30s); timeouts retry once
-  with the same args (transient blips are the common case);
+- timeout: every call gets ``timeout_sec`` (default 20s) and is NOT retried
+  automatically — the interview is live, the candidate is waiting, so a hung
+  tool fails fast and the model reroutes (a deliberate same-args retry stays
+  possible because failed calls never enter the dedup cache);
 - circuit breaker: a tool failing ``circuit_streak`` times in a row is refused
   without another call until ``circuit_ttl_sec`` passes (half-open trial);
 - streaks persist in ``agent_state["_tool_guard"]`` so a chronically broken
@@ -30,20 +32,19 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any, MutableMapping
 
+from realmock.domains.interview.agents.agent_policies import ToolGuardPolicy
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.core.security import redact_api_key
 
 logger = logging.getLogger(__name__)
 
-#: Per-attempt wall clock for one tool call (covers inner HTTP retries).
-TOOL_TIMEOUT_SEC = 30.0
-#: Attempts per call: first try + one retry on timeout only.
-TOOL_MAX_ATTEMPTS = 2
-#: Consecutive terminal failures before the circuit opens.
-TOOL_CIRCUIT_STREAK = 3
-#: How long an open circuit refuses calls before a half-open trial.
-CIRCUIT_OPEN_TTL_SEC = 600.0
+#: Per-call resilience defaults, declared centrally in agent_policies.
+_POLICY = ToolGuardPolicy()
+TOOL_TIMEOUT_SEC = _POLICY.timeout_sec
+TOOL_MAX_ATTEMPTS = _POLICY.attempts
+TOOL_CIRCUIT_STREAK = _POLICY.circuit_streak
+CIRCUIT_OPEN_TTL_SEC = _POLICY.circuit_ttl_sec
 
 #: agent_state key holding breaker streaks (JSON-safe, survives save_state).
 GUARD_STATE_KEY = "_tool_guard"
@@ -138,6 +139,8 @@ class ToolGuard:
         name: str,
         args: dict[str, Any],
         call: Callable[[], Awaitable[str]],
+        *,
+        timeout_sec: float | None = None,
     ) -> str:
         """Execute one tool call with timeout, one timeout-retry, and breaker.
 
@@ -146,11 +149,14 @@ class ToolGuard:
             args: tool arguments (logged on failure, never mutated).
             call: zero-arg factory producing the call coroutine (must be
                 re-invokable: timeouts retry by calling it again).
+            timeout_sec: optional per-call override of ``self.timeout_sec``
+                (model-requested ``timeout_seconds``, pre-clamped).
 
         Raises:
             ToolGuardError: timeout-exhausted, tool exception, or open circuit.
             ApiBusinessError: passes through unwrapped (route-layer contract).
         """
+        budget = self.timeout_sec if timeout_sec is None else max(1.0, float(timeout_sec))
         box = self._box()
         entry = self._entry(box, name)
         streak = int(entry.get("streak") or 0)
@@ -177,21 +183,21 @@ class ToolGuard:
             attempts = attempt
             t0 = time.perf_counter()
             try:
-                result = await asyncio.wait_for(call(), timeout=self.timeout_sec)
+                result = await asyncio.wait_for(call(), timeout=budget)
             except ApiBusinessError:
                 raise
             except asyncio.TimeoutError:
                 logger.warning(
                     "tool timeout name=%s attempt=%d/%d budget=%.0fs",
-                    name, attempt, self.max_attempts, self.timeout_sec,
+                    name,
+                    attempt,
+                    self.max_attempts,
+                    self.timeout_sec,
                 )
                 if attempt < self.max_attempts:
                     continue
                 fail_kind = "timeout"
-                fail_msg = (
-                    f"timed out after {self.timeout_sec:.0f}s "
-                    f"(retried {self.max_attempts - 1}x)"
-                )
+                fail_msg = f"timed out after {budget:.0f}s"
                 break
             except Exception as exc:
                 # No retry: deterministic failures (bad args, code bugs) would
@@ -205,7 +211,9 @@ class ToolGuard:
                     box.pop(name, None)
                 logger.debug(
                     "tool done name=%s ms=%.0f attempt=%d",
-                    name, (time.perf_counter() - t0) * 1000.0, attempt,
+                    name,
+                    (time.perf_counter() - t0) * 1000.0,
+                    attempt,
                 )
                 return result
 
@@ -224,7 +232,10 @@ class ToolGuard:
             box[name] = entry
         domain, session = _scope(self._error_context)
         log_agent_error(
-            domain=domain, session=session, tool=name, kind=fail_kind,
+            domain=domain,
+            session=session,
+            tool=name,
+            kind=fail_kind,
             message=f"{fail_msg} (attempts={attempts} streak={streak})",
         )
         suffix = " Further calls are blocked for a while." if opened else ""

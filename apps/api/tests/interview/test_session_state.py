@@ -122,12 +122,13 @@ def test_note_question_trims_caps_dedups(db) -> None:
     st.note_question("   ")
     assert st.agent_state["asked_questions"] == []
     st.note_question("q" * 200)
-    assert len(st.agent_state["asked_questions"][0]) == 120
+    # Full question text is kept (the anti-repeat list is the interviewer's memory).
+    assert len(st.agent_state["asked_questions"][0]) == 200
     st.note_question("q" * 200)
     assert len(st.agent_state["asked_questions"]) == 1
-    st.agent_state["asked_questions"] = [f"q{i}" for i in range(85)]
+    st.agent_state["asked_questions"] = [f"q{i}" for i in range(205)]
     st.note_question("new-q")
-    assert len(st.agent_state["asked_questions"]) == 80
+    assert len(st.agent_state["asked_questions"]) == 200
 
 
 def test_note_weak_point_caps(db) -> None:
@@ -137,9 +138,9 @@ def test_note_weak_point_caps(db) -> None:
     st.note_weak_point("vague answer")
     st.note_weak_point("vague answer")
     assert st.agent_state["weak_points"] == ["vague answer"]
-    st.agent_state["weak_points"] = [f"w{i}" for i in range(31)]
+    st.agent_state["weak_points"] = [f"w{i}" for i in range(101)]
     st.note_weak_point("fresh")
-    assert len(st.agent_state["weak_points"]) == 30
+    assert len(st.agent_state["weak_points"]) == 100
 
 
 def test_note_turn_output_probe_scores(db) -> None:
@@ -161,12 +162,12 @@ def test_note_turn_output_probe_scores(db) -> None:
 def test_note_turn_output_caps_scores(db) -> None:
     st = _state(db)
     st.agent_state["turn_scores"] = [
-        {"brief": "x", "rating": 1, "weak_points": []} for _ in range(41)
+        {"brief": "x", "rating": 1, "weak_points": []} for _ in range(81)
     ]
     st.note_turn_output(
         TurnOutput(say="h", turn_score=TurnScore(brief="b", rating=2, weak_points=()))
     )
-    assert len(st.agent_state["turn_scores"]) == 40
+    assert len(st.agent_state["turn_scores"]) == 80
 
 
 def test_note_verdict_only_pass_fail(db) -> None:

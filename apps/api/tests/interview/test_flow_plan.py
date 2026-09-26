@@ -419,3 +419,17 @@ def test_generate_plan_skipped_when_fallback_stored_midflight(db, monkeypatch):
     # The late LLM plan did not replace the already-stored fallback.
     assert stored.source == "fallback"
     assert len(stored.steps) == len(fallback.steps)
+
+
+def test_step_message_reports_position_and_sovereignty(db):
+    session = InterviewSession(role="r", level="l", company="c")
+    db.add(session)
+    db.commit()
+    agent = InterviewSessionState(session, FakeLLMClient())
+    agent.phases = list(agent.workflow.phases)
+    agent.current_phase_idx = 1
+    agent.questions_in_phase = 2
+    line = agent.step_message()
+    assert f"Step 2 of {len(agent.phases)}" in line
+    assert "question 3" in line
+    assert "You own the pacing" in line

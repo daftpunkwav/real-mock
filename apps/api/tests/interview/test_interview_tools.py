@@ -67,33 +67,15 @@ def test_working_memory_renders_company_findings():
     assert "lookup_resume_projects" in rendered
 
 
-# ---- tool result compression cap ----
+# ---- tool result cap: deterministic marked excerpt ----
 
 
-def test_cap_result_short_circuit_and_no_llm_excerpt() -> None:
+def test_cap_result_passthrough_and_excerpt() -> None:
     blob = "x" * (interview_tools.MAX_TOOL_RESULT_CHARS + 100)
-
-    async def _no_llm() -> None:
-        out = await interview_tools._cap_result("short", None)
-        assert out == "short"
-        excerpt = await interview_tools._cap_result(blob, None)
-        assert "NO_LLM_EXCERPT" in excerpt
-        assert len(excerpt) < len(blob)
-
-    asyncio.run(_no_llm())
-
-
-def test_cap_result_timeout_falls_back_to_excerpt(monkeypatch) -> None:
-    class SlowLLM:
-        async def chat(self, *args, **kwargs):
-            await asyncio.sleep(1.0)
-
-    monkeypatch.setattr(interview_tools, "_RESULT_COMPRESS_TIMEOUT_SEC", 0.05)
-    blob = "y" * (interview_tools.MAX_TOOL_RESULT_CHARS + 100)
-
-    async def _run() -> None:
-        out = await interview_tools._cap_result(blob, SlowLLM())
-        assert "NO_LLM_EXCERPT" in out
-        assert len(out) < len(blob)
-
-    asyncio.run(_run())
+    assert interview_tools._cap_result("short") == "short"
+    out = interview_tools._cap_result(blob)
+    assert "middle omitted" in out
+    assert len(out) < len(blob)
+    # Head and tail are preserved: args sit at the front, verdicts at the end.
+    assert out.startswith("x")
+    assert out.endswith("x")

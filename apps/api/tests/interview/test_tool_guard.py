@@ -38,18 +38,35 @@ def test_success_returns_observation_without_streak():
     assert GUARD_STATE_KEY not in state
 
 
-def test_timeout_retries_once_then_succeeds():
+def test_timeout_fails_fast_without_auto_retry():
+    """Live interview policy: a hung tool is cut once, never auto-retried."""
     calls = {"n": 0}
 
-    async def flaky() -> str:
+    async def hang() -> str:
         calls["n"] += 1
-        if calls["n"] == 1:
-            await asyncio.sleep(60)
+        await asyncio.sleep(60)
+
+    guard = ToolGuard(state_fn=lambda: {}, timeout_sec=0.05)
+    with pytest.raises(ToolGuardError, match="timed out"):
+        asyncio.run(guard.run("lookup_company_profile", {}, hang))
+    assert calls["n"] == 1
+
+
+def test_per_call_timeout_override_extends_budget():
+    calls = {"n": 0}
+
+    async def slow() -> str:
+        calls["n"] += 1
+        await asyncio.sleep(0.12)
         return "recovered"
 
     guard = ToolGuard(state_fn=lambda: {}, timeout_sec=0.05)
-    assert asyncio.run(guard.run("lookup_company_profile", {}, flaky)) == "recovered"
-    assert calls["n"] == 2
+    # Default budget cuts it; the model-requested override lets it finish.
+    with pytest.raises(ToolGuardError):
+        asyncio.run(guard.run("web_fetch", {}, slow))
+    assert asyncio.run(guard.run("web_fetch", {}, slow, timeout_sec=2.0)) == "recovered"
+    # Overrides clamp to a sane floor.
+    assert asyncio.run(guard.run("web_fetch", {}, slow, timeout_sec=0.0)) == "recovered"
 
 
 def test_timeout_exhausted_raises_with_guidance_and_streak():

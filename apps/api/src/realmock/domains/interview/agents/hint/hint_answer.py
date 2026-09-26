@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.agents.agent_policies import HINT_LOOP
 from realmock.domains.interview.agents.agent_text import strip_markers, strip_think_blocks
 from realmock.domains.interview.agents.tools import execute_interview_tool
 from realmock.domains.interview.agents.tool_guard import ToolGuard
@@ -41,9 +42,9 @@ logger = logging.getLogger(__name__)
 
 #: Whole-generation wall-clock budget (tool loop + final synthesis). The room
 #: client waits up to ~90s in detailed mode; the remainder is safety margin.
-FULL_HINT_BUDGET_SECONDS = 60.0
+FULL_HINT_BUDGET_SECONDS = HINT_LOOP.budget_seconds
 #: Tool rounds for evidence gathering (bounded: this is assistance, not a turn).
-FULL_HINT_MAX_ROUNDS = 2
+FULL_HINT_MAX_ROUNDS = HINT_LOOP.max_rounds
 
 #: The full hint's grounding (resume/profile/company) is injected verbatim, so
 #: tools are only worth their latency when the question points at external

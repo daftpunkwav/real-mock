@@ -557,3 +557,46 @@ async def test_maybe_retrieve_rag_timeout_returns_none(monkeypatch) -> None:
         "realmock.domains.interview.agents.tool_round_runner._RAG_QUERY_TIMEOUT_SEC", 0.01
     )
     assert await r.maybe_retrieve_rag("query") is None
+
+
+# ---- P2: timeout_seconds override flows from schema args to the guard ----
+
+
+@pytest.mark.asyncio
+async def test_execute_passes_clamped_timeout_override(monkeypatch) -> None:
+    r = _runner()
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.get_settings",
+        lambda: _loop_settings(),
+    )
+    monkeypatch.setattr(r, "collect_chat_tools", lambda **k: [{"type": "function"}])
+    seen: list[float | None] = []
+
+    async def _guard_run(name, args, call, *, timeout_sec=None):
+        seen.append(timeout_sec)
+        return "ok"
+
+    r.guard = SimpleNamespace(run=_guard_run)
+
+    async def fake_loop(llm, messages, *, execute=None, **k):
+        await execute("web_fetch", {"url": "https://x", "timeout_seconds": 999})
+        await execute("web_fetch", {"url": "https://y", "timeout_seconds": "bad"})
+        await execute("web_fetch", {"url": "https://z"})
+        return SimpleNamespace(messages=[], final_content=None)
+
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.run_agent_loop",
+        fake_loop,
+    )
+    await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
+    assert seen == [180.0, None, None]
+
+
+def test_tool_definitions_carry_timeout_override() -> None:
+    from realmock.domains.interview.agents.tools import get_interview_tool_definitions
+
+    tools = get_interview_tool_definitions(include_past_records=True)
+    assert tools
+    for tool in tools:
+        props = tool["function"]["parameters"]["properties"]
+        assert "timeout_seconds" in props

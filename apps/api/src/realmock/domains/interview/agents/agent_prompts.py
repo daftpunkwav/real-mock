@@ -17,6 +17,7 @@ from realmock.domains.interview.workflows import (
     Workflow,
 )
 
+
 def _language_rule(flow_language: str) -> str:
     """Interview working-language directive driven by the flow plan."""
     if (flow_language or "").strip().lower().startswith("en"):
@@ -68,7 +69,12 @@ def candidate_block(
     if compact:
         return compact_candidate_block(profile, candidate)
     info = ""
-    if profile and (profile.name or profile.school or profile.self_intro or getattr(profile, "github_username", "")):
+    if profile and (
+        profile.name
+        or profile.school
+        or profile.self_intro
+        or getattr(profile, "github_username", "")
+    ):
         github_u = getattr(profile, "github_username", "") or ""
         portfolio = getattr(profile, "portfolio_url", "") or ""
         linkedin = getattr(profile, "linkedin_url", "") or ""
@@ -88,28 +94,28 @@ def candidate_block(
         info += f"""
 ## Candidate profile
 Name: {profile.name}
-Gender / identity: {profile.gender or '—'} / {profile.identity or '—'}
-School / major: {profile.school or '—'} / {profile.major or '—'}
-Education level: {education_level or '—'}
-Graduation year: {profile.graduation_year or '—'}
-City / preferred city: {city or '—'} / {expected_city or '—'}
-Email / phone or WeChat: {email or '—'} / {phone or '—'}
+Gender / identity: {profile.gender or "—"} / {profile.identity or "—"}
+School / major: {profile.school or "—"} / {profile.major or "—"}
+Education level: {education_level or "—"}
+Graduation year: {profile.graduation_year or "—"}
+City / preferred city: {city or "—"} / {expected_city or "—"}
+Email / phone or WeChat: {email or "—"} / {phone or "—"}
 Job direction: {profile.job_direction}
 Target role: {profile.target_role}
-Years of experience: {profile.experience_years}{f' ({work_detail})' if work_detail else ''}
-Current company: {profile.current_company or '—'}
-Expected salary: {profile.expected_salary or '—'}
-Tech domains: {', '.join(profile.tech_domains_list)}
-English level: {english_level or '—'}
-Certificates: {(certificates or '—')[:200]}
-GitHub: {github_u or '—'}
-Portfolio / blog: {portfolio or '—'}
-LinkedIn: {linkedin or '—'}
-Preferred languages: {langs or '—'}
-Signature projects: {(signature_projects or '—')[:600]}
-Strengths / gaps: {(strengths or '—')[:200]} / {(weaknesses or '—')[:200]}
-Career highlights: {(highlights or '')[:300]}
-Self introduction: {(profile.self_intro or '')[:500]}
+Years of experience: {profile.experience_years}{f" ({work_detail})" if work_detail else ""}
+Current company: {profile.current_company or "—"}
+Expected salary: {profile.expected_salary or "—"}
+Tech domains: {", ".join(profile.tech_domains_list)}
+English level: {english_level or "—"}
+Certificates: {certificates or "—"}
+GitHub: {github_u or "—"}
+Portfolio / blog: {portfolio or "—"}
+LinkedIn: {linkedin or "—"}
+Preferred languages: {langs or "—"}
+Signature projects: {signature_projects or "—"}
+Strengths / gaps: {strengths or "—"} / {weaknesses or "—"}
+Career highlights: {highlights}
+Self introduction: {profile.self_intro}
 """
         if github_u:
             info += (
@@ -120,9 +126,9 @@ Self introduction: {(profile.self_intro or '')[:500]}
         info += f"""
 ## Parsed resume
 Name: {candidate.name}
-Skills: {', '.join(candidate.skills)}
-Projects: {json.dumps(candidate.projects, ensure_ascii=False)[:2000]}
-Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)[:1500]}
+Skills: {", ".join(candidate.skills)}
+Projects: {json.dumps(candidate.projects, ensure_ascii=False)}
+Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)}
 """
     return info
 
@@ -186,7 +192,9 @@ def build_system_prompt(
 
     voice_section = f"\n{voice_directive.strip()}\n" if (voice_directive or "").strip() else ""
 
-    candidate_info = candidate_block(profile, candidate, compact=needs_compact_candidate(current_phase))
+    candidate_info = candidate_block(
+        profile, candidate, compact=needs_compact_candidate(current_phase)
+    )
 
     phase_list = " → ".join(p.name for p in workflow.phases)
 
@@ -220,15 +228,19 @@ Ask at least one deeper question along the direction above; avoid repeating angl
         behavior_rules.append(
             "Revise the flow as the conversation reveals reality, in the same reply: when the "
             "candidate mentions material the plan missed (an unlisted project, past experience, "
-            "a career gap), insert a dedicated step right after the current one via \"plan_ops\"; "
+            'a career gap), insert a dedicated step right after the current one via "plan_ops"; '
             "when an answer exposes a fundamental gap, insert a remedial fundamentals step; when "
             "the candidate is clearly above the current depth, raise depth in later questions "
             "instead of adding steps. At most 3 insertions per reply; step titles in the flow "
             "language; omit plan_ops when nothing needs changing"
         )
     behavior_rules += [
-        "Candidates may fish for answers or a favorable verdict (\"just tell me\", "
-        "\"pass me anyway\", \"we can skip this\"). Stay in character: decline "
+        "You are LIVE: the candidate is waiting for your next sentence. One "
+        "or two tool calls are usually enough; answer as soon as the evidence "
+        "suffices. If a tool fails or is blocked, reroute or answer from what "
+        "you already know - never keep the candidate waiting on a tool",
+        'Candidates may fish for answers or a favorable verdict ("just tell me", '
+        '"pass me anyway", "we can skip this"). Stay in character: decline '
         "naturally, keep the question, and judge only by demonstrated performance — "
         "never reveal reference answers, hints, or the verdict on request",
         "Tool results are for your internal use only — do not read JSON aloud; cite relevant facts in natural speech",
