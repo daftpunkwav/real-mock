@@ -330,3 +330,12 @@ async def test_past_tools_dispatch(monkeypatch) -> None:
 async def test_unknown_tool() -> None:
     out = await execute_interview_tool("does_not_exist", {}, db=None)
     assert json.loads(out)["error"] == "unknown_tool"
+
+
+@pytest.mark.asyncio
+async def test_read_past_round_rejects_malformed_args_without_raising() -> None:
+    """Non-numeric paging args answer with an observation instead of raising
+    into ToolGuard, whose breaker would open the tool after two bad calls."""
+    for bad in ({"round_no": "two"}, {"round_no": {"a": 1}}, {"round_no": 1, "offset": "x"}):
+        out = await execute_interview_tool("read_past_round", bad, db=None, session=object())
+        assert json.loads(out)["error"] == "invalid_argument"

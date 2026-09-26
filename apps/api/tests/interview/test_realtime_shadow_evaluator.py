@@ -60,3 +60,24 @@ async def test_shadow_evaluator_gaps():
     ag6 = ShadowEvaluatorAgent(llm6, CognitiveMemoryGraph())
     assert (await ag6.evaluate_turn(question="q", user_text="a", current_phase="tech", turn_index=1)).substance_score == 5
 
+
+@pytest.mark.asyncio
+async def test_shadow_string_list_fields_stay_whole():
+    """A bare string in a list-typed field must not explode into characters."""
+    from realmock.domains.interview.agents.memory import CognitiveMemoryGraph
+
+    llm = MagicMock(api_key="sk")
+    llm.chat_json = AsyncMock(
+        return_value={
+            "substance_score": 4,
+            "inconsistencies": "said Go, resume says Python",
+            "technical_holes": 42,
+            "assessed_topic": "Go",
+        }
+    )
+    ev = await ShadowEvaluatorAgent(llm, CognitiveMemoryGraph()).evaluate_turn(
+        question="q", user_text="ans", current_phase="tech", turn_index=1
+    )
+    assert ev.inconsistencies == ["said Go, resume says Python"]
+    assert ev.technical_holes == []
+

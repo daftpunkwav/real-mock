@@ -57,3 +57,20 @@ def test_write_back_preserves_corrupt_backup():
 def test_render_ignores_backup_key():
     doc = load_memory("{broken")
     assert render_for_prompt(doc) == ""
+
+
+def test_load_memory_drops_non_dict_round_entries():
+    """A shape-drifted rounds list must not crash append_round and freeze
+    the process memory write-back from that round on."""
+    raw = json.dumps({"schema": "realmock.process_memory.v1", "rounds": ["junk", 7]})
+    doc = load_memory(raw)
+    assert doc["rounds"] == []
+    append_round(
+        doc,
+        round_no=1,
+        session_id=5,
+        result="passed",
+        digest={"summary": "ok"},
+    )
+    reloaded = json.loads(dump_memory(doc))
+    assert [r["round_no"] for r in reloaded["rounds"]] == [1]

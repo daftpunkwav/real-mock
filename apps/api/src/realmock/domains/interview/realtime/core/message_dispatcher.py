@@ -295,7 +295,8 @@ class MessageDispatcherMixin:
 
     async def _on_coding_code_update(self, data: dict[str, Any]) -> None:
         try:
-            code = str(data.get("code", ""))
+            # ``or ""`` so a null value degrades to empty, not the literal "None".
+            code = str(data.get("code") or "")
             if len(code) > _CODING_CODE_MAX_CHARS:
                 # Keep the last good mirror instead of caching a pathological
                 # payload in working memory.
@@ -316,8 +317,11 @@ class MessageDispatcherMixin:
 
     async def _on_coding_run_request(self, data: dict[str, Any]) -> None:
         try:
-            code = str(data.get("code", ""))
-            raw_output = str(data.get("test_output", "Tests run locally in browser sandbox."))
+            # ``or``-defaults: a null frame value must not become str(None)="None".
+            code = str(data.get("code") or "")
+            raw_output = str(
+                data.get("test_output") or "Tests run locally in browser sandbox."
+            )
             if len(code) > _CODING_CODE_MAX_CHARS or len(raw_output) > _CODING_CODE_MAX_CHARS:
                 await self.send(
                     "error",
@@ -350,8 +354,9 @@ class MessageDispatcherMixin:
         was retired — no model call, no verdict, just honest sandbox output.
         """
         try:
-            code = str(data.get("code", ""))
-            test_output = str(data.get("test_output", ""))
+            # ``or ""``: a null frame value must not become str(None)="None".
+            code = str(data.get("code") or "")
+            test_output = str(data.get("test_output") or "")
             if len(code) > _CODING_CODE_MAX_CHARS or len(test_output) > _CODING_CODE_MAX_CHARS:
                 await self.send(
                     "error",

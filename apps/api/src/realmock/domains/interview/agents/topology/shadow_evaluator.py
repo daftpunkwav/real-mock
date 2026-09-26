@@ -57,6 +57,19 @@ def _clip(text: str, limit: int) -> str:
     return str(text or "").strip()[:limit]
 
 
+def _string_list(value: object) -> list[str]:
+    """Coerce a model-emitted field into a string list.
+
+    A bare string stays one entry: iterating it directly would explode it
+    into per-character findings that then leak into rechecks and the graph.
+    """
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if not isinstance(value, list):
+        return []
+    return [str(x) for x in value if isinstance(x, (str, int, float))]
+
+
 class ShadowEvaluatorAgent:
     """Background evaluation agent that operates alongside the Lead Interviewer."""
 
@@ -214,12 +227,8 @@ class ShadowEvaluatorAgent:
         return ShadowEvaluation(
             substance_score=substance_score,
             is_consistent=bool(raw.get("is_consistent", True)),
-            inconsistencies=[
-                str(x) for x in raw.get("inconsistencies", []) if isinstance(x, (str, int, float))
-            ],
-            technical_holes=[
-                str(x) for x in raw.get("technical_holes", []) if isinstance(x, (str, int, float))
-            ],
+            inconsistencies=_string_list(raw.get("inconsistencies")),
+            technical_holes=_string_list(raw.get("technical_holes")),
             suggested_probe=str(raw.get("suggested_probe", "")).strip(),
             assessed_topic=str(raw.get("assessed_topic", "")).strip(),
             topic_status=str(raw.get("topic_status", "untested")).lower(),

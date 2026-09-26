@@ -280,3 +280,24 @@ async def test_coding_overlong_payloads_guarded():
     finally:
         await h._cancel_bg_tasks()
 
+
+@pytest.mark.asyncio
+async def test_coding_null_values_degrade_to_empty_not_none():
+    """A null frame value must mirror "", not str(None)="None"."""
+    h = _make_handler()
+    h.ctx.runner = MagicMock()
+    try:
+        await h._on_coding_code_update({"code": None})
+        wm = h.ctx.runner.agent.cognitive_memory.working_memory
+        assert wm.candidate_code == ""
+        with patch(
+            "realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases"
+        ) as m:
+            m.return_value.to_dict.return_value = {"passed": False}
+            await h._on_coding_submit_request({"code": "c", "test_output": None})
+            assert m.call_args.kwargs["raw_output"] == ""
+        await h._on_coding_run_request({"code": "c", "test_output": None})
+        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
+    finally:
+        await h._cancel_bg_tasks()
+

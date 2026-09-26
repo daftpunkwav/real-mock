@@ -352,12 +352,18 @@ async def execute_interview_tool(
                 db, session, str(arguments.get("query") or "")
             )
         else:
-            raw = past_records.read_past_round(
-                db,
-                session,
-                int(arguments.get("round_no") or 0),
-                int(arguments.get("offset") or 0),
-            )
+            # Malformed paging args are a model mistake, not a broken tool:
+            # answer with an observation instead of raising into ToolGuard,
+            # whose breaker would otherwise open the tool after two bad calls.
+            try:
+                round_no = int(arguments.get("round_no") or 0)
+                offset = int(arguments.get("offset") or 0)
+            except (TypeError, ValueError):
+                return json.dumps(
+                    {"error": "invalid_argument", "field": "round_no/offset (integer)"},
+                    ensure_ascii=False,
+                )
+            raw = past_records.read_past_round(db, session, round_no, offset)
         return _cap_result(raw)
 
     return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)

@@ -67,6 +67,10 @@ def load_memory(raw: str | None) -> dict[str, Any]:
     data.setdefault("schema", MEMORY_SCHEMA)
     if not isinstance(data.get("rounds"), list):
         data["rounds"] = []
+    else:
+        # Drop non-dict entries: a shape-drifted list would crash append_round
+        # (r.get) and silently freeze the process memory from that round on.
+        data["rounds"] = [r for r in data["rounds"] if isinstance(r, dict)]
     data.setdefault("final", None)
     return data
 
