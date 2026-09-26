@@ -370,7 +370,7 @@ class InterviewSessionState(SessionPromptMixin):
                 "1. Answer from the company material above; if uncovered, honestly say "
                 "\"I don't have exact information on that\"\n"
                 "2. Be professional and grounded; avoid empty slogans\n"
-                "3. You may still use web_search_interview_exp for public info\n"
+                "3. You may still use web_search for public info\n"
                 "4. Do not use emoji in replies"
             )
         message = (

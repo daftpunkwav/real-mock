@@ -267,8 +267,8 @@ You may use these tools to gather real information, then ask evidence-based ques
 - github_*: verify the candidate's GitHub user / repos / README / commits / PRs / files / language stats
 - lookup_company_profile: look up the target company's interview style
 - lookup_resume_projects: extract projects and skills from the bound resume
-- web_search_interview_exp: supplement public interview experience (use sparingly)
-- web_fetch: read the full text of one web_search_interview_exp hit — verify a claim against the page before citing it
+- web_search: supplement public interview experience (use sparingly)
+- web_fetch: read the full text of one web_search hit — verify a claim against the page before citing it
 
 {when_candidate_mentions}
 

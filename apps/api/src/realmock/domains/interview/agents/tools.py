@@ -94,7 +94,7 @@ _LOCAL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "web_search_interview_exp",
+            "name": "web_search",
             "description": "Search public interview tips / tech material (DuckDuckGo). Use only when you need timely info.",
             "parameters": {
                 "type": "object",
@@ -110,7 +110,7 @@ _LOCAL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "web_fetch",
             "description": (
-                "Fetch ONE public web page found via web_search_interview_exp and "
+                "Fetch ONE public web page found via web_search and "
                 "read its actual content. Use it to verify a claim or quote a "
                 "source accurately; do not guess page contents without fetching."
             ),
@@ -354,7 +354,7 @@ async def execute_interview_tool(
         raw = await execute_web_fetch(arguments or {})
         return await _cap_result(raw, llm)
 
-    if name == "web_search_interview_exp":
+    if name == "web_search":
         query = str(arguments.get("query") or "")
         if not query:
             return json.dumps({"error": "empty_query"}, ensure_ascii=False)

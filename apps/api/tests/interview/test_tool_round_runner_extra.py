@@ -497,7 +497,7 @@ async def test_run_tool_rounds_dedup_allows_retry_after_failure(monkeypatch) -> 
     async def fake_loop(llm, messages, *, execute=None, **k):
         for args in ({"query": "q"}, {"query": "q"}):
             try:
-                observations.append(await execute("web_search_interview_exp", args))
+                observations.append(await execute("web_search", args))
             except RuntimeError as exc:
                 observations.append(f"raised:{exc}")
         return SimpleNamespace(messages=[], final_content=None)

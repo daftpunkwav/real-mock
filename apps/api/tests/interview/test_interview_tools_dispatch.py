@@ -26,7 +26,7 @@ def test_tool_definitions_include_local_and_github() -> None:
     names = {(t.get("function") or {}).get("name") for t in tools}
     assert "lookup_company_profile" in names
     assert "lookup_resume_projects" in names
-    assert "web_search_interview_exp" in names
+    assert "web_search" in names
     assert "web_fetch" in names
     assert "issue_coding_challenge" in names
     assert "inspect_candidate_code" in names
@@ -258,7 +258,7 @@ async def test_lookup_resume_projects_filters_focus(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_web_search_empty_query() -> None:
-    out = await execute_interview_tool("web_search_interview_exp", {"query": ""}, db=None)
+    out = await execute_interview_tool("web_search", {"query": ""}, db=None)
     assert json.loads(out)["error"] == "empty_query"
 
 
@@ -269,7 +269,7 @@ async def test_web_search_success(monkeypatch) -> None:
 
     monkeypatch.setattr(tmod, "execute_web_search", fake_search)
     out = await execute_interview_tool(
-        "web_search_interview_exp", {"query": "bytedance interview"}, db=None
+        "web_search", {"query": "bytedance interview"}, db=None
     )
     assert "hits for x" in out
 
@@ -280,7 +280,7 @@ async def test_web_search_failure_turns_observation(monkeypatch) -> None:
         raise RuntimeError("net down")
 
     monkeypatch.setattr(tmod, "execute_web_search", boom)
-    out = await execute_interview_tool("web_search_interview_exp", {"query": "q"}, db=None)
+    out = await execute_interview_tool("web_search", {"query": "q"}, db=None)
     data = json.loads(out)
     assert data["error"] == "search_failed"
     assert "net down" in data["message"]

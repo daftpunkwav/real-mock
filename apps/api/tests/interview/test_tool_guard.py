@@ -74,16 +74,16 @@ def test_breaker_opens_after_streak_and_half_opens_on_ttl():
 
     for _ in range(3):
         with pytest.raises(ToolGuardError):
-            asyncio.run(guard.run("web_search_interview_exp", {}, boom))
+            asyncio.run(guard.run("web_search", {}, boom))
     assert calls["n"] == 3  # exceptions never retry
     # 4th call refused without executing.
     with pytest.raises(ToolGuardError, match="blocked for a while"):
-        asyncio.run(guard.run("web_search_interview_exp", {}, boom))
+        asyncio.run(guard.run("web_search", {}, boom))
     assert calls["n"] == 3
     # TTL expiry allows a half-open trial.
-    state[GUARD_STATE_KEY]["web_search_interview_exp"]["opened_at"] = time.time() - 601.0
+    state[GUARD_STATE_KEY]["web_search"]["opened_at"] = time.time() - 601.0
     with pytest.raises(ToolGuardError):
-        asyncio.run(guard.run("web_search_interview_exp", {}, boom))
+        asyncio.run(guard.run("web_search", {}, boom))
     assert calls["n"] == 4
 
 
@@ -125,12 +125,12 @@ def test_concurrent_failures_count_every_increment():
             raise RuntimeError("dead endpoint")
 
         await asyncio.gather(
-            *(guard.run("web_search_interview_exp", {}, boom) for _ in range(3)),
+            *(guard.run("web_search", {}, boom) for _ in range(3)),
             return_exceptions=True,
         )
 
     asyncio.run(run_parallel())
-    assert state[GUARD_STATE_KEY]["web_search_interview_exp"]["streak"] == 3
+    assert state[GUARD_STATE_KEY]["web_search"]["streak"] == 3
 
 
 def test_circuit_open_refusal_carries_error_kind():
