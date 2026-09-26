@@ -30,6 +30,7 @@ from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapsho
 from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot
 from realmock.platform.capabilities.integrations.github.tools import execute_github_tool
 from realmock.platform.catalogs.company import get_company_context
+from realmock.platform.core.security import redact_api_key
 from realmock.platform.database import api_db_session
 from realmock.platform.services.candidate_read import (
     get_default_user_profile,
@@ -336,9 +337,12 @@ async def execute_interview_tool(
             data = json.loads(raw)
             text = str(data.get("text") or raw)
         except Exception as e:
-            logger.warning("web_search failed: %s", e)
+            # Redact before exposing: exception text may carry credentials or
+            # token-bearing URLs (platform convention, mirrors prep tool_exec).
+            safe_detail = redact_api_key(str(e))[:200]
+            logger.warning("web_search failed: %s", safe_detail)
             return json.dumps(
-                {"error": "search_failed", "message": str(e)[:200]}, ensure_ascii=False
+                {"error": "search_failed", "message": safe_detail}, ensure_ascii=False
             )
         return _cap_result(text)
 
