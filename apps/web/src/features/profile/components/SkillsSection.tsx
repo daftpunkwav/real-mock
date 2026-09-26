@@ -104,6 +104,9 @@ export function SkillsSection({
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* Index keys: add seeds an empty tag and duplicate strings are
+                legal, so value keys would collide; controlled inputs keep
+                edits and removals on the right row regardless. */}
             {profile.tech_domains.map((d, i) => (
               <div
                 key={i}
