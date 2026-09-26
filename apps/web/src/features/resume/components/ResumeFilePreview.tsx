@@ -56,8 +56,8 @@ export function ResumeFilePreview() {
     let cancelled = false;
     resumeHttp
       .resumeFileText(id)
-      .then((t) => {
-        if (!cancelled) setText(t);
+      .then((body) => {
+        if (!cancelled) setText(body);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
