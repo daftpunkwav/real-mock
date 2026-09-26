@@ -8,7 +8,7 @@
  * stoppable from the session list.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "@/i18n";
 import { getTranslator } from "@/i18n/resolve";
 import type { PrepSessionSummary } from "@/lib/api/contract";
@@ -282,6 +282,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   // deltas/totals off-view; apply them once when the session is viewed.
   // Server totals win; deltas only cover turns without a done envelope.
   const viewedId = session.prepSessionId;
+  const reloadMessages = session.reloadMessages;
   useEffect(() => {
     if (viewedId === null) return;
     const pending = consumeBackgroundUsage(viewedId);
@@ -335,6 +336,49 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   const cancelSlashClear = useCallback(() => {
     setSlashClearOpen(false);
   }, []);
+
+  // Stable action objects: memoized chat bubbles compare props shallowly, so
+  // rebuilt-per-render handlers would re-render every message on each token.
+  const messageActions = useMemo(
+    () => ({
+      onExport: actions.handleExport,
+      onFork: actions.handleFork,
+      onRegenerate: actions.handleRegenerate,
+      onRate: actions.openRate,
+      onRetract: actions.handleRetract,
+    }),
+    [
+      actions.handleExport,
+      actions.handleFork,
+      actions.handleRegenerate,
+      actions.openRate,
+      actions.handleRetract,
+    ],
+  );
+
+  const compactionActions = useMemo(
+    () => ({
+      onForkFromPoint: actions.handleCompactionFork,
+      onOpenBackup: actions.handleCompactionOpen,
+      onSaveEdit: saveSummaryEdit,
+      onReload: () => {
+        if (viewedId !== null) void reloadMessages(viewedId);
+      },
+      onRegenerate: () => {
+        if (viewedId === null) return;
+        const settings = resolveCompactParams();
+        void runCompact(viewedId, { ...settings, backup: false });
+      },
+    }),
+    [
+      actions.handleCompactionFork,
+      actions.handleCompactionOpen,
+      saveSummaryEdit,
+      viewedId,
+      reloadMessages,
+      runCompact,
+    ],
+  );
 
   return {
     messages,
@@ -396,28 +440,8 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     deleteSession: manage.deleteSession,
     archiveSession: manage.archiveSession,
     clearSession: manage.clearSession,
-    messageActions: {
-      onExport: actions.handleExport,
-      onFork: actions.handleFork,
-      onRegenerate: actions.handleRegenerate,
-      onRate: actions.openRate,
-      onRetract: actions.handleRetract,
-    },
-    compactionActions: {
-      onForkFromPoint: actions.handleCompactionFork,
-      onOpenBackup: actions.handleCompactionOpen,
-      onSaveEdit: saveSummaryEdit,
-      onReload: () => {
-        const id = session.prepSessionId;
-        if (id !== null) void session.reloadMessages(id);
-      },
-      onRegenerate: () => {
-        const id = session.prepSessionId;
-        if (id === null) return;
-        const settings = resolveCompactParams();
-        void runCompact(id, { ...settings, backup: false });
-      },
-    },
+    messageActions,
+    compactionActions,
     archiveGroups,
     rateTarget: actions.rateTarget,
     rateBusy: actions.rateBusy,

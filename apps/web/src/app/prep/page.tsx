@@ -95,6 +95,24 @@ export default function PrepPage() {
     [resumes, resumeId],
   );
 
+  // Per-group archived assistant actions, built once per archive change so the
+  // memoized bubbles skip re-renders while a live stream updates messages.
+  const archiveAssistantActions = useMemo(
+    () =>
+      archiveGroups.map((g) => ({
+        onExport: messageActions.onExport,
+        ...(g.backupSessionId !== null && !g.staleBackup
+          ? {
+              onFork: (target: PrepChatMessage) => {
+                if (target.backendIndex === undefined) return;
+                compactionActions.onForkFromPoint(g.backupSessionId as number, target.backendIndex);
+              },
+            }
+          : {}),
+      })),
+    [archiveGroups, messageActions, compactionActions],
+  );
+
   return (
     <div className="page-shell flex h-full min-h-0 flex-col overflow-hidden !pb-4 anim-rise">
       <div className="page-header !mb-4 shrink-0">
@@ -157,35 +175,37 @@ export default function PrepPage() {
                   className="surface-card h-full overflow-y-auto p-4 [scrollbar-gutter:stable]"
                 >
                   <div ref={contentRef} className="space-y-3.5">
-                    {archiveGroups.map((g) =>
+                    {archiveGroups.map((g, gi) =>
                       g.messages.map((m) => {
                         // Archived turns stay fully interactive for copy/fork:
                         // fork targets the backup session holding the verbatim
                         // originals. Stale groups (backup retired) keep copy.
-                        const forkable =
-                          g.backupSessionId !== null && !g.staleBackup
-                            ? {
-                                onFork: (target: PrepChatMessage) =>
-                                  target.backendIndex !== undefined &&
-                                  compactionActions.onForkFromPoint(
-                                    g.backupSessionId as number,
-                                    target.backendIndex,
-                                  ),
-                              }
-                            : {};
                         if (m.role === "assistant") {
                           return (
                             <AssistantBubble
                               key={m.id}
                               msg={m}
-                              actions={{
-                                onExport: (target) => messageActions.onExport(target),
-                                ...forkable,
-                              }}
+                              actions={
+                                archiveAssistantActions[gi] ?? {
+                                  onExport: (target: PrepChatMessage) =>
+                                    messageActions.onExport(target),
+                                }
+                              }
                             />
                           );
                         }
                         if (m.role === "user") {
+                          const forkable =
+                            g.backupSessionId !== null && !g.staleBackup
+                              ? {
+                                  onFork: (target: PrepChatMessage) =>
+                                    target.backendIndex !== undefined &&
+                                    compactionActions.onForkFromPoint(
+                                      g.backupSessionId as number,
+                                      target.backendIndex,
+                                    ),
+                                }
+                              : {};
                           return <UserBubble key={m.id} msg={m} actions={{ ...forkable }} />;
                         }
                         return null;
