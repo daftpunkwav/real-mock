@@ -10,6 +10,7 @@ Execution results are written to agent_state.github_findings / tool_trace for st
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Any, cast
@@ -46,6 +47,13 @@ if TYPE_CHECKING:
 
 MAX_TOOL_ROUNDS = 3
 MAX_TOOL_RESULT_CHARS = 8_000
+
+#: Cap on the LLM compression of an oversized tool result. It must stay well
+#: below the ToolGuard per-call timeout (30s): the guard would kill the whole
+#: call before :func:`compress_text_blob`'s inner 120s timeout fires, so on
+#: timeout we degrade to the deterministic marked head+tail excerpt instead of
+#: failing the tool (and burning breaker streak) twice.
+_RESULT_COMPRESS_TIMEOUT_SEC = 15.0
 
 # Non-GitHub local / company tools
 _LOCAL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -205,13 +213,32 @@ def get_interview_tool_definitions(
 
 
 async def _cap_result(text: str, llm: Any | None) -> str:
-    return await compress_text_blob(
-        llm,
-        text,
-        soft_chars=MAX_TOOL_RESULT_CHARS,
-        target_chars=MAX_TOOL_RESULT_CHARS,
-        purpose="interview tool result",
-    )
+    try:
+        return await asyncio.wait_for(
+            compress_text_blob(
+                llm,
+                text,
+                soft_chars=MAX_TOOL_RESULT_CHARS,
+                target_chars=MAX_TOOL_RESULT_CHARS,
+                purpose="interview tool result",
+            ),
+            timeout=_RESULT_COMPRESS_TIMEOUT_SEC,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Tool result compression timed out after %.0fs; using head+tail excerpt (%d chars)",
+            _RESULT_COMPRESS_TIMEOUT_SEC,
+            len(text or ""),
+        )
+        # llm=None makes compress_text_blob return the marked head+tail excerpt
+        # synchronously — the tool call still succeeds with explicit truncation.
+        return await compress_text_blob(
+            None,
+            text,
+            soft_chars=MAX_TOOL_RESULT_CHARS,
+            target_chars=MAX_TOOL_RESULT_CHARS,
+            purpose="interview tool result",
+        )
 
 
 def _note_company_finding(
