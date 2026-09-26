@@ -299,3 +299,95 @@ def test_parallel_boundaries_are_serialized_by_lock():
     assert len(agent.messages) == 4  # head + brief + q2 + a2
     assert "Step 1 summary" in agent.messages[1]["content"]
     assert agent.messages[-2] == {"role": "user", "content": "q2"}
+
+
+# ---- queued boundary re-read (index shifts between record and run) ----
+
+
+def test_pending_boundary_follows_earlier_splice_shift():
+    """P1 regression: a boundary recorded while an earlier compaction is still
+    running must be re-read from the queue at run time — the captured indexes
+    go stale the moment the earlier task splices, and a stale slice deletes
+    live dialogue of the wrong step."""
+    import realmock.domains.interview.agents.step_compaction as sc
+
+    msgs = _big_transcript()
+    agent = _FakeAgent(msgs)
+    llm = _FakeLLM([_GOOD, _GOOD])
+    tasks: set[asyncio.Task] = set()
+
+    class _R:
+        pass
+
+    runner = _R()
+    runner.agent = agent
+    runner.llm = llm
+
+    def spawn(coro):
+        t = asyncio.create_task(coro)
+        tasks.add(t)
+        t.add_done_callback(tasks.discard)
+        return t
+
+    runner.spawn_bg_task = spawn
+
+    # Hold task A inside its summarize call until b2 has been recorded, so
+    # b2's task is already queued behind the lock when the splice lands.
+    gate = asyncio.Event()
+    held = {"armed": False}
+
+    async def chat_json(messages, temperature=0.2):
+        if not held["armed"]:
+            held["armed"] = True
+            await gate.wait()
+        return await _FakeLLM.chat_json(llm, messages, temperature=temperature)
+
+    llm.chat_json = chat_json  # type: ignore[method-assign]
+
+    async def run():
+        b1 = record_step_boundary(agent)  # (1, 801)
+        sc.spawn_boundary_compaction(runner, b1)
+        await asyncio.sleep(0.05)  # task A enters its blocked summarize call
+        agent.messages.extend(_big_transcript()[1:])
+        b2 = record_step_boundary(agent)  # (801, 1601)
+        sc.spawn_boundary_compaction(runner, b2)
+        await asyncio.sleep(0.05)  # task B parks on the compaction lock
+        gate.set()
+        while tasks:
+            results = await asyncio.gather(*list(tasks), return_exceptions=True)
+            for r in results:
+                assert not isinstance(r, Exception), r
+            if not tasks:
+                break
+
+    asyncio.run(run())
+    # Both steps became briefs in order; nothing of the live second step was
+    # spliced under a stale (801, 1601) slice.
+    assert len(agent.messages) == 3  # head + brief1 + brief2
+    assert "Step 1 summary" in agent.messages[1]["content"]
+    assert "Step 2 summary" in agent.messages[2]["content"]
+    assert agent.agent_state["steps"]["pending"] == []
+
+
+def test_record_step_boundary_pinned_end_excludes_new_step_entry():
+    """Pinning ``end`` keeps the NEXT step's entry message out of the closed
+    segment (it belongs to the new segment and must stay in live context)."""
+    msgs = [
+        {"role": "system", "content": "head"},
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+    ]
+    agent = _FakeAgent(msgs)
+    agent.messages.append({"role": "system", "content": "Entering new phase: next"})
+    boundary = record_step_boundary(agent, end=3)
+    assert boundary == {"start": 1, "end": 3, "step_no": 1, "phase_id": "old_step"}
+    assert agent.agent_state["steps"]["step_start"] == 3
+    assert agent.messages[-1]["content"] == "Entering new phase: next"
+    # Pinned end beyond the current list clamps; empty segments close nothing.
+    assert record_step_boundary(agent, end=2) is None
+    assert record_step_boundary(agent, end=99) == {
+        "start": 3,
+        "end": 4,
+        "step_no": 2,
+        "phase_id": "old_step",
+    }

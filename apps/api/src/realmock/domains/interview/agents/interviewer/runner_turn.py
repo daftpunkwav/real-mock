@@ -145,6 +145,12 @@ async def stream_turn(
         # Dynamic flow maintenance first: an inserted step right after the
         # current one becomes the next current step when phase_complete follows.
         runner.agent.apply_plan_ops(output.plan_ops)
+        # Snapshot before the advance: a phase advance appends the NEXT step's
+        # entry message, and that message belongs to the new step's segment —
+        # a boundary spanning it would let the compactor splice the new step's
+        # instructions (reverse_qa role switch, summary trajectory) out of the
+        # live context.
+        boundary_end = len(runner.agent.messages)
         phase_changed = runner.agent.advance_phase_if_needed(
             output.say, phase_complete=output.phase_complete
         )
@@ -216,7 +222,7 @@ async def stream_turn(
         # compactor turns its verbatim dialogue into a structured brief.
         boundary = None
         if phase_changed:
-            boundary = runner.agent.mark_step_boundary()
+            boundary = runner.agent.mark_step_boundary(end=boundary_end)
         try:
             runner.spawn_bg_task(_bounded_shadow())
             if boundary is not None:

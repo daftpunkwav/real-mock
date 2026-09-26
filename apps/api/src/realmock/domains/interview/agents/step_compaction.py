@@ -61,17 +61,26 @@ def _steps_state(agent: "InterviewSessionState") -> dict[str, Any]:
     )
 
 
-def record_step_boundary(agent: "InterviewSessionState") -> dict[str, Any] | None:
+def record_step_boundary(
+    agent: "InterviewSessionState", *, end: int | None = None
+) -> dict[str, Any] | None:
     """Close the current step segment; returns the boundary descriptor.
 
     Called by the turn flow right after the state machine advanced a step.
-    ``None`` means there was nothing to close (empty segment).
+    ``end`` pins the segment's exclusive end index for callers that must
+    exclude messages appended after the close (a phase advance appends the
+    NEXT step's entry message, which belongs to the new segment, not this
+    one). ``None`` as ``end`` means "everything appended so far".
+    The return ``None`` means there was nothing to close (empty segment).
     """
     steps = _steps_state(agent)
     # Clamp a stale start (e.g. state written before an external history
     # rewrite) so the boundary can never span past the real list.
     start = min(int(steps.get("step_start", 1)), len(agent.messages))
-    end = len(agent.messages)
+    if end is None:
+        end = len(agent.messages)
+    else:
+        end = min(int(end), len(agent.messages))
     boundary = {
         "start": start,
         "end": end,
@@ -82,6 +91,10 @@ def record_step_boundary(agent: "InterviewSessionState") -> dict[str, Any] | Non
         return None
     steps["step_start"] = end
     steps["step_no"] = int(steps.get("step_no", 1)) + 1
+    # Queue the descriptor: the spawned task re-reads it under the compaction
+    # lock, because an earlier boundary's splice may shift indexes between
+    # record time and run time (the lock serializes runs, not captures).
+    steps.setdefault("pending", []).append(dict(boundary))
     agent.agent_state[_STATE_KEY] = steps
     return boundary
 
@@ -325,6 +338,10 @@ async def compact_step_boundary(
             if int(f.get("start", 0)) >= end:
                 f["start"] = int(f["start"]) - delta
                 f["end"] = int(f["end"]) - delta
+        for p in steps.get("pending", []):
+            if int(p.get("start", 0)) >= end:
+                p["start"] = int(p["start"]) - delta
+                p["end"] = int(p["end"]) - delta
     summaries = [
         s
         for s in agent.agent_state.setdefault(_STATE_KEY, {}).get("summaries", [])
@@ -400,6 +417,24 @@ def _compaction_lock_for(runner: Any) -> asyncio.Lock:
     return lock
 
 
+def _take_pending_boundary(
+    agent: "InterviewSessionState", fallback: dict[str, Any]
+) -> dict[str, Any]:
+    """Pop the oldest queued boundary (FIFO: spawn order == lock order).
+
+    The descriptor captured at record time can be stale — an earlier
+    compaction may have spliced messages in between; the queued copy is
+    shifted together with every other tracked index, so it is the truth.
+    """
+    steps = agent.agent_state.get(_STATE_KEY, {})
+    pending = steps.get("pending")
+    if isinstance(pending, list) and pending:
+        first = pending.pop(0)
+        if isinstance(first, dict):
+            return first
+    return fallback
+
+
 def spawn_boundary_compaction(
     runner: Any,
     boundary: dict[str, Any],
@@ -412,8 +447,11 @@ def spawn_boundary_compaction(
     async def _run() -> None:
         async with lock:
             try:
+                # Re-read under the lock: the queued copy carries any index
+                # shifts that landed while this task waited its turn.
+                current = _take_pending_boundary(agent, boundary)
                 await asyncio.wait_for(
-                    compact_pending_boundaries(agent, boundary, llm=llm),
+                    compact_pending_boundaries(agent, current, llm=llm),
                     timeout=COMPACT.budget_seconds,
                 )
             except asyncio.TimeoutError:
