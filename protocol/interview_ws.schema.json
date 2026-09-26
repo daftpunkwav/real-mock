@@ -21,8 +21,7 @@
     "info",
     "error",
     "coding_challenge_open",
-    "coding_test_result",
-    "coding_eval_report"
+    "coding_test_result"
   ],
   "clientEventTypes": [
     "user_text",
@@ -343,6 +342,12 @@
         "passed": {
           "type": "boolean"
         },
+        "total_cases": {
+          "type": "integer"
+        },
+        "passed_cases": {
+          "type": "integer"
+        },
         "test_results": {
           "type": "array"
         },
@@ -351,16 +356,6 @@
         },
         "stderr": {
           "type": "string"
-        }
-      }
-    },
-    "coding_eval_report": {
-      "required": [
-        "report"
-      ],
-      "properties": {
-        "report": {
-          "type": "object"
         }
       }
     }

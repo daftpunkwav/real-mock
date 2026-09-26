@@ -86,12 +86,21 @@ class SessionPromptMixin:
         )
 
     def get_user_profile(self, db: Session | None = None):
-        """Candidate profile row for prompt grounding (None when absent)."""
+        """Candidate profile row for prompt grounding (None when absent).
+
+        ``db`` is accepted for call-site compatibility and IGNORED: the lookup
+        always runs on its own short-lived session, so the returned row is
+        detached and must not be lazy-loaded afterwards.
+        """
         with api_db_session() as api_db:
             return get_user_profile(api_db, self.session.profile_id)
 
     def get_candidate(self, db: Session | None = None):
-        """Candidate resume payload for prompt grounding (None when absent)."""
+        """Candidate resume payload for prompt grounding (None when absent).
+
+        Same contract as :meth:`get_user_profile`: ``db`` is ignored and the
+        returned row is detached from its short-lived session.
+        """
         with api_db_session() as api_db:
             return get_candidate_profile(api_db, self.session.resume_id)
 

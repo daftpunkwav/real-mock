@@ -126,7 +126,6 @@ class WSServerEvent(StrEnum):
     ERROR = "error"
     CODING_CHALLENGE_OPEN = "coding_challenge_open"
     CODING_TEST_RESULT = "coding_test_result"
-    CODING_EVAL_REPORT = "coding_eval_report"
 
 
 class WSClientEvent(StrEnum):

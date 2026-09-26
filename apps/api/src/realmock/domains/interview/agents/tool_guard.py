@@ -142,13 +142,18 @@ class ToolGuard:
         *,
         timeout_sec: float | None = None,
     ) -> str:
-        """Execute one tool call with timeout, one timeout-retry, and breaker.
+        """Execute one tool call under the time budget and the breaker.
+
+        Attempts are governed by ``self.max_attempts`` (default 1: fail fast,
+        no automatic timeout-retry — see the module docstring); the breaker
+        applies on top.
 
         Args:
             name: tool name (breaker key + log label).
             args: tool arguments (logged on failure, never mutated).
             call: zero-arg factory producing the call coroutine (must be
-                re-invokable: timeouts retry by calling it again).
+                re-invokable when ``max_attempts > 1``: a timeout retries by
+                calling it again).
             timeout_sec: optional per-call override of ``self.timeout_sec``
                 (model-requested ``timeout_seconds``, pre-clamped).
 

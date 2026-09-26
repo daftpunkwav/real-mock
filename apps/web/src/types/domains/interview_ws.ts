@@ -90,13 +90,12 @@ export type ServerEvent =
   | {
       type: "coding_test_result";
       passed: boolean;
+      /** Sandbox case counts (always sent; 0 when no cases were evaluated). */
+      total_cases?: number;
+      passed_cases?: number;
       test_results?: Array<Record<string, unknown>>;
       stdout?: string;
       stderr?: string;
-    }
-  | {
-      type: "coding_eval_report";
-      report: Record<string, unknown>;
     }
   | SSEErrorEvent;
 

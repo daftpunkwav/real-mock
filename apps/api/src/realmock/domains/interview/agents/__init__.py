@@ -3,7 +3,7 @@
 One role per subpackage, shared machinery flat at the package root:
 
 - ``interviewer/`` — lead interviewer (opening / turn / closing streams);
-- ``topology/`` — shadow evaluator, coding examiner, process orchestrator;
+- ``topology/`` — shadow evaluator (per-turn verdict agent);
 - ``hint/`` — reference-answer agent;
 - ``planning/`` — flow-plan and HR round-program planners;
 - ``research/`` — company web research + setup-page brief;
