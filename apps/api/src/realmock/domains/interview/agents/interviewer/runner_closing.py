@@ -44,9 +44,6 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
             personality, CLOSING_BY_PERSONALITY["professional"]
         )
         jump_to_summary_phase(runner.agent, [p.id for p in runner.agent.phases])
-        runner.agent.messages.append(
-            {"role": "system", "content": closing_system_prompt(style_hint)}
-        )
         runner.agent.refresh_system_memory()
 
         context_window = runner.prompter.get_context_window(db)
@@ -59,6 +56,9 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
             api_messages = await compact_with_summary(
                 api_messages, context_window, llm=runner.llm, keep_recent=24
             )
+        # The closing directive rides only as the call-tail system message: it
+        # must not enter persistent history (the session completes right after,
+        # so persisting it would just duplicate it into the LLM call below).
         api_messages = api_messages + [
             {"role": "system", "content": closing_system_prompt(style_hint)},
         ]
