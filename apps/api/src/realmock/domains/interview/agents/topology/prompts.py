@@ -54,27 +54,27 @@ The problem should test algorithmic thinking, data structures, and edge-case han
 Supported languages: python, javascript, typescript.
 
 Return ONLY valid JSON matching this schema:
-{
+{{
   "id": "challenge_slug",
   "title": "Clear Problem Title",
   "description": "Markdown problem description with constraints and examples",
   "language": "python",
   "starter_code": "def solution(...):\\n    pass",
   "test_cases": [
-    {
+    {{
       "input": "arg1, arg2",
       "expected": "expected_result",
       "is_hidden": false,
       "description": "Normal case"
-    },
-    {
+    }},
+    {{
       "input": "edge_arg",
       "expected": "edge_result",
       "is_hidden": true,
       "description": "Edge case (empty / max size)"
-    }
+    }}
   ]
-}
+}}
 """
 
 CODE_EVAL_PROMPT = """You are the Coding Examiner. Evaluate the candidate's code submission for the given problem.
@@ -96,7 +96,7 @@ Analyze:
 3. Code Cleanliness & Edge Cases: Naming, idiomatic style, boundary handling.
 
 Return ONLY valid JSON:
-{
+{{
   "passed": true,
   "score": 8, // 1 to 10
   "time_complexity": "O(n log n)",
@@ -105,7 +105,7 @@ Return ONLY valid JSON:
   "feedback_for_candidate": "Constructive comment to speak back to the candidate",
   "strengths": ["Clean separation", "Handled nulls"],
   "weaknesses": ["Suboptimal nested loop in helper"]
-}
+}}
 """
 
 

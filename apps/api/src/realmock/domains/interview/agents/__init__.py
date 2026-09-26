@@ -44,6 +44,7 @@ from typing import Any
 
 #: Facade name → owning submodule (relative). Resolved by ``__getattr__``.
 _LAZY_EXPORTS: dict[str, str] = {
+    "EVAL_CODE_MAX_CHARS": ".topology.coding_examiner",
     "InterviewRunner": ".interviewer.runner",
     "InterviewSessionState": ".session_state",
     "clear_company_briefs": ".research.company_brief",
@@ -61,6 +62,7 @@ _LAZY_EXPORTS: dict[str, str] = {
 }
 
 __all__ = [
+    "EVAL_CODE_MAX_CHARS",
     "InterviewRunner",
     "InterviewSessionState",
     "clear_company_briefs",

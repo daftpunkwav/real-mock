@@ -313,7 +313,12 @@ class MessageDispatcherMixin:
             cog_mem = getattr(agent, "cognitive_memory", None) if agent else None
             wm = getattr(cog_mem, "working_memory", None) if cog_mem else None
             if wm is not None:
-                wm.candidate_code = code
+                from realmock.domains.interview.agents import EVAL_CODE_MAX_CHARS
+
+                # Same cap as the evaluation path: the mirror is agent-facing
+                # (inspect_candidate_code reads a slice of it), not a full
+                # document store — an oversized mirror bloats every save_state.
+                wm.candidate_code = code[:EVAL_CODE_MAX_CHARS]
         except Exception as exc:
             logger.warning("Failed to update candidate code in working memory: %s", exc)
 

@@ -22,6 +22,15 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
+#: Agent-side caps for one evaluation. The WS transport allows far larger
+#: frames (pathological-client guard), but a 200k-char prompt would blow the
+#: model context — evaluation would fail every time — and the raw text would
+#: bloat ``agent_state`` (serialized on every ``save_state``). Mirrors the
+#: read cap in ``inspect_candidate_code`` (2000/1000).
+EVAL_CODE_MAX_CHARS = 8_000
+EVAL_OUTPUT_MAX_CHARS = 2_000
+
+
 @dataclass
 class CodingTestCase:
     input: str
@@ -63,6 +72,9 @@ class CodeEvaluationReport:
     feedback_for_candidate: str = ""
     strengths: list[str] = field(default_factory=list)
     weaknesses: list[str] = field(default_factory=list)
+    # True only on the internal-failure path: distinguishes "the examiner
+    # could not evaluate" from a genuine failing grade downstream.
+    error: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -156,6 +168,11 @@ class CodingExaminerAgent:
         turn_index: int,
     ) -> CodeEvaluationReport:
         """Evaluate candidate submitted code and log finding to memory."""
+        # Clip before the memory write and the prompt: the WS layer accepts
+        # frames far larger than any model context, and the raw text would
+        # otherwise be serialized into agent_state on every save_state.
+        code = code[:EVAL_CODE_MAX_CHARS]
+        test_output = test_output[:EVAL_OUTPUT_MAX_CHARS]
         self.memory_graph.working_memory.candidate_code = code
         self.memory_graph.working_memory.last_test_output = test_output
 
@@ -221,4 +238,6 @@ class CodingExaminerAgent:
             return report
         except Exception as e:
             logger.warning("Code submission evaluation failed: %s", e)
-            return CodeEvaluationReport(passed=False, score=5, summary="Evaluation error occurred")
+            return CodeEvaluationReport(
+                passed=False, score=5, summary="Evaluation error occurred", error=True
+            )
