@@ -180,3 +180,96 @@ def test_full_hint_falls_back_to_writer_without_loop_content(monkeypatch):
         )
     )
     assert result == "writer answer"
+
+
+# ---- tool-free final round and writer message shaping ----
+
+
+def test_full_hint_enables_tool_free_final_round(monkeypatch):
+    import realmock.domains.interview.agents.hint.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    captured: dict = {}
+
+    async def fake_loop(llm, messages, **kwargs):
+        captured.update(kwargs)
+        return NS(final_content="answer text", tool_used=True, messages=[], thinking="")
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            SimpleNamespace(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
+            "Q?", "", "zh",
+        )
+    )
+    assert result == "answer text"
+    assert captured["final_round_tool_free"] is True
+    assert "tools are no longer available" in captured["wrap_up_hint"]["content"]
+    assert captured["error_context"]["domain"] == "interview"
+
+
+def test_writer_view_folds_tool_evidence_and_strips_tool_fields():
+    import json as _json
+
+    from realmock.domains.interview.agents.hint.hint_answer import _writer_view
+
+    messages = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "c1", "function": {"name": "web_fetch", "arguments": "{}"}}],
+            "thinking_blocks": [{"t": 1}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "PAGE CONTENT"},
+        {"role": "assistant", "content": "narration kept"},
+    ]
+    view = _writer_view(messages)
+    assert all(m.get("role") != "tool" for m in view)
+    assert all("tool_calls" not in m and "thinking_blocks" not in m for m in view)
+    joined = _json.dumps(view, ensure_ascii=False)
+    assert "PAGE CONTENT" in joined
+    assert "[web_fetch]" in joined
+    assert "narration kept" in joined
+
+
+def test_full_hint_writer_receives_sanitized_messages(monkeypatch):
+    import realmock.domains.interview.agents.hint.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    captured: dict = {}
+
+    class WriterLLM:
+        async def chat(self, messages, **kwargs):
+            captured["messages"] = messages
+            return "writer answer"
+
+    async def fake_loop(llm, messages, **kwargs):
+        return NS(
+            final_content=None,
+            tool_used=True,
+            messages=[
+                {"role": "system", "content": "sys"},
+                {"role": "user", "content": "q"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{"id": "c1", "function": {"name": "web_fetch", "arguments": "{}"}}],
+                },
+                {"role": "tool", "tool_call_id": "c1", "content": "COMPANY FACTS"},
+            ],
+            thinking="",
+        )
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            WriterLLM(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
+            "Q?", "", "zh",
+        )
+    )
+    assert result == "writer answer"
+    sent = captured["messages"]
+    assert all("tool_calls" not in m and "thinking_blocks" not in m for m in sent)
+    assert any("COMPANY FACTS" in str(m.get("content")) for m in sent)

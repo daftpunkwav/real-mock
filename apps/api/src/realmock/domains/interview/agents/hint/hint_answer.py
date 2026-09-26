@@ -22,7 +22,11 @@ from realmock.domains.interview.agents.tools import (
 )
 from realmock.domains.interview.agents.tool_guard import ToolGuard
 from realmock.platform.capabilities.ai.agent import run_agent_loop
-from realmock.domains.interview.agents.hint.hint_prompts import HINT_MODEL_ANSWER_WRITER_SYSTEM, hint_coach_system
+from realmock.domains.interview.agents.hint.hint_prompts import (
+    HINT_MODEL_ANSWER_WRITER_SYSTEM,
+    HINT_TOOL_FREE_WRAP_UP,
+    hint_coach_system,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +145,10 @@ async def _generate(
         max_rounds=FULL_HINT_MAX_ROUNDS,
         temperature=0.4,
         on_tool=on_tool,
+        # Protocol-level final answer instead of an ignorable advisory hint.
+        final_round_tool_free=FULL_HINT_MAX_ROUNDS >= 2,
+        wrap_up_hint=HINT_TOOL_FREE_WRAP_UP,
+        error_context={"domain": "interview", "session": getattr(session, "id", None)},
     )
     # The loop's own closing content already IS the evidence-grounded answer —
     # reuse it instead of a second synthesis call (the full hint is on the
@@ -153,10 +161,7 @@ async def _generate(
 
     writer_messages = [
         {"role": "system", "content": HINT_MODEL_ANSWER_WRITER_SYSTEM.format(lang_name=lang_name)},
-        *[
-            m for m in loop.messages
-            if m.get("role") in ("user", "assistant", "tool", "system")
-        ],
+        *_writer_view(loop.messages),
         {
             "role": "user",
             "content": "Write the final model answer now (first person, copy-ready):",
@@ -165,6 +170,46 @@ async def _generate(
     text = await llm.chat(writer_messages, temperature=0.4, max_tokens=800)
     cleaned = strip_markers(strip_think_blocks(text or "")).strip()
     return cleaned or None
+
+
+def _writer_view(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Loop history shaped for a plain ``llm.chat`` call (no tools parameter).
+
+    Assistant ``tool_calls`` / ``thinking_blocks`` fields are stripped and the
+    tool observations are folded into a user message: strict OpenAI-compatible
+    gateways reject tool fields (or orphan tool results) on a request that
+    declares no tools, and the folded evidence is exactly what the writer needs.
+    """
+    names: dict[str, str] = {}
+    for m in messages:
+        for tc in m.get("tool_calls") or []:
+            fn = tc.get("function") or {}
+            if tc.get("id") and fn.get("name"):
+                names[str(tc["id"])] = str(fn["name"])
+
+    view: list[dict[str, Any]] = []
+    evidence: list[str] = []
+    for m in messages:
+        role = m.get("role")
+        if role == "tool":
+            content = str(m.get("content") or "")
+            if content:
+                name = names.get(str(m.get("tool_call_id") or ""), "tool")
+                evidence.append(f"[{name}] {content}")
+            continue
+        if role == "assistant":
+            cleaned = {k: v for k, v in m.items() if k not in ("tool_calls", "thinking_blocks")}
+            if not m.get("tool_calls") or cleaned.get("content"):
+                view.append(cleaned)
+            continue
+        if role in ("user", "system"):
+            view.append(m)
+    if evidence:
+        view.append({
+            "role": "user",
+            "content": "Tool results gathered so far:\n" + "\n\n".join(evidence),
+        })
+    return view
 
 
 __all__ = ["FULL_HINT_BUDGET_SECONDS", "FULL_HINT_MAX_ROUNDS", "generate_full_reference_hint"]

@@ -29,4 +29,15 @@ def hint_coach_system(lang_name: str) -> str:
     )
 
 
-__all__ = ["HINT_MODEL_ANSWER_WRITER_SYSTEM", "hint_coach_system"]
+#: Last-round hint paired with ``final_round_tool_free``: the final request
+#: omits the tools parameter, so the copy must not offer another tool call.
+HINT_TOOL_FREE_WRAP_UP = {
+    "role": "system",
+    "content": (
+        "This is the final round and tools are no longer available. Write the "
+        "complete model answer now from the evidence already gathered."
+    ),
+}
+
+
+__all__ = ["HINT_MODEL_ANSWER_WRITER_SYSTEM", "HINT_TOOL_FREE_WRAP_UP", "hint_coach_system"]
