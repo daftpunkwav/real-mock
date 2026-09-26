@@ -6,6 +6,7 @@
  * - Load the list with AbortSignal (cancel stale loads on retry/unmount)
  * - Poll while any row is still parsing (parse_status="pending") so the UI
  *   converges without a manual refresh; stops when visible or after a budget
+ * - Discard poll snapshots superseded by a manual load (generation guard)
  * - Pick a stable preview id (keep current → active → first)
  * - Expose the selected row and its narrowed analysis
  * - Support silent reloads after mutations (no page-level spinner; keep the list on failure)
@@ -39,6 +40,9 @@ export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => voi
   const [loadError, setLoadError] = useState("");
   const [previewId, setPreviewId] = useState<number | null>(null);
   const loadAbortRef = useRef<AbortController | null>(null);
+  // Bumped by every manual load; a poll tick landing after a bump holds a
+  // stale snapshot and must not overwrite the fresher manual result.
+  const loadGenRef = useRef(0);
   // Guards: only one poll request in flight; poller state readable in timers.
   const pollInFlightRef = useRef(false);
   const pollStartRef = useRef<number>(0);
@@ -51,6 +55,7 @@ export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => voi
     loadAbortRef.current?.abort();
     const controller = new AbortController();
     loadAbortRef.current = controller;
+    loadGenRef.current += 1;
     if (!silent) {
       setLoading(true);
       setLoadError("");
@@ -120,11 +125,16 @@ export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => voi
       }
       pollInFlightRef.current = true;
       try {
+        const gen = loadGenRef.current;
         const list = await api.listResumes();
-        const next = normalizeResumeList(list);
-        setResumes(next);
-        setPreviewId((prev) => pickPreviewId(next, prev));
-        settledRef.current?.(next);
+        if (gen === loadGenRef.current) {
+          const next = normalizeResumeList(list);
+          setResumes(next);
+          setPreviewId((prev) => pickPreviewId(next, prev));
+          settledRef.current?.(next);
+        }
+        // A superseded tick drops its stale snapshot but still falls through
+        // to schedule(): pending rows must keep converging after a manual load.
       } catch {
         // Transient poll failure: keep the current list, the next tick retries.
       } finally {
