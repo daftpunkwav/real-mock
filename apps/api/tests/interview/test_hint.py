@@ -153,8 +153,13 @@ def test_full_hint_reuses_loop_answer_without_writer_call(monkeypatch):
     monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
     result = asyncio.run(
         mod._generate(
-            CountingLLM(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
-            "讲讲限流？", "", "zh",
+            CountingLLM(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "讲讲你 GitHub 仓库里的限流项目？",
+            "",
+            "zh",
         )
     )
     assert result.startswith("I designed the rate limiter")
@@ -170,13 +175,23 @@ def test_full_hint_falls_back_to_writer_without_loop_content(monkeypatch):
             return "writer answer"
 
     async def fake_loop(llm, messages, **kwargs):
-        return NS(final_content=None, tool_used=True, messages=[{"role": "user", "content": "q"}], thinking="")
+        return NS(
+            final_content=None,
+            tool_used=True,
+            messages=[{"role": "user", "content": "q"}],
+            thinking="",
+        )
 
     monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
     result = asyncio.run(
         mod._generate(
-            WriterLLM(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
-            "Q?", "", "zh",
+            WriterLLM(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "github project Q?",
+            "",
+            "zh",
         )
     )
     assert result == "writer answer"
@@ -198,8 +213,13 @@ def test_full_hint_enables_tool_free_final_round(monkeypatch):
     monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
     result = asyncio.run(
         mod._generate(
-            SimpleNamespace(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
-            "Q?", "", "zh",
+            SimpleNamespace(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "github repo Q?",
+            "",
+            "zh",
         )
     )
     assert result == "answer text"
@@ -255,7 +275,9 @@ def test_full_hint_writer_receives_sanitized_messages(monkeypatch):
                 {
                     "role": "assistant",
                     "content": None,
-                    "tool_calls": [{"id": "c1", "function": {"name": "web_fetch", "arguments": "{}"}}],
+                    "tool_calls": [
+                        {"id": "c1", "function": {"name": "web_fetch", "arguments": "{}"}}
+                    ],
                 },
                 {"role": "tool", "tool_call_id": "c1", "content": "COMPANY FACTS"},
             ],
@@ -265,11 +287,82 @@ def test_full_hint_writer_receives_sanitized_messages(monkeypatch):
     monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
     result = asyncio.run(
         mod._generate(
-            WriterLLM(), NS(), NS(id=1, resume_id=None, profile_id=None), {},
-            "Q?", "", "zh",
+            WriterLLM(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "github project Q?",
+            "",
+            "zh",
         )
     )
     assert result == "writer answer"
     sent = captured["messages"]
     assert all("tool_calls" not in m and "thinking_blocks" not in m for m in sent)
     assert any("COMPANY FACTS" in str(m.get("content")) for m in sent)
+
+
+# ---- P1: zero-tool fast path with full grounding ----
+
+
+def test_full_hint_zero_tool_path_uses_single_writer_call(monkeypatch):
+    import realmock.domains.interview.agents.hint.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    calls = {"loop": 0, "chat": 0}
+
+    class ZeroToolLLM:
+        async def chat(self, messages, **kwargs):
+            calls["chat"] += 1
+            assert "Write the final model answer now" in messages[1]["content"]
+            return "final answer text"
+
+    async def fake_loop(*a, **k):
+        calls["loop"] += 1
+        raise AssertionError("loop must not run without a repo signal")
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            ZeroToolLLM(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "怎么设计一个限流器？",
+            "",
+            "zh",
+        )
+    )
+    assert result == "final answer text"
+    assert calls == {"loop": 0, "chat": 1}
+
+
+def test_full_hint_repo_signal_runs_github_only_loop(monkeypatch):
+    import realmock.domains.interview.agents.hint.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    captured: dict = {}
+
+    class NoChatLLM:
+        async def chat(self, messages, **kwargs):
+            raise AssertionError("writer must not run when the loop answers")
+
+    async def fake_loop(llm, messages, *, tools=None, **k):
+        captured["tools"] = tools
+        return NS(final_content="grounded answer", tool_used=True, messages=[], thinking="")
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            NoChatLLM(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "看看我 github 上的项目",
+            "",
+            "zh",
+        )
+    )
+    assert result == "grounded answer"
+    names = [t["function"]["name"] for t in captured["tools"]]
+    assert names and all(n.startswith("github_") for n in names)

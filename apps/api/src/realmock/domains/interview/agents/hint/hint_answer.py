@@ -11,17 +11,26 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.agents.agent_text import strip_markers, strip_think_blocks
-from realmock.domains.interview.agents.tools import (
-    execute_interview_tool,
-    get_interview_tool_definitions,
-)
+from realmock.domains.interview.agents.tools import execute_interview_tool
 from realmock.domains.interview.agents.tool_guard import ToolGuard
 from realmock.platform.capabilities.ai.agent import run_agent_loop
+from realmock.platform.capabilities.ai.agent.tools import (
+    github_tool_specs,
+    openai_tool,
+)
+from realmock.platform.catalogs.company import get_company_context
+from realmock.platform.database import api_db_session
+from realmock.platform.services.candidate_read import (
+    get_default_user_profile,
+    get_resume_agent_payload,
+    get_user_profile,
+)
 from realmock.domains.interview.agents.hint.hint_prompts import (
     HINT_MODEL_ANSWER_WRITER_SYSTEM,
     HINT_TOOL_FREE_WRAP_UP,
@@ -35,6 +44,12 @@ logger = logging.getLogger(__name__)
 FULL_HINT_BUDGET_SECONDS = 60.0
 #: Tool rounds for evidence gathering (bounded: this is assistance, not a turn).
 FULL_HINT_MAX_ROUNDS = 2
+
+#: The full hint's grounding (resume/profile/company) is injected verbatim, so
+#: tools are only worth their latency when the question points at external
+#: evidence — a GitHub repository to verify.
+_REPO_SIGNAL_RE = re.compile(r"github|repo|开源|仓库|commit|star", re.IGNORECASE)
+
 
 async def generate_full_reference_hint(
     *,
@@ -67,15 +82,103 @@ async def generate_full_reference_hint(
             timeout=budget_seconds,
         )
     except asyncio.TimeoutError:
-        logger.warning(
-            "full reference hint timed out sid=%s", getattr(session, "id", None)
-        )
+        logger.warning("full reference hint timed out sid=%s", getattr(session, "id", None))
         return None
     except Exception:
         logger.warning(
             "full reference hint failed sid=%s", getattr(session, "id", None), exc_info=True
         )
         return None
+
+
+def _render_profile(profile: Any) -> str:
+    """Full candidate profile block (readable lines; no truncation)."""
+    if profile is None:
+        return ""
+    fields = [
+        ("Name", getattr(profile, "name", "")),
+        ("Target role", getattr(profile, "target_role", "")),
+        ("Job direction", getattr(profile, "job_direction", "")),
+        (
+            "School / major",
+            f"{getattr(profile, 'school', '') or ''} {getattr(profile, 'major', '') or ''}".strip(),
+        ),
+        ("Education level", getattr(profile, "education_level", "")),
+        (
+            "Experience",
+            f"{getattr(profile, 'experience_years', '')} years {getattr(profile, 'work_years_detail', '') or ''}".strip(),
+        ),
+        ("Current company", getattr(profile, "current_company", "")),
+        ("Tech domains", ", ".join(getattr(profile, "tech_domains_list", None) or [])),
+        ("Certificates", getattr(profile, "certificates", "")),
+        ("English level", getattr(profile, "english_level", "")),
+        ("Signature projects", getattr(profile, "signature_projects", "")),
+        ("Strengths", getattr(profile, "strengths", "")),
+        ("Weaknesses", getattr(profile, "weaknesses", "")),
+        ("Career highlights", getattr(profile, "career_highlights", "")),
+        ("Self introduction", getattr(profile, "self_intro", "")),
+        ("GitHub", getattr(profile, "github_username", "")),
+    ]
+    lines = ["## Candidate profile"]
+    for label, value in fields:
+        text = str(value or "").strip()
+        if text:
+            lines.append(f"{label}: {text}")
+    return "\n".join(lines)
+
+
+def _render_resume(payload: dict[str, Any] | None) -> str:
+    """Full parsed-resume block (list entries rendered readable, untruncated)."""
+    if not isinstance(payload, dict):
+        return ""
+    parsed = payload.get("parsed") if isinstance(payload.get("parsed"), dict) else {}
+    if not parsed:
+        return ""
+    lines = ["## Parsed resume"]
+    for key, value in parsed.items():
+        if isinstance(value, list) and value and isinstance(value[0], dict):
+            lines.append(f"{key}:")
+            for i, item in enumerate(value, start=1):
+                entry = "; ".join(
+                    f"{k}: {str(v).strip()}" for k, v in item.items() if str(v or "").strip()
+                )
+                if entry:
+                    lines.append(f"  {i}. {entry}")
+        elif isinstance(value, list):
+            lines.append(f"{key}: {', '.join(str(v) for v in value)}")
+        else:
+            text = str(value or "").strip()
+            if text:
+                lines.append(f"{key}: {text}")
+    return "\n".join(lines)
+
+
+async def _load_grounding(db: Session, session: Any) -> str:
+    """Company + full candidate grounding (no truncation; 1M-window policy)."""
+    sections: list[str] = []
+    company_ctx = get_company_context(getattr(session, "company", "") or "")
+    if company_ctx:
+        sections.append(f"## Company context\n{company_ctx}")
+    try:
+        with api_db_session() as api_db:
+            profile_id = getattr(session, "profile_id", None)
+            resume_id = getattr(session, "resume_id", None)
+            profile = (
+                get_user_profile(api_db, profile_id)
+                if profile_id
+                else get_default_user_profile(api_db)
+            )
+            payload = get_resume_agent_payload(api_db, resume_id) if resume_id else None
+    except Exception:
+        logger.debug("hint grounding load failed", exc_info=True)
+        return ""
+    profile_block = _render_profile(profile)
+    if profile_block:
+        sections.append(profile_block)
+    resume_block = _render_resume(payload)
+    if resume_block:
+        sections.append(resume_block)
+    return "\n\n".join(sections)
 
 
 async def _generate(
@@ -88,7 +191,32 @@ async def _generate(
     flow_language: str,
 ) -> str | None:
     lang_name = "English" if (flow_language or "").strip().lower().startswith("en") else "Chinese"
-    tools = get_interview_tool_definitions(include_past_records=False)
+    grounding = await _load_grounding(db, session)
+    user_content = (
+        (f"{grounding}\n\n" if grounding else "")
+        + (f"Candidate background summary:\n{background}\n\n" if background else "")
+        + f"Interviewer question: {question}\n\n"
+    )
+
+    # Zero-tool fast path: the grounding above already carries the full
+    # resume/profile/company material, so only an explicit repository signal
+    # justifies paying for a tool loop (github verification only).
+    if not _REPO_SIGNAL_RE.search(question or "") and not _REPO_SIGNAL_RE.search(background or ""):
+        writer_messages = [
+            {
+                "role": "system",
+                "content": HINT_MODEL_ANSWER_WRITER_SYSTEM.format(lang_name=lang_name),
+            },
+            {
+                "role": "user",
+                "content": user_content
+                + "Write the final model answer now (first person, copy-ready):",
+            },
+        ]
+        text = await llm.chat(writer_messages, temperature=0.4, max_tokens=1500)
+        return strip_markers(strip_think_blocks(text or "")).strip() or None
+
+    tools = [openai_tool(spec) for spec in github_tool_specs()]
     if not tools:
         return None
     guard = ToolGuard(
@@ -103,11 +231,8 @@ async def _generate(
         },
         {
             "role": "user",
-            "content": (
-                f"Candidate background summary:\n{background or '(no detailed profile yet)'}\n\n"
-                f"Interviewer question: {question}\n\n"
-                "Verify key facts with tools, then give the model answer:"
-            ),
+            "content": user_content
+            + "Verify the referenced repository with tools, then give the model answer:",
         },
     ]
 
@@ -129,7 +254,9 @@ async def _generate(
 
     def _note_tool(name: str, args: dict[str, Any], result: str) -> None:
         trace = agent_state.setdefault("tool_trace", [])
-        trace.append({"tool": f"hint:{name}", "ok": not str(result).startswith("Tool execution failed")})
+        trace.append(
+            {"tool": f"hint:{name}", "ok": not str(result).startswith("Tool execution failed")}
+        )
         if len(trace) > 40:
             del trace[:-40]
 
@@ -167,7 +294,7 @@ async def _generate(
             "content": "Write the final model answer now (first person, copy-ready):",
         },
     ]
-    text = await llm.chat(writer_messages, temperature=0.4, max_tokens=800)
+    text = await llm.chat(writer_messages, temperature=0.4, max_tokens=1500)
     cleaned = strip_markers(strip_think_blocks(text or "")).strip()
     return cleaned or None
 
@@ -205,10 +332,12 @@ def _writer_view(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if role in ("user", "system"):
             view.append(m)
     if evidence:
-        view.append({
-            "role": "user",
-            "content": "Tool results gathered so far:\n" + "\n\n".join(evidence),
-        })
+        view.append(
+            {
+                "role": "user",
+                "content": "Tool results gathered so far:\n" + "\n\n".join(evidence),
+            }
+        )
     return view
 
 
