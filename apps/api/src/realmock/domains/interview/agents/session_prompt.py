@@ -85,12 +85,12 @@ class SessionPromptMixin:
             resume_id=self.session.resume_id,
         )
 
-    def get_user_profile(self, db: Session):
+    def get_user_profile(self, db: Session | None = None):
         """Candidate profile row for prompt grounding (None when absent)."""
         with api_db_session() as api_db:
             return get_user_profile(api_db, self.session.profile_id)
 
-    def get_candidate(self, db: Session):
+    def get_candidate(self, db: Session | None = None):
         """Candidate resume payload for prompt grounding (None when absent)."""
         with api_db_session() as api_db:
             return get_candidate_profile(api_db, self.session.resume_id)
@@ -145,7 +145,9 @@ class SessionPromptMixin:
 
         if not parts:
             return ""
-        return "\n\n## System learning summary (cross-interview; for reference)\n" + "\n".join(parts)
+        return "\n\n## System learning summary (cross-interview; for reference)\n" + "\n".join(
+            parts
+        )
 
     def _memory_section(self) -> str:
         """Structured memory summary (still usable after compression)."""
@@ -180,10 +182,7 @@ class SessionPromptMixin:
             lines.append(line)
         if not lines:
             return ""
-        return (
-            "\n\n## Per-question score trajectory (rating 1-5, this round)\n"
-            + "\n".join(lines)
-        )
+        return "\n\n## Per-question score trajectory (rating 1-5, this round)\n" + "\n".join(lines)
 
     def _flow_view(self) -> Any:
         """Workflow-like object for prompt assembly: plan steps when planned."""
@@ -222,9 +221,7 @@ class SessionPromptMixin:
         try:
             with sessions_db_session() as db:
                 process = (
-                    db.query(InterviewProcess)
-                    .filter(InterviewProcess.id == process_id)
-                    .first()
+                    db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
                 )
                 if process is None:
                     return ""
@@ -320,14 +317,18 @@ class SessionPromptMixin:
             + self._memory_section()
         )
         try:
-            from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
+            from realmock.platform.capabilities.ai.context.estimation import (
+                estimate_messages_tokens,
+            )
 
             system_tokens = estimate_messages_tokens([{"role": "system", "content": full}])
         except Exception:
             system_tokens = -1
         logger.debug(
             "opening system prompt sid=%s tokens~%s lang=%s",
-            getattr(self.session, "id", None), system_tokens, self._flow_language(),
+            getattr(self.session, "id", None),
+            system_tokens,
+            self._flow_language(),
         )
         return full
 

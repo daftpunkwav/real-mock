@@ -32,6 +32,10 @@ _WS_LLM_RATE_LIMIT = DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
 # the frame is pathological (stuck client / fuzzer), not an interview answer.
 _CODING_CODE_MAX_CHARS = 200_000
 
+# Draft-mirror cap: the whiteboard is a user scratchpad; an oversized
+# mirror would bloat every save_state.
+_MIRROR_MAX_CHARS = 8_000
+
 
 class MessageDispatcherMixin:
     """Distributed by message type; relies on ctx field and _spawn/send/set_turn."""
@@ -127,9 +131,7 @@ class MessageDispatcherMixin:
         if len(text) > MAX_USER_TEXT_CHARS:
             # Interim partials are superseded by the next frame; drop the
             # pathological one instead of echoing megabytes back.
-            logger.debug(
-                "stt_text overlong session=%s len=%d", self.ctx.session_id, len(text)
-            )
+            logger.debug("stt_text overlong session=%s len=%d", self.ctx.session_id, len(text))
             return
         if text:
             # Voice partials count as "the candidate started answering": the
@@ -234,9 +236,7 @@ class MessageDispatcherMixin:
         try:
             new_bytes = len(base64.b64decode(chunk, validate=False))
         except (ValueError, TypeError):
-            logger.debug(
-                "audio_chunk not base64 session=%s", self.ctx.session_id, exc_info=True
-            )
+            logger.debug("audio_chunk not base64 session=%s", self.ctx.session_id, exc_info=True)
             new_bytes = 0
         if self.ctx.audio_buffer_bytes + new_bytes > AUDIO_BUFFER_MAX_BYTES:
             await self._reject_audio_overflow()
@@ -269,10 +269,7 @@ class MessageDispatcherMixin:
             return
         if not text or self.ctx.closing:
             return
-        if (
-            self.ctx.turn_state != TurnState.USER_SPEAKING
-            or not self._can_start_user_turn()
-        ):
+        if self.ctx.turn_state != TurnState.USER_SPEAKING or not self._can_start_user_turn():
             # Never drop silently: the client cleared its input on send, so a
             # quiet drop looks like "sent but the interviewer never replies"
             # and the next message appears to "unblock" it. A light info toast
@@ -313,12 +310,7 @@ class MessageDispatcherMixin:
             cog_mem = getattr(agent, "cognitive_memory", None) if agent else None
             wm = getattr(cog_mem, "working_memory", None) if cog_mem else None
             if wm is not None:
-                from realmock.domains.interview.agents import EVAL_CODE_MAX_CHARS
-
-                # Same cap as the evaluation path: the mirror is agent-facing
-                # (inspect_candidate_code reads a slice of it), not a full
-                # document store — an oversized mirror bloats every save_state.
-                wm.candidate_code = code[:EVAL_CODE_MAX_CHARS]
+                wm.candidate_code = code[:_MIRROR_MAX_CHARS]
         except Exception as exc:
             logger.warning("Failed to update candidate code in working memory: %s", exc)
 
@@ -336,14 +328,14 @@ class MessageDispatcherMixin:
                     code="A0003",
                 )
                 return
-            runner = getattr(self.ctx, "runner", None)
-            if not runner or not hasattr(runner, "coding_examiner"):
-                return
-            challenge = runner.coding_examiner.active_challenge
-            test_cases = [tc.to_dict() for tc in challenge.test_cases] if challenge else []
-            from realmock.domains.interview.capabilities.sandbox.evaluator import evaluate_test_cases
+            # Challenge state retired with the examiner: the sandbox runs
+            # whatever the candidate executes against locally defined cases.
+            from realmock.domains.interview.capabilities.sandbox.evaluator import (
+                evaluate_test_cases,
+            )
+
             outcome = evaluate_test_cases(
-                test_cases=test_cases,
+                test_cases=[],
                 candidate_code=code,
                 raw_output=raw_output,
             )
@@ -352,6 +344,11 @@ class MessageDispatcherMixin:
             logger.warning("Failed to process coding run request: %s", exc)
 
     async def _on_coding_submit_request(self, data: dict[str, Any]) -> None:
+        """Draft/sandbox submission: run the local test cases and report.
+
+        The whiteboard is a candidate scratchpad since the LLM coding examiner
+        was retired — no model call, no verdict, just honest sandbox output.
+        """
         try:
             code = str(data.get("code", ""))
             test_output = str(data.get("test_output", ""))
@@ -365,40 +362,30 @@ class MessageDispatcherMixin:
                     code="A0003",
                 )
                 return
+            # Mirror into working memory so the sandbox draft survives the turn.
             runner = getattr(self.ctx, "runner", None)
-            if not runner or not hasattr(runner, "coding_examiner"):
-                return
-            agent = getattr(runner, "agent", None)
-            turn_index = len(agent.agent_state.get("asked_questions", [])) if agent and hasattr(agent, "agent_state") else 0
-            # Bounded so one slow LLM evaluation cannot hold the WS message
-            # loop (and with it user_text/playback_done) for minutes.
-            report = await asyncio.wait_for(
-                runner.coding_examiner.evaluate_submission(
-                    code=code,
-                    test_output=test_output,
-                    turn_index=turn_index,
-                ),
-                timeout=90.0,
+            agent = getattr(runner, "agent", None) if runner else None
+            cog_mem = getattr(agent, "cognitive_memory", None) if agent else None
+            wm = getattr(cog_mem, "working_memory", None) if cog_mem else None
+            if wm is not None:
+                wm.candidate_code = code[:_MIRROR_MAX_CHARS]
+                wm.last_test_output = test_output[:_MIRROR_MAX_CHARS]
+
+            from realmock.domains.interview.capabilities.sandbox.evaluator import (
+                evaluate_test_cases,
             )
-            await self.send("coding_eval_report", report=report.to_dict())
-        except asyncio.TimeoutError:
-            logger.warning(
-                "coding submit evaluation timed out sid=%s", self.ctx.session_id
+
+            outcome = evaluate_test_cases(
+                test_cases=[],
+                candidate_code=code,
+                raw_output=test_output,
             )
-            await self.send(
-                "error",
-                message="Code evaluation timed out; please try again later",
-                code="C0001",
-                retryable=True,
-            )
+            await self.send("coding_test_result", **outcome.to_dict())
         except Exception as exc:
             logger.warning("Failed to process coding submit request: %s", exc)
             await self.send(
                 "error",
-                message="Code evaluation failed; please try again later",
+                message="Sandbox run failed; please try again later",
                 code="C0001",
                 retryable=True,
             )
-
-
-__all__ = ["MessageDispatcherMixin", "AUDIO_BUFFER_MAX_BYTES"]

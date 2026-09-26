@@ -6,7 +6,6 @@ hint/playback/overflow, coding update/run/submit, spawn gaps.
 Conventions: no real network/LLM (all external calls mocked); uses _make_handler for handler construction.
 """
 
-import asyncio
 import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -152,14 +151,8 @@ async def test_coding_update_run():
     h.ctx.runner = MagicMock()
     await h._on_coding_code_update({"code": "print(1)"})
     assert h.ctx.runner.agent.cognitive_memory.working_memory.candidate_code == "print(1)"
-    h.ctx.runner = MagicMock()
-    del h.ctx.runner.coding_examiner
-    await h._on_coding_run_request({"code": "x"})
-    h.ctx.ws.send_json.assert_not_called()
-    tc = MagicMock()
-    tc.to_dict.return_value = {"input": "1", "expected": "1"}
-    h.ctx.runner = MagicMock()
-    h.ctx.runner.coding_examiner.active_challenge.test_cases = [tc]
+    # The run path no longer consults the (retired) examiner: the sandbox
+    # evaluates locally with whatever cases the draft defines.
     with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases") as m:
         m.return_value.to_dict.return_value = {"passed": True}
         await h._on_coding_run_request({"code": "c", "test_output": "1"})
@@ -167,21 +160,14 @@ async def test_coding_update_run():
 
 
 @pytest.mark.asyncio
-async def test_coding_submit_timeout_error_success():
+async def test_coding_submit_runs_sandbox_without_llm():
     h = _make_handler()
     h.ctx.runner = MagicMock()
     h.ctx.runner.agent.agent_state = {"asked_questions": ["q1"]}
-    h.ctx.runner.coding_examiner.evaluate_submission = AsyncMock(side_effect=asyncio.TimeoutError())
-    await h._on_coding_submit_request({"code": "c"})
-    assert h.ctx.ws.send_json.await_args[0][0]["code"] == "C0001"
-    h.ctx.runner.coding_examiner.evaluate_submission = AsyncMock(side_effect=RuntimeError("boom"))
-    await h._on_coding_submit_request({"code": "c"})
-    assert h.ctx.ws.send_json.await_args[0][0]["code"] == "C0001"
-    rep = MagicMock()
-    rep.to_dict.return_value = {"score": 1}
-    h.ctx.runner.coding_examiner.evaluate_submission = AsyncMock(return_value=rep)
-    await h._on_coding_submit_request({"code": "c", "test_output": "ok"})
-    assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_eval_report"
+    with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases") as m:
+        m.return_value.to_dict.return_value = {"passed": True}
+        await h._on_coding_submit_request({"code": "c", "test_output": "ok"})
+        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
 
 
 @pytest.mark.asyncio
@@ -229,17 +215,15 @@ async def test_dispatcher_audio_coding_and_submit_gaps():
         # coding_code_update exception path
         await h._on_coding_code_update(None)  # type: ignore[arg-type]
         # coding_run exception path
-        h.ctx.runner = MagicMock()
-        tc = MagicMock()
-        tc.to_dict.return_value = {"input": "1"}
-        h.ctx.runner.coding_examiner.active_challenge.test_cases = [tc]
         with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases", side_effect=RuntimeError("eval boom")):
             await h._on_coding_run_request({"code": "c"})
-        # coding_submit no runner -> early return, no send
+        # coding_submit without a runner still runs the sandbox honestly
         h.ctx.ws.send_json.reset_mock()
         h.ctx.runner = None
-        await h._on_coding_submit_request({"code": "c"})
-        h.ctx.ws.send_json.assert_not_called()
+        with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases") as m:
+            m.return_value.to_dict.return_value = {"passed": False}
+            await h._on_coding_submit_request({"code": "c"})
+        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
     finally:
         await h._cancel_bg_tasks()
 

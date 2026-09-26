@@ -22,13 +22,16 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.capabilities.rag.company_rag import CompanyKnowledgeRAG
 from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.agents.interviewer import runner_closing, runner_opening, runner_turn
+from realmock.domains.interview.agents.interviewer import (
+    runner_closing,
+    runner_opening,
+    runner_turn,
+)
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.agents.prompt_assembler import PromptAssembler
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundRunner
 from realmock.domains.interview.agents.topology import (
-    CodingExaminerAgent,
     ProcessOrchestratorAgent,
     ShadowEvaluatorAgent,
 )
@@ -65,9 +68,24 @@ class InterviewRunner:
         self.prompter = PromptAssembler(session, self.agent, llm)
         self.tools = ToolRoundRunner(session, llm, self.agent, rag)
 
-        self.shadow_evaluator = ShadowEvaluatorAgent(llm, self.agent.cognitive_memory)
-        self.coding_examiner = CodingExaminerAgent(llm, self.agent.cognitive_memory)
+        self._shadow_grounding_cache: str | None = None
+        self.shadow_evaluator = ShadowEvaluatorAgent(
+            llm, self.agent.cognitive_memory, context_provider=self._shadow_grounding
+        )
         self.process_orchestrator = ProcessOrchestratorAgent(llm, self.agent.cognitive_memory)
+
+    def _shadow_grounding(self) -> str:
+        """Full candidate grounding for the shadow evaluator (cached once)."""
+        if self._shadow_grounding_cache is None:
+            try:
+                from realmock.domains.interview.agents.agent_prompts import candidate_block
+
+                profile = self.agent.get_user_profile(None)
+                candidate = self.agent.get_candidate(None)
+                self._shadow_grounding_cache = candidate_block(profile, candidate, compact=False)
+            except Exception:
+                self._shadow_grounding_cache = ""
+        return self._shadow_grounding_cache
 
     def spawn_bg_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
         """Spawn a background task bound to this runner or the injected spawner."""

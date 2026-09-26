@@ -201,6 +201,7 @@ async def stream_turn(
                         user_text=user_text,
                         current_phase=turn_phase,
                         turn_index=turn_index,
+                        step_focus=runner.agent.current_phase().description,
                     ),
                     timeout=BACKGROUND.shadow_seconds,
                 )

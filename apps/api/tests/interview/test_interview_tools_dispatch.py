@@ -1,6 +1,6 @@
 """Interview tools dispatch tests for src/realmock/domains/interview/agents/tools.py.
 
-Covers: tool definitions, _cap_result, findings caps, github/profile/resume/company/search/past/coding dispatch
+Covers: tool definitions, _cap_result, findings caps, github/profile/resume/company/search/past dispatch
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 """
 
@@ -12,7 +12,6 @@ from contextlib import contextmanager
 import pytest
 
 from realmock.domains.interview.agents import tools as tmod
-from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
 from realmock.domains.interview.agents.tools import (
     _cap_result,
     _note_company_finding,
@@ -28,8 +27,6 @@ def test_tool_definitions_include_local_and_github() -> None:
     assert "lookup_resume_projects" in names
     assert "web_search" in names
     assert "web_fetch" in names
-    assert "issue_coding_challenge" in names
-    assert "inspect_candidate_code" in names
     assert "github_get_user" in names
     assert "search_past_interviews" not in names
 
@@ -327,94 +324,6 @@ async def test_past_tools_dispatch(monkeypatch) -> None:
         "read_past_round", {"round_no": 1, "offset": 0}, db=None, session=sentinel
     )
     assert "turns" in out2
-
-
-@pytest.mark.asyncio
-async def test_issue_coding_challenge_with_dict_memory(monkeypatch) -> None:
-    import realmock.domains.interview.agents.topology.coding_examiner as cemod
-
-    monkeypatch.setattr(cemod, "CODING_CHALLENGE_PROMPT", "role {role} level {level}")
-    from tests.fakes import FakeLLMClient
-
-    class _Shim(FakeLLMClient):
-        async def chat_json(self, messages, temperature=0.3):  # type: ignore[override]
-            return {
-                "id": "ch1", "title": "Challenge One", "description": "desc",
-                "language": "python", "starter_code": "pass", "test_cases": [],
-            }
-
-    state: dict = {"cognitive_memory": {"nodes": {}, "working_memory": {}}}
-    out = await execute_interview_tool(
-        "issue_coding_challenge", {"language": "python"},
-        db=None, agent_state=state, llm=_Shim(api_key="k"),  # type: ignore[arg-type]
-    )
-    data = json.loads(out)
-    assert data["status"] == "challenge_issued"
-    assert state["active_coding_challenge"]["title"] == "Challenge One"
-
-
-@pytest.mark.asyncio
-async def test_issue_coding_challenge_empty_key_fallback() -> None:
-    from realmock.platform.capabilities.ai.llm.client import LLMClient
-
-    llm = LLMClient(api_base="https://api.example.com", api_key="", model="m")
-    state: dict = {"cognitive_memory": CognitiveMemoryGraph().to_dict()}
-    out = await execute_interview_tool(
-        "issue_coding_challenge", {}, db=None, agent_state=state, llm=llm
-    )
-    assert json.loads(out)["status"] == "challenge_issued"
-
-
-@pytest.mark.asyncio
-async def test_issue_coding_challenge_with_graph_object() -> None:
-    from realmock.platform.capabilities.ai.llm.client import LLMClient
-
-    llm = LLMClient(api_base="https://api.example.com", api_key="", model="m")
-    state: dict = {"cognitive_memory": CognitiveMemoryGraph()}
-    out = await execute_interview_tool(
-        "issue_coding_challenge", {"language": "python"}, db=None, agent_state=state, llm=llm
-    )
-    assert json.loads(out)["status"] == "challenge_issued"
-
-
-@pytest.mark.asyncio
-async def test_inspect_candidate_code_variants() -> None:
-    graph = CognitiveMemoryGraph()
-    graph.working_memory.candidate_code = "print(1)"
-    graph.working_memory.last_test_output = "ok"
-    out = await execute_interview_tool(
-        "inspect_candidate_code", {}, db=None, agent_state={"cognitive_memory": graph}
-    )
-    assert json.loads(out)["status"] == "code_available"
-
-    out2 = await execute_interview_tool(
-        "inspect_candidate_code", {}, db=None,
-        agent_state={"cognitive_memory": {"working_memory": {"candidate_code": "c", "last_test_output": "t"}}},
-    )
-    assert json.loads(out2)["candidate_code"] == "c"
-
-    out3 = await execute_interview_tool(
-        "inspect_candidate_code", {}, db=None, agent_state={"cognitive_memory": {}}
-    )
-    assert json.loads(out3)["status"] == "no_code_submitted_yet"
-
-    out4 = await execute_interview_tool(
-        "inspect_candidate_code", {}, db=None, agent_state={"cognitive_memory": None}
-    )
-    assert json.loads(out4)["status"] == "no_code_submitted_yet"
-
-
-@pytest.mark.asyncio
-async def test_issue_coding_challenge_empty_memory_uses_fresh_graph() -> None:
-    from realmock.platform.capabilities.ai.llm.client import LLMClient
-
-    llm = LLMClient(api_base="https://api.example.com", api_key="", model="m")
-    state: dict = {}
-    out = await execute_interview_tool(
-        "issue_coding_challenge", {}, db=None, agent_state=state, llm=llm
-    )
-    assert json.loads(out)["status"] == "challenge_issued"
-    assert "cognitive_memory" in state
 
 
 @pytest.mark.asyncio
