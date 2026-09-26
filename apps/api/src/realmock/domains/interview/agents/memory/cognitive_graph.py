@@ -14,6 +14,16 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
+#: Evidence kept per competency node. Consumers read only the latest entry
+#: (:meth:`CognitiveMemoryGraph.render_prompt_summary`); older entries are pure
+#: persistence weight — every turn's shadow/reflection findings are serialized
+#: into ``agent_state`` on each ``save_state``.
+MAX_EVIDENCE_PER_NODE = 8
+
+#: Cap on tracked competency nodes; eviction drops the stalest node (latest
+#: evidence timestamp oldest, evidence-free nodes first).
+MAX_NODES = 30
+
 
 class CompetencyStatus(str, Enum):
     """Assessment status of a candidate competency area."""
@@ -85,6 +95,8 @@ class CompetencyNode:
                 confidence=confidence,
             )
         )
+        if len(self.evidence) > MAX_EVIDENCE_PER_NODE:
+            del self.evidence[:-MAX_EVIDENCE_PER_NODE]
         self.status = status
         self.confidence = confidence
 
@@ -168,8 +180,21 @@ class CognitiveMemoryGraph:
     def get_or_create_node(self, topic: str, category: str = "general") -> CompetencyNode:
         key = topic.strip().lower()
         if key not in self.nodes:
+            if len(self.nodes) >= MAX_NODES:
+                self._evict_stalest_node()
             self.nodes[key] = CompetencyNode(topic=topic, category=category)
         return self.nodes[key]
+
+    def _evict_stalest_node(self) -> None:
+        """Drop the node whose latest evidence is oldest (evidence-free first)."""
+        if not self.nodes:
+            return
+
+        def latest_ts(node: CompetencyNode) -> float:
+            return max((e.timestamp for e in node.evidence), default=0.0)
+
+        stalest = min(self.nodes.values(), key=latest_ts)
+        self.nodes.pop(stalest.topic.strip().lower(), None)
 
     def record_finding(
         self,

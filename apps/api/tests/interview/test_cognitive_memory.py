@@ -83,3 +83,51 @@ def test_cognitive_graph_corrupted_data_resilience():
     assert len(node.evidence) == 1
     assert node.evidence[0].turn_index == 0
     assert restored.working_memory.current_topic == ""
+
+
+# ---- growth caps ----
+
+
+def test_evidence_cap_keeps_latest_entries():
+    from realmock.domains.interview.agents.memory.cognitive_graph import MAX_EVIDENCE_PER_NODE
+
+    graph = CognitiveMemoryGraph()
+    for i in range(MAX_EVIDENCE_PER_NODE + 4):
+        graph.record_finding(
+            topic="MySQL",
+            status=CompetencyStatus.VERIFIED,
+            claim=f"claim-{i}",
+            finding=f"finding-{i}",
+            turn_index=i,
+        )
+    node = graph.nodes["mysql"]
+    assert len(node.evidence) == MAX_EVIDENCE_PER_NODE
+    assert node.evidence[-1].claim == f"claim-{MAX_EVIDENCE_PER_NODE + 3}"
+
+
+def test_node_cap_evicts_stalest():
+    from realmock.domains.interview.agents.memory.cognitive_graph import MAX_NODES
+
+    graph = CognitiveMemoryGraph()
+    for i in range(MAX_NODES):
+        graph.record_finding(
+            topic=f"topic-{i}",
+            status=CompetencyStatus.VERIFIED,
+            claim="c",
+            finding="f",
+            turn_index=i,
+        )
+        graph.nodes[f"topic-{i}"].evidence[0].timestamp = float(i + 1)
+    assert len(graph.nodes) == MAX_NODES
+
+    # New node over the cap evicts the stalest (topic-0 has the oldest evidence).
+    graph.record_finding(
+        topic="topic-new",
+        status=CompetencyStatus.SUSPICIOUS,
+        claim="c",
+        finding="f",
+        turn_index=999,
+    )
+    assert len(graph.nodes) == MAX_NODES
+    assert "topic-new" in graph.nodes
+    assert "topic-0" not in graph.nodes
