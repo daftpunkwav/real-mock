@@ -153,8 +153,9 @@ def test_load_session_research_standalone(db) -> None:
 
 
 def test_load_session_research_prefers_own_over_process(db) -> None:
-    proc = InterviewProcess(profile_id=1, role="R", level="L", company="Acme",
-                            company_research="PROC")
+    proc = InterviewProcess(
+        profile_id=1, role="R", level="L", company="Acme", company_research="PROC"
+    )
     db.add(proc)
     db.commit()
     db.refresh(proc)
@@ -165,8 +166,9 @@ def test_load_session_research_prefers_own_over_process(db) -> None:
 
 
 def test_load_session_research_falls_back_to_process(db) -> None:
-    proc = InterviewProcess(profile_id=1, role="R", level="L", company="Acme",
-                            company_research="PROC")
+    proc = InterviewProcess(
+        profile_id=1, role="R", level="L", company="Acme", company_research="PROC"
+    )
     db.add(proc)
     db.commit()
     db.refresh(proc)
@@ -185,3 +187,72 @@ def test_load_session_research_tolerates_plain_rows() -> None:
     # Session-less rows (e.g. test doubles) degrade to empty without a db hit.
     assert cr.load_session_company_research(None, SimpleNamespace(company_research="")) == ""
     assert cr.load_session_company_research(None, SimpleNamespace()) == ""
+
+
+# ---- P1: relaxed budgets + delayed retry ----
+
+
+def test_research_budgets_relaxed_for_accuracy():
+    from realmock.domains.interview.agents.research import company_research as mod
+
+    assert mod.RESEARCH_MAX_ROUNDS == 10
+    assert mod.RESEARCH_SEARCH_BUDGET == 6
+    assert mod.RESEARCH_FETCH_BUDGET == 4
+    assert mod.STANDALONE_SEARCH_BUDGET == 4
+    assert mod.STANDALONE_FETCH_BUDGET == 3
+    assert mod.PROCESS_MAX_SECONDS == 150.0
+    assert mod.RESEARCH_TOOL_TIMEOUT_SECONDS == 25.0
+
+
+def test_schedule_research_retry_persists_delayed_digest(monkeypatch):
+    import asyncio
+
+    from realmock.domains.interview.agents.research import company_research as mod
+
+    persisted: list[str] = []
+    calls = {"n": 0}
+
+    async def _fake_research(llm, **kwargs):
+        calls["n"] += 1
+        return "Interview process: digest"
+
+    monkeypatch.setattr(mod, "RETRY_DELAY_SECONDS", 0.01)
+    monkeypatch.setattr(mod, "research_company_context", _fake_research)
+
+    llm = object()
+
+    async def _flow():
+        assert (
+            mod.schedule_research_retry(
+                llm,
+                company="Acme",
+                role="dev",
+                level="senior",
+                ui_locale=None,
+                search_budget=1,
+                fetch_budget=1,
+                max_seconds=1.0,
+                persist=persisted.append,
+            )
+            is True
+        )
+        # A second schedule for the same company while one is pending is refused.
+        assert (
+            mod.schedule_research_retry(
+                llm,
+                company="acme ",
+                role=None,
+                level=None,
+                ui_locale=None,
+                search_budget=1,
+                fetch_budget=1,
+                max_seconds=1.0,
+                persist=persisted.append,
+            )
+            is False
+        )
+        await asyncio.gather(*list(mod._RETRY_TASKS))
+
+    asyncio.run(_flow())
+    assert persisted == ["Interview process: digest"]
+    assert calls["n"] == 1

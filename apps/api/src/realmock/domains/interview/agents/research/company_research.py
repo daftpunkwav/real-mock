@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -36,16 +37,25 @@ from realmock.platform.catalogs.company import get_company_by_id
 logger = logging.getLogger(__name__)
 
 #: Per-research web budgets; exhaustion speaks the tools' own failure markers.
-RESEARCH_SEARCH_BUDGET = 3
-RESEARCH_FETCH_BUDGET = 2
-#: Standalone sessions research inline before the opening turn, so their
-#: budget is tighter than the process-level (round-planner) budget.
-STANDALONE_SEARCH_BUDGET = 2
-STANDALONE_FETCH_BUDGET = 1
+#: Research is a non-urgent background task: the bar is accuracy and truth,
+#: not speed, so budgets are generous.
+RESEARCH_SEARCH_BUDGET = 6
+RESEARCH_FETCH_BUDGET = 4
+#: Standalone sessions research inline before the opening turn: the wall
+#: clock must stay under the planner's opening wait budget, so only the call
+#: COUNT is relaxed there (the delayed retry covers the rest).
+STANDALONE_SEARCH_BUDGET = 4
+STANDALONE_FETCH_BUDGET = 3
 STANDALONE_MAX_SECONDS = 45.0
-PROCESS_MAX_SECONDS = 75.0
-RESEARCH_TOOL_TIMEOUT_SECONDS = 15.0
-RESEARCH_MAX_ROUNDS = 6
+PROCESS_MAX_SECONDS = 150.0
+RESEARCH_TOOL_TIMEOUT_SECONDS = 25.0
+RESEARCH_MAX_ROUNDS = 10
+
+#: One delayed retry when a research attempt failed entirely (detached task;
+#: a failed digest otherwise never lands while the interview proceeds).
+RETRY_DELAY_SECONDS = 300.0
+_RETRY_TASKS: set[asyncio.Task[None]] = set()
+_RETRY_INFLIGHT: set[str] = set()
 
 #: Persisted digests are capped so prompt sections stay bounded.
 DIGEST_MAX_CHARS = 2000
@@ -210,9 +220,7 @@ async def run_web_research(
         exhausted = _consume_web_budget(budget, name)
         if exhausted is not None:
             return exhausted
-        raw, _status = await invoke_with_timeout(
-            bundle, name, args, timeout=tool_timeout
-        )
+        raw, _status = await invoke_with_timeout(bundle, name, args, timeout=tool_timeout)
         if cache_key is not None:
             cache[cache_key] = raw
         return raw
@@ -288,6 +296,55 @@ async def research_company_context(
     return digest
 
 
+def schedule_research_retry(
+    llm: Any,
+    *,
+    company: str,
+    role: str,
+    level: str,
+    ui_locale: str | None,
+    search_budget: int,
+    fetch_budget: int,
+    max_seconds: float,
+    persist: Callable[[str], None],
+) -> bool:
+    """Schedule ONE delayed research retry that persists via ``persist``.
+
+    Returns False when a retry for this company is already pending. The
+    caller is never blocked: the retry runs detached and ``persist`` must
+    open its own DB session (the caller's session is long gone by then).
+    """
+    key = (company or "").strip().lower()
+    if not key or key in _RETRY_INFLIGHT:
+        return False
+    _RETRY_INFLIGHT.add(key)
+
+    async def _run() -> None:
+        try:
+            await asyncio.sleep(RETRY_DELAY_SECONDS)
+            digest = await research_company_context(
+                llm,
+                company=company,
+                role=role,
+                level=level,
+                ui_locale=ui_locale,
+                search_budget=search_budget,
+                fetch_budget=fetch_budget,
+                max_seconds=max_seconds,
+            )
+            if digest:
+                persist(digest)
+        except Exception:
+            logger.debug("delayed research retry failed company=%s", company, exc_info=True)
+        finally:
+            _RETRY_INFLIGHT.discard(key)
+
+    task = asyncio.create_task(_run())
+    _RETRY_TASKS.add(task)
+    task.add_done_callback(_RETRY_TASKS.discard)
+    return True
+
+
 __all__ = [
     "DIGEST_MAX_CHARS",
     "PROCESS_MAX_SECONDS",
@@ -298,6 +355,7 @@ __all__ = [
     "STANDALONE_SEARCH_BUDGET",
     "blend_company_context",
     "load_session_company_research",
+    "schedule_research_retry",
     "needs_company_research",
     "render_digest",
     "research_company_context",

@@ -25,6 +25,7 @@ from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     needs_company_research,
     research_company_context,
+    schedule_research_retry,
 )
 from realmock.domains.interview.agents.planning.plan_prompts import (
     build_plan_user_message,
@@ -121,9 +122,7 @@ async def _company_context(db: Session, session: InterviewSession, llm: Any) -> 
     digest = ""
     process_id = getattr(session, "process_id", None)
     if process_id:
-        process = (
-            db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
-        )
+        process = db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
         if process is not None:
             digest = (getattr(process, "company_research", "") or "").strip()
     elif needs_company_research(company):
@@ -142,6 +141,33 @@ async def _company_context(db: Session, session: InterviewSession, llm: Any) -> 
         )
         session.company_research = digest
         db.commit()
+        if not digest and getattr(session, "id", None) is not None:
+            # Accuracy over speed: one detached retry lands the digest on the
+            # session row while the interview is already under way.
+            sid = session.id
+            ui_locale = getattr(session, "ui_locale", "") or None
+
+            def _persist(value: str, _sid: int = sid) -> None:
+                try:
+                    with sessions_db_session() as sdb:
+                        row = sdb.get(InterviewSession, _sid)
+                        if row is not None and not (row.company_research or "").strip():
+                            row.company_research = value
+                            sdb.commit()
+                except Exception:
+                    logger.debug("delayed research persist failed sid=%s", _sid, exc_info=True)
+
+            schedule_research_retry(
+                llm,
+                company=company,
+                role=session.role,
+                level=session.level,
+                ui_locale=ui_locale,
+                search_budget=STANDALONE_SEARCH_BUDGET,
+                fetch_budget=STANDALONE_FETCH_BUDGET,
+                max_seconds=STANDALONE_MAX_SECONDS,
+                persist=_persist,
+            )
     return blend_company_context(get_company_context(company), digest)
 
 
@@ -217,9 +243,7 @@ async def generate_plan_for_session(session_id: int) -> None:
             session.plan = _dump_plan(plan)
             session.plan_status = PLAN_STATUS_READY
             db.commit()
-            logger.info(
-                "flow plan ready sid=%s steps=%d", session_id, len(plan.steps)
-            )
+            logger.info("flow plan ready sid=%s steps=%d", session_id, len(plan.steps))
     except Exception:
         logger.exception("generate_plan_for_session crashed sid=%s", session_id)
         try:
@@ -243,6 +267,7 @@ class _ConfigShim:
         self.personality = session.personality or "professional"
         self.strictness = int(session.strictness or 3)
         self.interview_style = session.interview_style or "deep_dive"
+
 
 def _config_shim(session: InterviewSession) -> _ConfigShim:
     return _ConfigShim(session)
@@ -304,7 +329,9 @@ async def ensure_plan(db: Session, session: InterviewSession) -> InterviewPlan |
         db.rollback()
         logger.exception("fallback plan persist failed sid=%s", getattr(session, "id", None))
         return None
-    logger.info("fallback plan stored sid=%s steps=%d", getattr(session, "id", None), len(plan.steps))
+    logger.info(
+        "fallback plan stored sid=%s steps=%d", getattr(session, "id", None), len(plan.steps)
+    )
     return plan
 
 

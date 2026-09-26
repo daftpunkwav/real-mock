@@ -16,9 +16,13 @@ from typing import Any
 from realmock.domains.interview.agents import session_llm
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from realmock.domains.interview.agents.research.company_research import (
+    PROCESS_MAX_SECONDS,
+    RESEARCH_FETCH_BUDGET,
+    RESEARCH_SEARCH_BUDGET,
     blend_company_context,
     needs_company_research,
     research_company_context,
+    schedule_research_retry,
 )
 from realmock.domains.interview.agents.planning.round_plan_prompts import (
     build_round_plan_user_message,
@@ -60,7 +64,10 @@ async def generate_round_plan_for_process(process_id: int) -> None:
     try:
         with sessions_db_session() as db:
             process = db.get(InterviewProcess, process_id)
-            if process is None or getattr(process, "round_plan_status", "") == ROUND_PLAN_STATUS_READY:
+            if (
+                process is None
+                or getattr(process, "round_plan_status", "") == ROUND_PLAN_STATUS_READY
+            ):
                 return
             first = _first_session(db, process_id)
             if first is None:
@@ -94,6 +101,34 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 )
                 process.company_research = digest
                 db.commit()
+                if not digest:
+                    pid = process.id
+                    ui_locale = process.ui_locale or None
+                    company = process.company or ""
+
+                    def _persist(value: str, _pid: int = pid) -> None:
+                        try:
+                            with sessions_db_session() as sdb:
+                                row = sdb.get(InterviewProcess, _pid)
+                                if row is not None and not (row.company_research or "").strip():
+                                    row.company_research = value
+                                    sdb.commit()
+                        except Exception:
+                            logger.debug(
+                                "delayed research persist failed pid=%s", _pid, exc_info=True
+                            )
+
+                    schedule_research_retry(
+                        llm,
+                        company=company,
+                        role=process.role,
+                        level=process.level,
+                        ui_locale=ui_locale,
+                        search_budget=RESEARCH_SEARCH_BUDGET,
+                        fetch_budget=RESEARCH_FETCH_BUDGET,
+                        max_seconds=PROCESS_MAX_SECONDS,
+                        persist=_persist,
+                    )
 
             user_msg = build_round_plan_user_message(
                 role=process.role,
@@ -136,9 +171,7 @@ async def generate_round_plan_for_process(process_id: int) -> None:
             process.round_plan = json.dumps(plan.to_dict(), ensure_ascii=False)
             process.round_plan_status = ROUND_PLAN_STATUS_READY
             db.commit()
-            logger.info(
-                "round plan ready pid=%s rounds=%d", process_id, len(plan.rounds)
-            )
+            logger.info("round plan ready pid=%s rounds=%d", process_id, len(plan.rounds))
     except Exception:
         logger.exception("generate_round_plan_for_process crashed pid=%s", process_id)
         try:
