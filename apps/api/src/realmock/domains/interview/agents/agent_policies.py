@@ -39,9 +39,20 @@ class LoopPolicy:
 class BackgroundPolicy:
     """Background side-agents: never gate the reply, bounded anyway."""
 
-    shadow_seconds: float = 45.0
-    reflection_seconds: float = 60.0
-    orchestrator_seconds: float = 20.0
+    shadow_seconds: float = 90.0
+
+
+@dataclass(frozen=True)
+class CompactionPolicy:
+    """Step-boundary compaction thresholds and retry ladder."""
+
+    skip_below_tokens: int = 20_000
+    max_attempts: int = 3
+    retry_delays: tuple[float, ...] = (0.0, 30.0, 120.0)
+    budget_seconds: float = 700.0
+    keep_recent_summaries: int = 6
+    rollup_token_threshold: int = 300_000
+    rollup_count_threshold: int = 12
 
 
 #: The interviewer loop is live but evidence-driven: up to 8 rounds of tools
@@ -51,14 +62,19 @@ INTERVIEWER_LOOP = LoopPolicy(max_rounds=8, budget_seconds=600.0)
 #: The reference-hint loop is assistance on the room's critical path.
 HINT_LOOP = LoopPolicy(max_rounds=2, budget_seconds=60.0)
 
-#: Background evaluators (shadow / reflection / orchestrator advice).
+#: Background evaluators (shadow pipeline).
 BACKGROUND = BackgroundPolicy()
+
+#: Step-boundary compaction state machine.
+COMPACT = CompactionPolicy()
 
 __all__ = [
     "BACKGROUND",
+    "COMPACT",
     "HINT_LOOP",
     "INTERVIEWER_LOOP",
     "BackgroundPolicy",
+    "CompactionPolicy",
     "LoopPolicy",
     "ToolGuardPolicy",
 ]

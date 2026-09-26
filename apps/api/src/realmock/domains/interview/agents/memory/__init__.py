@@ -7,13 +7,10 @@ from realmock.domains.interview.agents.memory.cognitive_graph import (
     CompetencyStatus,
     WorkingMemory,
 )
-from realmock.domains.interview.agents.memory.reflection import reflect_on_dialogue
-
 __all__ = [
     "CognitiveMemoryGraph",
     "CompetencyEvidence",
     "CompetencyNode",
     "CompetencyStatus",
     "WorkingMemory",
-    "reflect_on_dialogue",
 ]

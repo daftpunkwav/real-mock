@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
 from realmock.domains.interview.agents.events import StreamEvent
-from realmock.domains.interview.agents.history_compaction import maybe_fold_history
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
@@ -85,7 +84,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
         runner.agent.set_questions_in_phase(1)
         runner.agent.mark_active()
         tools = take_pending_tools(runner.agent.agent_state)
-        await maybe_fold_history(runner.agent, llm=runner.llm, context_window=context_window)
+        runner.agent.mark_step_boundary_reset()
         runner.agent.save_state(db)
 
         try:

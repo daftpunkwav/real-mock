@@ -113,7 +113,6 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         yield TurnOutput(say=say, emotion="smile", wait_seconds=0, interview_complete=False, verdict="passed")
 
     monkeypatch.setattr(rcmod, "stream_say_first", fake_say_first)
-    monkeypatch.setattr(rcmod, "maybe_fold_history", lambda *a, **k: _coro(False))
     monkeypatch.setattr(rcmod, "append_turn", lambda db, sess, **k: {"turn_id": "t-0001"})
     monkeypatch.setattr(rcmod, "take_pending_tools", lambda state: [])
     monkeypatch.setattr(rcmod, "run_finish_lifecycle", lambda db, sess, **k: {})

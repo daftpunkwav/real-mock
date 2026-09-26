@@ -1,0 +1,406 @@
+"""Step-boundary compaction state machine (the interview's checkpoint layer).
+
+Pacing sovereignty: the interviewer decides when a step is done
+(``phase_complete``). When the state machine advances a step it records a
+*boundary*; this module then — fully in the background — converts the closed
+step's verbatim dialogue into a structured briefing and splices it into
+``agent.messages`` in place of the raw segment.
+
+Design contract (see docs-local/design/2026-09-27-interview-agent-refactor.md):
+
+- compression protects attention, it never merely saves space: full
+  transcript in, structured brief out, nothing silently dropped;
+- a step at or under :data:`COMPACT.skip_below_tokens` stays verbatim;
+- LLM failure retries up to three times with backoff, then the raw segment
+  stays and is folded into the NEXT boundary's attempt (accumulate-and-retry);
+- replacement is an in-place slice assignment so appends made by a turn that
+  started meanwhile are never lost;
+- once more than ``keep_recent_summaries`` briefings pile up (or their token
+  mass crosses the rollup threshold), the oldest ones are merged into one
+  running digest via a rollup call; rollup failure is deferred, never destructive;
+- the ledger keeps every turn verbatim regardless of what happens here.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from typing import TYPE_CHECKING, Any
+
+from realmock.domains.interview.agents.agent_policies import BACKGROUND, COMPACT
+from realmock.domains.interview.agents.memory.cognitive_graph import CompetencyStatus
+from realmock.domains.interview.agents.step_compaction_prompts import (
+    STEP_ROLLUP_PROMPT,
+    STEP_SUMMARY_PROMPT,
+)
+from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
+
+if TYPE_CHECKING:
+    from realmock.domains.interview.agents.session_state import InterviewSessionState
+
+logger = logging.getLogger(__name__)
+
+_STATE_KEY = "steps"
+
+SUMMARY_KEYS = (
+    "topics",
+    "evidence",
+    "verified",
+    "suspicious",
+    "weak_points",
+    "agreed_facts",
+    "probes_pending",
+)
+
+
+def _steps_state(agent: "InterviewSessionState") -> dict[str, Any]:
+    return agent.agent_state.setdefault(
+        _STATE_KEY, {"step_start": 1, "step_no": 1, "summaries": []}
+    )
+
+
+def record_step_boundary(agent: "InterviewSessionState") -> dict[str, Any] | None:
+    """Close the current step segment; returns the boundary descriptor.
+
+    Called by the turn flow right after the state machine advanced a step.
+    ``None`` means there was nothing to close (empty segment).
+    """
+    steps = _steps_state(agent)
+    start = int(steps.get("step_start", 1))
+    end = len(agent.messages)
+    boundary = {
+        "start": start,
+        "end": end,
+        "step_no": int(steps.get("step_no", 1)),
+        "phase_id": str(getattr(agent.session, "current_phase", "") or ""),
+    }
+    if end <= start:
+        return None
+    steps["step_start"] = end
+    steps["step_no"] = int(steps.get("step_no", 1)) + 1
+    agent.agent_state[_STATE_KEY] = steps
+    return boundary
+
+
+def _render_transcript(messages: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    for m in messages:
+        role = m.get("role")
+        if role not in ("user", "assistant", "system"):
+            continue
+        content = m.get("content")
+        text = content if isinstance(content, str) else json_dumps(content)
+        lines.append(f"[{role}] {text}")
+    return "\n".join(lines)
+
+
+def json_dumps(value: Any) -> str:
+    import json
+
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _parse_summary(raw: object) -> dict[str, Any] | None:
+    if not isinstance(raw, dict) or not raw:
+        return None
+    if not any(isinstance(raw.get(k), list) and raw.get(k) for k in SUMMARY_KEYS):
+        return None  # empty/garbage summary counts as a failure
+    return raw
+
+
+def _render_summary_block(step_no: int, summary: dict[str, Any]) -> str:
+    def _items(key: str) -> str:
+        value = summary.get(key) or []
+        if isinstance(value, list):
+            return "; ".join(_render_item(v) for v in value)
+        return str(value)
+
+    def _render_item(v: Any) -> str:
+        if isinstance(v, dict):
+            return json_dumps(v)
+        return str(v)
+
+    lines = [f"## Step {step_no} summary (closed step briefing — do not repeat its questions)"]
+    if summary.get("topics"):
+        lines.append("Topics asked: " + _items("topics"))
+    evidence = summary.get("evidence") or []
+    if isinstance(evidence, list) and evidence:
+        lines.append("Evidence:")
+        for e in evidence:
+            lines.append(f"  - {json_dumps(e)}")
+    for key, label in (
+        ("verified", "Verified strengths"),
+        ("suspicious", "Suspicious claims"),
+        ("weak_points", "Weak points"),
+        ("agreed_facts", "Agreed facts"),
+        ("probes_pending", "Pending probes"),
+    ):
+        if summary.get(key):
+            lines.append(f"{label}: {_items(key)}")
+    if summary.get("pacing_note"):
+        lines.append(f"Pacing note: {summary['pacing_note']}")
+    return "\n".join(lines)
+
+
+async def _summarize_call(llm: Any, transcript: str, focus: str) -> dict[str, Any] | None:
+    raw = await llm.chat_json(
+        [
+            {"role": "system", "content": STEP_SUMMARY_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    (f"Step focus: {focus}\n" if focus else "") + f"Step transcript:\n{transcript}"
+                ),
+            },
+        ],
+        temperature=0.2,
+    )
+    return _parse_summary(raw)
+
+
+def _apply_reflections(agent: "InterviewSessionState", summary: dict[str, Any]) -> None:
+    """切步仪式: the structured brief carries the competency reflections that
+    used to be a separate periodic agent."""
+    for ref in summary.get("reflections") or []:
+        if not isinstance(ref, dict):
+            continue
+        topic = str(ref.get("topic", "")).strip()
+        status = str(ref.get("status", "untested")).lower()
+        if not topic or status not in {"verified", "suspicious", "failed", "untested"}:
+            continue
+        try:
+            confidence = float(ref.get("confidence", 0.8))
+        except (TypeError, ValueError):
+            confidence = 0.8
+        status_enum = (
+            CompetencyStatus(status)
+            if status in {s.value for s in CompetencyStatus}
+            else CompetencyStatus.UNTESTED
+        )
+        agent.cognitive_memory.record_finding(
+            topic=topic,
+            category=str(ref.get("category", "general")),
+            status=status_enum,
+            claim=str(ref.get("claim", "")),
+            finding=str(ref.get("finding", "")),
+            turn_index=int(steps_turn_index(agent)),
+            confidence=confidence,
+        )
+
+
+def steps_turn_index(agent: "InterviewSessionState") -> int:
+    return len(agent.agent_state.get("asked_questions", []))
+
+
+def _rollup_needed(agent: "InterviewSessionState") -> bool:
+    steps = agent.agent_state.get(_STATE_KEY, {})
+    summaries = [s for s in steps.get("summaries", []) if isinstance(s, dict)]
+    if len(summaries) <= COMPACT.keep_recent_summaries:
+        return False
+    mass = sum(int(s.get("tokens", 0)) for s in summaries)
+    return mass > COMPACT.rollup_token_threshold or len(summaries) > COMPACT.rollup_count_threshold
+
+
+async def _rollup(llm: Any, agent: "InterviewSessionState") -> None:
+    steps = agent.agent_state[_STATE_KEY]
+    summaries: list[dict[str, Any]] = steps.get("summaries", [])
+    keep = COMPACT.keep_recent_summaries
+    retiring = summaries[:-keep] if len(summaries) > keep else []
+    if not retiring:
+        return
+    existing = str(steps.get("interview_summary", "") or "")
+    try:
+        merged = await llm.chat(
+            [
+                {"role": "system", "content": STEP_ROLLUP_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Existing digest:\n{existing or '(empty — first merge)'}\n\n"
+                        "Old step briefings to merge:\n"
+                        + "\n\n".join(str(s.get("rendered", "")) for s in retiring)
+                    ),
+                },
+            ],
+            temperature=0.2,
+            max_tokens=2000,
+        )
+    except Exception as e:
+        logger.debug("step rollup call failed; deferring: %s", e)
+        return
+    text = str(merged or "").strip()
+    if not text:
+        return
+    steps["interview_summary"] = text
+    steps["summaries"] = summaries[-keep:]
+    steps["retired_count"] = int(steps.get("retired_count", 0)) + len(retiring)
+    logger.info(
+        "step summaries rolled up: retired=%d kept=%d", len(retiring), len(steps["summaries"])
+    )
+
+
+async def compact_step_boundary(
+    agent: "InterviewSessionState",
+    boundary: dict[str, Any],
+    *,
+    llm: Any,
+) -> bool:
+    """Summarize one closed step and splice the brief into history.
+
+    Returns True when the segment was replaced by a summary block. Never
+    raises: every failure path keeps the raw dialogue and records state for
+    the next boundary.
+    """
+    steps = agent.agent_state.setdefault(
+        _STATE_KEY, {"step_start": 1, "step_no": 1, "summaries": []}
+    )
+    start = int(boundary["start"])
+    end = int(boundary["end"])
+    end = min(end, len(agent.messages))
+    if end <= start:
+        return False
+
+    segment = list(agent.messages[start:end])
+    try:
+        tokens = estimate_messages_tokens(segment)
+    except Exception:
+        tokens = -1
+    if 0 <= tokens <= COMPACT.skip_below_tokens:
+        logger.info(
+            "step %s compaction skipped (small, ~%s tokens)", boundary.get("step_no"), tokens
+        )
+        return False
+
+    transcript = _render_transcript(segment)
+    focus = str(boundary.get("phase_id", ""))
+    summary: dict[str, Any] | None = None
+    for attempt in range(COMPACT.max_attempts):
+        delay = COMPACT.retry_delays[attempt] if attempt < len(COMPACT.retry_delays) else 0.0
+        if delay:
+            await asyncio.sleep(delay)
+        try:
+            summary = await _summarize_call(llm, transcript, focus)
+        except Exception as e:
+            logger.warning(
+                "step %s summary attempt %d failed: %s", boundary.get("step_no"), attempt + 1, e
+            )
+            summary = None
+        if summary is not None:
+            break
+    if summary is None:
+        # Fall back: keep the raw dialogue; the next boundary retries with
+        # this segment folded in (accumulate-and-retry).
+        failed = agent.agent_state.setdefault("failed_steps", [])
+        failed.append(dict(boundary))
+        logger.warning(
+            "step %s compaction failed after %d attempts; raw kept",
+            boundary.get("step_no"),
+            COMPACT.max_attempts,
+        )
+        return False
+
+    _apply_reflections(agent, summary)
+    rendered = _render_summary_block(int(boundary.get("step_no", 0)), summary)
+    block = {"role": "system", "content": rendered}
+    # In-place slice replacement: appends made after the boundary (the next
+    # step may already be running) sit beyond `end` and are never touched.
+    now = time.time()
+    agent.messages[start:end] = [block]
+    summaries = [
+        s
+        for s in agent.agent_state.setdefault(_STATE_KEY, {}).get("summaries", [])
+        if not (s.get("start") == start and s.get("end") == end)
+    ]
+    summaries.append(
+        {
+            "step_no": boundary.get("step_no"),
+            "phase_id": boundary.get("phase_id"),
+            "start": start,
+            "end": start + 1,
+            "rendered": rendered,
+            "tokens": max(1, len(rendered) // 3),
+            "at": now,
+        }
+    )
+    agent.agent_state.setdefault(_STATE_KEY, {})["summaries"] = summaries
+    # Previously failed segments that overlapped this boundary are now covered.
+    failed = [
+        f
+        for f in agent.agent_state.get("failed_steps", [])
+        if not (int(f.get("start", -1)) >= start and int(f.get("end", -1)) <= end)
+    ]
+    agent.agent_state["failed_steps"] = failed
+
+    if _rollup_needed(agent):
+        await _rollup(llm, agent)
+    return True
+
+
+async def compact_pending_boundaries(
+    agent: "InterviewSessionState",
+    boundary: dict[str, Any],
+    *,
+    llm: Any,
+) -> bool:
+    """Compact previously failed segments plus the new boundary in one pass.
+
+    The failed segments sit contiguously before the new step's segment; they
+    are summarized together so accumulate-and-retry stays a single call.
+    """
+    failed: list[dict[str, Any]] = agent.agent_state.get("failed_steps", [])
+    if not failed:
+        return await compact_step_boundary(agent, boundary, llm=llm)
+    first = min(int(f.get("start", boundary["start"])) for f in failed)
+    merged = {
+        "start": min(first, int(boundary["start"])),
+        "end": int(boundary["end"]),
+        "step_no": boundary.get("step_no"),
+        "phase_id": boundary.get("phase_id"),
+    }
+    ok = await compact_step_boundary(agent, merged, llm=llm)
+    return ok
+
+
+def spawn_boundary_compaction(
+    runner: Any,
+    boundary: dict[str, Any],
+) -> None:
+    """Fire the background compaction task (never blocks the reply)."""
+    agent = runner.agent
+    llm = runner.llm
+
+    async def _run() -> None:
+        try:
+            await asyncio.wait_for(
+                compact_pending_boundaries(agent, boundary, llm=llm),
+                timeout=COMPACT.budget_seconds + BACKGROUND.shadow_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "step compaction overran its budget sid=%s step=%s",
+                getattr(agent.session, "id", None),
+                boundary.get("step_no"),
+            )
+        except Exception:
+            logger.debug("step compaction crashed; raw kept", exc_info=True)
+        finally:
+            # Best-effort persistence with a fresh session: the summaries and
+            # the spliced history must survive even if no further turn comes.
+            try:
+                from realmock.platform.database import sessions_db_session
+
+                with sessions_db_session() as db:
+                    agent.save_state(db)
+            except Exception:
+                logger.debug("step compaction persist failed", exc_info=True)
+
+    runner.spawn_bg_task(_run())
+
+
+__all__ = [
+    "compact_pending_boundaries",
+    "compact_step_boundary",
+    "record_step_boundary",
+    "spawn_boundary_compaction",
+]

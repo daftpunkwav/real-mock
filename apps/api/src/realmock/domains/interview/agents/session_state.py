@@ -225,6 +225,16 @@ class InterviewSessionState(SessionPromptMixin):
             "when the step's focus is covered."
         )
 
+    def mark_step_boundary(self) -> dict[str, Any] | None:
+        """Close the current step segment; the compactor summarizes it later."""
+        from realmock.domains.interview.agents.step_compaction import record_step_boundary
+
+        return record_step_boundary(self)
+
+    def mark_step_boundary_reset(self) -> None:
+        """Opening: history was rebuilt — the first step starts here."""
+        self.agent_state["steps"] = {"step_start": len(self.messages), "step_no": 1}
+
     def pace_message(self) -> str | None:
         """One-shot pacing system message when the interview crosses a time mark.
 

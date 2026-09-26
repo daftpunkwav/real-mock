@@ -2,11 +2,7 @@
 
 import pytest
 from realmock.domains.interview.agents.memory import CognitiveMemoryGraph
-from realmock.domains.interview.agents.topology import (
-    OrchestrationDirective,
-    ProcessOrchestratorAgent,
-    ShadowEvaluatorAgent,
-)
+from realmock.domains.interview.agents.topology import ShadowEvaluatorAgent
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 
 
@@ -26,20 +22,7 @@ async def test_shadow_evaluator_agent():
     assert isinstance(evaluation.inconsistencies, list)
 
 
-@pytest.mark.asyncio
-async def test_process_orchestrator_agent():
-    graph = CognitiveMemoryGraph()
-    llm = LLMClient(api_base="https://api.example.com", api_key="", model="gpt-4")
-    agent = ProcessOrchestratorAgent(llm, graph)
 
-    # Time budget limit triggers advance directive
-    advice = await agent.decide_next_step(
-        current_phase="technical_deep",
-        turn_index=15,
-        elapsed_minutes=36.0,
-        target_duration_minutes=40.0,
-    )
-    assert advice.directive == OrchestrationDirective.ADVANCE_PHASE
 
 
 @pytest.mark.asyncio

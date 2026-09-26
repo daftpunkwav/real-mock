@@ -45,27 +45,7 @@ hole>"}. The probe must be a question the interviewer can say out loud in one
 breath - no lists, no meta commentary.
 """
 
-ORCHESTRATOR_ADVICE_PROMPT = """You are the Lead HR & Technical Process Orchestrator in an executive technical interview.
-Review the current candidate competency profile, elapsed turns, and current phase.
-
-Directives available:
-- continue: Keep exploring current sub-topic naturally.
-- deepen_probe: Candidate gave ambiguous/suspicious answers on a critical area; instruct lead interviewer to dig in.
-- advance_phase: Current phase competencies are sufficiently established or exhausted; move to next phase.
-- conclude_interview: We have gathered comprehensive evidence across all domains or time is up; wrap up.
-
-Return ONLY valid JSON:
-{
-  "directive": "continue | deepen_probe | advance_phase | conclude_interview",
-  "reason": "Brief justification for this transition",
-  "target_topic": "Topic to focus on if probing or advancing",
-  "pacing_guidance": "Brief instruction on tone, pacing, or time urgency"
-}
-"""
-
-
 __all__ = [
-    "ORCHESTRATOR_ADVICE_PROMPT",
     "SHADOW_PROBE_PROMPT",
     "SHADOW_RECHECK_PROMPT",
     "SHADOW_SYSTEM_PROMPT",

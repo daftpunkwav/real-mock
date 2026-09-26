@@ -31,10 +31,7 @@ from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.agents.prompt_assembler import PromptAssembler
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundRunner
-from realmock.domains.interview.agents.topology import (
-    ProcessOrchestratorAgent,
-    ShadowEvaluatorAgent,
-)
+from realmock.domains.interview.agents.topology import ShadowEvaluatorAgent
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.contracts.lifecycle_hooks import get_system_insights_provider
 
@@ -72,7 +69,6 @@ class InterviewRunner:
         self.shadow_evaluator = ShadowEvaluatorAgent(
             llm, self.agent.cognitive_memory, context_provider=self._shadow_grounding
         )
-        self.process_orchestrator = ProcessOrchestratorAgent(llm, self.agent.cognitive_memory)
 
     def _shadow_grounding(self) -> str:
         """Full candidate grounding for the shadow evaluator (cached once)."""

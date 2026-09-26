@@ -38,7 +38,6 @@ def _mk_runner():
     r.prompter.build_api_messages = AsyncMock(return_value=[{"role": "user", "content": "hi"}])
     r.tools.maybe_retrieve_rag = AsyncMock(return_value=None)
     r.shadow_evaluator.evaluate_turn = AsyncMock(return_value=None)
-    r.process_orchestrator.decide_next_step = AsyncMock(return_value=MagicMock(directive="a", reason="r", target_topic="t"))
     r.llm = MagicMock(api_key="sk")
     r.spawn_bg_task = MagicMock(side_effect=lambda coro: asyncio.create_task(coro))
     return r
@@ -75,7 +74,6 @@ def _mk_runner_pace(qn=0):
     r.prompter.build_api_messages = AsyncMock(return_value=[{"role": "user", "content": "hi"}])
     r.tools.maybe_retrieve_rag = AsyncMock(return_value=None)
     r.shadow_evaluator.evaluate_turn = AsyncMock(return_value=None)
-    r.process_orchestrator.decide_next_step = AsyncMock(return_value=MagicMock(directive="a", reason="r", target_topic="t"))
     r.llm = MagicMock(api_key="sk")
     r.spawn_bg_task = MagicMock(side_effect=lambda coro: asyncio.create_task(coro))
     return r
@@ -145,7 +143,6 @@ async def test_regen_and_ledger_fail():
         yield TurnOutput(say="regen answer", emotion="neutral", wait_seconds=5)
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
         with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say):
-            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
                 with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", side_effect=RuntimeError("db")):
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert evs[-1].kind == EventKind.ERROR
@@ -163,9 +160,7 @@ async def test_bg_timeouts_do_not_block():
             yield
     r.shadow_evaluator.evaluate_turn = AsyncMock(side_effect=asyncio.TimeoutError())
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty2):
-        with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
             with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
-                with patch("realmock.domains.interview.agents.interviewer.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=asyncio.TimeoutError())):
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
     await asyncio.sleep(0.2)
@@ -184,7 +179,6 @@ async def test_early_and_tool_yield_and_pace():
         outcome["value"] = ToolRoundResult(msgs, '{"say": "early hi", "v": 1}')
         yield StreamEvent.make_token("tool-tok")
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _tools):
-        with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
             with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
                 evs = await _collect(stream_turn(r, "hi", MagicMock()))
                 assert any(e.token == "tool-tok" for e in evs if e.kind == EventKind.TOKEN)
@@ -210,14 +204,12 @@ async def test_complete_triggers_finish_and_degraded():
         yield done
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
         with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _nosay):
-            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
                 with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert evs[-1].kind == EventKind.TURN_COMPLETE
     r2 = _mk_runner_pace()
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
         with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say2):
-            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
                 with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
                     with patch("realmock.domains.interview.agents.interviewer.runner_turn.run_finish_lifecycle", return_value=None) as fl:
                         evs2 = await _collect(stream_turn(r2, "hi", MagicMock()))
@@ -237,10 +229,7 @@ async def test_fallback_and_generic_bg_errors():
     r.shadow_evaluator.evaluate_turn = AsyncMock(side_effect=RuntimeError("s fail"))
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _noval):
         with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say):
-            with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
                 with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
-                    with patch("realmock.domains.interview.agents.interviewer.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=RuntimeError("r fail"))):
-                        r.process_orchestrator.decide_next_step = AsyncMock(side_effect=RuntimeError("o fail"))
                         evs = await _collect(stream_turn(r, "hi", MagicMock()))
                         assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
                         await asyncio.sleep(0.3)
@@ -257,10 +246,7 @@ async def test_bg_timeouts_with_started_at():
             yield
     r.shadow_evaluator.evaluate_turn = AsyncMock(side_effect=asyncio.TimeoutError())
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty):
-        with patch("realmock.domains.interview.agents.interviewer.runner_turn.maybe_fold_history", AsyncMock()):
             with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", return_value=None):
-                with patch("realmock.domains.interview.agents.interviewer.runner_turn.reflect_on_dialogue", AsyncMock(side_effect=asyncio.TimeoutError())):
-                    r.process_orchestrator.decide_next_step = AsyncMock(side_effect=asyncio.TimeoutError())
                     evs = await _collect(stream_turn(r, "hi", MagicMock()))
                     assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
                     await asyncio.sleep(0.3)
