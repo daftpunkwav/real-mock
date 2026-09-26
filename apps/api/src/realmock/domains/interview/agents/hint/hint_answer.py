@@ -156,7 +156,7 @@ def _render_resume(payload: dict[str, Any] | None) -> str:
     return "\n".join(lines)
 
 
-async def _load_grounding(db: Session, session: Any) -> str:
+async def _load_grounding(session: Any) -> str:
     """Company + full candidate grounding (no truncation; 1M-window policy)."""
     sections: list[str] = []
     company_ctx = get_company_context(getattr(session, "company", "") or "")
@@ -194,7 +194,7 @@ async def _generate(
     flow_language: str,
 ) -> str | None:
     lang_name = "English" if (flow_language or "").strip().lower().startswith("en") else "Chinese"
-    grounding = await _load_grounding(db, session)
+    grounding = await _load_grounding(session)
     user_content = (
         (f"{grounding}\n\n" if grounding else "")
         + (f"Candidate background summary:\n{background}\n\n" if background else "")
@@ -205,20 +205,42 @@ async def _generate(
     # resume/profile/company material, so only an explicit repository signal
     # justifies paying for a tool loop (github verification only).
     if not _REPO_SIGNAL_RE.search(question or "") and not _REPO_SIGNAL_RE.search(background or ""):
-        writer_messages = [
-            {
-                "role": "system",
-                "content": HINT_MODEL_ANSWER_WRITER_SYSTEM.format(lang_name=lang_name),
-            },
-            {
-                "role": "user",
-                "content": user_content
-                + "Write the final model answer now (first person, copy-ready):",
-            },
-        ]
-        text = await llm.chat(writer_messages, temperature=0.4, max_tokens=1500)
-        return strip_markers(strip_think_blocks(text or "")).strip() or None
+        return await _write_direct_answer(llm, lang_name, user_content)
+    return await _run_github_tool_loop(llm, db, session, agent_state, user_content, lang_name)
 
+
+async def _write_direct_answer(llm: Any, lang_name: str, user_content: str) -> str | None:
+    """Single grounding-only writer call (no tools); None when empty."""
+    writer_messages = [
+        {
+            "role": "system",
+            "content": HINT_MODEL_ANSWER_WRITER_SYSTEM.format(lang_name=lang_name),
+        },
+        {
+            "role": "user",
+            "content": user_content
+            + "Write the final model answer now (first person, copy-ready):",
+        },
+    ]
+    text = await llm.chat(writer_messages, temperature=0.4, max_tokens=1500)
+    return strip_markers(strip_think_blocks(text or "")).strip() or None
+
+
+async def _run_github_tool_loop(
+    llm: Any,
+    db: Session,
+    session: Any,
+    agent_state: dict[str, Any],
+    user_content: str,
+    lang_name: str,
+) -> str | None:
+    """Verify the referenced repository with tools, then answer.
+
+    The loop's own closing content already IS the evidence-grounded answer —
+    reuse it instead of a second synthesis call (the full hint is on the
+    room's critical path; this roughly halves its latency). The writer pass
+    only runs as a fallback when the loop ended on tool calls with no text.
+    """
     tools = [openai_tool(spec) for spec in github_tool_specs()]
     if not tools:
         return None
@@ -280,10 +302,6 @@ async def _generate(
         wrap_up_hint=HINT_TOOL_FREE_WRAP_UP,
         error_context={"domain": "interview", "session": getattr(session, "id", None)},
     )
-    # The loop's own closing content already IS the evidence-grounded answer —
-    # reuse it instead of a second synthesis call (the full hint is on the
-    # room's critical path; this roughly halves its latency). The writer pass
-    # only runs as a fallback when the loop ended on tool calls with no text.
     if loop.final_content and loop.final_content.strip():
         cleaned = strip_markers(strip_think_blocks(loop.final_content)).strip()
         if cleaned:

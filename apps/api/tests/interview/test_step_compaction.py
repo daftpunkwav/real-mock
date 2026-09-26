@@ -11,6 +11,7 @@ import pytest
 from types import SimpleNamespace as NS
 
 
+from realmock.domains.interview.agents.memory.cognitive_graph import CompetencyStatus
 from realmock.domains.interview.agents.step_compaction import (
     compact_pending_boundaries,
     compact_step_boundary,
@@ -53,6 +54,9 @@ _GOOD = {
     "verified": ["recursion"],
     "weak_points": ["asyncio"],
     "agreed_facts": ["salary 30k"],
+    "reflections": [
+        {"topic": "recursion", "category": "algorithms", "status": "verified", "confidence": 0.9}
+    ],
 }
 
 
@@ -71,6 +75,28 @@ class _FakeLLM:
     async def chat(self, messages, temperature=0.2, max_tokens=None):
         self.calls += 1
         return "merged digest"
+
+
+def _spawn_runner(agent, llm, tasks: set | None = None):
+    """Runner double wiring spawn_boundary_compaction onto real asyncio tasks.
+
+    With ``tasks``, spawned tasks are collected there so the test can await
+    them; without it, tasks are fire-and-forget like in production.
+    """
+    runner = NS()
+    runner.agent = agent
+    runner.llm = llm
+    runner.flow_active = False
+
+    def spawn(coro):
+        t = asyncio.create_task(coro)
+        if tasks is not None:
+            tasks.add(t)
+            t.add_done_callback(tasks.discard)
+        return t
+
+    runner.spawn_bg_task = spawn
+    return runner
 
 
 def test_record_step_boundary_slices_and_advances():
@@ -117,14 +143,9 @@ def test_successful_summary_replaces_segment_in_place():
     assert "Step 1 summary" in agent.messages[1]["content"]
     assert agent.messages[-1] == tail[0]
     assert agent.agent_state["steps"]["summaries"][0]["step_no"] == 1
-    # reflections landed in the graph
-    assert (
-        "recursion"
-        not in " ".join(
-            e.finding for n in agent.cognitive_memory.nodes.values() for e in n.evidence
-        )
-        or True
-    )
+    # The summary's reflections landed in the competency graph.
+    node = agent.cognitive_memory.nodes["recursion"]
+    assert node.status == CompetencyStatus.VERIFIED
 
 
 def test_three_failures_keep_raw_and_defer_to_next_boundary():
@@ -262,21 +283,7 @@ def test_parallel_boundaries_are_serialized_by_lock():
     agent = _FakeAgent(msgs)
     llm = _FakeLLM([_GOOD, _GOOD])
     tasks: set[asyncio.Task] = set()
-
-    class _R:
-        pass
-
-    runner = _R()
-    runner.agent = agent
-    runner.llm = llm
-
-    def spawn(coro):
-        t = asyncio.create_task(coro)
-        tasks.add(t)
-        t.add_done_callback(tasks.discard)
-        return t
-
-    runner.spawn_bg_task = spawn
+    runner = _spawn_runner(agent, llm, tasks)
 
     async def run():
         b1 = record_step_boundary(agent)
@@ -315,21 +322,7 @@ def test_pending_boundary_follows_earlier_splice_shift():
     agent = _FakeAgent(msgs)
     llm = _FakeLLM([_GOOD, _GOOD])
     tasks: set[asyncio.Task] = set()
-
-    class _R:
-        pass
-
-    runner = _R()
-    runner.agent = agent
-    runner.llm = llm
-
-    def spawn(coro):
-        t = asyncio.create_task(coro)
-        tasks.add(t)
-        t.add_done_callback(tasks.discard)
-        return t
-
-    runner.spawn_bg_task = spawn
+    runner = _spawn_runner(agent, llm, tasks)
 
     # Hold task A inside its summarize call until b2 has been recorded, so
     # b2's task is already queued behind the lock when the splice lands.
@@ -453,20 +446,6 @@ def test_record_failed_boundary_skips_already_spliced_segment():
     assert asyncio.run(run()) is True
     sc._record_failed_boundary(agent, boundary)
     assert agent.agent_state.get("failed_steps", []) == []
-
-
-def _spawn_runner(agent, llm):
-    """Runner double wiring spawn_boundary_compaction onto real asyncio tasks."""
-
-    class _R:
-        pass
-
-    runner = _R()
-    runner.agent = agent
-    runner.llm = llm
-    runner.flow_active = False
-    runner.spawn_bg_task = lambda coro: asyncio.create_task(coro)  # type: ignore[method-assign]
-    return runner
 
 
 def test_budget_timeout_requeues_boundary_into_failed_steps():

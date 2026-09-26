@@ -33,6 +33,7 @@ from realmock.platform.capabilities.ai.agent.tools import (
 )
 from realmock.platform.capabilities.ai.llm.json_extract import extract_json_object
 from realmock.platform.catalogs.company import get_company_by_id
+from realmock.platform.database import sessions_db_session
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,37 @@ async def research_company_context(
     return digest
 
 
+def deferred_digest_persist(
+    # InterviewSession | InterviewProcess: both rows carry the
+    # ``company_research`` column; typed as type[Any] because SessionsBase,
+    # their common base, does not.
+    model_cls: type[Any],
+    row_id: int,
+    *,
+    id_label: str,
+) -> Callable[[str], None]:
+    """Build the ``persist`` callback for :func:`schedule_research_retry`.
+
+    Opens its own short-lived DB session (the caller's session is long gone
+    when the detached retry fires) and writes first-writer-wins: a digest
+    that already landed is never overwritten by the delayed retry.
+    """
+
+    def _persist(value: str) -> None:
+        try:
+            with sessions_db_session() as sdb:
+                row = sdb.get(model_cls, row_id)
+                if row is not None and not (row.company_research or "").strip():
+                    row.company_research = value
+                    sdb.commit()
+        except Exception:
+            logger.debug(
+                "delayed research persist failed %s=%s", id_label, row_id, exc_info=True
+            )
+
+    return _persist
+
+
 def schedule_research_retry(
     llm: Any,
     *,
@@ -354,6 +386,7 @@ __all__ = [
     "STANDALONE_MAX_SECONDS",
     "STANDALONE_SEARCH_BUDGET",
     "blend_company_context",
+    "deferred_digest_persist",
     "load_session_company_research",
     "schedule_research_retry",
     "needs_company_research",

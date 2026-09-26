@@ -126,17 +126,30 @@ class ShadowEvaluatorAgent:
 
     # ---- pipeline phases --------------------------------------------------
 
+    def _context_block(
+        self,
+        current_phase: str,
+        step_focus: str,
+        question: str,
+        grounding: str,
+        graph_summary: str,
+    ) -> str:
+        """Shared prompt prefix: step identity, grounding and graph context."""
+        return (
+            f"Interview step: {current_phase}"
+            + (f"\nStep focus: {_clip(step_focus, 300)}" if step_focus else "")
+            + f"\nQuestion asked: {_clip(question, 500)}\n"
+            + (f"\n{grounding}\n" if grounding else "")
+            + (f"\nCurrent assessment context:\n{graph_summary}" if graph_summary else "")
+        )
+
     async def _evaluate(
         self, question: str, user_text: str, current_phase: str, step_focus: str
     ) -> ShadowEvaluation | None:
         graph_summary = self.memory_graph.render_prompt_summary()
         grounding = self._grounding()
         user_message = (
-            f"Interview step: {current_phase}"
-            + (f"\nStep focus: {_clip(step_focus, 300)}" if step_focus else "")
-            + f"\nQuestion asked: {_clip(question, 500)}\n"
-            + (f"\n{grounding}\n" if grounding else "")
-            + (f"\nCurrent assessment context:\n{graph_summary}" if graph_summary else "")
+            self._context_block(current_phase, step_focus, question, grounding, graph_summary)
             + f"\n\nCandidate answer:\n{_clip(user_text, 6000)}"
         )
         try:
@@ -164,11 +177,7 @@ class ShadowEvaluatorAgent:
         graph_summary = self.memory_graph.render_prompt_summary()
         doubts = "; ".join(prior.technical_holes[:4]) or "insufficient evidence in the answer"
         user_message = (
-            f"Interview step: {current_phase}"
-            + (f"\nStep focus: {_clip(step_focus, 300)}" if step_focus else "")
-            + f"\nQuestion asked: {_clip(question, 500)}\n"
-            + (f"\n{grounding}\n" if grounding else "")
-            + (f"\nCurrent assessment context:\n{graph_summary}" if graph_summary else "")
+            self._context_block(current_phase, step_focus, question, grounding, graph_summary)
             + f"Your first pass flagged: {doubts}\n"
             "Re-examine with full attention to those doubts and give your final view.\n\n"
             f"Candidate answer:\n{_clip(user_text, 6000)}"
@@ -184,8 +193,7 @@ class ShadowEvaluatorAgent:
         except Exception as e:
             logger.debug("ShadowEvaluator recheck failed: %s", e)
             return None
-        parsed = self._parse(raw)
-        return parsed if parsed is not None else None
+        return self._parse(raw)
 
     async def _synthesize_probe(
         self, question: str, user_text: str, eval_res: ShadowEvaluation

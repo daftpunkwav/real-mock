@@ -20,6 +20,7 @@ from realmock.domains.interview.agents.research.company_research import (
     RESEARCH_FETCH_BUDGET,
     RESEARCH_SEARCH_BUDGET,
     blend_company_context,
+    deferred_digest_persist,
     needs_company_research,
     research_company_context,
     schedule_research_retry,
@@ -102,32 +103,18 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 process.company_research = digest
                 db.commit()
                 if not digest:
-                    pid = process.id
-                    ui_locale = process.ui_locale or None
-                    company = process.company or ""
-
-                    def _persist(value: str, _pid: int = pid) -> None:
-                        try:
-                            with sessions_db_session() as sdb:
-                                row = sdb.get(InterviewProcess, _pid)
-                                if row is not None and not (row.company_research or "").strip():
-                                    row.company_research = value
-                                    sdb.commit()
-                        except Exception:
-                            logger.debug(
-                                "delayed research persist failed pid=%s", _pid, exc_info=True
-                            )
-
                     schedule_research_retry(
                         llm,
-                        company=company,
+                        company=process.company or "",
                         role=process.role,
                         level=process.level,
-                        ui_locale=ui_locale,
+                        ui_locale=process.ui_locale or None,
                         search_budget=RESEARCH_SEARCH_BUDGET,
                         fetch_budget=RESEARCH_FETCH_BUDGET,
                         max_seconds=PROCESS_MAX_SECONDS,
-                        persist=_persist,
+                        persist=deferred_digest_persist(
+                            InterviewProcess, process.id, id_label="pid"
+                        ),
                     )
 
             user_msg = build_round_plan_user_message(

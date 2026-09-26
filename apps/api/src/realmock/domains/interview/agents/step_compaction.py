@@ -29,6 +29,7 @@ Design contract (see docs-local/design/2026-09-27-interview-agent-refactor.md):
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import weakref
@@ -111,14 +112,12 @@ def _render_transcript(messages: list[dict[str, Any]]) -> str:
         if role not in ("user", "assistant", "system"):
             continue
         content = m.get("content")
-        text = content if isinstance(content, str) else json_dumps(content)
+        text = content if isinstance(content, str) else _json_dumps(content)
         lines.append(f"[{role}] {text}")
     return "\n".join(lines)
 
 
-def json_dumps(value: Any) -> str:
-    import json
-
+def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
@@ -139,7 +138,7 @@ def _render_summary_block(step_no: int, summary: dict[str, Any]) -> str:
 
     def _render_item(v: Any) -> str:
         if isinstance(v, dict):
-            return json_dumps(v)
+            return _json_dumps(v)
         return str(v)
 
     lines = [f"## Step {step_no} summary (closed step briefing — do not repeat its questions)"]
@@ -149,7 +148,7 @@ def _render_summary_block(step_no: int, summary: dict[str, Any]) -> str:
     if isinstance(evidence, list) and evidence:
         lines.append("Evidence:")
         for e in evidence:
-            lines.append(f"  - {json_dumps(e)}")
+            lines.append(f"  - {_json_dumps(e)}")
     for key, label in (
         ("verified", "Verified strengths"),
         ("suspicious", "Suspicious claims"),
@@ -205,12 +204,12 @@ def _apply_reflections(agent: "InterviewSessionState", summary: dict[str, Any]) 
             status=status_enum,
             claim=str(ref.get("claim", "")),
             finding=str(ref.get("finding", "")),
-            turn_index=int(steps_turn_index(agent)),
+            turn_index=int(_steps_turn_index(agent)),
             confidence=confidence,
         )
 
 
-def steps_turn_index(agent: "InterviewSessionState") -> int:
+def _steps_turn_index(agent: "InterviewSessionState") -> int:
     return len(agent.agent_state.get("asked_questions", []))
 
 
@@ -319,6 +318,30 @@ def _record_failed_boundary(agent: "InterviewSessionState", boundary: dict[str, 
     agent.agent_state["failed_steps"] = rest + [entry]
 
 
+def _shift_tracked_indexes(
+    agent: "InterviewSessionState", steps: dict[str, Any], end: int, delta: int
+) -> None:
+    """Shift every tracked index right of ``end`` left by ``delta`` after a splice.
+
+    The splice removed ``delta`` messages: stale indexes would make the next
+    boundary read out-of-range positions and the state machine silently die.
+    ``steps`` is the live "steps" state; ``failed_steps`` lives on agent_state.
+    """
+    if delta <= 0:
+        return
+    if int(steps.get("step_start", 0)) >= end:
+        steps["step_start"] = int(steps["step_start"]) - delta
+    for tracked in (
+        steps.get("summaries", []),
+        agent.agent_state.get("failed_steps", []),
+        steps.get("pending", []),
+    ):
+        for item in tracked:
+            if int(item.get("start", 0)) >= end:
+                item["start"] = int(item["start"]) - delta
+                item["end"] = int(item["end"]) - delta
+
+
 async def compact_step_boundary(
     agent: "InterviewSessionState",
     boundary: dict[str, Any],
@@ -389,21 +412,7 @@ async def compact_step_boundary(
     # `end` must shift left by the same delta or the next boundary reads
     # out-of-range positions and the state machine silently dies.
     delta = (end - start) - 1
-    if delta > 0:
-        if int(steps.get("step_start", 0)) >= end:
-            steps["step_start"] = int(steps["step_start"]) - delta
-        for s in steps.get("summaries", []):
-            if int(s.get("start", 0)) >= end:
-                s["start"] = int(s["start"]) - delta
-                s["end"] = int(s["end"]) - delta
-        for f in agent.agent_state.get("failed_steps", []):
-            if int(f.get("start", 0)) >= end:
-                f["start"] = int(f["start"]) - delta
-                f["end"] = int(f["end"]) - delta
-        for p in steps.get("pending", []):
-            if int(p.get("start", 0)) >= end:
-                p["start"] = int(p["start"]) - delta
-                p["end"] = int(p["end"]) - delta
+    _shift_tracked_indexes(agent, steps, end, delta)
     summaries = [
         s
         for s in agent.agent_state.setdefault(_STATE_KEY, {}).get("summaries", [])
@@ -502,6 +511,58 @@ def _take_pending_boundary(
 _PERSIST_IDLE_WAIT_SEC = 15.0
 
 
+def _write_snapshot(sid: int, agent: "InterviewSessionState") -> None:
+    """Write agent_state+messages onto the session row by id.
+
+    The in-memory session ORM object is detached here, so write a fresh row
+    looked up by id instead of mutating the stale one.
+    """
+    from realmock.domains.interview.models import InterviewSession
+    from realmock.platform.database import sessions_db_session
+
+    with sessions_db_session() as db:
+        row = db.get(InterviewSession, sid)
+        if row is None:
+            return
+        row.agent_state = json.dumps(agent.agent_state, ensure_ascii=False)
+        row.messages = json.dumps(agent.messages, ensure_ascii=False)
+        db.commit()
+
+
+async def _persist_after_flow_idle(
+    runner: Any, agent: "InterviewSessionState"
+) -> None:
+    """Best-effort persistence so the compaction survives even if no further
+    turn comes.
+
+    Only persist against an idle flow. The turn's own ``save_state`` serializes
+    and commits synchronously on the event loop; this persist must not
+    interleave with it (a commit landing between this snapshot's serialize and
+    its commit would let a stale snapshot overwrite that turn's freshly saved
+    state). Waiting out the active turn, then running serialize+commit
+    synchronously on the loop, makes the two writers mutually exclusive by
+    construction. If the flow stays busy, skipping is safe: the flow's own
+    ``save_state`` persists everything this task changed.
+    """
+    sid = getattr(agent.session, "id", None)
+    if sid is None:
+        return
+    waited = 0.0
+    while getattr(runner, "flow_active", False) and waited < _PERSIST_IDLE_WAIT_SEC:
+        await asyncio.sleep(0.25)
+        waited += 0.25
+    if getattr(runner, "flow_active", False):
+        logger.debug(
+            "step compaction persist skipped; interview flow still active sid=%s",
+            sid,
+        )
+        return
+    try:
+        _write_snapshot(sid, agent)
+    except Exception:
+        logger.debug("step compaction persist failed", exc_info=True)
+
+
 def spawn_boundary_compaction(
     runner: Any,
     boundary: dict[str, Any],
@@ -550,54 +611,6 @@ def spawn_boundary_compaction(
                 if popped:
                     _record_failed_boundary(agent, current)
             finally:
-                # Best-effort persistence: the summaries and the spliced
-                # history must survive even if no further turn comes. The
-                # in-memory session ORM object is detached here, so write a
-                # fresh row by id.
-                sid = getattr(agent.session, "id", None)
-                if sid is None:
-                    return
-                # Only persist against an idle flow. The turn's own
-                # ``save_state`` serializes and commits synchronously on the
-                # event loop; this persist must not interleave with it (a
-                # commit landing between this snapshot's serialize and its
-                # commit would let a stale snapshot overwrite that turn's
-                # freshly saved state). Waiting out the active turn, then
-                # running serialize+commit synchronously on the loop, makes
-                # the two writers mutually exclusive by construction. If the
-                # flow stays busy, skipping is safe: the flow's own
-                # ``save_state`` persists everything this task changed.
-                waited = 0.0
-                while (
-                    getattr(runner, "flow_active", False)
-                    and waited < _PERSIST_IDLE_WAIT_SEC
-                ):
-                    await asyncio.sleep(0.25)
-                    waited += 0.25
-                if getattr(runner, "flow_active", False):
-                    logger.debug(
-                        "step compaction persist skipped; interview flow still active sid=%s",
-                        sid,
-                    )
-                    return
-
-                def _persist() -> None:
-                    import json
-
-                    from realmock.platform.database import sessions_db_session
-                    from realmock.domains.interview.models import InterviewSession
-
-                    with sessions_db_session() as db:
-                        row = db.get(InterviewSession, sid)
-                        if row is None:
-                            return
-                        row.agent_state = json.dumps(agent.agent_state, ensure_ascii=False)
-                        row.messages = json.dumps(agent.messages, ensure_ascii=False)
-                        db.commit()
-
-                try:
-                    _persist()
-                except Exception:
-                    logger.debug("step compaction persist failed", exc_info=True)
+                await _persist_after_flow_idle(runner, agent)
 
     return runner.spawn_bg_task(_run())

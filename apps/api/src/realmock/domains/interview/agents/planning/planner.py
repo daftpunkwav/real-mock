@@ -23,6 +23,7 @@ from realmock.domains.interview.agents.research.company_research import (
     STANDALONE_MAX_SECONDS,
     STANDALONE_SEARCH_BUDGET,
     blend_company_context,
+    deferred_digest_persist,
     needs_company_research,
     research_company_context,
     schedule_research_retry,
@@ -144,29 +145,18 @@ async def _company_context(db: Session, session: InterviewSession, llm: Any) -> 
         if not digest and getattr(session, "id", None) is not None:
             # Accuracy over speed: one detached retry lands the digest on the
             # session row while the interview is already under way.
-            sid = session.id
-            ui_locale = getattr(session, "ui_locale", "") or None
-
-            def _persist(value: str, _sid: int = sid) -> None:
-                try:
-                    with sessions_db_session() as sdb:
-                        row = sdb.get(InterviewSession, _sid)
-                        if row is not None and not (row.company_research or "").strip():
-                            row.company_research = value
-                            sdb.commit()
-                except Exception:
-                    logger.debug("delayed research persist failed sid=%s", _sid, exc_info=True)
-
             schedule_research_retry(
                 llm,
                 company=company,
                 role=session.role,
                 level=session.level,
-                ui_locale=ui_locale,
+                ui_locale=getattr(session, "ui_locale", "") or None,
                 search_budget=STANDALONE_SEARCH_BUDGET,
                 fetch_budget=STANDALONE_FETCH_BUDGET,
                 max_seconds=STANDALONE_MAX_SECONDS,
-                persist=_persist,
+                persist=deferred_digest_persist(
+                    InterviewSession, session.id, id_label="sid"
+                ),
             )
     return blend_company_context(get_company_context(company), digest)
 

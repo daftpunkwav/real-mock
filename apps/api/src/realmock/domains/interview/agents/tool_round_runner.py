@@ -71,6 +71,22 @@ _DUPLICATE_CALL_OBSERVATION = (
     'you already have; change the arguments if you truly need a retry."}'
 )
 
+#: Clamp band for the model-supplied per-call ``timeout_seconds`` argument —
+#: declared in the guard policy, documented the same way by the tool schema
+#: (see :func:`tools._with_timeout_override`).
+_TIMEOUT_OVERRIDE_MIN = INTERVIEWER_LOOP.guard.timeout_override_min
+_TIMEOUT_OVERRIDE_MAX = INTERVIEWER_LOOP.guard.timeout_override_max
+
+
+def _clamp_timeout_override(raw: Any) -> float | None:
+    """Clamp the model-supplied per-call timeout; None when absent or unusable."""
+    if raw is None:
+        return None
+    try:
+        return max(_TIMEOUT_OVERRIDE_MIN, min(_TIMEOUT_OVERRIDE_MAX, float(raw)))
+    except (TypeError, ValueError):
+        return None
+
 
 @dataclass
 class ToolRoundResult:
@@ -265,13 +281,7 @@ class ToolRoundRunner:
 
         async def execute(name: str, args: dict[str, Any]) -> str:
             args = dict(args or {})
-            timeout_override: float | None = None
-            raw_timeout = args.pop("timeout_seconds", None)
-            if raw_timeout is not None:
-                try:
-                    timeout_override = max(5.0, min(180.0, float(raw_timeout)))
-                except (TypeError, ValueError):
-                    timeout_override = None
+            timeout_override = _clamp_timeout_override(args.pop("timeout_seconds", None))
             try:
                 dedup_key = name + "|" + json.dumps(args, sort_keys=True, default=str)
             except (TypeError, ValueError):
