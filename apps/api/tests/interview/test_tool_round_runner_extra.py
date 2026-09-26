@@ -441,3 +441,119 @@ def _opening_runner(**overrides):
 
 
 
+
+
+# ---- turn-scope dedup / tool-free final round / rag budget ----
+
+
+def _loop_settings() -> SimpleNamespace:
+    return SimpleNamespace(interview_tools_enabled=True, interview_max_tool_rounds=3)
+
+
+@pytest.mark.asyncio
+async def test_run_tool_rounds_dedups_same_args(monkeypatch) -> None:
+    r = _runner()
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.get_settings",
+        lambda: _loop_settings(),
+    )
+    monkeypatch.setattr(r, "collect_chat_tools", lambda **k: [{"type": "function"}])
+    r.guard = SimpleNamespace(run=AsyncMock(return_value="RESULT"))
+
+    observations: list[str] = []
+
+    async def fake_loop(llm, messages, *, execute=None, **k):
+        observations.append(await execute("lookup_company_profile", {"company_id": "x"}))
+        observations.append(await execute("lookup_company_profile", {"company_id": "x"}))
+        observations.append(await execute("lookup_company_profile", {"company_id": "y"}))
+        return SimpleNamespace(messages=[], final_content=None)
+
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.run_agent_loop",
+        fake_loop,
+    )
+    await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
+    assert observations[0] == "RESULT"
+    assert "duplicate_call_skipped" in observations[1]
+    assert observations[2] == "RESULT"
+    # Only the two distinct calls reached the guard.
+    assert r.guard.run.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_tool_rounds_dedup_allows_retry_after_failure(monkeypatch) -> None:
+    r = _runner()
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.get_settings",
+        lambda: _loop_settings(),
+    )
+    monkeypatch.setattr(r, "collect_chat_tools", lambda **k: [{"type": "function"}])
+    r.guard = SimpleNamespace(
+        run=AsyncMock(side_effect=[RuntimeError("boom"), "RETRY_OK"])
+    )
+
+    observations: list[str] = []
+
+    async def fake_loop(llm, messages, *, execute=None, **k):
+        for args in ({"query": "q"}, {"query": "q"}):
+            try:
+                observations.append(await execute("web_search_interview_exp", args))
+            except RuntimeError as exc:
+                observations.append(f"raised:{exc}")
+        return SimpleNamespace(messages=[], final_content=None)
+
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.run_agent_loop",
+        fake_loop,
+    )
+    await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
+    # A failed call never caches its key, so the identical retry reaches the tool.
+    assert observations == ["raised:boom", "RETRY_OK"]
+    assert r.guard.run.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_tool_rounds_final_round_tool_free_kwargs(monkeypatch) -> None:
+    r = _runner()
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.get_settings",
+        lambda: _loop_settings(),
+    )
+    monkeypatch.setattr(r, "collect_chat_tools", lambda **k: [{"type": "function"}])
+    captured: dict = {}
+
+    async def fake_loop(llm, messages, **k):
+        captured.update(k)
+        return SimpleNamespace(messages=[], final_content="done")
+
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.run_agent_loop",
+        fake_loop,
+    )
+    await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
+    assert captured["final_round_tool_free"] is True
+    assert "tools are no longer available" in captured["wrap_up_hint"]["content"]
+
+    # A single-round configuration must keep tools available in its only round.
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner.get_settings",
+        lambda: SimpleNamespace(interview_tools_enabled=True, interview_max_tool_rounds=1),
+    )
+    captured.clear()
+    await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
+    assert captured["final_round_tool_free"] is False
+
+
+@pytest.mark.asyncio
+async def test_maybe_retrieve_rag_timeout_returns_none(monkeypatch) -> None:
+    rag = MagicMock()
+
+    async def _slow(*a, **k):
+        await asyncio.sleep(1.0)
+
+    rag.query_for_company = _slow
+    r = _runner(rag=rag)
+    monkeypatch.setattr(
+        "realmock.domains.interview.agents.tool_round_runner._RAG_QUERY_TIMEOUT_SEC", 0.01
+    )
+    assert await r.maybe_retrieve_rag("query") is None

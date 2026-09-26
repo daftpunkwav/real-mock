@@ -14,6 +14,7 @@ caller's early path — drift-safe, mirroring the platform loop's gating).
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
@@ -25,6 +26,7 @@ from realmock.domains.interview.capabilities.rag.company_rag import (
     format_context as format_rag_context,
 )
 from realmock.domains.interview.ledger.store import append_pending_tool, begin_pending_tools, build_tool_preview
+from realmock.domains.interview.agents.agent_prompts import TOOL_FREE_WRAP_UP_HINT
 from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.session_state import InterviewSessionState
@@ -49,6 +51,19 @@ logger = logging.getLogger(__name__)
 # :mod:`tool_guard`; the platform loop still converts tool exceptions into
 # observations.
 _TOOL_ROUND_BUDGET_SECONDS = 600.0
+
+#: Pre-loop RAG retrieval budget: errors already degrade to None, but a hung
+#: embedding call would otherwise stall the turn for the full transport
+#: timeout before the loop's own budget even starts.
+_RAG_QUERY_TIMEOUT_SEC = 10.0
+
+#: Observation for a repeated identical call within one turn: the model is
+#: spinning on the same request instead of consuming what it already has.
+_DUPLICATE_CALL_OBSERVATION = (
+    '{"error": "duplicate_call_skipped", "message": "Duplicate call skipped '
+    "(same tool and arguments as an earlier call this turn). Use the result "
+    'you already have; change the arguments if you truly need a retry."}'
+)
 
 
 @dataclass
@@ -106,9 +121,18 @@ class ToolRoundRunner:
             return None
         try:
             company_id = self.session.company or None
-            hits = await self.rag.query_for_company(
-                query, company_id, top_k=top_k
-            ) if company_id else await self.rag.query(query, top_k=top_k)
+            hits = await asyncio.wait_for(
+                self.rag.query_for_company(query, company_id, top_k=top_k)
+                if company_id
+                else self.rag.query(query, top_k=top_k),
+                timeout=_RAG_QUERY_TIMEOUT_SEC,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "RAG retrieval timed out after %.0fs session=%s",
+                _RAG_QUERY_TIMEOUT_SEC, self.session.id,
+            )
+            return None
         except Exception as e:
             logger.warning("RAG retrieval failed: %s", e)
             return None
@@ -222,8 +246,20 @@ class ToolRoundRunner:
                 say_parts.append(chunk)
                 await content_sink(StreamEvent.make_token(chunk))
 
+        # Turn-scope same-args dedup (prep-domain standard): a repeated
+        # identical call returns a skip observation instead of re-executing.
+        # Failed calls raise through, so their key is never cached — a retry
+        # with the same args stays legal.
+        seen_calls: set[str] = set()
+
         async def execute(name: str, args: dict[str, Any]) -> str:
-            return await self.guard.run(
+            try:
+                dedup_key = name + "|" + json.dumps(args or {}, sort_keys=True, default=str)
+            except (TypeError, ValueError):
+                dedup_key = None
+            if dedup_key is not None and dedup_key in seen_calls:
+                return _DUPLICATE_CALL_OBSERVATION
+            result = await self.guard.run(
                 name,
                 args,
                 lambda: execute_interview_tool(
@@ -237,6 +273,9 @@ class ToolRoundRunner:
                     session=self.session,
                 ),
             )
+            if dedup_key is not None:
+                seen_calls.add(dedup_key)
+            return result
 
         async def on_tool(name: str, args: dict[str, Any], result: str, tc_id: str) -> None:
             del tc_id
@@ -265,6 +304,11 @@ class ToolRoundRunner:
                     on_tool=on_tool,
                     on_content=on_content,
                     on_round_start=on_round_start,
+                    # Protocol-level final answer: the last request omits the
+                    # tools parameter entirely (needs >=2 rounds so tools can
+                    # run at all), and the hint copy must match.
+                    final_round_tool_free=max_rounds >= 2,
+                    wrap_up_hint=TOOL_FREE_WRAP_UP_HINT,
                 ),
                 timeout=_TOOL_ROUND_BUDGET_SECONDS,
             )

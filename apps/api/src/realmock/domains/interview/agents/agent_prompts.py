@@ -286,6 +286,18 @@ Begin the interview for the current phase."""
 # Appended at the end of the system prompt (highest priority). `say` is the only
 # source for the streaming speech channel — it must be the first key; the control
 # block is parsed after `say`. say-first required; non-conforming degrades to defaults in turn_output.
+#: Last-round hint for the interviewer tool loop, paired with
+#: ``final_round_tool_free``: the final request omits the tools parameter, so
+#: the copy must not offer "one more tool call" (the platform default does).
+TOOL_FREE_WRAP_UP_HINT = {
+    "role": "system",
+    "content": (
+        "This is the final round and tools are no longer available. Give the "
+        "candidate your complete spoken reply now, using the evidence already "
+        "gathered."
+    ),
+}
+
 TURN_OUTPUT_PROTOCOL = """
 
 ## Reply format (highest priority; overrides any conflicting output-format rules above)
