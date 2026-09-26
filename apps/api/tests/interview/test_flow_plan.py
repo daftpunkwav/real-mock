@@ -381,3 +381,41 @@ def test_generate_plan_failure_marks_failed(db, monkeypatch):
     assert refreshed.plan_status == "failed"
     # degraded path still yields a usable (static) plan
     assert fallback_plan_for(refreshed) is not None
+
+
+def test_generate_plan_skipped_when_fallback_stored_midflight(db, monkeypatch):
+    """The opening turn storing a fallback during the LLM call wins the race."""
+    session = InterviewSession(role="r", level="l", company="c")
+    db.add(session)
+    db.commit()
+
+    fallback = fallback_plan_for(session)
+    plan_payload = _agent_plan_dict(9)
+
+    from realmock.platform.database import sessions_db_session
+
+    class RaceLLM(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            # The opening turn lands the static fallback while the planner
+            # call is still in flight.
+            with sessions_db_session() as other_db:
+                row = other_db.get(InterviewSession, session.id)
+                row.plan = json.dumps(fallback.to_dict(), ensure_ascii=False)
+                row.plan_status = PLAN_STATUS_READY
+                other_db.commit()
+            return plan_payload
+
+    from realmock.domains.interview.agents.planning import planner as planner_mod
+
+    monkeypatch.setattr(planner_mod, "session_llm", lambda db, session: RaceLLM())
+    import asyncio
+
+    asyncio.run(planner_mod.generate_plan_for_session(session.id))
+
+    db.expire_all()
+    refreshed = db.get(InterviewSession, session.id)
+    assert refreshed.plan_status == "ready"
+    stored = parse_plan(refreshed.plan)
+    # The late LLM plan did not replace the already-stored fallback.
+    assert stored.source == "fallback"
+    assert len(stored.steps) == len(fallback.steps)

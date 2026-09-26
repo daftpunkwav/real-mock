@@ -200,6 +200,20 @@ async def generate_plan_for_session(session_id: int) -> None:
                 session.plan_status = PLAN_STATUS_FAILED
                 db.commit()
                 return
+            # First writer wins: the opening turn may have stored the static
+            # fallback plan while this LLM call was in flight. Swapping the
+            # plan mid-interview would change the phase list under a running
+            # session, so a late LLM plan must not replace a stored one.
+            try:
+                db.refresh(session)
+            except Exception:
+                logger.debug("plan race re-check refresh failed sid=%s", session_id, exc_info=True)
+            if (
+                getattr(session, "plan_status", "") == PLAN_STATUS_READY
+                and parse_plan(getattr(session, "plan", None)) is not None
+            ):
+                logger.info("late LLM plan skipped; a plan is already stored sid=%s", session_id)
+                return
             session.plan = _dump_plan(plan)
             session.plan_status = PLAN_STATUS_READY
             db.commit()
@@ -251,8 +265,16 @@ async def wait_for_plan_ready(
             logger.info("plan wait timed out sid=%s", getattr(session, "id", None))
             return
         await asyncio.sleep(_POLL_INTERVAL_SECONDS)
-        db.expire(session)
-        db.refresh(session)
+        try:
+            db.refresh(session)
+        except Exception:
+            # A transient DB hiccup must not break the opening turn; the next
+            # poll retries and the deadline eventually degrades to the caller.
+            logger.debug(
+                "plan wait refresh failed sid=%s",
+                getattr(session, "id", None),
+                exc_info=True,
+            )
 
 
 def fallback_plan_for(session: InterviewSession) -> InterviewPlan:
