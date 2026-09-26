@@ -30,15 +30,13 @@ export interface ParsedProfile {
 /** Resume row after profile coerce; analysis stays an untyped dict until asAnalysis. */
 export type ResumeItem = Omit<ResumeResponse, "parsed_profile"> & {
   parsed_profile: ParsedProfile;
-  family_id: number;
-  version_n: number;
 };
 
 function lineageOf(row: ResumeResponse): { family_id: number; version_n: number } {
-  const extra = row as ResumeResponse & { family_id?: number; version_n?: number };
   return {
-    family_id: Number(extra.family_id) > 0 ? Number(extra.family_id) : row.id,
-    version_n: Math.max(1, Number(extra.version_n) || 1),
+    // Legacy self-lineage rows carry family_id=0; resolve to the row id.
+    family_id: row.family_id > 0 ? row.family_id : row.id,
+    version_n: Math.max(1, row.version_n || 1),
   };
 }
 
