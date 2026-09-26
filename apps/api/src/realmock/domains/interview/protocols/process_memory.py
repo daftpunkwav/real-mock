@@ -27,22 +27,43 @@ DIGEST_LIMITS = {
 }
 
 
+#: Reserved key holding the raw payload of a corrupt document. The next
+#: ``append_round`` + ``dump_memory`` write-back preserves it, so a JSON
+#: corruption degrades this round's read instead of silently destroying the
+#: accumulated cross-round history (repairable by hand).
+CORRUPT_BACKUP_KEY = "corrupt_backup"
+
+
 def empty_memory() -> dict[str, Any]:
     """Return a fresh memory document."""
     return {"schema": MEMORY_SCHEMA, "rounds": [], "final": None}
 
 
 def load_memory(raw: str | None) -> dict[str, Any]:
-    """Parse the stored JSON; corrupt payloads degrade to an empty document."""
+    """Parse the stored JSON; corrupt payloads degrade to an empty document.
+
+    The corrupt raw text is kept under :data:`CORRUPT_BACKUP_KEY` so the
+    write-back path cannot destroy the prior history without a trace.
+    """
     if not raw:
         return empty_memory()
+    doc = empty_memory()
     try:
         data = json.loads(raw)
     except (json.JSONDecodeError, TypeError):
-        logger.warning("corrupt process memory JSON; starting fresh")
-        return empty_memory()
+        logger.warning(
+            "corrupt process memory JSON; degrading to empty document (raw kept in %s)",
+            CORRUPT_BACKUP_KEY,
+        )
+        doc[CORRUPT_BACKUP_KEY] = raw if isinstance(raw, str) else str(raw)
+        return doc
     if not isinstance(data, dict):
-        return empty_memory()
+        logger.warning(
+            "process memory JSON is not an object; degrading (raw kept in %s)",
+            CORRUPT_BACKUP_KEY,
+        )
+        doc[CORRUPT_BACKUP_KEY] = raw
+        return doc
     data.setdefault("schema", MEMORY_SCHEMA)
     if not isinstance(data.get("rounds"), list):
         data["rounds"] = []
