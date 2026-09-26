@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 MIN_PLAN_STEPS = 8
 MAX_PLAN_STEPS = 30
-MIN_QUESTIONS = 1
-STEP_QUESTIONS_MAX = 8
+MIN_QUESTIONS = 2
+STEP_QUESTIONS_MAX = 15
 STEP_TITLE_MAX_CHARS = 60
 STEP_FOCUS_MAX_CHARS = 400
 
@@ -70,8 +70,8 @@ class PlanStep:
     id: str
     title: str
     focus: str
-    min_questions: int = 1
-    max_questions: int = 3
+    min_questions: int = 2
+    max_questions: int = 8
     kind: str = ""  # e.g. "reverse_qa"; free-form otherwise
 
     # PhaseDef compatibility: the state machine reads .name / .description.
@@ -102,7 +102,9 @@ class InterviewPlan:
     """Agent-authored interview flow for one session."""
 
     steps: list[PlanStep] = field(default_factory=list)
-    round_note: str = ""  # positioning of this round, e.g. "Round 1: fundamentals and project overview"
+    round_note: str = (
+        ""  # positioning of this round, e.g. "Round 1: fundamentals and project overview"
+    )
     source: str = "agent"  # "agent" | "fallback"
     language: str = DEFAULT_FLOW_LANGUAGE  # "zh" | "en": interview working language
     opening: PlanOpening = field(default_factory=PlanOpening)
@@ -119,11 +121,17 @@ class InterviewPlan:
 
 
 def _clamp_questions(value, default_min: int = MIN_QUESTIONS) -> tuple[int, int]:
-    """Clamp a raw min/max question pair into legal bounds."""
-    if isinstance(value, bool) or not isinstance(value, int) or value < MIN_QUESTIONS:
-        return default_min, min(default_min + 2, STEP_QUESTIONS_MAX)
-    value = min(value, STEP_QUESTIONS_MAX)
-    return MIN_QUESTIONS, value
+    """Clamp a raw max-question value into legal bounds.
+
+    An explicit integer is preserved down to 1 (curated static phases such as
+    the one-question opener keep their pacing through plan round-trips); the
+    2-15 standard applies to planner-authored steps and to the default when
+    the value is missing or unusable.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return default_min, min(default_min + 6, STEP_QUESTIONS_MAX)
+    max_q = max(1, min(value, STEP_QUESTIONS_MAX))
+    return min(default_min, max_q), max_q
 
 
 def _clean_step(raw: object, index: int, used_ids: set[str] | None = None) -> PlanStep | None:

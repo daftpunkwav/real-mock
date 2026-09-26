@@ -12,7 +12,7 @@ PLAN_JSON_CONTRACT = """{
   "language": "\"zh\" or \"en\" (the interview language, see rule 8)",
   "opening": {"style": "\"identity_confirm\" | \"resume_ack\" | \"casual_warmup\" (see rule 3)", "note": "<one-line personalization with concrete facts: candidate name + one resume fact>"},
   "steps": [
-    {"title": "<short step title in the interview language>", "focus": "<what to assess and how>", "max_questions": 3, "kind": "reverse_qa" (only on the candidate-questions step)},
+    {"title": "<short step title in the interview language>", "focus": "<what to assess and how>", "max_questions": 6, "kind": "reverse_qa" (only on the candidate-questions step)},
     ... 8 to 30 steps total ...
   ]
 }"""
@@ -35,7 +35,7 @@ Hard rules:
 6. When prior-round context is provided: avoid re-asking covered topics; go deeper or probe previously weak points; raise difficulty in later rounds.
 7. "title" is a short user-visible phrase in the interview language (<= 12 CJK chars or <= 8 English words); "focus" explains what to assess.
 8. Decide "language" from the signals below: default to the UI locale; when the resume/profile text is predominantly in the other language, follow the resume — the interview must run in the candidate's working language. Write "title", "focus", "round_note", and "opening.note" all in that language.
-9. "max_questions" per step: 1-8 (deep dives 4-8, transitions 1-2)."""
+9. "max_questions" per step: 2-15 (deep dives 6-15, transitions 2-3)."""
 
 
 def build_plan_user_message(
@@ -56,13 +56,15 @@ def build_plan_user_message(
     ]
     # Language signals for rule 8: the planner judges the working language.
     lang_signals = f"UI locale: {ui_locale or 'unknown'}"
-    preferred = (getattr(profile, "preferred_languages", "") or "").strip() if profile is not None else ""
+    preferred = (
+        (getattr(profile, "preferred_languages", "") or "").strip() if profile is not None else ""
+    )
     if preferred:
         lang_signals += f"; candidate preferred languages: {preferred}"
     lang_signals += " (the Resume block below shows which language the resume is written in)"
     parts.append(f"## Language signals\n{lang_signals}")
     if company_context:
-        parts.append(f"## Target company\n{company_context[:1200]}")
+        parts.append(f"## Target company\n{company_context}")
 
     if profile is not None:
         parts.append(
@@ -71,7 +73,7 @@ def build_plan_user_message(
             f"Target role: {getattr(profile, 'target_role', '') or '—'}\n"
             f"Experience: {getattr(profile, 'experience_years', '') or '—'} years\n"
             f"Tech domains: {', '.join(getattr(profile, 'tech_domains_list', []) or []) or '—'}\n"
-            f"Highlights: {(getattr(profile, 'career_highlights', '') or '—')[:400]}"
+            f"Highlights: {getattr(profile, 'career_highlights', '') or '—'}"
         )
 
     if resume_payload:
@@ -83,7 +85,7 @@ def build_plan_user_message(
                 "stack": (p.get("stack") or p.get("tech") or "")[:120],
                 "summary": (p.get("summary") or p.get("description") or "")[:200],
             }
-            for p in projects[:10]
+            for p in projects
             if isinstance(p, dict)
         ]
         parts.append(

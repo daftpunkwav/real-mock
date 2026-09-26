@@ -47,12 +47,12 @@ def test_parse_plan_clamps_and_ids():
     assert len(plan.steps) == 12
     assert plan.steps[0].id == "s01"
     assert plan.source == "agent"
-    # question bounds clamp into 1..8
+    # question bounds clamp into 2..15
     raw = _agent_plan_dict(9)
     raw["steps"][0]["max_questions"] = 99
     plan = parse_plan(raw)
     assert plan is not None
-    assert plan.steps[0].max_questions == 8
+    assert plan.steps[0].max_questions == 15
 
 
 def test_parse_plan_rejects_too_few_steps():
