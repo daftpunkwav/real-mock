@@ -231,6 +231,7 @@ async def run_web_research(
                 max_tools_per_round=3,
                 temperature=0.2,
                 wrap_up_hint=RESEARCH_WRAP_UP_HINT,
+                error_context={"domain": "interview"},
             ),
             timeout=max_seconds,
         )

@@ -167,3 +167,43 @@ async def test_reflect_llm_raises_is_swallowed() -> None:
         _Boom(api_key="k"), graph, [{"assistant": "q", "user": "a"}], 1  # type: ignore[arg-type]
     )
     assert graph.nodes == {}
+
+
+# ---- prompt clipping and payload guards ----
+
+
+@pytest.mark.asyncio
+async def test_reflection_clips_oversized_turns():
+    from tests.fakes import FakeLLMClient
+
+    captured: dict = {}
+
+    class CapturingLLM(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.2):  # type: ignore[override]
+            captured["messages"] = messages
+            return {"reflections": []}
+
+    huge = "长" * 50_000
+    await reflect_on_dialogue(
+        CapturingLLM(),
+        CognitiveMemoryGraph(),
+        [{"assistant": huge, "user": huge}],
+        1,
+    )
+    user_text = captured["messages"][1]["content"]
+    assert len(user_text) < 5_000
+    assert "长" * 600 in user_text
+    assert huge not in user_text
+
+
+@pytest.mark.asyncio
+async def test_reflection_non_list_reflections_does_not_raise():
+    from tests.fakes import FakeLLMClient
+
+    class BadShapeLLM(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.2):  # type: ignore[override]
+            return {"reflections": "not-a-list"}
+
+    graph = CognitiveMemoryGraph()
+    await reflect_on_dialogue(BadShapeLLM(), graph, [{"assistant": "q", "user": "a"}], 1)
+    assert graph.nodes == {}

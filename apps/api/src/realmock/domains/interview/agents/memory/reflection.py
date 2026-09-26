@@ -20,6 +20,11 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
+#: Per-message clip for the reflection prompt: callers pass full recent
+#: messages, and one oversized candidate input would otherwise dominate it.
+_TURN_CLIP_CHARS = 600
+
+
 async def reflect_on_dialogue(
     llm: LLMClient,
     memory_graph: CognitiveMemoryGraph,
@@ -31,7 +36,8 @@ async def reflect_on_dialogue(
         return
 
     turns_text = "\n".join(
-        f"Turn {t.get('turn', i)}: [Interviewer]: {t.get('assistant', '')}\n[Candidate]: {t.get('user', '')}"
+        f"Turn {t.get('turn', i)}: [Interviewer]: {str(t.get('assistant', ''))[:_TURN_CLIP_CHARS]}\n"
+        f"[Candidate]: {str(t.get('user', ''))[:_TURN_CLIP_CHARS]}"
         for i, t in enumerate(recent_turns)
     )
 
@@ -47,28 +53,29 @@ async def reflect_on_dialogue(
             return
 
         reflections = raw.get("reflections", [])
-        if isinstance(reflections, list):
-            for ref in reflections:
-                if not isinstance(ref, dict):
-                    continue
-                topic = str(ref.get("topic", "")).strip()
-                status_str = str(ref.get("status", "untested")).lower()
-                if not topic or status_str not in {s.value for s in CompetencyStatus}:
-                    continue
-                try:
-                    confidence = float(ref.get("confidence", 0.8))
-                except (ValueError, TypeError):
-                    confidence = 0.8
+        if not isinstance(reflections, list):
+            reflections = []
+        for ref in reflections:
+            if not isinstance(ref, dict):
+                continue
+            topic = str(ref.get("topic", "")).strip()
+            status_str = str(ref.get("status", "untested")).lower()
+            if not topic or status_str not in {s.value for s in CompetencyStatus}:
+                continue
+            try:
+                confidence = float(ref.get("confidence", 0.8))
+            except (ValueError, TypeError):
+                confidence = 0.8
 
-                memory_graph.record_finding(
-                    topic=topic,
-                    category=str(ref.get("category", "general")),
-                    status=CompetencyStatus(status_str),
-                    claim=str(ref.get("claim", "")),
-                    finding=str(ref.get("finding", "")),
-                    turn_index=current_turn_index,
-                    confidence=confidence,
-                )
+            memory_graph.record_finding(
+                topic=topic,
+                category=str(ref.get("category", "general")),
+                status=CompetencyStatus(status_str),
+                claim=str(ref.get("claim", "")),
+                finding=str(ref.get("finding", "")),
+                turn_index=current_turn_index,
+                confidence=confidence,
+            )
 
         next_probe = raw.get("suggested_next_probe")
         if next_probe and isinstance(next_probe, str) and next_probe.strip():

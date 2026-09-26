@@ -66,6 +66,8 @@ def append_followup_and_rag(
         state.messages.append(rag_msg)
 
     # Follow-up / RAG were appended after user; pop them, replace user, then re-append
+    if not state.messages:
+        return
     trailing_msgs: list[dict[str, Any]] = []
     for _ in range(5):
         if not state.messages:

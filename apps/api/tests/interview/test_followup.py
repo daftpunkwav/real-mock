@@ -121,3 +121,30 @@ def test_vague_still_triggers_in_reverse_qa_phase() -> None:
     )
     assert sig.needs_followup
     assert sig.category == "vague"
+
+
+# ---- message-tail normalization guards ----
+
+
+def test_append_followup_and_rag_empty_messages_noop() -> None:
+    from types import SimpleNamespace
+
+    from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
+
+    state = SimpleNamespace(
+        messages=[],
+        agent_state={},
+        refresh_system_memory=lambda: None,
+    )
+    append_followup_and_rag(
+        state,
+        user_text="hello",
+        last_question="",
+        tech_domains=[],
+        phase_id="warmup",
+        rag_msg=None,
+        face=None,
+        build_user_content=lambda t, f: t,
+        session_id=1,
+    )
+    assert state.messages == []
