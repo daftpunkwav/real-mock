@@ -391,3 +391,149 @@ def test_record_step_boundary_pinned_end_excludes_new_step_entry():
         "step_no": 2,
         "phase_id": "old_step",
     }
+
+
+# ---- retry-chain termination and failure requeue (resilience contract) ----
+
+
+def test_failed_chain_gives_up_after_max_failed_rounds():
+    """Accumulate-and-retry must terminate: after COMPACT.max_failed_rounds
+    failed rounds the segment is dead-lettered (raw kept) instead of growing
+    the merged input forever."""
+    from realmock.domains.interview.agents.agent_policies import COMPACT
+
+    agent = _FakeAgent(_big_transcript())
+    down = _FakeLLM([RuntimeError("down")] * 50)
+
+    async def run():
+        for _ in range(COMPACT.max_failed_rounds + 1):
+            agent.messages.extend(_big_transcript()[1:])
+            boundary = record_step_boundary(agent)
+            await compact_pending_boundaries(agent, boundary, llm=down)
+
+    asyncio.run(run())
+    # Rounds 1..3 booked the (merged) segment; round 4 dead-lettered it.
+    assert agent.agent_state["failed_steps"] == []
+    assert agent.messages[1]["role"] != "system"  # raw dialogue untouched
+    # Bounded cost: exactly (rounds+1) x max_attempts summarize calls, no more.
+    assert down.calls == (COMPACT.max_failed_rounds + 1) * COMPACT.max_attempts
+
+
+def test_failed_summary_rounds_replace_overlapping_entries():
+    """Each failed round re-books ONE merged entry instead of accumulating
+    overlapping duplicates."""
+    agent = _FakeAgent(_big_transcript())
+    llm = _FakeLLM([RuntimeError("down")] * 3)
+
+    async def run():
+        return await compact_step_boundary(
+            agent, {"start": 1, "end": len(agent.messages), "step_no": 1, "phase_id": "s"}, llm=llm
+        )
+
+    assert asyncio.run(run()) is False
+    failed = agent.agent_state["failed_steps"]
+    assert len(failed) == 1
+    assert failed[0]["rounds"] == 1
+
+
+def test_record_failed_boundary_skips_already_spliced_segment():
+    """Re-booking a range whose brief already landed must be a no-op — the
+    alternative would let the next merge overwrite the brief plus the next
+    step's live dialogue."""
+    import realmock.domains.interview.agents.step_compaction as sc
+
+    msgs = _big_transcript()
+    agent = _FakeAgent(msgs)
+    boundary = {"start": 1, "end": len(msgs), "step_no": 1, "phase_id": "s"}
+    llm = _FakeLLM([_GOOD])
+
+    async def run():
+        return await compact_step_boundary(agent, boundary, llm=llm)
+
+    assert asyncio.run(run()) is True
+    sc._record_failed_boundary(agent, boundary)
+    assert agent.agent_state.get("failed_steps", []) == []
+
+
+def _spawn_runner(agent, llm):
+    """Runner double wiring spawn_boundary_compaction onto real asyncio tasks."""
+
+    class _R:
+        pass
+
+    runner = _R()
+    runner.agent = agent
+    runner.llm = llm
+    runner.flow_active = False
+    runner.spawn_bg_task = lambda coro: asyncio.create_task(coro)  # type: ignore[method-assign]
+    return runner
+
+
+def test_budget_timeout_requeues_boundary_into_failed_steps():
+    """A boundary consumed by a task whose budget expired must land back in
+    the retry chain, not vanish with the task."""
+    import realmock.domains.interview.agents.step_compaction as sc
+    from realmock.domains.interview.agents.agent_policies import COMPACT
+
+    msgs = _big_transcript()
+    agent = _FakeAgent(msgs)
+    agent.session = NS(current_phase="p", id=10**9)  # absent row: persist no-op
+
+    class _SlowLLM(_FakeLLM):
+        async def chat_json(self, messages, temperature=0.2):
+            await asyncio.sleep(1.0)
+            return _GOOD
+
+    runner = _spawn_runner(agent, _SlowLLM([]))
+
+    async def run():
+        boundary = record_step_boundary(agent)
+        task = sc.spawn_boundary_compaction(runner, boundary)
+        original = COMPACT.budget_seconds
+        # Budget must expire while the summarize call is still parked.
+        object.__setattr__(COMPACT, "budget_seconds", 0.05)
+        try:
+            await asyncio.gather(task, return_exceptions=True)
+        finally:
+            object.__setattr__(COMPACT, "budget_seconds", original)
+
+    asyncio.run(run())
+    failed = agent.agent_state["failed_steps"]
+    assert len(failed) == 1
+    assert failed[0]["start"] == 1
+    assert failed[0]["end"] == len(msgs)
+    assert failed[0]["rounds"] == 1
+    assert agent.messages == msgs  # raw kept
+
+
+def test_cancel_requeues_boundary_into_failed_steps():
+    """WS-disconnect cancellation must not swallow the consumed boundary: the
+    segment is re-filed and the finally-persist keeps the bookkeeping."""
+    import realmock.domains.interview.agents.step_compaction as sc
+
+    msgs = _big_transcript()
+    agent = _FakeAgent(msgs)
+    agent.session = NS(current_phase="p", id=10**9)
+
+    gate = asyncio.Event()
+
+    class _GatedLLM(_FakeLLM):
+        async def chat_json(self, messages, temperature=0.2):
+            await gate.wait()
+            return _GOOD
+
+    runner = _spawn_runner(agent, _GatedLLM([]))
+
+    async def run():
+        boundary = record_step_boundary(agent)
+        task = sc.spawn_boundary_compaction(runner, boundary)
+        await asyncio.sleep(0.05)  # task parks inside its summarize call
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(run())
+    failed = agent.agent_state["failed_steps"]
+    assert len(failed) == 1
+    assert failed[0]["start"] == 1
+    assert agent.messages == msgs
+    assert agent.agent_state["steps"]["pending"] == []

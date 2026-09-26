@@ -56,6 +56,10 @@ class InterviewRunner:
         self.agent = agent or InterviewSessionState(session, llm)
         self._task_spawner = task_spawner
         self._bg_tasks: set[asyncio.Task[Any]] = set()
+        # True while a streaming flow (turn / closing) is mutating messages and
+        # saving state. Background writers (step-compaction persist) check it
+        # so their DB write can never interleave with the flow's ``save_state``.
+        self.flow_active = False
         # Growth feedback port: composition root registers the provider.
         if self.agent.system_insights_provider is None:
             provider = get_system_insights_provider()
@@ -115,21 +119,29 @@ class InterviewRunner:
         image_b64: str | None = None,
         followup_probe: str | None = None,
     ) -> AsyncIterator[StreamEvent]:
-        """Handle a candidate reply and stream events."""
-        async for event in runner_turn.stream_turn(
-            self,
-            user_text,
-            db,
-            face=face,
-            image_b64=image_b64,
-            followup_probe=followup_probe,
-        ):
-            yield event
+        """Handle candidate replies and stream events."""
+        self.flow_active = True
+        try:
+            async for event in runner_turn.stream_turn(
+                self,
+                user_text,
+                db,
+                face=face,
+                image_b64=image_b64,
+                followup_probe=followup_probe,
+            ):
+                yield event
+        finally:
+            self.flow_active = False
 
     async def stream_closing(self, db: Session) -> AsyncIterator[StreamEvent]:
         """Candidate-initiated close: verbal thanks + wrap-up, mark complete."""
-        async for event in runner_closing.stream_closing(self, db):
-            yield event
+        self.flow_active = True
+        try:
+            async for event in runner_closing.stream_closing(self, db):
+                yield event
+        finally:
+            self.flow_active = False
 
 
 __all__ = ["InterviewRunner", "StreamEvent", "EventKind"]

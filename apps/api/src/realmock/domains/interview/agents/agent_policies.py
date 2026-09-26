@@ -49,6 +49,10 @@ class CompactionPolicy:
     skip_below_tokens: int = 20_000
     max_attempts: int = 3
     retry_delays: tuple[float, ...] = (0.0, 30.0, 120.0)
+    #: Termination for the accumulate-and-retry chain: after this many failed
+    #: boundary rounds the segment is dead-lettered (raw dialogue stays
+    #: verbatim) instead of retrying forever and growing the merged input.
+    max_failed_rounds: int = 3
     budget_seconds: float = 700.0
     keep_recent_summaries: int = 6
     rollup_token_threshold: int = 300_000

@@ -13,6 +13,11 @@ Design contract (see docs-local/design/2026-09-27-interview-agent-refactor.md):
 - a step at or under :data:`COMPACT.skip_below_tokens` stays verbatim;
 - LLM failure retries up to three times with backoff, then the raw segment
   stays and is folded into the NEXT boundary's attempt (accumulate-and-retry);
+  the chain terminates: after ``COMPACT.max_failed_rounds`` failed rounds the
+  segment is dead-lettered (raw kept verbatim) instead of retrying forever;
+- a task that dies around the compaction (budget overrun, crash, WS-disconnect
+  cancellation) hands its boundary back to the same chain — an uncompacted
+  segment is never silently dropped;
 - replacement is an in-place slice assignment so appends made by a turn that
   started meanwhile are never lost;
 - once more than ``keep_recent_summaries`` briefings pile up (or their token
@@ -256,6 +261,64 @@ async def _rollup(llm: Any, agent: "InterviewSessionState") -> None:
     )
 
 
+def _already_spliced(agent: "InterviewSessionState", boundary: dict[str, Any]) -> bool:
+    """True when this boundary's raw segment was already replaced by its brief.
+
+    Guards the failure bookkeeping against double-booking a range whose splice
+    DID land (e.g. the budget expired during the post-splice rollup): re-filing
+    a compacted range would make the next merge swallow the brief plus the next
+    step's live dialogue and overwrite them — destructive, so it must never
+    happen. The segment is identified by the rendered brief header, which is
+    derived from the same descriptor that drove the splice.
+    """
+    start = int(boundary.get("start", -1))
+    if start < 0 or start >= len(agent.messages):
+        return True  # nothing left at that position — nothing to retry
+    message = agent.messages[start]
+    if not isinstance(message, dict) or message.get("role") != "system":
+        return False
+    return f"## Step {int(boundary.get('step_no', 0))} summary" in str(message.get("content", ""))
+
+
+def _record_failed_boundary(agent: "InterviewSessionState", boundary: dict[str, Any]) -> None:
+    """Book an uncompacted segment for the accumulate-and-retry chain.
+
+    Replaces the failed entries the boundary's range already covers (each
+    retry merges them into one range) and counts the round; after
+    :data:`COMPACT.max_failed_rounds` failed rounds the segment is
+    dead-lettered — the raw dialogue stays verbatim and the chain stops — so a
+    permanently failing summary call can neither retry forever nor grow the
+    merged input without bound.
+    """
+    if _already_spliced(agent, boundary):
+        return
+    start = int(boundary.get("start", -1))
+    end = int(boundary.get("end", -1))
+    if end <= start:
+        return
+    failed = [f for f in agent.agent_state.get("failed_steps", []) if isinstance(f, dict)]
+    covered = [
+        f
+        for f in failed
+        if int(f.get("start", -1)) >= start and int(f.get("end", -1)) <= end
+    ]
+    rest = [f for f in failed if f not in covered]
+    rounds = max((int(f.get("rounds", 0)) for f in covered), default=0) + 1
+    if rounds > COMPACT.max_failed_rounds:
+        agent.agent_state["failed_steps"] = rest
+        logger.warning(
+            "step compaction gave up on segment [%d,%d) after %d failed rounds; "
+            "raw dialogue stays verbatim",
+            start,
+            end,
+            rounds - 1,
+        )
+        return
+    entry = dict(boundary)
+    entry["rounds"] = rounds
+    agent.agent_state["failed_steps"] = rest + [entry]
+
+
 async def compact_step_boundary(
     agent: "InterviewSessionState",
     boundary: dict[str, Any],
@@ -306,9 +369,8 @@ async def compact_step_boundary(
             break
     if summary is None:
         # Fall back: keep the raw dialogue; the next boundary retries with
-        # this segment folded in (accumulate-and-retry).
-        failed = agent.agent_state.setdefault("failed_steps", [])
-        failed.append(dict(boundary))
+        # this segment folded in (accumulate-and-retry, bounded rounds).
+        _record_failed_boundary(agent, boundary)
         logger.warning(
             "step %s compaction failed after %d attempts; raw kept",
             boundary.get("step_no"),
@@ -435,21 +497,33 @@ def _take_pending_boundary(
     return fallback
 
 
+#: How long the persist step waits for the interview flow to go idle before
+#: giving up (the flow's own ``save_state`` then persists the snapshot).
+_PERSIST_IDLE_WAIT_SEC = 15.0
+
+
 def spawn_boundary_compaction(
     runner: Any,
     boundary: dict[str, Any],
-) -> None:
-    """Fire the background compaction task (never blocks the reply)."""
+) -> "asyncio.Task[None]":
+    """Fire the background compaction task (never blocks the reply).
+
+    Returns the spawned task so callers (tests, teardown) can await or cancel
+    it explicitly.
+    """
     agent = runner.agent
     llm = runner.llm
     lock = _compaction_lock_for(runner)
 
     async def _run() -> None:
+        popped = False
+        current = boundary
         async with lock:
             try:
                 # Re-read under the lock: the queued copy carries any index
                 # shifts that landed while this task waited its turn.
                 current = _take_pending_boundary(agent, boundary)
+                popped = True
                 await asyncio.wait_for(
                     compact_pending_boundaries(agent, current, llm=llm),
                     timeout=COMPACT.budget_seconds,
@@ -460,16 +534,51 @@ def spawn_boundary_compaction(
                     getattr(agent.session, "id", None),
                     boundary.get("step_no"),
                 )
+                if popped:
+                    # The boundary was consumed but the compaction did not
+                    # finish: hand it back so the next boundary retries it.
+                    _record_failed_boundary(agent, current)
+            except asyncio.CancelledError:
+                # WS disconnect / teardown: re-file an unconsumed boundary so
+                # the segment is not lost with the task (the finally below
+                # persists the bookkeeping even when no further turn comes).
+                if popped:
+                    _record_failed_boundary(agent, current)
+                raise
             except Exception:
                 logger.debug("step compaction crashed; raw kept", exc_info=True)
+                if popped:
+                    _record_failed_boundary(agent, current)
             finally:
                 # Best-effort persistence: the summaries and the spliced
                 # history must survive even if no further turn comes. The
                 # in-memory session ORM object is detached here, so write a
-                # fresh row by id; run in a thread to keep the event loop
-                # (voice streaming) free from the serialize+commit.
+                # fresh row by id.
                 sid = getattr(agent.session, "id", None)
                 if sid is None:
+                    return
+                # Only persist against an idle flow. The turn's own
+                # ``save_state`` serializes and commits synchronously on the
+                # event loop; this persist must not interleave with it (a
+                # commit landing between this snapshot's serialize and its
+                # commit would let a stale snapshot overwrite that turn's
+                # freshly saved state). Waiting out the active turn, then
+                # running serialize+commit synchronously on the loop, makes
+                # the two writers mutually exclusive by construction. If the
+                # flow stays busy, skipping is safe: the flow's own
+                # ``save_state`` persists everything this task changed.
+                waited = 0.0
+                while (
+                    getattr(runner, "flow_active", False)
+                    and waited < _PERSIST_IDLE_WAIT_SEC
+                ):
+                    await asyncio.sleep(0.25)
+                    waited += 0.25
+                if getattr(runner, "flow_active", False):
+                    logger.debug(
+                        "step compaction persist skipped; interview flow still active sid=%s",
+                        sid,
+                    )
                     return
 
                 def _persist() -> None:
@@ -487,8 +596,8 @@ def spawn_boundary_compaction(
                         db.commit()
 
                 try:
-                    await asyncio.to_thread(_persist)
+                    _persist()
                 except Exception:
                     logger.debug("step compaction persist failed", exc_info=True)
 
-    runner.spawn_bg_task(_run())
+    return runner.spawn_bg_task(_run())
