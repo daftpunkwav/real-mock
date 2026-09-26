@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.agents.agent_policies import INTERVIEWER_LOOP
 from realmock.platform.capabilities.ai.agent.tools import (
     github_tool_specs,
     openai_tool,
@@ -44,7 +45,10 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     pass
 
-MAX_TOOL_ROUNDS = 8
+#: Interviewer tool-loop round cap: derived from the declared policy table
+#: (agent_policies.INTERVIEWER_LOOP) so tuning stays a table edit, not a
+#: second literal drifting away from it.
+MAX_TOOL_ROUNDS = INTERVIEWER_LOOP.max_rounds
 #: Attention cap for one tool observation — NOT a storage cap (1M-window
 #: policy): head+tail deterministic excerpt, never a lossy LLM rewrite.
 MAX_TOOL_RESULT_CHARS = 24_000
