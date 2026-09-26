@@ -147,12 +147,16 @@ class ShadowEvaluatorAgent:
         step_focus: str,
         prior: ShadowEvaluation,
     ) -> ShadowEvaluation | None:
+        grounding = self._grounding()
+        graph_summary = self.memory_graph.render_prompt_summary()
         doubts = "; ".join(prior.technical_holes[:4]) or "insufficient evidence in the answer"
         user_message = (
             f"Interview step: {current_phase}"
             + (f"\nStep focus: {_clip(step_focus, 300)}" if step_focus else "")
             + f"\nQuestion asked: {_clip(question, 500)}\n"
-            f"Your first pass flagged: {doubts}\n"
+            + (f"\n{grounding}\n" if grounding else "")
+            + (f"\nCurrent assessment context:\n{graph_summary}" if graph_summary else "")
+            + f"Your first pass flagged: {doubts}\n"
             "Re-examine with full attention to those doubts and give your final view.\n\n"
             f"Candidate answer:\n{_clip(user_text, 6000)}"
         )

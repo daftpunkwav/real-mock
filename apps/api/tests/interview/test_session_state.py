@@ -339,8 +339,8 @@ def test_apply_plan_ops_tolerates_malformed_model_output(db) -> None:
         ),  # type: ignore[arg-type]
     )
     assert n == 2
-    assert st.plan.steps[1].max_questions == 3
-    assert st.plan.steps[2].max_questions == 3
+    assert st.plan.steps[1].max_questions == 6  # malformed count degrades to the 2-15 band default
+    assert st.plan.steps[2].max_questions == 6
 
 
 def test_phase_entry_reverse_qa_and_summary(db) -> None:

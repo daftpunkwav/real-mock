@@ -26,9 +26,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import weakref
 from typing import TYPE_CHECKING, Any
 
-from realmock.domains.interview.agents.agent_policies import BACKGROUND, COMPACT
+from realmock.domains.interview.agents.agent_policies import COMPACT
 from realmock.domains.interview.agents.memory.cognitive_graph import CompetencyStatus
 from realmock.domains.interview.agents.step_compaction_prompts import (
     STEP_ROLLUP_PROMPT,
@@ -67,7 +68,9 @@ def record_step_boundary(agent: "InterviewSessionState") -> dict[str, Any] | Non
     ``None`` means there was nothing to close (empty segment).
     """
     steps = _steps_state(agent)
-    start = int(steps.get("step_start", 1))
+    # Clamp a stale start (e.g. state written before an external history
+    # rewrite) so the boundary can never span past the real list.
+    start = min(int(steps.get("step_start", 1)), len(agent.messages))
     end = len(agent.messages)
     boundary = {
         "start": start,
@@ -307,6 +310,21 @@ async def compact_step_boundary(
     # step may already be running) sit beyond `end` and are never touched.
     now = time.time()
     agent.messages[start:end] = [block]
+    # The splice removed (end-start-1) messages: every tracked index right of
+    # `end` must shift left by the same delta or the next boundary reads
+    # out-of-range positions and the state machine silently dies.
+    delta = (end - start) - 1
+    if delta > 0:
+        if int(steps.get("step_start", 0)) >= end:
+            steps["step_start"] = int(steps["step_start"]) - delta
+        for s in steps.get("summaries", []):
+            if int(s.get("start", 0)) >= end:
+                s["start"] = int(s["start"]) - delta
+                s["end"] = int(s["end"]) - delta
+        for f in agent.agent_state.get("failed_steps", []):
+            if int(f.get("start", 0)) >= end:
+                f["start"] = int(f["start"]) - delta
+                f["end"] = int(f["end"]) - delta
     summaries = [
         s
         for s in agent.agent_state.setdefault(_STATE_KEY, {}).get("summaries", [])
@@ -362,6 +380,26 @@ async def compact_pending_boundaries(
     return ok
 
 
+# One compaction at a time per runner: a second boundary landing while the
+# first task is still running would otherwise summarize against indexes the
+# first task is about to shift.
+_COMPACTION_LOCKS: "weakref.WeakKeyDictionary[Any, asyncio.Lock]" = weakref.WeakKeyDictionary()
+
+
+def _compaction_lock_for(runner: Any) -> asyncio.Lock:
+    try:
+        lock = _COMPACTION_LOCKS.get(runner)
+    except TypeError:
+        lock = None
+    if lock is None:
+        lock = asyncio.Lock()
+        try:
+            _COMPACTION_LOCKS[runner] = lock
+        except TypeError:
+            pass
+    return lock
+
+
 def spawn_boundary_compaction(
     runner: Any,
     boundary: dict[str, Any],
@@ -369,38 +407,50 @@ def spawn_boundary_compaction(
     """Fire the background compaction task (never blocks the reply)."""
     agent = runner.agent
     llm = runner.llm
+    lock = _compaction_lock_for(runner)
 
     async def _run() -> None:
-        try:
-            await asyncio.wait_for(
-                compact_pending_boundaries(agent, boundary, llm=llm),
-                timeout=COMPACT.budget_seconds + BACKGROUND.shadow_seconds,
-            )
-        except asyncio.TimeoutError:
-            logger.warning(
-                "step compaction overran its budget sid=%s step=%s",
-                getattr(agent.session, "id", None),
-                boundary.get("step_no"),
-            )
-        except Exception:
-            logger.debug("step compaction crashed; raw kept", exc_info=True)
-        finally:
-            # Best-effort persistence with a fresh session: the summaries and
-            # the spliced history must survive even if no further turn comes.
+        async with lock:
             try:
-                from realmock.platform.database import sessions_db_session
-
-                with sessions_db_session() as db:
-                    agent.save_state(db)
+                await asyncio.wait_for(
+                    compact_pending_boundaries(agent, boundary, llm=llm),
+                    timeout=COMPACT.budget_seconds,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "step compaction overran its budget sid=%s step=%s",
+                    getattr(agent.session, "id", None),
+                    boundary.get("step_no"),
+                )
             except Exception:
-                logger.debug("step compaction persist failed", exc_info=True)
+                logger.debug("step compaction crashed; raw kept", exc_info=True)
+            finally:
+                # Best-effort persistence: the summaries and the spliced
+                # history must survive even if no further turn comes. The
+                # in-memory session ORM object is detached here, so write a
+                # fresh row by id; run in a thread to keep the event loop
+                # (voice streaming) free from the serialize+commit.
+                sid = getattr(agent.session, "id", None)
+                if sid is None:
+                    return
+
+                def _persist() -> None:
+                    import json
+
+                    from realmock.platform.database import sessions_db_session
+                    from realmock.domains.interview.models import InterviewSession
+
+                    with sessions_db_session() as db:
+                        row = db.get(InterviewSession, sid)
+                        if row is None:
+                            return
+                        row.agent_state = json.dumps(agent.agent_state, ensure_ascii=False)
+                        row.messages = json.dumps(agent.messages, ensure_ascii=False)
+                        db.commit()
+
+                try:
+                    await asyncio.to_thread(_persist)
+                except Exception:
+                    logger.debug("step compaction persist failed", exc_info=True)
 
     runner.spawn_bg_task(_run())
-
-
-__all__ = [
-    "compact_pending_boundaries",
-    "compact_step_boundary",
-    "record_step_boundary",
-    "spawn_boundary_compaction",
-]

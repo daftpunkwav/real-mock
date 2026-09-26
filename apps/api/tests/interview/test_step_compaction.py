@@ -7,6 +7,7 @@ accumulate-and-retry / rollup / never-raises. No real network or LLM.
 from __future__ import annotations
 
 import asyncio
+import pytest
 from types import SimpleNamespace as NS
 
 
@@ -15,6 +16,16 @@ from realmock.domains.interview.agents.step_compaction import (
     compact_step_boundary,
     record_step_boundary,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_sleep():
+    from realmock.domains.interview.agents.agent_policies import COMPACT
+
+    original = COMPACT.retry_delays
+    object.__setattr__(COMPACT, "retry_delays", (0.0, 0.0, 0.0))
+    yield
+    object.__setattr__(COMPACT, "retry_delays", original)
 
 
 class _FakeAgent:
@@ -209,3 +220,82 @@ def test_garbage_summary_counts_as_failure():
     assert asyncio.run(run()) is True
     assert llm.calls == 3  # two garbage payloads, then a usable one
     assert len(agent.messages) == 2
+
+# ---- consecutive compactions + concurrency guard (P0-1 regression) ----
+
+
+def test_two_consecutive_compactions_keep_indexes_consistent():
+    """P0-1 regression: after the first splice, step_start must stay valid.
+
+    The first step is summarized; the second step is below the threshold and
+    stays verbatim — but the boundary machinery must remain in range.
+    """
+    msgs = _big_transcript()
+    agent = _FakeAgent(msgs)
+    llm = _FakeLLM([_GOOD])
+
+    async def run():
+        b1 = record_step_boundary(agent)  # closes the whole first step
+        ok1 = await compact_step_boundary(agent, b1, llm=llm)
+        # Next step starts life, then closes while still small.
+        agent.messages.append({"role": "user", "content": "next step q"})
+        agent.messages.append({"role": "assistant", "content": "next step a"})
+        b2 = record_step_boundary(agent)
+        ok2 = await compact_step_boundary(agent, b2, llm=llm)
+        return ok1, ok2, b1, b2
+
+    ok1, ok2, b1, b2 = asyncio.run(run())
+    assert ok1 is True and b1["end"] == 801  # full first step was closed
+    assert ok2 is False  # below threshold: stays verbatim
+    # The critical invariant: step_start is a legal index after the splice.
+    assert agent.agent_state["steps"]["step_start"] == len(agent.messages)
+    assert agent.agent_state["steps"]["step_start"] <= len(agent.messages)
+    assert agent.messages[1]["role"] == "system"
+    assert "Step 1 summary" in agent.messages[1]["content"]
+    assert agent.messages[-1]["content"] == "next step a"
+
+
+def test_parallel_boundaries_are_serialized_by_lock():
+    import realmock.domains.interview.agents.step_compaction as sc
+
+    msgs = _big_transcript()
+    agent = _FakeAgent(msgs)
+    llm = _FakeLLM([_GOOD, _GOOD])
+    tasks: set[asyncio.Task] = set()
+
+    class _R:
+        pass
+
+    runner = _R()
+    runner.agent = agent
+    runner.llm = llm
+
+    def spawn(coro):
+        t = asyncio.create_task(coro)
+        tasks.add(t)
+        t.add_done_callback(tasks.discard)
+        return t
+
+    runner.spawn_bg_task = spawn
+
+    async def run():
+        b1 = record_step_boundary(agent)
+        sc.spawn_boundary_compaction(runner, b1)
+        agent.messages.append({"role": "user", "content": "q2"})
+        agent.messages.append({"role": "assistant", "content": "a2"})
+        b2 = record_step_boundary(agent)
+        sc.spawn_boundary_compaction(runner, b2)
+        while tasks:
+            results = await asyncio.gather(*list(tasks), return_exceptions=True)
+            for r in results:
+                assert not isinstance(r, Exception), r
+            if not tasks:
+                break
+
+    asyncio.run(run())
+    assert llm.calls >= 1
+    # History stays consistent: the big first step became one brief, the
+    # second step's messages are intact, nothing duplicated or lost.
+    assert len(agent.messages) == 4  # head + brief + q2 + a2
+    assert "Step 1 summary" in agent.messages[1]["content"]
+    assert agent.messages[-2] == {"role": "user", "content": "q2"}

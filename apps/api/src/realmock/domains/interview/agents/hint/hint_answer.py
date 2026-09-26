@@ -49,7 +49,9 @@ FULL_HINT_MAX_ROUNDS = HINT_LOOP.max_rounds
 #: The full hint's grounding (resume/profile/company) is injected verbatim, so
 #: tools are only worth their latency when the question points at external
 #: evidence — a GitHub repository to verify.
-_REPO_SIGNAL_RE = re.compile(r"github|repo|开源|仓库|commit|star", re.IGNORECASE)
+_REPO_SIGNAL_RE = re.compile(
+    r"\bgithub[\w-]*\b|\brepos?\b|\bcommits?\b|\bstars?\b|开源项目|代码仓库", re.IGNORECASE
+)
 
 
 async def generate_full_reference_hint(

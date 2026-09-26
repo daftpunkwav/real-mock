@@ -37,6 +37,7 @@ from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.tools import (
     MAX_TOOL_ROUNDS,
+    _compact_observation,
     execute_interview_tool,
     get_interview_tool_definitions,
 )
@@ -328,6 +329,7 @@ class ToolRoundRunner:
                     # run at all), and the hint copy must match.
                     final_round_tool_free=max_rounds >= 2,
                     wrap_up_hint=TOOL_FREE_WRAP_UP_HINT,
+                    compact_observation=_compact_observation,
                 ),
                 timeout=_TOOL_ROUND_BUDGET_SECONDS,
             )

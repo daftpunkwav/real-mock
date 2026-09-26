@@ -197,6 +197,12 @@ def get_interview_tool_definitions(*, include_past_records: bool = False) -> lis
     return _with_timeout_override(tools)
 
 
+async def _compact_observation(text: str) -> str:
+    """Loop hook (compact_observation): our 24k marked excerpt replaces the
+    platform's 12k head-only truncation."""
+    return _cap_result(text)
+
+
 def _cap_result(text: str) -> str:
     """Deterministic marked excerpt: the model's own args and the tool's
     closing facts sit at both ends, so a head+tail cut preserves them."""

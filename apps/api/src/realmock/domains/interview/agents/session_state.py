@@ -292,14 +292,14 @@ class InterviewSessionState(SessionPromptMixin):
             if not isinstance(raw, dict):
                 continue
             try:
-                max_q = max(1, min(int(raw.get("max_questions") or 3), 8))
+                max_q = max(2, min(int(raw.get("max_questions") or 6), 15))
             except (TypeError, ValueError):
-                max_q = 3
+                max_q = 6
             step = PlanStep(
                 id=f"s{len(self.plan.steps) + 1:02d}",
                 title=str(raw.get("title") or "").strip()[:60],
                 focus=str(raw.get("focus") or "").strip()[:400],
-                min_questions=1,
+                min_questions=2,
                 max_questions=max_q,
                 kind=str(raw.get("kind") or "").strip()[:30],
             )
