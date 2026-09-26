@@ -32,10 +32,6 @@ _WS_LLM_RATE_LIMIT = DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
 # the frame is pathological (stuck client / fuzzer), not an interview answer.
 _CODING_CODE_MAX_CHARS = 200_000
 
-# Draft-mirror cap: the whiteboard is a user scratchpad; an oversized
-# mirror would bloat every save_state.
-_MIRROR_MAX_CHARS = 8_000
-
 
 class MessageDispatcherMixin:
     """Distributed by message type; relies on ctx field and _spawn/send/set_turn."""
@@ -306,12 +302,12 @@ class MessageDispatcherMixin:
                     len(code),
                 )
                 return
+            # Hand the draft to the agent's public mirror API: the realtime
+            # layer never touches working memory internals directly.
             runner = getattr(self.ctx, "runner", None)
             agent = getattr(runner, "agent", None) if runner else None
-            cog_mem = getattr(agent, "cognitive_memory", None) if agent else None
-            wm = getattr(cog_mem, "working_memory", None) if cog_mem else None
-            if wm is not None:
-                wm.candidate_code = code[:_MIRROR_MAX_CHARS]
+            if agent is not None:
+                agent.mirror_candidate_code(code)
         except Exception as exc:
             logger.warning("Failed to update candidate code in working memory: %s", exc)
 
@@ -367,14 +363,13 @@ class MessageDispatcherMixin:
                     code="A0003",
                 )
                 return
-            # Mirror into working memory so the sandbox draft survives the turn.
+            # Mirror via the agent's public API so the sandbox draft survives
+            # the turn; internal working-memory layout stays in the agents
+            # domain.
             runner = getattr(self.ctx, "runner", None)
             agent = getattr(runner, "agent", None) if runner else None
-            cog_mem = getattr(agent, "cognitive_memory", None) if agent else None
-            wm = getattr(cog_mem, "working_memory", None) if cog_mem else None
-            if wm is not None:
-                wm.candidate_code = code[:_MIRROR_MAX_CHARS]
-                wm.last_test_output = test_output[:_MIRROR_MAX_CHARS]
+            if agent is not None:
+                agent.mirror_candidate_code(code, test_output)
 
             from realmock.domains.interview.capabilities.sandbox.evaluator import (
                 evaluate_test_cases,

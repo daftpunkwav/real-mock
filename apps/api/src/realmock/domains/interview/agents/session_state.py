@@ -44,6 +44,10 @@ logger = logging.getLogger(__name__)
 #: Interview-age marks (minutes) that trigger a one-shot pacing hint.
 _PACE_THRESHOLDS = (30, 45, 60)
 
+#: Whiteboard draft-mirror cap: the whiteboard is a candidate scratchpad; an
+#: oversized mirror would bloat every save_state.
+_MIRROR_MAX_CHARS = 8_000
+
 
 def _is_summary_phase(phase: Any) -> bool:
     """Whether this flow step is the wrap-up/verdict step."""
@@ -209,6 +213,19 @@ class InterviewSessionState(SessionPromptMixin):
         if verdict not in ("passed", "failed"):
             return
         self.session.result = verdict
+
+    def mirror_candidate_code(self, code: str, test_output: str | None = None) -> None:
+        """Mirror the candidate's whiteboard draft into working memory.
+
+        Single write path for the realtime layer: the working-memory layout
+        stays internal to the agents domain and callers only hand over text.
+        ``test_output=None`` leaves the stored output untouched (draft-only
+        update); passing a string ("" included) replaces it.
+        """
+        wm = self.cognitive_memory.working_memory
+        wm.candidate_code = (code or "")[:_MIRROR_MAX_CHARS]
+        if test_output is not None:
+            wm.last_test_output = (test_output or "")[:_MIRROR_MAX_CHARS]
 
     def step_message(self) -> str:
         """Per-turn step-position line (transient; never persisted).
