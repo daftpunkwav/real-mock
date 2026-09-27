@@ -34,7 +34,7 @@ Dependency direction: `bootstrap/` -> `domains/` -> `platform/`; cross-domain co
 | --- | --- |
 | `test_platform_no_domain_imports.py` | AST guard: `platform` must not import `realmock.domains` or `realmock.bootstrap` |
 | `test_domains_no_cross_imports.py` | AST guard: domains must not import sibling domains |
-| `test_db_boundary_imports.py` | Interview / agent domains must not import shared-table (api.db) ORM models directly |
+| `test_db_boundary_imports.py` | Interview / prep / growth domains must not import shared-table (api.db) ORM models directly |
 | `test_bootstrap_session_domains.py` | Standalone processes must not load unrelated business ORMs |
 | `test_interview_layering.py` | AST guards for the interview domain layering |
 | `test_api_v1_paths.py` | `/api/v1` and the `/api` compatibility alias both exist |

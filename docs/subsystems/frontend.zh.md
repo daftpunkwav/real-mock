@@ -33,7 +33,7 @@ Feature-first 业务模块；每个 feature 自持组件、hook 与测试。跨 
 | `resume/` | 简历上传、评审、分页预览 |
 | `settings/` | 设置页（供应商、模型、阶段、集成） |
 | `prep/` | Prep 教练对话 UI（输入区、上下文面板、斜杠命令） |
-| `interview/` | 面试房间；房间 hook 装配在 `interview/hooks/room/` 有独立 README |
+| `interview/` | 面试房间（含编码白板：纯沙盒草稿本 —— 代码经 `src/lib/code-runner/` 在浏览器运行，无 LLM 评估、无服务端裁定；WS 契约保留 `coding_submit_request` → `coding_test_result` 作为不评判的转发通道）；房间 hook 装配在 `interview/hooks/room/` 有独立 README |
 | `report/` | 报告展示（标签页、分数格式化、实时事件） |
 | `history/` | 面试历史页 |
 | `growth/` | 成长统计页 |

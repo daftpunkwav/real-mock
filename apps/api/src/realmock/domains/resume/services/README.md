@@ -18,7 +18,6 @@ Business logic for the resume domain: ingest, deep review, market analysis, rend
 | --- | --- |
 | `analysis.py` | Review orchestration: heal text → agent loop → persist |
 | `review_context.py` | DB-backed input builders for the review agent |
-| `analysis_prompt.py` | Review system prompt and shared JSON schema text |
 | `sites.py` | Site allowlist for market web search |
 | `repo_evidence.py` | GitHub repository evidence gathering |
 | `analysis_normalize.py` | Review payload normalization |
@@ -35,4 +34,4 @@ Business logic for the resume domain: ingest, deep review, market analysis, rend
 | `resume_mappers.py` | Tolerant JSON coercion and API response assembly |
 | `contract_guard.py` | Contract ↔ ORM / catalog drift guard (fails at import time) |
 
-The composing agents live in `../agents`.
+The composing agents live in `../agents`; the review prompts (system prompt and shared JSON schema text) live in `../prompts.py`.

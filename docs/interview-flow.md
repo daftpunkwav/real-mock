@@ -1,6 +1,6 @@
 # Multi-Round Interview Flow
 
-The interview flow has two layers: a phase workflow inside one session, and an optional multi-round process that chains sessions into a realistic company loop.
+The interview flow has two layers: a step workflow inside one session (a static phase workflow or an agent-planned step flow), and an optional multi-round process that chains sessions into a realistic company loop.
 
 ## Phase / workflow SSOT
 
@@ -20,7 +20,14 @@ Unknown workflow ids fall back to `technical` (`get_workflow`).
 
 ## Single session
 
-A standalone session runs one workflow: `POST /api/v1/interview/sessions` → `POST .../start` → `POST .../message` turns → `POST .../finish` (HTTP turn API; the room itself runs over the WebSocket, see [realtime-protocol.md](interfaces/realtime-protocol.md)). A session starts at phase `identity_check`; phase switches are pushed as `phase_changed` events. On the wrap-up turn the interviewer agent announces the round verdict — `passed` / `failed` (`InterviewResult`) — carried on `assistant_done.result` and persisted on the session.
+A standalone session runs one flow (agent-planned steps, falling back to a static workflow): `POST /api/v1/interview/sessions` → `POST .../start` → `POST .../message` turns → `POST .../finish` (HTTP turn API; the room itself runs over the WebSocket, see [realtime-protocol.md](interfaces/realtime-protocol.md)). A session starts at phase `identity_check`; phase switches are pushed as `phase_changed` events. On the wrap-up turn the interviewer agent announces the round verdict — `passed` / `failed` (`InterviewResult`) — carried on `assistant_done.result` and persisted on the session.
+
+## Session flow plan and step lifecycle
+
+- Flow plan: on session create the flow planner (`agents/planning/planner.py: generate_plan_for_session`, consumed via `ensure_plan`) authors a per-session step plan (`protocols/plan_schema.py`): 8–30 steps, each with `max_questions` 2–15 (deep dives 6–15, transitions 2–3), an opening style and a working language. Any planner failure marks `plan_status=failed` and the session degrades to the static workflow. Plan steps duck-type `PhaseDef`, so the state machine advances static workflows and plans through the same code path.
+- Step positioning: each turn prepends a transient `[Position]` system line (`agents/session_state.py: step_message` — step k of n, question i of the step) plus a one-shot pacing hint; neither is persisted into message history.
+- Closing a step: the interviewer closes the current step with `phase_complete: true` in its say-first JSON output; the state machine advances and pushes `phase_changed` (carrying the agent-authored `phase_title`). Gaps can be filled mid-interview via `plan_ops.insert_after_current` (at most 3 insertions per reply).
+- Step-boundary compaction: when a step closes, a background state machine (`agents/step_compaction.py`) compresses the step's verbatim dialogue into a structured briefing — topics / evidence / verified / suspicious / weak_points / agreed_facts / probes_pending plus `reflections` and a pacing note — and splices it into the agent's messages in place of the raw segment. Steps at or under 20k tokens stay verbatim; a summary failure retries 3 times with backoff, then the raw segment survives and folds into the next boundary's attempt (dead-lettered after 3 failed boundaries); beyond 6 briefings or 300k tokens the oldest merge into one running digest. `reflections` are recorded into the cognitive memory graph (`agents/memory/cognitive_graph.py`); the session ledger keeps every turn verbatim.
 
 ## Process (multi-round)
 

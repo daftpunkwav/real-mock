@@ -18,7 +18,7 @@ Interview-specific capabilities. They are consumed only by this domain, which is
 
 | Module | Purpose |
 | --- | --- |
-| `evaluator.py` | Live-coding test evaluator and execution bridge: validates candidate output against test cases, aggregates scores, formats results for the WebSocket protocol |
+| `evaluator.py` | Rule-based live-coding evaluator: matches each test case's expected value against the candidate's sandbox output and formats the `coding_test_result` WS event. No LLM call, no verdict — the whiteboard is a candidate scratchpad (code runs in the browser sandbox; the server relays the reported output unjudged) |
 
 ## `vision/`
 

@@ -7,7 +7,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [架构](architecture.zh.md) | 模块化单体:platform / domains / bootstrap、依赖规则与守卫测试、进程组装 |
-| [面试流程](interview-flow.zh.md) | 阶段工作流、多轮流程、轮次规划、过程记忆、裁定与报告链 |
+| [面试流程](interview-flow.zh.md) | 阶段工作流、会话流程规划与步边界压缩、多轮流程、轮次规划、过程记忆、裁定与报告链 |
 
 ## 子系统(`subsystems/`)
 

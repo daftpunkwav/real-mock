@@ -9,4 +9,5 @@ Cross-feature presentational components. Feature-specific UI stays in `features/
 | `layout/` | App shell: `AppShell.tsx`, `Sidebar.tsx`, `SidebarNav.tsx`, `sidebarStorage.ts` |
 | `theme/` | `ThemeProvider.tsx`, `ThemeToggle.tsx` |
 | `brand/` | `LogoMark.tsx` |
+| `loading/` | `Skeleton.tsx`, `PageSkeleton.tsx` |
 | Other | `diagramSvg.ts` (diagram SVG helpers), `useDialogScrollLock.ts` (shared dialog scroll-lock hook) |

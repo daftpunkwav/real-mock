@@ -34,7 +34,7 @@
 | --- | --- |
 | `test_platform_no_domain_imports.py` | AST 守卫：`platform` 不得导入 `realmock.domains` 或 `realmock.bootstrap` |
 | `test_domains_no_cross_imports.py` | AST 守卫：域之间不得相互导入 |
-| `test_db_boundary_imports.py` | interview / agent 域不得直接导入共享表（api.db）ORM 模型 |
+| `test_db_boundary_imports.py` | interview / prep / growth 域不得直接导入共享表（api.db）ORM 模型 |
 | `test_bootstrap_session_domains.py` | 独立进程不得加载无关业务 ORM |
 | `test_interview_layering.py` | interview 域内分层的 AST 守卫 |
 | `test_api_v1_paths.py` | `/api/v1` 与 `/api` 兼容别名同时存在 |

@@ -33,7 +33,7 @@ Feature-first business modules; each owns its components, hooks, and tests. Cros
 | `resume/` | Resume upload, review, paginated preview |
 | `settings/` | Settings pages (providers, models, stages, integrations) |
 | `prep/` | Prep coach chat UI (composer, context panel, slash commands) |
-| `interview/` | Interview room; the room hook assembly has its own README in `interview/hooks/room/` |
+| `interview/` | Interview room (incl. the coding whiteboard: a pure sandbox scratchpad — code runs in the browser via `src/lib/code-runner/`, no LLM evaluation and no server verdict; the WS contract keeps `coding_submit_request` → `coding_test_result` as an unjudged relay); the room hook assembly has its own README in `interview/hooks/room/` |
 | `report/` | Report display (tabs, score formatting, live events) |
 | `history/` | Interview history page |
 | `growth/` | Growth statistics page |

@@ -54,7 +54,7 @@
 | --- | --- |
 | `client/unified_client.py` | `UnifiedLLMClient` — 按协议字段选择 API 路径:OpenAI chat completions / Anthropic messages / OpenAI Responses。持有客户端状态、SSRF 检查、URL 与载荷构造、流式编排;供应方配置经 `from_db.py` 从数据库加载。 |
 | `client/llm_client.py` | 客户端方法,含 `chat_message_stream`(流式工具轮)。 |
-| `client/retry_stream.py` | OpenAI 兼容流式执行:首个增量发出前,429 / 5xx / 连接错误按指数退避重试(默认 3 次);4xx 不重试(被拒绝的 `stream_options` 字段移除后重放);增量已发出后的失败直接抛出。 |
+| `client/retry_stream.py` | OpenAI 兼容流式执行:首个增量发出前,429 / 5xx / 连接错误按共享重试阶梯重试(`llm/retry_policy.py`:倍增对延迟 10/10/20/…/100 秒,至多 10 次;响应带 `Retry-After` 时以其为准);4xx 不重试(被拒绝的 `stream_options` 字段移除后重放);增量已发出后的失败直接抛出。 |
 | `protocol_translate.py` / `response_extract.py` / `assemblers.py` / `chat_endpoints.py` / `streaming.py` | 请求体构造、响应解析、增量流装配器、非流式端点、流式执行。 |
 
 流后处理(入口 `stream_filters.py`):`special_token_filter.py` 跨 chunk 边界流式剥离训练模板 token(`<|X|>` / `<]X[>`);`inline_tool_call.py` 清理函数调用退化为正文中的 `<tool_call>` XML;`StreamSanitizer` 双通道编排两者,并将推理增量包裹为 `<think>...</think>`。`say_first_stream.py` 从流中增量解析 `{"say": "...", ...}` 输出 — 第一句口语只要其句末标点到达即被发出;降级链(缺 `say` 键、JSON 解析失败)回退为纯文本。

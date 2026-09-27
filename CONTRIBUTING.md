@@ -18,7 +18,7 @@ Run from `apps/api` unless noted:
 |---|---|---|
 | Lint | `python -m ruff check apps/api` | from repo root; CI pins `ruff==0.15.20` |
 | Types | `python -m mypy src` | CI pins `mypy==2.1.0`; blocking, must stay at 0 errors |
-| Tests | `python -m pytest` | Coverage gate >=90% over the platform kernel and the profile / resume / settings / prep / interview domains in CI (records / growth are not measured) |
+| Tests | `python -m pytest` | Coverage gate >=90% over the platform kernel and the profile / resume / settings / prep / interview / growth domains in CI (records is not measured) |
 | Deps audit | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 known issues with no upstream fix; declared in `pyproject.toml` |
 
 Frontend, run from `apps/web`:

@@ -29,7 +29,7 @@ Backend configuration lives in `apps/api/src/realmock/platform/config.py` (`Sett
 | `SILENCE_NUDGE_SECONDS` | `silence_nudge_seconds` | Interview silence nudge interval | `10` (range 1-600) |
 | `GITHUB_TOKEN` | `github_token` | Optional GitHub PAT (raises API quota) | `""` (empty) |
 | `INTERVIEW_TOOLS_ENABLED` | `interview_tools_enabled` | Interview agent function-calling tool loop | `True` |
-| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | Tool-loop round cap | `3` (range 0-6) |
+| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | Tool-loop round cap (hard cap 8 in `agents/agent_policies.py: INTERVIEWER_LOOP`) | `6` (range 0-8) |
 | `ALLOW_LOCAL_LLM` | `allow_local_llm` | Allow local / private-network `base_url` | `False` |
 | `WS_LEASE_BACKEND` | `ws_lease_backend` | WS lease store: `memory` (single worker) / `database` (multi-worker) | `memory` |
 | `RATELIMIT_BACKEND` | `ratelimit_backend` | Rate-limit store: `memory` / `database` | `memory` |

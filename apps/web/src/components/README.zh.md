@@ -9,4 +9,5 @@
 | `layout/` | 应用外壳:`AppShell.tsx`、`Sidebar.tsx`、`SidebarNav.tsx`、`sidebarStorage.ts` |
 | `theme/` | `ThemeProvider.tsx`、`ThemeToggle.tsx` |
 | `brand/` | `LogoMark.tsx` |
+| `loading/` | `Skeleton.tsx`、`PageSkeleton.tsx` |
 | 其他 | `diagramSvg.ts`(图形 SVG 助手)、`useDialogScrollLock.ts`(共享的弹窗滚动锁 hook) |

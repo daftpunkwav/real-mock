@@ -7,7 +7,7 @@ Alembic migration chain for the api-domain database (`api.db`). Run from `apps/a
 | `../alembic.ini` | Alembic config. Kept ASCII-only: alembic reads it with locale encoding, so non-ASCII comments break on GBK locales. The database URL is injected by `env.py`; no secrets here |
 | `env.py` | Wires alembic to the app: database URL from `get_settings().api_database_url`, `target_metadata = ApiBase.metadata` |
 | `script.py.mako` | Template for generated migration scripts |
-| `versions/` | Ordered migration scripts (baseline column backfill, model-profile uniqueness, resume lineage, provider full-url / meta) |
+| `versions/` | Ordered migration scripts (baseline column backfill, model-profile uniqueness, resume lineage, provider full-url / meta, resume parse lifecycle) |
 
 ## Scope
 

@@ -46,7 +46,7 @@ cd apps/api && pytest
 | --- | --- |
 | `test_platform_no_domain_imports.py` | The platform layer must not import business domains or composition-root bootstrap code (AST guard) |
 | `test_domains_no_cross_imports.py` | Domain packages must not import sibling domain packages (AST guard) |
-| `test_db_boundary_imports.py` | With dual databases, the interview/agent domains must not directly import shared-table ORM models |
+| `test_db_boundary_imports.py` | With dual databases, the interview/prep/growth domains must not directly import shared-table ORM models |
 | `test_interview_layering.py` | AST guards for the interview domain layering (`agents` subpackages per LLM role) |
 | `test_bootstrap_session_domains.py` | Bootstrap domain registration: isolated processes must not load unrelated business ORMs |
 | `test_api_v1_paths.py` | Both `/api/v1` and `/api` compatibility aliases resolve (`/api/v1/options` and `/api/options`) |
@@ -75,7 +75,7 @@ Realtime tests patch module-level symbols in the owning module (e.g. `turn.stt_f
 | `npx tsc --noEmit` | TypeScript type gate |
 | `npm run lint` | ESLint |
 
-Tests live in `__tests__/` directories next to the code they cover; the current scale is 66 `*.test.ts(x)` files across `src/`.
+Tests live in `__tests__/` directories next to the code they cover; the current scale is 72 `*.test.ts(x)` files across `src/`.
 
 ## CI gates
 
@@ -83,5 +83,5 @@ Both jobs run on push to `main` and on all pull requests (`.github/workflows/ci.
 
 | Job | Checks |
 | --- | --- |
-| `backend` | `ruff==0.15.20`; `mypy==2.1.0` over `src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview domains; `pip-audit==2.10.1` with `--ignore-vuln PYSEC-2026-311/3813/3814/3815` (chromadb 1.5.9 known issues, no fixed release yet) |
+| `backend` | `ruff==0.15.20`; `mypy==2.1.0` over `src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview / growth domains; `pip-audit==2.10.1` with `--ignore-vuln PYSEC-2026-311/3813/3814/3815` (chromadb 1.5.9 known issues, no fixed release yet) |
 | `frontend` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (coverage thresholds from `vitest.config.mts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |

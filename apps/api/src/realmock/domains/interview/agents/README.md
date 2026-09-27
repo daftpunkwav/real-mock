@@ -7,8 +7,8 @@ LLM roles for the interview domain: one subpackage per role, shared machinery fl
 | Subpackage | Purpose |
 | --- | --- |
 | `interviewer/` | Lead interviewer: `runner.py` plus `runner_opening.py` / `runner_turn.py` / `runner_closing.py` |
-| `topology/` | Shadow evaluator: per-turn background assessment (evaluate / recheck / probe synthesis) |
-| `hint/` | Reference-answer agent (`hint_answer.py`) |
+| `topology/` | Shadow evaluator: three-stage background assessment — evaluate, recheck (only when the first pass flags `evidence_insufficient`), probe synthesis; grounding injected verbatim, no tools, 90 s budget (`agent_policies.BACKGROUND`) |
+| `hint/` | Reference-answer agent (`hint_answer.py`): zero-tool grounding-only answer by default; a GitHub-signal question escalates to a github-only 2-round loop |
 | `planning/` | Flow-plan and round planners (`planner.py`, `round_planner.py` + their prompt modules) |
 | `research/` | Company web research and setup-page brief (`company_research.py`, `company_brief.py`) |
 | `memory/` | Cognitive memory graph |

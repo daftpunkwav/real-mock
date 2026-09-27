@@ -7,7 +7,7 @@ api 域数据库(`api.db`)的 Alembic 迁移链。在 `apps/api/` 下运行:`ale
 | `../alembic.ini` | Alembic 配置。刻意保持纯 ASCII:alembic 以 locale 编码读取它,非 ASCII 注释在 GBK 环境会出错。数据库 URL 由 `env.py` 注入,此处不存密钥 |
 | `env.py` | 将 alembic 接入应用:URL 取自 `get_settings().api_database_url`,`target_metadata = ApiBase.metadata` |
 | `script.py.mako` | 生成的迁移脚本模板 |
-| `versions/` | 有序迁移脚本(基线列回填、模型档案唯一约束、resume lineage、provider full-url / meta) |
+| `versions/` | 有序迁移脚本(基线列回填、模型档案唯一约束、resume lineage、provider full-url / meta、resume 解析生命周期) |
 
 ## 职责边界
 

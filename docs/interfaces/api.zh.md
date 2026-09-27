@@ -28,13 +28,14 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 | GET / PUT | `/profile` | 单行画像：读取 / 全量替换更新 |
 | POST | `/profile/clear` | 清空所有可更新字段 |
 
-### resume — `domains/resume/routes/`（`router.py` 聚合 `upload` / `crud` / `file` / `analyze`）
+### resume — `domains/resume/routes/`（`router.py` 聚合 `upload` / `crud` / `file` / `analyze` / `parse_retry`）
 
 | 方法 | 路径 | 端点组 |
 | --- | --- | --- |
 | POST | `/resume/upload`、`/resume/{resume_id}/versions` | 上传 / 新增版本 |
 | GET | `/resume/limits`、`/resume/list`、`/resume/{resume_id}` | 限额、列表、单份简历 |
 | POST | `/resume/{resume_id}/activate` | 设为生效简历 |
+| POST | `/resume/{resume_id}/parse` | 重新调度后台解析（parse-retry） |
 | DELETE | `/resume/{resume_id}`、`/resume/analyses`、`/resume/collection` | 删除单份 / 清空复盘结果 / 删除全部 |
 | GET | `/resume/{resume_id}/file`、`/resume/{resume_id}/pages`、`/resume/{resume_id}/pages/{page_no}` | 文件下载与分页页面图片 |
 | POST | `/resume/{resume_id}/analyze`、`/resume/{resume_id}/analyze/stream` | 深度复盘（JSON / SSE） |

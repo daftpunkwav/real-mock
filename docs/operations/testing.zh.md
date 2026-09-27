@@ -46,7 +46,7 @@ cd apps/api && pytest
 | --- | --- |
 | `test_platform_no_domain_imports.py` | platform 层不得导入业务域或组合根 bootstrap 代码（AST 守卫） |
 | `test_domains_no_cross_imports.py` | 域包不得导入兄弟域包（AST 守卫） |
-| `test_db_boundary_imports.py` | 双库之下，interview/agent 域不得直接导入共享表 ORM 模型 |
+| `test_db_boundary_imports.py` | 双库之下，interview/prep/growth 域不得直接导入共享表 ORM 模型 |
 | `test_interview_layering.py` | interview 域分层的 AST 守卫（`agents` 按 LLM 角色分子包） |
 | `test_bootstrap_session_domains.py` | Bootstrap 域注册：隔离进程不得加载无关业务 ORM |
 | `test_api_v1_paths.py` | `/api/v1` 与 `/api` 兼容别名均可用（`/api/v1/options` 与 `/api/options`） |
@@ -75,7 +75,7 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | `npx tsc --noEmit` | TypeScript 类型门 |
 | `npm run lint` | ESLint |
 
-测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 66 个 `*.test.ts(x)` 文件。
+测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 72 个 `*.test.ts(x)` 文件。
 
 ## CI 门禁
 
@@ -83,5 +83,5 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 
 | Job | 检查 |
 | --- | --- |
-| `backend` | `ruff==0.15.20`；`mypy==2.1.0` 检查 `src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview 五个域；`pip-audit==2.10.1` 并 `--ignore-vuln PYSEC-2026-311/3813/3814/3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
+| `backend` | `ruff==0.15.20`；`mypy==2.1.0` 检查 `src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview / growth 六个域；`pip-audit==2.10.1` 并 `--ignore-vuln PYSEC-2026-311/3813/3814/3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
 | `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（覆盖率阈值由 `vitest.config.mts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |

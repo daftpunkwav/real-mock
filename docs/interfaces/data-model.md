@@ -17,7 +17,8 @@ The chain in `apps/api/alembic/versions/` manages only tables attached to `ApiBa
 | `20260901_0002` | Model-profile uniqueness |
 | `20260907_0003` | Resume lineage |
 | `20260916_0004` | Provider full-url |
-| `20260917_0005` | Provider meta (head) |
+| `20260917_0005` | Provider meta |
+| `20260923_0006` | Resume parse lifecycle columns (`parse_status` / `parse_error`, backfill `done`) (head) |
 
 ## sessions.db (create_all + column migrations)
 

@@ -29,7 +29,7 @@
 | `SILENCE_NUDGE_SECONDS` | `silence_nudge_seconds` | 面试静默提醒间隔 | `10`（范围 1-600） |
 | `GITHUB_TOKEN` | `github_token` | 可选 GitHub PAT（提高 API 配额） | `""`（空） |
 | `INTERVIEW_TOOLS_ENABLED` | `interview_tools_enabled` | 面试 agent 是否启用 function calling 工具循环 | `True` |
-| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | 工具循环轮数上限 | `3`（范围 0-6） |
+| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | 工具循环轮数上限（硬上限 8，见 `agents/agent_policies.py: INTERVIEWER_LOOP`） | `6`（范围 0-8） |
 | `ALLOW_LOCAL_LLM` | `allow_local_llm` | 是否允许本地 / 内网 `base_url` | `False` |
 | `WS_LEASE_BACKEND` | `ws_lease_backend` | WS 租约存储：`memory`（单 worker）/ `database`（多 worker） | `memory` |
 | `RATELIMIT_BACKEND` | `ratelimit_backend` | 限流存储：`memory` / `database` | `memory` |

@@ -28,13 +28,14 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | GET / PUT | `/profile` | single profile row: read / full-replace update |
 | POST | `/profile/clear` | blank every update-contract field |
 
-### resume — `domains/resume/routes/` (`router.py` aggregates `upload` / `crud` / `file` / `analyze`)
+### resume — `domains/resume/routes/` (`router.py` aggregates `upload` / `crud` / `file` / `analyze` / `parse_retry`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
 | POST | `/resume/upload`, `/resume/{resume_id}/versions` | upload / add version |
 | GET | `/resume/limits`, `/resume/list`, `/resume/{resume_id}` | limits, listing, single resume |
 | POST | `/resume/{resume_id}/activate` | set active resume |
+| POST | `/resume/{resume_id}/parse` | re-schedule background parse (parse-retry) |
 | DELETE | `/resume/{resume_id}`, `/resume/analyses`, `/resume/collection` | delete one / clear review results / delete all |
 | GET | `/resume/{resume_id}/file`, `/resume/{resume_id}/pages`, `/resume/{resume_id}/pages/{page_no}` | file download and paginated page images |
 | POST | `/resume/{resume_id}/analyze`, `/resume/{resume_id}/analyze/stream` | deep review (JSON / SSE) |

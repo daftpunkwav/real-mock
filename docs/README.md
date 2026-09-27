@@ -7,7 +7,7 @@ Topic guides covering the whole repository. Directory-level structure lives in t
 | Document | Covers |
 | --- | --- |
 | [Architecture](architecture.md) | Modular monolith: platform / domains / bootstrap, dependency rules and guard tests, process assembly |
-| [Interview flow](interview-flow.md) | Phase workflows, multi-round processes, round planning, process memory, verdict and report chain |
+| [Interview flow](interview-flow.md) | Phase workflows, session flow plan with step-boundary compaction, multi-round processes, round planning, process memory, verdict and report chain |
 
 ## Subsystems (`subsystems/`)
 

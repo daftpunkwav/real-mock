@@ -17,11 +17,11 @@
 ## SSOT 与守卫
 
 - SSOT：`protocol/interview_ws.schema.json` — server / client 事件类型及逐事件 payload 结构。
-- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（20 个类型）与 `WSClientEvent`（15 个类型）。
+- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（19 个类型）与 `WSClientEvent`（15 个类型）。
 - 前端：`apps/web/src/types/domains/interview_ws.ts`（`ServerEvent` / `ClientEvent` 联合类型）。
 - 守卫：`apps/api/tests/interview/test_ws_protocol_schema.py` — 双向子集断言（后端枚举 ⊆ schema、前端联合类型 ⊆ schema）加逐事件 payload 覆盖检查。schema 刻意作为超集：`audio_chunk` 是保留的历史入站事件——派发器接受它，但第一方客户端不再发送（语音以 PCM 承载于 `user_turn_end` 内）。
 
-## Server 事件（20 个）
+## Server 事件（19 个）
 
 | 事件 | 必填字段 | 可选字段 |
 | --- | --- | --- |
@@ -43,8 +43,7 @@
 | `info` | `message` | `fallback`、`provider`、`requested_provider` |
 | `error` | `message` | `code`、`retryable` |
 | `coding_challenge_open` | `challenge` | |
-| `coding_test_result` | `passed` | `test_results`、`stdout`、`stderr` |
-| `coding_eval_report` | `report` | |
+| `coding_test_result` | `passed` | `total_cases`、`passed_cases`、`test_results`、`stdout`、`stderr` |
 
 ## Client 事件（15 个）
 
