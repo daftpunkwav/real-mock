@@ -129,6 +129,20 @@ async def test_completed_and_error_outcome():
         evs2 = await _collect(stream_turn(r2, "hi", MagicMock()))
         assert evs2[-1].kind == EventKind.ERROR and evs2[-1].error_code == "C0001"
 
+    async def test_ledger_write_failure_yields_c0003_not_c0001():
+        """Ledger failure after streaming is its own class (C0003)."""
+        r2 = _mk_runner()
+
+        def boom(db, sess, **kwargs):
+            raise RuntimeError("db down")
+
+        with patch(
+            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn", boom
+        ):
+            evs3 = await _collect(stream_turn(r2, "hi", MagicMock()))
+        assert evs3[-1].kind == EventKind.ERROR and evs3[-1].error_code == "C0003"
+        assert evs3[-1].error_retryable is False
+
 
 @pytest.mark.asyncio
 async def test_regen_and_ledger_fail():

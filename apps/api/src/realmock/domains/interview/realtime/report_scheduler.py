@@ -26,14 +26,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _finish_notify_sync(session_id: int) -> tuple[bool, Any, Any]:
+def _finish_notify_sync(session_id: int) -> tuple[bool, bool, Any, Any]:
     """Blocking finish path: freeze the session and snapshot the outcome.
 
     Self-contained session lifecycle (open/close inside the thread, same
-    convention as session_registry). Returns ``(already_frozen,
-    overall_score, result)`` — the scalars are read AFTER the lifecycle
-    commit and BEFORE the session closes, because the ORM expires attributes
-    on commit and the async side must not touch the instance afterwards.
+    convention as session_registry). Returns ``(found, already_frozen,
+    overall_score, result)``. ``found`` is False only when the row does
+    not exist — score and result are legitimately None right after the
+    first finish (the debrief writes the score later), so they must never
+    double as a missing-row signal. The scalars are read AFTER the
+    lifecycle commit and BEFORE the session closes, because the ORM
+    expires attributes on commit and the async side must not touch the
+    instance afterwards.
     """
     db = SessionLocal()
     try:
@@ -43,7 +47,7 @@ def _finish_notify_sync(session_id: int) -> tuple[bool, Any, Any]:
             .first()
         )
         if not session:
-            return False, None, None
+            return False, False, None, None
 
         # Already finished with a frozen ledger: client only needs interview_complete.
         already_frozen = (
@@ -53,7 +57,7 @@ def _finish_notify_sync(session_id: int) -> tuple[bool, Any, Any]:
             run_finish_lifecycle(db, session, mark_completed=True)
         # Snapshot after the commit-triggered expiry, before close():
         # the attribute access re-fetches the row inside this thread.
-        return already_frozen, session.overall_score, getattr(session, "result", None)
+        return True, already_frozen, session.overall_score, getattr(session, "result", None)
     finally:
         try:
             db.close()
@@ -84,11 +88,11 @@ class ReportSchedulerMixin:
         try:
             # Blocking finish work (load / freeze / lifecycle commit) runs in
             # a worker thread; only the awaited notifications stay on the loop.
-            already_frozen, overall_score, result = await asyncio.to_thread(
+            found, already_frozen, overall_score, result = await asyncio.to_thread(
                 _finish_notify_sync, self.ctx.session_id
             )
-            if overall_score is None and result is None and not already_frozen:
-                # _finish_notify_sync found no session row.
+            if not found:
+                # The session row is gone; nothing to notify about.
                 return
             if already_frozen:
                 try:

@@ -17,13 +17,13 @@
 ## SSOT 与守卫
 
 - SSOT：`protocol/interview_ws.schema.json` — server / client 事件类型及逐事件 payload 结构。
-- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（16 个类型）与 `WSClientEvent`（12 个类型）。
+- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（17 个类型）与 `WSClientEvent`（12 个类型）。
 - 前端：`apps/web/src/types/domains/interview_ws.ts`（`ServerEvent` / `ClientEvent` 联合类型）。
 - 守卫：`apps/api/tests/interview/test_ws_protocol_schema.py` — 双向子集断言（后端枚举 ⊆ schema、前端联合类型 ⊆ schema）加逐事件 payload 覆盖检查。schema 刻意作为超集：`audio_chunk` 是保留的历史入站事件——派发器接受它，但第一方客户端不再发送（语音以 PCM 承载于 `user_turn_end` 内）。
 
 产品口径：编码白板是纯客户端工具——面试 agent 不出编码题、不对代码评分，服务端不持有任何白板状态（不存在编码相关的 WS 事件）。
 
-## Server 事件（16 个）
+## Server 事件（17 个）
 
 | 事件 | 必填字段 | 可选字段 |
 | --- | --- | --- |

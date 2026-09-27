@@ -170,6 +170,12 @@ def test_append_last_turn_flag_updates_newest_turn_only(db) -> None:
     assert doc["turns"][1]["flags"] == {"k": "v"}
 
 
+def test_append_last_turn_flag_noop_without_turns(db) -> None:
+    row = _row(db)
+    append_last_turn_flag(db, row, "k", "v")  # no turns: silent no-op
+    assert _turns(db, row.id) == []
+
+
 def test_freeze_ledger_sets_column_and_is_idempotent(db) -> None:
     row = _row(db)
     append_turn(db, row, phase="p", assistant_text="a1")

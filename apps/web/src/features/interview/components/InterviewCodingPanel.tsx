@@ -7,7 +7,7 @@
  * Responsibilities:
  * - Provide Problem / Editor / Sandbox Console as tabs over one shared region.
  * - Provide a syntax-highlighted code editor with language switching (Python / JavaScript).
- * - Execute code in browser sandbox and display stdout/stderr and test assertions.
+ * - Execute code in browser sandbox and display the sandbox stdout/stderr.
  * - Enable candidate submission and review.
  *
  * UI chrome is fully localized via the interview catalog (`room.coding.*`);

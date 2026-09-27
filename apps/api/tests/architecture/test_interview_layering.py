@@ -271,9 +271,9 @@ def _attr_chain(node: ast.AST) -> list[str] | None:
 def test_realtime_never_touches_agent_internals() -> None:
     """realtime must reach agent state only via the runner facade.
 
-    Import-level guards cannot see attribute reach-through; this catches the
-    form where a rename inside the agents domain would otherwise degrade to
-    a silent no-op behind getattr fallbacks."""
+    Import-level guards cannot see attribute reach-through. This is a
+    best-effort lexical net: it catches direct ``x.agent.<attr>`` chains
+    (the form the facade rules out), not getattr-string or aliased access."""
     api_root = _api_root()
     base = api_root / INTERVIEW_ROOT / "realtime"
     violations: list[str] = []

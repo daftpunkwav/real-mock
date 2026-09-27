@@ -83,3 +83,20 @@ async def test_heartbeat_timeout_and_ping():
             with patch("realmock.domains.interview.realtime.connection.heartbeat._HEARTBEAT_MAX_MISSES", 5):
                 assert await h2.next_message() is None
 
+@pytest.mark.asyncio
+async def test_sustained_malformed_frames_tear_down_the_room():
+    """One bad frame is tolerated; a sustained stream is bounded."""
+    h = _make_handler()
+    h.send = AsyncMock()  # type: ignore[method-assign]
+    h.ctx.ws.receive_json = AsyncMock(
+        side_effect=json.JSONDecodeError("bad json", "{", 1)
+    )
+    with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=True)):
+        with patch(
+            "realmock.domains.interview.realtime.connection.heartbeat._HEARTBEAT_MAX_MALFORMED",
+            3,
+        ):
+            assert await h.next_message() is None
+    # One A0001 per tolerated frame plus the final B2004 close notice.
+    codes = [c.kwargs.get("code") for c in h.send.await_args_list]
+    assert codes == ["A0001", "A0001", "B2004"]

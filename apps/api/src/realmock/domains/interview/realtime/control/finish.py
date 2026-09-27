@@ -45,9 +45,12 @@ class FinishControlMixin:
             return
         db = SessionLocal()
         try:
-            # Finished rows stay visible: the completed-session branch below is
-            # the idempotent wrap-up for a repeated finish request.
-            session = self._load_session(db, include_finished=True)
+            # Only the COMPLETED state needs to stay visible here: that branch
+            # below is the idempotent wrap-up for a repeated finish request.
+            # Other terminal states keep the normal not-found handling.
+            session = self._load_session(
+                db, include_status=SessionStatus.COMPLETED.value
+            )
             if not session:
                 await self.send(
                     "error",

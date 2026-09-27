@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 
 def _looks_like_api_key(v: str) -> bool:
     lowered = v.lower()
@@ -27,6 +29,17 @@ def _looks_like_secret(v: str) -> bool:
     has_letter = any(c.isalpha() for c in v)
     has_digit = any(c.isdigit() for c in v)
     return has_letter and has_digit
+
+
+# Substring scanner for free-form text (exception messages, observations):
+# provider key prefixes, Bearer/Token schemes, and long mixed-alphanumeric
+# tokens that stand alone inside the text (whitespace/punctuation delimited).
+_SUBSTR_KEY_RE = re.compile(
+    r"(?:sk-ant-|sk-|sk_)[A-Za-z0-9_-]{8,}"
+    r"|aiza[A-Za-z0-9_-]{10,}"
+    r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
+    r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
+)
 
 
 def redact_api_key(value: str | None) -> str:
@@ -73,3 +86,24 @@ def redact_api_key(value: str | None) -> str:
         return f"{v[:4]}***{v[-4:]}"
 
     return v
+
+
+def redact_secrets_in_text(value: str | None) -> str:
+    """Redact secrets embedded inside free-form text (exception messages).
+
+    :func:`redact_api_key` treats its input as one candidate value, so a key
+    buried inside a sentence ("request failed: key sk-... rejected") survives
+    untouched. This scanner works token-by-token instead: provider key
+    prefixes, Bearer/Token schemes, and standalone mixed-alphanumeric runs of
+    20+ chars are masked in place, keeping the surrounding prose readable.
+    """
+    if not value:
+        return ""
+    if "-----BEGIN" in value.upper():
+        return "***PEM_REDACTED***"
+
+    def _mask(m: re.Match[str]) -> str:
+        token = m.group(0)
+        return f"{token[:4]}***" if len(token) > 8 else "***"
+
+    return _SUBSTR_KEY_RE.sub(_mask, value)

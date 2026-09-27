@@ -130,16 +130,17 @@ class InterviewWSHandler(
                     logger.debug("runner cancel_bg_tasks failed", exc_info=True)
 
     def _load_session(
-        self, db: Session, *, include_finished: bool = False
+        self, db: Session, *, include_status: str | None = None
     ) -> InterviewSession | None:
         """Load the room's session row; ``None`` also covers finished sessions.
 
         The connection is admitted only while the session is live (see the
         connect-time check in ``connection/auth.py``); the same filter here
         keeps per-turn handlers from running LLM work for a session that the
-        HTTP finish endpoint has already completed mid-connection. The finish
-        control passes ``include_finished=True``: its completed-session branch
-        must still see the row to send the idempotent wrap-up notice.
+        HTTP finish endpoint has already completed mid-connection.
+        ``include_status`` re-admits exactly one terminal state for callers
+        that must still see the row (the finish control's completed-session
+        branch sends the idempotent wrap-up notice through it).
         """
         session = (
             db.query(InterviewSession)
@@ -148,11 +149,11 @@ class InterviewWSHandler(
         )
         if session is None:
             return None
-        if include_finished:
+        if session.status in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
             return session
-        if session.status not in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
-            return None
-        return session
+        if include_status is not None and session.status == include_status:
+            return session
+        return None
 
 
 __all__ = [

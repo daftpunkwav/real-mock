@@ -10,7 +10,7 @@ Split submodules:
 """
 
 from .file import assert_within_dir, sanitize_filename, sniff_extension
-from .redact import redact_api_key
+from .redact import redact_api_key, redact_secrets_in_text
 from .url import (
     PinnedHostTransport,
     PinnedHttpTarget,
@@ -33,6 +33,7 @@ __all__ = [
     "make_pinned_async_client",
     "pin_safe_http_url",
     "redact_api_key",
+    "redact_secrets_in_text",
     "sanitize_filename",
     "sniff_extension",
 ]

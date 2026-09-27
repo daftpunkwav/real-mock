@@ -129,7 +129,9 @@ class TestLocalOnly:
         # No Origin header means a non-browser client (curl / scripts) from
         # ANY remote address passes: the guard is origin-based (anti-CSRF for
         # browsers), not IP-based; session tokens are the real auth.
-        assert await guard_ws_origin(_WS(origin="")) is True  # remote non-browser client
+        remote = _WS(origin="")
+        remote.client = ("203.0.113.5", 50000)
+        assert await guard_ws_origin(remote) is True
         assert await guard_ws_origin(_WS(origin="http://localhost:8080")) is True
         assert await guard_ws_origin(_WS(origin="http://127.0.0.1:8080")) is True
         assert await guard_ws_origin(_WS(origin="http://[::1]:8080")) is True

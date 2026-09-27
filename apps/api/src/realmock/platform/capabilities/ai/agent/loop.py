@@ -22,7 +22,7 @@ from typing import Any
 from realmock.platform.capabilities.ai.llm.tool_args import parse_tool_arguments
 from realmock.platform.core.agent_error_log import error_scope, log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 
 from .halt import AgentHalt
 from .hints import _DRIFT_HINT, _DRIFT_MAX_CHARS, _WRAP_UP_HINT, countdown_hint
@@ -489,7 +489,7 @@ async def run_agent_loop(
                         kind=getattr(tool_exc, "error_kind", "tool_failed"),
                         message=str(tool_exc),
                     )
-                return f"Tool execution failed: {redact_api_key(str(tool_exc))}", False
+                return f"Tool execution failed: {redact_secrets_in_text(str(tool_exc))}", False
 
         outcomes = await asyncio.gather(*(_run_one(tc) for tc in limited))
         tool_calls_so_far += len(limited)

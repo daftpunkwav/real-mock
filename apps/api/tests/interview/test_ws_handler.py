@@ -601,3 +601,17 @@ class TestLoadSessionStatusGate:
 
         h = ws_mod.InterviewWSHandler(_make_mock_ws(), session_id=1)
         assert h._load_session(self._stub_db("completed")) is None
+
+    def test_pending_session_loads(self) -> None:
+        from realmock.domains.interview.realtime import ws_handler as ws_mod
+
+        h = ws_mod.InterviewWSHandler(_make_mock_ws(), session_id=1)
+        assert h._load_session(self._stub_db("pending")) is not None
+
+    def test_include_status_reads_one_terminal_state_only(self) -> None:
+        from realmock.domains.interview.realtime import ws_handler as ws_mod
+
+        h = ws_mod.InterviewWSHandler(_make_mock_ws(), session_id=1)
+        # The finish control re-admits exactly COMPLETED for its wrap-up branch.
+        assert h._load_session(self._stub_db("completed"), include_status="completed") is not None
+        assert h._load_session(self._stub_db("abandoned"), include_status="completed") is None

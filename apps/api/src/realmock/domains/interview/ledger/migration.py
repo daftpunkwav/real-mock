@@ -58,6 +58,7 @@ def backfill_ledger_rows(db: Session) -> int:
         for row in db.query(InterviewTurn.session_id).distinct().all()
     }
     inserted = 0
+    dirty = False  # any write (row OR frozen-flag UPDATE) must be committed
     for session_id, blob in legacy_rows:
         sid = int(session_id)
         if sid in existing_ids:
@@ -70,31 +71,42 @@ def backfill_ledger_rows(db: Session) -> int:
         except (json.JSONDecodeError, TypeError):
             db.add(_evidence_row(sid, blob))
             inserted += 1
+            dirty = True
             _set_frozen(db, sid, _blob_frozen_flag(blob))
             continue
         if not isinstance(data, dict):
             db.add(_evidence_row(sid, blob))
             inserted += 1
+            dirty = True
             _set_frozen(db, sid, False)
             continue
         turns = data.get("turns")
         if not isinstance(turns, list):
             turns = []
+        seen_turn_ids: set[str] = set()
         for seq, turn in enumerate(turns, start=1):
+            # Normalise every element to its JSON text (a raw str element
+            # would land in the column unquoted and break load_ledger), and
+            # fall back to the seq-derived id when a legacy blob carries a
+            # duplicate turn_id — the UNIQUE constraint must never turn a
+            # boot-time migration into a crash loop.
+            if isinstance(turn, dict):
+                turn_id = str(turn.get("turn_id") or "").strip()
+                if not turn_id or turn_id in seen_turn_ids:
+                    turn_id = f"t-{seq:04d}"
+                # Keep the payload's inner turn_id consistent with the column:
+                turn["turn_id"] = turn_id
+                payload = json.dumps(turn, ensure_ascii=False)
+            else:
+                turn_id = f"t-{seq:04d}"
+                payload = json.dumps(turn, ensure_ascii=False)
+            seen_turn_ids.add(turn_id)
             db.add(
                 InterviewTurn(
                     session_id=sid,
-                    turn_id=(
-                        str(turn.get("turn_id"))
-                        if isinstance(turn, dict) and turn.get("turn_id")
-                        else f"t-{seq:04d}"
-                    ),
+                    turn_id=turn_id,
                     seq=seq,
-                    turn=(
-                        turn
-                        if isinstance(turn, str)
-                        else json.dumps(turn, ensure_ascii=False)
-                    ),
+                    turn=payload,
                 )
             )
         if data.get("corrupt"):
@@ -102,7 +114,8 @@ def backfill_ledger_rows(db: Session) -> int:
             db.add(_evidence_row(sid, raw if isinstance(raw, str) else blob))
         _set_frozen(db, sid, bool(data.get("frozen")))
         inserted += len(turns)
-    if inserted:
+        dirty = True
+    if dirty:
         db.commit()
         logger.info("ledger backfill complete: %d turn rows inserted", inserted)
     return inserted
@@ -136,11 +149,24 @@ def _evidence_row(session_id: int, raw: str) -> InterviewTurn:
 def drop_legacy_ledger_column(db: Session) -> bool:
     """Physically drop ``interview_sessions.ledger``; True when dropped.
 
-    Must run AFTER :func:`backfill_ledger_rows`. Skips when the column is
+    Requires SQLite >= 3.35 for ``DROP COLUMN``: older engines are skipped
+    with a warning (the column stays, the backfill stays idempotent, and
+    the system keeps working). Must run AFTER
+    :func:`backfill_ledger_rows`. Skips when the column is
     already gone (fresh databases created by the current ``create_all``).
     """
     bind = db.get_bind()
     if not _column_exists(bind, "interview_sessions", "ledger"):
+        return False
+    import sqlite3
+
+    if tuple(int(x) for x in sqlite3.sqlite_version.split(".")[:2]) < (3, 35):
+        logger.warning(
+            "SQLite %s cannot DROP COLUMN (needs >= 3.35); the legacy "
+            "interview_sessions.ledger column is kept and will be retried "
+            "on the next boot",
+            sqlite3.sqlite_version,
+        )
         return False
     db.execute(text("ALTER TABLE interview_sessions DROP COLUMN ledger"))
     db.commit()

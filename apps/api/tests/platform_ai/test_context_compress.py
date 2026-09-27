@@ -224,12 +224,14 @@ async def test_compact_bailout_does_not_absorb_into_memory() -> None:
 @pytest.mark.asyncio
 async def test_compact_with_summary_falls_back_to_digest_on_llm_failure() -> None:
     llm = _SummarizerLLM(error=RuntimeError("llm down"))
-    out = await compact_with_summary(_big_history(), 500, llm=llm, keep_recent=4)
+    mem = WorkingMemory()
+    out = await compact_with_summary(_big_history(), 500, llm=llm, keep_recent=4, memory=mem)
     digests = [
         m for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Context compression]")
     ]
     assert digests, "LLM failure must fall back to a rule-based summary"
+    assert mem.notes, "The rule-summary path folds too, so memory must absorb the omitted turns"
 
 
 @pytest.mark.asyncio

@@ -87,6 +87,7 @@ CATALOG: dict[str, ErrorSpec] = {
     # C third-party
     "C0001": ErrorSpec("C0001", 502, "AI service temporarily unavailable, please try again later", "Check the API Key quota and network; if it persists, test connectivity in Settings", True),
     "C0002": ErrorSpec("C0002", 502, "The model returned no valid result, please try again later", "The model may be incompatible (reasoning-only/empty output); try another model", True),
+    "C0003": ErrorSpec("C0003", 502, "Your answer was generated but could not be saved; please retry, or export the transcript from the report page", "The reply already streamed; only the record is missing. Retry the turn or export from the report page", False),
     "C1001": ErrorSpec("C1001", 502, "Report generation failed, please try again later", "Click regenerate on the report page; spoken wrap-up content is unaffected", True),
     "C2001": ErrorSpec("C2001", 200, "Could not recognize the speech; speak again or type instead", "Move closer to the microphone, reduce background noise, or type your answer", True),
     "C2002": ErrorSpec("C2002", 200, "Speech synthesis failed; subtitles only for this turn", "Check the speech processor settings; you can switch to Edge TTS in Settings", True),

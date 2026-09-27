@@ -17,13 +17,13 @@ One JSON object per message, no envelope: `{"type": "<event-type>", ...payload}`
 ## SSOT and guards
 
 - SSOT: `protocol/interview_ws.schema.json` — server / client event types plus per-event payload shapes.
-- Backend: `realmock.domains.interview.constants` — `WSServerEvent` (16 types) and `WSClientEvent` (12 types).
+- Backend: `realmock.domains.interview.constants` — `WSServerEvent` (17 types) and `WSClientEvent` (12 types).
 - Frontend: `apps/web/src/types/domains/interview_ws.ts` (`ServerEvent` / `ClientEvent` union types).
 - Guard: `apps/api/tests/interview/test_ws_protocol_schema.py` — subset assertions in both directions (backend enums ⊆ schema, frontend union ⊆ schema) plus per-event payload coverage for every event. The schema is deliberately a superset: `audio_chunk` is reserved legacy inbound — the dispatcher accepts it, but the first-party client does not emit it (voice travels as PCM inside `user_turn_end`).
 
 Product scope: the coding whiteboard is a client-only tool — the interview agent neither poses coding challenges nor scores code, and the server holds no whiteboard state (no coding WS events exist).
 
-## Server events (16)
+## Server events (17)
 
 | Event | Required fields | Optional fields |
 | --- | --- | --- |

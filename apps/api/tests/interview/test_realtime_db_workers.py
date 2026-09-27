@@ -90,8 +90,10 @@ def test_append_silence_flag_sync_writes_newest_turn(db) -> None:
 
 def test_finish_notify_sync_freezes_and_is_idempotent(db) -> None:
     row = _mk_session(db)
-    # First call: runs the finish lifecycle (complete + freeze), snapshots None score.
-    already_frozen, score, result = _finish_notify_sync(row.id)
+    # First call: runs the finish lifecycle (complete + freeze). found=True;
+    # score/result are legitimately None (the debrief writes the score later).
+    found, already_frozen, score, result = _finish_notify_sync(row.id)
+    assert found is True
     assert already_frozen is False
     assert score is None and result is None
     db.expire_all()
@@ -99,8 +101,18 @@ def test_finish_notify_sync_freezes_and_is_idempotent(db) -> None:
     assert fresh.status == SessionStatus.COMPLETED.value
     assert fresh.ledger_frozen is True
     # Second call: reports already_frozen so the caller only notifies.
-    already_frozen2, _, _ = _finish_notify_sync(row.id)
+    found2, already_frozen2, _, _ = _finish_notify_sync(row.id)
+    assert found2 is True
     assert already_frozen2 is True
+
+
+def test_finish_notify_sync_missing_row_is_found_false(db) -> None:
+    """A missing row must be distinguishable from a first finish (both have
+    None score/result) — the caller gates the interview_complete frame on it."""
+    found, already_frozen, score, result = _finish_notify_sync(999999)
+    assert found is False
+    assert already_frozen is False
+    assert score is None and result is None
 
 
 def test_persist_interrupt_stats_sync_writes_state(db) -> None:

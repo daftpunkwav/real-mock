@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 from realmock.platform.database import SessionLocal
 from realmock.domains.interview.models import InterviewSession
+from realmock.platform.core.constants import SessionStatus
 from realmock.domains.interview.ledger.store import append_last_turn_flag
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.control.silence_probe import flow_language
@@ -69,14 +70,21 @@ def _read_persona_sync(session_id: int) -> tuple[Any, Any, Any] | None:
     """Blocking load of the persona scalars the probe fallback needs.
 
     Returns ``(personality, strictness, current_phase)`` or None when the
-    session row is gone. Scalars only -- the ORM instance never leaves the
-    thread scope (same convention as session_registry).
+    session row is gone OR no longer live (same live-session filter as
+    ``ws_handler._load_session``: a session finished via HTTP must not
+    keep generating probes). Scalars only -- the ORM instance never
+    leaves the thread scope (same convention as session_registry).
     """
     db = SessionLocal()
     try:
         session = (
             db.query(InterviewSession)
             .filter(InterviewSession.id == session_id)
+            .filter(
+                InterviewSession.status.in_(
+                    [SessionStatus.PENDING.value, SessionStatus.ACTIVE.value]
+                )
+            )
             .first()
         )
         if session is None:

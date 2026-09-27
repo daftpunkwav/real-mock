@@ -37,7 +37,7 @@ class LedgerTurn(TypedDict, total=False):
 
 
 class LedgerDocument(TypedDict, total=False):
-    """Root ledger document stored on ``interview_sessions.ledger``."""
+    """Root ledger document aggregated from the ``interview_turns`` table."""
 
     schema: str
     session_id: int

@@ -98,4 +98,4 @@ class StreamEvent:
         )
 
 
-__all__ = ["EventKind", "StreamEvent"]
+__all__ = ["EventKind", "LedgerWriteError", "StreamEvent"]

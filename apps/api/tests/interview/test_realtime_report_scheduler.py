@@ -157,3 +157,26 @@ async def test_report_scheduler_send_fail_after_lifecycle():
     finally:
         await h._cancel_bg_tasks()
 
+@pytest.mark.asyncio
+async def test_first_finish_emits_interview_complete_despite_none_score():
+    """Regression (self-review P1): a first finish legitimately has None
+    score/result (the debrief writes the score later), but that state must
+    NOT be mistaken for a missing row — interview_complete must go out."""
+    h = _make_handler()
+    try:
+        db = MagicMock()
+        sess = MagicMock(status="active", overall_score=None)
+        sess.result = None
+        db.query.return_value.filter.return_value.first.return_value = sess
+        with (
+            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db),
+            patch("realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle") as lifecycle,
+            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False),
+        ):
+            with patch.object(h, "_wait_client_playback", new=AsyncMock()):
+                await h._generate_report_bg()
+        lifecycle.assert_called_once()
+        sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
+        assert any(e.get("type") == "interview_complete" for e in sent), sent
+    finally:
+        await h._cancel_bg_tasks()

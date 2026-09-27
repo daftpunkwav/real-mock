@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class InterruptControlMixin:
-    """Candidate interruption handling; depends on ctx state fields + send / set_turn / _load_session."""
+    """Candidate interruption handling; depends on ctx state fields + send / set_turn / runner."""
 
     ctx: "ConnectionContext"
 
@@ -30,7 +30,7 @@ class InterruptControlMixin:
         # Members provided by sibling mixins of the composed InterviewWSHandler.
         send: Callable[..., Coroutine[Any, Any, None]]
         set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
-        _load_session: Callable[..., InterviewSession | None]
+        runner: Any
 
     def _persist_interrupt_stats_sync(self, session_id: int, state_json: str) -> bool:
         """Persist the merged interrupt state onto the session row (blocking).

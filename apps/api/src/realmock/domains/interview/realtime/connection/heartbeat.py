@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 _HEARTBEAT_TIMEOUT_SEC: float = 30.0
 _HEARTBEAT_MAX_MISSES: int = 3
+# Consecutive malformed-JSON frames tolerated before the room is torn
+# down: one bad frame is a client glitch, a stream of them is a broken
+# or hostile client burning lease checks, log volume, and error frames.
+_HEARTBEAT_MAX_MALFORMED: int = 5
 
 
 class HeartbeatMixin:
@@ -44,6 +48,7 @@ class HeartbeatMixin:
         timeouts, send an error event and end the loop.
         """
         miss_count = 0
+        malformed_streak = 0
         while not self.ctx.superseded:
             if not await verify_connection_lease(self):
                 try:
@@ -91,9 +96,30 @@ class HeartbeatMixin:
                     return None
                 continue
             except json.JSONDecodeError:
-                # One malformed JSON frame must not tear down the whole room:
-                # reject the frame and keep waiting (a disconnect arrives as
-                # WebSocketDisconnect, which the branch below handles).
+                # A malformed JSON frame must not tear down the whole room:
+                # reject the frame and keep waiting. A sustained stream of
+                # them is a broken/hostile client, though — bound it.
+                malformed_streak += 1
+                if malformed_streak >= _HEARTBEAT_MAX_MALFORMED:
+                    logger.warning(
+                        "WS malformed-frame limit reached session=%s count=%s",
+                        self.ctx.session_id,
+                        malformed_streak,
+                    )
+                    try:
+                        await self.send(
+                            "error",
+                            message="Too many malformed frames; connection closed",
+                            code="B2004",
+                            retryable=True,
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Malformed-frame notice failed to send session=%s",
+                            self.ctx.session_id,
+                            exc_info=True,
+                        )
+                    return None
                 logger.warning("Malformed WS JSON frame session=%s", self.ctx.session_id)
                 try:
                     await self.send(
@@ -118,8 +144,14 @@ class HeartbeatMixin:
                 return None
             if self.ctx.superseded:
                 return None
+            malformed_streak = 0
             return data
         return None
 
 
-__all__ = ["HeartbeatMixin", "_HEARTBEAT_TIMEOUT_SEC", "_HEARTBEAT_MAX_MISSES"]
+__all__ = [
+    "HeartbeatMixin",
+    "_HEARTBEAT_MAX_MALFORMED",
+    "_HEARTBEAT_MAX_MISSES",
+    "_HEARTBEAT_TIMEOUT_SEC",
+]

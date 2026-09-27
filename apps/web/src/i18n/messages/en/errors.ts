@@ -97,6 +97,8 @@ export const errors = {
   "C0001": "AI service temporarily unavailable, please try again later",
   "C0001.hint": "Check the API Key quota and network; if it persists, test connectivity in Settings",
   "C0002": "The model returned no valid result, please try again later",
+  "C0003": "Your answer was generated but could not be saved; please retry, or export the transcript from the report page",
+  "C0003.hint": "The reply already streamed; only the record is missing. Retry the turn or export from the report page",
   "C0002.hint": "The model may be incompatible (reasoning-only/empty output); try another model",
   "C1001": "Report generation failed, please try again later",
   "C1001.hint": "Click regenerate on the report page; spoken wrap-up content is unaffected",

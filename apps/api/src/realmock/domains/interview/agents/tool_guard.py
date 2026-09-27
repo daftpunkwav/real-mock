@@ -35,7 +35,7 @@ from typing import Any, MutableMapping
 from realmock.domains.interview.agents.agent_policies import ToolGuardPolicy
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +213,7 @@ class ToolGuard:
                 # No retry: deterministic failures (bad args, code bugs) would
                 # just burn a second call. The model may still retry deliberately.
                 fail_kind = "tool_failed"
-                fail_msg = f"failed: {redact_api_key(str(exc))[:400]}"
+                fail_msg = f"failed: {redact_secrets_in_text(str(exc))[:400]}"
                 break
             else:
                 # Success (soft-failure observations included): close the breaker.

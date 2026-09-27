@@ -127,10 +127,18 @@ class TurnSttFinishMixin:
             )
             self.ctx.audio_buffer = []
             self.ctx.audio_buffer_bytes = 0
-            await self.send(
-                "info",
-                message=BUSY_TURN_NOTICE,
-            )
+            try:
+                await self.send(
+                    "info",
+                    message=BUSY_TURN_NOTICE,
+                )
+            except Exception:
+                # A dead socket must not leak into the epoch-restore handler.
+                logger.debug(
+                    "busy notice failed to send sid=%s",
+                    self.ctx.session_id,
+                    exc_info=True,
+                )
             return
         await self.set_turn(TurnState.PROCESSING)
 

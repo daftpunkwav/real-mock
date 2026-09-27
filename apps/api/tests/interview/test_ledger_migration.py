@@ -136,3 +136,37 @@ def test_fresh_database_without_column_is_a_noop(db) -> None:
     }
     assert backfill_ledger_rows(db) == 0
     assert drop_legacy_ledger_column(db) is False
+
+
+def test_backfill_empty_turns_frozen_blob_still_sets_flag(legacy_db) -> None:
+    """A legitimately empty but frozen blob (finish right after start) must
+    persist its frozen flag even though zero turn rows are inserted."""
+    blob = json.dumps({"frozen": True, "turns": []}, ensure_ascii=False)
+    row = _insert_legacy_row(legacy_db, blob)
+
+    assert backfill_ledger_rows(legacy_db) == 0
+    legacy_db.expire_all()
+    assert legacy_db.get(InterviewSession, row.id).ledger_frozen is True
+
+
+def test_backfill_survives_duplicate_and_non_dict_turns(legacy_db) -> None:
+    """Duplicate legacy turn_ids fall back to seq ids and non-dict elements
+    are normalised to JSON — neither may crash the boot-time migration or
+    leave load_ledger permanently broken."""
+    blob = json.dumps({
+        "frozen": False,
+        "turns": [
+            {"turn_id": "t-0001", "phase": "p", "assistant": {"text": "a"}},
+            {"turn_id": "t-0001", "phase": "p", "assistant": {"text": "b"}},
+            "raw string turn",
+        ],
+    }, ensure_ascii=False)
+    row = _insert_legacy_row(legacy_db, blob)
+
+    assert backfill_ledger_rows(legacy_db) == 3
+    doc = dict(load_ledger(legacy_db, row))
+    # The third element is a legacy raw string; load_ledger passes it through
+    # verbatim (only dict turns carry ids).
+    ids = [t.get("turn_id") if isinstance(t, dict) else None for t in doc["turns"]]
+    assert ids == ["t-0001", "t-0002", None]
+    assert doc["turns"][2] == "raw string turn"  # normalised verbatim as JSON text
