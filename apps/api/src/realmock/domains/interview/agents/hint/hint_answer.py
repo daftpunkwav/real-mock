@@ -72,7 +72,11 @@ async def generate_full_reference_hint(
         llm: chat-capable client.
         db: short-lived sessions-DB session (owned by the caller).
         session: attached InterviewSession row (ids/company for tools).
-        agent_state: mutable in-memory state (tool findings accumulate here).
+        agent_state: mutable working state for the duration of this call;
+            tool findings, guard streaks and the ``hint:*`` tool_trace
+            accumulate here. Persistence is the caller's concern: a caller
+            passing a snapshot copy (e.g. the runner facade) must merge back
+            whatever it wants to keep.
         question: the interviewer's question (already extracted).
         background: candidate background summary for grounding.
         flow_language: "en" writes the answer in English, else Chinese.
