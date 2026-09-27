@@ -205,6 +205,21 @@ async def test_compact_with_summary_generates_structured_summary() -> None:
     assert mem.notes, "Omitted conversation messages should also be incorporated into working memory"
     assert llm.chat_calls, "The LLM must be called to generate a summary when the threshold is exceeded"
 
+@pytest.mark.asyncio
+async def test_compact_bailout_does_not_absorb_into_memory() -> None:
+    """When the summary block would grow the context, the fold is abandoned
+    and WorkingMemory must not absorb the same omitted turns (the raw
+    history stays visible, so absorbing would double-count them)."""
+    # Just over the fold threshold, but the huge LLM minutes make the
+    # folded draft cost more than the raw history: the bail-out branch.
+    llm = _SummarizerLLM(reply="Session goal: " + "Bloat " * 2000)
+    mem = WorkingMemory()
+    msgs = _big_history(turns=3)
+    out = await compact_with_summary(msgs, 500, memory=mem, llm=llm, keep_recent=4)
+    assert out == msgs, "A growing fold must keep the original history"
+    assert llm.chat_calls, "The summarizer still ran to produce the draft"
+    assert mem.notes == [], "Bail-out must not absorb omitted turns into memory"
+
 
 @pytest.mark.asyncio
 async def test_compact_with_summary_falls_back_to_digest_on_llm_failure() -> None:

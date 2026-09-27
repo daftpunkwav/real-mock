@@ -503,8 +503,6 @@ async def compact_with_summary(
     if not force and estimate_messages_tokens(omitted) < _MIN_OMITTED_TOKENS:
         # Nothing worth folding: the summary block alone would cost more.
         return system + rest
-    if memory is not None:
-        memory.absorb_omitted(omitted)
 
     # There is no way to omit the conversation. If the minutes are not entered, go directly to the rule summary path.
     summary_text = ""
@@ -537,6 +535,11 @@ async def compact_with_summary(
             # removing almost nothing: keep the original instead of growing
             # the context to "compact" it.
             return system + rest
+        if memory is not None:
+            # Absorb only when the fold is actually applied: a bail-out above
+            # keeps the raw history visible, so absorbing would double-count
+            # the same turns in the memory block.
+            memory.absorb_omitted(omitted)
         trailer = format_provenance(
             version=_previous_summary_version(system) + 1,
             backup_session_id=(provenance or {}).get("backup_session_id"),
@@ -567,4 +570,6 @@ async def compact_with_summary(
         [{"role": "system", "content": body}]
     )
     body += "\n" + format_provenance(before=before_est, after=after_est, base=len(trimmed))
+    if memory is not None:
+        memory.absorb_omitted(omitted)
     return system + [{"role": "system", "content": body}] + trimmed
