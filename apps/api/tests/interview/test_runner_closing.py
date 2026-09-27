@@ -171,8 +171,10 @@ async def test_stream_closing_ledger_failure_yields_retryable_error(monkeypatch)
     monkeypatch.setattr(rcmod, "append_turn", boom)
     events = [e async for e in rcmod.stream_closing(runner, db=None)]  # type: ignore[arg-type]
     err = next(e for e in events if e.kind == EventKind.ERROR)
-    assert err.error_code == "C0001"
-    assert err.error_retryable is True
+    # Ledger failure after streaming is its own class: the answer is out,
+    # only the record is missing (C0003, not retryable as a whole).
+    assert err.error_code == "C0003"
+    assert err.error_retryable is False
 
 
 @pytest.mark.asyncio

@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
 from realmock.domains.interview.agents.agent_policies import BACKGROUND
-from realmock.domains.interview.agents.events import StreamEvent
+from realmock.domains.interview.agents.events import LedgerWriteError, StreamEvent
+from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
 from realmock.domains.interview.agents.step_compaction import (
@@ -181,12 +182,12 @@ async def stream_turn(
                 tools=tools,
                 flags=score_flags,
             )
-        except Exception:
+        except Exception as e:
             logger.exception(
                 "ledger append_turn failed sid=%s",
                 getattr(runner.session, "id", None),
             )
-            raise
+            raise LedgerWriteError("ledger append failed") from e
 
         # Background agent (never gates the reply): the shadow evaluator
         # assesses the turn and feeds the cognitive graph. Bounded by a
@@ -241,6 +242,20 @@ async def stream_turn(
             sources=output.sources,
             result=output.verdict if output.interview_complete else None,
             phase_title=runner.agent.phase_title_for_display(),
+        )
+    except LedgerWriteError:
+        # The answer was already streamed; only the record is missing.
+        # Distinct code + actionable copy (front-end toasts the message).
+        log_agent_error(
+            domain="interview",
+            session=str(getattr(runner.session, "id", "")),
+            kind="ledger_write_failed",
+            message="runner_turn: ledger append failed after streaming",
+        )
+        yield StreamEvent.make_error(
+            "Your answer was generated but could not be saved; please retry, or export the transcript from the report page.",
+            code="C0003",
+            retryable=False,
         )
     except Exception as e:
         logger.exception("Round execution failed: %s", e)

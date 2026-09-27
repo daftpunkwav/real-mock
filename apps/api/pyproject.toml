@@ -51,9 +51,6 @@ dependencies = [
     "faster-whisper>=1.0.0,<2",
     # Local RAG vector store (embedded PersistentClient; see header note on PYSEC-2026-311)
     "chromadb>=1.5.0,<2",
-    # Search: ddgs is current; duckduckgo_search is a legacy fallback (dual import in web.py).
-    # 6.x is the last generation under that module name — pin upper bound to avoid incompatible 7.x+ (renamed to ddgs).
-    "duckduckgo-search>=6.0.0,<7",
     "ddgs>=9.0.0,<10",
     "cryptography>=50.0.0,<51",
     # Tests (shared by local regression and CI)

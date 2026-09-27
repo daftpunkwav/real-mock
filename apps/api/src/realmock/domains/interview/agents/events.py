@@ -17,6 +17,15 @@ class EventKind(str, Enum):
     ERROR = "error"               # abnormal
 
 
+class LedgerWriteError(RuntimeError):
+    """The turn's ledger append failed after the answer was generated.
+
+    Distinct from a generic round failure: the model finished and the
+    tokens are already with the candidate, but the session record could
+    not be persisted, so the transcript is now behind reality.
+    """
+
+
 @dataclass(frozen=True)
 class StreamEvent:
     """runner -> event carrier for ws_handler/API."""

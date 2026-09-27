@@ -39,7 +39,7 @@ def assert_session_token(
     session: HasAccessToken,
     provided: str | None,
     *,
-    detail: str = "Don't have access to this interview session",
+    detail: str = "Interview session unavailable",
 ) -> None:
     """If verification fails, 403 will be thrown."""
     if not tokens_match(getattr(session, "access_token", None), provided):

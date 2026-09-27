@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
-from realmock.domains.interview.agents.events import StreamEvent
+from realmock.domains.interview.agents.events import LedgerWriteError, StreamEvent
+from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
@@ -95,12 +96,12 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
                 assistant_text=output.say or "",
                 tools=tools,
             )
-        except Exception:
+        except Exception as e:
             logger.exception(
                 "ledger append_turn failed on opening sid=%s",
                 getattr(runner.session, "id", None),
             )
-            raise
+            raise LedgerWriteError("ledger append failed") from e
 
         # Opening does not advance on question caps; only explicit phase_complete.
         if output.phase_complete:
@@ -116,6 +117,20 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
             answer_wait_seconds=output.answer_wait_seconds,
             sources=output.sources,
             phase_title=runner.agent.phase_title_for_display(),
+        )
+    except LedgerWriteError:
+        # The answer was already streamed; only the record is missing.
+        # Distinct code + actionable copy (front-end toasts the message).
+        log_agent_error(
+            domain="interview",
+            session=str(getattr(runner.session, "id", "")),
+            kind="ledger_write_failed",
+            message="runner_opening: ledger append failed after streaming",
+        )
+        yield StreamEvent.make_error(
+            "Your answer was generated but could not be saved; please retry, or export the transcript from the report page.",
+            code="C0003",
+            retryable=False,
         )
     except Exception as e:
         logger.exception("Opening round failed: %s", e)

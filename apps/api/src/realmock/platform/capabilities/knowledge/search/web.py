@@ -1,4 +1,4 @@
-"""Network search tool (ddgs preferred, compatible with old package duckduckgo_search)."""
+"""Network search tool (ddgs backend)."""
 
 from __future__ import annotations
 
@@ -76,12 +76,6 @@ def _search_with_ddgs(query: str, max_results: int) -> list[dict]:
     raise RuntimeError("; ".join(errors)[:400] or "no backend succeeded")
 
 
-def _search_with_legacy(query: str, max_results: int) -> list[dict]:
-    from duckduckgo_search import DDGS
-
-    with DDGS() as client:
-        return list(client.text(query, max_results=max_results))
-
 
 def _unavailable(detail: str) -> str:
     return (
@@ -106,19 +100,14 @@ def web_search_with_hits(
     if not final_query:
         return "Empty query.", []
 
-    errors: list[str] = []
-
     try:
         raw = _search_with_ddgs(final_query, max_results)
     except Exception as e:
-        errors.append(f"ddgs: {e}")
-        logger.warning("ddgs search failed, try old package: %s", e)
-        try:
-            raw = _search_with_legacy(final_query, max_results)
-        except Exception as e2:
-            errors.append(f"duckduckgo_search: {e2}")
-            logger.warning("Old package search failed: %s", e2)
-            return _unavailable(" | ".join(errors)[:400]), []
+        # Single backend by decision: the legacy duckduckgo_search fallback
+        # was removed together with its dependency, so a ddgs failure is
+        # surfaced as SEARCH_UNAVAILABLE instead of a silent retry path.
+        logger.warning("web search failed: %s", e)
+        return _unavailable(str(e)[:400]), []
 
     hits: list[SearchHit] = []
     for r in raw[:max_results]:

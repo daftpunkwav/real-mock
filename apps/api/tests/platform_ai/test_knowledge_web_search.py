@@ -89,18 +89,6 @@ def test_search_with_ddgs_empty_then_error(monkeypatch) -> None:
         web_mod._search_with_ddgs("q", 3)
 
 
-def test_search_with_legacy(monkeypatch) -> None:
-    fake_client = MagicMock()
-    fake_client.text.return_value = [{"href": "https://z.test"}]
-    fake_ctx = MagicMock()
-    fake_ctx.__enter__.return_value = fake_client
-    fake_ctx.__exit__.return_value = False
-    fake_mod = types.ModuleType("duckduckgo_search")
-    fake_mod.DDGS = MagicMock(return_value=fake_ctx)  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "duckduckgo_search", fake_mod)
-    assert web_mod._search_with_legacy("q", 2)[0]["href"] == "https://z.test"
-
-
 def test_web_search_with_hits_empty_query() -> None:
     text, hits = web_mod.web_search_with_hits("   ")
     assert text == "Empty query."
@@ -132,32 +120,16 @@ def test_web_search_with_hits_truncates_to_max(monkeypatch) -> None:
     assert len(hits) == 3
 
 
-def test_web_search_with_hits_fallback_legacy(monkeypatch) -> None:
+def test_web_search_with_hits_ddgs_failure_surfaces_unavailable(monkeypatch) -> None:
+    """Single backend by decision: a ddgs failure yields SEARCH_UNAVAILABLE."""
     def _boom(q, mr):
         raise RuntimeError("ddgs down")
 
     monkeypatch.setattr(web_mod, "_search_with_ddgs", _boom)
-    monkeypatch.setattr(
-        web_mod, "_search_with_legacy", lambda q, mr: [{"href": "https://b.test", "title": "T"}]
-    )
-    text, hits = web_mod.web_search_with_hits("q")
-    assert len(hits) == 1
-    assert "No relevant" not in text
-
-
-def test_web_search_with_hits_both_fail(monkeypatch) -> None:
-    def _boom(q, mr):
-        raise RuntimeError("ddgs down")
-
-    def _boom2(q, mr):
-        raise RuntimeError("legacy down")
-
-    monkeypatch.setattr(web_mod, "_search_with_ddgs", _boom)
-    monkeypatch.setattr(web_mod, "_search_with_legacy", _boom2)
     text, hits = web_mod.web_search_with_hits("q")
     assert hits == []
     assert text.startswith("SEARCH_UNAVAILABLE")
-
+    assert "ddgs down" in text
 
 def test_web_search_wrapper(monkeypatch) -> None:
     monkeypatch.setattr(

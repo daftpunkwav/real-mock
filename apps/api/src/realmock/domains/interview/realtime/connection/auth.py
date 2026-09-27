@@ -78,12 +78,12 @@ class ConnectionAuthMixin:
             InterviewSession.id == self.ctx.session_id
         ).first()
         if not session:
-            await self._fail_and_close("Interview session does not exist")
+            await self._fail_and_close("Interview session unavailable")
             return None
         if not tokens_match(
             getattr(session, "access_token", None), self.ctx.client_access_token
         ):
-            await self._fail_and_close("Don't have access to this interview session")
+            await self._fail_and_close("Interview session unavailable")
             return None
         if session.status not in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
             await self._fail_and_close("The interview has ended")
