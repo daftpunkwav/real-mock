@@ -20,6 +20,10 @@ async def test_shadow_evaluator_agent():
     )
     assert evaluation is not None
     assert isinstance(evaluation.inconsistencies, list)
+    # Empty key takes the graceful-default path, not the error path.
+    assert evaluation.error is False
+    assert evaluation.substance_score == 5
+    assert evaluation.assessed_topic == ""
 
 
 
@@ -81,3 +85,41 @@ async def test_shadow_three_phase_pipeline():
     )
     assert calls == ["evaluate"]  # no flag, probe present -> single call
     assert res2.suggested_probe == "why LRU?"
+
+
+@pytest.mark.asyncio
+async def test_shadow_probe_synthesis_fills_missing_probe():
+    """Phase 3: evaluate returned a topic but no usable probe -> exactly one
+    synthesis call runs, and its probe lands both on the evaluation and in the
+    graph's pending probes (the whispering-directive channel)."""
+
+    from realmock.domains.interview.agents.topology.shadow_evaluator import ShadowEvaluatorAgent
+
+    calls: list[str] = []
+
+    class _ProbelessLLM:
+        api_key = "k"
+
+        async def chat_json(self, messages, temperature=0.2):
+            if "probing question" in messages[0]["content"]:
+                calls.append("probe")
+                return {"probe": "walk me through the cold-start path?"}
+            calls.append("evaluate")
+            return {
+                "substance_score": 6,
+                "assessed_topic": "caching",
+                "topic_status": "suspicious",
+                "suggested_probe": "",
+            }
+
+    graph = CognitiveMemoryGraph()
+    agent = ShadowEvaluatorAgent(_ProbelessLLM(), graph)
+    res = await agent.evaluate_turn(
+        question="Q",
+        user_text="caching answer that names no follow-up probe",
+        current_phase="technical",
+        turn_index=1,
+    )
+    assert calls == ["evaluate", "probe"]
+    assert res.suggested_probe == "walk me through the cold-start path?"
+    assert graph.working_memory.pending_probes[-1] == "walk me through the cold-start path?"

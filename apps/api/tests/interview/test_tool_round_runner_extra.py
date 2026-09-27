@@ -579,6 +579,7 @@ async def test_execute_passes_clamped_timeout_override(monkeypatch) -> None:
     r.guard = SimpleNamespace(run=_guard_run)
 
     async def fake_loop(llm, messages, *, execute=None, **k):
+        await execute("web_fetch", {"url": "https://lo", "timeout_seconds": 1})
         await execute("web_fetch", {"url": "https://x", "timeout_seconds": 999})
         await execute("web_fetch", {"url": "https://y", "timeout_seconds": "bad"})
         await execute("web_fetch", {"url": "https://z"})
@@ -589,7 +590,8 @@ async def test_execute_passes_clamped_timeout_override(monkeypatch) -> None:
         fake_loop,
     )
     await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
-    assert seen == [180.0, None, None]
+    # Both clamp ends: below the band -> min, above it -> max.
+    assert seen == [5.0, 180.0, None, None]
 
 
 def test_tool_definitions_carry_timeout_override() -> None:

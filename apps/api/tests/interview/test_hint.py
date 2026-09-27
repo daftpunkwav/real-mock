@@ -337,6 +337,39 @@ def test_full_hint_zero_tool_path_uses_single_writer_call(monkeypatch):
     assert calls == {"loop": 0, "chat": 1}
 
 
+def test_full_hint_zero_tool_path_ignores_word_contains_signals(monkeypatch):
+    """Word-boundary contract: words that merely CONTAIN repo-ish substrings
+    ("started", "restarted") are not a repository signal and must not buy the
+    tool loop."""
+    import realmock.domains.interview.agents.hint.hint_answer as mod
+    from types import SimpleNamespace as NS
+
+    calls = {"loop": 0}
+
+    class ZeroToolLLM:
+        async def chat(self, messages, **kwargs):
+            return "final answer text"
+
+    async def fake_loop(*a, **k):
+        calls["loop"] += 1
+        raise AssertionError("loop must not run without a repo signal")
+
+    monkeypatch.setattr(mod, "run_agent_loop", fake_loop)
+    result = asyncio.run(
+        mod._generate(
+            ZeroToolLLM(),
+            NS(),
+            NS(id=1, resume_id=None, profile_id=None),
+            {},
+            "Tell me about a project you started recently?",
+            "We restarted the service from scratch last month.",
+            "zh",
+        )
+    )
+    assert result == "final answer text"
+    assert calls["loop"] == 0
+
+
 def test_full_hint_repo_signal_runs_github_only_loop(monkeypatch):
     import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS

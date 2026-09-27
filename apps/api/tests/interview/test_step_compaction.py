@@ -516,3 +516,85 @@ def test_cancel_requeues_boundary_into_failed_steps():
     assert failed[0]["start"] == 1
     assert agent.messages == msgs
     assert agent.agent_state["steps"]["pending"] == []
+
+
+# ---- best-effort snapshot persist (idle-write / busy-skip contract) ----
+
+
+def _db_row(sid_holder: dict, db) -> None:
+    from realmock.domains.interview.models import InterviewSession
+
+    row = InterviewSession(
+        profile_id=1,
+        role="Backend",
+        level="junior",
+        company="acme",
+        workflow_type="technical",
+        status="pending",
+        current_phase="old_step",
+        agent_state="{}",
+        messages="[]",
+    )
+    db.add(row)
+    db.commit()
+    sid_holder["id"] = row.id
+
+
+def test_spawn_persists_snapshot_once_flow_idle(db):
+    """With the interview flow idle, the background task must land the
+    compacted snapshot on the session row itself — no further turn may come
+    to persist it."""
+    import json as _json
+
+    import realmock.domains.interview.agents.step_compaction as sc
+    from realmock.domains.interview.models import InterviewSession
+
+    holder: dict = {}
+    _db_row(holder, db)
+
+    agent = _FakeAgent(_big_transcript())
+    agent.session = NS(current_phase="p", id=holder["id"])
+    runner = _spawn_runner(agent, _FakeLLM([_GOOD]))
+    assert runner.flow_active is False
+
+    async def run():
+        boundary = record_step_boundary(agent)
+        await asyncio.gather(sc.spawn_boundary_compaction(runner, boundary))
+
+    asyncio.run(run())
+    assert "Step 1 summary" in agent.messages[1]["content"]  # compaction ran
+    db.expire_all()
+    fresh = db.get(InterviewSession, holder["id"])
+    saved_messages = _json.loads(fresh.messages)
+    saved_state = _json.loads(fresh.agent_state)
+    assert "Step 1 summary" in saved_messages[1]["content"]
+    assert saved_state["steps"]["summaries"][0]["step_no"] == 1
+
+
+def test_spawn_persist_skips_while_flow_still_busy(db, monkeypatch):
+    """The persist must never interleave with an active turn's save_state: if
+    the flow stays busy past the idle-wait budget the write is skipped (the
+    turn's own save_state persists everything this task changed)."""
+    import json as _json
+
+    import realmock.domains.interview.agents.step_compaction as sc
+    from realmock.domains.interview.models import InterviewSession
+
+    holder: dict = {}
+    _db_row(holder, db)
+
+    agent = _FakeAgent(_big_transcript())
+    agent.session = NS(current_phase="p", id=holder["id"])
+    runner = _spawn_runner(agent, _FakeLLM([_GOOD]))
+    runner.flow_active = True
+    monkeypatch.setattr(sc, "_PERSIST_IDLE_WAIT_SEC", 0.05)
+
+    async def run():
+        boundary = record_step_boundary(agent)
+        await asyncio.gather(sc.spawn_boundary_compaction(runner, boundary))
+
+    asyncio.run(run())
+    assert "Step 1 summary" in agent.messages[1]["content"]  # compaction ran
+    db.expire_all()
+    fresh = db.get(InterviewSession, holder["id"])
+    assert _json.loads(fresh.messages) == []  # nothing was written
