@@ -80,20 +80,24 @@ class InterviewSessionState(SessionPromptMixin):
 
     def _load_state(self) -> None:
         try:
-            self.agent_state: dict[str, Any] = json.loads(self.session.agent_state or "{}")
+            state = json.loads(self.session.agent_state or "{}")
         except json.JSONDecodeError:
+            state = None
             logger.debug(
                 "corrupt agent_state JSON sid=%s; start fresh", getattr(self.session, "id", None)
             )
-            self.agent_state = {}
+        # Valid JSON of the wrong shape (e.g. a bare "null" or list) must not
+        # blow up the setdefault calls below.
+        self.agent_state: dict[str, Any] = state if isinstance(state, dict) else {}
 
         try:
-            self.messages: list[dict[str, Any]] = json.loads(self.session.messages or "[]")
+            history = json.loads(self.session.messages or "[]")
         except json.JSONDecodeError:
+            history = None
             logger.debug(
                 "corrupt messages JSON sid=%s; start fresh", getattr(self.session, "id", None)
             )
-            self.messages = []
+        self.messages: list[dict[str, Any]] = history if isinstance(history, list) else []
 
         self.workflow: Workflow = get_workflow(self.session.workflow_type)
         self.plan: InterviewPlan | None = self._load_plan()

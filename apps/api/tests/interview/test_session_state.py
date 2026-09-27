@@ -78,6 +78,15 @@ def test_load_state_corrupt_json_starts_fresh(db) -> None:
     assert st.current_phase_idx == 0
 
 
+def test_load_state_wrong_json_shape_starts_fresh(db) -> None:
+    """Valid JSON of the wrong shape (null for agent_state / an object for
+    messages) must not raise inside _load_state — fall back to the default."""
+    st = _state(db, agent_state="null", messages='{"a": 1}')
+    assert st.agent_state.get("weak_points") == []
+    assert st.agent_state.get("phase_idx", 0) == 0
+    assert st.messages == []
+
+
 def test_load_state_clamps_phase_idx(db) -> None:
     st = _state(db, agent_state=json.dumps({"phase_idx": 999}))
     assert st.current_phase_idx == len(st.phases) - 1
