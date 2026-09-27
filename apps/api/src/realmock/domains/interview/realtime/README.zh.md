@@ -35,7 +35,7 @@
 
 ## 跨层依赖
 
-`realtime`、`routes` 与 `process` 仅通过 `agents` 包门面(懒导出,如 `InterviewRunner`、`InterviewSessionState`、`run_finish_lifecycle`、`strip_markers`、`strip_think_blocks`)加两个叶子契约依赖 agent 执行链:`agents.events`(WS 事件契约,经 `schema_version` 版本化)与 `agents.agent_text`(纯文本过滤器)。禁止直接 import `agents` 的兄弟模块 — 门面是隔离内部重构(如拆分 runner)的接缝。
+`realtime`、`routes` 与 `process` 仅通过 `agents` 包门面(懒导出,如 `InterviewRunner`、`InterviewSessionState`、`run_finish_lifecycle`、`strip_markers`、`strip_think_blocks`)加两个叶子契约依赖 agent 执行链:`agents.events`(流事件契约)与 `agents.agent_text`(纯文本过滤器)。禁止直接 import `agents` 的兄弟模块 — 门面是隔离内部重构(如拆分 runner)的接缝。
 
 ## 测试 patch 约定
 

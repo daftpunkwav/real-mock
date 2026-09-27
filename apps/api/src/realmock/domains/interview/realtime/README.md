@@ -35,7 +35,7 @@ See `core/context.py` for the field list; keep that dataclass and this document 
 
 ## Cross-layer dependencies
 
-`realtime`, `routes` and `process` depend on the agent execution chain only through the `agents` package facade (lazy re-exports such as `InterviewRunner`, `InterviewSessionState`, `run_finish_lifecycle`, `strip_markers`, `strip_think_blocks`) plus the two leaf contracts `agents.events` (WS event contract, versioned via `schema_version`) and `agents.agent_text` (pure text filters). Never import `agents` sibling modules directly — the facade is the seam that keeps internal refactors from rippling outward.
+`realtime`, `routes` and `process` depend on the agent execution chain only through the `agents` package facade (lazy re-exports such as `InterviewRunner`, `InterviewSessionState`, `run_finish_lifecycle`, `strip_markers`, `strip_think_blocks`) plus the two leaf contracts `agents.events` (stream event contract) and `agents.agent_text` (pure text filters). Never import `agents` sibling modules directly — the facade is the seam that keeps internal refactors from rippling outward.
 
 ## Test patch convention
 

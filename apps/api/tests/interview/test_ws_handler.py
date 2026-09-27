@@ -4,7 +4,6 @@ Coverage:
 - import smoke: a clean checkout must be able to load InterviewWSHandler;
 - audio_buffer limit protection (>5 MB forces a clear + error event);
 - deadlock fallback: the error path returns to ``USER_SPEAKING``;
-- SessionEvent.schema_version defaults to 1;
 - ``_dispatch`` does not raise on an unrecognized message type;
 - pong messages do not trigger business processing;
 - barge-in epoch / playback-generation machinery;
@@ -19,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from realmock.domains.interview.realtime import ws_handler
-from realmock.domains.interview.realtime.core.events import SessionEvent, TurnState
+from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.platform.capabilities.voice.stt import SttCredentials, SttResult
 
@@ -41,14 +40,6 @@ def _make_mock_ws() -> MagicMock:
 def _audio_b64(n_bytes: int) -> str:
     """Return the base64-encoded pcm payload of length n_bytes."""
     return base64.b64encode(b"\x00" * n_bytes).decode("ascii")
-
-
-class TestSessionEvent:
-    def test_default_schema_version(self) -> None:
-        ev = SessionEvent(type="test")
-        assert ev.schema_version == 1
-        assert ev.type == "test"
-        assert ev.payload == {}
 
 
 class TestAudioBufferCap:
