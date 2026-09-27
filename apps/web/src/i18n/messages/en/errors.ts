@@ -54,6 +54,8 @@ export const errors = {
   "A1009.hint": "Wait for parsing to finish; the list page updates automatically",
   "B1002": "Resume parsing was interrupted by a restart",
   "B1002.hint": "Click retry to parse this resume again",
+  "B2004": "Too many malformed frames; connection closed",
+  "B2004.hint": "Refresh the page to re-enter the interview; if it persists, restart the client",
   // A2 interview
   "A2001": "Interview session not found",
   "A2001.hint": "The session may have expired or been deleted; create a new interview",
