@@ -193,7 +193,7 @@ export const interview = {
   "room.coding.noOutput": "执行完成，无输出。",
   "room.coding.execFailed": "执行失败。",
   "room.coding.runtimeError": "运行时错误：{msg}",
-  "room.coding.submitNotice": "[系统]：解答已提交给出题官 Agent。",
+  "room.coding.submitNotice": "[系统]：已收到解答，沙盒结果如下。",
   "room.coding.consolePlaceholder": "点击「运行代码」后，输出将显示在这里…",
   "room.coding.footerLocal": "本地浏览器沙盒运行器",
   "room.coding.footerSubmitted": "✓ 已提交评估",

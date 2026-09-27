@@ -107,8 +107,8 @@ class SessionPromptMixin:
     def _system_learning_section(self) -> str:
         """Extract a short cross-interview learning summary for this session.
 
-        Implements the PRD 4.7 growth feedback loop: inject historical weak spots
-        and effective probe clues for this company/role into the system prompt.
+        Injects historical weak spots and effective probe clues for this
+        company/role into the system prompt.
         Returns empty string when the provider is missing or fails.
         """
         provider = self.system_insights_provider
