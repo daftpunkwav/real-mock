@@ -7,7 +7,7 @@
 | 维度 | 行为 |
 | --- | --- |
 | URL | `/api/v1/ws/interview/{session_id}`（兼容别名 `/api/ws/interview/{session_id}`）；路由位于 `domains/interview/routes/ws/interview.py`，注册时不带域内前缀 |
-| Origin 守卫 | `guard_ws_origin`（`platform/core/local_only.py`）在 accept 之前关闭浏览器发起的跨站握手，关闭码 `1008`；无 `Origin` 头的非浏览器客户端放行 |
+| Origin 守卫 | `guard_ws_origin`（`platform/core/local_only.py`）在 accept 之前关闭浏览器发起的跨站握手，关闭码 `1008`；无 `Origin` 头的非浏览器客户端放行。该守卫是 **origin 维度**（防浏览器 CSRF），**不是 IP 维度**：WS scope 无法运行请求级依赖守卫（FastAPI 无法注入 `Request`），因此 WS 连接没有 IP 层的 loopback 限制——会话能力令牌才是真正的鉴权 |
 | 能力令牌 | `extract_ws_token`（`platform/core/session_auth/extract.py`）按优先级解析会话令牌：cookie `iv_{session_id}` > 子协议 `mock.<token>` > query `token=`（生产环境忽略）；握手响应只回显来自客户端自身列表的 `mock.<token>` 子协议 |
 
 ## 帧格式
@@ -17,11 +17,13 @@
 ## SSOT 与守卫
 
 - SSOT：`protocol/interview_ws.schema.json` — server / client 事件类型及逐事件 payload 结构。
-- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（18 个类型）与 `WSClientEvent`（15 个类型）。
+- 后端：`realmock.domains.interview.constants` — `WSServerEvent`（16 个类型）与 `WSClientEvent`（12 个类型）。
 - 前端：`apps/web/src/types/domains/interview_ws.ts`（`ServerEvent` / `ClientEvent` 联合类型）。
 - 守卫：`apps/api/tests/interview/test_ws_protocol_schema.py` — 双向子集断言（后端枚举 ⊆ schema、前端联合类型 ⊆ schema）加逐事件 payload 覆盖检查。schema 刻意作为超集：`audio_chunk` 是保留的历史入站事件——派发器接受它，但第一方客户端不再发送（语音以 PCM 承载于 `user_turn_end` 内）。
 
-## Server 事件（18 个）
+产品口径：编码白板是纯客户端工具——面试 agent 不出编码题、不对代码评分，服务端不持有任何白板状态（不存在编码相关的 WS 事件）。
+
+## Server 事件（16 个）
 
 | 事件 | 必填字段 | 可选字段 |
 | --- | --- | --- |
@@ -42,9 +44,8 @@
 | `server_ping` | `t` | |
 | `info` | `message` | `fallback`、`provider`、`requested_provider` |
 | `error` | `message` | `code`、`retryable` |
-| `coding_test_result` | `passed` | `total_cases`、`passed_cases`、`test_results`、`stdout`、`stderr` |
 
-## Client 事件（15 个）
+## Client 事件（12 个）
 
 | 事件 | 必填字段 | 可选字段 |
 | --- | --- | --- |
@@ -60,9 +61,6 @@
 | `vision_update` | `face_analysis` | |
 | `tts_playback_done` | | `generation` |
 | `pong` | `t` | |
-| `coding_code_update` | `code` | `language` |
-| `coding_run_request` | `code` | `language` |
-| `coding_submit_request` | `code` | `language`、`test_output` |
 
 ## 内部事件契约
 

@@ -14,12 +14,6 @@ Interview-specific capabilities. They are consumed only by this domain, which is
 | `stepfun_index_http.py` | HTTP layer for the StepFun index (create / upload / attach / verify); outbound traffic pinned like every egress |
 | `_kb_data.py` | Pure data layer (collection name, shared constants) with no business dependencies |
 
-## `sandbox/`
-
-| Module | Purpose |
-| --- | --- |
-| `evaluator.py` | Rule-based live-coding evaluator: matches each test case's expected value against the candidate's sandbox output and formats the `coding_test_result` WS event. No LLM call, no verdict — the whiteboard is a candidate scratchpad (code runs in the browser sandbox; the server relays the reported output unjudged) |
-
 ## `vision/`
 
 | Module | Purpose |

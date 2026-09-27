@@ -199,10 +199,10 @@ export const interview = {
   "room.coding.noOutput": "Execution finished with no output.",
   "room.coding.execFailed": "Execution failed.",
   "room.coding.runtimeError": "Runtime error: {msg}",
-  "room.coding.submitNotice": "[System]: Solution received. Sandbox result shown below.",
+  "room.coding.submitNotice": "[System]: Solution received locally.",
   "room.coding.consolePlaceholder": "Output will appear here after clicking 'Run Code'…",
   "room.coding.footerLocal": "Local in-browser sandbox runner",
-  "room.coding.footerSubmitted": "✓ Submitted for assessment",
+  "room.coding.footerSubmitted": "✓ Submitted",
   "room.coding.editorPlaceholder": "# Write your solution here…",
 
   "room.hint.timeout":

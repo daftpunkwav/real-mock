@@ -71,16 +71,6 @@ export type ServerEvent =
       provider?: string;
       requested_provider?: string | null;
     }
-  | {
-      type: "coding_test_result";
-      passed: boolean;
-      /** Sandbox case counts (always sent; 0 when no cases were evaluated). */
-      total_cases: number;
-      passed_cases: number;
-      test_results?: Array<Record<string, unknown>>;
-      stdout?: string;
-      stderr?: string;
-    }
   | SSEErrorEvent;
 
 export type ClientEvent =
@@ -107,11 +97,4 @@ export type ClientEvent =
   | { type: "vision_update"; face_analysis: FaceAnalysis }
   | { type: "tts_playback_done"; generation?: number }
   | { type: "pong"; t: number }
-  | { type: "coding_code_update"; code: string; language: string }
-  | { type: "coding_run_request"; code: string; language: string }
-  | {
-      type: "coding_submit_request";
-      code: string;
-      language: string;
-      test_output?: string;
-    };
+;

@@ -56,15 +56,6 @@ _DEFAULT_ALLOWED_PORTS = frozenset({80, 443})
 # 198.18.0.0/15 (RFC 2544 benchmark reserved range): proxy TUN fake-ip mode maps public domain names
 # After parsing this segment, the TCP connection is taken over by the proxy and forwarded to the real target, not the real intranet, and is allowed globally.
 _PROVIDER_NETWORKS = (ipaddress.ip_network("198.18.0.0/15"),)
-# List of provider hosts allowed to fall in the fake-ip segment (listed by domain list, no prefix wildcarding)
-FAKEIP_ALLOWED_HOSTS = frozenset(
-    {
-        "api.xiaomimimo.com",
-        "token-plan-cn.xiaomimimo.com",
-        "token-plan-sgp.xiaomimimo.com",
-        "token-plan-ams.xiaomimimo.com",
-    }
-)
 
 
 class UnsafeURLError(ValueError):
@@ -107,7 +98,12 @@ def _ip_is_safe(ip: ipaddress._BaseAddress, *, allow_local: bool) -> bool:
     """Whether an individual resolved address is allowed for outbound access.
 
     ``allow_local=True`` additionally permits only loopback; private networks / metadata remain blocked.
-    The fake-IP range (198.18.0.0/15) is always allowed; see the `_PROVIDER_NETWORKS` comment.
+
+    The fake-IP range (198.18.0.0/15) is allowed for EVERY host, not just a
+    provider allowlist: the dev machine runs a fake-IP proxy that resolves
+    all public hostnames into this range. Narrowing it to specific providers
+    would reject every other BYOK api_base outright. This is a deliberate,
+    environment-bound tradeoff -- see docs/operations/security.md.
     """
     if allow_local and _is_loopback_ip(ip):
         return True
@@ -142,7 +138,6 @@ def is_safe_http_url(
     require_https: bool = False,
     timeout: float = 3.0,
     allowed_ports: frozenset[int] | None = None,
-    trusted_hosts: frozenset[str] | None = None,
 ) -> bool:
     """Validate whether ``url`` is an HTTP/HTTPS URL that is safe for outbound requests.
 
@@ -182,14 +177,6 @@ def is_safe_http_url(
         return False
     if not ips:
         return False
-    trusted = trusted_hosts if trusted_hosts is not None else FAKEIP_ALLOWED_HOSTS
-    hostname = parsed.hostname.lower()
-    if hostname in trusted:
-        return all(
-            _ip_is_safe(ip, allow_local=allow_local)
-            or any(ip in network for network in _PROVIDER_NETWORKS)
-            for ip in ips
-        )
     return _all_ips_safe(ips, allow_local=allow_local)
 
 
@@ -199,7 +186,6 @@ def assert_safe_http_url(
     allow_local: bool = False,
     require_https: bool = False,
     allowed_ports: frozenset[int] | None = None,
-    trusted_hosts: frozenset[str] | None = None,
 ) -> None:
     """Throws :class:`UnsafeURLError` when unsafe."""
     if not is_safe_http_url(
@@ -207,7 +193,6 @@ def assert_safe_http_url(
         allow_local=allow_local,
         require_https=require_https,
         allowed_ports=allowed_ports,
-        trusted_hosts=trusted_hosts,
     ):
         raise UnsafeURLError(f"URL denied by policy: {url!r}")
 
@@ -218,7 +203,6 @@ def pin_safe_http_url(
     allow_local: bool = False,
     require_https: bool = False,
     allowed_ports: frozenset[int] | None = None,
-    trusted_hosts: frozenset[str] | None = None,
 ) -> "PinnedHttpTarget":
     """Single DNS resolution → verify all candidates → pin the first secure IP."""
     if not url:
@@ -248,16 +232,7 @@ def pin_safe_http_url(
         raise UnsafeURLError(str(e)) from e
     if not ips:
         raise UnsafeURLError(f"Unable to resolve host: {hostname!r}")
-    trusted = trusted_hosts if trusted_hosts is not None else FAKEIP_ALLOWED_HOSTS
-    hostname_key = hostname.lower()
-    ips_safe = _all_ips_safe(ips, allow_local=allow_local)
-    if hostname_key in trusted:
-        ips_safe = all(
-            _ip_is_safe(ip, allow_local=allow_local)
-            or any(ip in network for network in _PROVIDER_NETWORKS)
-            for ip in ips
-        )
-    if not ips_safe:
+    if not _all_ips_safe(ips, allow_local=allow_local):
         raise UnsafeURLError(f"URL denied by policy: {url!r}")
 
     return PinnedHttpTarget(

@@ -19,8 +19,7 @@
     "interview_complete",
     "server_ping",
     "info",
-    "error",
-    "coding_test_result"
+    "error"
   ],
   "clientEventTypes": [
     "user_text",
@@ -34,10 +33,7 @@
     "vision_update",
     "tts_playback_done",
     "pong",
-    "audio_chunk",
-    "coding_code_update",
-    "coding_run_request",
-    "coding_submit_request"
+    "audio_chunk"
   ],
   "serverEventPayloads": {
     "turn_state": {
@@ -322,31 +318,6 @@
           "type": "boolean"
         }
       }
-    },
-    "coding_test_result": {
-      "required": [
-        "passed"
-      ],
-      "properties": {
-        "passed": {
-          "type": "boolean"
-        },
-        "total_cases": {
-          "type": "integer"
-        },
-        "passed_cases": {
-          "type": "integer"
-        },
-        "test_results": {
-          "type": "array"
-        },
-        "stdout": {
-          "type": "string"
-        },
-        "stderr": {
-          "type": "string"
-        }
-      }
     }
   },
   "clientEventPayloads": {
@@ -460,52 +431,6 @@
       ],
       "properties": {
         "data": {
-          "type": "string"
-        }
-      }
-    },
-    "coding_code_update": {
-      "required": [
-        "code"
-      ],
-      "properties": {
-        "code": {
-          "type": "string"
-        },
-        "language": {
-          "type": "string"
-        }
-      }
-    },
-    "coding_run_request": {
-      "required": [
-        "code"
-      ],
-      "properties": {
-        "code": {
-          "type": "string"
-        },
-        "language": {
-          "type": "string"
-        },
-        "test_output": {
-          "type": "string",
-          "description": "Client-supplied run output; the backend falls back to a fixed string when absent."
-        }
-      }
-    },
-    "coding_submit_request": {
-      "required": [
-        "code"
-      ],
-      "properties": {
-        "code": {
-          "type": "string"
-        },
-        "language": {
-          "type": "string"
-        },
-        "test_output": {
           "type": "string"
         }
       }

@@ -12,7 +12,6 @@ Split submodules:
 from .file import assert_within_dir, sanitize_filename, sniff_extension
 from .redact import redact_api_key
 from .url import (
-    FAKEIP_ALLOWED_HOSTS,
     PinnedHostTransport,
     PinnedHttpTarget,
     UnsafeURLError,
@@ -24,7 +23,6 @@ from .url import (
 )
 
 __all__ = [
-    "FAKEIP_ALLOWED_HOSTS",
     "PinnedHostTransport",
     "PinnedHttpTarget",
     "UnsafeURLError",

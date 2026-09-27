@@ -32,7 +32,7 @@
 - 默认阻断网络:环回、链路本地(`169.254.0.0/16`,元数据端点)、私有网段、CGNAT、组播、保留段及 IPv6 等价段。`allow_local=True` 额外放行的仅有环回 — 私有网段与元数据仍然阻断。
 - 端口允许列表:默认仅 80 / 443(`_DEFAULT_ALLOWED_PORTS`);显式 `allowed_ports` 集合无论 `allow_local` 与否都强制执行。
 - DNS 重绑定缓解:`pin_safe_http_url()` 只解析一次,校验全部候选,并将首个安全 IP 固定进 `PinnedHttpTarget`;`PinnedHostTransport` 将请求主机改写为固定 IP,同时保留 `Host` 头与 SNI 主机名;`make_pinned_async_client()` 构造 `follow_redirects=False` 的 `httpx.AsyncClient`。
-- 代理 fake-IP 例外段:`198.18.0.0/15` 始终放行,并以 `FAKEIP_ALLOWED_HOSTS` 限定域名(`url.py` 中列出的 `xiaomimimo.com` API 主机)。
+- 代理 fake-IP 例外段(有意为之、与开发环境绑定的决策):`198.18.0.0/15` 对**所有**主机放行,**没有**域名白名单限定。开发机运行 fake-ip 代理,所有公网域名都解析进该网段;若收窄到特定厂商域名,其余 BYOK api_base 会全部被拒。原因详见 `platform/core/security/url.py` 的 `_ip_is_safe` docstring。
 - agent fetch 工具逐跳跟随重定向:每一跳都新建固定 IP 的客户端(最多 5 跳,`_MAX_REDIRECT_HOPS`),重定向目标因此经过同一套策略校验。fetch 工具只抓取公开页面(loopback 被禁),模型输入无法驱动本机管理端点。LLM 客户端以 `is_safe_http_url()` 校验 `api_base`,并经固定 IP 客户端发请求(`client/retry_stream.py`)。
 
 ## 密钥静态加密(`secrets.py`)

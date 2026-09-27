@@ -16,12 +16,6 @@ interview 域特有的能力。只被本域消费,因此放在这里而不是
 | `stepfun_index_http.py` | StepFun 索引的 HTTP 层(创建 / 上传 / 挂载 / 校验);出站流量与其他出口一致走 pinning |
 | `_kb_data.py` | 纯数据层(collection 名等共享常量),无业务依赖 |
 
-## `sandbox/`
-
-| 模块 | 职责 |
-| --- | --- |
-| `evaluator.py` | 规则式现场编程评估器:把测试用例的期望值与候选人沙箱输出做匹配,并格式化 `coding_test_result` WS 事件。无 LLM 调用、无裁定 —— 白板是候选人草稿本(代码在浏览器沙箱运行,服务端对上报输出不做评判) |
-
 ## `vision/`
 
 | 模块 | 职责 |

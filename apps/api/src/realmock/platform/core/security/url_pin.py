@@ -76,7 +76,6 @@ def make_pinned_async_client(
     require_https: bool = False,
     timeout: float = 60.0,
     allowed_ports: frozenset[int] | None = None,
-    trusted_hosts: frozenset[str] | None = None,
 ) -> httpx.AsyncClient:
     """Create an :class:`httpx.AsyncClient` with DNS pinning for the host in ``url``."""
     from .url import pin_safe_http_url
@@ -86,7 +85,6 @@ def make_pinned_async_client(
         allow_local=allow_local,
         require_https=require_https,
         allowed_ports=allowed_ports,
-        trusted_hosts=trusted_hosts,
     )
     transport = PinnedHostTransport(
         hostname=target.hostname,

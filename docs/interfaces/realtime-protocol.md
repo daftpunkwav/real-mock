@@ -7,7 +7,7 @@ The realtime interview room runs over a single WebSocket per session. The wire-l
 | Aspect | Behavior |
 | --- | --- |
 | URL | `/api/v1/ws/interview/{session_id}` (legacy alias `/api/ws/interview/{session_id}`); route in `domains/interview/routes/ws/interview.py`, registered without a domain prefix |
-| Origin guard | `guard_ws_origin` (`platform/core/local_only.py`) closes browser-driven cross-site handshakes before accept with code `1008`; non-browser clients without an `Origin` header pass |
+| Origin guard | `guard_ws_origin` (`platform/core/local_only.py`) closes browser-driven cross-site handshakes before accept with code `1008`; non-browser clients without an `Origin` header pass. The guard is **origin-based** (anti-CSRF for browsers), **not IP-based**: WS scopes cannot run request-level dependency guards (FastAPI cannot inject `Request` there), so there is no IP-layer loopback restriction on WS connections — session capability tokens remain the real auth |
 | Capability token | `extract_ws_token` (`platform/core/session_auth/extract.py`) resolves the session token in priority order: cookie `iv_{session_id}` > subprotocol `mock.<token>` > query `token=` (ignored in production); the handshake response echoes only a `mock.<token>` subprotocol taken from the client's own list |
 
 ## Frame format
@@ -17,11 +17,13 @@ One JSON object per message, no envelope: `{"type": "<event-type>", ...payload}`
 ## SSOT and guards
 
 - SSOT: `protocol/interview_ws.schema.json` — server / client event types plus per-event payload shapes.
-- Backend: `realmock.domains.interview.constants` — `WSServerEvent` (18 types) and `WSClientEvent` (15 types).
+- Backend: `realmock.domains.interview.constants` — `WSServerEvent` (16 types) and `WSClientEvent` (12 types).
 - Frontend: `apps/web/src/types/domains/interview_ws.ts` (`ServerEvent` / `ClientEvent` union types).
 - Guard: `apps/api/tests/interview/test_ws_protocol_schema.py` — subset assertions in both directions (backend enums ⊆ schema, frontend union ⊆ schema) plus per-event payload coverage for every event. The schema is deliberately a superset: `audio_chunk` is reserved legacy inbound — the dispatcher accepts it, but the first-party client does not emit it (voice travels as PCM inside `user_turn_end`).
 
-## Server events (18)
+Product scope: the coding whiteboard is a client-only tool — the interview agent neither poses coding challenges nor scores code, and the server holds no whiteboard state (no coding WS events exist).
+
+## Server events (16)
 
 | Event | Required fields | Optional fields |
 | --- | --- | --- |
@@ -42,9 +44,8 @@ One JSON object per message, no envelope: `{"type": "<event-type>", ...payload}`
 | `server_ping` | `t` | |
 | `info` | `message` | `fallback`, `provider`, `requested_provider` |
 | `error` | `message` | `code`, `retryable` |
-| `coding_test_result` | `passed` | `total_cases`, `passed_cases`, `test_results`, `stdout`, `stderr` |
 
-## Client events (15)
+## Client events (12)
 
 | Event | Required fields | Optional fields |
 | --- | --- | --- |
@@ -60,9 +61,6 @@ One JSON object per message, no envelope: `{"type": "<event-type>", ...payload}`
 | `vision_update` | `face_analysis` | |
 | `tts_playback_done` | | `generation` |
 | `pong` | `t` | |
-| `coding_code_update` | `code` | `language` |
-| `coding_run_request` | `code` | `language` |
-| `coding_submit_request` | `code` | `language`, `test_output` |
 
 ## Internal event contracts
 

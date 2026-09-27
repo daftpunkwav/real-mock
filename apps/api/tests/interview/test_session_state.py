@@ -180,31 +180,6 @@ def test_note_verdict_only_pass_fail(db) -> None:
     assert st.session.result == "passed"
 
 
-# ---- mirror_candidate_code ----
-
-
-def test_mirror_candidate_code_writes_and_caps(db) -> None:
-    st = _state(db)
-    wm = st.cognitive_memory.working_memory
-    st.mirror_candidate_code("print(1)")
-    assert wm.candidate_code == "print(1)"
-    # Draft cap: the whiteboard is a scratchpad, not storage.
-    st.mirror_candidate_code("x" * 9000)
-    assert wm.candidate_code == "x" * 8000
-    # test_output=None leaves the stored output untouched (draft-only update).
-    st.mirror_candidate_code("code", "1 passed")
-    assert wm.last_test_output == "1 passed"
-    st.mirror_candidate_code("code2")
-    assert wm.candidate_code == "code2"
-    assert wm.last_test_output == "1 passed"
-    # An explicit string ("" included) replaces the stored output.
-    st.mirror_candidate_code("code3", "")
-    assert wm.last_test_output == ""
-    # A null frame value degrades to "", never str(None)="None".
-    st.mirror_candidate_code(None)  # type: ignore[arg-type]
-    assert wm.candidate_code == ""
-
-
 # ---- pace ----
 
 

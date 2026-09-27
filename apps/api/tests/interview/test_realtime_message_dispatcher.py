@@ -2,7 +2,7 @@
 
 Covers: user_text admission (A0003 length guard, busy-info, rate limit, spawn),
 audio/stt/pong/vision admission, turn_end/silence/barge/finish wrappers,
-hint/playback/overflow, coding update/run/submit, spawn gaps.
+hint/playback/overflow, spawn gaps.
 Conventions: no real network/LLM (all external calls mocked); uses _make_handler for handler construction.
 """
 
@@ -145,32 +145,6 @@ async def test_hint_playback_and_overflow():
     assert h2.ctx.ws.send_json.await_args[0][0]["code"] == "A0004"
 
 
-@pytest.mark.asyncio
-async def test_coding_update_run():
-    h = _make_handler()
-    h.ctx.runner = MagicMock()
-    await h._on_coding_code_update({"code": "print(1)"})
-    h.ctx.runner.agent.mirror_candidate_code.assert_called_once_with("print(1)")
-    # The run path no longer consults the (retired) examiner: the sandbox
-    # evaluates locally with whatever cases the draft defines.
-    with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases") as m:
-        m.return_value.to_dict.return_value = {"passed": True}
-        await h._on_coding_run_request({"code": "c", "test_output": "1"})
-        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
-
-
-@pytest.mark.asyncio
-async def test_coding_submit_runs_sandbox_without_llm():
-    h = _make_handler()
-    h.ctx.runner = MagicMock()
-    h.ctx.runner.agent.agent_state = {"asked_questions": ["q1"]}
-    with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases") as m:
-        m.return_value.to_dict.return_value = {"passed": True}
-        await h._on_coding_submit_request({"code": "c", "test_output": "ok"})
-        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
-
-
-@pytest.mark.asyncio
 async def test_dispatcher_spawn_gaps():
     h = _make_handler()
     try:
@@ -206,24 +180,12 @@ async def test_dispatcher_spawn_gaps():
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_audio_coding_and_submit_gaps():
+async def test_dispatcher_audio_chunk_type_guard():
     h = _make_handler()
     try:
         # audio_chunk non-str data is dropped by the type guard
         await h._on_audio_chunk({"data": 12345})
         assert h.ctx.audio_buffer_bytes == 0
-        # coding_code_update exception path
-        await h._on_coding_code_update(None)  # type: ignore[arg-type]
-        # coding_run exception path
-        with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases", side_effect=RuntimeError("eval boom")):
-            await h._on_coding_run_request({"code": "c"})
-        # coding_submit without a runner still runs the sandbox honestly
-        h.ctx.ws.send_json.reset_mock()
-        h.ctx.runner = None
-        with patch("realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases") as m:
-            m.return_value.to_dict.return_value = {"passed": False}
-            await h._on_coding_submit_request({"code": "c"})
-        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
     finally:
         await h._cancel_bg_tasks()
 
@@ -256,51 +218,4 @@ async def test_stt_text_overlong_dropped():
     finally:
         await h._cancel_bg_tasks()
 
-
-@pytest.mark.asyncio
-async def test_coding_overlong_payloads_guarded():
-    from realmock.domains.interview.realtime.core.message_dispatcher import (
-        _CODING_CODE_MAX_CHARS,
-    )
-
-    big = "x" * (_CODING_CODE_MAX_CHARS + 1)
-    h = _make_handler()
-    try:
-        h.ctx.runner = MagicMock()
-        # The overlong frame is dropped before reaching the agent, so only the
-        # last good value is mirrored.
-        await h._on_coding_code_update({"code": "print(1)"})
-        await h._on_coding_code_update({"code": big})
-        mirror = h.ctx.runner.agent.mirror_candidate_code
-        assert mirror.call_count == 1
-        assert mirror.call_args.args == ("print(1)",)
-        # Run/submit answer with a visible error instead of burning the LLM.
-        await h._on_coding_run_request({"code": big})
-        assert h.ctx.ws.send_json.await_args[0][0]["code"] == "A0003"
-        await h._on_coding_submit_request({"code": "c", "test_output": big})
-        assert h.ctx.ws.send_json.await_args[0][0]["code"] == "A0003"
-    finally:
-        await h._cancel_bg_tasks()
-
-
-@pytest.mark.asyncio
-async def test_coding_null_values_degrade_to_empty_not_none():
-    """A null frame value must mirror "", not str(None)="None"."""
-    h = _make_handler()
-    h.ctx.runner = MagicMock()
-    try:
-        await h._on_coding_code_update({"code": None})
-        h.ctx.runner.agent.mirror_candidate_code.assert_called_once_with("")
-        with patch(
-            "realmock.domains.interview.capabilities.sandbox.evaluator.evaluate_test_cases"
-        ) as m:
-            m.return_value.to_dict.return_value = {"passed": False}
-            await h._on_coding_submit_request({"code": "c", "test_output": None})
-            assert m.call_args.kwargs["raw_output"] == ""
-        mirror = h.ctx.runner.agent.mirror_candidate_code
-        assert mirror.call_args_list[1].args == ("c", "")
-        await h._on_coding_run_request({"code": "c", "test_output": None})
-        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "coding_test_result"
-    finally:
-        await h._cancel_bg_tasks()
 

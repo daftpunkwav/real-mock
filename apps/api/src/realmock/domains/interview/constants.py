@@ -124,7 +124,6 @@ class WSServerEvent(StrEnum):
     SERVER_PING = "server_ping"
     INFO = "info"
     ERROR = "error"
-    CODING_TEST_RESULT = "coding_test_result"
 
 
 class WSClientEvent(StrEnum):
@@ -144,9 +143,6 @@ class WSClientEvent(StrEnum):
     # Reserved legacy inbound: accepted by the dispatcher but not emitted by
     # the first-party client (voice travels as PCM inside ``user_turn_end``).
     AUDIO_CHUNK = "audio_chunk"
-    CODING_CODE_UPDATE = "coding_code_update"
-    CODING_RUN_REQUEST = "coding_run_request"
-    CODING_SUBMIT_REQUEST = "coding_submit_request"
 
 
 # ── Shared user-facing notices ────────────────────────────────────────

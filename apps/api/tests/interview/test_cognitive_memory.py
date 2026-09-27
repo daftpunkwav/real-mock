@@ -47,7 +47,6 @@ def test_cognitive_graph_serialization_roundtrip():
         confidence=0.95,
     )
     graph.working_memory.current_topic = "React Reconciler"
-    graph.working_memory.candidate_code = "function reconcile() {}"
 
     serialized = graph.to_dict()
     restored = CognitiveMemoryGraph.from_dict(serialized)
@@ -57,7 +56,6 @@ def test_cognitive_graph_serialization_roundtrip():
     assert node.status == CompetencyStatus.VERIFIED
     assert node.confidence == 0.95
     assert restored.working_memory.current_topic == "React Reconciler"
-    assert restored.working_memory.candidate_code == "function reconcile() {}"
 
 
 def test_cognitive_graph_corrupted_data_resilience():

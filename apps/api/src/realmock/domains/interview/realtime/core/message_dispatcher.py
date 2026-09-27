@@ -29,9 +29,6 @@ logger = logging.getLogger(__name__)
 # keeps the historic module name (ws_handler re-exports it and tests pin it).
 AUDIO_BUFFER_MAX_BYTES: int = _platform_constants.AUDIO_BUFFER_MAX_BYTES
 _WS_LLM_RATE_LIMIT = DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
-# Whiteboard code mirror cap: ~100x a normal interview snippet; beyond this
-# the frame is pathological (stuck client / fuzzer), not an interview answer.
-_CODING_CODE_MAX_CHARS = 200_000
 
 
 class MessageDispatcherMixin:
@@ -83,9 +80,6 @@ class MessageDispatcherMixin:
             "request_hint": "_start_request_hint",
             "request_finish": "_start_request_finish",
             "tts_playback_done": "_on_tts_playback_done",
-            "coding_code_update": "_on_coding_code_update",
-            "coding_run_request": "_on_coding_run_request",
-            "coding_submit_request": "_on_coding_submit_request",
         }
     )
 
@@ -289,104 +283,3 @@ class MessageDispatcherMixin:
             await self._send_rate_limited()
             return
         self._spawn(self._run_user_text(text, data))
-
-    async def _on_coding_code_update(self, data: dict[str, Any]) -> None:
-        try:
-            # ``or ""`` so a null value degrades to empty, not the literal "None".
-            code = str(data.get("code") or "")
-            if len(code) > _CODING_CODE_MAX_CHARS:
-                # Keep the last good mirror instead of caching a pathological
-                # payload in working memory.
-                logger.debug(
-                    "coding_code_update overlong session=%s len=%d",
-                    self.ctx.session_id,
-                    len(code),
-                )
-                return
-            # Hand the draft to the agent's public mirror API: the realtime
-            # layer never touches working memory internals directly.
-            runner = getattr(self.ctx, "runner", None)
-            agent = getattr(runner, "agent", None) if runner else None
-            if agent is not None:
-                agent.mirror_candidate_code(code)
-        except Exception as exc:
-            logger.warning("Failed to update candidate code in working memory: %s", exc)
-
-    async def _on_coding_run_request(self, data: dict[str, Any]) -> None:
-        try:
-            # ``or``-defaults: a null frame value must not become str(None)="None".
-            code = str(data.get("code") or "")
-            raw_output = str(
-                data.get("test_output") or "Tests run locally in browser sandbox."
-            )
-            if len(code) > _CODING_CODE_MAX_CHARS or len(raw_output) > _CODING_CODE_MAX_CHARS:
-                await self.send(
-                    "error",
-                    message=(
-                        f"Code or test output too long (limit: {_CODING_CODE_MAX_CHARS} characters); "
-                        "shrink it and retry"
-                    ),
-                    code="A0003",
-                )
-                return
-            # No server-side challenge state: the code runs in the client's
-            # sandbox; this path relays the reported output unjudged.
-            from realmock.domains.interview.capabilities.sandbox.evaluator import (
-                evaluate_test_cases,
-            )
-
-            outcome = evaluate_test_cases(
-                test_cases=[],
-                candidate_code=code,
-                raw_output=raw_output,
-            )
-            await self.send("coding_test_result", **outcome.to_dict())
-        except Exception as exc:
-            logger.warning("Failed to process coding run request: %s", exc)
-
-    async def _on_coding_submit_request(self, data: dict[str, Any]) -> None:
-        """Draft/sandbox submission: mirror the draft and report the result.
-
-        The whiteboard is a candidate scratchpad — no model call, no verdict;
-        the client-reported output passes through unjudged.
-        """
-        try:
-            # ``or ""``: a null frame value must not become str(None)="None".
-            code = str(data.get("code") or "")
-            test_output = str(data.get("test_output") or "")
-            if len(code) > _CODING_CODE_MAX_CHARS or len(test_output) > _CODING_CODE_MAX_CHARS:
-                await self.send(
-                    "error",
-                    message=(
-                        f"Code or test output too long (limit: {_CODING_CODE_MAX_CHARS} characters); "
-                        "shrink it and retry"
-                    ),
-                    code="A0003",
-                )
-                return
-            # Mirror via the agent's public API so the sandbox draft survives
-            # the turn; internal working-memory layout stays in the agents
-            # domain.
-            runner = getattr(self.ctx, "runner", None)
-            agent = getattr(runner, "agent", None) if runner else None
-            if agent is not None:
-                agent.mirror_candidate_code(code, test_output)
-
-            from realmock.domains.interview.capabilities.sandbox.evaluator import (
-                evaluate_test_cases,
-            )
-
-            outcome = evaluate_test_cases(
-                test_cases=[],
-                candidate_code=code,
-                raw_output=test_output,
-            )
-            await self.send("coding_test_result", **outcome.to_dict())
-        except Exception as exc:
-            logger.warning("Failed to process coding submit request: %s", exc)
-            await self.send(
-                "error",
-                message="Sandbox run failed; please try again later",
-                code="C0001",
-                retryable=True,
-            )

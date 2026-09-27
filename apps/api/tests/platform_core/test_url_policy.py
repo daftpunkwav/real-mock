@@ -68,13 +68,12 @@ class TestUrlDeniedWording:
             with pytest.raises(UnsafeURLError):
                 assert_safe_http_url(bad, require_https=True)
 
-    def test_trusted_host_with_no_addresses_is_denied(self, monkeypatch) -> None:
-        """A whitelist hit must not fail open when DNS yields nothing."""
+    def test_unresolvable_host_is_denied(self, monkeypatch) -> None:
+        """An unresolvable host must fail closed, never open."""
         monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [])
-        trusted = next(iter(sec_url.FAKEIP_ALLOWED_HOSTS))
-        assert is_safe_http_url(f"https://{trusted}/v1", require_https=True) is False
+        assert is_safe_http_url("https://example.com/v1", require_https=True) is False
         with pytest.raises(UnsafeURLError, match="Unable to resolve"):
-            pin_safe_http_url(f"https://{trusted}/v1", require_https=True)
+            pin_safe_http_url("https://example.com/v1", require_https=True)
 
     def test_port_policy(self, pub) -> None:
         assert is_safe_http_url("https://example.com:8443", allowed_ports=frozenset({8443})) is True
@@ -96,11 +95,16 @@ class TestUrlDeniedWording:
         with pytest.raises(UnsafeURLError, match="Unable to resolve host"):
             pin_safe_http_url("https://example.com/")
 
-    def test_trusted_fakeip_host(self, monkeypatch) -> None:
+    def test_fakeip_range_is_allowed_globally(self, monkeypatch) -> None:
+        """Deliberate environment-bound decision: the fake-IP proxy resolves
+        EVERY public hostname into 198.18.0.0/15, so the range is allowed for
+        any host, not just specific providers (see _ip_is_safe docstring)."""
         monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("198.18.0.5")])
         assert is_safe_http_url("https://token-plan-cn.xiaomimimo.com/v1") is True
         target = pin_safe_http_url("https://token-plan-cn.xiaomimimo.com/v1")
         assert target.pinned_ip == "198.18.0.5"
+        # The allow is host-agnostic, not an allowlist.
+        assert is_safe_http_url("https://totally-unrelated.example/v1") is True
 
     def test_resolve_all_branches(self, monkeypatch) -> None:
         assert sec_url._resolve_all("127.0.0.1") == [ipaddress.ip_address("127.0.0.1")]

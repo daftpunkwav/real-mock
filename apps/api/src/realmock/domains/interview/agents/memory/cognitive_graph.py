@@ -141,13 +141,10 @@ class CompetencyNode:
 
 @dataclass
 class WorkingMemory:
-    """Transient working memory for active turn reasoning and code scratchpad."""
+    """Transient working memory for active turn reasoning."""
     current_topic: str = ""
     active_question: str = ""
     pending_probes: list[str] = field(default_factory=list)
-    active_code_task: str = ""
-    candidate_code: str = ""
-    last_test_output: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -160,9 +157,6 @@ class WorkingMemory:
             current_topic=str(data.get("current_topic", "")),
             active_question=str(data.get("active_question", "")),
             pending_probes=list(data.get("pending_probes", [])),
-            active_code_task=str(data.get("active_code_task", "")),
-            candidate_code=str(data.get("candidate_code", "")),
-            last_test_output=str(data.get("last_test_output", "")),
         )
 
 

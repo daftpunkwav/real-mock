@@ -22,19 +22,12 @@ import { runPython } from "@/lib/code-runner/pythonRunner";
 import { runJavascript } from "@/lib/code-runner/javascriptRunner";
 import { highlightCode } from "../codeHighlight";
 
-interface CodingTestCase {
-  input: string;
-  expected: string;
-  description?: string;
-}
-
 interface CodingProblem {
   id: string;
   title: string;
   description: string;
   language: "python" | "javascript" | "typescript";
   starterCode: string;
-  testCases: CodingTestCase[];
 }
 
 const DEFAULT_CHALLENGE: CodingProblem = {
@@ -70,10 +63,6 @@ def reverse_list(head):
 # Test run
 print("Reversed successfully!")
 `,
-  testCases: [
-    { input: "[1,2,3,4,5]", expected: "[5,4,3,2,1]", description: "5 elements" },
-    { input: "[1,2]", expected: "[2,1]", description: "2 elements" },
-  ],
 };
 
 type PanelTab = "problem" | "editor" | "console";
