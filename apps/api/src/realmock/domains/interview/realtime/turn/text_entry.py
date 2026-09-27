@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 
 from realmock.platform.database import SessionLocal
+from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.realtime.core.events import TurnState
 
 if TYPE_CHECKING:
@@ -54,7 +55,7 @@ class TurnTextEntryMixin:
             )
             await self.send(
                 "info",
-                message="The interviewer is still responding to the previous turn; please wait a moment",
+                message=BUSY_TURN_NOTICE,
             )
             return
         db = SessionLocal()

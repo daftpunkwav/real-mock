@@ -45,7 +45,7 @@ async def test_run_missing_session_sends_a2001():
 async def test_run_success_sends_final_and_processes():
     h = _make_handler()
     db = MagicMock()
-    sess = MagicMock()
+    sess = MagicMock(status="active")
     db.query.return_value.filter.return_value.first.return_value = sess
     h.rebind_runtime_session = MagicMock()  # type: ignore[method-assign]
     h._process_user_text = AsyncMock()  # type: ignore[method-assign]
@@ -60,7 +60,7 @@ async def test_run_success_sends_final_and_processes():
 async def test_run_exception_recovers_c0001():
     h = _make_handler()
     db = MagicMock()
-    sess = MagicMock()
+    sess = MagicMock(status="active")
     db.query.return_value.filter.return_value.first.return_value = sess
     h.rebind_runtime_session = MagicMock()  # type: ignore[method-assign]
     h._process_user_text = AsyncMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]

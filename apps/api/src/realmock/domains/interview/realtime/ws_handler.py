@@ -35,6 +35,7 @@ from realmock.domains.interview.realtime.voice.tts_queue import _SentenceTTSQueu
 from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody
 from realmock.platform.config import get_settings
+from realmock.platform.core.constants import SessionStatus
 
 
 logger = logging.getLogger(__name__)
@@ -128,12 +129,30 @@ class InterviewWSHandler(
                 except Exception:
                     logger.debug("runner cancel_bg_tasks failed", exc_info=True)
 
-    def _load_session(self, db: Session) -> InterviewSession | None:
-        return (
+    def _load_session(
+        self, db: Session, *, include_finished: bool = False
+    ) -> InterviewSession | None:
+        """Load the room's session row; ``None`` also covers finished sessions.
+
+        The connection is admitted only while the session is live (see the
+        connect-time check in ``connection/auth.py``); the same filter here
+        keeps per-turn handlers from running LLM work for a session that the
+        HTTP finish endpoint has already completed mid-connection. The finish
+        control passes ``include_finished=True``: its completed-session branch
+        must still see the row to send the idempotent wrap-up notice.
+        """
+        session = (
             db.query(InterviewSession)
             .filter(InterviewSession.id == self.ctx.session_id)
             .first()
         )
+        if session is None:
+            return None
+        if include_finished:
+            return session
+        if session.status not in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
+            return None
+        return session
 
 
 __all__ = [

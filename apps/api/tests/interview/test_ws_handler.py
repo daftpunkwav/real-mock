@@ -539,27 +539,28 @@ class TestDispatchTable:
         assert missing == []
 
     def test_table_covers_production_message_types(self) -> None:
+        from realmock.domains.interview.constants import WSClientEvent
         from realmock.domains.interview.realtime.core.message_dispatcher import (
             MessageDispatcherMixin,
         )
 
+        # The table is keyed by raw strings; pin it to the enum so a new
+        # WSClientEvent cannot be silently added without a dispatcher entry
+        # (the dispatcher would warn and drop those frames at runtime).
         assert set(MessageDispatcherMixin._MESSAGE_HANDLER_NAMES) == {
-            "audio_chunk",
-            "stt_text",
-            "user_typing",
-            "pong",
-            "vision_update",
-            "user_turn_end",
-            "silence_timeout",
-            "barge_in",
-            "user_text",
-            "request_hint",
-            "request_finish",
-            "tts_playback_done",
-            "coding_code_update",
-            "coding_run_request",
-            "coding_submit_request",
+            e.value for e in WSClientEvent
         }
+
+    def test_table_targets_existing_handlers(self) -> None:
+        from realmock.domains.interview.realtime.core.message_dispatcher import (
+            MessageDispatcherMixin,
+        )
+        from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
+
+        # A renamed mixin method would otherwise degrade to warn-and-drop
+        # dispatch instead of failing here.
+        for handler_name in MessageDispatcherMixin._MESSAGE_HANDLER_NAMES.values():
+            assert callable(getattr(InterviewWSHandler, handler_name, None)), handler_name
 
     @pytest.mark.asyncio
     async def test_broken_table_entry_warns_without_raising(
@@ -584,3 +585,28 @@ class TestDispatchTable:
 
         assert ws_module._AUDIO_BUFFER_MAX_BYTES == AUDIO_BUFFER_MAX_BYTES
         assert stt_finish._AUDIO_BUFFER_MAX_BYTES == AUDIO_BUFFER_MAX_BYTES
+
+class TestLoadSessionStatusGate:
+    """_load_session must hide finished sessions from per-turn handlers."""
+
+    @staticmethod
+    def _stub_db(status: str) -> MagicMock:
+        class _StubSession:
+            id = 1
+
+        _StubSession.status = status
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.first.return_value = _StubSession()
+        return mock_db
+
+    def test_active_session_loads(self) -> None:
+        from realmock.domains.interview.realtime import ws_handler as ws_mod
+
+        h = ws_mod.InterviewWSHandler(_make_mock_ws(), session_id=1)
+        assert h._load_session(self._stub_db("active")) is not None
+
+    def test_completed_session_hidden(self) -> None:
+        from realmock.domains.interview.realtime import ws_handler as ws_mod
+
+        h = ws_mod.InterviewWSHandler(_make_mock_ws(), session_id=1)
+        assert h._load_session(self._stub_db("completed")) is None

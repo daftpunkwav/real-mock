@@ -34,7 +34,7 @@ async def test_ws_handler_spawn_cancel_and_props():
         assert h._superseded is True
         assert h._load_session(MagicMock()) is not None or True
         db = MagicMock()
-        db.query.return_value.filter.return_value.first.return_value = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = MagicMock(status="active")
         assert h._load_session(db) is not None
         # _spawn success
         async def _ok():

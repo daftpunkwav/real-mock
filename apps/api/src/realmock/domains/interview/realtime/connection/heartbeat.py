@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -88,6 +89,25 @@ class HeartbeatMixin:
                         exc_info=True,
                     )
                     return None
+                continue
+            except json.JSONDecodeError:
+                # One malformed JSON frame must not tear down the whole room:
+                # reject the frame and keep waiting (a disconnect arrives as
+                # WebSocketDisconnect, which the branch below handles).
+                logger.warning("Malformed WS JSON frame session=%s", self.ctx.session_id)
+                try:
+                    await self.send(
+                        "error",
+                        message="Malformed message frame; ignored",
+                        code="A0001",
+                        retryable=True,
+                    )
+                except Exception:
+                    logger.debug(
+                        "Malformed-frame notice failed to send session=%s",
+                        self.ctx.session_id,
+                        exc_info=True,
+                    )
                 continue
             except Exception:
                 logger.debug(

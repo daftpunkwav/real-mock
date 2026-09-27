@@ -153,10 +153,16 @@ question/follow-up plan/silence count.
                 )
             self.ctx.last_silence_probe = probe_text
 
-            # Re-check after the LLM call: the candidate may have started
-            # answering (typing/STT partial) or requested finish while the
-            # probe was generating — never speak over that.
-            if self.ctx.answer_started_at or self.ctx.closing:
+            # Re-check after the LLM call, same guard shape as the answer
+            # timeout path: the candidate may have started answering (typing /
+            # STT partial / a voice turn now in flight) or requested finish
+            # while the probe was generating — never speak over that.
+            if (
+                self.ctx.answer_started_at
+                or self.ctx.closing
+                or self.ctx.turn_state != TurnState.USER_SPEAKING
+                or self.ctx.turn_busy
+            ):
                 return
 
             await self.set_turn(TurnState.PROCESSING)

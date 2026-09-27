@@ -66,6 +66,7 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
         last_silence_probe="",
         answer_started_at=0.0,
         closing=False,
+        turn_busy=False,
         agent=SimpleNamespace(plan=None, messages=[{"role": "assistant", "content": "Q?"}]),
         orchestrator=SimpleNamespace(),
     )

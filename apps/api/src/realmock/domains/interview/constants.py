@@ -148,3 +148,11 @@ class WSClientEvent(StrEnum):
     CODING_CODE_UPDATE = "coding_code_update"
     CODING_RUN_REQUEST = "coding_run_request"
     CODING_SUBMIT_REQUEST = "coding_submit_request"
+
+
+# ── Shared user-facing notices ────────────────────────────────────────
+
+# Sent on every busy-rejection path (turn lock, dispatcher, text entry, voice
+# turn end) so all rejections of a turn while the interviewer is still
+# responding read identically to the client.
+BUSY_TURN_NOTICE = "The interviewer is still responding to the previous turn; please wait a moment"

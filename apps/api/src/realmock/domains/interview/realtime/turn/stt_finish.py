@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from realmock.platform.core.constants import AUDIO_BUFFER_MAX_BYTES
 from realmock.platform.database import SessionLocal
+from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
@@ -67,7 +68,7 @@ class TurnSttFinishMixin:
             )
             await self.send(
                 "info",
-                message="The interviewer is still responding to the previous turn; please wait a moment",
+                message=BUSY_TURN_NOTICE,
             )
             return
         db = SessionLocal()
@@ -115,10 +116,21 @@ class TurnSttFinishMixin:
     async def _on_user_turn_end(
         self, data: dict[str, Any], db: Session, session: InterviewSession
     ) -> None:
-        if self.ctx.turn_state == TurnState.PROCESSING:
-            return
-        if self.ctx.turn_state == TurnState.AI_SPEAKING:
-            logger.info("Ignore user_turn_end sid=%s during AI_SPEAKING", self.ctx.session_id)
+        if self.ctx.turn_state == TurnState.PROCESSING or self.ctx.turn_state == TurnState.AI_SPEAKING:
+            # Never drop silently: the client cleared its input on send, so it
+            # needs a frame explaining why the turn was not admitted. Drained
+            # buffered audio cannot leak into the next turn's STT input.
+            logger.info(
+                "Ignore user_turn_end sid=%s during %s",
+                self.ctx.session_id,
+                self.ctx.turn_state.value,
+            )
+            self.ctx.audio_buffer = []
+            self.ctx.audio_buffer_bytes = 0
+            await self.send(
+                "info",
+                message=BUSY_TURN_NOTICE,
+            )
             return
         await self.set_turn(TurnState.PROCESSING)
 

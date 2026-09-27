@@ -6,6 +6,7 @@ Conventions: no real network/LLM (all external calls mocked); uses _make_handler
 """
 
 import asyncio
+import json
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -44,6 +45,21 @@ async def test_next_success_and_exception():
     h2.ctx.ws.receive_json = AsyncMock(side_effect=RuntimeError("recv down"))
     with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=True)):
         assert await h2.next_message() is None
+
+
+@pytest.mark.asyncio
+async def test_malformed_json_frame_is_rejected_not_fatal():
+    """A malformed JSON frame is rejected with A0001 and the room stays up."""
+    h = _make_handler()
+    h.ctx.ws.receive_json = AsyncMock(
+        side_effect=[json.JSONDecodeError("bad json", "{", 1), {"type": "pong"}]
+    )
+    h.send = AsyncMock()  # type: ignore[method-assign]
+    with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=True)):
+        assert await h.next_message() == {"type": "pong"}
+    assert h.send.await_count == 1
+    assert h.send.await_args.args[0] == "error"
+    assert h.send.await_args.kwargs.get("code") == "A0001"
 
 
 @pytest.mark.asyncio

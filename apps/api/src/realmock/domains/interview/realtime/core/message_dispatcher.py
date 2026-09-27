@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.capabilities.vision.agent import VisionAgent
+from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.platform.core import constants as _platform_constants
@@ -162,7 +163,7 @@ class MessageDispatcherMixin:
             )
             await self.send(
                 "info",
-                message="The interviewer is still responding to the previous turn; please wait a moment",
+                message=BUSY_TURN_NOTICE,
             )
             return
         if self._llm_rate_limited(limit=_WS_LLM_RATE_LIMIT):
@@ -281,7 +282,7 @@ class MessageDispatcherMixin:
             )
             await self.send(
                 "info",
-                message="The interviewer is still responding to the previous turn; please wait a moment",
+                message=BUSY_TURN_NOTICE,
             )
             return
         if self._llm_rate_limited(limit=_WS_LLM_RATE_LIMIT):

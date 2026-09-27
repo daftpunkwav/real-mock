@@ -47,7 +47,7 @@ async def test_run_missing_session_sends_a2001():
 async def test_run_exception_recovers_user_speaking():
     h = _make_handler()
     db = MagicMock()
-    sess = MagicMock()
+    sess = MagicMock(status="active")
     db.query.return_value.filter.return_value.first.return_value = sess
     h.rebind_runtime_session = MagicMock()  # type: ignore[method-assign]
     h._on_user_turn_end = AsyncMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
@@ -63,7 +63,7 @@ async def test_run_exception_recovers_user_speaking():
 async def test_run_success_calls_on_turn_end():
     h = _make_handler()
     db = MagicMock()
-    sess = MagicMock()
+    sess = MagicMock(status="active")
     db.query.return_value.filter.return_value.first.return_value = sess
     h.rebind_runtime_session = MagicMock()  # type: ignore[method-assign]
     h._on_user_turn_end = AsyncMock()  # type: ignore[method-assign]
@@ -78,8 +78,17 @@ async def test_early_returns_and_pcm_limit():
     h = _make_handler()
     h.ctx.turn_state = TurnState.PROCESSING
     h._process_user_text = AsyncMock()  # type: ignore[method-assign]
+    h.ctx.audio_buffer = ["AAAA"]
+    h.ctx.audio_buffer_bytes = 3
     await h._on_user_turn_end({}, MagicMock(), MagicMock())
     h._process_user_text.assert_not_awaited()
+    # Busy rejection is announced and buffered audio is drained so it
+    # cannot leak into the next turn's STT input.
+    assert h.ctx.audio_buffer == []
+    assert any(
+        c.args[0].get("type") == "info" and "still responding" in c.args[0].get("message", "")
+        for c in h.ctx.ws.send_json.call_args_list
+    )
     h.ctx.turn_state = TurnState.AI_SPEAKING
     await h._on_user_turn_end({}, MagicMock(), MagicMock())
     h._process_user_text.assert_not_awaited()
@@ -151,7 +160,7 @@ async def test_buffer_path_and_echo_reject():
 async def test_run_inner_restore_and_close_fail():
     h = _make_handler()
     db = MagicMock()
-    sess = MagicMock()
+    sess = MagicMock(status="active")
     db.query.return_value.filter.return_value.first.return_value = sess
     db.close = MagicMock(side_effect=RuntimeError("close fail"))
     h.rebind_runtime_session = MagicMock()  # type: ignore[method-assign]
