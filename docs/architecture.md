@@ -57,7 +57,7 @@ Domains share a common layering; a domain carries only the layers it needs:
 | `main.py` / `startup.py` | Domain lifecycle hooks (where needed) |
 | `column_migrations.py` | Lightweight column-level migrations for domain tables |
 
-`interview/` additionally carries `realtime/` (WebSocket runtime), `process/` (multi-round orchestration and round digests), `protocols/` (plan / round-plan schemas, round chains, process memory), `capabilities/` (RAG, coding sandbox, vision), `ledger/` (append / freeze session ledger) and the domain-root `workflows.py` (phase / workflow definitions, locked against the frontend `apps/web/src/config/phases.ts` by tests).
+`interview/` additionally carries `realtime/` (WebSocket runtime), `process/` (multi-round orchestration and round digests), `protocols/` (plan / round-plan schemas, round chains, process memory), `capabilities/` (RAG, vision), `ledger/` (append / freeze session ledger) and the domain-root `workflows.py` (phase / workflow definitions, locked against the frontend `apps/web/src/config/phases.ts` by tests).
 
 ## Process assembly
 

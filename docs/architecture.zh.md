@@ -57,7 +57,7 @@
 | `main.py` / `startup.py` | 域生命周期钩子（按需） |
 | `column_migrations.py` | 域表的轻量列级迁移 |
 
-`interview/` 额外携带 `realtime/`（WebSocket 运行时）、`process/`（多轮流程编排与轮次摘要）、`protocols/`（plan / round-plan schema、轮次链、流程记忆）、`capabilities/`（RAG、编码沙箱、视觉）、`ledger/`（追加 / 冻结的会话台账）以及域根的 `workflows.py`（阶段 / 工作流定义，由测试与前端 `apps/web/src/config/phases.ts` 锁定）。
+`interview/` 额外携带 `realtime/`（WebSocket 运行时）、`process/`（多轮流程编排与轮次摘要）、`protocols/`（plan / round-plan schema、轮次链、流程记忆）、`capabilities/`（RAG、视觉）、`ledger/`（追加 / 冻结的会话台账）以及域根的 `workflows.py`（阶段 / 工作流定义，由测试与前端 `apps/web/src/config/phases.ts` 锁定）。
 
 ## 进程组装
 

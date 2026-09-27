@@ -27,4 +27,4 @@
 | `main.py` / `startup.py` | 域生命周期钩子(按需) |
 | `column_migrations.py` | 域表的轻量列级迁移 |
 
-薄域(`profile/`、`settings/`)跳过不需要的层。`interview/` 最大,额外携带 `realtime/`(WebSocket 运行时,见 [interview/realtime/README.zh.md](interview/realtime/README.zh.md))、`process/`(多轮流程编排与轮次摘要)、`protocols/`(plan / round-plan schema、轮次链、流程记忆)、`capabilities/`(RAG、编码沙箱、视觉)、`ledger/`(append / freeze 会话台账)以及域根的 `workflows.py`(阶段 / 工作流 SSOT,由测试与前端 `config/phases.ts` 锁定对齐)。
+薄域(`profile/`、`settings/`)跳过不需要的层。`interview/` 最大,额外携带 `realtime/`(WebSocket 运行时,见 [interview/realtime/README.zh.md](interview/realtime/README.zh.md))、`process/`(多轮流程编排与轮次摘要)、`protocols/`(plan / round-plan schema、轮次链、流程记忆)、`capabilities/`(RAG、视觉)、`ledger/`(append / freeze 会话台账)以及域根的 `workflows.py`(阶段 / 工作流 SSOT,由测试与前端 `config/phases.ts` 锁定对齐)。
