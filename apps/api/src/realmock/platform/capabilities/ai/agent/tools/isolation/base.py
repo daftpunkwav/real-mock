@@ -161,8 +161,13 @@ def run_child(
         terminate_tree(proc)
         timed_out = True
     # Reap the child after a timeout kill; grandchildren that inherited the
-    # pipes may keep a pump blocked, so the join is bounded.
-    proc.wait()
+    # pipes may keep a pump blocked, so the join is bounded. The kill itself
+    # is best-effort (terminate_tree swallows errors), so the reap wait is
+    # bounded too — an unkillable child must not hang this worker thread.
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        timed_out = True
     for t in pumps:
         t.join(timeout=5)
     if timed_out:

@@ -107,7 +107,7 @@ def test_run_child_timeout_paths() -> None:
         assert iso_base.run_child(["x"], cwd=".", env={}, timeout_s=1) == (-1, b"o", b"e", True)
         term.assert_called_once_with(proc)
     # First the deadline wait, then the unbounded reap after the kill.
-    assert proc.wait_timeouts == [1, None]
+    assert proc.wait_timeouts == [1, 5]
 
 
 @pytest.mark.asyncio
