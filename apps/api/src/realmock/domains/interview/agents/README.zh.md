@@ -20,8 +20,9 @@ interview 域的 LLM 角色:一角色一子包,共享机制平铺在包根。包
 | 簇 | 模块 |
 | --- | --- |
 | protocol | `events`、`agent_text`、`turn_output`、`say_first` |
-| state | `session_state`、`session_overrides`、`past_records`、`history_compaction`、`step_compaction` |
-| prompts | `agent_prompts`、`closing_prompts`、`prompt_assembler`、`session_prompt`、`step_compaction_prompts` |
+| state | `session_state`、`session_overrides`、`past_records`、`history_compaction` |
+| compaction | `step_compaction`(拼接+编排)、`step_compaction_state`(状态簿记)、`step_compaction_summary`(转写→简报)、`step_compaction_prompts` |
+| prompts | `agent_prompts`、`closing_prompts`、`prompt_assembler`、`session_prompt` |
 | policy | `agent_policies` |
 | rounds | `tool_round_runner`、`tool_round_stream`、`tools`、`tool_guard` |
 | turn | `followup`、`followup_inject`、`finish_lifecycle` |

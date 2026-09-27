@@ -28,6 +28,7 @@ from realmock.domains.interview.agents.agent_text import (
     strip_markers,
 )
 from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
+from realmock.domains.interview.agents.step_compaction_state import record_step_boundary
 from realmock.domains.interview.workflows import Workflow, get_workflow
 from realmock.domains.interview.protocols.plan_schema import (
     MAX_PLAN_STEPS,
@@ -249,8 +250,6 @@ class InterviewSessionState(SessionPromptMixin):
         caller snapshots the message count BEFORE the phase advance so the
         next step's entry message stays in the live context.
         """
-        from realmock.domains.interview.agents.step_compaction import record_step_boundary
-
         return record_step_boundary(self, end=end)
 
     def mark_step_boundary_reset(self) -> None:

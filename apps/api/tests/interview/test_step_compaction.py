@@ -15,8 +15,8 @@ from realmock.domains.interview.agents.memory.cognitive_graph import CompetencyS
 from realmock.domains.interview.agents.step_compaction import (
     compact_accumulated_boundaries,
     compact_step_boundary,
-    record_step_boundary,
 )
+from realmock.domains.interview.agents.step_compaction_state import record_step_boundary
 
 
 @pytest.fixture(autouse=True)
@@ -242,6 +242,7 @@ def test_garbage_summary_counts_as_failure():
     assert llm.calls == 3  # two garbage payloads, then a usable one
     assert len(agent.messages) == 2
 
+
 # ---- consecutive compactions + concurrency guard (P0-1 regression) ----
 
 
@@ -444,7 +445,7 @@ def test_record_failed_boundary_skips_already_spliced_segment():
         return await compact_step_boundary(agent, boundary, llm=llm)
 
     assert asyncio.run(run()) is True
-    sc._record_failed_boundary(agent, boundary)
+    sc.record_failed_boundary(agent, boundary)
     assert agent.agent_state.get("failed_steps", []) == []
 
 

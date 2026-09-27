@@ -13,6 +13,7 @@ Shared kernel (import each other by submodule path, cluster prefixes):
 
 - protocol: ``events`` (leaf contract) + ``agent_text`` (leaf contract) + ``turn_output`` + ``say_first``;
 - state: ``session_state`` + ``session_overrides`` + ``past_records`` + ``history_compaction``;
+- compaction: ``step_compaction`` (splice + orchestration) + ``step_compaction_state`` (bookkeeping) + ``step_compaction_summary`` (transcript→brief) + ``step_compaction_prompts``;
 - prompts: ``agent_prompts`` + ``closing_prompts`` + ``prompt_assembler`` + ``session_prompt``;
 - rounds: ``tool_round_runner`` + ``tool_round_stream`` + ``tools`` + ``tool_guard``;
 - turn: ``followup`` + ``followup_inject`` + ``finish_lifecycle``.

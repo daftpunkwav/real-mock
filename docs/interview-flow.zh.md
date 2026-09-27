@@ -27,7 +27,7 @@
 - 流程规划：会话创建时流程规划器（`agents/planning/planner.py: generate_plan_for_session`，经 `ensure_plan` 消费）为该会话产出步骤计划（`protocols/plan_schema.py`）：8–30 步，每步 `max_questions` 2–15（深挖步 6–15、过渡步 2–3），带开场风格与工作语言。规划任一失败会把 `plan_status` 置为 `failed`，会话降级到静态工作流。计划步骤 duck-type `PhaseDef`，状态机因此用同一条代码路径推进静态工作流与计划。
 - 步骤定位：每个轮次前置一条瞬态 `[Position]` system 行（`agents/session_state.py: step_message` —— 第 k/n 步、本步第 i 问），外加一次性节奏提示；两者都不持久化进消息历史。
 - 关闭一步：面试官在 say-first JSON 输出中给出 `phase_complete: true` 关闭当前步；状态机推进并推送 `phase_changed`（携带 agent 撰写的 `phase_title`）。流程缺口可在面试中途经 `plan_ops.insert_after_current` 插步（每次回复至多插 3 步）。
-- 步边界压缩：一步关闭后，后台状态机（`agents/step_compaction.py`）把该步逐字对话压成结构化纪要 —— topics / evidence / verified / suspicious / weak_points / agreed_facts / probes_pending，外加 `reflections` 与节奏注记 —— 并原位拼接进 agent 消息、替换原始片段。≤2 万 token 的步保留原样；纪要失败按退避重试 3 次，之后原始片段保留并并入下一边界的重试（连续 3 个失败边界后停止重试）；纪要超过 6 份或 30 万 token 时，最旧的合并为一份滚动总摘要。`reflections` 写入认知记忆图（`agents/memory/cognitive_graph.py`）；会话台账始终逐字保留每一轮。
+- 步边界压缩：一步关闭后，后台状态机（`agents/step_compaction*.py`）把该步逐字对话压成结构化纪要 —— topics / evidence / verified / suspicious / weak_points / agreed_facts / probes_pending，外加 `reflections` 与节奏注记 —— 并原位拼接进 agent 消息、替换原始片段。≤2 万 token 的步保留原样；纪要失败按退避重试 3 次，之后原始片段保留并并入下一边界的重试（连续 3 个失败边界后停止重试）；纪要超过 6 份或 30 万 token 时，最旧的合并为一份滚动总摘要。`reflections` 写入认知记忆图（`agents/memory/cognitive_graph.py`）；会话台账始终逐字保留每一轮。
 
 ## 流程（多轮）
 
