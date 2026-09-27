@@ -111,6 +111,29 @@ async def test_lease_fail_notification_failure_still_ends():
 
 
 @pytest.mark.asyncio
+async def test_heartbeat_timeout_notice_failure_still_ends():
+    """A failing B2002 send on a vanished client must not crash the loop end.
+
+    The heartbeat timeout is usually caused by the client disappearing, so
+    the disconnect notice frequently cannot be delivered; the loop must end
+    through the same graceful None path as the B2003 / B2004 notices.
+    """
+    h = _make_handler()
+    h.send = AsyncMock(side_effect=RuntimeError("socket gone"))  # type: ignore[method-assign]
+
+    async def _slow() -> dict[str, str]:
+        await asyncio.sleep(0.05)
+        return {"type": "x"}
+
+    h.ctx.ws.receive_json = _slow
+    with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=True)):
+        with patch("realmock.domains.interview.realtime.connection.heartbeat._HEARTBEAT_TIMEOUT_SEC", 0.01):
+            with patch("realmock.domains.interview.realtime.connection.heartbeat._HEARTBEAT_MAX_MISSES", 1):
+                assert await h.next_message() is None
+    assert h.send.await_args.kwargs.get("code") == "B2002"
+
+
+@pytest.mark.asyncio
 async def test_superseded_race_after_lease_check():
     """Superseded set between the lease check and receive: loop ends quietly."""
     h = _make_handler()

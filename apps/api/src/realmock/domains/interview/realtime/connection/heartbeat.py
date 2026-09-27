@@ -78,12 +78,23 @@ class HeartbeatMixin:
                         "WS heartbeat timeout disconnect session=%s miss=%s",
                         self.ctx.session_id, miss_count,
                     )
-                    await self.send(
-                        "error",
-                        message="Heartbeat timed out; connection closed",
-                        code="B2002",
-                        retryable=True,
-                    )
+                    try:
+                        await self.send(
+                            "error",
+                            message="Heartbeat timed out; connection closed",
+                            code="B2002",
+                            retryable=True,
+                        )
+                    except Exception:
+                        # A vanished client is the expected cause of a heartbeat
+                        # timeout: the notice failing to send must not turn the
+                        # graceful disconnect into an exception path (same
+                        # handling as the B2003 / B2004 notices below).
+                        logger.debug(
+                            "Heartbeat timeout notice failed to send session=%s",
+                            self.ctx.session_id,
+                            exc_info=True,
+                        )
                     return None
                 try:
                     await self.send("server_ping", t=int(asyncio.get_event_loop().time() * 1000))
