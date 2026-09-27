@@ -171,6 +171,61 @@ def test_backfill_survives_duplicate_and_non_dict_turns(legacy_db) -> None:
     assert ids == ["t-0001", "t-0002", None]
     assert doc["turns"][2] == "raw string turn"  # normalised verbatim as JSON text
 
+
+def test_backfill_derived_fallback_colliding_with_earlier_id(legacy_db) -> None:
+    """A duplicate whose seq-derived fallback equals an EARLIER original id
+    (t-0002 dup at seq 2 derives t-0002 again) must be disambiguated instead
+    of tripping the UNIQUE(session_id, turn_id) constraint at commit — that
+    would turn the boot-time migration into a crash loop."""
+    blob = json.dumps({
+        "frozen": False,
+        "turns": [
+            {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "a"}},
+            {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "b"}},
+            {"turn_id": "t-0003", "phase": "p", "assistant": {"text": "c"}},
+        ],
+    }, ensure_ascii=False)
+    row = _insert_legacy_row(legacy_db, blob)
+
+    assert backfill_ledger_rows(legacy_db) == 3
+    doc = dict(load_ledger(legacy_db, row))
+    ids = [t["turn_id"] for t in doc["turns"]]
+    assert len(set(ids)) == 3
+    assert ids[0] == "t-0002" and ids[2] == "t-0003"
+    # The inner payload id stays consistent with the column.
+    rows = (
+        legacy_db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    )
+    assert [json.loads(r.turn)["turn_id"] for r in rows] == [r.turn_id for r in rows]
+
+
+def test_backfill_non_dict_fallback_colliding_with_earlier_id(legacy_db) -> None:
+    """The seq-derived id for a non-dict element can also equal an earlier
+    original id; the same disambiguation applies."""
+    blob = json.dumps({
+        "frozen": False,
+        "turns": [
+            {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "a"}},
+            "raw string turn",
+        ],
+    }, ensure_ascii=False)
+    row = _insert_legacy_row(legacy_db, blob)
+
+    assert backfill_ledger_rows(legacy_db) == 2
+    rows = (
+        legacy_db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    )
+    # The non-dict element's seq-derived id collided with the earlier
+    # original id and got the deterministic suffix instead.
+    assert [(r.seq, r.turn_id) for r in rows] == [(1, "t-0002"), (2, "t-0002#2")]
+
+
 def test_drop_skips_on_old_sqlite(legacy_db, monkeypatch) -> None:
     """Engines older than 3.35 keep the column and report not-dropped."""
     import sqlite3

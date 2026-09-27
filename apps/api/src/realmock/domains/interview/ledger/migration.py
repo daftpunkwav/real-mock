@@ -40,6 +40,20 @@ def _column_exists(engine, table: str, column: str) -> bool:
     return column in {c["name"] for c in inspect(engine).get_columns(table)}
 
 
+def _derive_turn_id(base: str, seen: set[str]) -> str:
+    # The seq-derived fallback can itself equal an earlier id (a duplicate AT
+    # its own index, or a non-dict element behind a dict carrying that id);
+    # disambiguate deterministically within the column width instead of
+    # tripping the UNIQUE constraint at commit — that would turn the boot
+    # migration into a crash loop.
+    turn_id = base
+    n = 2
+    while turn_id in seen:
+        turn_id = f"{base[:11]}#{n}"
+        n += 1
+    return turn_id
+
+
 def backfill_ledger_rows(db: Session) -> int:
     """Copy legacy ``ledger`` blobs into ``interview_turns``; returns row count.
 
@@ -93,12 +107,12 @@ def backfill_ledger_rows(db: Session) -> int:
             if isinstance(turn, dict):
                 turn_id = str(turn.get("turn_id") or "").strip()
                 if not turn_id or turn_id in seen_turn_ids:
-                    turn_id = f"t-{seq:04d}"
+                    turn_id = _derive_turn_id(f"t-{seq:04d}", seen_turn_ids)
                 # Keep the payload's inner turn_id consistent with the column:
                 turn["turn_id"] = turn_id
                 payload = json.dumps(turn, ensure_ascii=False)
             else:
-                turn_id = f"t-{seq:04d}"
+                turn_id = _derive_turn_id(f"t-{seq:04d}", seen_turn_ids)
                 payload = json.dumps(turn, ensure_ascii=False)
             seen_turn_ids.add(turn_id)
             db.add(
