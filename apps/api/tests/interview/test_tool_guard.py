@@ -159,3 +159,73 @@ def test_circuit_open_refusal_carries_error_kind():
     assert err.value.error_kind == "circuit_open"
     # The guard does not log this path; the loop records it exactly once.
     assert err.value.already_logged is False
+
+
+def test_probe_failure_after_ttl_does_not_reopen():
+    """TTL expiry resets the streak IN THE SHARED BOX: a probe failure counts
+    as failure #1 and must NOT re-trip the breaker."""
+    state: dict = {}
+    guard = ToolGuard(
+        state_fn=lambda: state, timeout_sec=0.05, circuit_streak=2, circuit_ttl_sec=600.0
+    )
+
+    async def boom() -> str:
+        raise RuntimeError("dead endpoint")
+
+    for _ in range(2):
+        with pytest.raises(ToolGuardError):
+            asyncio.run(guard.run("t", {}, boom))
+    assert state[GUARD_STATE_KEY]["t"]["streak"] == 2
+    # TTL expiry allows a probe; the reset must be visible in the shared box.
+    state[GUARD_STATE_KEY]["t"]["opened_at"] = time.time() - 601.0
+    with pytest.raises(ToolGuardError):
+        asyncio.run(guard.run("t", {}, boom))
+    entry = state[GUARD_STATE_KEY]["t"]
+    assert entry["streak"] == 1
+    assert entry["opened_at"] is None  # breaker stays CLOSED
+    # A second consecutive failure trips it again.
+    with pytest.raises(ToolGuardError, match="blocked for a while"):
+        asyncio.run(guard.run("t", {}, boom))
+    assert state[GUARD_STATE_KEY]["t"]["streak"] == 2
+
+
+def test_streak_never_exceeds_threshold_across_windows():
+    """The persisted reset keeps the streak bounded: repeated
+    open -> TTL expiry -> probe failure -> failure cycles can no longer
+    accumulate an unbounded streak (and the refusal message stays truthful)."""
+    state: dict = {}
+
+    async def boom() -> str:
+        raise RuntimeError("dead endpoint")
+
+    guard = ToolGuard(
+        state_fn=lambda: state, timeout_sec=0.05, circuit_streak=2, circuit_ttl_sec=600.0
+    )
+    for _ in range(10):
+        with pytest.raises(ToolGuardError):
+            asyncio.run(guard.run("t", {}, boom))
+        with pytest.raises(ToolGuardError):
+            asyncio.run(guard.run("t", {}, boom))
+        assert state[GUARD_STATE_KEY]["t"]["streak"] <= 2
+        state[GUARD_STATE_KEY]["t"]["opened_at"] = time.time() - 601.0
+        with pytest.raises(ToolGuardError):
+            asyncio.run(guard.run("t", {}, boom))
+        assert state[GUARD_STATE_KEY]["t"]["streak"] <= 2
+
+
+def test_probe_success_after_ttl_closes_breaker():
+    """A successful probe still clears the tool entry entirely."""
+    state: dict = {}
+    guard = ToolGuard(
+        state_fn=lambda: state, timeout_sec=0.05, circuit_streak=2, circuit_ttl_sec=600.0
+    )
+
+    async def boom() -> str:
+        raise RuntimeError("dead endpoint")
+
+    for _ in range(2):
+        with pytest.raises(ToolGuardError):
+            asyncio.run(guard.run("t", {}, boom))
+    state[GUARD_STATE_KEY]["t"]["opened_at"] = time.time() - 601.0
+    assert asyncio.run(guard.run("t", {}, _ok())) == "obs"
+    assert "t" not in state[GUARD_STATE_KEY]

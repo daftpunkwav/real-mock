@@ -21,14 +21,16 @@ def new_access_token() -> str:
 
 
 def tokens_match(expected: str | None, provided: str | None) -> bool:
-    """Constant time comparison; reject if either side is empty."""
+    """Compare in constant time for equal-length inputs; reject fast otherwise.
+
+    A length mismatch returns immediately (the length itself leaks either
+    way); only the equal-length path runs :func:`secrets.compare_digest`.
+    """
     exp = (expected or "").strip()
     got = (provided or "").strip()
     if not exp or not got:
         return False
     if len(exp) != len(got):
-        # compare_digest requires equal length; if the length is not equal, reject it directly (still avoid short circuit leakage of specific content)
-        secrets.compare_digest(exp, exp)
         return False
     return secrets.compare_digest(exp, got)
 

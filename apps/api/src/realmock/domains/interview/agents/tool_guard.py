@@ -177,9 +177,14 @@ class ToolGuard:
                     f"tools or general knowledge; do not invent {name} results.",
                     kind="circuit_open",
                 )
-            # TTL expired: half-open trial (streak reset, this call decides).
+            # TTL expired: reopen as CLOSED with a clean slate. The reset must
+            # be written to the shared box — the failure bookkeeping below
+            # re-reads the box inside the lock, so a reset that only touches a
+            # local variable is silently discarded. A probe failure therefore
+            # counts as failure #1 and does NOT re-trip the breaker; the tool
+            # needs another consecutive failure to open again.
+            box[name] = {"streak": 0, "opened_at": None}
             streak = 0
-            entry = {"streak": 0, "opened_at": None}
 
         fail_kind = ""
         fail_msg = ""

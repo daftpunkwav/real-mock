@@ -326,6 +326,7 @@ async def run_agent_loop(
 
         msg: dict[str, Any] | None = None
         attempts_left = 1 + max(0, round_retries)
+        retry_index = 0
         while attempts_left > 0:
             attempts_left -= 1
             try:
@@ -345,6 +346,10 @@ async def run_agent_loop(
                         message=f"round {round_i}: {e}",
                     )
                     break
+                # Exponential backoff before retrying: an immediate re-call in
+                # a rate-limit window just burns the remaining attempts.
+                await asyncio.sleep(min(4.0, 0.5 * (2**retry_index)))
+                retry_index += 1
                 # A failed mid-stream attempt may have already emitted partial
                 # reasoning deltas; drop them so the retry forms one clean
                 # thinking segment instead of duplicating the head.

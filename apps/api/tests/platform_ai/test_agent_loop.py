@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from unittest.mock import AsyncMock, patch
 
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.agent.loop import AgentHalt
@@ -703,16 +704,19 @@ async def test_agent_loop_round_retry_recovers_transient_failure() -> None:
     async def execute(name: str, args: dict) -> str:
         return "ok"
 
-    result = await run_agent_loop(
-        llm,
-        [{"role": "user", "content": "hi"}],
-        tools=[{"type": "function", "function": {"name": "lookup"}}],
-        execute=execute,
-        max_rounds=3,
-        round_retries=1,
-    )
+    with patch("realmock.platform.capabilities.ai.agent.loop.asyncio.sleep", new=AsyncMock()) as nap:
+        result = await run_agent_loop(
+            llm,
+            [{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": {"name": "lookup"}}],
+            execute=execute,
+            max_rounds=3,
+            round_retries=1,
+        )
     assert llm.calls == 2
     assert result.final_content == "recovered"
+    # The retry backs off exponentially instead of re-calling immediately.
+    nap.assert_awaited_once_with(0.5)
 
 
 @pytest.mark.asyncio
@@ -732,14 +736,15 @@ async def test_agent_loop_round_retry_exhausts_and_breaks() -> None:
     async def execute(name: str, args: dict) -> str:
         return "ok"
 
-    result = await run_agent_loop(
-        llm,
-        [{"role": "user", "content": "hi"}],
-        tools=[{"type": "function", "function": {"name": "lookup"}}],
-        execute=execute,
-        max_rounds=3,
-        round_retries=1,
-    )
+    with patch("realmock.platform.capabilities.ai.agent.loop.asyncio.sleep", new=AsyncMock()):
+        result = await run_agent_loop(
+            llm,
+            [{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": {"name": "lookup"}}],
+            execute=execute,
+            max_rounds=3,
+            round_retries=1,
+        )
     assert llm.calls == 2, "one initial attempt plus exactly one retry"
     assert result.final_content is None
 

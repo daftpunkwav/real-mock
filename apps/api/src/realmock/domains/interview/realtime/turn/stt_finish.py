@@ -135,7 +135,7 @@ class TurnSttFinishMixin:
         await self.set_turn(TurnState.PROCESSING)
 
         browser_text = (data.get("text") or "").strip()
-        pcm_b64 = data.get("pcm") or data.get("data") or ""
+        pcm_b64 = data.get("pcm") or ""
         if isinstance(pcm_b64, str) and len(pcm_b64) > _AUDIO_BUFFER_MAX_BYTES:
             logger.warning(
                 "user_turn_end pcm exceeds limit sid=%s len=%d",
