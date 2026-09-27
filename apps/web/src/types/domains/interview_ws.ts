@@ -72,27 +72,11 @@ export type ServerEvent =
       requested_provider?: string | null;
     }
   | {
-      type: "coding_challenge_open";
-      challenge: {
-        id: string;
-        title: string;
-        description: string;
-        language: string;
-        starter_code: string;
-        test_cases?: Array<{
-          input: string;
-          expected: string;
-          is_hidden?: boolean;
-          description?: string;
-        }>;
-      };
-    }
-  | {
       type: "coding_test_result";
       passed: boolean;
       /** Sandbox case counts (always sent; 0 when no cases were evaluated). */
-      total_cases?: number;
-      passed_cases?: number;
+      total_cases: number;
+      passed_cases: number;
       test_results?: Array<Record<string, unknown>>;
       stdout?: string;
       stderr?: string;

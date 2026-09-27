@@ -124,7 +124,6 @@ class WSServerEvent(StrEnum):
     SERVER_PING = "server_ping"
     INFO = "info"
     ERROR = "error"
-    CODING_CHALLENGE_OPEN = "coding_challenge_open"
     CODING_TEST_RESULT = "coding_test_result"
 
 

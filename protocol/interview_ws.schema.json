@@ -20,7 +20,6 @@
     "server_ping",
     "info",
     "error",
-    "coding_challenge_open",
     "coding_test_result"
   ],
   "clientEventTypes": [
@@ -321,16 +320,6 @@
         },
         "retryable": {
           "type": "boolean"
-        }
-      }
-    },
-    "coding_challenge_open": {
-      "required": [
-        "challenge"
-      ],
-      "properties": {
-        "challenge": {
-          "type": "object"
         }
       }
     },
