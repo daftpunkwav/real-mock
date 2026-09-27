@@ -7,11 +7,11 @@ interview 域的 LLM 角色:一角色一子包,共享机制平铺在包根。包
 | 子包 | 用途 |
 | --- | --- |
 | `interviewer/` | 主面试官:`runner.py` 加 `runner_opening.py` / `runner_turn.py` / `runner_closing.py` |
-| `topology/` | 影子评估、编码考官、流程编排 |
+| `topology/` | 影子评估 agent:逐轮后台评估(评估 / 复核 / 追问合成) |
 | `hint/` | 参考答案 agent(`hint_answer.py`) |
 | `planning/` | 流程规划与轮次规划(`planner.py`、`round_planner.py` 及各自提示词模块) |
 | `research/` | 公司联网调研与配置页 brief(`company_research.py`、`company_brief.py`) |
-| `memory/` | 认知记忆图与反思 |
+| `memory/` | 认知记忆图 |
 
 ## 平铺内核
 
@@ -20,8 +20,9 @@ interview 域的 LLM 角色:一角色一子包,共享机制平铺在包根。包
 | 簇 | 模块 |
 | --- | --- |
 | protocol | `events`、`agent_text`、`turn_output`、`say_first` |
-| state | `session_state`、`session_overrides`、`past_records`、`history_compaction` |
-| prompts | `agent_prompts`、`closing_prompts`、`prompt_assembler`、`session_prompt` |
+| state | `session_state`、`session_overrides`、`past_records`、`history_compaction`、`step_compaction` |
+| prompts | `agent_prompts`、`closing_prompts`、`prompt_assembler`、`session_prompt`、`step_compaction_prompts` |
+| policy | `agent_policies` |
 | rounds | `tool_round_runner`、`tool_round_stream`、`tools`、`tool_guard` |
 | turn | `followup`、`followup_inject`、`finish_lifecycle` |
 

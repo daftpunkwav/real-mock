@@ -37,9 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Bound on in-flight speculative tokens: backpressure when the WS consumer
-# lags instead of unbounded growth (mirrors the prep event queue).
-
 
 async def stream_turn(
     runner: "InterviewRunner",
@@ -191,10 +188,10 @@ async def stream_turn(
             )
             raise
 
-        # Background agents (never gate the reply): Shadow evaluates the turn,
-        # periodic reflection consolidates memory, and the Process Orchestrator
-        # advises macro pacing. Each is bounded by a timeout so a slow LLM
-        # cannot pile up tasks or starve the main loop's rate budget.
+        # Background agent (never gates the reply): the shadow evaluator
+        # assesses the turn and feeds the cognitive graph. Bounded by a
+        # timeout so a slow LLM cannot pile up tasks or starve the main
+        # loop's rate budget.
         turn_index = len(runner.agent.agent_state.get("asked_questions", []))
 
         async def _bounded_shadow() -> None:

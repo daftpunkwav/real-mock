@@ -4,7 +4,7 @@ Realistic interview room domain: realtime WebSocket conversation, multi-round pr
 
 | Package | Purpose |
 | --- | --- |
-| [`agents/`](agents/README.md) | LLM roles, one subpackage each: `interviewer/` (lead interviewer), `topology/` (shadow evaluator, coding examiner, process orchestrator), `hint/`, `planning/`, `research/`, `memory/`. The package `__init__` is the facade — `realtime` / `routes` / `process` depend only on it plus the `events` / `agent_text` leaf contracts |
+| [`agents/`](agents/README.md) | LLM roles, one subpackage each: `interviewer/` (lead interviewer), `topology/` (shadow evaluator), `hint/`, `planning/`, `research/`, `memory/`. The package `__init__` is the facade — `realtime` / `routes` / `process` depend only on it plus the `events` / `agent_text` leaf contracts |
 | `realtime/` | WebSocket runtime (handler, stacks, turn / media / control, audio engine) — see [realtime/README.md](realtime/README.md) |
 | `process/` | Multi-round process orchestration and per-round digests |
 | `protocols/` | Plan / round-plan schemas, deterministic round chains, process memory documents |

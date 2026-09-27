@@ -6,7 +6,7 @@ Pacing sovereignty: the interviewer decides when a step is done
 step's verbatim dialogue into a structured briefing and splices it into
 ``agent.messages`` in place of the raw segment.
 
-Design contract (see docs-local/design/2026-09-27-interview-agent-refactor.md):
+Design contract:
 
 - compression protects attention, it never merely saves space: full
   transcript in, structured brief out, nothing silently dropped;
@@ -180,8 +180,12 @@ async def _summarize_call(llm: Any, transcript: str, focus: str) -> dict[str, An
 
 
 def _apply_reflections(agent: "InterviewSessionState", summary: dict[str, Any]) -> None:
-    """切步仪式: the structured brief carries the competency reflections that
-    used to be a separate periodic agent."""
+    """Record the summary's competency reflections into the cognitive graph.
+
+    The structured brief carries a ``reflections`` list, so the per-step
+    judgment rides the same call as the compaction instead of a separate
+    periodic agent pass.
+    """
     for ref in summary.get("reflections") or []:
         if not isinstance(ref, dict):
             continue

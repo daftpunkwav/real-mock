@@ -1,7 +1,8 @@
 """Closing stream (InterviewRunner child): verbal thanks + personalized wrap-up.
 
-Closing prompts: :mod:`closing_prompts`. After save_state, freezes ledger and
-notifies platform lifecycle hooks (report generation remains dual-track elsewhere).
+Closing prompts: :mod:`closing_prompts`. After save_state, freezes the ledger
+and notifies platform lifecycle hooks (report generation is owned by the
+records domain subscribed to that notification).
 """
 
 from __future__ import annotations

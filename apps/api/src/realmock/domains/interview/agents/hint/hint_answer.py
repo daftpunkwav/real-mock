@@ -1,10 +1,11 @@
-"""Detailed reference answer: tool-grounded model reply for the candidate.
+"""Detailed reference answer: a copy-ready model reply for the candidate.
 
-Rounds cluster (see :mod:`realmock.domains.interview.agents`): the "full"
-reference mode runs a short agent loop (profile / resume / GitHub tools) and
-then synthesizes a first-person model answer the candidate can copy, adapt,
-and send. Never raises: any failure yields None so the caller can degrade to
-the fast outline.
+The full candidate grounding (profile / resume / company) is injected
+verbatim, so the default path is a single zero-tool writer call; a short
+GitHub tool loop runs only when the question or background signals an
+external repository to verify, and the loop's own closing answer is reused
+(the writer pass remains only as a fallback). Never raises: any failure
+yields None so the caller can degrade to the fast outline.
 """
 
 from __future__ import annotations

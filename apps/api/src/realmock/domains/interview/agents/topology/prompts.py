@@ -1,7 +1,8 @@
-"""Topology agent prompts: shadow evaluator (3-phase) and process orchestrator.
+"""Prompt templates for the Shadow Evaluator Agent.
 
-The live-coding examiner was retired (draft-sandbox stays on the frontend, no
-LLM evaluation); its prompts were removed with it.
+One template per pipeline phase: initial evaluation (``SHADOW_SYSTEM_PROMPT``),
+the stricter evidence recheck (``SHADOW_RECHECK_PROMPT``) and the follow-up
+probe synthesis (``SHADOW_PROBE_PROMPT``).
 """
 
 SHADOW_SYSTEM_PROMPT = """You are a senior principal engineer serving as the Shadow Technical Evaluator in an interview.

@@ -328,8 +328,8 @@ class MessageDispatcherMixin:
                     code="A0003",
                 )
                 return
-            # Challenge state retired with the examiner: the sandbox runs
-            # whatever the candidate executes against locally defined cases.
+            # No server-side challenge state: the code runs in the client's
+            # sandbox; this path relays the reported output unjudged.
             from realmock.domains.interview.capabilities.sandbox.evaluator import (
                 evaluate_test_cases,
             )
@@ -344,10 +344,10 @@ class MessageDispatcherMixin:
             logger.warning("Failed to process coding run request: %s", exc)
 
     async def _on_coding_submit_request(self, data: dict[str, Any]) -> None:
-        """Draft/sandbox submission: run the local test cases and report.
+        """Draft/sandbox submission: mirror the draft and report the result.
 
-        The whiteboard is a candidate scratchpad since the LLM coding examiner
-        was retired — no model call, no verdict, just honest sandbox output.
+        The whiteboard is a candidate scratchpad — no model call, no verdict;
+        the client-reported output passes through unjudged.
         """
         try:
             # ``or ""``: a null frame value must not become str(None)="None".
