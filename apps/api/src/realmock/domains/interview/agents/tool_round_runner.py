@@ -234,9 +234,9 @@ class ToolRoundRunner:
         if not settings.interview_tools_enabled:
             return ToolRoundResult(api_messages, None)
 
-        max_rounds = min(
-            settings.interview_max_tool_rounds, MAX_TOOL_ROUNDS, INTERVIEWER_LOOP.max_rounds
-        )
+        # MAX_TOOL_ROUNDS is an alias of INTERVIEWER_LOOP.max_rounds; the
+        # settings knob can only lower it, never exceed the policy cap.
+        max_rounds = min(settings.interview_max_tool_rounds, MAX_TOOL_ROUNDS)
         if max_rounds <= 0:
             return ToolRoundResult(api_messages, None)
 
