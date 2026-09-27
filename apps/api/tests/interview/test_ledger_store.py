@@ -1,16 +1,17 @@
+# -*- coding: utf-8 -*-
 """Ledger store tests for src/realmock/domains/interview/ledger/store.py.
 
-Covers: empty/load/save/frozen/pending/append/freeze/preview branches
-Conventions: no real network/LLM (mocked or faked); deterministic asserts only
+Covers: empty/load/save/frozen/pending/append/freeze/preview branches.
+Persistence-touching cases run against the real file-backed sessions DB
+(conftest ``db`` fixture) — these are the safety net for the ledger
+table restructure. Pure parsing/shape helpers stay on lightweight stubs.
 """
 
 from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
-import pytest
 from realmock.domains.interview.ledger.store import (
     append_last_turn_flag,
     append_pending_tool,
@@ -26,32 +27,21 @@ from realmock.domains.interview.ledger.store import (
     take_pending_tools,
 )
 from realmock.domains.interview.models import InterviewSession
-from realmock.platform.core.ratelimit import reset_rate_limit
 
 
-@pytest.fixture(autouse=True)
-def _clean_limits():
-    reset_rate_limit()
-    yield
-    reset_rate_limit()
-
-
-def _db() -> MagicMock:
-    return MagicMock()
-
-
-def _session_doc(doc: dict) -> SimpleNamespace:
+def _doc(doc: dict) -> SimpleNamespace:
+    """Read-side stub: load_ledger only needs a ``ledger`` attribute."""
     return SimpleNamespace(id=7, ledger=json.dumps(doc))
 
 
-def _db_session(db, **overrides) -> InterviewSession:
+def _row(db, **overrides) -> InterviewSession:
     base = {
         "profile_id": 1,
         "role": "Backend",
         "level": "junior",
         "company": "acme",
         "workflow_type": "technical",
-        "status": "completed",
+        "status": "active",
         "current_phase": "summary",
         "messages": json.dumps([{"role": "user", "content": "hi"}]),
         "ledger": json.dumps(empty_ledger(0)),
@@ -64,7 +54,12 @@ def _db_session(db, **overrides) -> InterviewSession:
     return row
 
 
-# ---- ledger store ----
+def _reload(db, row) -> InterviewSession:
+    db.expire_all()
+    return db.query(InterviewSession).filter(InterviewSession.id == row.id).first()
+
+
+# ---- ledger store: pure helpers ----
 
 
 def test_empty_ledger_shape() -> None:
@@ -108,20 +103,9 @@ def test_load_ledger_keeps_corrupt_flag_and_truncates() -> None:
     assert doc["raw_unparsed"] == "z" * 10
 
 
-def test_save_and_next_turn_id() -> None:
-    db = _db()
-    sess = SimpleNamespace(id=11, ledger="")
-    save_ledger(db, sess, empty_ledger(11))
-    assert json.loads(sess.ledger)["session_id"] == 11
-    assert next_turn_id({"turns": []}) == "t-0001"
-    assert next_turn_id({"turns": [{}, {}]}) == "t-0003"
-    assert next_turn_id({}) == "t-0001"
-    db.commit.assert_called_once()
-
-
 def test_is_frozen_true_false() -> None:
-    assert is_frozen(_session_doc({**empty_ledger(7), "frozen": True})) is True
-    assert is_frozen(_session_doc(empty_ledger(7))) is False
+    assert is_frozen(_doc({**empty_ledger(7), "frozen": True})) is True
+    assert is_frozen(_doc(empty_ledger(7))) is False
 
 
 def test_pending_tools_lifecycle() -> None:
@@ -142,12 +126,37 @@ def test_pending_tools_lifecycle() -> None:
     assert take_pending_tools(state) == []
 
 
-def test_append_turn_ok_with_user_flags_invisible() -> None:
-    db = _db()
-    sess = _session_doc(empty_ledger(7))
+def test_build_tool_preview_ok_autodetect() -> None:
+    ok = build_tool_preview("t", {"a": 1}, "fine result")
+    assert ok["ok"] is True
+    assert ok["chars"] == len("fine result")
+    assert ok["name"] == "t"
+    bad = build_tool_preview("t", {}, "Tool execution failed: boom")
+    assert bad["ok"] is False
+    explicit = build_tool_preview("t", {}, "whatever", ok=True)
+    assert explicit["ok"] is True
+    non_str = build_tool_preview("t", {}, {"x": 1})  # type: ignore[arg-type]
+    assert non_str["chars"] == len(str({"x": 1}))
+
+
+# ---- ledger store: persistence (real DB) ----
+
+
+def test_save_and_next_turn_id(db) -> None:
+    row = _row(db)
+    save_ledger(db, row, empty_ledger(row.id))
+    reloaded = _reload(db, row)
+    assert json.loads(reloaded.ledger)["session_id"] == row.id
+    assert next_turn_id({"turns": []}) == "t-0001"
+    assert next_turn_id({"turns": [{}, {}]}) == "t-0003"
+    assert next_turn_id({}) == "t-0001"
+
+
+def test_append_turn_persists_and_increments_ids(db) -> None:
+    row = _row(db)
     doc = append_turn(
         db,
-        sess,
+        row,
         phase="intro",
         assistant_text="hello",
         user_text="hi",
@@ -162,79 +171,44 @@ def test_append_turn_ok_with_user_flags_invisible() -> None:
     assert turn["assistant"] == {"text": "hello", "visible": False}
     assert turn["user"] == {"text": "hi", "source": "voice"}
     assert turn["flags"] == {"k": "v"}
-    # Second append increments id.
-    doc2 = append_turn(db, sess, phase="p", assistant_text="q2")
+    # Second append increments id and omits the absent user side.
+    doc2 = append_turn(db, row, phase="p", assistant_text="q2")
     assert doc2 is not None
     assert doc2["turns"][-1]["turn_id"] == "t-0002"
     assert "user" not in doc2["turns"][-1]
+    # Both turns survive a full reload from the DB column.
+    reloaded_doc = load_ledger(_reload(db, row))
+    assert [t["turn_id"] for t in reloaded_doc["turns"]] == ["t-0001", "t-0002"]
 
 
-def test_append_turn_skipped_when_frozen() -> None:
-    db = _db()
-    sess = _session_doc({**empty_ledger(7), "frozen": True})
-    assert append_turn(db, sess, phase="p", assistant_text="x") is None
-    db.commit.assert_not_called()
+def test_append_turn_skipped_when_frozen(db) -> None:
+    row = _row(db, ledger=json.dumps({**empty_ledger(7), "frozen": True}))
+    before = row.ledger
+    assert append_turn(db, row, phase="p", assistant_text="x") is None
+    assert _reload(db, row).ledger == before
 
 
-def test_append_last_turn_flag_non_dict_flags_reset() -> None:
+def test_append_last_turn_flag_non_dict_flags_reset(db) -> None:
     doc = empty_ledger(7)
     doc["turns"] = [{"turn_id": "t-0001", "flags": ["bad"]}]
-    sess = _session_doc(doc)
-    append_last_turn_flag(_db(), sess, "k", "v")
-    assert json.loads(sess.ledger)["turns"][0]["flags"] == {"k": "v"}
+    row = _row(db, ledger=json.dumps(doc))
+    append_last_turn_flag(db, row, "k", "v")
+    reloaded = load_ledger(_reload(db, row))
+    assert reloaded["turns"][0]["flags"] == {"k": "v"}
 
 
-def test_freeze_ledger_marks_and_keeps_corrupt() -> None:
-    db = _db()
+def test_freeze_ledger_marks_and_keeps_corrupt(db) -> None:
     raw = json.dumps({"turns": [], "corrupt": True, "raw_unparsed": "orig"})
-    sess = SimpleNamespace(id=8, ledger=raw)
-    out = freeze_ledger(db, sess)
+    row = _row(db, ledger=raw)
+    out = freeze_ledger(db, row)
     assert out["frozen"] is True
     assert out.get("corrupt") is True
     assert out["raw_unparsed"] == "orig"
+    assert load_ledger(_reload(db, row))["frozen"] is True
 
 
-def test_freeze_ledger_coerces_non_list_turns() -> None:
-    db = _db()
-    sess = SimpleNamespace(id=8, ledger=json.dumps({"turns": "bad"}))
-    out = freeze_ledger(db, sess)
+def test_freeze_ledger_coerces_non_list_turns(db) -> None:
+    row = _row(db, ledger=json.dumps({"turns": "bad"}))
+    out = freeze_ledger(db, row)
     assert out["turns"] == []
     assert out["frozen"] is True
-
-
-def test_build_tool_preview_ok_autodetect() -> None:
-    ok = build_tool_preview("t", {"a": 1}, "fine result")
-    assert ok["ok"] is True
-    assert ok["chars"] == len("fine result")
-    assert ok["name"] == "t"
-    bad = build_tool_preview("t", {}, "Tool execution failed: boom")
-    assert bad["ok"] is False
-    explicit = build_tool_preview("t", {}, "whatever", ok=True)
-    assert explicit["ok"] is True
-    non_str = build_tool_preview("t", {}, {"x": 1})  # type: ignore[arg-type]
-    assert non_str["chars"] == len(str({"x": 1}))
-
-
-# ---- catalog ----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
