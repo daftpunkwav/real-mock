@@ -117,6 +117,19 @@ def _resolve_client_ip(request: Request) -> str:
     return peer or "unknown"
 
 
+def _sweep_stale_buckets() -> None:
+    """Drop buckets idle beyond ``_BUCKET_TTL_SECONDS`` (one sweep pass).
+
+    Module-level so tests can invoke a pass synchronously instead of polling
+    the background thread.
+    """
+    cutoff = time.monotonic() - _BUCKET_TTL_SECONDS
+    with _LOCK:
+        stale = [k for k, b in _BUCKETS.items() if b.last_access < cutoff]
+        for k in stale:
+            _BUCKETS.pop(k, None)
+
+
 def _ensure_cleanup_thread() -> None:
     """Lazily start the background cleanup thread, at most once per process.
 
@@ -133,11 +146,7 @@ def _ensure_cleanup_thread() -> None:
         def _sweep() -> None:
             while True:
                 time.sleep(_CLEANUP_INTERVAL_SECONDS)
-                cutoff = time.monotonic() - _BUCKET_TTL_SECONDS
-                with _LOCK:
-                    stale = [k for k, b in _BUCKETS.items() if b.last_access < cutoff]
-                    for k in stale:
-                        _BUCKETS.pop(k, None)
+                _sweep_stale_buckets()
 
         t = threading.Thread(target=_sweep, name="ratelimit-sweeper", daemon=True)
     # Start the thread outside the lock and shorten the critical section

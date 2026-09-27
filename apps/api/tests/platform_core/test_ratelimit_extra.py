@@ -281,9 +281,9 @@ def test_ratelimit_sweeper_reaps_stale_buckets(monkeypatch) -> None:
         timestamps=__import__("collections").deque(),
         last_access=time.monotonic() - 10.0,
     )
-    deadline = time.monotonic() + 2.0
-    while stale_key in mod._BUCKETS and time.monotonic() < deadline:
-        time.sleep(0.02)
+    # Drive one sweep pass synchronously instead of polling the thread:
+    # a wall-clock busy wait flakes under load / xdist.
+    mod._sweep_stale_buckets()
     assert stale_key not in mod._BUCKETS
     reset_rate_limit()
 
