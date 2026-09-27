@@ -100,3 +100,20 @@ async def test_sustained_malformed_frames_tear_down_the_room():
     # One A0001 per tolerated frame plus the final B2004 close notice.
     codes = [c.kwargs.get("code") for c in h.send.await_args_list]
     assert codes == ["A0001", "A0001", "B2004"]
+
+@pytest.mark.asyncio
+async def test_lease_fail_notification_failure_still_ends():
+    """A failing B2003 send on lease loss must not crash the loop end."""
+    h = _make_handler()
+    h.send = AsyncMock(side_effect=RuntimeError("socket gone"))  # type: ignore[method-assign]
+    with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=False)):
+        assert await h.next_message() is None
+
+
+@pytest.mark.asyncio
+async def test_superseded_race_after_lease_check():
+    """Superseded set between the lease check and receive: loop ends quietly."""
+    h = _make_handler()
+    h.ctx.superseded = True
+    with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=True)):
+        assert await h.next_message() is None

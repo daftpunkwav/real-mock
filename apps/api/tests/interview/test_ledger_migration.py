@@ -170,3 +170,48 @@ def test_backfill_survives_duplicate_and_non_dict_turns(legacy_db) -> None:
     ids = [t.get("turn_id") if isinstance(t, dict) else None for t in doc["turns"]]
     assert ids == ["t-0001", "t-0002", None]
     assert doc["turns"][2] == "raw string turn"  # normalised verbatim as JSON text
+
+def test_drop_skips_on_old_sqlite(legacy_db, monkeypatch) -> None:
+    """Engines older than 3.35 keep the column and report not-dropped."""
+    import sqlite3
+
+    class _OldVersion:
+        sqlite_version = "3.31.1"
+
+    monkeypatch.setattr(sqlite3, "sqlite_version", "3.31.1")
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", (3, 31, 1))
+    del _OldVersion
+    assert drop_legacy_ledger_column(legacy_db) is False
+    assert "ledger" in {
+        c["name"]
+        for c in inspect(legacy_db.get_bind()).get_columns("interview_sessions")
+    }
+
+
+def test_backfill_non_dict_root_becomes_evidence_row(legacy_db) -> None:
+    """A legacy blob whose root is a JSON array must not be dropped on the
+    floor: it lands as the reserved evidence row with frozen=False."""
+    row = _insert_legacy_row(legacy_db, "[1, 2, 3]")
+
+    assert backfill_ledger_rows(legacy_db) == 1
+    legacy_db.expire_all()
+    fresh = legacy_db.get(InterviewSession, row.id)
+    assert fresh.ledger_frozen is False
+    evidence = (
+        legacy_db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id, InterviewTurn.seq == 0)
+        .first()
+    )
+    assert evidence is not None
+    assert json.loads(evidence.turn)["raw_unparsed"] == "[1, 2, 3]"
+
+
+def test_column_helpers_report_missing_table(db, monkeypatch) -> None:
+    from realmock.domains.interview.ledger.migration import (
+        _column_exists,
+        _table_exists,
+    )
+
+    bind = db.get_bind()
+    assert _table_exists(bind, "definitely_not_a_table") is False
+    assert _column_exists(bind, "definitely_not_a_table", "any") is False

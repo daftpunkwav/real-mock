@@ -11,7 +11,6 @@ helpers stay on lightweight stubs.
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 
 from realmock.domains.interview.ledger.store import (
     append_last_turn_flag,
@@ -27,10 +26,6 @@ from realmock.domains.interview.ledger.store import (
 )
 from realmock.domains.interview.models import InterviewSession, InterviewTurn
 
-
-def _doc(doc: dict) -> SimpleNamespace:
-    """Attribute stub for helpers that only touch session flags."""
-    return SimpleNamespace(id=7, ledger_frozen=False)
 
 
 def _row(db, **overrides) -> InterviewSession:
@@ -186,3 +181,43 @@ def test_freeze_ledger_sets_column_and_is_idempotent(db) -> None:
     out2 = freeze_ledger(db, _reload(db, row))
     assert out2["frozen"] is True
     assert len(out2["turns"]) == 1
+
+def test_load_ledger_rebuilds_corrupt_evidence_row(db) -> None:
+    """The migration writes corrupt blobs as the reserved seq=0 row;
+    load_ledger must surface it back as corrupt/raw_unparsed."""
+    row = _row(db)
+    evidence = json.dumps({"corrupt": True, "raw_unparsed": "x" * 40}, ensure_ascii=False)
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0000",
+            seq=0,
+            turn=evidence,
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
+    assert doc.get("raw_unparsed") == "x" * 40
+    assert doc["turns"] == []
+
+
+def test_freeze_ledger_logs_and_keeps_corrupt_evidence(db) -> None:
+    """Freezing a ledger with preserved corruption keeps the evidence."""
+    row = _row(db)
+    evidence = json.dumps({"corrupt": True, "raw_unparsed": "orig blob"}, ensure_ascii=False)
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0000",
+            seq=0,
+            turn=evidence,
+        )
+    )
+    db.commit()
+
+    out = freeze_ledger(db, row)
+    assert out["frozen"] is True
+    assert out.get("corrupt") is True
+    assert out.get("raw_unparsed") == "orig blob"

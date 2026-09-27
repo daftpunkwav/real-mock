@@ -128,3 +128,30 @@ def test_persist_interrupt_stats_sync_writes_state(db) -> None:
     assert json.loads(fresh.agent_state)["candidate_interrupts"] == 2
     # A missing row reports failure instead of raising.
     assert worker(None, row.id + 999, "{}") is False  # type: ignore[arg-type]
+def test_persist_interrupt_stats_sync_rolls_back_on_failure(monkeypatch) -> None:
+    """A failing commit rolls back (rollback errors swallowed) and returns False."""
+    from unittest.mock import MagicMock
+
+    worker = InterruptControlMixin._persist_interrupt_stats_sync
+    bad_db = MagicMock()
+    bad_db.query.return_value.filter.return_value.first.return_value = MagicMock()
+    bad_db.commit.side_effect = RuntimeError("commit boom")
+    bad_db.rollback.side_effect = RuntimeError("rollback boom")
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.control.interrupt.SessionLocal",
+        lambda: bad_db,
+    )
+    assert worker(None, 1, json.dumps({"candidate_interrupts": 1})) is False  # type: ignore[arg-type]
+
+
+def test_persist_interrupt_stats_sync_missing_row_returns_false(monkeypatch) -> None:
+    from unittest.mock import MagicMock
+
+    worker = InterruptControlMixin._persist_interrupt_stats_sync
+    empty_db = MagicMock()
+    empty_db.query.return_value.filter.return_value.first.return_value = None
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.control.interrupt.SessionLocal",
+        lambda: empty_db,
+    )
+    assert worker(None, 1, "{}") is False  # type: ignore[arg-type]
