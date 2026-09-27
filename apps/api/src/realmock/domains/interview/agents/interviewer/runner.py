@@ -96,6 +96,33 @@ class InterviewRunner:
         task.add_done_callback(self._bg_tasks.discard)
         return task
 
+    def agent_state_snapshot(self) -> dict[str, Any]:
+        """Copy of the agent's working state for the realtime layer.
+
+        Returns a copy so callers cannot mutate the internal dict through the
+        facade; updates go through the dedicated write methods instead.
+        """
+        return dict(self.agent.agent_state)
+
+    def record_interrupt_counts(self, *, candidate: int, ai: int) -> dict[str, Any]:
+        """Record barge-in counters into the agent's working state.
+
+        Single write path for the realtime layer. Returns the merged state
+        dict so the caller can persist the same snapshot it just wrote.
+        """
+        state = self.agent.agent_state
+        state["candidate_interrupts"] = candidate
+        state["ai_interrupts"] = ai
+        return dict(state)
+
+    def message_history(self) -> list[Any]:
+        """Shallow copy of the agent's message history.
+
+        The list structure is copied; the message dicts themselves are shared,
+        so content edits through the facade stay visible to the agent.
+        """
+        return list(self.agent.messages)
+
     async def cancel_bg_tasks(self) -> None:
         """Cancel all runner-owned background tasks."""
         tasks = list(self._bg_tasks)

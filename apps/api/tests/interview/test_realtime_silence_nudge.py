@@ -27,6 +27,13 @@ def _agent_with_assistant(text="\u8bf7\u4ecb\u7ecd\u4e00\u4e0b\u4f60\u81ea\u5df1
     ag.agent_state = {}
     return ag
 
+
+def _wire_runner(h, history: list) -> None:
+    """Make ctx.runner serve the given history, mirroring the facade."""
+    h.ctx.runner = MagicMock()
+    h.ctx.runner.message_history.return_value = history
+    h.ctx.runner.agent_state_snapshot.return_value = {}
+
 @pytest.mark.asyncio
 async def test_nudge_guards_and_helpers():
     h = _make_handler()
@@ -63,18 +70,19 @@ async def test_nudge_guards_and_helpers():
         await h._on_silence_nudge()
         h.ctx.ws.send_json.assert_not_called()
         # helpers
-        h.ctx.agent = None
+        h.ctx.runner = None
         assert h._last_assistant_text() == ""
         assert h._assistant_message_count() == 0
         h._append_to_last_assistant("x")  # no-op
-        h.ctx.agent = MagicMock()
-        h.ctx.agent.messages = [{"role": "user", "content": "hi"}]
+        h.ctx.runner = MagicMock()
+        history: list = [{"role": "user", "content": "hi"}]
+        h.ctx.runner.message_history.return_value = history
         assert h._last_assistant_text() == ""
         assert h._assistant_message_count() == 0
-        h.ctx.agent.messages = [{"role": "assistant", "content": "Q1?"}]
+        history[0] = {"role": "assistant", "content": "Q1?"}
         assert h._last_assistant_text() == "Q1?"
         h._append_to_last_assistant("follow?")
-        assert "follow?" in h.ctx.agent.messages[0]["content"]
+        assert "follow?" in history[0]["content"]
         h._append_to_last_assistant("")  # empty no-op
     finally:
         await h._cancel_bg_tasks()
@@ -94,7 +102,10 @@ async def test_nudge_full_probe_and_capped_and_closing():
         h.ctx.last_wait_seconds = 0.0
         h.ctx.last_nudge_at = 0.0
         h.ctx.agent = _agent_with_assistant("请讲讲缓存项目?")
-        h.ctx.agent.messages = [{"role": "assistant", "content": "请讲讲缓存项目?"}]
+        probe_history: list = [{"role": "assistant", "content": "请讲讲缓存项目?"}]
+        h.ctx.agent.messages = probe_history
+        h.ctx.runner = MagicMock()
+        h.ctx.runner.message_history.return_value = probe_history
         h.ctx.silence_probe_msg_count = 0
         h.ctx.silence_probe_seq = 0
         h.ctx.silence_capped = False
@@ -134,6 +145,7 @@ async def test_nudge_full_probe_and_capped_and_closing():
             h2.ctx.last_wait_seconds = 0.0
             h2.ctx.last_nudge_at = 0.0
             h2.ctx.agent = _agent_with_assistant("Q?")
+            _wire_runner(h2, h2.ctx.agent.messages)
             h2.ctx.silence_probe_msg_count = 1
             h2.ctx.silence_probe_seq = 2
             h2.ctx.silence_capped = False
@@ -169,6 +181,7 @@ async def test_nudge_session_missing_and_fallback_and_ledger_fail():
         h.ctx.last_wait_seconds = 0.0
         h.ctx.last_nudge_at = 0.0
         h.ctx.agent = _agent_with_assistant("讲讲项目?")
+        _wire_runner(h, h.ctx.agent.messages)
         h.ctx.silence_probe_msg_count = 1
         h.ctx.silence_probe_seq = 0
         h.ctx.silence_capped = False

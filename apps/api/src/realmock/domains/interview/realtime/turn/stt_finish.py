@@ -255,9 +255,10 @@ class TurnSttFinishMixin:
 
     def _last_assistant_content(self) -> str:
         """The most recent interviewer's statement in the message history (recovery judgment anchor point; compatible with dict/ORM format)."""
-        if not (self.ctx.agent and self.ctx.agent.messages):
+        history = self.ctx.runner.message_history() if self.ctx.runner else []
+        if not history:
             return ""
-        for m in reversed(self.ctx.agent.messages):
+        for m in reversed(history):
             role = getattr(m, "role", None) or (m.get("role") if isinstance(m, dict) else None)
             content = getattr(m, "content", None) or (
                 m.get("content") if isinstance(m, dict) else None

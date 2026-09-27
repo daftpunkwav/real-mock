@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING
-
-from sqlalchemy.orm import Session
 
 from realmock.platform.database import SessionLocal
 from realmock.domains.interview.models import InterviewSession
@@ -33,34 +32,63 @@ class InterruptControlMixin:
         set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
         _load_session: Callable[..., InterviewSession | None]
 
-    def _persist_interrupt_stats(self, session: InterviewSession, db: Session) -> None:
-        """Incorporate the interrupt count into the agent memory state and then drop it into the library (single truth, anti-round save_state override rollback)."""
+    def _persist_interrupt_stats_sync(self, session_id: int, state_json: str) -> bool:
+        """Persist the merged interrupt state onto the session row (blocking).
+
+        Runs in a worker thread: opens and closes its own session, touches
+        only the ``agent_state`` column, and returns whether the write landed.
+        """
+        db = SessionLocal()
         try:
-            state: dict = {}
-            if self.ctx.agent is not None:
-                state = dict(self.ctx.agent.agent_state)
-            elif session.agent_state:
-                loaded = json.loads(session.agent_state)
-                state = loaded if isinstance(loaded, dict) else {}
-            state["candidate_interrupts"] = self.ctx.candidate_interrupts
-            state["ai_interrupts"] = self.ctx.ai_interrupts
-            if self.ctx.agent is not None:
-                # The memory state is synchronized with the library, and the count is not lost when serializing save_state in subsequent rounds.
-                self.ctx.agent.agent_state["candidate_interrupts"] = self.ctx.candidate_interrupts
-                self.ctx.agent.agent_state["ai_interrupts"] = self.ctx.ai_interrupts
-            session.agent_state = json.dumps(state, ensure_ascii=False)
-            db.add(session)
+            session = (
+                db.query(InterviewSession)
+                .filter(InterviewSession.id == session_id)
+                .first()
+            )
+            if session is None:
+                return False
+            session.agent_state = state_json
             db.commit()
+            return True
         except Exception:
-            logger.exception("Persistence interruption statistics failed sid=%s", self.ctx.session_id)
+            logger.exception("Persistence interruption statistics failed sid=%s", session_id)
             try:
                 db.rollback()
             except Exception:
                 logger.debug(
                     "Interrupting statistics rollback failed sid=%s",
-                    self.ctx.session_id,
+                    session_id,
                     exc_info=True,
                 )
+            return False
+        finally:
+            try:
+                db.close()
+            except Exception:
+                logger.debug(
+                    "Interrupt statistics DB close failed sid=%s",
+                    session_id,
+                    exc_info=True,
+                )
+
+    async def _persist_interrupt_stats(self) -> None:
+        """Record the interrupt counts through the runner facade, then persist.
+
+        The counters are merged into the agent's working state (the single
+        write path, so a later ``save_state`` cannot roll them back); the same
+        snapshot is then written to the session row off the event loop.
+        """
+        runner = self.ctx.runner
+        if runner is None:
+            return
+        state = runner.record_interrupt_counts(
+            candidate=self.ctx.candidate_interrupts,
+            ai=self.ctx.ai_interrupts,
+        )
+        state_json = json.dumps(state, ensure_ascii=False)
+        await asyncio.to_thread(
+            self._persist_interrupt_stats_sync, self.ctx.session_id, state_json
+        )
 
     async def _on_candidate_barge_in(self) -> None:
         """The candidate interrupts the interviewer's broadcast: clear the TTS and let go of the conversation."""
@@ -81,23 +109,10 @@ class InterruptControlMixin:
             candidate_interrupts=self.ctx.candidate_interrupts,
             playback_generation=self.ctx.awaiting_playback_gen,
         )
-        db = SessionLocal()
         try:
-            try:
-                session = self._load_session(db)
-                if session:
-                    self._persist_interrupt_stats(session, db)
-            except Exception:
-                logger.exception("Interruption statistics reading failed sid=%s", self.ctx.session_id)
-        finally:
-            try:
-                db.close()
-            except Exception:
-                logger.debug(
-                    "Interrupt statistics DB close failed sid=%s",
-                    self.ctx.session_id,
-                    exc_info=True,
-                )
+            await self._persist_interrupt_stats()
+        except Exception:
+            logger.exception("Interruption statistics reading failed sid=%s", self.ctx.session_id)
         await self.set_turn(TurnState.USER_SPEAKING)
         logger.info(
             "Candidate interrupt sid=%s count=%s epoch=%s",

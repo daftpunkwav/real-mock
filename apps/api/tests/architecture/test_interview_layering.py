@@ -242,3 +242,75 @@ def test_interview_agents_facade_in_sync() -> None:
         f"only-in-__all__={sorted(all_names - lazy_keys)}, "
         f"only-in-map={sorted(lazy_keys - all_names)}"
     )
+
+
+#: Attribute chains the realtime layer must not touch on the agent object:
+#: working-state access goes through the InterviewRunner facade methods
+#: (agent_state_snapshot / record_interrupt_counts / message_history).
+#: ``.agent.session`` is deliberately NOT banned — rebinding the ORM row is
+#: the binding seam itself (rebind_runtime_session).
+_BANNED_AGENT_ATTR_CHAINS = frozenset({
+    ("agent", "agent_state"),
+    ("agent", "messages"),
+    ("agent", "mirror_candidate_code"),
+})
+
+
+def _attr_chain(node: ast.AST) -> list[str] | None:
+    """Dotted name for an Attribute chain rooted at a Name; else None."""
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return list(reversed(parts))
+    return None
+
+
+def test_realtime_never_touches_agent_internals() -> None:
+    """realtime must reach agent state only via the runner facade.
+
+    Import-level guards cannot see attribute reach-through; this catches the
+    form where a rename inside the agents domain would otherwise degrade to
+    a silent no-op behind getattr fallbacks."""
+    api_root = _api_root()
+    base = api_root / INTERVIEW_ROOT / "realtime"
+    violations: list[str] = []
+    for path in sorted(base.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Attribute):
+                continue
+            chain = _attr_chain(node)
+            if not chain:
+                continue
+            for tail in _BANNED_AGENT_ATTR_CHAINS:
+                n = len(tail)
+                if len(chain) >= n and tuple(chain[-n:]) == tail:
+                    violations.append(
+                        f"{path.relative_to(api_root)}:{node.lineno}: "
+                        + ".".join(chain)
+                        + " — use the InterviewRunner facade instead",
+                    )
+    assert not violations, (
+        "realtime must not touch agent internals directly:\n" + "\n".join(violations)
+    )
+
+
+def test_realtime_agent_internals_guard_self_check(tmp_path: Path) -> None:
+    """The attribute guard actually fires on a constructed violation."""
+    probe = tmp_path / "violation.py"
+    probe.write_text(
+        "def f(ctx):\n"
+        "    return dict(ctx.agent.agent_state)\n",
+        encoding="utf-8",
+    )
+    tree = ast.parse(probe.read_text(encoding="utf-8"))
+    found = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute):
+            chain = _attr_chain(node)
+            if chain and tuple(chain[-2:]) == ("agent", "agent_state"):
+                found = True
+    assert found, "guard must detect a constructed .agent.agent_state access"

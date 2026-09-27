@@ -145,10 +145,10 @@ async def test_buffer_path_and_echo_reject():
     assert h.ctx.audio_buffer == []
     h._process_user_text.assert_awaited_once()
     h2 = _make_handler()
-    h2.ctx.agent = MagicMock()
-    h2.ctx.agent.messages = [{"role": "assistant", "content": "Tell me about Redis cache design in detail please"}]
+    echo_history = [{"role": "assistant", "content": "Tell me about Redis cache design in detail please"}]
+    h2.ctx.runner = MagicMock()
+    h2.ctx.runner.message_history.return_value = echo_history
     assert h2._last_assistant_content().startswith("Tell me")
-    h2.ctx.agent.messages = [{"role": "assistant", "content": "Tell me about Redis cache design in detail please"}]
     h2.set_turn = AsyncMock()  # type: ignore[method-assign]
     ok = await h2._reject_probable_echo("Tell me about Redis cache design in detail please")
     assert ok is True

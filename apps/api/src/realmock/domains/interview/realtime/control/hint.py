@@ -87,8 +87,13 @@ class ReferenceHintMixin:
         candidate grounding area instead (falls back to the head when the
         prompt shape is unrecognized).
         """
-        agent = self.ctx.agent
-        messages = getattr(agent, "messages", None) or []
+        # Message history comes through the runner facade, like every
+        # other realtime reader of the agent's state.
+        messages = (
+            self.ctx.runner.message_history()
+            if self.ctx.runner is not None
+            else []
+        )
         for m in messages:
             if isinstance(m, dict) and m.get("role") == "system":
                 content = str(m.get("content", ""))
@@ -243,11 +248,14 @@ class ReferenceHintMixin:
             session = self._load_session(db)
             if session is None:
                 return None
+            # Working state reaches the hint generator only through the
+            # runner facade (same seam as every other realtime reader).
+            assert self.ctx.runner is not None
             return await generate_full_reference_hint(
                 llm=self.ctx.llm,
                 db=db,
                 session=session,
-                agent_state=self.ctx.agent.agent_state,
+                agent_state=self.ctx.runner.agent_state_snapshot(),
                 question=question,
                 background=self._hint_background(),
                 flow_language=self._hint_language(),

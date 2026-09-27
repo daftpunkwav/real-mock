@@ -17,7 +17,12 @@ from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 def _make_handler(sid=101):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
     ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
-    return InterviewWSHandler(ws, session_id=sid)
+    h = InterviewWSHandler(ws, session_id=sid)
+    # Realtime reads of the agent state go through the runner facade.
+    h.ctx.runner = MagicMock()
+    h.ctx.runner.message_history.return_value = []
+    h.ctx.runner.agent_state_snapshot.return_value = {}
+    return h
 
 
 def _seed_outline(h, lang="zh"):
@@ -30,9 +35,11 @@ def _seed_outline(h, lang="zh"):
         plan = SimpleNamespace(source="agent", language="zh")
     h.ctx.agent = MagicMock()
     h.ctx.agent.plan = plan
-    h.ctx.agent.messages = [
+    history = [
         {"role": "system", "content": "## Interview setup\nRole: BE\n## Candidate profile\nAda\n## Current phase\nx"},
     ]
+    h.ctx.agent.messages = history
+    h.ctx.runner.message_history.return_value = history
     return h
 
 @pytest.mark.asyncio
@@ -40,12 +47,11 @@ async def test_hint_background_and_candidate_slice_branches():
     reset_session_registry_for_tests()
     h = _make_handler()
     try:
-        h.ctx.agent = MagicMock()
-        h.ctx.agent.messages = [{"role": "user", "content": "hi"}]
+        h.ctx.runner.message_history.return_value = [{"role": "user", "content": "hi"}]
         assert h._hint_background() == ""
-        h.ctx.agent.messages = [{"role": "system", "content": "plain head no markers here"}]
+        h.ctx.runner.message_history.return_value = [{"role": "system", "content": "plain head no markers here"}]
         assert h._hint_background() == "plain head no markers here"
-        h.ctx.agent = None
+        h.ctx.runner = None
         assert h._hint_background() == ""
         # end <= start branch: marker present but no Current phase
         only_setup = "## Interview setup\nRole: BE\nprofile stuff here"

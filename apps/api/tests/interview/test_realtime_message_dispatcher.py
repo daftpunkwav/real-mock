@@ -7,7 +7,7 @@ Conventions: no real network/LLM (all external calls mocked); uses _make_handler
 """
 
 import base64
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from realmock.domains.interview.realtime.core.events import TurnState

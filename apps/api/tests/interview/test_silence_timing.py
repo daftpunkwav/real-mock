@@ -46,6 +46,7 @@ def _now() -> float:
 
 def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
     now = _now()
+    agent_messages: list = [{"role": "assistant", "content": "Q?"}]
     mixin = SilenceNudgeMixin()
     ctx = SimpleNamespace(
         session_id=1,
@@ -67,7 +68,15 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
         answer_started_at=0.0,
         closing=False,
         turn_busy=False,
-        agent=SimpleNamespace(plan=None, messages=[{"role": "assistant", "content": "Q?"}]),
+        agent=SimpleNamespace(plan=None, messages=agent_messages,
+                              agent_state={}),
+        # The realtime layer reads agent state only through the runner facade.
+        # message_history mirrors the production contract: a shallow copy of
+        # the list whose dicts are shared with the agent's own history.
+        runner=SimpleNamespace(
+            message_history=lambda: list(agent_messages),
+            agent_state_snapshot=lambda: {},
+        ),
         orchestrator=SimpleNamespace(),
     )
     for key, value in ctx_kwargs.items():

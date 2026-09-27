@@ -135,7 +135,13 @@ question/follow-up plan/silence count.
             session = self._load_session(db)
             if not session:
                 return
-            state = getattr(self.ctx.agent, "agent_state", {}) or {}
+            # Working state comes through the runner facade; the realtime
+            # layer never touches the agent's internals directly.
+            state = (
+                self.ctx.runner.agent_state_snapshot()
+                if self.ctx.runner is not None
+                else {}
+            )
             probe_hint = str(state.get("last_probe") or "")
             silent_sec = int(now - anchor) if anchor else 0
 
@@ -249,9 +255,9 @@ question/follow-up plan/silence count.
 
     def _last_assistant_text(self) -> str:
         """The most recent interviewer's statement in the message history (the contextual anchor for realistic questioning)."""
-        if not self.ctx.agent:
+        if self.ctx.runner is None:
             return ""
-        for m in reversed(self.ctx.agent.messages):
+        for m in reversed(self.ctx.runner.message_history()):
             if m.get("role") == "assistant":
                 return str(m.get("content") or "")
         return ""
@@ -263,15 +269,15 @@ question/follow-up plan/silence count.
         to keep alternating roles, so the count only grows when the interviewer
         actually asks something new.
         """
-        if not self.ctx.agent:
+        if self.ctx.runner is None:
             return 0
-        return sum(1 for m in self.ctx.agent.messages if m.get("role") == "assistant")
+        return sum(1 for m in self.ctx.runner.message_history() if m.get("role") == "assistant")
 
     def _append_to_last_assistant(self, text: str) -> None:
         """Merge the follow-up question into the latest assistant statement to avoid consecutive assistants in the message history."""
-        if not self.ctx.agent or not text:
+        if self.ctx.runner is None or not text:
             return
-        for m in reversed(self.ctx.agent.messages):
+        for m in reversed(self.ctx.runner.message_history()):
             if m.get("role") == "assistant":
                 content = str(m.get("content") or "")
                 m["content"] = f"{content}\n{text}" if content else text
