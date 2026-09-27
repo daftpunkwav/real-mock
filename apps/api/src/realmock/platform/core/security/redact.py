@@ -32,8 +32,11 @@ def _looks_like_secret(v: str) -> bool:
 
 
 # Substring scanner for free-form text (exception messages, observations):
-# provider key prefixes, Bearer/Token schemes, and long mixed-alphanumeric
-# tokens that stand alone inside the text (whitespace/punctuation delimited).
+# provider key prefixes, Bearer/Token schemes, and any standalone run of
+# 20+ key characters (letters/digits/hyphen/underscore) delimited by other
+# characters. Deliberately conservative: the last alternative does NOT
+# require mixed alphanumerics, so ordinary long words are masked too —
+# a false positive costs a little readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     r"(?:sk-ant-|sk-|sk_)[A-Za-z0-9_-]{8,}"
     r"|aiza[A-Za-z0-9_-]{10,}"
@@ -94,8 +97,12 @@ def redact_secrets_in_text(value: str | None) -> str:
     :func:`redact_api_key` treats its input as one candidate value, so a key
     buried inside a sentence ("request failed: key sk-... rejected") survives
     untouched. This scanner works token-by-token instead: provider key
-    prefixes, Bearer/Token schemes, and standalone mixed-alphanumeric runs of
-    20+ chars are masked in place, keeping the surrounding prose readable.
+    prefixes, Bearer/Token schemes, and any standalone run of 20+ key
+    characters are masked in place, keeping the surrounding prose readable.
+    The standalone-run rule is intentionally broader than the
+    mixed-alphanumeric heuristic (no digit required), so ordinary long words
+    are masked as well — accepted over-masking in exchange for not missing
+    unusual secret shapes.
     """
     if not value:
         return ""

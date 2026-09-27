@@ -61,6 +61,13 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text("token T1x9Ab2cD3eF4gH5iJ6kL rejected")
         assert "T1x9Ab2cD3eF4gH5iJ6kL" not in out
 
+    def test_overlong_pure_alpha_run_is_also_masked(self) -> None:
+        # Pins the documented conservative behavior: the standalone-run rule
+        # has no mixed-alphanumeric requirement, so a 20+ pure-letter run is
+        # masked too (over-masking beats leaking an unusual secret shape).
+        out = redact_secrets_in_text("failed with internationalization anyway")
+        assert "internationalization" not in out
+
     def test_prose_without_secrets_is_preserved(self) -> None:
         text = (
             "Connection timeout after 30 seconds to https://api.example.com/v1 "
