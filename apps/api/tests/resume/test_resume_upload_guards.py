@@ -2,23 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from realmock.asgi import app
-from realmock.platform.core.ratelimit import reset_rate_limit
 from realmock.platform.models import Resume
 
-
-@pytest.fixture(autouse=True)
-def _fresh_upload_settings():
-    from realmock.platform.config import get_settings
-
-    get_settings.cache_clear()
-    reset_rate_limit()
-    yield
-    get_settings.cache_clear()
-    reset_rate_limit()
 
 
 def test_upload_rejects_overlong_filename_as_a0003(api_db) -> None:

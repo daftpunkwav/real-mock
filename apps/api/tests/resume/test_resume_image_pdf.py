@@ -37,19 +37,6 @@ from realmock.platform.models import Resume
 from realmock.platform.schemas import CandidateProfile
 
 
-@pytest.fixture(autouse=True)
-def _fresh_upload_settings():
-    """Reset the get_settings cache to ensure that UPLOAD_DIR points to this test's temporary directory.
-
-    When realmock.asgi is imported during collection, it caches the default upload_dir in get_settings;
-    without a reset, test uploads would be written to the real ``shared/uploads`` directory.
-    """
-    from realmock.platform.config import get_settings
-
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
-
 
 def _write_image_only_pdf(path: Path) -> None:
     """Generate an image-only PDF with no text layer: the entire page contains a single bitmap and no font or text objects."""

@@ -41,7 +41,19 @@ def pytest_configure(config: pytest.Config) -> None:
 @pytest.fixture(autouse=True)
 def _isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
+    # `asgi` imports at collection time and caches the real source-tree
+    # upload_dir inside get_settings; clear the cache so every test resolves
+    # settings only after UPLOAD_DIR points into tmp_path. Cleared again on
+    # the way out so one test's env cannot leak into the next. Rate-limit
+    # buckets are likewise per-test state.
+    from realmock.platform.config import get_settings
+    from realmock.platform.core.ratelimit import reset_rate_limit
+
+    get_settings.cache_clear()
+    reset_rate_limit()
     yield
+    get_settings.cache_clear()
+    reset_rate_limit()
 
 
 @pytest.fixture

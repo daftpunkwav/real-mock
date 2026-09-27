@@ -18,20 +18,9 @@ from realmock.domains.resume.services.ingest import (
     schedule_resume_parse,
     sweep_stale_pending_parses,
 )
-from realmock.platform.core.ratelimit import reset_rate_limit
 from realmock.platform.models import Resume
 from realmock.platform.schemas import CandidateProfile
 
-
-@pytest.fixture(autouse=True)
-def _fresh_upload_settings():
-    from realmock.platform.config import get_settings
-
-    get_settings.cache_clear()
-    reset_rate_limit()
-    yield
-    get_settings.cache_clear()
-    reset_rate_limit()
 
 
 def _stub_llm_client(api_key: str) -> type:

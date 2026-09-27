@@ -15,13 +15,6 @@ from realmock.platform.core.security import sanitize_filename
 from realmock.platform.models import Resume
 
 
-@pytest.fixture(autouse=True)
-def _fresh_upload_settings():
-    """Reset the get_settings cache to ensure that both reads and writes use this test's temporary upload directory."""
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
-
 
 def _seed(
     api_db,

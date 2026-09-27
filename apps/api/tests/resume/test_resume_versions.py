@@ -2,22 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from realmock.asgi import app
 from realmock.domains.resume.schemas.limits import MAX_RESUME_VERSIONS
-from realmock.platform.config import get_settings
-from realmock.platform.core.ratelimit import reset_rate_limit
 
-
-@pytest.fixture(autouse=True)
-def _fresh_upload_settings():
-    get_settings.cache_clear()
-    reset_rate_limit()
-    yield
-    get_settings.cache_clear()
-    reset_rate_limit()
 
 
 def test_upload_version_shares_family_and_stays_inactive(api_db) -> None:

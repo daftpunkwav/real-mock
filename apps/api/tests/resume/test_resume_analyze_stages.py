@@ -23,14 +23,6 @@ from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.models import Resume
 
 
-@pytest.fixture(autouse=True)
-def _fresh_upload_settings():
-    from realmock.platform.config import get_settings
-
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
-
 
 @pytest.fixture(autouse=True)
 def _reset_analyze_slots():
