@@ -139,7 +139,6 @@ async def stream_text_retry(
     """
     headers = chat_completions_headers(api_key, getattr(client, "extra_headers", None))
     usage = getattr(client, "usage", None)
-    last_exc: Exception | None = None
     tokens_yielded = False
     # Keep DNS resolution off the event loop (same convention as web_fetch).
     pinned = await asyncio.to_thread(
@@ -177,11 +176,6 @@ async def stream_text_retry(
                     # Check 429/5xx for retries first, then call raise_for_status consistently (as in stream_message_round_retry)
                     if is_retryable_status(resp.status_code):
                         if attempt < len(RETRY_DELAYS):
-                            last_exc = httpx.HTTPStatusError(
-                                f"transient {resp.status_code}",
-                                request=resp.request,
-                                response=resp,
-                            )
                             await sleep_retry(attempt, headers=getattr(resp, "headers", None))
                             attempt += 1
                             continue
@@ -233,14 +227,11 @@ async def stream_text_retry(
                     usage.note_request_error(e)
                 if tokens_yielded:
                     raise
-                last_exc = e
                 if attempt < len(RETRY_DELAYS):
                     await sleep_retry(attempt)
                     attempt += 1
                     continue
                 raise
-        if last_exc is not None:
-            raise last_exc
 
 
 # ReadTimeout is deliberately absent (same policy as base._retry_request): a

@@ -4,7 +4,6 @@ Covers: _turns/_turn_text edges and ledger_read_turns/ledger_search handlers
 Conventions: Pure in-memory ledger; no LLM/DB; rate limits reset per test
 """
 from __future__ import annotations
-import asyncio
 import json
 import pytest
 from realmock.platform.core.ratelimit import reset_rate_limit
@@ -41,4 +40,3 @@ async def test_ledger_gaps() -> None:
     assert empty["error"] == "empty_keyword"
     many = json.loads(await specs["ledger_search"].handler({"keyword": "keyword"}))
     assert len(many["matches"]) <= 8
-    await asyncio.sleep(0)

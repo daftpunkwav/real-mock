@@ -60,7 +60,6 @@ class ConnectionContext:
     # ── STT ───────────────────────────────────────
     stt_creds: SttCredentials = field(default_factory=lambda: SttCredentials(provider="local", model="base"))
     whisper_model: str = ""
-    stt_fail_streak: int = 0
 
     # ── Word Wheel Lock ───────────────────────────────────
     turn_busy: bool = False

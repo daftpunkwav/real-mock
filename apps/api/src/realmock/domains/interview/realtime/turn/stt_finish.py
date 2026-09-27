@@ -232,7 +232,6 @@ class TurnSttFinishMixin:
                 return
             await self.send("stt_final", text=text)
         else:
-            self.ctx.stt_fail_streak += 1
             # Back off the error frame: the candidate is silent (not deaf) —
             # the silence nudge owns follow-ups, so don't spam C2001. The turn
             # still returns to USER_SPEAKING either way.
@@ -252,7 +251,6 @@ class TurnSttFinishMixin:
             self.restore_turn_timers_after_incomplete_turn()
             return
 
-        self.ctx.stt_fail_streak = 0
         await self._process_user_text(text, data, db, session)
 
     def _last_assistant_content(self) -> str:
