@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from realmock.domains.interview.models import InterviewProcess, InterviewSession
+from realmock.domains.interview.models import InterviewProcess, InterviewSession, InterviewTurn
 from realmock.domains.interview.agents.past_records import (
     prior_round_sessions,
     read_past_round,
@@ -258,21 +258,29 @@ def _make_process_with_rounds(db):
     process = InterviewProcess(role="r", level="l", company="c", max_rounds=3, current_round=2)
     db.add(process)
     db.flush()
-    ledger = json.dumps({
-        "schema": "realmock.ledger.v1",
-        "frozen": True,
-        "turns": [
-            {"turn_id": "t1", "phase": "project_deep_dive",
-             "assistant": {"text": "讲讲库存系统的 QPS"}, "user": {"text": "大概 5000"}},
-            {"turn_id": "t2", "phase": "summary",
-             "assistant": {"text": "总结一下"}, "user": {"text": "好的"}},
-        ],
-    }, ensure_ascii=False)
     first = InterviewSession(
         role="r", level="l", company="c", status="completed",
-        process_id=process.id, round_no=1, result="passed", ledger=ledger,
+        process_id=process.id, round_no=1, result="passed", ledger_frozen=True,
     )
     db.add(first)
+    db.commit()
+    db.refresh(first)
+    db.add_all(
+        [
+            InterviewTurn(
+                session_id=first.id, turn_id="t1", seq=1,
+                turn=json.dumps({"turn_id": "t1", "phase": "project_deep_dive",
+                                "assistant": {"text": "讲讲库存系统的 QPS"},
+                                "user": {"text": "大概 5000"}}, ensure_ascii=False),
+            ),
+            InterviewTurn(
+                session_id=first.id, turn_id="t2", seq=2,
+                turn=json.dumps({"turn_id": "t2", "phase": "summary",
+                                "assistant": {"text": "总结一下"},
+                                "user": {"text": "好的"}}, ensure_ascii=False),
+            ),
+        ]
+    )
     db.commit()
     return process, first
 

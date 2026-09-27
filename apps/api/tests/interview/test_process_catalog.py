@@ -12,9 +12,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from realmock.domains.interview.ledger.store import (
-    empty_ledger,
-)
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from realmock.domains.interview.process.catalog import (
     InterviewSessionCatalog,
@@ -49,7 +46,6 @@ def _db_session(db, **overrides) -> InterviewSession:
         "status": "completed",
         "current_phase": "summary",
         "messages": json.dumps([{"role": "user", "content": "hi"}]),
-        "ledger": json.dumps(empty_ledger(0)),
     }
     base.update(overrides)
     row = InterviewSession(**base)
@@ -183,7 +179,7 @@ def test_to_snapshot_defaults_and_frozen(db) -> None:
     row = _db_session(db)
     row.role = ""
     row.messages = "{bad"
-    snap = InterviewSessionCatalog._to_snapshot(row)
+    snap = InterviewSessionCatalog._to_snapshot(db, row)
     assert snap.role == ""
     assert snap.messages_count == 0
     assert snap.ledger_frozen is False

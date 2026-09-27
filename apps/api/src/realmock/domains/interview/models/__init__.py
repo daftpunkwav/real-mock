@@ -6,6 +6,7 @@ InterviewSession is a table specific to this service; candidate/profile data and
 from __future__ import annotations
 
 from .brief import CompanyBrief
+from .interview_turn import InterviewTurn
 from .process import InterviewProcess
 from .session import InterviewSession
 from .ws_lease import WsSessionLease
@@ -13,6 +14,7 @@ from .ws_lease import WsSessionLease
 __all__ = [
     "CompanyBrief",
     "InterviewProcess",
+    "InterviewTurn",
     "InterviewSession",
     "WsSessionLease",
 ]

@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.ledger.store import load_ledger
 from realmock.domains.interview.models import InterviewSession
 
 logger = logging.getLogger(__name__)
@@ -23,14 +24,11 @@ _READ_PAGE_TURNS = 12
 _READ_TURN_CHARS = 700
 
 
-def _load_ledger(session: InterviewSession) -> list[dict[str, Any]]:
-    try:
-        ledger = json.loads(session.ledger or "{}")
-    except (json.JSONDecodeError, TypeError):
-        logger.debug("corrupt ledger JSON sid=%s; no turns", getattr(session, "id", None))
-        return []
-    turns = ledger.get("turns") if isinstance(ledger, dict) else None
-    return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []
+def _load_ledger(db: Session, session: InterviewSession) -> list[dict[str, Any]]:
+    """Turn dicts for one session, via the ledger store (table aggregation)."""
+    ledger = load_ledger(db, session)
+    turns = ledger.get("turns")
+    return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []  # type: ignore[misc]
 
 
 def prior_round_sessions(
@@ -78,7 +76,7 @@ def search_past_interviews(db: Session, session: InterviewSession, query: str) -
     keywords = [w for w in q.split() if w] or [q]
     hits: list[dict[str, Any]] = []
     for row in prior_round_sessions(db, session):
-        for turn in _load_ledger(row):
+        for turn in _load_ledger(db, row):
             haystack = _turn_text(turn)
             score = sum(1 for kw in keywords if kw in haystack)
             if not score:
@@ -110,7 +108,7 @@ def read_past_round(
             {"error": "round_not_found", "available": sorted(rows.keys())},
             ensure_ascii=False,
         )
-    turns = _load_ledger(row)
+    turns = _load_ledger(db, row)
     offset = max(0, int(offset or 0))
     page = turns[offset : offset + _READ_PAGE_TURNS]
     items = []

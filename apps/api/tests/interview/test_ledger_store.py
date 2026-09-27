@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """Ledger store tests for src/realmock/domains/interview/ledger/store.py.
 
-Covers: empty/load/save/frozen/pending/append/freeze/preview branches.
-Persistence-touching cases run against the real file-backed sessions DB
-(conftest ``db`` fixture) — these are the safety net for the ledger
-table restructure. Pure parsing/shape helpers stay on lightweight stubs.
+The ledger is per-turn rows (``interview_turns``) plus the
+``ledger_frozen`` column; ``load_ledger`` aggregates them back into the
+historic document shape. Persistence-touching cases run against the real
+file-backed sessions DB (conftest ``db`` fixture). Pure parsing/shape
+helpers stay on lightweight stubs.
 """
 
 from __future__ import annotations
@@ -22,16 +23,14 @@ from realmock.domains.interview.ledger.store import (
     freeze_ledger,
     is_frozen,
     load_ledger,
-    next_turn_id,
-    save_ledger,
     take_pending_tools,
 )
-from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.models import InterviewSession, InterviewTurn
 
 
 def _doc(doc: dict) -> SimpleNamespace:
-    """Read-side stub: load_ledger only needs a ``ledger`` attribute."""
-    return SimpleNamespace(id=7, ledger=json.dumps(doc))
+    """Attribute stub for helpers that only touch session flags."""
+    return SimpleNamespace(id=7, ledger_frozen=False)
 
 
 def _row(db, **overrides) -> InterviewSession:
@@ -44,7 +43,6 @@ def _row(db, **overrides) -> InterviewSession:
         "status": "active",
         "current_phase": "summary",
         "messages": json.dumps([{"role": "user", "content": "hi"}]),
-        "ledger": json.dumps(empty_ledger(0)),
     }
     base.update(overrides)
     row = InterviewSession(**base)
@@ -59,7 +57,17 @@ def _reload(db, row) -> InterviewSession:
     return db.query(InterviewSession).filter(InterviewSession.id == row.id).first()
 
 
-# ---- ledger store: pure helpers ----
+def _turns(db, session_id: int) -> list[dict]:
+    rows = (
+        db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == session_id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    )
+    return [json.loads(r.turn) for r in rows if r.seq != 0]
+
+
+# ---- pure helpers ----
 
 
 def test_empty_ledger_shape() -> None:
@@ -67,45 +75,6 @@ def test_empty_ledger_shape() -> None:
     assert doc["session_id"] == 9
     assert doc["frozen"] is False
     assert doc["turns"] == []
-
-
-def test_load_ledger_empty_variants() -> None:
-    assert load_ledger(SimpleNamespace(id=1, ledger=""))["turns"] == []
-    assert load_ledger(SimpleNamespace(id=1, ledger="{}"))["turns"] == []
-    assert load_ledger(SimpleNamespace(id=1, ledger="null"))["turns"] == []
-    assert load_ledger(SimpleNamespace(id=1))["turns"] == []
-
-
-def test_load_ledger_corrupt_marks_raw() -> None:
-    doc = load_ledger(SimpleNamespace(id=3, ledger="{bad json"))
-    assert doc.get("corrupt") is True
-    assert "raw_unparsed" in doc
-    assert doc["session_id"] == 3
-
-
-def test_load_ledger_non_dict_root_marks_corrupt() -> None:
-    doc = load_ledger(SimpleNamespace(id=4, ledger="[1,2]"))
-    assert doc.get("corrupt") is True
-    assert doc["turns"] == []
-
-
-def test_load_ledger_non_list_turns_coerced() -> None:
-    raw = json.dumps({"schema": "x", "session_id": 5, "frozen": False, "turns": {"a": 1}})
-    doc = load_ledger(SimpleNamespace(id=5, ledger=raw))
-    assert doc["turns"] == []
-    assert doc["schema"] == "x"
-
-
-def test_load_ledger_keeps_corrupt_flag_and_truncates() -> None:
-    raw = json.dumps({"turns": [], "corrupt": True, "raw_unparsed": "z" * 10})
-    doc = load_ledger(SimpleNamespace(id=6, ledger=raw))
-    assert doc.get("corrupt") is True
-    assert doc["raw_unparsed"] == "z" * 10
-
-
-def test_is_frozen_true_false() -> None:
-    assert is_frozen(_doc({**empty_ledger(7), "frozen": True})) is True
-    assert is_frozen(_doc(empty_ledger(7))) is False
 
 
 def test_pending_tools_lifecycle() -> None:
@@ -139,20 +108,10 @@ def test_build_tool_preview_ok_autodetect() -> None:
     assert non_str["chars"] == len(str({"x": 1}))
 
 
-# ---- ledger store: persistence (real DB) ----
+# ---- persistence (real DB, per-turn rows) ----
 
 
-def test_save_and_next_turn_id(db) -> None:
-    row = _row(db)
-    save_ledger(db, row, empty_ledger(row.id))
-    reloaded = _reload(db, row)
-    assert json.loads(reloaded.ledger)["session_id"] == row.id
-    assert next_turn_id({"turns": []}) == "t-0001"
-    assert next_turn_id({"turns": [{}, {}]}) == "t-0003"
-    assert next_turn_id({}) == "t-0001"
-
-
-def test_append_turn_persists_and_increments_ids(db) -> None:
+def test_append_turn_persists_rows_and_increments_ids(db) -> None:
     row = _row(db)
     doc = append_turn(
         db,
@@ -171,44 +130,53 @@ def test_append_turn_persists_and_increments_ids(db) -> None:
     assert turn["assistant"] == {"text": "hello", "visible": False}
     assert turn["user"] == {"text": "hi", "source": "voice"}
     assert turn["flags"] == {"k": "v"}
-    # Second append increments id and omits the absent user side.
+    # Second append increments the id from the explicit sequence.
     doc2 = append_turn(db, row, phase="p", assistant_text="q2")
     assert doc2 is not None
     assert doc2["turns"][-1]["turn_id"] == "t-0002"
     assert "user" not in doc2["turns"][-1]
-    # Both turns survive a full reload from the DB column.
-    reloaded_doc = load_ledger(_reload(db, row))
-    assert [t["turn_id"] for t in reloaded_doc["turns"]] == ["t-0001", "t-0002"]
+    # Both turns survive a full reload from the table.
+    reloaded = load_ledger(db, _reload(db, row))
+    assert [t["turn_id"] for t in reloaded["turns"]] == ["t-0001", "t-0002"]
+    assert reloaded["turns"][0]["flags"] == {"k": "v"}
+    # Rows carry an explicit monotonic seq.
+    seqs = [
+        r.seq
+        for r in db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    ]
+    assert seqs == [1, 2]
 
 
 def test_append_turn_skipped_when_frozen(db) -> None:
-    row = _row(db, ledger=json.dumps({**empty_ledger(7), "frozen": True}))
-    before = row.ledger
+    row = _row(db)
+    row.ledger_frozen = True
+    db.commit()
     assert append_turn(db, row, phase="p", assistant_text="x") is None
-    assert _reload(db, row).ledger == before
+    assert is_frozen(_reload(db, row)) is True
+    assert _turns(db, row.id) == []
 
 
-def test_append_last_turn_flag_non_dict_flags_reset(db) -> None:
-    doc = empty_ledger(7)
-    doc["turns"] = [{"turn_id": "t-0001", "flags": ["bad"]}]
-    row = _row(db, ledger=json.dumps(doc))
+def test_append_last_turn_flag_updates_newest_turn_only(db) -> None:
+    row = _row(db)
+    append_turn(db, row, phase="p", assistant_text="a1")
+    append_turn(db, row, phase="p", assistant_text="a2")
+    # Non-dict flags on the newest turn are reset to a dict, not crashed on.
     append_last_turn_flag(db, row, "k", "v")
-    reloaded = load_ledger(_reload(db, row))
-    assert reloaded["turns"][0]["flags"] == {"k": "v"}
+    doc = load_ledger(db, _reload(db, row))
+    assert doc["turns"][0].get("flags") is None
+    assert doc["turns"][1]["flags"] == {"k": "v"}
 
 
-def test_freeze_ledger_marks_and_keeps_corrupt(db) -> None:
-    raw = json.dumps({"turns": [], "corrupt": True, "raw_unparsed": "orig"})
-    row = _row(db, ledger=raw)
+def test_freeze_ledger_sets_column_and_is_idempotent(db) -> None:
+    row = _row(db)
+    append_turn(db, row, phase="p", assistant_text="a1")
     out = freeze_ledger(db, row)
     assert out["frozen"] is True
-    assert out.get("corrupt") is True
-    assert out["raw_unparsed"] == "orig"
-    assert load_ledger(_reload(db, row))["frozen"] is True
-
-
-def test_freeze_ledger_coerces_non_list_turns(db) -> None:
-    row = _row(db, ledger=json.dumps({"turns": "bad"}))
-    out = freeze_ledger(db, row)
-    assert out["turns"] == []
-    assert out["frozen"] is True
+    assert is_frozen(_reload(db, row)) is True
+    # Idempotent: freezing again keeps the turns.
+    out2 = freeze_ledger(db, _reload(db, row))
+    assert out2["frozen"] is True
+    assert len(out2["turns"]) == 1

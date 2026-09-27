@@ -9,7 +9,7 @@
 | `process/` | 多轮流程编排与轮次摘要 |
 | `protocols/` | plan / round-plan schema、确定性轮次链、流程记忆文档 |
 | [`capabilities/`](capabilities/README.zh.md) | 面试专属能力:`rag/`、`sandbox/`(编码)、`vision/` |
-| `ledger/` | append / freeze 会话台账(interview 是唯一写方) |
+| `ledger/` | append / freeze 会话台账——每轮一行存于 `interview_turns` 表 + `ledger_frozen` 列(interview 是唯一写方; 旧整体 blob 已迁移删除) |
 | `routes/` | `sessions.py`、`interview.py`、`turns.py`、`processes.py`、`options.py`、`brief.py`、`ws/`(WebSocket 端点) |
 | `models/` | `session.py`、`process.py`、`brief.py`、`ws_lease.py` |
 | `schemas/` | session / process / options 的 pydantic 模型 |

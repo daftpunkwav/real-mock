@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 
 
-from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.models import InterviewSession, InterviewTurn
 from realmock.domains.interview.realtime.control.interrupt import (
     InterruptControlMixin,
 )
@@ -46,7 +46,6 @@ def _mk_session(db, **overrides) -> InterviewSession:
         current_phase="basic_knowledge",
         messages="[]",
         agent_state="{}",
-        ledger=json.dumps({"frozen": False, "turns": [{"turn_id": "t-0001", "flags": {}}]}),
     )
     base.update(overrides)
     row = InterviewSession(**base)
@@ -54,6 +53,18 @@ def _mk_session(db, **overrides) -> InterviewSession:
     db.commit()
     db.refresh(row)
     return row
+
+
+def _seed_turn(db, session_id: int, turn: dict, seq: int = 1) -> None:
+    db.add(
+        InterviewTurn(
+            session_id=session_id,
+            turn_id=str(turn.get("turn_id") or f"t-{seq:04d}"),
+            seq=seq,
+            turn=json.dumps(turn, ensure_ascii=False),
+        )
+    )
+    db.commit()
 
 
 def test_read_persona_sync_loads_scalars(db) -> None:
@@ -65,11 +76,16 @@ def test_read_persona_sync_loads_scalars(db) -> None:
 
 def test_append_silence_flag_sync_writes_newest_turn(db) -> None:
     row = _mk_session(db)
+    _seed_turn(db, row.id, {"turn_id": "t-0001", "flags": {}})
     _append_silence_flag_sync(row.id, {"seq": 1, "text": "still there?"})
-    db.expire_all()
-    fresh = db.query(InterviewSession).filter(InterviewSession.id == row.id).first()
-    doc = json.loads(fresh.ledger)
-    assert doc["turns"][-1]["flags"]["silence_probe"] == {"seq": 1, "text": "still there?"}
+    rows = (
+        db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    )
+    doc = json.loads(rows[-1].turn)
+    assert doc["flags"]["silence_probe"] == {"seq": 1, "text": "still there?"}
 
 
 def test_finish_notify_sync_freezes_and_is_idempotent(db) -> None:
@@ -81,7 +97,7 @@ def test_finish_notify_sync_freezes_and_is_idempotent(db) -> None:
     db.expire_all()
     fresh = db.query(InterviewSession).filter(InterviewSession.id == row.id).first()
     assert fresh.status == SessionStatus.COMPLETED.value
-    assert json.loads(fresh.ledger)["frozen"] is True
+    assert fresh.ledger_frozen is True
     # Second call: reports already_frozen so the caller only notifies.
     already_frozen2, _, _ = _finish_notify_sync(row.id)
     assert already_frozen2 is True

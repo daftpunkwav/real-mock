@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from unittest.mock import MagicMock
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -54,8 +55,10 @@ def _fold_agent(n=12):
 def test_past_records_corrupt_and_str_vals() -> None:
     from realmock.domains.interview.agents import past_records as mod
 
-    bad = SimpleNamespace(id=1, ledger="not-json{")
-    assert mod._load_ledger(bad) == []  # type: ignore[arg-type]
+    db = MagicMock()
+    db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+    bad = SimpleNamespace(id=1)
+    assert mod._load_ledger(db, bad) == []  # type: ignore[arg-type]
     assert mod._turn_text({"assistant": "plain string", "user": "u2"}) != ""
     assert mod._turn_text({"assistant": {"text": "hi"}, "user": None}) != ""
 

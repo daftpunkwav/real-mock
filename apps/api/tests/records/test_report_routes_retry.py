@@ -54,7 +54,7 @@ def _ensure_llm(api_db) -> None:
     api_db.commit()
 
 
-def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN) -> int:
+def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN, seed_ledger_turns=None) -> int:
     ledger = {
         "schema": "realmock.ledger.v1", "session_id": 0, "frozen": frozen,
         "turns": [{"turn_id": "t-0001", "phase": "intro",
@@ -68,11 +68,12 @@ def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN) -> 
         messages=json.dumps([
             {"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
         ]),
-        ledger=json.dumps(ledger),
     )
     db.add(s)
     db.commit()
     db.refresh(s)
+    if seed_ledger_turns is not None:
+        seed_ledger_turns(s.id, ledger)
     return s.id
 
 
@@ -117,9 +118,9 @@ def _snap(**overrides) -> SessionSnapshot:
 
 
 @pytest.mark.asyncio
-async def test_retry_report_ready_returns_as_is(db, api_db) -> None:
+async def test_retry_report_ready_returns_as_is(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     store.persist_ready(db, sid, DebriefReport.model_validate(_report_dict(82)))
     with TestClient(app) as client:
         resp = client.post(f"/api/reports/{sid}/retry", headers=_headers())
@@ -128,9 +129,9 @@ async def test_retry_report_ready_returns_as_is(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_report_generating_is_404(db, api_db) -> None:
+async def test_retry_report_generating_is_404(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     row = store.upsert_pending(db, sid)
     row.status = store.STATUS_GENERATING
     from datetime import timezone as _tz
@@ -143,9 +144,9 @@ async def test_retry_report_generating_is_404(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_report_generates_via_debrief(db, api_db) -> None:
+async def test_retry_report_generates_via_debrief(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     store.upsert_pending(db, sid)
     fake = DebriefReport.model_validate(_report_dict(77))
 
@@ -161,9 +162,9 @@ async def test_retry_report_generates_via_debrief(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_report_none_is_404(db, api_db) -> None:
+async def test_retry_report_none_is_404(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     store.upsert_pending(db, sid)
 
     async def fake_none(*a, **k):
@@ -191,9 +192,9 @@ async def test_retry_report_none_is_404(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_report_ready_bad_payload_is_404(db, api_db) -> None:
+async def test_retry_report_ready_bad_payload_is_404(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     row = store.upsert_pending(db, sid)
     row.status = store.STATUS_READY
     row.payload = "{}"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from realmock.platform.database import SessionsBase
@@ -40,7 +40,13 @@ class InterviewSession(SessionsBase):
     current_phase: Mapped[str] = mapped_column(String(50), default="identity_check")
     agent_state: Mapped[str] = mapped_column(Text, default="{}")
     messages: Mapped[str] = mapped_column(Text, default="[]")
-    ledger: Mapped[str] = mapped_column(Text, default="{}")
+    # Frozen flag as a first-class column: list/read paths must not parse a
+    # JSON blob just to learn one boolean. The legacy monolithic ledger
+    # column was migrated into interview_turns and dropped (see
+    # realmock.domains.interview.ledger.migration); it is intentionally NOT
+    # mapped here, and any pre-migration database is backfilled via raw SQL
+    # before the column is dropped on boot.
+    ledger_frozen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     report: Mapped[str] = mapped_column(Text, default="{}")
     overall_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     token_usage: Mapped[int] = mapped_column(Integer, default=0)

@@ -18,6 +18,10 @@ from realmock.bootstrap.sessions_orm import (
     register_sessions_domain_models,
     sessions_column_migrations,
 )
+from realmock.domains.interview.ledger.migration import (
+    backfill_ledger_rows,
+    drop_legacy_ledger_column,
+)
 from realmock.platform.config import get_settings
 from realmock.platform.core.migrate import API_MIGRATIONS, apply_column_migrations, run_migrations
 from realmock.platform.database import (
@@ -26,6 +30,7 @@ from realmock.platform.database import (
     get_api_engine,
     get_sessions_engine,
     init_db,
+    sessions_db_session,
 )
 from realmock.platform.services.db_split import maybe_migrate_legacy_app_db
 from realmock.platform.services.seed import seed_llm_settings
@@ -64,6 +69,12 @@ def _run_migrations(session_domains: Collection[str] | None) -> None:
     sessions_migrations = sessions_column_migrations(session_domains)
     if sessions_migrations:
         apply_column_migrations(get_sessions_engine(), migrations=sessions_migrations)
+    if session_domains is None or "interview" in session_domains:
+        # Ledger restructure: copy the legacy blob into interview_turns and
+        # drop the column. Both steps are idempotent and skip on fresh DBs.
+        with sessions_db_session() as db:
+            backfill_ledger_rows(db)
+            drop_legacy_ledger_column(db)
 
 
 def bootstrap_databases_and_seed(

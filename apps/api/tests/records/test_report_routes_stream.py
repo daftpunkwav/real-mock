@@ -53,7 +53,7 @@ def _ensure_llm(api_db) -> None:
     api_db.commit()
 
 
-def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN) -> int:
+def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN, seed_ledger_turns=None) -> int:
     ledger = {
         "schema": "realmock.ledger.v1", "session_id": 0, "frozen": frozen,
         "turns": [{"turn_id": "t-0001", "phase": "intro",
@@ -67,11 +67,12 @@ def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN) -> 
         messages=json.dumps([
             {"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
         ]),
-        ledger=json.dumps(ledger),
     )
     db.add(s)
     db.commit()
     db.refresh(s)
+    if seed_ledger_turns is not None:
+        seed_ledger_turns(s.id, ledger)
     return s.id
 
 
@@ -151,9 +152,9 @@ async def test_generate_with_live_events_relays_and_returns() -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_stream_ready_pseudo_streams(db, api_db) -> None:
+async def test_report_stream_ready_pseudo_streams(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     store.persist_ready(db, sid, DebriefReport.model_validate(_report_dict(80)))
     with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
         with TestClient(app) as client:
@@ -168,9 +169,9 @@ async def test_report_stream_ready_pseudo_streams(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_stream_generates_when_pending(db, api_db) -> None:
+async def test_report_stream_generates_when_pending(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     store.upsert_pending(db, sid)
     fake = DebriefReport.model_validate(_report_dict(79))
 
@@ -192,9 +193,9 @@ async def test_report_stream_generates_when_pending(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_stream_none_reports_error_event(db, api_db) -> None:
+async def test_report_stream_none_reports_error_event(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     store.upsert_pending(db, sid)
 
     async def fake_none(*a, **k):
@@ -219,9 +220,9 @@ async def test_report_stream_none_reports_error_event(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_stream_exception_yields_sse_error(db, api_db) -> None:
+async def test_report_stream_exception_yields_sse_error(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     with patch.object(rmod, "get_report_row", side_effect=RuntimeError("db down")):
         with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
             with TestClient(app) as client:
@@ -243,9 +244,9 @@ async def test_report_stream_exception_yields_sse_error(db, api_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_stream_legacy_path(db, api_db) -> None:
+async def test_report_stream_legacy_path(db, api_db, seed_ledger_turns) -> None:
     _ensure_llm(api_db)
-    sid = _completed_session(db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
     db.query(InterviewSession).filter(InterviewSession.id == sid).first().report = json.dumps(
         _report_dict(74)
     )

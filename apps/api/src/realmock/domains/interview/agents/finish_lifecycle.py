@@ -38,7 +38,7 @@ def run_finish_lifecycle(
         db.commit()
 
     if is_frozen(session):
-        ledger = dict(load_ledger(session))
+        ledger = dict(load_ledger(db, session))
         logger.info("ledger already frozen sid=%s; notify only", getattr(session, "id", None))
     else:
         ledger = freeze_ledger(db, session)

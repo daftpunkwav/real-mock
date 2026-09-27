@@ -45,7 +45,7 @@ def _fake_report_payload() -> dict:
     }
 
 
-def _make_completed_session(db, api_db) -> int:
+def _make_completed_session(db, api_db, seed_ledger_turns) -> int:
     settings = api_db.query(LLMSettings).filter(LLMSettings.id == 1).first()
     if settings is None:
         settings = LLMSettings(id=1, api_key="x", api_base="http://x", model="m")
@@ -87,17 +87,17 @@ def _make_completed_session(db, api_db) -> int:
             ],
             ensure_ascii=False,
         ),
-        ledger=json.dumps(ledger, ensure_ascii=False),
     )
     db.add(s)
     db.commit()
     db.refresh(s)
+    seed_ledger_turns(s.id, ledger)
     return s.id
 
 
-def test_report_stream_emits_token_and_done(db, api_db) -> None:
+def test_report_stream_emits_token_and_done(db, api_db, seed_ledger_turns) -> None:
     """Report SSE pseudo-streams the ready payload; done matches persisted JSON."""
-    sid = _make_completed_session(db, api_db)
+    sid = _make_completed_session(db, api_db, seed_ledger_turns)
     fake = FakeLLMClient(
         tokens=["should-not-be-used"],
         json_payload=_fake_report_payload(),
@@ -142,8 +142,8 @@ def test_report_stream_404_when_session_missing(db) -> None:
         assert resp.status_code == 404
 
 
-def test_report_stream_403_without_token(db, api_db) -> None:
-    sid = _make_completed_session(db, api_db)
+def test_report_stream_403_without_token(db, api_db, seed_ledger_turns) -> None:
+    sid = _make_completed_session(db, api_db, seed_ledger_turns)
     with TestClient(app) as client:
         resp = client.get(f"/api/reports/{sid}/stream")
         assert resp.status_code == 403
@@ -158,15 +158,6 @@ def test_report_stream_400_when_session_not_completed(db) -> None:
         workflow_type="technical",
         status="active",
         access_token=_TOKEN,
-        ledger=json.dumps(
-            {
-                "schema": "realmock.ledger.v1",
-                "session_id": 0,
-                "frozen": False,
-                "turns": [],
-            },
-            ensure_ascii=False,
-        ),
     )
     db.add(s)
     db.commit()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 from collections.abc import Generator
 from pathlib import Path
@@ -128,3 +129,50 @@ def public_dns(monkeypatch: pytest.MonkeyPatch):
         return [ipaddress.ip_address("93.184.216.34")]
 
     monkeypatch.setattr(security_url, "_resolve_all", fake_resolve)
+
+@pytest.fixture
+def seed_ledger_turns(db):
+    """Insert ledger turns for a session (post-restructure seeding).
+
+    Accepts a legacy ledger document dict (``{"turns": [...], "frozen":
+    ..., "corrupt"/"raw_unparsed": ...}``) and lands it as interview_turns
+    rows plus the session flag, replacing the dropped ``ledger`` column.
+    """
+    from realmock.domains.interview.models import InterviewSession, InterviewTurn
+
+
+    def _seed(session_id: int, doc: dict) -> None:
+        for seq, turn in enumerate(doc.get("turns") or [], start=1):
+            db.add(
+                InterviewTurn(
+                    session_id=session_id,
+                    turn_id=(
+                        str(turn.get("turn_id"))
+                        if isinstance(turn, dict) and turn.get("turn_id")
+                        else f"t-{seq:04d}"
+                    ),
+                    seq=seq,
+                    turn=(
+                        turn
+                        if isinstance(turn, str)
+                        else json.dumps(turn, ensure_ascii=False)
+                    ),
+                )
+            )
+        if doc.get("corrupt"):
+            db.add(
+                InterviewTurn(
+                    session_id=session_id,
+                    turn_id="t-0000",
+                    seq=0,
+                    turn=json.dumps(
+                        {"corrupt": True, "raw_unparsed": doc.get("raw_unparsed") or ""},
+                        ensure_ascii=False,
+                    ),
+                )
+            )
+        session = db.get(InterviewSession, session_id)
+        session.ledger_frozen = bool(doc.get("frozen"))
+        db.commit()
+
+    return _seed

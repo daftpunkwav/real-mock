@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from realmock.asgi import app
-from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.models import InterviewTurn, InterviewSession
 from realmock.domains.records.routes import report as rmod
 from realmock.domains.records.schemas.report import DebriefReport
 from realmock.domains.records.services import report_store as store
@@ -25,6 +25,29 @@ from realmock.platform.models import LLMSettings
 from tests.fakes import FakeLLMClient
 
 _TOKEN = "cov-report-token-" + ("c" * 12)
+
+
+
+def _seed_turns(db, session_id: int, doc: dict) -> None:
+    """Land a legacy ledger document as interview_turns rows (restructure)."""
+    for seq, turn in enumerate(doc.get("turns") or [], start=1):
+        db.add(
+            InterviewTurn(
+                session_id=session_id,
+                turn_id=(
+                    str(turn.get("turn_id"))
+                    if isinstance(turn, dict) and turn.get("turn_id")
+                    else f"t-{seq:04d}"
+                ),
+                seq=seq,
+                turn=(
+                    turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)
+                ),
+            )
+        )
+    session = db.get(InterviewSession, session_id)
+    session.ledger_frozen = bool(doc.get("frozen"))
+    db.commit()
 
 
 def _headers(token: str = _TOKEN) -> dict[str, str]:
@@ -68,11 +91,11 @@ def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN) -> 
         messages=json.dumps([
             {"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
         ]),
-        ledger=json.dumps(ledger),
-    )
+        )
     db.add(s)
     db.commit()
     db.refresh(s)
+    _seed_turns(db, s.id, ledger)
     return s.id
 
 

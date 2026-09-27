@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.models import InterviewTurn, InterviewSession
 from realmock.domains.records.services import report_events
 from realmock.domains.records.services.legacy_fallback import try_legacy_report
 from realmock.platform.contracts.session_catalog import SessionSnapshot
@@ -27,6 +27,41 @@ def _clean_limits():
     for key in list(report_events._subscribers.keys()):
         for queue in list(report_events._subscribers.get(key, ())):
             report_events.unsubscribe(int(key.split(":")[1]), queue)
+
+
+
+def _seed_turns(db, session_id: int, doc: dict) -> None:
+    """Land a legacy ledger document as interview_turns rows (restructure)."""
+    for seq, turn in enumerate(doc.get("turns") or [], start=1):
+        db.add(
+            InterviewTurn(
+                session_id=session_id,
+                turn_id=(
+                    str(turn.get("turn_id"))
+                    if isinstance(turn, dict) and turn.get("turn_id")
+                    else f"t-{seq:04d}"
+                ),
+                seq=seq,
+                turn=(
+                    turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)
+                ),
+            )
+        )
+    if doc.get("corrupt"):
+        db.add(
+            InterviewTurn(
+                session_id=session_id,
+                turn_id="t-0000",
+                seq=0,
+                turn=json.dumps(
+                    {"corrupt": True, "raw_unparsed": doc.get("raw_unparsed") or ""},
+                    ensure_ascii=False,
+                ),
+            )
+        )
+    session = db.get(InterviewSession, session_id)
+    session.ledger_frozen = bool(doc.get("frozen"))
+    db.commit()
 
 
 def _report_dict(score=80) -> dict:
@@ -66,11 +101,11 @@ def _completed_session(db, token="cov-rep2-token-abc123") -> int:
         current_phase="summary",
         access_token=token,
         messages=json.dumps([{"role": "user", "content": "a"}]),
-        ledger=json.dumps(ledger),
-    )
+        )
     db.add(row)
     db.commit()
     db.refresh(row)
+    _seed_turns(db, row.id, ledger)
     return row.id
 
 

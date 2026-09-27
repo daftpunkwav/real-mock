@@ -47,7 +47,8 @@ Business ORM models must be registered before `create_all` but cannot live in `p
 | `rate_limit_buckets` | platform | Rate-limit buckets (shared table backend) |
 | `prep_sessions` | prep | Prep coach sessions: target_role, target_company, messages, token_usage, prompt/completion/cached tokens, status, access_token, linked_session_id, summary, message_count |
 | `prep_memories` | prep | Long-term prep memories: user-rated turns, facts, agent notes |
-| `interview_sessions` | interview | In-progress room state: role / level / company, workflow_type, status, current_phase, agent_state, messages, ledger, report, overall_score, process_id, round_no, result, plan |
+| `interview_sessions` | interview | In-progress room state: role / level / company, workflow_type, status, current_phase, agent_state, messages, ledger_frozen, report, overall_score, process_id, round_no, result, plan |
+| `interview_turns` | interview | Interview transcript, one row per turn: session_id (indexed), turn_id, seq (explicit per-session append order), turn JSON, created_at. Replaced the monolithic `ledger` blob (migrated + dropped on boot) |
 | `interview_processes` | interview | Multi-round pipeline; sessions hang off via process_id: max_rounds, current_round, round_plan, round_plan_status, process memory |
 | `ws_session_leases` | interview | One active WS lease per session: `session_id` unique, lease_token |
 | `company_briefs` | interview | Cached company / role / level / interview-type brief: `company_key` unique |

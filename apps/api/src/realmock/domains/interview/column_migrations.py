@@ -16,7 +16,7 @@ SESSIONS_MIGRATIONS: dict[str, list[str]] = {
         "ALTER TABLE interview_sessions ADD COLUMN token_usage INTEGER DEFAULT 0",
         "ALTER TABLE interview_sessions ADD COLUMN access_token VARCHAR(64) DEFAULT ''",
         "ALTER TABLE interview_sessions ADD COLUMN ai_overrides TEXT DEFAULT '{}'",
-        "ALTER TABLE interview_sessions ADD COLUMN ledger TEXT DEFAULT '{}'",
+        "ALTER TABLE interview_sessions ADD COLUMN ledger_frozen BOOLEAN DEFAULT 0",
         "ALTER TABLE interview_sessions ADD COLUMN process_id INTEGER",
         "ALTER TABLE interview_sessions ADD COLUMN round_no INTEGER",
         "ALTER TABLE interview_sessions ADD COLUMN result VARCHAR(20)",

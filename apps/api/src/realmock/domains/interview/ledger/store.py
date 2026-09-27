@@ -1,7 +1,19 @@
-"""Persist and mutate the interview session ledger (append / freeze).
+"""Persist and mutate the interview session ledger (per-turn table).
 
-Interview is the sole writer. After ``frozen=true``, appends are skipped with a
-warning. Persistence matches ``InterviewSessionState.save_state`` (commit).
+The ledger is stored as one ``interview_turns`` row per turn (O(1) appends,
+explicit per-session sequence instead of ``len(turns)+1``) plus a first-class
+``interview_sessions.ledger_frozen`` boolean, so freezing and list reads never
+parse a JSON blob. ``load_ledger`` aggregates the rows back into the historic
+``LedgerDocument`` dict shape — downstream consumers (records domain) keep
+their ``{"turns": [...]}`` contract unchanged.
+
+Legacy migration: a non-empty ``session.ledger`` blob is only read as a
+fallback when the turn table has no rows for the session (pre-backfill
+databases); bootstrap copies the blob into the table and drops the column
+(see :mod:`realmock.domains.interview.ledger.migration`).
+
+Interview is the sole writer. After ``ledger_frozen=true``, appends are
+skipped with a warning. Persistence matches ``save_state`` (commit).
 """
 
 from __future__ import annotations
@@ -15,12 +27,16 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.ledger.constants import SCHEMA, is_tool_failure_result
 from realmock.domains.interview.ledger.preview import truncate_preview
 from realmock.domains.interview.ledger.types import LedgerDocument, LedgerTurn, ToolPreview
+from realmock.domains.interview.models import InterviewTurn
 
 logger = logging.getLogger(__name__)
 
 PENDING_TOOLS_KEY = "_pending_ledger_tools"
-# Max chars of corrupt raw JSON preserved on freeze (avoid unbounded growth).
+# Max chars of corrupt raw JSON preserved (avoid unbounded growth).
 _CORRUPT_RAW_MAX = 65536
+# seq reserved for the corrupt-evidence pseudo-turn written by the migration.
+_CORRUPT_SEQ = 0
+_CORRUPT_TURN_ID = "t-0000"
 
 
 def empty_ledger(session_id: int) -> LedgerDocument:
@@ -33,66 +49,62 @@ def empty_ledger(session_id: int) -> LedgerDocument:
     }
 
 
-def load_ledger(session: Any) -> LedgerDocument:
-    """Parse ``session.ledger`` JSON.
+def _turn_rows(db: Session, session_id: int) -> list[InterviewTurn]:
+    """Turn rows for one session ordered by append sequence."""
+    return (
+        db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == session_id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    )
 
-    On corrupt JSON, returns an empty document marked ``corrupt=True`` and keeps
-    a truncated ``raw_unparsed`` so freeze/notify does not silently wipe history.
-    """
-    session_id = int(getattr(session, "id", 0) or 0)
-    raw = getattr(session, "ledger", None) or ""
-    raw_str = str(raw)
-    if not raw_str.strip() or raw_str.strip() in ("{}", "null"):
-        return empty_ledger(session_id)
-    try:
-        data = json.loads(raw_str)
-    except (json.JSONDecodeError, TypeError) as exc:
-        logger.error(
-            "corrupt ledger JSON sid=%s err=%s; marking corrupt (raw preserved on freeze)",
-            session_id,
-            exc,
-        )
-        doc = empty_ledger(session_id)
-        doc["corrupt"] = True
-        doc["raw_unparsed"] = raw_str[:_CORRUPT_RAW_MAX]
-        return doc
-    if not isinstance(data, dict):
-        logger.error("ledger root not an object sid=%s; marking corrupt", session_id)
-        doc = empty_ledger(session_id)
-        doc["corrupt"] = True
-        doc["raw_unparsed"] = raw_str[:_CORRUPT_RAW_MAX]
-        return doc
-    turns = data.get("turns")
-    if not isinstance(turns, list):
-        turns = []
-    out: LedgerDocument = {
-        "schema": str(data.get("schema") or SCHEMA),
-        "session_id": int(data.get("session_id") or session_id),
-        "frozen": bool(data.get("frozen")),
-        "turns": turns,
+
+def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) -> LedgerDocument:
+    doc: LedgerDocument = {
+        "schema": SCHEMA,
+        "session_id": int(session_id),
+        "frozen": bool(frozen),
+        "turns": [json.loads(r.turn) for r in rows if r.seq != _CORRUPT_SEQ],
     }
-    if data.get("corrupt"):
-        out["corrupt"] = True
-        if isinstance(data.get("raw_unparsed"), str):
-            out["raw_unparsed"] = data["raw_unparsed"][:_CORRUPT_RAW_MAX]
-    return out
+    for r in rows:
+        if r.seq == _CORRUPT_SEQ:
+            try:
+                evidence = json.loads(r.turn)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(evidence, dict) and evidence.get("corrupt"):
+                doc["corrupt"] = True
+                if isinstance(evidence.get("raw_unparsed"), str):
+                    doc["raw_unparsed"] = evidence["raw_unparsed"][:_CORRUPT_RAW_MAX]
+    return doc
 
 
-def save_ledger(db: Session, session: Any, doc: LedgerDocument | dict[str, Any]) -> None:
-    """Persist ledger JSON on the session column and commit (like save_state)."""
-    session.ledger = json.dumps(doc, ensure_ascii=False)
-    db.commit()
+def load_ledger(db: Session, session: Any) -> LedgerDocument:
+    """Aggregate the session's ledger document from the turn table."""
+    session_id = int(getattr(session, "id", 0) or 0)
+    rows = _turn_rows(db, session_id)
+    frozen = bool(getattr(session, "ledger_frozen", False))
+    return _doc_from_rows(session_id, rows, frozen=frozen)
 
 
-def next_turn_id(doc: LedgerDocument | dict[str, Any]) -> str:
-    """Allocate the next monotonic turn id (``t-0001``, …)."""
-    turns = doc.get("turns") or []
-    return f"t-{len(turns) + 1:04d}"
+def _next_seq(db: Session, session_id: int) -> tuple[int, str]:
+    """Next append sequence and turn id (``t-0001``, …) for the session."""
+    max_seq = (
+        db.query(InterviewTurn.seq)
+        .filter(
+            InterviewTurn.session_id == session_id,
+            InterviewTurn.seq != _CORRUPT_SEQ,
+        )
+        .order_by(InterviewTurn.seq.desc())
+        .first()
+    )
+    seq = (max_seq[0] if max_seq else 0) + 1
+    return seq, f"t-{seq:04d}"
 
 
 def is_frozen(session: Any) -> bool:
-    """Return True when the session ledger is frozen."""
-    return bool(load_ledger(session).get("frozen"))
+    """Return True when the session ledger is frozen (column read, no JSON)."""
+    return bool(getattr(session, "ledger_frozen", False))
 
 
 def begin_pending_tools(agent_state: dict[str, Any]) -> list[ToolPreview]:
@@ -131,21 +143,22 @@ def append_turn(
     flags: dict[str, Any] | None = None,
     visible: bool = True,
 ) -> LedgerDocument | None:
-    """Append one turn to the ledger and persist.
+    """Append one turn as a single row and persist.
 
     Returns the updated document, or None when skipped because ledger is frozen.
     """
-    doc = load_ledger(session)
-    if doc.get("frozen"):
+    session_id = int(getattr(session, "id", 0) or 0)
+    if is_frozen(session):
         logger.warning(
             "ledger frozen; skip append_turn sid=%s phase=%s",
-            getattr(session, "id", None),
+            session_id,
             phase,
         )
         return None
 
+    seq, turn_id = _next_seq(db, session_id)
     turn: LedgerTurn = {
-        "turn_id": next_turn_id(doc),
+        "turn_id": turn_id,
         "phase": phase or "",
         "assistant": {
             "text": assistant_text or "",
@@ -158,14 +171,16 @@ def append_turn(
     if flags:
         turn["flags"] = dict(flags)
 
-    turns = list(doc.get("turns") or [])
-    turns.append(turn)
-    doc["turns"] = turns
-    doc["schema"] = SCHEMA
-    doc["session_id"] = int(getattr(session, "id", 0) or doc.get("session_id") or 0)
-    doc["frozen"] = False
-    save_ledger(db, session, doc)
-    return doc
+    db.add(
+        InterviewTurn(
+            session_id=session_id,
+            turn_id=turn_id,
+            seq=seq,
+            turn=json.dumps(turn, ensure_ascii=False),
+        )
+    )
+    db.commit()
+    return load_ledger(db, session)
 
 
 def append_last_turn_flag(
@@ -179,48 +194,53 @@ def append_last_turn_flag(
     Used by the realtime layer for events that happen against the current
     question but outside the runner (e.g. silence probes), so the report
     sees them against the turn they belong to. No-op when frozen or when
-    the ledger has no turns.
+    the ledger has no turns. The flag write is a single-row UPDATE — it can
+    no longer clobber concurrent appends with a stale blob snapshot.
     """
-    doc = load_ledger(session)
-    if doc.get("frozen"):
+    session_id = int(getattr(session, "id", 0) or 0)
+    if is_frozen(session):
         logger.warning(
             "ledger frozen; skip append_last_turn_flag sid=%s key=%s",
-            getattr(session, "id", None),
+            session_id,
             key,
         )
         return
-    turns = doc.get("turns") or []
+    rows = _turn_rows(db, session_id)
+    turns = [r for r in rows if r.seq != _CORRUPT_SEQ]
     if not turns:
         return
-    turn = turns[-1]
+    row = turns[-1]
+    turn = json.loads(row.turn)
     flags = turn.get("flags")
     if not isinstance(flags, dict):
         flags = {}
     flags[key] = value
     turn["flags"] = flags
-    save_ledger(db, session, doc)
+    row.turn = json.dumps(turn, ensure_ascii=False)
+    db.commit()
 
 
 def freeze_ledger(db: Session, session: Any) -> dict[str, Any]:
-    """Set ``frozen=true``, persist, and return the snapshot dict.
+    """Set ``ledger_frozen=true``, persist, and return the snapshot dict.
 
-    Corrupt ledgers keep ``raw_unparsed`` and ``corrupt=True`` so debrief can
-    detect empty turns without destroying the original blob.
+    Corrupt-ledger evidence (``raw_unparsed`` from the legacy blob era) lives
+    in its reserved turn row (written once by the migration), so debrief can
+    still detect empty turns.
     """
-    doc = load_ledger(session)
+    session_id = int(getattr(session, "id", 0) or 0)
+    session.ledger_frozen = True
+    db.commit()
+    doc = load_ledger(db, session)
     doc["frozen"] = True
-    doc["schema"] = SCHEMA
-    doc["session_id"] = int(getattr(session, "id", 0) or doc.get("session_id") or 0)
     if not isinstance(doc.get("turns"), list):
         doc["turns"] = []
     if doc.get("corrupt"):
         logger.error(
             "freezing corrupt ledger sid=%s turns=%d raw_preserved=%s",
-            getattr(session, "id", None),
+            session_id,
             len(doc.get("turns") or []),
             bool(doc.get("raw_unparsed")),
         )
-    save_ledger(db, session, doc)
     return dict(doc)
 
 
@@ -258,7 +278,5 @@ __all__ = [
     "freeze_ledger",
     "is_frozen",
     "load_ledger",
-    "next_turn_id",
-    "save_ledger",
     "take_pending_tools",
 ]

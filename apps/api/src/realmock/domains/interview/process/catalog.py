@@ -39,7 +39,7 @@ class InterviewSessionCatalog:
         )
         if session is None:
             return None
-        return self._to_snapshot(session)
+        return self._to_snapshot(db, session)
 
     def get_session_snapshot(self, db: Session, session_id: int) -> dict[str, Any] | None:
         """JSON-serializable snapshot dict; None when the id is unknown."""
@@ -55,7 +55,7 @@ class InterviewSessionCatalog:
         )
         if session is None:
             return None
-        return dict(load_ledger(session))
+        return dict(load_ledger(db, session))
 
     def get_process_context(self, db: Session, process_id: int) -> str:
         """Render a process's prior-round memory for cross-domain consumers."""
@@ -119,9 +119,9 @@ class InterviewSessionCatalog:
         )
 
     @classmethod
-    def _to_snapshot(cls, session: InterviewSession) -> SessionSnapshot:
+    def _to_snapshot(cls, db: Session, session: InterviewSession) -> SessionSnapshot:
         messages_count, duration_seconds = cls._messages_and_duration(session)
-        ledger = dict(load_ledger(session))
+        ledger = dict(load_ledger(db, session))
         return SessionSnapshot(
             id=session.id,
             profile_id=int(getattr(session, "profile_id", 1) or 1),

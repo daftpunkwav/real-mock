@@ -279,7 +279,7 @@ def record_round_finished(db: Session, session: InterviewSession) -> None:
             return
 
         memory = load_memory(process.memory)
-        ledger = dict(load_ledger(session)) if is_frozen(session) else None
+        ledger = dict(load_ledger(db, session)) if is_frozen(session) else None
         round_no = session.round_no or 1
         append_round(
             memory,

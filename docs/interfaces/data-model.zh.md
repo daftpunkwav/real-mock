@@ -47,7 +47,8 @@
 | `rate_limit_buckets` | platform | 限流桶（共享表后端） |
 | `prep_sessions` | prep | 备面教练会话：target_role、target_company、messages、token_usage、prompt / completion / cached tokens、status、access_token、linked_session_id、summary、message_count |
 | `prep_memories` | prep | 长期备面记忆：用户标记轮次、要点、agent 笔记 |
-| `interview_sessions` | interview | 进行中的面试间状态：role / level / company、workflow_type、status、current_phase、agent_state、messages、ledger、report、overall_score、process_id、round_no、result、plan |
+| `interview_sessions` | interview | 进行中的面试间状态：role / level / company、workflow_type、status、current_phase、agent_state、messages、ledger_frozen、report、overall_score、process_id、round_no、result、plan |
+| `interview_turns` | interview | 面试逐轮台账，每轮一行：session_id（建索引）、turn_id、seq（会话内显式追加序）、turn JSON、created_at。已取代整体 `ledger` blob（启动时迁移并删除旧列） |
 | `interview_processes` | interview | 多轮面试流程，会话经 process_id 挂在其下：max_rounds、current_round、round_plan、round_plan_status、流程记忆 |
 | `ws_session_leases` | interview | 每会话仅一条活跃 WS 租约：`session_id` 唯一、lease_token |
 | `company_briefs` | interview | 公司 / 岗位 / 级别 / 面试类型的缓存简报：`company_key` 唯一 |

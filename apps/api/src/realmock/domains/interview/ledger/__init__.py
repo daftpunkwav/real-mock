@@ -16,8 +16,6 @@ from realmock.domains.interview.ledger.store import (
     freeze_ledger,
     is_frozen,
     load_ledger,
-    next_turn_id,
-    save_ledger,
     take_pending_tools,
 )
 from realmock.domains.interview.ledger.types import LedgerDocument, LedgerTurn, ToolPreview
@@ -35,8 +33,6 @@ __all__ = [
     "freeze_ledger",
     "is_frozen",
     "load_ledger",
-    "next_turn_id",
-    "save_ledger",
     "take_pending_tools",
     "truncate_preview",
 ]
