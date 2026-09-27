@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.constants import AUDIO_BUFFER_MAX_BYTES
+from realmock.platform.core.constants import AUDIO_BUFFER_MAX_BYTES, MAX_USER_TEXT_CHARS
 from realmock.platform.database import SessionLocal
 from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.models import InterviewSession
@@ -142,7 +142,19 @@ class TurnSttFinishMixin:
             return
         await self.set_turn(TurnState.PROCESSING)
 
-        browser_text = (data.get("text") or "").strip()
+        # Inbound frames are untrusted: coerce to str like every other
+        # dispatcher entry (a non-string ``text`` must not raise mid-turn),
+        # then apply the same cap as the typed ``user_text`` path so one
+        # oversized frame cannot reach the prompt, the ledger, or the LLM.
+        browser_text = str(data.get("text") or "").strip()
+        if len(browser_text) > MAX_USER_TEXT_CHARS:
+            await self.send(
+                "error",
+                message=f"Text too long (limit: {MAX_USER_TEXT_CHARS} characters)",
+                code="A0003",
+            )
+            await self.set_turn(TurnState.USER_SPEAKING)
+            return
         pcm_b64 = data.get("pcm") or ""
         if isinstance(pcm_b64, str) and len(pcm_b64) > _AUDIO_BUFFER_MAX_BYTES:
             logger.warning(

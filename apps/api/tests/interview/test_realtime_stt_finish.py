@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 from realmock.platform.capabilities.voice.stt import SttResult
+from realmock.platform.core.constants import MAX_USER_TEXT_CHARS
 
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
@@ -214,4 +215,33 @@ async def test_buffer_fallback_echo_and_no_agent():
     h2.ctx.agent = None
     assert h2._last_assistant_content() == ""
     assert await h2._reject_probable_echo("anything long enough text here") is False
+
+
+@pytest.mark.asyncio
+async def test_oversized_browser_text_rejected_a0003():
+    # The browser-text path carries the same MAX_USER_TEXT_CHARS cap as the
+    # typed ``user_text`` path: one WS frame must not bypass the prompt and
+    # ledger size discipline.
+    h = _make_handler()
+    h.ctx.turn_state = TurnState.USER_SPEAKING
+    h._process_user_text = AsyncMock()  # type: ignore[method-assign]
+    big = "x" * (MAX_USER_TEXT_CHARS + 1)
+    await h._on_user_turn_end({"text": big}, MagicMock(), MagicMock())
+    sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
+    assert any(e.get("code") == "A0003" for e in sent)
+    h._process_user_text.assert_not_awaited()
+    assert h.ctx.turn_state == TurnState.USER_SPEAKING
+
+
+@pytest.mark.asyncio
+async def test_non_string_browser_text_is_coerced_not_fatal():
+    # A non-string ``text`` (dict/list/null) must not raise AttributeError
+    # mid-turn; it is coerced like every other dispatcher entry.
+    h = _make_handler()
+    h.ctx.turn_state = TurnState.USER_SPEAKING
+    h._process_user_text = AsyncMock()  # type: ignore[method-assign]
+    h._reject_probable_echo = AsyncMock(return_value=False)  # type: ignore[method-assign]
+    await h._on_user_turn_end({"text": {"injected": "value"}}, MagicMock(), MagicMock())
+    h._process_user_text.assert_awaited_once()
+    assert isinstance(h._process_user_text.await_args.args[0], str)
 
