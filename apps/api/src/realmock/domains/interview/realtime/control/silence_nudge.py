@@ -18,6 +18,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from realmock.platform.database import SessionLocal
+from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.ledger.store import append_last_turn_flag
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.control.silence_probe import flow_language
@@ -64,6 +65,57 @@ def clamp_nudge_wait(value: float, default: float) -> float:
     return min(NUDGE_WAIT_MAX_SECONDS, max(NUDGE_WAIT_MIN_SECONDS, candidate))
 
 
+def _read_persona_sync(session_id: int) -> tuple[Any, Any, Any] | None:
+    """Blocking load of the persona scalars the probe fallback needs.
+
+    Returns ``(personality, strictness, current_phase)`` or None when the
+    session row is gone. Scalars only -- the ORM instance never leaves the
+    thread scope (same convention as session_registry).
+    """
+    db = SessionLocal()
+    try:
+        session = (
+            db.query(InterviewSession)
+            .filter(InterviewSession.id == session_id)
+            .first()
+        )
+        if session is None:
+            return None
+        return session.personality, session.strictness, session.current_phase
+    finally:
+        try:
+            db.close()
+        except Exception:
+            logger.debug(
+                "silence_nudge DB close failed sid=%s", session_id, exc_info=True,
+            )
+
+
+def _append_silence_flag_sync(session_id: int, payload: dict) -> None:
+    """Blocking ledger-flag write on a freshly loaded session row.
+
+    Reloading inside the worker (instead of reusing an ORM instance held
+    across the LLM/TTS awaits) keeps the read-modify-write on the current
+    ledger column and avoids clobbering a concurrent append.
+    """
+    db = SessionLocal()
+    try:
+        session = (
+            db.query(InterviewSession)
+            .filter(InterviewSession.id == session_id)
+            .first()
+        )
+        if session is None:
+            return
+        append_last_turn_flag(db, session, "silence_probe", payload)
+    finally:
+        try:
+            db.close()
+        except Exception:
+            logger.debug(
+                "silence_nudge DB close failed sid=%s", session_id, exc_info=True,
+            )
+
 class SilenceNudgeMixin:
     """Silence follow-up orchestration; depends on ctx fields + _generate_silence_probe (SilenceProbeMixin)."""
 
@@ -82,6 +134,14 @@ class SilenceNudgeMixin:
     def _nudge_language(self) -> str:
         """Closing-nudge language from the flow plan ("en" or "zh")."""
         return flow_language(getattr(self.ctx, "agent", None))
+
+    async def _read_persona(self) -> tuple[Any, Any, Any] | None:
+        """Blocking persona load, off the event loop (see _read_persona_sync)."""
+        return await asyncio.to_thread(_read_persona_sync, self.ctx.session_id)
+
+    async def _persist_probe_flag(self, payload: dict) -> None:
+        """Blocking ledger-flag write, off the event loop (see _append_silence_flag_sync)."""
+        await asyncio.to_thread(_append_silence_flag_sync, self.ctx.session_id, payload)
 
     async def _on_silence_nudge(self) -> None:
         """Realistic silence follow-up: use the reasoning LLM to generate one in real time from the current
@@ -130,83 +190,71 @@ question/follow-up plan/silence count.
             return
         self.ctx.silence_probe_seq += 1
 
-        db = SessionLocal()
+        persona = await self._read_persona()
+        if persona is None:
+            return
+        # Working state comes through the runner facade; the realtime
+        # layer never touches the agent's internals directly.
+        state = (
+            self.ctx.runner.agent_state_snapshot()
+            if self.ctx.runner is not None
+            else {}
+        )
+        probe_hint = str(state.get("last_probe") or "")
+        silent_sec = int(now - anchor) if anchor else 0
+
+        probe_text = await self._generate_silence_probe(
+            question=self.ctx.silence_probe_question,
+            probe_hint=probe_hint,
+            attempt=self.ctx.silence_probe_seq,
+            silent_sec=silent_sec,
+        )
+        if not probe_text or probe_text == self.ctx.last_silence_probe:
+            probe_text = self.ctx.orchestrator.build_silence_nudge(
+                persona[0],
+                persona[1],
+                phase=persona[2],
+            )
+        self.ctx.last_silence_probe = probe_text
+
+        # Re-check after the LLM call, same guard shape as the answer
+        # timeout path: the candidate may have started answering (typing /
+        # STT partial / a voice turn now in flight) or requested finish
+        # while the probe was generating — never speak over that.
+        if (
+            self.ctx.answer_started_at
+            or self.ctx.closing
+            or self.ctx.turn_state != TurnState.USER_SPEAKING
+            or self.ctx.turn_busy
+        ):
+            return
+
+        await self.set_turn(TurnState.PROCESSING)
+        await self.send(
+            "silence_nudge",
+            content=probe_text,
+            seq=self.ctx.silence_probe_seq,
+        )
+        self._begin_playback_wait()
+        await self._speak_one(probe_text)
+        self._append_to_last_assistant(probe_text)
+        # The probe belongs to the current question's ledger turn; without
+        # this the report never sees the silence at all. Written on a freshly
+        # loaded row inside the worker so it cannot clobber a concurrent
+        # ledger append with a stale column snapshot.
         try:
-            session = self._load_session(db)
-            if not session:
-                return
-            # Working state comes through the runner facade; the realtime
-            # layer never touches the agent's internals directly.
-            state = (
-                self.ctx.runner.agent_state_snapshot()
-                if self.ctx.runner is not None
-                else {}
+            await self._persist_probe_flag(
+                {"seq": self.ctx.silence_probe_seq, "text": probe_text},
             )
-            probe_hint = str(state.get("last_probe") or "")
-            silent_sec = int(now - anchor) if anchor else 0
-
-            probe_text = await self._generate_silence_probe(
-                question=self.ctx.silence_probe_question,
-                probe_hint=probe_hint,
-                attempt=self.ctx.silence_probe_seq,
-                silent_sec=silent_sec,
+        except Exception:
+            logger.warning(
+                "silence probe ledger write failed sid=%s",
+                self.ctx.session_id,
+                exc_info=True,
             )
-            if not probe_text or probe_text == self.ctx.last_silence_probe:
-                probe_text = self.ctx.orchestrator.build_silence_nudge(
-                    session.personality,
-                    session.strictness,
-                    phase=session.current_phase,
-                )
-            self.ctx.last_silence_probe = probe_text
-
-            # Re-check after the LLM call, same guard shape as the answer
-            # timeout path: the candidate may have started answering (typing /
-            # STT partial / a voice turn now in flight) or requested finish
-            # while the probe was generating — never speak over that.
-            if (
-                self.ctx.answer_started_at
-                or self.ctx.closing
-                or self.ctx.turn_state != TurnState.USER_SPEAKING
-                or self.ctx.turn_busy
-            ):
-                return
-
-            await self.set_turn(TurnState.PROCESSING)
-            await self.send(
-                "silence_nudge",
-                content=probe_text,
-                seq=self.ctx.silence_probe_seq,
-            )
-            self._begin_playback_wait()
-            await self._speak_one(probe_text)
-            self._append_to_last_assistant(probe_text)
-            # The probe belongs to the current question's ledger turn; without
-            # this the report never sees the silence at all.
-            try:
-                append_last_turn_flag(
-                    db,
-                    session,
-                    "silence_probe",
-                    {"seq": self.ctx.silence_probe_seq, "text": probe_text},
-                )
-            except Exception:
-                logger.warning(
-                    "silence probe ledger write failed sid=%s",
-                    self.ctx.session_id,
-                    exc_info=True,
-                )
-            # Short single-sentence prompt while the candidate is silent: wait the
-            # playback out before reopening the mic.
-            await self._open_mic_after_playback(wait_playback=True)
-        finally:
-            try:
-                db.close()
-            except Exception:
-                logger.debug(
-                    "silence_nudge DB close failed sid=%s",
-                    self.ctx.session_id,
-                    exc_info=True,
-                )
+        # Short single-sentence prompt while the candidate is silent: wait the
+        # playback out before reopening the mic.
+        await self._open_mic_after_playback(wait_playback=True)
 
     async def _speak_closing_nudge(self) -> None:
         """Last resort for a silent question: say "can't hear you, type instead" once.
@@ -225,32 +273,16 @@ question/follow-up plan/silence count.
         self._begin_playback_wait()
         await self._speak_one(text)
         self._append_to_last_assistant(text)
-        db = SessionLocal()
         try:
-            session = self._load_session(db)
-            if session is not None:
-                try:
-                    append_last_turn_flag(
-                        db,
-                        session,
-                        "silence_probe",
-                        {"seq": NUDGE_PROBE_CAP + 1, "type": "closing", "text": text},
-                    )
-                except Exception:
-                    logger.warning(
-                        "closing nudge ledger write failed sid=%s",
-                        self.ctx.session_id,
-                        exc_info=True,
-                    )
-        finally:
-            try:
-                db.close()
-            except Exception:
-                logger.debug(
-                    "closing nudge DB close failed sid=%s",
-                    self.ctx.session_id,
-                    exc_info=True,
-                )
+            await self._persist_probe_flag(
+                {"seq": NUDGE_PROBE_CAP + 1, "type": "closing", "text": text},
+            )
+        except Exception:
+            logger.warning(
+                "closing nudge ledger write failed sid=%s",
+                self.ctx.session_id,
+                exc_info=True,
+            )
         await self._open_mic_after_playback(wait_playback=True)
 
     def _last_assistant_text(self) -> str:

@@ -7,6 +7,7 @@ in the records domain after the interview_finished hook.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -25,6 +26,44 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _finish_notify_sync(session_id: int) -> tuple[bool, Any, Any]:
+    """Blocking finish path: freeze the session and snapshot the outcome.
+
+    Self-contained session lifecycle (open/close inside the thread, same
+    convention as session_registry). Returns ``(already_frozen,
+    overall_score, result)`` — the scalars are read AFTER the lifecycle
+    commit and BEFORE the session closes, because the ORM expires attributes
+    on commit and the async side must not touch the instance afterwards.
+    """
+    db = SessionLocal()
+    try:
+        session = (
+            db.query(InterviewSession)
+            .filter(InterviewSession.id == session_id)
+            .first()
+        )
+        if not session:
+            return False, None, None
+
+        # Already finished with a frozen ledger: client only needs interview_complete.
+        already_frozen = (
+            session.status == SessionStatus.COMPLETED.value and is_frozen(session)
+        )
+        if not already_frozen:
+            run_finish_lifecycle(db, session, mark_completed=True)
+        # Snapshot after the commit-triggered expiry, before close():
+        # the attribute access re-fetches the row inside this thread.
+        return already_frozen, session.overall_score, getattr(session, "result", None)
+    finally:
+        try:
+            db.close()
+        except Exception:
+            logger.debug(
+                "finish-notify DB close failed sid=%s",
+                session_id,
+                exc_info=True,
+            )
+
 class ReportSchedulerMixin:
     """Background finish notify. Depends on ctx.session_id / report_task / send / _spawn."""
 
@@ -42,27 +81,22 @@ class ReportSchedulerMixin:
         self.ctx.report_task = self._spawn(self._generate_report_bg())
 
     async def _generate_report_bg(self) -> None:
-        db = SessionLocal()
         try:
-            session = (
-                db.query(InterviewSession)
-                .filter(InterviewSession.id == self.ctx.session_id)
-                .first()
+            # Blocking finish work (load / freeze / lifecycle commit) runs in
+            # a worker thread; only the awaited notifications stay on the loop.
+            already_frozen, overall_score, result = await asyncio.to_thread(
+                _finish_notify_sync, self.ctx.session_id
             )
-            if not session:
+            if overall_score is None and result is None and not already_frozen:
+                # _finish_notify_sync found no session row.
                 return
-
-            # Already finished with a frozen ledger: client only needs interview_complete.
-            if (
-                session.status == SessionStatus.COMPLETED.value
-                and is_frozen(session)
-            ):
+            if already_frozen:
                 try:
                     await self.send(
                         "interview_complete",
                         session_id=self.ctx.session_id,
-                        overall_score=session.overall_score,
-                        result=getattr(session, "result", None),
+                        overall_score=overall_score,
+                        result=result,
                     )
                 except Exception:
                     logger.debug(
@@ -71,8 +105,6 @@ class ReportSchedulerMixin:
                         exc_info=True,
                     )
                 return
-
-            run_finish_lifecycle(db, session, mark_completed=True)
             # Wait for the closing TTS playback before announcing completion:
             # `interview_complete` is the frontend's safe-to-navigate signal.
             # Without this, it races the spoken wrap-up (assistant_done is
@@ -94,8 +126,8 @@ class ReportSchedulerMixin:
                 await self.send(
                     "interview_complete",
                     session_id=self.ctx.session_id,
-                    overall_score=session.overall_score,
-                    result=getattr(session, "result", None),
+                    overall_score=overall_score,
+                    result=result,
                 )
             except Exception:
                 logger.debug(
@@ -107,12 +139,3 @@ class ReportSchedulerMixin:
             logger.exception(
                 "finish notify failed sid=%s: %s", self.ctx.session_id, e
             )
-        finally:
-            try:
-                db.close()
-            except Exception:
-                logger.debug(
-                    "finish-notify DB close failed sid=%s",
-                    self.ctx.session_id,
-                    exc_info=True,
-                )

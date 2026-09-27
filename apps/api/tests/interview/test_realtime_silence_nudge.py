@@ -16,7 +16,13 @@ from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 def _make_handler(sid=301):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
     ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
-    return InterviewWSHandler(ws, session_id=sid)
+    h = InterviewWSHandler(ws, session_id=sid)
+    # Persona / ledger workers hit the DB in a thread; stubbed here.
+    h._read_persona = (
+        lambda: asyncio.sleep(0, result=("professional", 3, "tech"))
+    )  # type: ignore[method-assign]
+    h._persist_probe_flag = lambda payload: asyncio.sleep(0)  # type: ignore[method-assign]
+    return h
 
 
 def _agent_with_assistant(text="\u8bf7\u4ecb\u7ecd\u4e00\u4e0b\u4f60\u81ea\u5df1?"):
@@ -186,15 +192,17 @@ async def test_nudge_session_missing_and_fallback_and_ledger_fail():
         h.ctx.silence_probe_seq = 0
         h.ctx.silence_capped = False
         h.ctx.last_silence_probe = "same?"
-        h._load_session = MagicMock(return_value=None)  # type: ignore[method-assign]
+        # Persona load finding no session row -> early return (the old
+        # _load_session None branch, now off-loop in _read_persona).
+        h._read_persona = lambda: asyncio.sleep(0, result=None)  # type: ignore[method-assign]
         h._generate_silence_probe = AsyncMock(return_value="x")  # type: ignore[method-assign]
-        db = MagicMock()
-        db.close = MagicMock(side_effect=RuntimeError("close boom"))
-        with patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db):
-            await h._on_silence_nudge()  # session None -> early return, close fails swallowed
+        await h._on_silence_nudge()
         # fallback to orchestrator when probe empty/duplicate + ledger failure
         h.ctx.last_nudge_at = 0.0
         h.ctx.silence_probe_seq = 0
+        h._read_persona = (
+            lambda: asyncio.sleep(0, result=("professional", 3, "tech"))
+        )  # type: ignore[method-assign]
         sess = MagicMock(personality="professional", strictness=3, current_phase="tech")
         h._load_session = MagicMock(return_value=sess)  # type: ignore[method-assign]
         h._generate_silence_probe = AsyncMock(return_value="same?")  # type: ignore[method-assign]

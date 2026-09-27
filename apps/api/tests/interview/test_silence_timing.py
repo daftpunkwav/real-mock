@@ -92,6 +92,11 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
 
     mixin.send = send  # type: ignore[method-assign]
     mixin.set_turn = set_turn  # type: ignore[method-assign]
+    # Persona / ledger workers hit the DB in a thread; unit tests stub them.
+    mixin._read_persona = (
+        lambda: asyncio.sleep(0, result=("professional", 3, "tech"))
+    )  # type: ignore[method-assign]
+    mixin._persist_probe_flag = lambda payload: asyncio.sleep(0)  # type: ignore[method-assign]
     # The real method is synchronous (raises generation, clears event).
     mixin._begin_playback_wait = lambda: None  # type: ignore[method-assign]
     mixin._load_session = lambda db: None  # type: ignore[method-assign]
