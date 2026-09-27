@@ -159,7 +159,7 @@ async def test_report_scheduler_send_fail_after_lifecycle():
 
 @pytest.mark.asyncio
 async def test_first_finish_emits_interview_complete_despite_none_score():
-    """Regression (self-review P1): a first finish legitimately has None
+    """A first finish legitimately has None
     score/result (the debrief writes the score later), but that state must
     NOT be mistaken for a missing row — interview_complete must go out."""
     h = _make_handler()

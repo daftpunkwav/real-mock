@@ -243,11 +243,11 @@ def test_garbage_summary_counts_as_failure():
     assert len(agent.messages) == 2
 
 
-# ---- consecutive compactions + concurrency guard (P0-1 regression) ----
+# ---- consecutive compactions + concurrency guard ----
 
 
 def test_two_consecutive_compactions_keep_indexes_consistent():
-    """P0-1 regression: after the first splice, step_start must stay valid.
+    """Regression: after the first splice, step_start must stay valid.
 
     The first step is summarized; the second step is below the threshold and
     stays verbatim — but the boundary machinery must remain in range.

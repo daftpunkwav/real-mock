@@ -131,7 +131,6 @@ class SilenceNudgeMixin:
 
     if TYPE_CHECKING:
         # Members provided by sibling mixins of the composed InterviewWSHandler.
-        _load_session: Callable[..., InterviewSession | None]
         _generate_silence_probe: Callable[..., Coroutine[Any, Any, str]]
         set_turn: Callable[[TurnState], Coroutine[Any, Any, None]]
         send: Callable[..., Coroutine[Any, Any, None]]

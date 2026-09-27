@@ -103,7 +103,7 @@ def _ip_is_safe(ip: ipaddress._BaseAddress, *, allow_local: bool) -> bool:
     provider allowlist: the dev machine runs a fake-IP proxy that resolves
     all public hostnames into this range. Narrowing it to specific providers
     would reject every other BYOK api_base outright. This is a deliberate,
-    environment-bound tradeoff -- see docs/operations/security.md.
+    environment-bound tradeoff, kept deliberately.
     """
     if allow_local and _is_loopback_ip(ip):
         return True
