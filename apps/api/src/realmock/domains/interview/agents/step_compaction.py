@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 _STATE_KEY = "steps"
 
-SUMMARY_KEYS = (
+_SUMMARY_KEYS = (
     "topics",
     "evidence",
     "verified",
@@ -124,7 +124,7 @@ def _json_dumps(value: Any) -> str:
 def _parse_summary(raw: object) -> dict[str, Any] | None:
     if not isinstance(raw, dict) or not raw:
         return None
-    if not any(isinstance(raw.get(k), list) and raw.get(k) for k in SUMMARY_KEYS):
+    if not any(isinstance(raw.get(k), list) and raw.get(k) for k in _SUMMARY_KEYS):
         return None  # empty/garbage summary counts as a failure
     return raw
 
@@ -443,7 +443,7 @@ async def compact_step_boundary(
     return True
 
 
-async def compact_pending_boundaries(
+async def compact_accumulated_boundaries(
     agent: "InterviewSessionState",
     boundary: dict[str, Any],
     *,
@@ -451,8 +451,11 @@ async def compact_pending_boundaries(
 ) -> bool:
     """Compact previously failed segments plus the new boundary in one pass.
 
-    The failed segments sit contiguously before the new step's segment; they
-    are summarized together so accumulate-and-retry stays a single call.
+    The accumulated (previously failed) segments sit contiguously before the
+    new step's segment; they are summarized together so accumulate-and-retry
+    stays a single call. Distinct from the ``steps["pending"]`` queue: that
+    one holds captured-but-not-yet-run descriptors (see
+    :func:`_take_pending_boundary`); this merges the failed-chain entries.
     """
     failed: list[dict[str, Any]] = agent.agent_state.get("failed_steps", [])
     if not failed:
@@ -586,7 +589,7 @@ def spawn_boundary_compaction(
                 current = _take_pending_boundary(agent, boundary)
                 popped = True
                 await asyncio.wait_for(
-                    compact_pending_boundaries(agent, current, llm=llm),
+                    compact_accumulated_boundaries(agent, current, llm=llm),
                     timeout=COMPACT.budget_seconds,
                 )
             except asyncio.TimeoutError:

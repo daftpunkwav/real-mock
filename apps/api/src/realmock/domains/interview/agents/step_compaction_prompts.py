@@ -41,7 +41,4 @@ Covered topics / Evidence highlights / Verified / Suspicious / Weak points /
 Agreed facts / Open threads.
 """
 
-STEP_SUMMARY_SYSTEM = STEP_SUMMARY_PROMPT
-STEP_ROLLUP_SYSTEM = STEP_ROLLUP_PROMPT
-
-__all__ = ["STEP_ROLLUP_PROMPT", "STEP_ROLLUP_SYSTEM", "STEP_SUMMARY_PROMPT", "STEP_SUMMARY_SYSTEM"]
+__all__ = ["STEP_ROLLUP_PROMPT", "STEP_SUMMARY_PROMPT"]

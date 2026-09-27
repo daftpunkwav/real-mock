@@ -13,7 +13,7 @@ from types import SimpleNamespace as NS
 
 from realmock.domains.interview.agents.memory.cognitive_graph import CompetencyStatus
 from realmock.domains.interview.agents.step_compaction import (
-    compact_pending_boundaries,
+    compact_accumulated_boundaries,
     compact_step_boundary,
     record_step_boundary,
 )
@@ -174,7 +174,7 @@ def test_three_failures_keep_raw_and_defer_to_next_boundary():
     }
 
     async def run2():
-        return await compact_pending_boundaries(agent, next_boundary, llm=llm2)
+        return await compact_accumulated_boundaries(agent, next_boundary, llm=llm2)
 
     assert asyncio.run(run2()) is True
     assert llm2.calls == 1
@@ -402,7 +402,7 @@ def test_failed_chain_gives_up_after_max_failed_rounds():
         for _ in range(COMPACT.max_failed_rounds + 1):
             agent.messages.extend(_big_transcript()[1:])
             boundary = record_step_boundary(agent)
-            await compact_pending_boundaries(agent, boundary, llm=down)
+            await compact_accumulated_boundaries(agent, boundary, llm=down)
 
     asyncio.run(run())
     # Rounds 1..3 booked the (merged) segment; round 4 dead-lettered it.
