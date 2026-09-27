@@ -176,7 +176,13 @@ class LLMClient:
         if system:
             payload_messages = [{"role": "system", "content": system}, *payload_messages]
         if self.protocol != DEFAULT_LLM_PROTOCOL:
-            return await self._delegate().chat(payload_messages, temperature=temperature, response_format=response_format, tools=tools)
+            return await self._delegate().chat(
+                payload_messages,
+                temperature=temperature,
+                response_format=response_format,
+                tools=tools,
+                max_tokens=max_tokens,
+            )
         await self._safe_check()
         url = self._endpoint("/chat/completions")
         payload = self._build_payload(

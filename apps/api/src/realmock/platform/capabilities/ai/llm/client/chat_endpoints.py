@@ -50,10 +50,17 @@ async def chat(
     temperature: float = 0.7,
     response_format: dict[str, str] | None = None,
     tools: list[dict[str, Any]] | None = None,
+    max_tokens: int | None = None,
 ) -> str:
     await client._safe_check()
     url, payload = client._build_url_and_payload(
-        messages, system=system, stream=False, temperature=temperature, response_format=response_format, tools=tools
+        messages,
+        system=system,
+        stream=False,
+        temperature=temperature,
+        response_format=response_format,
+        tools=tools,
+        max_tokens_override=max_tokens,
     )
     # Keep DNS resolution off the event loop (same convention as web_fetch).
     pinned = await asyncio.to_thread(
@@ -171,8 +178,12 @@ async def chat_message(
     async with pinned as http:
         client.usage.note_request_start()
         try:
-            resp = await http.post(
-                url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
+            # 429/5xx exponential backoff retry, consistent with the non-streaming
+            # openai_chat path and the streaming ladder semantics.
+            resp = await _retry_request(
+                lambda: http.post(
+                    url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
+                )
             )
             resp.raise_for_status()
             client.usage.note_response_meta(getattr(resp, "headers", None))

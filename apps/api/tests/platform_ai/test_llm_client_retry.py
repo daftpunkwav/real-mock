@@ -123,6 +123,82 @@ async def test_chat_allows_loopback_in_dev(monkeypatch: pytest.MonkeyPatch) -> N
     assert text == "ok"
 
 
+
+
+# ── UnifiedLLMClient non-streaming chat_message (chat_endpoints: shared retry semantics) ──────
+
+
+@pytest.mark.asyncio
+async def test_unified_chat_message_429_retries_then_returns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unified chat_message must retry 429 on the shared ladder, same as chat and both streaming paths."""
+    _patch_settings(monkeypatch, allow_local=False)
+    from realmock.platform.capabilities.ai.llm.client import UnifiedLLMClient
+
+    client = UnifiedLLMClient(
+        api_base="https://api.openai.com/v1",
+        api_key="sk-test-key",
+        model="gpt-4o",
+    )
+    # Skip the SSRF DNS resolution; retry semantics are the focus.
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.unified_client.is_safe_http_url",
+        lambda *a, **kw: True,
+    )
+
+    succ = MagicMock(spec=httpx.Response)
+    succ.status_code = 200
+    succ.json.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    succ.raise_for_status = MagicMock()
+
+    http_client = AsyncMock()
+    http_client.post = AsyncMock(
+        side_effect=[
+            httpx.HTTPStatusError(
+                "429", request=MagicMock(), response=MagicMock(status_code=429)
+            ),
+            httpx.HTTPStatusError(
+                "429", request=MagicMock(), response=MagicMock(status_code=429)
+            ),
+            succ,
+        ]
+    )
+    with patch("realmock.platform.capabilities.ai.llm.client.chat_endpoints.make_pinned_async_client") as ac:
+        ac.return_value.__aenter__.return_value = http_client
+        ac.return_value.__aexit__.return_value = False
+        with patch("realmock.platform.capabilities.ai.llm.retry_policy.asyncio.sleep", new=AsyncMock()):
+            message = await client.chat_message([{"role": "user", "content": "hi"}])
+    assert message["content"] == "ok"
+    assert http_client.post.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_unified_chat_message_4xx_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unified chat_message fails fast on 4xx like every other path."""
+    _patch_settings(monkeypatch, allow_local=False)
+    from realmock.platform.capabilities.ai.llm.client import UnifiedLLMClient
+
+    client = UnifiedLLMClient(
+        api_base="https://api.openai.com/v1",
+        api_key="sk-test-key",
+        model="gpt-4o",
+    )
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.unified_client.is_safe_http_url",
+        lambda *a, **kw: True,
+    )
+    http_client = AsyncMock()
+    fake_resp = MagicMock(spec=httpx.Response)
+    fake_resp.status_code = 400
+    fake_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "400", request=MagicMock(), response=fake_resp
+    )
+    http_client.post = AsyncMock(return_value=fake_resp)
+    with patch("realmock.platform.capabilities.ai.llm.client.chat_endpoints.make_pinned_async_client") as ac:
+        ac.return_value.__aenter__.return_value = http_client
+        ac.return_value.__aexit__.return_value = False
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.chat_message([{"role": "user", "content": "hi"}])
+    assert http_client.post.await_count == 1
 # ── Streaming tool-round assembler (chat_message_stream events → message assembly) ──────────
 
 

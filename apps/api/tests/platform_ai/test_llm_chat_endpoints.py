@@ -45,6 +45,8 @@ async def test_chat_success_records_usage() -> None:
     client = _client()
     http = AsyncMock()
     resp = MagicMock(spec=httpx.Response)
+    resp.status_code = 200
+    resp.request = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.json.return_value = {"choices": [{"message": {"content": "hi"}}], "usage": {}}
     with (
@@ -80,6 +82,8 @@ async def test_test_connection_success_truncates() -> None:
     client = _client()
     http = AsyncMock()
     resp = MagicMock(spec=httpx.Response)
+    resp.status_code = 200
+    resp.request = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.json.return_value = {"choices": [{"message": {"content": "x" * 200}}]}
     http.post = AsyncMock(return_value=resp)
@@ -110,6 +114,8 @@ async def test_test_connection_business_error_body_is_failure() -> None:
     client = _client()
     http = AsyncMock()
     resp = MagicMock(spec=httpx.Response)
+    resp.status_code = 200
+    resp.request = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.json.return_value = {"base_resp": {"status_code": 1004, "status_msg": "invalid api key"}}
     http.post = AsyncMock(return_value=resp)
@@ -135,6 +141,8 @@ async def test_chat_message_with_reasoning() -> None:
     client = _client()
     http = AsyncMock()
     resp = MagicMock(spec=httpx.Response)
+    resp.status_code = 200
+    resp.request = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.json.return_value = {
         "choices": [
@@ -162,6 +170,8 @@ async def test_chat_message_no_reasoning_no_tools() -> None:
     client = _client()
     http = AsyncMock()
     resp = MagicMock(spec=httpx.Response)
+    resp.status_code = 200
+    resp.request = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.json.return_value = {"choices": [{"message": {"content": "hi"}}]}
     http.post = AsyncMock(return_value=resp)
@@ -187,6 +197,8 @@ async def test_chat_message_anthropic_and_responses_shapes() -> None:
         client = _client(protocol=protocol)
         http = AsyncMock()
         resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        resp.request = MagicMock()
         resp.raise_for_status = MagicMock()
         resp.json.return_value = data
         http.post = AsyncMock(return_value=resp)

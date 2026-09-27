@@ -116,12 +116,13 @@ class UnifiedLLMClient:
         response_format: dict[str, str] | None = None,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, Any] | None = None,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict[str, Any]]:
         url, payload = build_request(
             self.protocol,
             self.api_base,
             self.model,
-            self.max_tokens,
+            max_tokens_override if max_tokens_override is not None else self.max_tokens,
             self.reasoning_effort,
             messages,
             system=system,
@@ -147,11 +148,14 @@ class UnifiedLLMClient:
         temperature: float = 0.7,
         response_format: dict[str, str] | None = None,
         tools: list[dict[str, Any]] | None = None,
+        max_tokens: int | None = None,
         purpose: str | None = None,
     ) -> str:
         """Non-streaming text replies (see :mod:`chat_endpoints` for implementation).
 
-        ``purpose`` is observability-only (debug log, never sent to the provider).
+        ``max_tokens`` caps this single call (falls back to the profile-level
+        budget when omitted). ``purpose`` is observability-only (debug log,
+        never sent to the provider).
         """
         if purpose:
             logger.debug("LLM chat purpose=%s model=%s", purpose, self.model)
@@ -162,6 +166,7 @@ class UnifiedLLMClient:
             temperature=temperature,
             response_format=response_format,
             tools=tools,
+            max_tokens=max_tokens,
         )
 
     async def test_connection(self) -> tuple[bool, str]:

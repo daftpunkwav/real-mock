@@ -163,6 +163,36 @@ async def test_chat_delegates_for_non_default_protocol() -> None:
     with patch.object(LLMClient, "_delegate", return_value=delegate):
         assert await c.chat([{"role": "user", "content": "hi"}]) == "delegated"
 
+@pytest.mark.asyncio
+async def test_chat_delegation_forwards_max_tokens() -> None:
+    """A per-call max_tokens cap must survive the protocol delegation."""
+    c = _client(protocol=LLMProtocol.ANTHROPIC_MESSAGES)
+    delegate = MagicMock()
+    delegate.chat = AsyncMock(return_value="delegated")
+    with patch.object(LLMClient, "_delegate", return_value=delegate):
+        await c.chat([{"role": "user", "content": "hi"}], max_tokens=400)
+    _, kwargs = delegate.chat.call_args
+    assert kwargs["max_tokens"] == 400
+
+def test_unified_payload_max_tokens_override() -> None:
+    """max_tokens_override replaces the profile-level budget in the translated payload."""
+    from realmock.platform.capabilities.ai.llm.client import UnifiedLLMClient
+    from realmock.platform.core.constants import LLMProtocol as _LP
+
+    uc = UnifiedLLMClient(
+        api_base="https://api.anthropic.com",
+        api_key="sk-test",
+        model="claude-3",
+        protocol=_LP.ANTHROPIC_MESSAGES,
+        max_tokens=8000,
+    )
+    _, payload = uc._build_url_and_payload(
+        [{"role": "user", "content": "hi"}], max_tokens_override=400
+    )
+    assert payload["max_tokens"] == 400
+    _, payload = uc._build_url_and_payload([{"role": "user", "content": "hi"}])
+    assert payload["max_tokens"] == 8000
+
 
 @pytest.mark.asyncio
 async def test_chat_blocks_unsafe() -> None:
