@@ -277,3 +277,86 @@ describe("usePrepChatSession.startPrep", () => {
     expect(window.localStorage.getItem(RESTORE_KEY)).toBeNull();
   });
 });
+
+describe("usePrepChatSession.create supersedes in-flight ops", () => {
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it("keeps the created session when a slow mount restore lands later", async () => {
+    window.localStorage.setItem(RESTORE_KEY, "9");
+    const slow = deferred<{ role: string; content: string }[]>();
+    mockedPrepMessages.mockImplementationOnce(() => slow.promise as never);
+    mockedCreatePrepSession.mockResolvedValue({ id: 11 } as never);
+    const options = makeOptions();
+    const { result } = renderSessionHook(options);
+
+    await act(async () => {
+      await result.current.startPrep();
+    });
+    expect(result.current.prepSessionId).toBe(11);
+
+    // The stale restore resolves after the create: it must not commit.
+    await act(async () => {
+      slow.resolve([{ role: "user", content: "stale history" }]);
+    });
+
+    expect(result.current.prepSessionId).toBe(11);
+    expect(window.localStorage.getItem(RESTORE_KEY)).toBe("11");
+    const lastMessagesCall = vi.mocked(options.setMessages).mock.calls.at(-1);
+    expect(lastMessagesCall?.[0]).toEqual([
+      expect.objectContaining({ role: "assistant", localOnly: true }),
+    ]);
+    expect(result.current.restoring).toBe(false);
+  });
+
+  it("keeps the created session when a slow switch lands later", async () => {
+    const slow = deferred<{ role: string; content: string }[]>();
+    mockedPrepMessages.mockImplementationOnce(() => slow.promise as never);
+    mockedCreatePrepSession.mockResolvedValue({ id: 11 } as never);
+    const { result } = renderSessionHook(makeOptions());
+
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.switchSession(7);
+    });
+    await act(async () => {
+      await result.current.startPrep();
+    });
+    await act(async () => {
+      slow.resolve([{ role: "user", content: "stale history" }]);
+      await pending;
+    });
+
+    expect(result.current.prepSessionId).toBe(11);
+    expect(window.localStorage.getItem(RESTORE_KEY)).toBe("11");
+    expect(result.current.restoring).toBe(false);
+  });
+
+  it("keeps the created session when a superseded restore fails", async () => {
+    window.localStorage.setItem(RESTORE_KEY, "9");
+    const failing = deferred<never>();
+    mockedPrepMessages.mockImplementationOnce(() => failing.promise as never);
+    mockedCreatePrepSession.mockResolvedValue({ id: 11 } as never);
+    const { result } = renderSessionHook(makeOptions());
+
+    await act(async () => {
+      await result.current.startPrep();
+    });
+    await act(async () => {
+      failing.reject(new Error("late failure"));
+    });
+
+    // The stale restore's failure path must not wipe the new session's key.
+    expect(result.current.prepSessionId).toBe(11);
+    expect(window.localStorage.getItem(RESTORE_KEY)).toBe("11");
+    expect(result.current.prepError).toBe("");
+    expect(result.current.restoring).toBe(false);
+  });
+});

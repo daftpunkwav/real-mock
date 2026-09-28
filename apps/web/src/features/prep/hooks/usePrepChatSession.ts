@@ -138,7 +138,11 @@ export function usePrepChatSession({
 
   /** Guard against overlapping session restores. */
   const restoringRef = useRef(false);
-  /** Monotonic switch sequence: stale (superseded) switches never commit state. */
+  /**
+   * Monotonic view-generation sequence shared by restore, switch, and create:
+   * each async op commits only while it is still the latest, so a slow
+   * restore/switch can never clobber a newer session choice.
+   */
   const switchSeqRef = useRef(0);
   /** Guard async restores after unmount. */
   const aliveRef = useRef(true);
@@ -187,11 +191,12 @@ export function usePrepChatSession({
   useEffect(() => {
     const saved = Number(window.localStorage.getItem(RESTORE_KEY) || 0);
     if (!saved) return;
+    const seq = ++switchSeqRef.current;
     restoringRef.current = true;
     setRestoring(true);
     loadHistory(saved)
       .then((list) => {
-        if (!aliveRef.current) return;
+        if (!aliveRef.current || seq !== switchSeqRef.current) return;
         const restored = mapHistoryMessages(list, nextMsgId);
         if (restored.length === 0) throw new Error("empty session");
         setPrepSessionId(saved);
@@ -212,10 +217,13 @@ export function usePrepChatSession({
           .catch(() => {});
       })
       .catch(() => {
-        if (aliveRef.current) window.localStorage.removeItem(RESTORE_KEY);
+        // A superseded restore must not drop the key: the op that superseded
+        // it (create/switch) may have written a newer session id already.
+        if (!aliveRef.current || seq !== switchSeqRef.current) return;
+        window.localStorage.removeItem(RESTORE_KEY);
       })
       .finally(() => {
-        if (aliveRef.current) {
+        if (aliveRef.current && seq === switchSeqRef.current) {
           restoringRef.current = false;
           setRestoring(false);
         }
@@ -296,12 +304,17 @@ export function usePrepChatSession({
 
   const startPrep = useCallback(async () => {
     const t = getTranslator("prep");
+    // Creating supersedes any in-flight restore/switch: the user's explicit
+    // new-session choice must win, and the superseded op leaves the restoring
+    // flags to us (its finally skips when no longer latest).
+    const seq = ++switchSeqRef.current;
     setStarting(true);
     setPrepError("");
     try {
       const { id } = await api.createPrepSession({
         resume_id: resumeId ?? undefined,
       });
+      if (!aliveRef.current || seq !== switchSeqRef.current) return null;
       setPrepSessionId(id);
       window.localStorage.setItem(RESTORE_KEY, String(id));
       setTokenUsage(0);
@@ -324,11 +337,17 @@ export function usePrepChatSession({
       return null;
     } finally {
       setStarting(false);
+      // Only the latest op owns the restoring flags; a superseded create left
+      // them to whoever superseded it.
+      if (seq === switchSeqRef.current) {
+        restoringRef.current = false;
+        setRestoring(false);
+      }
     }
   }, [nextMsgId, resumeId, refreshSessions, setMessages, syncBackendCount, resetContext]);
 
   const handleNewSession = async () => {
-    if (starting || restoringRef.current) return;
+    if (starting) return;
     setAskDialog(null);
     await startPrep();
   };
