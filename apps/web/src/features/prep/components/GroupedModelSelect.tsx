@@ -57,8 +57,8 @@ export function GroupedModelSelect({
   const selected = models.find((m) => m.id === effectiveValue) ?? null;
   const selectedProvider = (selected?.provider_name ?? "").trim();
   const activeModels = groups.find((g) => g.provider === activeProvider)?.models ?? [];
-  // Window suffix: the effective context window travels with the label so a
-  // mismatch between the configured value and the runtime budget is visible.
+  // Window shown only in the menu rows and hover tooltip, never on the closed
+  // trigger: picking stays informed without cluttering the composer bar.
   const labelWithWindow = (m: ModelProfile) =>
     m.context_window > 0 ? `${m.label} · ${formatTokens(m.context_window)}` : m.label;
 
@@ -96,13 +96,11 @@ export function GroupedModelSelect({
         }}
         className="flex h-7 w-auto min-w-0 max-w-[220px] items-center justify-between gap-1.5 rounded-md bg-transparent px-1.5 text-[12px] text-ink transition-colors hover:bg-surface-muted focus:outline-none focus-visible:bg-surface-muted"
       >
-        <span className="flex min-w-0 flex-1 items-baseline gap-1.5" title={selected ? labelWithWindow(selected) : undefined}>
-          <span className="min-w-0 flex-1 truncate">
-            {selected?.label ?? (!defaultProfile ? t("model.notSet") : "")}
-          </span>
-          {selected && selected.context_window > 0 ? (
-            <span className="shrink-0 text-[10px] text-ink-subtle">{formatTokens(selected.context_window)}</span>
-          ) : null}
+        <span
+          className="min-w-0 flex-1 truncate"
+          title={selected ? labelWithWindow(selected) : undefined}
+        >
+          {selected?.label ?? (!defaultProfile ? t("model.notSet") : "")}
         </span>
         <ChevronDown size={14} className="shrink-0 text-ink-subtle" />
       </button>

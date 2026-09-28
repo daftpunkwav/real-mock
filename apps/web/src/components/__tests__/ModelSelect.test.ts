@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LocaleProvider } from "@/i18n/LocaleProvider";
 import type { ModelProfile } from "@/types";
-import { ModelSelect } from "../ModelSelect";
+import { EffortSelect, ModelSelect } from "../ModelSelect";
 
 afterEach(() => cleanup());
 
@@ -67,5 +67,32 @@ describe("ModelSelect", () => {
     fireEvent.click(screen.getByRole("combobox"));
     // Selected button + dropdown option both render it.
     expect(screen.getAllByText("Not set")).toHaveLength(2);
+  });
+});
+
+describe("EffortSelect", () => {
+  // Effort values are provider protocol terms: never translated, in any locale.
+  it("shows effort values verbatim and reports them unchanged", () => {
+    const onChange = vi.fn();
+    const reasoningModel: ModelProfile = {
+      ...WHISPER,
+      capabilities: { ...WHISPER.capabilities, reasoning: true },
+      extras: { reasoning: { variants: ["low", "medium", "high", "xhigh", "max"] } },
+    };
+    render(
+      createElement(LocaleProvider, null, [
+        createElement(EffortSelect, {
+          key: "e",
+          model: reasoningModel,
+          value: "low",
+          onChange,
+        }),
+      ]),
+    );
+    fireEvent.click(screen.getByRole("combobox"));
+    // Both default-scale and custom variants render as their raw values.
+    expect(screen.getByText("medium")).toBeTruthy();
+    fireEvent.click(screen.getByText("xhigh"));
+    expect(onChange).toHaveBeenCalledWith("xhigh");
   });
 });

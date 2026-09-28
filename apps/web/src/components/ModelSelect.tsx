@@ -5,22 +5,13 @@
 import { memo } from "react";
 import { Brain } from "lucide-react";
 import type { ModelProfile, ReasoningEffort } from "@/types";
-import { useT, type MessageKey } from "@/i18n";
+import { useT } from "@/i18n";
 import { Select } from "@/components/Select";
 
-/** Effort options; label is an i18n key resolved at render (cannot call useT at module top level). */
-export const EFFORT_OPTIONS: {
-  value: ReasoningEffort;
-  labelKey: MessageKey<"common">;
-}[] = [
-  { value: "low", labelKey: "model.effort.low" },
-  { value: "medium", labelKey: "model.effort.medium" },
-  { value: "high", labelKey: "model.effort.high" },
-  { value: "max", labelKey: "model.effort.max" },
-];
+/** Default effort scale when the model declares no custom variants. */
+export const EFFORT_OPTIONS: ReasoningEffort[] = ["low", "medium", "high", "max"];
 
-/** Custom thinking levels declared on the model (extras.reasoning.variants);
- * labels outside the default scale are passed verbatim to the provider. */
+/** Custom thinking levels declared on the model (extras.reasoning.variants). */
 export function modelEffortOptions(model: ModelProfile | null): ReasoningEffort[] {
   const reasoning = model?.extras?.reasoning;
   if (typeof reasoning === "object" && reasoning !== null && !Array.isArray(reasoning)) {
@@ -33,7 +24,7 @@ export function modelEffortOptions(model: ModelProfile | null): ReasoningEffort[
       if (cleaned.length > 0) return cleaned;
     }
   }
-  return EFFORT_OPTIONS.map((o) => o.value);
+  return [...EFFORT_OPTIONS];
 }
 
 /** Model select (value=profile id; null=follow default handler binding, shown as a normal selected item) */
@@ -101,11 +92,8 @@ export const EffortSelect = memo(function EffortSelect({
 }) {
   const t = useT("common");
   if (!forceVisible && !model?.capabilities.reasoning) return null;
-  // Model-declared custom levels win; default four-level scale otherwise.
-  const options = modelEffortOptions(model).map((value) => {
-    const known = EFFORT_OPTIONS.find((o) => o.value === value);
-    return { value, label: known ? t(known.labelKey) : value };
-  });
+  // Effort values are provider protocol terms: shown verbatim in every locale.
+  const options = modelEffortOptions(model).map((value) => ({ value, label: value }));
   return (
     <div className="flex w-full items-center gap-1.5">
       {!hideIcon && <Brain size={14} className="shrink-0 text-ink-subtle" />}

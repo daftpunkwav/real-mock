@@ -15,10 +15,13 @@ export function useDialogScrollLock(active: boolean) {
     const root = document.documentElement;
     const previousOverflow = root.style.overflow;
     const previousGutter = root.style.scrollbarGutter;
-    root.style.overflow = "hidden";
     // Keep the scrollbar slot reserved, otherwise content widens by the
-    // scrollbar width the moment the viewport scrollbar disappears.
-    root.style.scrollbarGutter = "stable";
+    // scrollbar width the moment the viewport scrollbar disappears. Only when
+    // a scrollbar was actually there, though: on a page that fits the viewport
+    // an unconditional reservation would itself shrink the layout on open.
+    const hadScrollbar = root.scrollHeight > root.clientHeight;
+    root.style.overflow = "hidden";
+    if (hadScrollbar) root.style.scrollbarGutter = "stable";
     return () => {
       root.style.overflow = previousOverflow;
       root.style.scrollbarGutter = previousGutter;

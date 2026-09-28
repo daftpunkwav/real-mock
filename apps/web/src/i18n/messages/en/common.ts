@@ -40,10 +40,6 @@ export const common = {
   "load.backendHintSuffix": "). If you just changed the port, restart the frontend.",
 
   // ModelSelect / EffortSelect
-  "model.effort.low": "Low",
-  "model.effort.medium": "Medium",
-  "model.effort.high": "High",
-  "model.effort.max": "Max",
   "model.effort.aria": "Reasoning effort",
   "model.notSet": "Not set",
   "model.useDefault": "Default ({label})",
