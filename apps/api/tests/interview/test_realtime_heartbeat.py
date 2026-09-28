@@ -111,6 +111,24 @@ async def test_lease_fail_notification_failure_still_ends():
 
 
 @pytest.mark.asyncio
+async def test_malformed_teardown_notice_failure_still_ends():
+    """A failing B2004 send on the malformed-frame teardown must not crash
+    the loop end (same graceful None path as the B2002 / B2003 notices)."""
+    h = _make_handler()
+    h.send = AsyncMock(side_effect=RuntimeError("socket gone"))  # type: ignore[method-assign]
+    h.ctx.ws.receive_json = AsyncMock(
+        side_effect=json.JSONDecodeError("bad json", "{", 1)
+    )
+    with patch("realmock.domains.interview.realtime.connection.heartbeat.verify_connection_lease", AsyncMock(return_value=True)):
+        with patch(
+            "realmock.domains.interview.realtime.connection.heartbeat._HEARTBEAT_MAX_MALFORMED",
+            1,
+        ):
+            assert await h.next_message() is None
+    assert h.send.await_args.kwargs.get("code") == "B2004"
+
+
+@pytest.mark.asyncio
 async def test_heartbeat_timeout_notice_failure_still_ends():
     """A failing B2002 send on a vanished client must not crash the loop end.
 

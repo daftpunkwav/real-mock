@@ -171,6 +171,20 @@ def test_append_last_turn_flag_noop_without_turns(db) -> None:
     assert _turns(db, row.id) == []
 
 
+def test_append_last_turn_flag_skipped_when_frozen(db) -> None:
+    """The frozen guard is the realtime silence worker's only protection
+    against writing a probe into a finished transcript: its sync helper
+    reloads the row without a live-status filter, so the column check here
+    is what keeps a completed ledger immutable."""
+    row = _row(db)
+    append_turn(db, row, phase="p", assistant_text="a1")
+    row.ledger_frozen = True
+    db.commit()
+    append_last_turn_flag(db, row, "silence_probe", {"seq": 1})
+    doc = load_ledger(db, _reload(db, row))
+    assert doc["turns"][0].get("flags") is None
+
+
 def test_freeze_ledger_sets_column_and_is_idempotent(db) -> None:
     row = _row(db)
     append_turn(db, row, phase="p", assistant_text="a1")

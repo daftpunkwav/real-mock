@@ -914,3 +914,42 @@ def test_runner_custom_task_spawner(db) -> None:
 
     asyncio.run(run())
 
+
+
+def test_runner_facade_returns_copies_not_internals(db) -> None:
+    """The realtime-facing facade hands out copies (f6865df contract): a
+    caller mutating the snapshot / history list must not reach the agent's
+    working state through the facade, while the documented dict sharing for
+    message CONTENT stays (probe text appends through the facade)."""
+    session = _make_session(db)
+    llm = FakeLLMClient(tokens=[])
+    runner = InterviewRunner(session, llm)
+
+    # agent_state_snapshot: dict copy — mutations stay caller-local.
+    runner.agent.agent_state["candidate_interrupts"] = 0
+    snapshot = runner.agent_state_snapshot()
+    assert snapshot["candidate_interrupts"] == 0
+    snapshot["candidate_interrupts"] = 99
+    snapshot["injected"] = True
+    assert runner.agent.agent_state["candidate_interrupts"] == 0
+    assert "injected" not in runner.agent.agent_state
+
+    # message_history: list structure copied — appends stay caller-local.
+    history = runner.message_history()
+    marker = {"role": "assistant", "content": "Q?"}
+    runner.agent.messages.append(marker)
+    history = runner.message_history()
+    history.append({"role": "user", "content": "forged"})
+    assert all(m.get("content") != "forged" for m in runner.agent.messages)
+    # ...but the message dicts themselves are shared by contract: a content
+    # merge through the facade (silence-nudge probe append) stays visible.
+    history.pop()
+    history[-1]["content"] += "\nprobe?"
+    assert marker["content"] == "Q?\nprobe?"
+
+    # record_interrupt_counts: writes through and returns a merged COPY.
+    returned = runner.record_interrupt_counts(candidate=2, ai=1)
+    assert runner.agent.agent_state["candidate_interrupts"] == 2
+    assert runner.agent.agent_state["ai_interrupts"] == 1
+    returned["candidate_interrupts"] = 77
+    assert runner.agent.agent_state["candidate_interrupts"] == 2

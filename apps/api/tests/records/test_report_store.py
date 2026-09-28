@@ -36,39 +36,39 @@ def test_get_report_row_none(db) -> None:
 
 
 def test_upsert_pending_creates(db) -> None:
-    row = store.upsert_pending(db, 101)
-    assert row.session_id == 101
+    row = store.upsert_pending(db, 900101)
+    assert row.session_id == 900101
     assert row.status == store.STATUS_PENDING
-    assert store.get_report_row(db, 101) is not None
+    assert store.get_report_row(db, 900101) is not None
 
 
 def test_upsert_pending_ready_unchanged(db) -> None:
-    store.persist_ready(db, 102, _make_report())
-    row = store.upsert_pending(db, 102)
+    store.persist_ready(db, 900102, _make_report())
+    row = store.upsert_pending(db, 900102)
     assert row.status == store.STATUS_READY
 
 
 def test_upsert_pending_failed_resets(db) -> None:
-    store.upsert_pending(db, 103)
-    store.mark_failed(db, 103, "boom")
-    row = store.upsert_pending(db, 103)
+    store.upsert_pending(db, 900103)
+    store.mark_failed(db, 900103, "boom")
+    row = store.upsert_pending(db, 900103)
     assert row.status == store.STATUS_PENDING
     assert row.error_message is None
 
 
 def test_is_stale_generating_false_for_non_generating(db) -> None:
-    row = store.upsert_pending(db, 104)
+    row = store.upsert_pending(db, 900104)
     assert store.is_stale_generating(row) is False
 
 
 def test_is_stale_generating_none_updated_is_stale(db) -> None:
     # updated_at=None cannot be committed (NOT NULL); exercise in-memory branch.
-    row = InterviewReportRow(session_id=105, status=store.STATUS_GENERATING, updated_at=None)
+    row = InterviewReportRow(session_id=900105, status=store.STATUS_GENERATING, updated_at=None)
     assert store.is_stale_generating(row) is True
 
 
 def test_is_stale_generating_fresh_vs_stale(db) -> None:
-    row = store.upsert_pending(db, 106)
+    row = store.upsert_pending(db, 900106)
     row.status = store.STATUS_GENERATING
     row.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -79,7 +79,7 @@ def test_is_stale_generating_fresh_vs_stale(db) -> None:
 
 
 def test_reclaim_stale_generating(db) -> None:
-    row = store.upsert_pending(db, 107)
+    row = store.upsert_pending(db, 900107)
     row.status = store.STATUS_GENERATING
     row.updated_at = datetime.now(timezone.utc) - timedelta(minutes=20)
     db.commit()
@@ -89,20 +89,20 @@ def test_reclaim_stale_generating(db) -> None:
 
 
 def test_upsert_pending_reclaims_stale(db) -> None:
-    row = store.upsert_pending(db, 108)
+    row = store.upsert_pending(db, 900108)
     row.status = store.STATUS_GENERATING
     row.updated_at = datetime.now(timezone.utc) - timedelta(minutes=20)
     db.commit()
-    out = store.upsert_pending(db, 108)
+    out = store.upsert_pending(db, 900108)
     assert out.status == store.STATUS_PENDING
 
 
 def test_upsert_pending_keeps_fresh_generating(db) -> None:
-    row = store.upsert_pending(db, 109)
+    row = store.upsert_pending(db, 900109)
     row.status = store.STATUS_GENERATING
     row.updated_at = datetime.now(timezone.utc)
     db.commit()
-    out = store.upsert_pending(db, 109)
+    out = store.upsert_pending(db, 900109)
     assert out.status == store.STATUS_GENERATING
 
 
@@ -111,32 +111,32 @@ def test_mark_failed_missing_row_no_crash(db) -> None:
 
 
 def test_mark_failed_truncates(db) -> None:
-    store.upsert_pending(db, 110)
-    store.mark_failed(db, 110, "e" * 5000)
-    row = store.get_report_row(db, 110)
+    store.upsert_pending(db, 900110)
+    store.mark_failed(db, 900110, "e" * 5000)
+    row = store.get_report_row(db, 900110)
     assert row is not None and row.status == store.STATUS_FAILED
     assert len(row.error_message or "") == 2000
 
 
 def test_mark_failed_empty_message_becomes_none(db) -> None:
-    store.upsert_pending(db, 111)
-    store.mark_failed(db, 111, "")
-    assert store.get_report_row(db, 111).error_message is None  # type: ignore[union-attr]
+    store.upsert_pending(db, 900111)
+    store.mark_failed(db, 900111, "")
+    assert store.get_report_row(db, 900111).error_message is None  # type: ignore[union-attr]
 
 
 def test_persist_ready_creates_and_updates(db) -> None:
-    row = store.persist_ready(db, 112, _make_report(77), model_meta={"source": "t"})
+    row = store.persist_ready(db, 900112, _make_report(77), model_meta={"source": "t"})
     assert row is not None and row.status == store.STATUS_READY
     assert json.loads(row.model_meta)["source"] == "t"
     parsed = store.parse_payload(row)
     assert parsed is not None and parsed.overall_score == 77
     # Update existing
-    row2 = store.persist_ready(db, 112, _make_report(88))
+    row2 = store.persist_ready(db, 900112, _make_report(88))
     assert store.parse_payload(row2).overall_score == 88  # type: ignore[union-attr]
 
 
 def test_parse_payload_empty_and_invalid(db) -> None:
-    row = store.upsert_pending(db, 113)
+    row = store.upsert_pending(db, 900113)
     assert store.parse_payload(row) is None
     row.payload = "not-json"
     db.commit()
@@ -150,36 +150,36 @@ def test_parse_payload_empty_and_invalid(db) -> None:
 def test_reset_for_retry_creates_when_missing(db) -> None:
     # The suite shares one SQLite file; arrange "missing" instead of assuming
     # the hard-coded id is untouched by earlier tests.
-    db.query(InterviewReportRow).filter(InterviewReportRow.session_id == 114).delete()
+    db.query(InterviewReportRow).filter(InterviewReportRow.session_id == 900114).delete()
     db.commit()
-    row = store.reset_for_retry(db, 114)
+    row = store.reset_for_retry(db, 900114)
     assert row.status == store.STATUS_PENDING
 
 
 def test_reset_for_retry_ready_unchanged(db) -> None:
-    store.persist_ready(db, 115, _make_report())
-    row = store.reset_for_retry(db, 115)
+    store.persist_ready(db, 900115, _make_report())
+    row = store.reset_for_retry(db, 900115)
     assert row.status == store.STATUS_READY
 
 
 def test_reset_for_retry_fresh_generating_unchanged(db) -> None:
-    row = store.upsert_pending(db, 116)
+    row = store.upsert_pending(db, 900116)
     row.status = store.STATUS_GENERATING
     row.updated_at = datetime.now(timezone.utc)
     db.commit()
-    out = store.reset_for_retry(db, 116)
+    out = store.reset_for_retry(db, 900116)
     assert out.status == store.STATUS_GENERATING
 
 
 def test_reset_for_retry_failed_and_stale_reset(db) -> None:
-    store.upsert_pending(db, 117)
-    store.mark_failed(db, 117, "boom")
-    assert store.reset_for_retry(db, 117).status == store.STATUS_PENDING
-    row = store.upsert_pending(db, 118)
+    store.upsert_pending(db, 900117)
+    store.mark_failed(db, 900117, "boom")
+    assert store.reset_for_retry(db, 900117).status == store.STATUS_PENDING
+    row = store.upsert_pending(db, 900118)
     row.status = store.STATUS_GENERATING
     row.updated_at = datetime.now(timezone.utc) - timedelta(minutes=30)
     db.commit()
-    assert store.reset_for_retry(db, 118).status == store.STATUS_PENDING
+    assert store.reset_for_retry(db, 900118).status == store.STATUS_PENDING
 
 
 def test_as_aware_naive_and_aware() -> None:
@@ -197,8 +197,8 @@ def test_utcnow_is_aware() -> None:
 
 @pytest.mark.asyncio
 async def test_report_row_unique_session(db) -> None:
-    store.upsert_pending(db, 119)
-    again = store.upsert_pending(db, 119)
-    assert again.session_id == 119
-    rows = db.query(InterviewReportRow).filter(InterviewReportRow.session_id == 119).all()
+    store.upsert_pending(db, 900119)
+    again = store.upsert_pending(db, 900119)
+    assert again.session_id == 900119
+    rows = db.query(InterviewReportRow).filter(InterviewReportRow.session_id == 900119).all()
     assert len(rows) == 1
