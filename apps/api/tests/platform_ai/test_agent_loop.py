@@ -175,7 +175,10 @@ async def test_agent_loop_drift_retry_nudges_short_preamble_once() -> None:
     # Inject the corrective prompt only with the second call, and do not persist it in the message sequence
     assert "called no tool" in llm.seen_messages[1][-1]["content"]
     # Round 1 ends with the transient datetime anchor; the user message sits below it.
-    assert "[Context] Current local date" in llm.seen_messages[0][-1]["content"]
+    assert (
+        "[Context] Model in use" in llm.seen_messages[0][-1]["content"]
+        and "Current local date and time" in llm.seen_messages[0][-1]["content"]
+    )
     assert llm.seen_messages[0][-2].get("content") == "Search recent interview notes"
     assert not any(
         "called no tool" in str(m.get("content")) for m in result.messages
@@ -427,7 +430,10 @@ async def test_agent_loop_last_round_injects_wrap_up_hint() -> None:
     )
     # Round 1 carries only the transient datetime anchor (never the closing prompt);
     # the final round (the last tool opportunity) includes the closing prompt last.
-    assert "[Context] Current local date" in llm.seen_messages[0][-1]["content"]
+    assert (
+        "[Context] Model in use" in llm.seen_messages[0][-1]["content"]
+        and "Current local date and time" in llm.seen_messages[0][-1]["content"]
+    )
     assert "last round of tool calling" not in str(llm.seen_messages[0][-1]["content"])
     hint = llm.seen_messages[1][-1]
     assert hint["role"] == "system" and "last round of tool calling" in hint["content"]
@@ -1066,3 +1072,45 @@ async def test_agent_loop_marks_answer_when_continuation_is_spent() -> None:
     )
     assert result.final_content.startswith("part one part two")
     assert result.final_content.endswith("may be incomplete.]")
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_environment_hint_carries_model_and_clock() -> None:
+    """The transient environment line names the serving model and the local
+    clock, and never persists into the working history."""
+    llm = _FakeLLM([
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}]},
+        {"role": "assistant", "content": "done", "tool_calls": None},
+    ])
+    llm.model = "glm-5.3-flash"
+
+    async def execute(name: str, args: dict) -> str:
+        return "ok"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=2,
+    )
+    hint = llm.seen_messages[0][-1]
+    assert hint["role"] == "system"
+    assert "[Context] Model in use: glm-5.3-flash." in hint["content"]
+    assert "Current local date and time" in hint["content"]
+    # A client without a model attribute degrades to "unknown" instead of crashing.
+    bare = _FakeLLM([
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}]},
+        {"role": "assistant", "content": "done", "tool_calls": None},
+    ])
+    await run_agent_loop(
+        bare,
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+        execute=execute,
+        max_rounds=2,
+    )
+    assert "Model in use: unknown." in bare.seen_messages[0][-1]["content"]
+    assert not any(
+        "Model in use" in str(m.get("content")) for m in result.messages
+    )

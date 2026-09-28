@@ -1,17 +1,13 @@
-"""Per-turn context hints ([Environment]/[Context usage] suffixes) and dangling tool-pair pruning."""
+"""Per-turn context hints ([Context usage] suffix) and dangling tool-pair pruning."""
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 
 from realmock.domains.prep.agents.agent import PrepAgent
 from realmock.domains.prep.agents.context import (
-    ENVIRONMENT_HINT_MARKER,
     USAGE_HINT_MARKER,
-    build_environment_hint,
     build_working_context,
-    upsert_environment_hint,
 )
 from realmock.domains.prep.routes.chat import _prune_dangling_tool_tail
 from realmock.platform.capabilities.ai.agent import WorkingMemory
@@ -87,56 +83,6 @@ def test_usage_hint_is_upserted_not_accumulated() -> None:
     ]
     assert len(copies) == 1
     assert second[-1]["content"].startswith(USAGE_HINT_MARKER)
-
-
-# ── [Environment] suffix: model identity + current time ─────────────────────────────────────
-
-
-def test_environment_hint_carries_model_and_time() -> None:
-    text = build_environment_hint("glm-5.3-flash", now=datetime(2026, 9, 28, 14, 30))
-    assert text.startswith(ENVIRONMENT_HINT_MARKER)
-    assert "glm-5.3-flash" in text
-    assert "2026-09-28 14:30" in text
-    assert "Monday" in text
-
-
-def test_environment_hint_without_model_says_unknown() -> None:
-    text = build_environment_hint(None, now=datetime(2026, 9, 28, 14, 30))
-    assert "unknown" in text
-    assert build_environment_hint("  ", now=datetime(2026, 9, 28, 14, 30)) == text
-
-
-def test_working_context_places_environment_hint_before_usage_tail() -> None:
-    """The environment line carries the serving model name and stays ahead of
-    the usage line, which must remain the very last message."""
-    class _LLM:
-        model = "glm-5.3-flash"
-        context_window = 100_000
-
-    out = _run(build_working_context(
-        [{"role": "user", "content": "hello"}], 100_000,
-        memory=WorkingMemory(), llm=_LLM(), reply_locale="en",
-    ))
-    assert out[-1]["content"].startswith(USAGE_HINT_MARKER)
-    env = out[-2]
-    assert env["role"] == "system"
-    assert env["content"].startswith(ENVIRONMENT_HINT_MARKER)
-    assert "glm-5.3-flash" in env["content"]
-
-
-def test_environment_hint_is_upserted_not_accumulated() -> None:
-    messages = [{"role": "user", "content": "hello"}]
-    once = upsert_environment_hint(messages, "model-a")
-    twice = upsert_environment_hint(once, "model-b")
-    copies = [
-        m for m in twice
-        if m.get("role") == "system"
-        and isinstance(m.get("content"), str)
-        and m["content"].startswith(ENVIRONMENT_HINT_MARKER)
-    ]
-    assert len(copies) == 1
-    assert "model-b" in copies[0]["content"]
-    assert "model-a" not in str(twice)
 
 
 def test_turn_tool_definitions_are_cache_stable() -> None:

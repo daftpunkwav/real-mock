@@ -377,8 +377,8 @@ def test_compact_single_exchange_folds_whole(db, monkeypatch) -> None:
     body = resp.json()
     assert body["summarized"] is True
     # The exchange folds whole: summary block + working memory + language suffix
-    # + environment suffix + context-usage suffix.
-    assert body["message_count"] == 5
+    # + context-usage suffix.
+    assert body["message_count"] == 4
     db.expire_all()
     stored = json.loads(db.get(PrepSession, session.id).messages)
     assert str(stored[0]["content"]).startswith("[Conversation Minutes]")
@@ -387,6 +387,4 @@ def test_compact_single_exchange_folds_whole(db, monkeypatch) -> None:
     assert stored[2]["role"] == "system"
     assert str(stored[2]["content"]).startswith("[Reply language]")
     assert stored[3]["role"] == "system"
-    assert str(stored[3]["content"]).startswith("[Environment]")
-    assert stored[4]["role"] == "system"
-    assert str(stored[4]["content"]).startswith("[Context usage]")
+    assert str(stored[3]["content"]).startswith("[Context usage]")

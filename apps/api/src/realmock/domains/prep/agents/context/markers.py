@@ -14,8 +14,6 @@ from realmock.domains.prep.services.linking import LINKED_BLOCK_MARKER, REF_BLOC
 LANG_HINT_MARKER = "[Reply language]"
 # Per-turn context-usage hint marker (see upsert_usage_hint).
 USAGE_HINT_MARKER = "[Context usage]"
-# Per-turn environment hint marker (see upsert_environment_hint).
-ENVIRONMENT_HINT_MARKER = "[Environment]"
 
 # Context-breakdown bucket keys (stable API contract for GET .../context).
 BREAKDOWN_USER = "user"
@@ -45,7 +43,6 @@ __all__ = [
     "BREAKDOWN_THINKING",
     "BREAKDOWN_TOOLS",
     "BREAKDOWN_USER",
-    "ENVIRONMENT_HINT_MARKER",
     "LANG_HINT_MARKER",
     "LINKED_BLOCK_MARKER",
     "REF_BLOCK_MARKER",

@@ -779,7 +779,6 @@ async def test_memory_write_per_turn_budget(db) -> None:
 
 def test_system_messages_are_prefix_stable() -> None:
     from realmock.domains.prep.agents.context import (
-        ENVIRONMENT_HINT_MARKER,
         LANG_HINT_MARKER,
         PREP_SYSTEM,
         build_system_message,
@@ -793,10 +792,8 @@ def test_system_messages_are_prefix_stable() -> None:
     assert all(b["role"] == "system" for b in blocks)
     # Stable instructions first and byte-identical regardless of volatile tail.
     assert blocks[0]["content"] == PREP_SYSTEM
-    # Reply-language and environment hints are per-turn suffixes, never part
-    # of the seed (model name and clock change independently of the session).
+    # Reply-language hint is a per-turn suffix, never part of the seed.
     assert all(LANG_HINT_MARKER not in b["content"] for b in blocks)
-    assert all(ENVIRONMENT_HINT_MARKER not in b["content"] for b in blocks)
     assert LANG_HINT_MARKER not in build_system_message(
         db=None, resume_id=None, target_company=""
     )

@@ -9,12 +9,10 @@ and strip_ref_blocks. Leaf modules: seed / linked / hints / working / markers.
 from __future__ import annotations
 
 from realmock.domains.prep.agents.context.hints import (
-    build_environment_hint,
     build_lang_hint,
     build_usage_hint,
     infer_text_locale,
     normalize_ui_locale,
-    upsert_environment_hint,
     upsert_lang_hint,
     upsert_usage_hint,
 )
@@ -32,7 +30,6 @@ from realmock.domains.prep.agents.context.markers import (
     BREAKDOWN_THINKING,
     BREAKDOWN_TOOLS,
     BREAKDOWN_USER,
-    ENVIRONMENT_HINT_MARKER,
     LANG_HINT_MARKER,
     LINKED_BLOCK_MARKER,
     REF_BLOCK_MARKER,
@@ -55,14 +52,12 @@ __all__ = [
     "BREAKDOWN_THINKING",
     "BREAKDOWN_TOOLS",
     "BREAKDOWN_USER",
-    "ENVIRONMENT_HINT_MARKER",
     "LANG_HINT_MARKER",
     "LINKED_BLOCK_MARKER",
     "PREP_SYSTEM",
     "REF_BLOCK_MARKER",
     "USAGE_HINT_MARKER",
     "build_context_breakdown",
-    "build_environment_hint",
     "build_lang_hint",
     "build_system_message",
     "build_system_messages",
@@ -74,7 +69,6 @@ __all__ = [
     "infer_text_locale",
     "normalize_ui_locale",
     "strip_ref_blocks",
-    "upsert_environment_hint",
     "upsert_lang_hint",
     "upsert_usage_hint",
 ]

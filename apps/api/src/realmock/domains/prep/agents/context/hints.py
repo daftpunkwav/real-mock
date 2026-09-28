@@ -1,16 +1,11 @@
-"""Per-turn prompt suffixes: reply-language, environment, and context-usage hints."""
+"""Per-turn prompt suffixes: reply-language and context-usage hints plus locale helpers."""
 
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from typing import Any
 
-from realmock.domains.prep.agents.context.markers import (
-    ENVIRONMENT_HINT_MARKER,
-    LANG_HINT_MARKER,
-    USAGE_HINT_MARKER,
-)
+from realmock.domains.prep.agents.context.markers import LANG_HINT_MARKER, USAGE_HINT_MARKER
 from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
 from realmock.platform.capabilities.ai.llm.defaults import DEFAULT_CONTEXT_WINDOW
 
@@ -80,42 +75,6 @@ def upsert_lang_hint(
     return out
 
 
-def build_environment_hint(model: str | None, now: datetime | None = None) -> str:
-    """Per-turn environment suffix: serving model name and current date/time.
-
-    These values change independently of the conversation (model switching,
-    clock), so they live in a rebuilt-per-turn tail block instead of the
-    persisted seed: the cacheable prefix stays stable while values stay fresh.
-    """
-    moment = (now or datetime.now()).strftime("%Y-%m-%d %H:%M (%A)")
-    name = str(model or "").strip() or "unknown"
-    return (
-        f"{ENVIRONMENT_HINT_MARKER} Model in use: {name}. "
-        f"Current date and time: {moment}."
-    )
-
-
-def upsert_environment_hint(
-    messages: list[dict[str, Any]], model: str | None
-) -> list[dict[str, Any]]:
-    """Refresh the trailing environment suffix: strip older copies, append one.
-
-    Same upsert contract as the language/usage hints: idempotent across turns
-    (no accumulation in persisted history).
-    """
-    out = [
-        m for m in messages
-        if not (
-            isinstance(m, dict)
-            and m.get("role") == "system"
-            and isinstance(m.get("content"), str)
-            and str(m.get("content")).startswith(ENVIRONMENT_HINT_MARKER)
-        )
-    ]
-    out.append({"role": "system", "content": build_environment_hint(model)})
-    return out
-
-
 def build_usage_hint(messages: list[dict[str, Any]], context_window: int) -> str:
     """Per-turn context-usage suffix (one volatile line at the very tail).
 
@@ -155,12 +114,10 @@ def upsert_usage_hint(
 
 
 __all__ = [
-    "build_environment_hint",
     "build_lang_hint",
     "build_usage_hint",
     "infer_text_locale",
     "normalize_ui_locale",
-    "upsert_environment_hint",
     "upsert_lang_hint",
     "upsert_usage_hint",
 ]

@@ -68,11 +68,13 @@ def budget_hint(
     }
 
 
-def _build_datetime_hint() -> dict[str, str] | None:
-    """Wall-clock anchor line, one per request, never persisted.
+def _build_environment_hint(llm: Any) -> dict[str, str] | None:
+    """Serving-model + wall-clock anchor line, one per request, never persisted.
 
     Interview prep is time-sensitive (this season's processes, "recent"
-    experience posts); without an anchor the model guesses the year.
+    experience posts); without an anchor the model guesses the year. The
+    model name grounds "which model are you" for BYOK setups where the
+    serving model is a per-provider runtime fact no prompt can hardcode.
     """
     import datetime as _dt
 
@@ -80,11 +82,12 @@ def _build_datetime_hint() -> dict[str, str] | None:
     # tzname() can be empty for exotic zoneinfo zones; fall back explicitly
     # (an f-string format spec cannot express this fallback).
     tz_name = now.tzname() or "UTC"
+    model = str(getattr(llm, "model", "") or "").strip() or "unknown"
     return {
         "role": "system",
         "content": (
-            f"[Context] Current local date and time: {now:%Y-%m-%d} "
-            f"({now:%A}) {now:%H:%M}, timezone {tz_name}."
+            f"[Context] Model in use: {model}. Current local date and time: "
+            f"{now:%Y-%m-%d} ({now:%A}) {now:%H:%M}, timezone {tz_name}."
         ),
     }
 
@@ -237,9 +240,9 @@ async def run_agent_loop(
     # Total executed tool calls across rounds (budget-excluded declarations
     # never ran, so they don't count toward the model's spend either).
     tool_calls_so_far = 0
-    # Wall-clock anchor: exactly ONE date/time line per request as a transient
-    # suffix — never persisted, so history carries no stale timestamps.
-    datetime_hint = _build_datetime_hint()
+    # Environment anchor: exactly ONE model+date/time line per request as a
+    # transient suffix — never persisted, so history carries no stale values.
+    environment_hint = _build_environment_hint(llm)
     # Output-cap continuation: one seamless resumption when a final answer was
     # cut by the model's max-output limit.
     continuation_used = False
@@ -263,8 +266,8 @@ async def run_agent_loop(
         # it is informational, while the countdown / correction / closing
         # lines that follow it carry actionable instructions and keep the
         # strongest (last) attention position.
-        if datetime_hint:
-            call_messages.append(datetime_hint)
+        if environment_hint:
+            call_messages.append(environment_hint)
         if budget_hint_enabled and round_i > 0:
             call_messages.append(
                 budget_hint(round_i, max_rounds, max_tools_per_round, tool_calls_so_far)
