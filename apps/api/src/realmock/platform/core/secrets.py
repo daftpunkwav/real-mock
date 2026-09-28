@@ -21,6 +21,7 @@ import base64
 import logging
 import os
 import secrets as _secrets
+import time
 from functools import lru_cache
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -126,13 +127,34 @@ def _load_secret_bytes() -> bytes:
     _SHARED_DATA.mkdir(parents=True, exist_ok=True)
     if _DEFAULT_KEYFILE.exists():
         try:
-            return base64.b64decode(_DEFAULT_KEYFILE.read_text().strip())
+            decoded = base64.b64decode(_DEFAULT_KEYFILE.read_text().strip())
+            if len(decoded) < _KEY_BYTES:
+                # A truncated/empty file still "decodes" — treat it as corrupt
+                # instead of silently running with a useless master key.
+                raise ValueError(f"decoded key too short: {len(decoded)} bytes")
+            return decoded
+        except OSError:
+            # Transient read failure (AV / backup tool lock, common on
+            # Windows): the file content is most likely intact. Regenerating
+            # here would irreversibly orphan every existing enc:v2 ciphertext,
+            # so fail loud and let the operator retry once the lock is gone.
+            raise
         except Exception:
             # The unavailability of the old key means that all existing enc: ciphertext cannot be decrypted and must be explicitly exposed
             logger.warning(
-                "Key file reading/decoding failed and will be regenerated (existing encrypted data cannot be decrypted)",
+                "Key file decoding failed (existing encrypted data cannot be "
+                "decrypted); preserving the old file before regenerating",
                 exc_info=True,
             )
+        # Regenerating must stay recoverable: keep the old file instead of
+        # letting write_text overwrite it (the decode failure may have come
+        # from a transiently truncated/mis-served copy). Random suffix: two
+        # failures within one second must not overwrite the first backup.
+        backup = _DEFAULT_KEYFILE.with_name(
+            f"{_DEFAULT_KEYFILE.name}.bak-{int(time.time())}-{_secrets.token_hex(4)}"
+        )
+        os.replace(_DEFAULT_KEYFILE, backup)
+        logger.warning("Old key file preserved as %s", backup)
 
     fresh = _secrets.token_bytes(_KEY_BYTES)
     _DEFAULT_KEYFILE.write_text(base64.b64encode(fresh).decode())
