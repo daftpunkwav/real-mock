@@ -326,7 +326,10 @@ export function usePrepChatSession({
       setTokenUsage(0);
       setUsage(null);
       resetContext();
-      syncBackendCount(id, 0);
+      // Absolute reset (not max-merge): a deleted predecessor with the same
+      // reused id must not leave its count behind, or the first turn's
+      // backendIndex/fork/retract math starts above server truth.
+      seedBackendCount(id, 0);
       setMessages([
         {
           id: nextMsgId("a"),
@@ -353,7 +356,7 @@ export function usePrepChatSession({
         setRestoring(false);
       }
     }
-  }, [nextMsgId, resumeId, refreshSessions, setMessages, syncBackendCount, resetContext]);
+  }, [nextMsgId, resumeId, refreshSessions, setMessages, seedBackendCount, resetContext]);
 
   const handleNewSession = async () => {
     if (starting) return;
