@@ -88,7 +88,8 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
         output = output or parse_turn_output(
             None, say_text="".join(say_parts), degraded=True
         )
-        # Completed at the end: When the model is leaked to interview_complete, it is set by the server.
+        # Completed at the end: when the model omits interview_complete,
+        # the server sets it anyway.
         if output.interview_complete is False:
             output = replace(output, interview_complete=True)
 

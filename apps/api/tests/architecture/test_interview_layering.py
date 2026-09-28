@@ -252,7 +252,6 @@ def test_interview_agents_facade_in_sync() -> None:
 _BANNED_AGENT_ATTR_CHAINS = frozenset({
     ("agent", "agent_state"),
     ("agent", "messages"),
-    ("agent", "mirror_candidate_code"),
 })
 
 

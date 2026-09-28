@@ -79,7 +79,11 @@ class ReportSchedulerMixin:
         _spawn: Callable[..., "asyncio.Task[Any]"]
 
     def _schedule_report_generation(self) -> None:
-        """Schedule finish notify / debrief trigger (name kept for FinishControlMixin)."""
+        """Schedule finish notify / debrief trigger.
+
+        The historical name is kept because FinishControlMixin and
+        UserTextControlMixin call it across the composed handler.
+        """
         if self.ctx.report_task is not None and not self.ctx.report_task.done():
             return
         self.ctx.report_task = self._spawn(self._generate_report_bg())

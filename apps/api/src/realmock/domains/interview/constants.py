@@ -4,7 +4,10 @@ Interview-specific enums / defaults moved down from legacy platform constants: p
 interviewer persona styles, follow-up categories, and the WebSocket event contract. Only ``realmock.domains.interview`` consumes these;
 after the move, ``realmock.platform.core.constants`` retains only platform constants shared by all services/domains.
 
-The frontend ``src/config/*.ts`` files correspond one-to-one with this module; changing any enum requires updating the frontend as well.
+Frontend mirrors of this module: phase ids/labels live in ``src/config/phases.ts``
+(SSOT-locked by tests against ``workflows``) and the WebSocket event unions live
+in ``src/types/domains/interview_ws.ts``; changing any of these enums requires
+updating the matching frontend declaration.
 """
 
 from __future__ import annotations

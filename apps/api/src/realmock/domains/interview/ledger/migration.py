@@ -8,7 +8,7 @@ Order matters and is idempotent (safe to re-run on every boot):
    row for corrupt blobs, and set ``ledger_frozen`` from the blob flag;
 2. drop: physically ``ALTER TABLE interview_sessions DROP COLUMN ledger``.
 
-``DROP COLUMN`` needs SQLite >= 3.35 (verified 3.50 on the dev machine).
+``DROP COLUMN`` needs SQLite >= 3.35 (verified with 3.50).
 Both steps skip cleanly when the table/column do not exist (fresh databases
 created by ``create_all`` already have the final shape).
 """

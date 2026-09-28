@@ -7,10 +7,11 @@ loop (:func:`run_agent_loop` via ``asyncio.gather``); this module bounds the
 other axis — how long one tool may burn and how often a broken tool is
 retried:
 
-- timeout: every call gets ``timeout_sec`` (default 20s) and is NOT retried
-  automatically — the interview is live, the candidate is waiting, so a hung
-  tool fails fast and the model reroutes (a deliberate same-args retry stays
-  possible because failed calls never enter the dedup cache);
+- timeout: every call gets ``timeout_sec`` (default 20s) and is not retried
+  by default (``max_attempts`` defaults to 1) — the interview is live, the
+  candidate is waiting, so a hung tool fails fast and the model reroutes (a
+  deliberate same-args retry stays possible because failed calls never enter
+  the dedup cache);
 - circuit breaker: a tool failing ``circuit_streak`` times in a row is refused
   without another call until ``circuit_ttl_sec`` passes (half-open trial);
 - streaks persist in ``agent_state["_tool_guard"]`` so a chronically broken

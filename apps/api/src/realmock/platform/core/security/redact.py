@@ -20,7 +20,6 @@ def _looks_like_secret(v: str) -> bool:
     Heuristic rules:
 
     - Length must be ``>= 20`` (typical API Keys are much longer);
-    - Must contain at least one ASCII letter / digit;
     - Must contain both letters and digits (to avoid misclassifying ordinary short phrases);
     - Must not contain spaces (to avoid truncation mistakes).
     """

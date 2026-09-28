@@ -1,4 +1,4 @@
-"""Interview session ORM (in-progress room state + ledger column)."""
+"""Interview session ORM (in-progress room state + ledger freeze flag)."""
 
 from __future__ import annotations
 

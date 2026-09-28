@@ -56,7 +56,7 @@ Locales are `zh-CN` and `en` (`locales.ts`); the product default is `en`.
 | `LocaleToggle.tsx` | Locale cycle toggle control |
 | `localeInitScript.ts` | Pre-hydration locale bootstrap injected into the document |
 
-Error codes: the `A`-family entries mirror the backend `realmock/platform/core/errors.py` catalog; the `NET0000`–`NET0005` family plus `http_*` fallbacks cover the network layer and are frontend-owned.
+Error codes: business error codes (the `A` / `B` / `C` families) mirror the backend `realmock/platform/core/errors.py` catalog; the `NET0000`–`NET0006` family plus `http_*` fallbacks cover the network layer and are frontend-owned.
 
 ## Static config (`src/config/`)
 

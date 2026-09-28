@@ -89,7 +89,7 @@ class HeartbeatMixin:
                         # A vanished client is the expected cause of a heartbeat
                         # timeout: the notice failing to send must not turn the
                         # graceful disconnect into an exception path (same
-                        # handling as the B2003 / B2004 notices below).
+                        # handling as the B2003 / B2004 notice paths).
                         logger.debug(
                             "Heartbeat timeout notice failed to send session=%s",
                             self.ctx.session_id,

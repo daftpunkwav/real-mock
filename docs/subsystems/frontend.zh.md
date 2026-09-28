@@ -56,7 +56,7 @@ Feature-first 业务模块；每个 feature 自持组件、hook 与测试。跨 
 | `LocaleToggle.tsx` | 语言循环切换控件 |
 | `localeInitScript.ts` | 注入文档的注水前语言引导脚本 |
 
-错误码：`A` 族条目镜像后端 `realmock/platform/core/errors.py` 目录；`NET0000`–`NET0005` 族与 `http_*` 兜底覆盖网络层，由前端自持。
+错误码：业务错误码（`A` / `B` / `C` 族）镜像后端 `realmock/platform/core/errors.py` 目录；`NET0000`–`NET0006` 族与 `http_*` 兜底覆盖网络层，由前端自持。
 
 ## 静态配置（`src/config/`）
 

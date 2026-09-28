@@ -8,8 +8,8 @@
  * - Provide Problem / Editor / Sandbox Console as tabs over one shared region.
  * - Provide a syntax-highlighted code editor with language switching (Python / JavaScript).
  * - Execute code in browser sandbox and display the sandbox stdout/stderr.
- * - Local-only submission notice (no server round-trip since the whiteboard
- *   link was retired).
+ * - Local-only submission notice (no server round-trip; the server holds
+ *   no whiteboard state).
  *
  * UI chrome is fully localized via the interview catalog (`room.coding.*`);
  * the bundled demo challenge (title/description/starter code) is fixed English
