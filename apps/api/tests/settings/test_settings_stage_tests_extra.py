@@ -191,7 +191,7 @@ async def test_reason_missing_key() -> None:
 @pytest.mark.asyncio
 async def test_reason_ok_with_reply_and_empty() -> None:
     db = MagicMock()
-    llm = SimpleNamespace(model="m1", test_connection=AsyncMock(return_value=(True, "ok")), chat=AsyncMock(return_value="Hi there interviewer"))
+    llm = SimpleNamespace(model="m1", chat=AsyncMock(return_value="Pong!"))
     with (
         patch.object(st, "get_stage_config_for_runtime", return_value=_cfg()),
         patch.object(st, "find_provider", return_value=None),
@@ -199,9 +199,13 @@ async def test_reason_ok_with_reply_and_empty() -> None:
     ):
         out = await st.test_reason(db)
     assert out["success"] is True
-    assert "Reasoning OK" in out["message"]
+    assert out["message"] == "Reasoning OK: Pong!"
+    assert out["transcript"] == "Pong!"
+    args, kwargs = llm.chat.call_args
+    assert args[0] == [{"role": "user", "content": "ping"}]
+    assert kwargs == {"temperature": 0}
 
-    llm2 = SimpleNamespace(model="m1", test_connection=AsyncMock(return_value=(True, "ok")), chat=AsyncMock(return_value="   "))
+    llm2 = SimpleNamespace(model="m1", chat=AsyncMock(return_value="   "))
     with (
         patch.object(st, "get_stage_config_for_runtime", return_value=_cfg()),
         patch.object(st, "find_provider", return_value=None),
@@ -209,13 +213,13 @@ async def test_reason_ok_with_reply_and_empty() -> None:
     ):
         out2 = await st.test_reason(db)
     assert out2["success"] is True
-    assert out2["message"] == "ok"
+    assert out2["message"] == "Connection OK (empty reply)"
 
 
 @pytest.mark.asyncio
 async def test_reason_fail_and_exception() -> None:
     db = MagicMock()
-    llm = SimpleNamespace(model="m1", test_connection=AsyncMock(return_value=(False, "bad key")), chat=AsyncMock())
+    llm = SimpleNamespace(model="m1", chat=AsyncMock(side_effect=RuntimeError("bad key")))
     with (
         patch.object(st, "get_stage_config_for_runtime", return_value=_cfg()),
         patch.object(st, "find_provider", return_value=None),
@@ -223,17 +227,7 @@ async def test_reason_fail_and_exception() -> None:
     ):
         out = await st.test_reason(db)
     assert out["success"] is False
-    assert out["message"] == "bad key"
-
-    bad = SimpleNamespace(model="m1", test_connection=AsyncMock(side_effect=RuntimeError("boom")), chat=AsyncMock())
-    with (
-        patch.object(st, "get_stage_config_for_runtime", return_value=_cfg()),
-        patch.object(st, "find_provider", return_value=None),
-        patch.object(st.UnifiedLLMClient, "from_stage_config", return_value=bad),
-    ):
-        out2 = await st.test_reason(db)
-    assert out2["success"] is False
-    assert "Reasoning test failed" in out2["message"]
+    assert out["message"] == "Reasoning test failed: bad key"
 
 
 @pytest.mark.asyncio

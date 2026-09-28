@@ -137,23 +137,18 @@ async def test_reason(db: Session, *, profile_id: int | None = None) -> dict:
 
     llm = UnifiedLLMClient.from_stage_config(cfg)
     try:
-        success, message = await llm.test_connection()
-        if success:
-            reply = await llm.chat(
-                [{"role": "user", "content": "In one sentence, introduce yourself as an interviewer."}],
-                system="You are an interviewer.",
-                temperature=0.7,
-            )
-            text = (reply or "").strip()
-            if not text:
-                return {"success": True, "message": message or "Connection OK", "model": llm.model}
-            return {
-                "success": True,
-                "message": f"Reasoning OK: {text[:120]}",
-                "model": llm.model,
-                "transcript": text[:500],
-            }
-        return {"success": False, "message": message, "model": llm.model}
+        # Language-neutral probe: the raw reply is surfaced verbatim in the
+        # result toast, so no locale handling is needed for either UI language.
+        reply = await llm.chat([{"role": "user", "content": "ping"}], temperature=0)
+        text = (reply or "").strip()
+        if not text:
+            return {"success": True, "message": "Connection OK (empty reply)", "model": llm.model}
+        return {
+            "success": True,
+            "message": f"Reasoning OK: {text[:120]}",
+            "model": llm.model,
+            "transcript": text[:500],
+        }
     except Exception as e:
         return {"success": False, "message": f"Reasoning test failed: {e}"}
 
