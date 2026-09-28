@@ -143,10 +143,12 @@ export function mapHistoryMessages(
 ): PrepChatMessage[] {
   let backendIndex = 0;
   const out: PrepChatMessage[] = [];
+  const rows = Array.isArray(list) ? list : [];
   // Compaction records render below every message (creation order, not fold
   // position): they describe the run that just finished, like a notice.
   const cards: PrepChatMessage[] = [];
-  for (const m of Array.isArray(list) ? list : []) {
+  for (let i = 0; i < rows.length; i += 1) {
+    const m = rows[i]!;
     const index = backendIndex;
     backendIndex += 1;
     // Compaction records surface as cards (editable/regenerable); every other
@@ -197,7 +199,7 @@ export function mapHistoryMessages(
     const thinking = normalizeThinking(m.thinking);
     const steps = normalizeSteps(m.steps);
     const rawAsk = (m as { ask?: unknown }).ask;
-    out.push({
+    const msg: PrepChatMessage = {
       id: nextId(m.role === "user" ? "u" : "a"),
       role: m.role === "user" ? "user" : "assistant",
       content: String(m.content),
@@ -206,11 +208,49 @@ export function mapHistoryMessages(
       thinking,
       trace: buildTraceFromParts(thinking, steps),
       stopped: (m as { stopped?: unknown }).stopped === true ? true : undefined,
-      ...(rawAsk && typeof rawAsk === "object"
-        ? { ask: normalizeAskDialog(rawAsk as Record<string, unknown>) }
-        : {}),
+      ...(rawAsk && typeof rawAsk === "object" ? { ask: normalizeAskDialog(rawAsk as Record<string, unknown>) } : {}),
       backendIndex: index,
-    });
+    };
+    // An ask turn persists as TWO assistant rows: the loop tail (model answer,
+    // ending in the ask_user tool call — or the inline-ask text) followed by
+    // the display message (waiting line) that carries the turn's steps and
+    // thinking. Live, they were one streaming bubble; merge them back so the
+    // execution timeline renders on the content message instead of vanish-
+    // ing from it. Consecutive content-bearing assistant rows only occur in
+    // this shape.
+    if (m.role === "assistant") {
+      // Skip interleaved tool-result/system rows: the ask_user call leaves a
+      // "dialog shown" tool row between the loop tail and the display message.
+      let j = i + 1;
+      while (j < rows.length && rows[j]!.role !== "user" && !(rows[j]!.role === "assistant" && rows[j]!.content)) {
+        j += 1;
+      }
+      const next = rows[j];
+      if (
+        next &&
+        next.role === "assistant" &&
+        next.content &&
+        (next.steps || next.thinking || next.ask) &&
+        !msg.steps &&
+        !msg.thinking &&
+        !msg.ask
+      ) {
+        const nextThinking = normalizeThinking(next.thinking);
+        const nextSteps = normalizeSteps(next.steps);
+        msg.content = `${msg.content}\n\n${next.content}`;
+        msg.steps = nextSteps;
+        msg.thinking = nextThinking;
+        msg.trace = buildTraceFromParts(nextThinking, nextSteps);
+        const nextRawAsk = (next as { ask?: unknown }).ask;
+        if (nextRawAsk && typeof nextRawAsk === "object") {
+          msg.ask = normalizeAskDialog(nextRawAsk as Record<string, unknown>);
+        }
+        // The merged rows keep their server positions consumed.
+        backendIndex += j - i;
+        i = j;
+      }
+    }
+    out.push(msg);
   }
   return [...out, ...cards];
 }

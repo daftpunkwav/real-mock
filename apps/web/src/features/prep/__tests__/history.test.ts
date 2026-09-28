@@ -129,6 +129,102 @@ describe("mapHistoryMessages", () => {
     expect(mapped[1]).toMatchObject({ backendIndex: 2, stopped: true });
   });
 
+  it("merges an ask turn's loop tail with its display message", () => {
+    // Ask turns persist as two assistant rows: the model answer ending in the
+    // ask_user tool call, then the waiting-line display message carrying the
+    // turn's steps/thinking. Live they were one bubble; remap merges them so
+    // the execution timeline does not vanish from the content message.
+    const mapped = mapHistoryMessages(
+      [
+        { role: "user", content: "能给个参考答案吗" },
+        {
+          role: "assistant",
+          content: "参考答案正文",
+          tool_calls: [{ id: "c1", type: "function", function: { name: "ask_user", arguments: "{}" } }],
+        },
+        {
+          role: "assistant",
+          content: "我在等你作答 — 请在弹窗中选择，或直接输入。",
+          steps: [{ name: "ask_user", query: "", result: "" }],
+          thinking: "plan",
+        },
+        { role: "user", content: "继续" },
+      ] as never,
+      nextId,
+    );
+    expect(mapped).toHaveLength(3);
+    expect(mapped[1]).toMatchObject({
+      role: "assistant",
+      backendIndex: 1,
+      steps: [{ name: "ask_user" }],
+      thinking: "plan",
+    });
+    expect(mapped[1]?.content).toContain("参考答案正文");
+    expect(mapped[1]?.content).toContain("我在等你作答");
+    expect(mapped[2]).toMatchObject({ role: "user", backendIndex: 3 });
+  });
+
+  it("merges across the interleaved tool-result row of the ask_user call", () => {
+    const mapped = mapHistoryMessages(
+      [
+        { role: "user", content: "能给个参考答案吗" },
+        {
+          role: "assistant",
+          content: "参考答案正文",
+          tool_calls: [{ id: "c1", type: "function", function: { name: "ask_user", arguments: "{}" } }],
+        },
+        { role: "tool", content: "Dialog shown to the user; waiting for their answer.", tool_call_id: "c1" },
+        {
+          role: "assistant",
+          content: "我在等你作答 — 请在弹窗中选择，或直接输入。",
+          steps: [{ name: "take_note", query: "", result: "" }, { name: "ask_user", query: "", result: "" }],
+          thinking: "plan",
+        },
+      ] as never,
+      nextId,
+    );
+    expect(mapped).toHaveLength(2);
+    expect(mapped[1]).toMatchObject({
+      role: "assistant",
+      backendIndex: 1,
+      steps: [{ name: "take_note" }, { name: "ask_user" }],
+      thinking: "plan",
+    });
+    expect(mapped[1]?.content).toContain("参考答案正文");
+    expect(mapped[1]?.content).toContain("我在等你作答");
+  });
+
+  it("merges the inline-ask shape (no tool call row) the same way", () => {
+    const mapped = mapHistoryMessages(
+      [
+        { role: "assistant", content: "先讲清三段式" },
+        {
+          role: "assistant",
+          content: "我在等你作答 — 请在弹窗中选择，或直接输入。",
+          steps: [{ name: "ask_user", query: "", result: "" }],
+        },
+      ] as never,
+      nextId,
+    );
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]?.content).toContain("先讲清三段式");
+    expect(mapped[0]?.steps).toHaveLength(1);
+  });
+
+  it("does not merge assistant rows that both carry display metadata", () => {
+    const steps = [{ name: "web_search", query: "", result: "" }];
+    const mapped = mapHistoryMessages(
+      [
+        { role: "assistant", content: "first", steps },
+        { role: "assistant", content: "second", steps },
+      ] as never,
+      nextId,
+    );
+    expect(mapped).toHaveLength(2);
+    expect(mapped[0]?.content).toBe("first");
+    expect(mapped[1]?.content).toBe("second");
+  });
+
   it("normalizes the persisted ask_user payload into a viewable dialog", () => {
     const mapped = mapHistoryMessages(
       [
