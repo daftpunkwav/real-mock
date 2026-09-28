@@ -33,6 +33,7 @@ import type { AskUserDialog, ModelProfile, PrepUsageStats, ReasoningEffort } fro
 import { resolveSelectedModel } from "../modelChoice";
 import { appendTraceThinking, appendTraceTool } from "../history";
 import { abortStream, completeStream, hasActiveStream, registerStream } from "../streamRegistry";
+import { waitForStoppedPersist } from "./waitForStoppedPersist";
 import type { PrepChatMessage, PrepStreamHandlers } from "../types";
 
 /** Model/locale snapshot bound to one send (replayed by queued turns). */
@@ -47,6 +48,8 @@ export interface PrepSendSnapshot {
 interface QueuedSend {
   text: string;
   userBackendIndex?: number;
+  /** True when the user bubble was already appended at enqueue time. */
+  bubbleShown: boolean;
   snapshot: PrepSendSnapshot;
 }
 
@@ -159,10 +162,16 @@ export function usePrepSend(opts: {
     };
   };
 
-  const enqueue = (sid: number, text: string, snapshot: PrepSendSnapshot, userBackendIndex?: number): boolean => {
+  const enqueue = (
+    sid: number,
+    text: string,
+    snapshot: PrepSendSnapshot,
+    userBackendIndex?: number,
+    bubbleShown?: boolean,
+  ): boolean => {
     const queue = queuesRef.current.get(sid) ?? [];
     if (queue.length >= MAX_QUEUED_PER_SESSION) return false;
-    queue.push({ text, userBackendIndex, snapshot });
+    queue.push({ text, userBackendIndex, bubbleShown: bubbleShown === true, snapshot });
     queuesRef.current.set(sid, queue);
     return true;
   };
@@ -221,7 +230,7 @@ export function usePrepSend(opts: {
           { id: nextMsgId("u"), role: "user", content: userMsg, backendIndex: queuedIndex },
         ]);
       }
-      enqueue(sid, userMsg, snapshot, queuedIndex);
+      enqueue(sid, userMsg, snapshot, queuedIndex, viewing && !skipUserMessage);
       setInput("");
       return true;
     }
@@ -377,17 +386,11 @@ export function usePrepSend(opts: {
         if (isViewing(sid)) {
           patchMessage(assistantId, { streaming: false, statusText: "", stopped: true });
         }
-        // The stopped persist lands just after the abort: delayed resync so a
-        // following /compact sees the true length instead of a stale count.
-        setTimeout(() => {
-          if (!aliveRef.current) return;
-          api
-            .prepMessages(sid)
-            .then((list) => {
-              if (aliveRef.current) syncBackendCount(sid, Array.isArray(list) ? list.length : 0);
-            })
-            .catch(() => {});
-        }, 800);
+        // The stopped persist lands just after the abort: confirm with the
+        // poll-until-stable helper (shared with retract/regenerate) so a
+        // following /compact sees the true length even when the persist is
+        // slower than any fixed grace delay.
+        void waitForStoppedPersist(sid, syncBackendCount, () => aliveRef.current);
       } else if (isViewing(sid)) {
         const t = getTranslator("prep");
         const reason = e instanceof Error ? formatApiError(e) : t("chat.sendFailedFallback");
@@ -433,7 +436,10 @@ export function usePrepSend(opts: {
       if (next) {
         setTimeout(() => {
           if (!aliveRef.current) return;
-          void sendMessage(next.text, sid, true, {
+          // skipUserMessage only when the bubble was already shown at enqueue
+          // time; a queued follow-up enqueued off-screen must regain its user
+          // bubble when it replays into a visible session.
+          void sendMessage(next.text, sid, next.bubbleShown, {
             reservedUserIndex: next.userBackendIndex,
             snapshot: next.snapshot,
           });

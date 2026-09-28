@@ -16,6 +16,7 @@ import type { PrepChatMessage } from "../types";
 import { downloadTextFile } from "@/lib/download";
 import type { RateSubmit } from "../components/RateModal";
 
+import { waitForStoppedPersist as pollStoppedPersist } from "./waitForStoppedPersist";
 import type { PrepSendSnapshot } from "./usePrepSend";
 
 export function usePrepMessageActions(opts: {
@@ -84,29 +85,12 @@ export function usePrepMessageActions(opts: {
   );
 
   /**
-   * Wait for a stopped stream's server-side persist to land: poll history
-   * until two consecutive reads agree (or the budget runs out), instead of a
-   * fixed grace delay that either wastes time or loses to a slow persist.
+   * Wait for a stopped stream's server-side persist to land. The polling
+   * logic lives in the shared waitForStoppedPersist helper (also used by the
+   * send pipeline's abort path); this only binds the count setter.
    */
   const waitForStoppedPersist = useCallback(
-    async (sid: number) => {
-      const deadline = Date.now() + 2500;
-      let prev = -1;
-      while (Date.now() < deadline) {
-        try {
-          const list = await api.prepMessages(sid);
-          const n = Array.isArray(list) ? list.length : 0;
-          if (n === prev) {
-            setBackendCount(sid, n);
-            return;
-          }
-          prev = n;
-        } catch {
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-    },
+    (sid: number) => pollStoppedPersist(sid, setBackendCount),
     [setBackendCount],
   );
 
