@@ -91,9 +91,7 @@ def build_environment_hint(model: str | None, now: datetime | None = None) -> st
     name = str(model or "").strip() or "unknown"
     return (
         f"{ENVIRONMENT_HINT_MARKER} Model in use: {name}. "
-        f"Current date and time: {moment}. "
-        "When asked who you are or which model powers you, answer with this "
-        "exact model name instead of claiming you cannot know it."
+        f"Current date and time: {moment}."
     )
 
 
