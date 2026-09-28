@@ -127,6 +127,8 @@ export const prep = {
   "ask.send": "Send answer",
   "ask.dismiss": "Not now — reply in the input box later",
   "ask.confirm": "Confirm",
+  "ask.prev": "Previous",
+  "ask.next": "Next",
   "ask.progress": "Answered {answered}/{total}",
   "ask.multiHint": "Multiple choices allowed",
   "ask.recommended": "Recommended",

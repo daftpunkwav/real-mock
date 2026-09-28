@@ -127,6 +127,8 @@ export const prep = {
   "ask.send": "发送回答",
   "ask.dismiss": "暂不回答,稍后在输入框回复",
   "ask.confirm": "确认",
+  "ask.prev": "上一题",
+  "ask.next": "下一题",
   "ask.progress": "已回答 {answered}/{total}",
   "ask.multiHint": "可多选",
   "ask.recommended": "推荐",
