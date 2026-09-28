@@ -220,7 +220,8 @@ class TestDbRatelimitBranches:
         assert db._attempts == 2
         assert db.committed
 
-    def test_integrity_error_twice_reraises(self, monkeypatch) -> None:
+    def test_integrity_error_twice_degrades_to_memory(self, monkeypatch) -> None:
+        """Persistent first-write races degrade to memory instead of a 500."""
         from sqlalchemy.exc import IntegrityError
 
         class _AlwaysRacingDB(_FakeDB):
@@ -229,8 +230,56 @@ class TestDbRatelimitBranches:
 
         db = _AlwaysRacingDB(row=None)
         monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
-        with pytest.raises(IntegrityError):
+        # Second IntegrityError used to re-raise (500 on every limited
+        # endpoint); now it degrades to the in-memory buckets once, then the
+        # cooldown skips the DB entirely.
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+        assert rl._db_degraded_until > time.monotonic()
+        # During the cooldown the DB is not touched at all.
+        calls = {"n": 0}
+
+        def _fail(*a, **kw):
+            calls["n"] += 1
+            raise IntegrityError("INSERT", {}, Exception("pk conflict"))
+
+        monkeypatch.setattr(rl, "_check_rate_limit_db_once", _fail)
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+        assert calls["n"] == 0
+
+    def test_operational_error_degrades_and_recovers(self, monkeypatch) -> None:
+        """Storage failure (locked SQLite / disk full) degrades with a warning,
+        then the DB backend is re-probed after the cooldown."""
+        from sqlalchemy.exc import OperationalError
+
+        def _boom(*a, **kw):
+            raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+        monkeypatch.setattr(rl, "SessionsSessionLocal", _boom)
+        warnings: list[str] = []
+        monkeypatch.setattr(
+            rl.logger,
+            "warning",
+            lambda msg, *a, **kw: warnings.append(str(msg)),
+        )
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+        assert rl._db_degraded_until > time.monotonic()
+        assert any("degrading to in-memory" in w for w in warnings)
+
+        # Cooldown elapsed -> the DB backend is probed again.
+        monkeypatch.setattr(rl, "_db_degraded_until", time.monotonic() - 1)
+        db = _FakeDB(row=None)
+        monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+        assert db.committed
+        assert rl._db_degraded_until == 0.0
+
+    def test_non_storage_error_not_swallowed(self, monkeypatch) -> None:
+        """Programming bugs (non-SQLAlchemyError) must not be silently degraded."""
+        db = _FakeDB(row=None, fail_commit=True)
+        monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
+        with pytest.raises(RuntimeError):
             rl._check_rate_limit_db(bucket_key=("k", "x"), limit=5, window_seconds=60)
+        assert rl._db_degraded_until == 0.0
 
     def test_check_rate_limit_db_backend_routing(self, monkeypatch) -> None:
         monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(ratelimit_backend="database", trusted_proxy_cidr_list=[]))

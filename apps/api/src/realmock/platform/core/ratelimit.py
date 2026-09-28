@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from realmock.platform import database
 from realmock.platform.config import get_settings
@@ -78,6 +78,12 @@ class _Bucket:
 _LOCK = threading.Lock()
 _BUCKETS: dict[tuple[str, str], _Bucket] = {}
 _cleanup_started = False
+
+# DB-backend degradation cooldown. While set (monotonic deadline), requests use
+# the in-memory buckets directly instead of hitting a broken DB per request.
+# Plain float read/write under the GIL; worst case two threads both log once.
+_DB_DEGRADE_COOLDOWN_SECONDS = 60.0
+_db_degraded_until = 0.0
 
 
 def _trusted_proxy_nets() -> list[ipaddress._BaseNetwork]:
@@ -214,16 +220,43 @@ def _check_rate_limit_db(
     bucket concurrently both try to insert and one commit fails with
     ``IntegrityError``; re-reading once turns that transient race into a
     normal count instead of a 500.
+
+    Degradation policy (explicit fail-open): a broken DB backend (locked /
+    corrupt SQLite, full disk) must not turn every rate-limited endpoint into
+    a 500. Storage-layer failures degrade to the in-memory buckets for a
+    cooldown window (conservative fail-open: per-process limiting still
+    applies, only cross-process consistency is lost) and the DB backend is
+    re-probed after the cooldown. Non-storage errors (programming bugs) are
+    NOT swallowed — they keep failing loudly.
     """
-    for attempt in range(2):
-        try:
-            _check_rate_limit_db_once(
-                bucket_key=bucket_key, limit=limit, window_seconds=window_seconds
+    global _db_degraded_until
+    if time.monotonic() < _db_degraded_until:
+        # Cooldown after a storage failure: skip the broken backend instead of
+        # paying a DB round-trip (possibly a full lock timeout) per request.
+        _check_rate_limit_memory(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
+        return
+    try:
+        for attempt in range(2):
+            try:
+                _check_rate_limit_db_once(
+                    bucket_key=bucket_key, limit=limit, window_seconds=window_seconds
+                )
+                # Probe succeeded: fully reset the degraded state.
+                _db_degraded_until = 0.0
+                return
+            except IntegrityError:
+                if attempt == 1:
+                    raise
+    except SQLAlchemyError:
+        now = time.monotonic()
+        if now >= _db_degraded_until:
+            _db_degraded_until = now + _DB_DEGRADE_COOLDOWN_SECONDS
+            logger.warning(
+                "Rate-limit DB backend failed; degrading to in-memory buckets for %ss",
+                _DB_DEGRADE_COOLDOWN_SECONDS,
+                exc_info=True,
             )
-            return
-        except IntegrityError:
-            if attempt == 1:
-                raise
+        _check_rate_limit_memory(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
 
 
 def _check_rate_limit_memory(
@@ -323,6 +356,7 @@ def rate_limit_dep(*, key: str, limit: int, window_seconds: int = 60):
 
 def reset_rate_limit(key: str | None = None) -> None:
     """Clear current limit status, only for testing."""
+    global _db_degraded_until
     with _LOCK:
         if key is None:
             _BUCKETS.clear()
@@ -330,3 +364,6 @@ def reset_rate_limit(key: str | None = None) -> None:
             for k in list(_BUCKETS.keys()):
                 if k[0] == key:
                     _BUCKETS.pop(k, None)
+    # Also clear the DB-degradation cooldown so a degraded state from one test
+    # does not leak into the next (and so tests can probe the DB path again).
+    _db_degraded_until = 0.0
