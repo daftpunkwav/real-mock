@@ -33,7 +33,9 @@ _LLM_PROTOCOLS = ("openai_chat", "anthropic_messages", "openai_responses")
 
 
 def _apply_error(message: str) -> ApiBusinessError:
-    return ApiBusinessError(get_spec("A0007"), message=message)
+    # Input/state validation for the apply flow; upstream fetch failures use
+    # C-codes inline (see _fetch_remote_models).
+    return ApiBusinessError(get_spec("A0001"), message=message)
 
 
 def _protocol_for_channel(capability_entry: dict[str, Any], kind: str) -> str:
@@ -159,15 +161,22 @@ def _fetch_remote_models(channel: LlmProviderChannel) -> list[str]:
         response.raise_for_status()
         data = response.json()
     except Exception as e:
-        raise _apply_error(f"Failed to fetch the model list: {e}") from e
+        raise ApiBusinessError(
+            get_spec("C0001"), message=f"Failed to fetch the model list: {e}"
+        ) from e
     rows = data.get("data") if isinstance(data, dict) else None
     if not isinstance(rows, list):
-        raise _apply_error("Model list response has an unexpected shape (expected {data: [{id}]}).")
+        raise ApiBusinessError(
+            get_spec("C0002"),
+            message="Model list response has an unexpected shape (expected {data: [{id}]}).",
+        )
     models = sorted(
         {str(row.get("id")) for row in rows if isinstance(row, dict) and row.get("id")}
     )
     if not models:
-        raise _apply_error("The endpoint returned an empty model list.")
+        raise ApiBusinessError(
+            get_spec("C0002"), message="The endpoint returned an empty model list."
+        )
     return models
 
 

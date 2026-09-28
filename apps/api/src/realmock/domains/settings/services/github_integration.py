@@ -60,7 +60,7 @@ def save_github_token(db: Session, raw: str) -> dict[str, Any]:
     text = (raw or "").strip()
     if not text or not _TOKEN_RE.match(text):
         raise ApiBusinessError(
-            get_spec("A0007"),
+            get_spec("A0001"),
             message="Invalid GitHub token: paste a fine-grained PAT (github_pat_…) or classic token (ghp_…)",
         )
     encrypted = encrypt_secret(text) or ""

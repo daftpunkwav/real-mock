@@ -104,13 +104,13 @@ def apply_recommended_vendor(vendor_id: str, db: Session = Depends(get_db)) -> d
 def create_provider(body: ProviderCreate, db: Session = Depends(get_db)) -> dict:
     name = body.name.strip()
     if not name:
-        raise ApiBusinessError(get_spec("A0007"), message="Provider name cannot be empty")
+        raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
     if db.query(LlmProvider).filter(LlmProvider.name == name).first():
-        raise ApiBusinessError(get_spec("A0007"), message=f"Provider '{name}' already exists")
+        raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
     for channel in body.channels:
         _safe_base(channel.api_base, label="Base URL")
         if channel.kind not in CHANNEL_KINDS:
-            raise ApiBusinessError(get_spec("A0007"), message=f"Unknown channel kind: {channel.kind}")
+            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {channel.kind}")
     _safe_base(body.website_url, label="Website URL")
     row = LlmProvider(
         name=name,
@@ -142,10 +142,10 @@ def update_provider(provider_id: int, body: ProviderUpdate, db: Session = Depend
     if body.name is not None:
         name = body.name.strip()
         if not name:
-            raise ApiBusinessError(get_spec("A0007"), message="Provider name cannot be empty")
+            raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
         exists = db.query(LlmProvider).filter(LlmProvider.name == name, LlmProvider.id != provider_id).first()
         if exists:
-            raise ApiBusinessError(get_spec("A0007"), message=f"Provider '{name}' already exists")
+            raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
         row.name = name
     if body.enabled is not None:
         row.enabled = body.enabled
@@ -163,7 +163,7 @@ def update_provider_channel(
     provider_id: int, kind: str, body: ChannelUpdate, db: Session = Depends(get_db)
 ) -> dict:
     if kind not in CHANNEL_KINDS:
-        raise ApiBusinessError(get_spec("A0007"), message=f"Unknown channel kind: {kind}")
+        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {kind}")
     if body.api_base is not None:
         _safe_base(body.api_base, label="Base URL")
     return upsert_channel(db, provider_id, kind, body)
@@ -207,16 +207,16 @@ def create_model(provider_id: int, body: ModelProfileCreate, db: Session = Depen
     provider = get_provider(db, provider_id)
     model = body.model.strip()
     if not model:
-        raise ApiBusinessError(get_spec("A0007"), message="Model name cannot be empty")
+        raise ApiBusinessError(get_spec("A0001"), message="Model name cannot be empty")
     if body.kind not in CHANNEL_KINDS:
-        raise ApiBusinessError(get_spec("A0007"), message=f"Unknown model type: {body.kind}")
+        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown model type: {body.kind}")
     dup = (
         db.query(ModelProfile)
         .filter(ModelProfile.provider_id == provider_id, ModelProfile.model == model)
         .first()
     )
     if dup:
-        raise ApiBusinessError(get_spec("A0007"), message=f"Model '{model}' already exists under this provider")
+        raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
     row = ModelProfile(
         provider_id=provider.id,
         kind=body.kind,
@@ -253,11 +253,11 @@ def update_model(model_id: int, body: ModelProfileUpdate, db: Session = Depends(
             .first()
         )
         if dup:
-            raise ApiBusinessError(get_spec("A0007"), message=f"Model '{model}' already exists under this provider")
+            raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
         row.model = model
     if body.kind is not None:
         if body.kind not in CHANNEL_KINDS:
-            raise ApiBusinessError(get_spec("A0007"), message=f"Unknown model type: {body.kind}")
+            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown model type: {body.kind}")
         row.kind = body.kind
     if body.display_name is not None:
         row.display_name = body.display_name.strip()
@@ -285,7 +285,7 @@ def delete_model(model_id: int, db: Session = Depends(get_db)) -> dict:
     row = get_profile(db, model_id)
     if db.query(TaskBinding).filter(TaskBinding.profile_id == model_id).count():
         raise ApiBusinessError(
-            get_spec("A0007"),
+            get_spec("A0001"),
             message="This model is bound to a task; change the default processor first",
         )
     db.delete(row)

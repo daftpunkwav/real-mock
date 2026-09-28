@@ -273,7 +273,7 @@ def list_providers_payload(db: Session) -> dict[str, Any]:
 def upsert_channel(db: Session, provider_id: int, kind: str, body: ChannelUpdate) -> dict[str, Any]:
     """Create or partially update one provider channel; unknown kind is rejected."""
     if not _valid_kind(kind):
-        raise ApiBusinessError(get_spec("A0007"), message=f"Unknown channel kind: {kind}")
+        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {kind}")
     provider = get_provider(db, provider_id)
     channel = get_channel(db, provider.id, kind)
     if channel is None:
@@ -321,12 +321,12 @@ def list_bindings_payload(db: Session) -> dict[str, Any]:
 
 def update_binding_record(db: Session, task: str, body: BindingUpdate) -> dict[str, Any]:
     if task not in STAGE_BY_TASK:
-        raise ApiBusinessError(get_spec("A0007"), message=f"Unknown task: {task}")
+        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown task: {task}")
     profile = get_profile(db, body.profile_id)
     caps_map = {"chat": "cap_chat", "stt": "cap_audio_in", "tts": "cap_audio_out"}
     if not getattr(profile, caps_map[task]):
         raise ApiBusinessError(
-            get_spec("A0007"),
+            get_spec("A0001"),
             message="Selected model entry does not declare the capability required for this task",
         )
     binding = db.query(TaskBinding).filter(TaskBinding.task == task).first()
