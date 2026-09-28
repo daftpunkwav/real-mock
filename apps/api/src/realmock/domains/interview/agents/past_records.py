@@ -24,8 +24,13 @@ _READ_PAGE_TURNS = 12
 _READ_TURN_CHARS = 700
 
 
-def _load_ledger(db: Session, session: InterviewSession) -> list[dict[str, Any]]:
-    """Turn dicts for one session, via the ledger store (table aggregation)."""
+def _load_turns(db: Session, session: InterviewSession) -> list[dict[str, Any]]:
+    """Turn dicts for one session, via the ledger store (table aggregation).
+
+    Named ``_load_turns`` (not ``_load_ledger``) because it returns the
+    ``turns`` list, not the :class:`~realmock.domains.interview.ledger.types.LedgerDocument`
+    that the store's public ``load_ledger`` returns.
+    """
     ledger = load_ledger(db, session)
     turns = ledger.get("turns")
     return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []  # type: ignore[misc]
@@ -76,7 +81,7 @@ def search_past_interviews(db: Session, session: InterviewSession, query: str) -
     keywords = [w for w in q.split() if w] or [q]
     hits: list[dict[str, Any]] = []
     for row in prior_round_sessions(db, session):
-        for turn in _load_ledger(db, row):
+        for turn in _load_turns(db, row):
             haystack = _turn_text(turn)
             score = sum(1 for kw in keywords if kw in haystack)
             if not score:
@@ -108,7 +113,7 @@ def read_past_round(
             {"error": "round_not_found", "available": sorted(rows.keys())},
             ensure_ascii=False,
         )
-    turns = _load_ledger(db, row)
+    turns = _load_turns(db, row)
     offset = max(0, int(offset or 0))
     page = turns[offset : offset + _READ_PAGE_TURNS]
     items = []

@@ -1,6 +1,6 @@
 """Past records tests for src/realmock/domains/interview/agents/past_records.py.
 
-Covers: _load_ledger corrupt, _turn_text str variants
+Covers: _load_turns corrupt, _turn_text str variants
 Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 """
 
@@ -58,7 +58,7 @@ def test_past_records_corrupt_and_str_vals() -> None:
     db = MagicMock()
     db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
     bad = SimpleNamespace(id=1)
-    assert mod._load_ledger(db, bad) == []  # type: ignore[arg-type]
+    assert mod._load_turns(db, bad) == []  # type: ignore[arg-type]
     assert mod._turn_text({"assistant": "plain string", "user": "u2"}) != ""
     assert mod._turn_text({"assistant": {"text": "hi"}, "user": None}) != ""
 
