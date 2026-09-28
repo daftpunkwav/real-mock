@@ -62,6 +62,7 @@ export function toArchivedCopy(m: PrepChatMessage): PrepChatMessage {
     ...(m.stopped ? { stopped: true } : {}),
     ...(m.backendIndex !== undefined ? { backendIndex: m.backendIndex } : {}),
     ...(m.compaction ? { compaction: m.compaction } : {}),
+    ...(m.ask ? { ask: m.ask } : {}),
   };
 }
 

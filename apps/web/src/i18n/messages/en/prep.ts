@@ -12,6 +12,7 @@ export const prep = {
   "chat.dismissError": "Dismiss error",
   "chat.jumpToBottom": "Back to bottom",
   "chat.sendFailedFallback": "failed",
+  "chat.viewAsk": "View questions",
   "chat.replyInterrupted": "Reply interrupted: {reason}",
   "chat.replyError": "Error: {reason}",
 

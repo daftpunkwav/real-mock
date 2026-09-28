@@ -70,6 +70,9 @@ class PrepHistoryMessage(BaseModel):
     stopped: bool = False
     # Turn correlation id (persisted on assistant messages; absent on legacy rows).
     turn_id: str | None = None
+    # ask_user dialog payload of an asking turn: lets history render what was
+    # asked (questions/options) after the live modal is gone or answered.
+    ask: PrepAskEvent | None = None
 
 
 class PrepSuggestionsRequest(BaseModel):

@@ -10,6 +10,7 @@ import { useT } from "@/i18n";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import type { PrepChatMessage } from "../types";
 import { useMonotonicWidth } from "../hooks/useMonotonicWidth";
+import { AskViewCard } from "./AskViewCard";
 import { SearchResultCards } from "./SearchResultCards";
 import { ThinkAnswerMessage } from "./ThinkAnswerMessage";
 import { TraceTimeline } from "./TraceTimeline";
@@ -68,6 +69,7 @@ export const AssistantBubble = memo(function AssistantBubble({
           {msg.searchGroups && msg.searchGroups.length > 0 ? (
             <SearchResultCards groups={msg.searchGroups} />
           ) : null}
+          {msg.ask ? <AskViewCard ask={msg.ask} /> : null}
           <ThinkAnswerMessage content={msg.content} streaming={!!msg.streaming} />
           {!msg.content && msg.stopped && !msg.streaming ? (
             <p className="flex items-center gap-1.5 text-[11px] text-ink-subtle">

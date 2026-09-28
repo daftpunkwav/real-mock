@@ -298,7 +298,7 @@ export function usePrepSend(opts: {
         // server-side and surface on revisit.
         if (!isViewing(sid)) return;
         flushPendingToken();
-        patchMessage(assistantId, { statusText: "" });
+        patchMessage(assistantId, { statusText: "", ask: dialog });
         setAskDialog(dialog);
         onAskUser?.(dialog);
       },

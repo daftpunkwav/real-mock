@@ -42,6 +42,11 @@ export interface PrepChatMessage {
   /** Compaction card payload (role "compaction" only). */
   compaction?: PrepCompactionCard;
   /**
+   * ask_user dialog payload of an asking turn: lets history render what was
+   * asked (questions/options) after the live modal is gone or answered.
+   */
+  ask?: AskUserDialog;
+  /**
    * Local-only message: never sent to (or stored by) the backend, so it never
    * enters model context. Welcome banners and failed-turn error text set this;
    * context estimation skips such messages.

@@ -129,6 +129,32 @@ describe("mapHistoryMessages", () => {
     expect(mapped[1]).toMatchObject({ backendIndex: 2, stopped: true });
   });
 
+  it("normalizes the persisted ask_user payload into a viewable dialog", () => {
+    const mapped = mapHistoryMessages(
+      [
+        { role: "user", content: "练什么" },
+        {
+          role: "assistant",
+          content: "我在等你作答 — 请在弹窗中选择，或直接输入。",
+          ask: {
+            question: "这一轮主要想练哪一块?",
+            options: ["Agent 三段式", "ReAct 循环"],
+            selection: "single",
+            widget: "options",
+            allow_custom: true,
+            suggested: "Agent 三段式",
+          },
+        },
+      ] as never,
+      nextId,
+    );
+    expect(mapped).toHaveLength(2);
+    const ask = (mapped[1] as { ask?: { question: string; options: string[]; suggested: string | null } }).ask;
+    expect(ask?.question).toBe("这一轮主要想练哪一块?");
+    expect(ask?.options).toHaveLength(2);
+    expect(ask?.suggested).toBe("Agent 三段式");
+  });
+
   it("surfaces summary blocks as compaction cards with provenance", () => {
     const mapped = mapHistoryMessages(
       [

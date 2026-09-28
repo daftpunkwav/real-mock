@@ -275,7 +275,10 @@ async def run_chat(
             # The history contract requires string content (None coerces to an
             # empty, hidden reply — finalize applies the same rule).
             agent, working, final or "", db, tool_steps=steps, search_groups=groups, thinking=thinking,
-            compact_threshold=compact_threshold, compact_options=policy, turn_id=turn_id,
+            compact_threshold=compact_threshold,
+            compact_options=policy,
+            turn_id=turn_id,
+            ask=ask_event,
         )
         # End-of-turn curation runs detached: the reply returns immediately.
         schedule_turn_memory_precipitation(
@@ -440,10 +443,13 @@ async def run_chat_stream(
             final = agent.pending_reply_text()
             async for piece in slice_stream(final):
                 yield piece
+            gate_event = asked_user.get("event")
             delta = finalize_with_delta(
                 agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
                 thinking=thinking, compact_threshold=compact_threshold,
-                compact_options=policy, turn_id=turn_id,
+                compact_options=policy,
+                turn_id=turn_id,
+                ask=gate_event if isinstance(gate_event, dict) else None,
             )
             finalized = True
             if delta:

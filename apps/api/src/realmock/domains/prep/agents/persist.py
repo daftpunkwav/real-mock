@@ -117,6 +117,7 @@ def _build_assistant_message(
     thinking: str | None = None,
     stopped: bool = False,
     turn_id: str | None = None,
+    ask: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the persisted assistant message (string content + display metadata).
 
@@ -127,6 +128,8 @@ def _build_assistant_message(
         thinking: Model reasoning text, persisted in full (display metadata only).
         stopped: True when the client disconnected mid-stream (partial turn).
         turn_id: Correlation id stamped on the assistant message (or None).
+        ask: Dialog payload of an ask_user turn, so the asked questions stay
+            viewable in history after the live modal is gone (or None).
 
     Returns:
         The assistant message dict (content always a string).
@@ -143,6 +146,8 @@ def _build_assistant_message(
         assistant_msg["steps"] = tool_steps
     if search_groups:
         assistant_msg["search_groups"] = search_groups
+    if isinstance(ask, dict) and ask:
+        assistant_msg["ask"] = ask
     combined = (thinking or "").strip()
     if combined:
         # Persisted in full: thinking is display metadata only (never enters
@@ -188,6 +193,7 @@ def finalize(
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
+    ask: dict[str, Any] | None = None,
 ) -> None:
     """Persist one turn: strip transient refs, append the assistant message, and update counters.
 
@@ -203,6 +209,7 @@ def finalize(
         compact_threshold: Persist-path budget, same semantics as turn-start.
         compact_options: Verbatim-tail policy (retain raised by intensity floor).
         turn_id: Correlation id stamped on the assistant message (or None).
+        ask: ask_user dialog payload to persist on the message (or None).
 
     Returns:
         None; sets agent.last_prompt_estimate/last_message_count and commits.
@@ -212,10 +219,17 @@ def finalize(
     agent.last_prompt_estimate = estimate_messages_tokens(working)
     options = compact_options or CompactionOptions()
     agent.messages = _merge_mid_turn(agent, working)
-    agent.messages.append(_build_assistant_message(
-        final, tool_steps=tool_steps, search_groups=search_groups,
-        thinking=thinking, stopped=stopped, turn_id=turn_id,
-    ))
+    agent.messages.append(
+        _build_assistant_message(
+            final,
+            tool_steps=tool_steps,
+            search_groups=search_groups,
+            thinking=thinking,
+            stopped=stopped,
+            turn_id=turn_id,
+            ask=ask,
+        )
+    )
     if final:
         agent.memory.remember("asked", final)
     agent.messages = prepare_llm_context(
@@ -271,6 +285,7 @@ def finalize_with_delta(
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
+    ask: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Capture the usage delta BEFORE persisting, then finalize; returns the delta event.
 
@@ -290,6 +305,7 @@ def finalize_with_delta(
         compact_threshold: Persist-path budget (None = default).
         compact_options: Verbatim-tail policy (or None for defaults).
         turn_id: Correlation id stamped on the assistant message (or None).
+        ask: ask_user dialog payload to persist on the message (or None).
 
     Returns:
         The usage-delta event, or None when the provider reported nothing.
@@ -298,7 +314,9 @@ def finalize_with_delta(
     finalize(
         agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
         thinking=thinking, compact_threshold=compact_threshold,
-        compact_options=compact_options, turn_id=turn_id,
+        compact_options=compact_options,
+        turn_id=turn_id,
+        ask=ask,
     )
     return delta
 

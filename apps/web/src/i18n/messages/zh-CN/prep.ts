@@ -12,6 +12,7 @@ export const prep = {
   "chat.dismissError": "关闭错误提示",
   "chat.jumpToBottom": "回到底部",
   "chat.sendFailedFallback": "失败",
+  "chat.viewAsk": "查看提问",
   "chat.replyInterrupted": "回复中断:{reason}",
   "chat.replyError": "错误:{reason}",
 

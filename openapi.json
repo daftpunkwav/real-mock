@@ -10384,6 +10384,16 @@
               }
             ],
             "title": "Turn Id"
+          },
+          "ask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrepAskEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

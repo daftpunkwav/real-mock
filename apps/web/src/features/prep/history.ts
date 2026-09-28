@@ -4,6 +4,7 @@
  */
 
 import type { PrepHistoryMessage, PrepSearchGroup, PrepToolStep } from "@/lib/api/contract";
+import { normalizeAskDialog } from "@/lib/askDialog";
 import type { PrepChatMessage, PrepTraceItem } from "./types";
 
 /** Normalize raw tool steps; undefined when empty. */
@@ -195,6 +196,7 @@ export function mapHistoryMessages(
     if (!((m.role === "user" || m.role === "assistant") && m.content)) continue;
     const thinking = normalizeThinking(m.thinking);
     const steps = normalizeSteps(m.steps);
+    const rawAsk = (m as { ask?: unknown }).ask;
     out.push({
       id: nextId(m.role === "user" ? "u" : "a"),
       role: m.role === "user" ? "user" : "assistant",
@@ -204,6 +206,9 @@ export function mapHistoryMessages(
       thinking,
       trace: buildTraceFromParts(thinking, steps),
       stopped: (m as { stopped?: unknown }).stopped === true ? true : undefined,
+      ...(rawAsk && typeof rawAsk === "object"
+        ? { ask: normalizeAskDialog(rawAsk as Record<string, unknown>) }
+        : {}),
       backendIndex: index,
     });
   }

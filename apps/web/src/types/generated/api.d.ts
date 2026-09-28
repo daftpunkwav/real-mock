@@ -4197,6 +4197,7 @@ export interface components {
             stopped: boolean;
             /** Turn Id */
             turn_id?: string | null;
+            ask?: components["schemas"]["PrepAskEvent"] | null;
         };
         /** PrepLinkRequest */
         PrepLinkRequest: {

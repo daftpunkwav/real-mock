@@ -46,16 +46,7 @@ function asAllowCustom(raw: unknown): boolean {
 }
 
 /** Clamp a raw SSE ask_user event into a renderable dialog (backend already validates; stay defensive). */
-export function normalizeAskDialog(raw: {
-  question: unknown;
-  options: unknown;
-  selection?: unknown;
-  widget?: unknown;
-  scale?: unknown;
-  allow_custom?: unknown;
-  suggested?: unknown;
-  questions?: unknown;
-}): AskUserDialog {
+export function normalizeAskDialog(raw: Record<string, unknown>): AskUserDialog {
   // Dedupe (order kept): repeated labels collide as dialog keys.
   const options = [...new Set(
     (Array.isArray(raw.options) ? raw.options : [])
