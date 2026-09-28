@@ -339,6 +339,9 @@ export function usePrepChatSession({
       refreshSessions();
       return id;
     } catch (e) {
+      // A superseded create's failure must not paint an error over the view
+      // the user has since switched to.
+      if (!aliveRef.current || seq !== switchSeqRef.current) return null;
       setPrepError(e instanceof Error ? formatApiError(e) : t("sessions.createFailed"));
       return null;
     } finally {

@@ -192,11 +192,13 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   const loading = busySid !== null && busySid === session.prepSessionId;
 
   // AI quick-prompt suggestions: null shows the static defaults. Refreshed
-  // after each settled turn of the viewed session; a switch falls back to
-  // defaults until that session's next turn completes.
+  // after each settled turn of the viewed session — background turns settling
+  // while another session is viewed must not leak their suggestions here —
+  // and a switch falls back to defaults until that session's next turn lands.
   const [quickSuggestions, setQuickSuggestions] = useState<string[] | null>(null);
   const refreshSuggestions = useCallback(
     (sid: number) => {
+      if (sid !== viewingRef.current) return;
       const model = resolveSelectedModel(
         resources.chatModels,
         resources.selectedModelId,
@@ -209,6 +211,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
           uiLocale: locale,
         })
         .then((res) => {
+          if (sid !== viewingRef.current) return;
           const list = (res.suggestions ?? []).filter((s) => typeof s === "string" && s.trim());
           setQuickSuggestions(list.length > 0 ? list : null);
         })

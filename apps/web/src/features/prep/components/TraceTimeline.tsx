@@ -229,11 +229,15 @@ export const TraceTimeline = memo(function TraceTimeline({
             ?.getAttribute("data-trace-toggle") ?? null;
       }}
       onClick={(e) => {
+        // Target first: keyboard-activated clicks have no pointerdown, and the
+        // stale pointerdown of an abandoned press would otherwise toggle the
+        // wrong row. The pointerdown record is the fallback for a press whose
+        // row moved between mousedown and mouseup (target = common ancestor).
         const id =
-          pendingToggleRef.current ??
           (e.target as HTMLElement)
             .closest?.("[data-trace-toggle]")
             ?.getAttribute("data-trace-toggle") ??
+          pendingToggleRef.current ??
           null;
         pendingToggleRef.current = null;
         toggle(id);

@@ -530,6 +530,7 @@ async def run_chat_stream(
         # Note: the blocking commit is intentional here — the turn must land
         # before the generator closes, or the question is lost on refresh.
         if not finalized:
+            gate_event = asked_user.get("event")
             persist_cancel(
                 agent, working, final, content_state, db,
                 tool_steps=tool_steps or streamed_steps,
@@ -537,6 +538,7 @@ async def run_chat_stream(
                 thinking=thinking or "".join(streamed_thinking),
                 compact_threshold=compact_threshold,
                 compact_options=policy, turn_id=turn_id,
+                ask=gate_event if isinstance(gate_event, dict) else None,
             )
         raise
     except Exception:

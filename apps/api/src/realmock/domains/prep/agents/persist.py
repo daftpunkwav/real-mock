@@ -334,6 +334,7 @@ def persist_cancel(
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
+    ask: dict[str, Any] | None = None,
 ) -> None:
     """Best-effort cancel-time persist (never raises; never yields)."""
     try:
@@ -343,6 +344,7 @@ def persist_cancel(
             thinking=thinking, stopped=True,
             compact_threshold=compact_threshold, compact_options=compact_options,
             turn_id=turn_id,
+            ask=ask,
         )
     except Exception as persist_exc:
         logger.warning("Prep cancel-time persist failed: %s", persist_exc)

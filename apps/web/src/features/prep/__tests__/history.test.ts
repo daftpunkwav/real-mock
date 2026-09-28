@@ -194,6 +194,33 @@ describe("mapHistoryMessages", () => {
     expect(mapped[1]?.content).toContain("我在等你作答");
   });
 
+  it("adopts the display row's search groups and stopped badge when merging", () => {
+    const mapped = mapHistoryMessages(
+      [
+        { role: "user", content: "搜一下" },
+        {
+          role: "assistant",
+          content: "模型先叙述了要做什么",
+          tool_calls: [{ id: "c1", type: "function", function: { name: "web_search", arguments: "{}" } }],
+        },
+        { role: "tool", content: "[web_search] hits", tool_call_id: "c1" },
+        {
+          role: "assistant",
+          content: "检索结果如下",
+          search_groups: [{ query: "面经", results: [{ title: "t", url: "u", snippet: "s" }] }],
+          stopped: true,
+          steps: [{ name: "web_search", query: "", result: "" }],
+        },
+      ] as never,
+      nextId,
+    );
+    expect(mapped).toHaveLength(2);
+    expect(mapped[1]?.searchGroups).toHaveLength(1);
+    expect(mapped[1]?.stopped).toBe(true);
+    expect(mapped[1]?.steps).toHaveLength(1);
+    expect(mapped[1]?.content).toContain("检索结果如下");
+  });
+
   it("merges the inline-ask shape (no tool call row) the same way", () => {
     const mapped = mapHistoryMessages(
       [

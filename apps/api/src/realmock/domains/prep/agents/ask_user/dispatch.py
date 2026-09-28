@@ -46,9 +46,9 @@ async def dispatch_ask_user(
     if not dialog_events:
         return (
             "ask_user args incomplete: provide 1–8 question objects via `questions` "
-            "(or the flat `question` shorthand), each with a question plus 2–8 options "
-            "(options widget) or a valid scale {min, max} / {max stars} "
-            "(slider/rating widget). "
+            "(or the flat `question` shorthand), each with a question plus either "
+            "2–8 options (options widget), a valid scale {min, max} / {max stars} "
+            "(slider/rating widget), or no options at all (free-text question). "
             "Ask the user directly in your reply instead."
         )
     questions_line = " | ".join(str(e["question"]) for e in dialog_events)

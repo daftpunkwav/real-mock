@@ -238,6 +238,12 @@ export function mapHistoryMessages(
         const nextThinking = normalizeThinking(next.thinking);
         const nextSteps = normalizeSteps(next.steps);
         msg.content = `${msg.content}\n\n${next.content}`;
+        // Display metadata lives on the display row: adopt everything the
+        // merged bubble should show (search cards, stopped badge included).
+        if (!msg.searchGroups && next.search_groups) {
+          msg.searchGroups = normalizeSearchGroups(next.search_groups);
+        }
+        if (msg.stopped !== true && next.stopped === true) msg.stopped = true;
         msg.steps = nextSteps;
         msg.thinking = nextThinking;
         msg.trace = buildTraceFromParts(nextThinking, nextSteps);
