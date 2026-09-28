@@ -95,7 +95,7 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className="flex-1 rounded-md border border-[var(--danger)]/30 bg-surface-alt !h-9 text-[13px] font-medium text-[var(--danger-ink)] transition-colors hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="btn-danger flex-1 !h-9"
             disabled={busy}
             onClick={onConfirm}
           >
