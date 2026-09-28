@@ -8,7 +8,8 @@
  * - Provide Problem / Editor / Sandbox Console as tabs over one shared region.
  * - Provide a syntax-highlighted code editor with language switching (Python / JavaScript).
  * - Execute code in browser sandbox and display the sandbox stdout/stderr.
- * - Enable candidate submission and review.
+ * - Local-only submission notice (no server round-trip since the whiteboard
+ *   link was retired).
  *
  * UI chrome is fully localized via the interview catalog (`room.coding.*`);
  * the bundled demo challenge (title/description/starter code) is fixed English
@@ -26,7 +27,8 @@ interface CodingProblem {
   id: string;
   title: string;
   description: string;
-  language: "python" | "javascript" | "typescript";
+  // Mirrors the highlighter/sandbox support (CodeLanguage): no typescript.
+  language: "python" | "javascript";
   starterCode: string;
 }
 
