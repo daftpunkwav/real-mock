@@ -80,7 +80,7 @@ describe("PrepComposer multiline input", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("shows the effective context window next to the selected model", () => {
+  it("keeps the trigger to the model name; the window lives in the tooltip", () => {
     const model = (id: number, provider: string, label: string, context_window: number) => ({
       id,
       provider_id: id,
@@ -101,10 +101,12 @@ describe("PrepComposer multiline input", () => {
       ],
       selectedModelId: 1,
     });
-    // Window suffix makes a configured-vs-effective mismatch visible.
+    // The closed trigger stays clean (user request); the window is reachable
+    // via the hover tooltip and the picker rows.
     const trigger = screen.getByRole("combobox", { name: /model/i });
     expect(trigger.textContent).toMatch(/MiniMax-M3/);
-    expect(trigger.textContent).toMatch(/1M|100万/);
+    expect(trigger.textContent).not.toMatch(/1M|100万/);
+    expect(trigger.querySelector("[title]")?.getAttribute("title")).toMatch(/1M|100万/);
   });
 
   it("prefers provider-reported usage over mechanical estimates for the ring", () => {
