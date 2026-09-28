@@ -21,13 +21,12 @@ import logging
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.ledger.constants import CORRUPT_RAW_MAX, CORRUPT_SEQ
 from realmock.domains.interview.models import InterviewTurn
 
 logger = logging.getLogger(__name__)
 
-_CORRUPT_SEQ = 0
 _CORRUPT_TURN_ID = "t-0000"
-_CORRUPT_RAW_MAX = 65536
 
 
 def _table_exists(engine, table: str) -> bool:
@@ -86,7 +85,8 @@ def backfill_ledger_rows(db: Session) -> int:
             db.add(_evidence_row(sid, blob))
             inserted += 1
             dirty = True
-            _set_frozen(db, sid, _blob_frozen_flag(blob))
+            # Unparseable blob: the frozen flag is unreadable, so unfrozen.
+            _set_frozen(db, sid, False)
             continue
         if not isinstance(data, dict):
             db.add(_evidence_row(sid, blob))
@@ -143,20 +143,12 @@ def _set_frozen(db: Session, session_id: int, frozen: bool) -> None:
     )
 
 
-def _blob_frozen_flag(blob: str) -> bool:
-    try:
-        data = json.loads(blob)
-    except (json.JSONDecodeError, TypeError):
-        return False
-    return bool(data.get("frozen")) if isinstance(data, dict) else False
-
-
 def _evidence_row(session_id: int, raw: str) -> InterviewTurn:
     return InterviewTurn(
         session_id=session_id,
         turn_id=_CORRUPT_TURN_ID,
-        seq=_CORRUPT_SEQ,
-        turn=json.dumps({"corrupt": True, "raw_unparsed": raw[:_CORRUPT_RAW_MAX]}),
+        seq=CORRUPT_SEQ,
+        turn=json.dumps({"corrupt": True, "raw_unparsed": raw[:CORRUPT_RAW_MAX]}),
     )
 
 

@@ -24,7 +24,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.ledger.constants import SCHEMA, is_tool_failure_result
+from realmock.domains.interview.ledger.constants import (
+    CORRUPT_RAW_MAX,
+    CORRUPT_SEQ,
+    SCHEMA,
+    is_tool_failure_result,
+)
 from realmock.domains.interview.ledger.preview import truncate_preview
 from realmock.domains.interview.ledger.types import LedgerDocument, LedgerTurn, ToolPreview
 from realmock.domains.interview.models import InterviewTurn
@@ -32,11 +37,6 @@ from realmock.domains.interview.models import InterviewTurn
 logger = logging.getLogger(__name__)
 
 PENDING_TOOLS_KEY = "_pending_ledger_tools"
-# Max chars of corrupt raw JSON preserved (avoid unbounded growth).
-_CORRUPT_RAW_MAX = 65536
-# seq reserved for the corrupt-evidence pseudo-turn written by the migration.
-_CORRUPT_SEQ = 0
-_CORRUPT_TURN_ID = "t-0000"
 
 
 def empty_ledger(session_id: int) -> LedgerDocument:
@@ -64,10 +64,10 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
         "schema": SCHEMA,
         "session_id": int(session_id),
         "frozen": bool(frozen),
-        "turns": [json.loads(r.turn) for r in rows if r.seq != _CORRUPT_SEQ],
+        "turns": [json.loads(r.turn) for r in rows if r.seq != CORRUPT_SEQ],
     }
     for r in rows:
-        if r.seq == _CORRUPT_SEQ:
+        if r.seq == CORRUPT_SEQ:
             try:
                 evidence = json.loads(r.turn)
             except json.JSONDecodeError:
@@ -75,7 +75,7 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
             if isinstance(evidence, dict) and evidence.get("corrupt"):
                 doc["corrupt"] = True
                 if isinstance(evidence.get("raw_unparsed"), str):
-                    doc["raw_unparsed"] = evidence["raw_unparsed"][:_CORRUPT_RAW_MAX]
+                    doc["raw_unparsed"] = evidence["raw_unparsed"][:CORRUPT_RAW_MAX]
     return doc
 
 
@@ -93,7 +93,7 @@ def _next_seq(db: Session, session_id: int) -> tuple[int, str]:
         db.query(InterviewTurn.seq)
         .filter(
             InterviewTurn.session_id == session_id,
-            InterviewTurn.seq != _CORRUPT_SEQ,
+            InterviewTurn.seq != CORRUPT_SEQ,
         )
         .order_by(InterviewTurn.seq.desc())
         .first()
@@ -206,7 +206,7 @@ def append_last_turn_flag(
         )
         return
     rows = _turn_rows(db, session_id)
-    turns = [r for r in rows if r.seq != _CORRUPT_SEQ]
+    turns = [r for r in rows if r.seq != CORRUPT_SEQ]
     if not turns:
         return
     row = turns[-1]
