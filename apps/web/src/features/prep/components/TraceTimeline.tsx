@@ -6,9 +6,15 @@
  * arrival order. Collapsed by default; expands to interleaved thinking blocks,
  * tool steps, and compaction events, each collapsible on its own (collapsed
  * by default).
+ *
+ * Row toggles are delegated to the container: streaming re-renders and the
+ * follow-tail autoscroll can move a row between mousedown and mouseup, and a
+ * browser only fires `click` on the common ancestor — the delegated handler
+ * still resolves the intended row from the pointerdown-recorded toggle id,
+ * where per-row listeners would silently miss.
  */
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { Brain, ChevronRight, Shrink, Wrench } from "lucide-react";
 import { useT, type MessageKey } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -74,16 +80,25 @@ const CompactionRow = memo(function CompactionRow({
   );
 });
 
-/** One thinking block with its own collapse toggle (collapsed by default). */
-const ThinkingRow = memo(function ThinkingRow({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
+/** One thinking block. Expanded text continues inline after the icons and
+ * wraps at the container width (the old layout pushed it to a separate
+ * indented block, which read as a broken line). */
+const ThinkingRow = memo(function ThinkingRow({
+  text,
+  open,
+  rowId,
+}: {
+  text: string;
+  open: boolean;
+  rowId: string;
+}) {
   const body = useMemo(() => text.trim(), [text]);
   if (!body) return null;
   return (
     <li className="text-[11px] leading-relaxed">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        data-trace-toggle={rowId}
         aria-expanded={open}
         className="flex w-full items-start gap-2 text-left"
       >
@@ -92,39 +107,42 @@ const ThinkingRow = memo(function ThinkingRow({ text }: { text: string }) {
           className={cn("mt-px shrink-0 text-ink-subtle transition-transform", open && "rotate-90")}
         />
         <Brain size={12} className="mt-px shrink-0 text-[var(--primary)]" />
-        {!open && (
-          <span className="min-w-0 flex-1 truncate text-ink-subtle">{shortenInline(body)}</span>
-        )}
+        <span
+          className={cn(
+            "min-w-0 flex-1 whitespace-pre-wrap break-words text-ink-subtle",
+            !open && "truncate",
+          )}
+        >
+          {open ? body : shortenInline(body)}
+        </span>
       </button>
-      {open && (
-        <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap pl-6 font-sans text-ink-subtle">
-          {body}
-        </pre>
-      )}
     </li>
   );
 });
 
-/** One tool step with its own collapse toggle (collapsed by default). */
+/** One tool step; expanded detail stays a panel below the summary row. */
 const ToolRow = memo(function ToolRow({
   name,
   query,
   args,
   result,
+  open,
+  rowId,
 }: {
   name: string;
   query: string;
   args?: Record<string, string>;
   result?: string;
+  open: boolean;
+  rowId: string;
 }) {
   const t = useT("prep");
-  const [open, setOpen] = useState(false);
   const argEntries = useMemo(() => Object.entries(args ?? {}), [args]);
   return (
     <li className="text-[11px] leading-relaxed">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        data-trace-toggle={rowId}
         aria-expanded={open}
         className="flex w-full items-start gap-2 text-left"
       >
@@ -178,13 +196,49 @@ export const TraceTimeline = memo(function TraceTimeline({
 }) {
   const t = useT("prep");
   const [expanded, setExpanded] = useState(false);
+  const [openRows, setOpenRows] = useState<ReadonlySet<string>>(new Set());
+  /** Toggle id captured at pointerdown: survives the row moving under the
+   * cursor between mousedown and mouseup (stream autoscroll, height jumps). */
+  const pendingToggleRef = useRef<string | null>(null);
   if (trace.length === 0) return null;
 
+  const toggle = (id: string | null) => {
+    if (!id) return;
+    if (id === "main") {
+      setExpanded((v) => !v);
+      return;
+    }
+    setOpenRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
-    <div className="overflow-hidden rounded-md border border-surface-border bg-surface-alt">
+    <div
+      className="overflow-hidden rounded-md border border-surface-border bg-surface-alt"
+      onPointerDownCapture={(e) => {
+        pendingToggleRef.current =
+          (e.target as HTMLElement)
+            .closest?.("[data-trace-toggle]")
+            ?.getAttribute("data-trace-toggle") ?? null;
+      }}
+      onClick={(e) => {
+        const id =
+          pendingToggleRef.current ??
+          (e.target as HTMLElement)
+            .closest?.("[data-trace-toggle]")
+            ?.getAttribute("data-trace-toggle") ??
+          null;
+        pendingToggleRef.current = null;
+        toggle(id);
+      }}
+    >
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        data-trace-toggle="main"
         className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] text-ink-muted transition-colors hover:bg-surface-muted"
         aria-expanded={expanded}
       >
@@ -209,15 +263,22 @@ export const TraceTimeline = memo(function TraceTimeline({
             item.kind === "tool" ? (
               <ToolRow
                 key={`tool-${i}`}
+                rowId={`tool-${i}`}
                 name={item.name}
                 query={item.query}
                 args={item.args}
                 result={item.result}
+                open={openRows.has(`tool-${i}`)}
               />
             ) : item.kind === "compaction" ? (
               <CompactionRow key={`compact-${i}`} before={item.before} after={item.after} />
             ) : (
-              <ThinkingRow key={`think-${i}`} text={item.text} />
+              <ThinkingRow
+                key={`think-${i}`}
+                rowId={`think-${i}`}
+                text={item.text}
+                open={openRows.has(`think-${i}`)}
+              />
             ),
           )}
         </ol>
