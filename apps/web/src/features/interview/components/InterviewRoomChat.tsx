@@ -25,14 +25,19 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
     turnState,
   } = room;
   const t = useT("interview");
+  const timerVisible = canInput && turnTimer.phase !== null;
   // 1s ticker: the countdown chip re-renders once per second while visible.
+  // The interval only runs while the chip is on screen (same gating as the
+  // other tickers), so an idle chat stays render-silent instead of re-rendering
+  // the whole message list every second for the whole session.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!timerVisible) return;
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [timerVisible]);
 
-  const timerVisible = canInput && turnTimer.phase !== null;
   const remainingSec =
     timerVisible && turnTimer.endsAt > now ? Math.ceil((turnTimer.endsAt - now) / 1000) : 0;
   const timerActive = timerVisible && remainingSec > 0;
