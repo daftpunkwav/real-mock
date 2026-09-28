@@ -127,9 +127,9 @@ export default function PrepPage() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden lg:grid-cols-[1fr_300px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* Main conversation area */}
-        <div className="flex min-h-0 flex-col overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           {switchError && (
             <div className="alert alert-error !mb-3 flex items-center justify-between gap-2">
               <span className="min-w-0 break-words">{switchError}</span>
