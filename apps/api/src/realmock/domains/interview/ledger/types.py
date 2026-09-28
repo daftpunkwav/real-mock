@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, NotRequired, TypedDict
+from typing import Any, TypedDict
 
 
 class ToolPreview(TypedDict, total=False):
@@ -32,8 +32,8 @@ class LedgerTurn(TypedDict, total=False):
     phase: str
     assistant: LedgerAssistant
     tools: list[ToolPreview]
-    user: NotRequired[LedgerUser]
-    flags: NotRequired[dict[str, Any]]
+    user: LedgerUser
+    flags: dict[str, Any]
 
 
 class LedgerDocument(TypedDict, total=False):
