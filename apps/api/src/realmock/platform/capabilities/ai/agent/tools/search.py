@@ -49,16 +49,26 @@ async def execute_web_search(
     def _run_boards() -> tuple[str, list[SearchHit]]:
         return web_search_with_hits(query, max_results, sites=board_sites)
 
-    open_text, open_hits = await asyncio.to_thread(_run_open)
-    hits: list[SearchHit] = list(open_hits)
-    blocks = [open_text]
     if board_sites:
-        board_text, board_hits = await asyncio.to_thread(_run_boards)
+        # Both passes run concurrently: serial execution stacks two network
+        # round-trips against the tool's single wall-clock budget, so two
+        # individually-slow searches could jointly time out and lose both
+        # results. Wall time becomes max(a, b) instead of a + b.
+        (open_text, open_hits), (board_text, board_hits) = await asyncio.gather(
+            asyncio.to_thread(_run_open),
+            asyncio.to_thread(_run_boards),
+        )
+        hits: list[SearchHit] = list(open_hits)
+        blocks = [open_text]
         seen = {h["url"] for h in hits}
         extra = [h for h in board_hits if h["url"] not in seen]
         hits.extend(extra)
         if extra:
             blocks.append("[Job-board scoped]\n" + board_text)
+    else:
+        open_text, open_hits = await asyncio.to_thread(_run_open)
+        hits = list(open_hits)
+        blocks = [open_text]
     if on_hits is not None:
         on_hits(query, hits[:SEARCH_HARD_MAX_RESULTS])
     payload = {
