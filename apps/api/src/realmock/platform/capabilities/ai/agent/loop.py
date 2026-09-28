@@ -68,7 +68,7 @@ def budget_hint(
     }
 
 
-def _build_environment_hint(llm: Any) -> dict[str, str] | None:
+def _build_environment_hint(llm: Any) -> dict[str, str]:
     """Serving-model + wall-clock anchor line, one per request, never persisted.
 
     Interview prep is time-sensitive (this season's processes, "recent"
@@ -262,12 +262,11 @@ async def run_agent_loop(
         # below: domain rewrites (LLM compaction) hoist system-role messages
         # to the stable head, which would bury these one-call nudges far from
         # the generation point instead of at the strongest attention position.
-        # Budget awareness rides the same transient-suffix slot but FIRST:
-        # it is informational, while the countdown / correction / closing
-        # lines that follow it carry actionable instructions and keep the
+        # The informational lines (environment anchor, budget) ride the same
+        # transient-suffix slot first; the countdown / correction / closing
+        # lines that follow carry actionable instructions and keep the
         # strongest (last) attention position.
-        if environment_hint:
-            call_messages.append(environment_hint)
+        call_messages.append(environment_hint)
         if budget_hint_enabled and round_i > 0:
             call_messages.append(
                 budget_hint(round_i, max_rounds, max_tools_per_round, tool_calls_so_far)
