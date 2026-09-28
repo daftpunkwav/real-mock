@@ -424,6 +424,101 @@ async def test_run_chat_stream_cancel_persists(monkeypatch) -> None:
             pass
     assert persisted.get("ok") is True
 
+
+@pytest.mark.asyncio
+async def test_run_chat_stream_cancel_persists_streamed_trace(monkeypatch) -> None:
+    """A stop mid-loop persists the thinking/tool steps already streamed.
+
+    The loop only exports its accumulators on completion, so the cancel path
+    must fall back to the events mirrored during forwarding — without this a
+    stopped turn loses its thinking and execution timeline on refresh.
+    """
+    import asyncio
+
+    import realmock.domains.prep.agents.chat as chat_mod
+
+    async def _prep(agent, user_text, db, **kwargs):
+        return CompactionOptions(), "tc", [{"role": "user", "content": "hi"}], [], {}
+
+    monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
+    monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
+
+    async def _partial_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+        content_state["filtered_text"] = "partial answer so far"
+        yield {"type": "thinking", "content": "first thought"}
+        yield {"type": "thinking", "content": "\n\nsecond thought"}
+        yield {"type": "tool_step", "name": "web_search", "query": "面经", "args": {"query": "面经"}, "result": "hits"}
+        raise asyncio.CancelledError()
+        if False:
+            yield "x"
+
+    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _partial_rounds)
+    captured = {}
+
+    def _fake_persist(agent, working, final, content_state, db, **kwargs):
+        captured.update(kwargs)
+        captured["final"] = final
+        captured["filtered_text"] = content_state.get("filtered_text")
+
+    monkeypatch.setattr(chat_mod, "persist_cancel", _fake_persist)
+    agent = _make_agent()
+    with pytest.raises(asyncio.CancelledError):
+        async for _ in chat_mod.run_chat_stream(agent, "hi", _FakeDB()):  # type: ignore[arg-type]
+            pass
+
+    assert captured["thinking"] == "first thought\n\nsecond thought"
+    assert captured["tool_steps"] == [
+        {"name": "web_search", "query": "面经", "args": {"query": "面经"}, "result": "hits"},
+    ]
+    # The partial body still rides content_state (text survived before too).
+    assert captured["filtered_text"] == "partial answer so far"
+
+
+@pytest.mark.asyncio
+async def test_run_chat_stream_cancel_prefers_outcome_trace(monkeypatch) -> None:
+    """When the loop completed, its authoritative accumulators win (no duplicates)."""
+    import realmock.domains.prep.agents.chat as chat_mod
+
+    async def _prep(agent, user_text, db, **kwargs):
+        return CompactionOptions(), "tc", [{"role": "user", "content": "hi"}], [], {}
+
+    monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
+    monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
+
+    async def _done_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+        yield {"type": "thinking", "content": "streamed mirror"}
+        outcome["value"] = (
+            [{"role": "user", "content": "hi"}],
+            None,
+            [],
+            [{"name": "tool", "query": "q"}],
+            "loop thinking",
+        )
+        if False:
+            yield "x"
+
+    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _done_rounds)
+
+    async def _cancel_closing(messages, temperature=0.7):
+        raise asyncio.CancelledError()
+        if False:
+            yield "x"
+
+    agent = _make_agent()
+    agent.llm = SimpleNamespace(chat_stream=_cancel_closing, context_window=8000)
+    captured = {}
+    monkeypatch.setattr(
+        chat_mod,
+        "persist_cancel",
+        lambda *a, **k: captured.update(k),
+    )
+    with pytest.raises(asyncio.CancelledError):
+        async for _ in chat_mod.run_chat_stream(agent, "hi", _FakeDB()):  # type: ignore[arg-type]
+            pass
+
+    assert captured["thinking"] == "loop thinking"
+    assert captured["tool_steps"] == [{"name": "tool", "query": "q"}]
+
 def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None:
     import realmock.domains.prep.agents.chat as chat_mod
 

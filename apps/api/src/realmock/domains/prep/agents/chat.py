@@ -387,6 +387,12 @@ async def run_chat_stream(
     search_groups: list[dict[str, Any]] = []
     tool_steps: list[dict[str, Any]] = []
     thinking: str = ""
+    # The loop exports its accumulators only on normal completion, so mirror
+    # the streamed thinking/tool events while forwarding them: a stop mid-loop
+    # can then still persist what was already produced. (A cancelled round may
+    # re-emit a replaced thinking segment; thinking is display-only metadata.)
+    streamed_steps: list[dict[str, Any]] = []
+    streamed_thinking: list[str] = []
     final: str = ""
     finalized = False
     try:
@@ -394,6 +400,12 @@ async def run_chat_stream(
             agent._run_tool_rounds, outcome, events, working, db,
             asked_user=asked_user, content_state=content_state,
         ):
+            if isinstance(item, dict):
+                kind = item.get("type")
+                if kind == "thinking":
+                    streamed_thinking.append(str(item.get("content") or ""))
+                elif kind == "tool_step":
+                    streamed_steps.append({k: v for k, v in item.items() if k != "type"})
             yield item
 
         error = outcome.get("error")
@@ -514,8 +526,10 @@ async def run_chat_stream(
         if not finalized:
             persist_cancel(
                 agent, working, final, content_state, db,
-                tool_steps=tool_steps, search_groups=search_groups,
-                thinking=thinking, compact_threshold=compact_threshold,
+                tool_steps=tool_steps or streamed_steps,
+                search_groups=search_groups,
+                thinking=thinking or "".join(streamed_thinking),
+                compact_threshold=compact_threshold,
                 compact_options=policy, turn_id=turn_id,
             )
         raise
