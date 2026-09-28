@@ -15,6 +15,7 @@ import type { PrepHistoryMessage, PrepSessionSummary } from "@/lib/api/contract"
 import type { AskUserDialog, PrepUsageStats } from "@/types";
 import type { PrepChatMessage } from "../types";
 import { mapHistoryMessages } from "../history";
+import { clearArchive } from "../compactionArchive";
 import { hasActiveStream } from "../streamRegistry";
 
 const RESTORE_KEY = "realmock_prep_session_id";
@@ -315,6 +316,11 @@ export function usePrepChatSession({
         resume_id: resumeId ?? undefined,
       });
       if (!aliveRef.current || seq !== switchSeqRef.current) return null;
+      // SQLite reuses freed row ids: a fresh session can inherit the archive
+      // key of a deleted predecessor, which would render its folded turns
+      // above the welcome message. A brand-new session can never have
+      // legitimate folded turns, so any archive under this id is stale.
+      clearArchive(id);
       setPrepSessionId(id);
       window.localStorage.setItem(RESTORE_KEY, String(id));
       setTokenUsage(0);

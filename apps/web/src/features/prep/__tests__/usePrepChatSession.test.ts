@@ -276,6 +276,35 @@ describe("usePrepChatSession.startPrep", () => {
     expect(result.current.prepError).toContain("creation failed");
     expect(window.localStorage.getItem(RESTORE_KEY)).toBeNull();
   });
+
+  it("clears a stale archive inherited through row-id reuse", async () => {
+    // SQLite reuses freed ids: a new session can inherit the archive key of a
+    // deleted compaction predecessor, which would render ghost turns above
+    // the welcome message. Creation must wipe it.
+    mockedCreatePrepSession.mockResolvedValue({ id: 11 } as never);
+    window.localStorage.setItem(
+      "realmock_prep_archive_11",
+      JSON.stringify({
+        groups: [
+          {
+            version: 1,
+            forkPoint: 4,
+            backupSessionId: null,
+            staleBackup: false,
+            messages: [{ id: "archived-ghost", role: "assistant", content: "ghost turn" }],
+          },
+        ],
+      }),
+    );
+    const { result } = renderSessionHook(makeOptions());
+
+    await act(async () => {
+      await result.current.startPrep();
+    });
+
+    expect(result.current.prepSessionId).toBe(11);
+    expect(window.localStorage.getItem("realmock_prep_archive_11")).toBeNull();
+  });
 });
 
 describe("usePrepChatSession.create supersedes in-flight ops", () => {
