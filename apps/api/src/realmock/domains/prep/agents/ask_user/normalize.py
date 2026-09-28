@@ -148,10 +148,13 @@ def _build_ask_event(
 ) -> dict[str, Any] | None:
     """Assemble a dialog event, or None when the arguments cannot render a dialog.
 
-    options widgets need ≥2 options; slider/rating widgets need a valid scale
-    (with options optional). An invalid slider/rating scale degrades to the
-    options widget when options are sufficient, so the question survives.
-    ``suggested`` is the auto-submit answer on UI timeout (options only).
+    An options-widget question with no usable options renders as free-text-only
+    (the model omits options for user-specific facts it cannot know) — forced
+    ``allow_custom`` so the dialog always has an answer channel. Options
+    widgets with ≥2 options behave as before; slider/rating widgets need a
+    valid scale (an invalid one degrades to the options widget when options
+    are sufficient, so the question survives). ``suggested`` is the
+    auto-submit answer on UI timeout (options only).
     """
     question = str(question or "").strip()
     widget = normalize_ask_widget(widget)
@@ -162,7 +165,8 @@ def _build_ask_event(
         else:
             return None
     if widget == "options" and len(options) < _ASK_MIN_OPTIONS:
-        return None
+        options = []
+        allow_custom = True
     if not question:
         return None
     return {
@@ -179,11 +183,14 @@ def _build_ask_event(
 def _resolve_suggested(
     widget: str, options: list[str], scale: dict[str, Any], suggested_index: Any
 ) -> str | None:
-    """Resolve the recommended auto-submit answer (options/slider only)."""
+    """Resolve the recommended auto-submit answer (slider min, or a picked
+    option). An options question without options has nothing to recommend."""
     if widget == "rating":
         return None
     if widget == "slider":
         return f"{scale.get('min')}{scale.get('unit') or ''}"
+    if not options:
+        return None
     try:
         index = int(suggested_index)
     except (TypeError, ValueError):

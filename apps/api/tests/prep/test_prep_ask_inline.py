@@ -63,10 +63,12 @@ def test_extract_inline_respects_cap_and_merges() -> None:
     one = '<tool_call>{"name":"ask_user","arguments":{"question":"Solo?","options":["A","B"]}}</tool_call>'
     _, evt4 = extract_inline_ask_user(one)
     assert evt4 is not None and "questions" not in evt4
-    # single option cannot render a dialog
+    # fewer than 2 options degrades to a free-text-only question (no options,
+    # no recommendation) instead of dropping the question
     solo_one_opt = '<tool_call>{"name":"ask_user","arguments":{"question":"Solo?","options":["A"]}}</tool_call>'
     _, evt5 = extract_inline_ask_user(solo_one_opt)
-    assert evt5 is None
+    assert evt5 is not None and evt5["options"] == [] and evt5["allow_custom"] is True
+    assert evt5["suggested"] is None
 
 def test_extract_inline_param_style_recovers() -> None:
     from realmock.domains.prep.agents.ask_user.inline import extract_inline_ask_user

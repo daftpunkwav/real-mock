@@ -18,9 +18,12 @@ ASK_USER_TOOL: dict[str, Any] = {
             "when the decision genuinely needs multiple inputs, and prefer one question "
             "when that suffices. At most one dialog per reply. You decide the shape per "
             "question: selection=single (radio list) or multi (checkbox list, answers are "
-            "joined); widget=options, slider, or rating. A free-text input is always shown "
-            "(allow_custom), so never add an 'other' option. The flat top-level fields are "
-            "a single-question shorthand equivalent to a one-item questions array."
+            "joined); widget=options, slider, or rating. Options are OPTIONAL: omit them "
+            "for questions about the user's own facts you cannot know (experience, "
+            "employer, constraints) — the dialog then shows a free-text input. A "
+            "free-text input is always shown (allow_custom), so never add an 'other' "
+            "option. The flat top-level fields are a single-question shorthand "
+            "equivalent to a one-item questions array."
         ),
         "parameters": {
             "type": "object",
@@ -42,7 +45,14 @@ ASK_USER_TOOL: dict[str, Any] = {
                             "options": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "2–8 short plain-text labels (widget=options only)",
+                                "description": (
+                                    "OPTIONAL, 2–8 short plain-text labels (widget=options "
+                                    "only). Provide options only when a few plausible "
+                                    "choices genuinely help; for user-specific facts you "
+                                    "cannot know, omit them — the question then renders "
+                                    "as free-text. Omit when unsure; never guess at the "
+                                    "user's own details to fill a list."
+                                ),
                             },
                             "selection": {
                                 "type": "string",
@@ -67,11 +77,13 @@ ASK_USER_TOOL: dict[str, Any] = {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "2–8 options for widget=options. Each must be a short plain-text label "
-                        "(aim ≤40 chars; longer labels render truncated at 80) suitable "
-                        "for a clickable control; do not pass "
+                        "OPTIONAL, 2–8 options for widget=options. Each must be a short "
+                        "plain-text label (aim ≤40 chars; longer labels render truncated "
+                        "at 80) suitable for a clickable control; do not pass "
                         "{description: ..., value: ...} objects or pseudo-JSON strings. "
-                        "Ignored for slider/rating widgets."
+                        "Ignored for slider/rating widgets. Omit entirely for questions "
+                        "about the user's own facts you cannot know — the dialog then "
+                        "offers only the free-text input."
                     ),
                 },
                 "selection": {
@@ -108,7 +120,10 @@ ASK_USER_TOOL: dict[str, Any] = {
                     "description": (
                         "Index into options marking YOUR recommended choice (default 0). "
                         "The UI auto-submits it if the user does not answer in time. "
-                        "Only meaningful for widget=options."
+                        "Only meaningful for widget=options with options present, and "
+                        "only when a recommendation is genuinely defensible — omit it "
+                        "for factual or personal questions where any pick would be a "
+                        "guess about the user."
                     ),
                 },
             },

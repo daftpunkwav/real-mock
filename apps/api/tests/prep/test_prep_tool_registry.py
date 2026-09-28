@@ -430,7 +430,23 @@ def test_ask_invalid_scale_degrades_to_options() -> None:
     event = _build_ask_event("Q?", ["a", "b"], widget="slider", scale={"min": 1})
     assert event is not None and event["widget"] == "options"
     assert _build_ask_event("Q?", ["only"], widget="slider", scale=None) is None
-    assert _build_ask_event("Q?", [], widget="options") is None
+
+
+def test_ask_options_less_question_becomes_free_text() -> None:
+    """A question about user-specific facts needs no guessed options: without
+    options the dialog renders as free-text only (and never a stray badge)."""
+    from realmock.domains.prep.agents.ask_user import _build_ask_event
+
+    event = _build_ask_event("你有几年后端经验?", [], widget="options")
+    assert event is not None
+    assert event["options"] == []
+    assert event["allow_custom"] is True
+    assert event["suggested"] is None
+    # allow_custom explicitly off would leave no answer channel: forced back on.
+    forced = _build_ask_event("Q?", [], widget="options", allow_custom=False)
+    assert forced is not None and forced["allow_custom"] is True
+    # A suggested index without options resolves to no recommendation.
+    assert _build_ask_event("Q?", [], widget="options", suggested_index=0)["suggested"] is None
 
 
 async def test_ask_dispatch_emits_full_event() -> None:
