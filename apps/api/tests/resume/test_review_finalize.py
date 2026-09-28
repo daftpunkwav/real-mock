@@ -203,3 +203,70 @@ def test_finalize_still_raises_when_nothing_can_be_recovered() -> None:
     )
     with pytest.raises(ApiBusinessError):
         asyncio.run(finalize_review_json(loop, _FailingLLM(), locale="en", max_output=512))
+
+
+def test_finalize_repair_retries_once_on_failure() -> None:
+    """Empty/malformed replies recur on reasoning-heavy models: the grounded
+    repair takes one fresh sample before the run is allowed to die."""
+    from realmock.domains.resume.agents.review import finalize_review_json as _f  # noqa: F401
+
+    class _FlakyLLM(_FakeLLM):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        async def chat_json(self, messages, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("empty output")
+            self.repair_user = str(messages[1]["content"])
+            return {"headline": "second-sample", "score": 70}
+
+    llm = _FlakyLLM()
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}],
+        final_content="prose without json",
+        tool_used=True,
+    )
+    payload = asyncio.run(finalize_review_json(loop, llm, locale="en", max_output=512))
+    assert llm.calls == 2
+    assert payload["headline"] == "second-sample"
+
+
+def test_forced_final_answer_retries_blank_reply() -> None:
+    """A blank forced-final reply gets one fresh sample before giving up."""
+    from realmock.domains.resume.agents.review import _request_forced_final_answer
+
+    class _BlankThenTextLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def chat(self, messages, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return "   "
+            return '{"headline": "ok"}'
+
+    llm = _BlankThenTextLLM()
+    loop = LoopResult(messages=[{"role": "user", "content": "overview"}], final_content="", tool_used=True)
+    text = asyncio.run(_request_forced_final_answer(llm, loop, locale="en"))
+    assert llm.calls == 2
+    assert text == '{"headline": "ok"}'
+
+
+def test_forced_final_answer_returns_none_after_two_blanks() -> None:
+    from realmock.domains.resume.agents.review import _request_forced_final_answer
+
+    class _AlwaysBlankLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def chat(self, messages, **kwargs):
+            self.calls += 1
+            return ""
+
+    llm = _AlwaysBlankLLM()
+    loop = LoopResult(messages=[{"role": "user", "content": "overview"}], final_content="", tool_used=True)
+    text = asyncio.run(_request_forced_final_answer(llm, loop, locale="en"))
+    assert llm.calls == 2
+    assert text is None

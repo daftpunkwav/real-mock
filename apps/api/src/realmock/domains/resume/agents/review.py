@@ -402,27 +402,31 @@ async def finalize_review_json(
     await _emit_finalize_notice(on_event, locale, "repair")
     # Evidence is char-capped by evidence_for_repair and is sent as-is: a
     # compression round-trip would only add latency and destroy detail the
-    # repair needs.
+    # repair needs. Two fresh samples: empty replies recur on reasoning-heavy
+    # models, and this pass runs only when everything above already failed —
+    # the retry lands exclusively on runs that would otherwise raise C0002.
     repaired: Any = None
     repair_error: Exception | None = None
-    try:
-        repaired = await asyncio.wait_for(
-            llm.chat_json(
-                [
-                    {
-                        "role": "system",
-                        "content": review_repair_system(locale),
-                    },
-                    {"role": "user", "content": evidence},
-                ],
-                temperature=0.2,
-                max_tokens=min(max_output, REVIEW_MAX_OUTPUT_TOKENS),
-            ),
-            timeout=REVIEW_REPAIR_TIMEOUT_SECONDS,
-        )
-    except Exception as exc:
-        logger.warning("Resume review JSON repair failed: %s", exc)
-        repair_error = exc
+    for attempt in range(2):
+        try:
+            repaired = await asyncio.wait_for(
+                llm.chat_json(
+                    [
+                        {
+                            "role": "system",
+                            "content": review_repair_system(locale),
+                        },
+                        {"role": "user", "content": evidence},
+                    ],
+                    temperature=0.2,
+                    max_tokens=min(max_output, REVIEW_MAX_OUTPUT_TOKENS),
+                ),
+                timeout=REVIEW_REPAIR_TIMEOUT_SECONDS,
+            )
+            break
+        except Exception as exc:
+            logger.warning("Resume review JSON repair failed (attempt %s/2): %s", attempt + 1, exc)
+            repair_error = exc
     if isinstance(repaired, dict):
         return repaired
     # Last resort for a reply cut off by the output-token cap: the head is real
@@ -446,35 +450,40 @@ async def _request_forced_final_answer(
     *,
     locale: str,
 ) -> str | None:
-    """One tool-free chat call reusing the loop history; None when unusable.
+    """Up to two tool-free chat calls reusing the loop history; None when unusable.
 
     Covers a loop that broke with tools run but no final content (a failed
     round LLM call, or an empty model reply): without tools the model can only
-    answer. Runs under the loop's output-token cap (caller restores the client
-    budget afterwards); the transport timeout bounds the call. Never raises —
-    failure falls through to the repair path; cancellation still propagates.
+    answer. Empty replies recur on reasoning-heavy models, so a blank result
+    gets one fresh sample instead of failing the run. Runs under the loop's
+    output-token cap (caller restores the client budget afterwards); the
+    caller's wait_for bounds the total, so a hung request still leaves time
+    for the lighter repair pass before the frontend budget ends the run.
+    Never raises — failure falls through to the repair path; cancellation
+    still propagates.
     """
-    call = llm.chat(
-        [
-            *loop.messages,
-            {
-                "role": "system",
-                "content": REVIEW_FORCED_FINAL_INSTRUCTION.format(
-                    schema=review_json_schema_text(), locale=locale
-                ),
-            },
-        ],
-        temperature=REVIEW_AGENT_TEMPERATURE,
-    )
-    try:
-        text = await call
-    except Exception as exc:
-        logger.warning("Resume review forced final answer failed: %s", exc)
-        return None
-    if not str(text or "").strip():
-        return None
-    logger.info("Resume review loop ended without content; using tool-free final answer")
-    return str(text)
+    messages = [
+        *loop.messages,
+        {
+            "role": "system",
+            "content": REVIEW_FORCED_FINAL_INSTRUCTION.format(
+                schema=review_json_schema_text(), locale=locale
+            ),
+        },
+    ]
+    for attempt in range(2):
+        try:
+            text = await llm.chat(messages, temperature=REVIEW_AGENT_TEMPERATURE)
+        except Exception as exc:
+            logger.warning("Resume review forced final answer failed: %s", exc)
+            return None
+        if str(text or "").strip():
+            logger.info("Resume review loop ended without content; using tool-free final answer")
+            return str(text)
+        logger.warning(
+            "Resume review forced final answer came back empty (attempt %s/2)", attempt + 1
+        )
+    return None
 
 
 async def _invoke_review_tool(
