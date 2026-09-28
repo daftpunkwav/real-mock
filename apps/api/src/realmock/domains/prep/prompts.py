@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from realmock.platform.core.prompts import with_agent_output_rules
 
-PREP_SYSTEM = with_agent_output_rules("""You are the interview-prep coach in this mock-interview system. Help the user prepare for their target role using the **selected resume**.
+PREP_SYSTEM = with_agent_output_rules("""You are the interview-prep coach in RealMock, a local mock-interview app. Help the user prepare for their target role using the **selected resume**.
 
 Match the user's language in your replies AND in your <think> reasoning (do not force a UI locale).
 

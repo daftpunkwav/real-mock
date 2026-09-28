@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from realmock.domains.prep.agents.context.hints import upsert_lang_hint, upsert_usage_hint
+from realmock.domains.prep.agents.context.hints import (
+    upsert_environment_hint,
+    upsert_lang_hint,
+    upsert_usage_hint,
+)
 from realmock.domains.prep.agents.context.markers import (
     BREAKDOWN_ASSISTANT,
     BREAKDOWN_MEMORY,
@@ -102,7 +106,7 @@ async def build_working_context(
     default_focus: str | None = None,
     report: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Assemble model context: LLM summary compression + working-memory inject + lang suffix.
+    """Assemble model context: LLM summary compression + working-memory inject + per-turn suffixes.
 
     Compress only at the start of each chat turn (may trigger one summary LLM
     call). Persist paths (chat.finalize) use rule-based compression to avoid save latency.
@@ -123,7 +127,7 @@ async def build_working_context(
         report: Collects compaction cost (tokens/latency) without raising.
 
     Returns:
-        The working message list for the model (with memory/lang/usage suffixes).
+        The working message list for the model (with memory/lang/env/usage suffixes).
     """
     opts = options or CompactionOptions()
     compacted = await compact_with_summary(
@@ -143,7 +147,10 @@ async def build_working_context(
     )
     with_memory = upsert_memory_block(compacted, memory)
     with_lang = upsert_lang_hint(with_memory, reply_locale)
-    return upsert_usage_hint(with_lang, context_window)
+    # Serving model name + clock are per-turn facts (see build_environment_hint);
+    # llm may be None in assembly-only paths, where the hint degrades to "unknown".
+    with_env = upsert_environment_hint(with_lang, getattr(llm, "model", ""))
+    return upsert_usage_hint(with_env, context_window)
 
 
 __all__ = ["build_context_breakdown", "build_working_context"]
