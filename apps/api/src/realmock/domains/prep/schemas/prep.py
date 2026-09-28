@@ -72,6 +72,20 @@ class PrepHistoryMessage(BaseModel):
     turn_id: str | None = None
 
 
+class PrepSuggestionsRequest(BaseModel):
+    # Model/thinking override follows the chat turn snapshot (None = binding default).
+    model_profile_id: int | None = None
+    reasoning_effort: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_\-]{1,32}$")
+    # Language for the generated questions (zh-CN/en; others fall back to en).
+    ui_locale: str | None = None
+
+
+class PrepSuggestionsResponse(BaseModel):
+    # Up to 4 short follow-up questions; empty when there is nothing to base
+    # them on or the LLM call failed (the UI keeps its default prompts then).
+    suggestions: list[str] = Field(default_factory=list)
+
+
 #: Allowed compaction intensities (shared with the settings UI vocabulary).
 COMPACTION_INTENSITIES = ("light", "balanced", "aggressive")
 

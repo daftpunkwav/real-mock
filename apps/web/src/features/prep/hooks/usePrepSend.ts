@@ -97,6 +97,8 @@ export function usePrepSend(opts: {
   syncBackendCount: (sid: number, n: number) => void;
   /** True while a manual compaction is in flight for the session (send backstop). */
   isCompacting?: (sid: number) => boolean;
+  /** A turn settled (success path only), viewed or background — suggestions refresh hook. */
+  onTurnSettled?: (sid: number) => void;
 }) {
   const queuesRef = useRef(new Map<number, QueuedSend[]>());
   /** Background-turn usage deltas by session (applied when the session is viewed). */
@@ -142,6 +144,7 @@ export function usePrepSend(opts: {
     takeBackendIndex,
     syncBackendCount,
     isCompacting,
+    onTurnSettled,
   } = opts;
 
   const isViewing = (sid: number) => viewingRef.current === sid;
@@ -365,6 +368,7 @@ export function usePrepSend(opts: {
           cached_tokens: result.cached_tokens,
         });
       }
+      onTurnSettled?.(sid);
       return true;
     } catch (e) {
       flushPendingToken();

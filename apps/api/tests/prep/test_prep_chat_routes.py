@@ -385,3 +385,97 @@ def test_prep_stream_http_error_redacted(db, monkeypatch) -> None:
             body = "".join(resp.iter_text())
     # Upstream failures surface verbatim (credential-redacted), never generic copy.
     assert "upstream-secret" in body
+
+
+def _suggest_llm(monkeypatch, result=None, error=None):
+    """Patch LLMClient.from_db so chat_json returns `result` or raises `error`."""
+    import realmock.domains.prep.routes.chat as chat_route
+
+    class _JsonLLM:
+        model = "test-model"
+        context_window = 8000
+
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            _JsonLLM.prompt = messages[0]["content"]
+            if error is not None:
+                raise error
+            return result
+
+    fake = _JsonLLM()
+    monkeypatch.setattr(
+        chat_route.LLMClient, "from_db", staticmethod(lambda api_db, *, profile_id=None, reasoning_effort=None: fake)
+    )
+    return fake
+
+
+@pytest.mark.asyncio
+async def test_last_exchange_picks_latest_pair(db) -> None:
+    import realmock.domains.prep.routes.chat as chat_route
+
+    messages = [
+        {"role": "user", "content": "old question"},
+        {"role": "assistant", "content": "old answer"},
+        {"role": "system", "content": "[Conversation Minutes] folded"},
+        {"role": "assistant", "content": "", "tool_calls": [{"id": "c1"}]},
+        {"role": "user", "content": "new question"},
+        {"role": "assistant", "content": "new answer"},
+    ]
+    assert chat_route._last_exchange(messages) == ("new question", "new answer")
+    assert chat_route._last_exchange([{"role": "user", "content": "lonely"}]) is None
+    assert chat_route._last_exchange([]) is None
+
+
+@pytest.mark.asyncio
+async def test_suggestions_edges(db, monkeypatch) -> None:
+    import realmock.domains.prep.routes.chat as chat_route
+    from realmock.platform.core.errors import ApiBusinessError
+
+    with pytest.raises(ApiBusinessError) as exc:
+        await chat_route.suggest_prep_followups(999999, db)
+    assert exc.value.error_code == "A3001"
+
+    row = _session(db)
+    # No exchange in history: empty response, LLM never built.
+    out = await chat_route.suggest_prep_followups(row.id, db=db, access=row.access_token)
+    assert out.suggestions == []
+
+    row.messages = json.dumps(
+        [
+            {"role": "user", "content": "如何准备 ReAct 追问?"},
+            {"role": "assistant", "content": "先讲清三段式。"},
+        ]
+    )
+    db.commit()
+
+    # LLM failure degrades to an empty list (the UI keeps its defaults).
+    _suggest_llm(monkeypatch, error=RuntimeError("quota"))
+    out = await chat_route.suggest_prep_followups(row.id, db=db, access=row.access_token)
+    assert out.suggestions == []
+
+    fake = _suggest_llm(
+        monkeypatch,
+        result={
+            "suggestions": [
+                "三段式各自产出什么?",
+                "  三段式各自产出什么?  ",
+                "x" * 90,
+                42,
+                "",
+                "简历量墙数据要再准备吗?",
+            ]
+        },
+    )
+    out = await chat_route.suggest_prep_followups(
+        row.id, db=db, access=row.access_token,
+        body=chat_route.PrepSuggestionsRequest(ui_locale="zh-CN"),
+    )
+    assert out.suggestions == [
+        "三段式各自产出什么?",
+        "x" * 59 + "…",
+        "42",
+        "简历量墙数据要再准备吗?",
+    ]
+    assert "Assistant's latest reply" in fake.prompt
+
+    with pytest.raises(ApiBusinessError):
+        await chat_route.suggest_prep_followups(row.id, db=db, access="bad-token")

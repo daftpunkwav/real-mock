@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "@/i18n";
 import { getTranslator } from "@/i18n/resolve";
+import { prepCoachHttp } from "@/lib/api/clients";
 import type { PrepSessionSummary } from "@/lib/api/contract";
 import type { AskUserDialog, PrepUsageStats } from "@/types";
 import type { PrepChatMessage } from "../types";
@@ -18,6 +19,7 @@ import type { RateSubmit } from "../components/RateModal";
 import type { SlashName } from "../slashCommands";
 import { parseCompactArgs } from "../slashCommands";
 import { resolveCompactParams } from "@/lib/compactThreshold";
+import { resolveSelectedModel } from "../modelChoice";
 import { type ArchivedGroup } from "../compactionArchive";
 import type { PendingSessionRef } from "../sessionRefs";
 import { activeStreamIds, subscribeStreams } from "../streamRegistry";
@@ -88,6 +90,8 @@ interface UsePrepChat {
   handleAskAnswer: (text: string) => void;
   handleQuickPrompt: (prompt: string) => Promise<void>;
   handleNewSession: () => Promise<void>;
+  /** AI-generated follow-up suggestions; null = static default prompts. */
+  quickSuggestions: string[] | null;
   handleScroll: () => void;
   jumpToBottom: () => void;
   switchSession: (id: number) => Promise<void>;
@@ -187,6 +191,37 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   viewingRef.current = session.prepSessionId;
   const loading = busySid !== null && busySid === session.prepSessionId;
 
+  // AI quick-prompt suggestions: null shows the static defaults. Refreshed
+  // after each settled turn of the viewed session; a switch falls back to
+  // defaults until that session's next turn completes.
+  const [quickSuggestions, setQuickSuggestions] = useState<string[] | null>(null);
+  const refreshSuggestions = useCallback(
+    (sid: number) => {
+      const model = resolveSelectedModel(
+        resources.chatModels,
+        resources.selectedModelId,
+        resources.defaultChatProfile,
+      );
+      prepCoachHttp
+        .suggestFollowups(sid, {
+          modelProfileId: model?.id ?? null,
+          reasoningEffort: model?.capabilities.reasoning ? resources.effort : null,
+          uiLocale: locale,
+        })
+        .then((res) => {
+          const list = (res.suggestions ?? []).filter((s) => typeof s === "string" && s.trim());
+          setQuickSuggestions(list.length > 0 ? list : null);
+        })
+        .catch(() => {
+          /* Keep the current card (defaults on first failure). */
+        });
+    },
+    [resources.chatModels, resources.selectedModelId, resources.defaultChatProfile, resources.effort, locale],
+  );
+  useEffect(() => {
+    setQuickSuggestions(null);
+  }, [session.prepSessionId]);
+
   const {
     archiveGroups,
     compactingSid,
@@ -233,6 +268,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     takeBackendIndex,
     syncBackendCount,
     isCompacting: isCompactingSession,
+    onTurnSettled: refreshSuggestions,
   });
 
   const actions = usePrepMessageActions({
@@ -430,6 +466,7 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     handleAskAnswer,
     handleQuickPrompt,
     handleNewSession: session.handleNewSession,
+    quickSuggestions,
     handleScroll: scroll.handleScroll,
     jumpToBottom: scroll.jumpToBottom,
     switchSession: session.switchSession,

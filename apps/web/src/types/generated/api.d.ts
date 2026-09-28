@@ -820,6 +820,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/prep/sessions/{session_id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Prep Followups
+         * @description AI follow-up suggestions for the quick-prompts card (best-effort).
+         */
+        post: operations["suggest_prep_followups_api_v1_prep_sessions__session_id__suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/prep/sessions/{session_id}/compact": {
         parameters: {
             query?: never;
@@ -2403,6 +2423,26 @@ export interface paths {
         get: operations["get_prep_context_api_prep_sessions__session_id__context_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prep/sessions/{session_id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Prep Followups
+         * @description AI follow-up suggestions for the quick-prompts card (best-effort).
+         */
+        post: operations["suggest_prep_followups_api_prep_sessions__session_id__suggestions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4454,6 +4494,20 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** PrepSuggestionsRequest */
+        PrepSuggestionsRequest: {
+            /** Model Profile Id */
+            model_profile_id?: number | null;
+            /** Reasoning Effort */
+            reasoning_effort?: string | null;
+            /** Ui Locale */
+            ui_locale?: string | null;
+        };
+        /** PrepSuggestionsResponse */
+        PrepSuggestionsResponse: {
+            /** Suggestions */
+            suggestions?: string[];
         };
         /** PrepSummaryUpdateRequest */
         PrepSummaryUpdateRequest: {
@@ -6977,6 +7031,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrepContextResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_prep_followups_api_v1_prep_sessions__session_id__suggestions_post: {
+        parameters: {
+            query?: {
+                /** @description Prep capability token (compatible; prod disabled) */
+                token?: string | null;
+            };
+            header?: {
+                "X-Interview-Token"?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PrepSuggestionsRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrepSuggestionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9681,6 +9775,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrepContextResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_prep_followups_api_prep_sessions__session_id__suggestions_post: {
+        parameters: {
+            query?: {
+                /** @description Prep capability token (compatible; prod disabled) */
+                token?: string | null;
+            };
+            header?: {
+                "X-Interview-Token"?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PrepSuggestionsRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrepSuggestionsResponse"];
                 };
             };
             /** @description Validation Error */

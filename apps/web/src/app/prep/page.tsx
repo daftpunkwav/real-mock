@@ -72,6 +72,7 @@ export default function PrepPage() {
     handleAskAnswer,
     handleQuickPrompt,
     handleNewSession,
+    quickSuggestions,
     handleScroll,
     jumpToBottom,
     switchSession,
@@ -273,6 +274,9 @@ export default function PrepPage() {
         {/* Context and shortcuts */}
         <PrepSidePanel
           selectedResume={selectedResume}
+          resumes={resumes}
+          resumeId={resumeId}
+          onResumeChange={setResumeId}
           sessions={sessions}
           prepSessionId={prepSessionId}
           starting={starting}
@@ -280,6 +284,7 @@ export default function PrepPage() {
           onSelectSession={switchSession}
           onNewSession={handleNewSession}
           onQuickPrompt={handleQuickPrompt}
+          quickSuggestions={quickSuggestions}
           onDeleteSession={(id) => void deleteSession(id)}
           onArchiveSession={(id, archived) => void archiveSession(id, archived)}
           onClearSession={(id) => void clearSession(id)}

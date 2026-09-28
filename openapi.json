@@ -2006,6 +2006,100 @@
         }
       }
     },
+    "/api/v1/prep/sessions/{session_id}/suggestions": {
+      "post": {
+        "tags": [
+          "prep"
+        ],
+        "summary": "Suggest Prep Followups",
+        "description": "AI follow-up suggestions for the quick-prompts card (best-effort).",
+        "operationId": "suggest_prep_followups_api_v1_prep_sessions__session_id__suggestions_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Prep capability token (compatible; prod disabled)",
+              "title": "Token"
+            },
+            "description": "Prep capability token (compatible; prod disabled)"
+          },
+          {
+            "name": "X-Interview-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Interview-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PrepSuggestionsRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepSuggestionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/prep/sessions/{session_id}/compact": {
       "post": {
         "tags": [
@@ -5993,6 +6087,100 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PrepContextResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prep/sessions/{session_id}/suggestions": {
+      "post": {
+        "tags": [
+          "prep"
+        ],
+        "summary": "Suggest Prep Followups",
+        "description": "AI follow-up suggestions for the quick-prompts card (best-effort).",
+        "operationId": "suggest_prep_followups_api_prep_sessions__session_id__suggestions_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Prep capability token (compatible; prod disabled)",
+              "title": "Token"
+            },
+            "description": "Prep capability token (compatible; prod disabled)"
+          },
+          {
+            "name": "X-Interview-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Interview-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PrepSuggestionsRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepSuggestionsResponse"
                 }
               }
             }
@@ -10859,6 +11047,59 @@
           "updated_at"
         ],
         "title": "PrepSessionSummary"
+      },
+      "PrepSuggestionsRequest": {
+        "properties": {
+          "model_profile_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Profile Id"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_\\-]{1,32}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          }
+        },
+        "type": "object",
+        "title": "PrepSuggestionsRequest"
+      },
+      "PrepSuggestionsResponse": {
+        "properties": {
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          }
+        },
+        "type": "object",
+        "title": "PrepSuggestionsResponse"
       },
       "PrepSummaryUpdateRequest": {
         "properties": {

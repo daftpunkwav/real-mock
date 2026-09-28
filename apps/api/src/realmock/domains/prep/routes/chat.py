@@ -15,6 +15,7 @@ response carry session-level totals (estimate + provider columns).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -39,6 +40,8 @@ from realmock.domains.prep.schemas import (
     PrepHistoryMessage,
     PrepMessageRequest,
     PrepMessageResponse,
+    PrepSuggestionsRequest,
+    PrepSuggestionsResponse,
 )
 from realmock.domains.prep.services import session_turn_lock
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
@@ -283,9 +286,103 @@ def get_prep_context(
         last_round_completion_tokens=session.last_round_completion_tokens or 0,
     )
 
+
+# Suggestions are a nicety: one cheap JSON call, short budget, and any failure
+# degrades to an empty list (the UI keeps its default prompts) instead of an error.
+_SUGGESTIONS_TIMEOUT_SECONDS = 20.0
+_SUGGESTION_MAX_CHARS = 60
+_SUGGESTIONS_PROMPT = (
+    "You generate follow-up question suggestions for an interview-prep chat. "
+    "Based on the user's last message and the assistant's latest reply below, propose "
+    "exactly 4 short, specific questions the user would most likely ask next. "
+    "Write the questions in {locale_name}. Each stays under 40 characters, is "
+    "self-contained, and ends with a question mark. No numbering, no quotes, "
+    "no commentary.\n\n"
+    'Return JSON: {{"suggestions": ["...", "...", "...", "..."]}}\n\n'
+    "User's last message:\n{user_text}\n\n"
+    "Assistant's latest reply:\n{reply}"
+)
+
+
+def _locale_label(ui_locale: str | None) -> str:
+    return "Simplified Chinese (zh-CN)" if (ui_locale or "").lower().startswith("zh") else "English"
+
+
+def _last_exchange(messages: list[dict[str, Any]]) -> tuple[str, str] | None:
+    """Latest (user text, assistant reply) pair; None when history has none."""
+    reply = ""
+    user_text = ""
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+        content = str(message.get("content") or "").strip()
+        if not content:
+            continue
+        role = message.get("role")
+        if role == "assistant" and not reply:
+            reply = content
+        elif role == "user" and reply:
+            user_text = content
+            break
+    if not user_text or not reply:
+        return None
+    return user_text[-2000:], reply[-4000:]
+
+
+async def suggest_prep_followups(
+    session_id: int,
+    db: Session = Depends(get_sessions_db),
+    api_db: Session = Depends(get_api_db),
+    body: PrepSuggestionsRequest | None = None,
+    access: str | None = Depends(extract_prep_token),
+):
+    """AI follow-up suggestions for the quick-prompts card (best-effort)."""
+    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
+    if not session:
+        raise_error("A3001")
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    params = body or PrepSuggestionsRequest()
+    exchange = _last_exchange(_load_session_messages(session))
+    if exchange is None:
+        return PrepSuggestionsResponse()
+    user_text, reply = exchange
+    llm = LLMClient.from_db(
+        api_db,
+        profile_id=params.model_profile_id,
+        reasoning_effort=params.reasoning_effort,
+    )
+    prompt = _SUGGESTIONS_PROMPT.format(
+        locale_name=_locale_label(params.ui_locale),
+        user_text=user_text,
+        reply=reply,
+    )
+    try:
+        verdict = await asyncio.wait_for(
+            llm.chat_json([{"role": "user", "content": prompt}], temperature=0.7, max_tokens=300),
+            timeout=_SUGGESTIONS_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        logger.info("Prep suggestions skipped sid=%s: %s", session_id, exc)
+        return PrepSuggestionsResponse()
+    raw = verdict.get("suggestions") if isinstance(verdict, dict) else None
+    suggestions: list[str] = []
+    if isinstance(raw, list):
+        for item in raw:
+            text = " ".join(str(item or "").split())
+            if not text:
+                continue
+            if len(text) > _SUGGESTION_MAX_CHARS:
+                text = text[: _SUGGESTION_MAX_CHARS - 1] + "…"
+            if text not in suggestions:
+                suggestions.append(text)
+            if len(suggestions) == 4:
+                break
+    return PrepSuggestionsResponse(suggestions=suggestions)
+
 __all__ = [
     "get_prep_context",
     "get_prep_messages",
     "prep_message",
     "prep_message_stream",
+    "suggest_prep_followups",
 ]

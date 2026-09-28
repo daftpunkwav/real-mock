@@ -28,6 +28,8 @@ from realmock.domains.prep.schemas.prep import (
     PrepMessageResponse,
     PrepSessionCreateResponse,
     PrepSessionSummary,
+    PrepSuggestionsRequest,
+    PrepSuggestionsResponse,
     PrepSummaryUpdateRequest,
     PrepTruncateRequest,
 )
@@ -56,6 +58,8 @@ __all__ = [
     "PrepPurgeAllRequest",
     "PrepSessionCreateResponse",
     "PrepSessionSummary",
+    "PrepSuggestionsRequest",
+    "PrepSuggestionsResponse",
     "PrepSummaryUpdateRequest",
     "PrepTruncateRequest",
     "ResumePickerItem",

@@ -32,6 +32,7 @@ from realmock.domains.prep.schemas import (
     PrepMessageResponse,
     PrepSessionCreateResponse,
     PrepSessionSummary,
+    PrepSuggestionsResponse,
     ResumePickerItem,
 )
 from realmock.platform.core.constants import (
@@ -117,6 +118,20 @@ router.add_api_route(
     chat.get_prep_context,
     methods=["GET"],
     response_model=PrepContextResponse,
+)
+router.add_api_route(
+    "/sessions/{session_id}/suggestions",
+    chat.suggest_prep_followups,
+    methods=["POST"],
+    response_model=PrepSuggestionsResponse,
+    dependencies=[
+        Depends(
+            rate_limit_dep(
+                key="llm",
+                limit=DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
+            )
+        )
+    ],
 )
 router.add_api_route(
     "/sessions/{session_id}/compact",
