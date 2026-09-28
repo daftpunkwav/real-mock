@@ -109,8 +109,11 @@ const ThinkingRow = memo(function ThinkingRow({
         <Brain size={12} className="mt-px shrink-0 text-[var(--primary)]" />
         <span
           className={cn(
-            "min-w-0 flex-1 whitespace-pre-wrap break-words text-ink-subtle",
-            !open && "truncate",
+            "min-w-0 flex-1 text-ink-subtle",
+            // Mutually exclusive: pre-wrap on a collapsed row fights truncate's
+            // nowrap (whichever lands later in the stylesheet wins) and the
+            // preview wraps into a line and a half.
+            open ? "whitespace-pre-wrap break-words" : "truncate",
           )}
         >
           {open ? body : shortenInline(body)}
