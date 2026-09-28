@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.ledger.store import freeze_ledger, is_frozen, load_ledger
 from realmock.platform.contracts.interview_finished import InterviewFinishedPayload
 from realmock.platform.contracts.lifecycle_hooks import notify_interview_finished
+from realmock.platform.core.constants import SessionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,10 @@ def run_finish_lifecycle(
 
     Returns the frozen ledger snapshot. Notification failures never raise.
     """
-    if mark_completed and getattr(session, "status", None) != "completed":
+    if mark_completed and getattr(session, "status", None) != SessionStatus.COMPLETED.value:
         from datetime import datetime, timezone
 
-        session.status = "completed"
+        session.status = SessionStatus.COMPLETED.value
         if getattr(session, "ended_at", None) is None:
             session.ended_at = datetime.now(timezone.utc)
         db.commit()
