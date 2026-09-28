@@ -103,6 +103,17 @@ def _load_secret_bytes() -> bytes:
         try:
             decoded = base64.b64decode(raw, validate=True)
             if len(decoded) >= 16:
+                # One-time heads-up (per process: _master_bytes caches this call):
+                # the value only had to LOOK like base64 to select the zero-pad
+                # decode path. A later edit that breaks the base64 shape (or
+                # decodes to <16 bytes) silently flips to the KDF path, changing
+                # the master key and orphaning every existing enc:v2 ciphertext.
+                logger.warning(
+                    "SECRET_KEY is valid base64 decoding to %d bytes; using the "
+                    "zero-pad decode path (not KDF). Keeping this exact value is "
+                    "required to decrypt existing ciphertext",
+                    len(decoded),
+                )
                 # Intentional retention of zero padding rather than KDF derivation: using derivation instead makes the same SECRET_KEY
                 # After obtaining different masters, all existing ciphertexts deployed by the existing short keys cannot be decrypted.
                 # Zero padding does not increase entropy at a known cost (effective entropy ≥16 bytes, prod gating enforced).
