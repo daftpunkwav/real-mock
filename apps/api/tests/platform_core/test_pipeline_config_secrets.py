@@ -1,4 +1,4 @@
-"""Pipeline secrets tests for realmock.platform.services.pipeline.secrets.
+"""Pipeline config secrets tests for realmock.platform.services.pipeline.config_secrets.
 
 Covers: conditional encryption, safe decryption, JSON parsing,
   and public/runtime extras redaction.
@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from realmock.platform.services.pipeline import secrets as psec
+from realmock.platform.services.pipeline import config_secrets as psec
 
 
 class TestPipelineSecrets:

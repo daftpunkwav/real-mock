@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL, PipelineStage
 from realmock.platform.models import StageConfig
-from realmock.platform.services.pipeline.secrets import parse_json, public_extras
+from realmock.platform.services.pipeline.config_secrets import parse_json, public_extras
 
 STAGES = [PipelineStage.RECOGNIZE, PipelineStage.REASON, PipelineStage.SPEAK]
 

@@ -43,7 +43,7 @@ from realmock.platform.services.pipeline.resolve import (
     get_provider_model_rows,
     profile_to_response,
 )
-from realmock.platform.services.pipeline.secrets import (
+from realmock.platform.services.pipeline.config_secrets import (
     SECRET_EXTRA_KEYS,
     SECRET_KEEP,
     maybe_encrypt,

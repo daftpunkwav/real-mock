@@ -24,7 +24,7 @@ from realmock.platform.core.constants import (
     PipelineStage,
 )
 from realmock.platform.models import LLMSettings, StageConfig
-from realmock.platform.services.pipeline.secrets import maybe_encrypt
+from realmock.platform.services.pipeline.config_secrets import maybe_encrypt
 from realmock.platform.services.pipeline.stages import get_or_create_stage_config
 
 

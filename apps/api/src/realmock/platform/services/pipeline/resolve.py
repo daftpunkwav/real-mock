@@ -21,7 +21,7 @@ from realmock.platform.core.secrets import decrypt_secret
 from realmock.platform.models import StageConfig
 from realmock.platform.services.pipeline.legacy import get_llm_settings_row, migrate_legacy_to_stages
 from realmock.platform.services.pipeline.migration import TASK_BY_STAGE, DEFAULT_FALLBACK
-from realmock.platform.services.pipeline.secrets import _dec, parse_json, public_extras, runtime_extras
+from realmock.platform.services.pipeline.config_secrets import _dec, parse_json, public_extras, runtime_extras
 from realmock.platform.services.pipeline.stages import load_stage_configs, stage_to_response
 
 
