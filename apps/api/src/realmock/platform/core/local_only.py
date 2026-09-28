@@ -130,7 +130,8 @@ async def guard_ws_origin(websocket: Any) -> bool:
     hostname = (urlparse(origin).hostname or "").lower()
     if hostname == "testclient":
         return True
-    if hostname in ("localhost", "[::1]", "::1"):
+    # hostname is bracket-stripped by urlparse, so IPv6 loopback is "::1".
+    if hostname in ("localhost", "::1"):
         return True
     try:
         host = ipaddress.ip_address(hostname.strip("[]"))

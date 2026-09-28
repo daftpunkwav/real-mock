@@ -70,17 +70,21 @@ def activate_row(db: Session, resume_id: int) -> Resume | None:
 
 
 def delete_row(db: Session, resume_id: int) -> Resume | None:
-    """Delete the row and best-effort unlink matching files. None if missing."""
+    """Delete the row, then best-effort unlink matching files. None if missing.
+
+    The commit must land before the unlink: a failed commit (disk full/lock)
+    must not leave a live row pointing at erased files (unreadable on next
+    parse). The inverse failure — orphaned files after a failed unlink — is
+    the acceptable residue instead.
+    """
     row = get_row(db, resume_id)
     if not row:
         return None
     was_active = bool(row.is_active)
     family_id = resume_versions.family_id_of(row)
-    try:
-        for path in find_resume_files(row):
-            path.unlink(missing_ok=True)
-    except Exception as e:
-        logger.warning("Ignore error when deleting resume file: %s", e)
+    # Resolve on-disk candidates while the row is still readable: after the
+    # commit the deleted instance is expired and its columns cannot be used.
+    files = find_resume_files(row)
     db.delete(row)
     db.flush()
     if was_active:
@@ -88,6 +92,11 @@ def delete_row(db: Session, resume_id: int) -> Resume | None:
         if successor is not None:
             _assign_active(db, successor.id)
     db.commit()
+    for path in files:
+        try:
+            path.unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("Ignore error when deleting resume file: %s", e)
     return row
 
 

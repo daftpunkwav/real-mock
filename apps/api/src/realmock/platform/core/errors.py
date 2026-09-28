@@ -84,6 +84,9 @@ CATALOG: dict[str, ErrorSpec] = {
     "B0001": ErrorSpec("B0001", 500, "Internal server error, please try again later", "If it persists, report it to the developer with the trace_id", True),
     "B1001": ErrorSpec("B1001", 500, "Failed to persist the result, please try again later", "Local write error (file/database); if it persists, check disk space and file permissions", True),
     "B1002": ErrorSpec("B1002", 409, "Resume parsing was interrupted by a restart", "Click retry to parse this resume again", True),
+    "B2001": ErrorSpec("B2001", 200, "Interview room hit an internal error; the room stays open", "Retry the turn; if it persists, leave and re-enter the interview", True),
+    "B2002": ErrorSpec("B2002", 200, "Heartbeat timed out; connection closed", "Refresh the page to re-enter the interview", True),
+    "B2003": ErrorSpec("B2003", 200, "This interview is open in another window; this connection is no longer valid", "Return to the original window, or reload here to take over the room", False),
     "B2004": ErrorSpec("B2004", 200, "Too many malformed frames; connection closed", "Refresh the page to re-enter the interview; if it persists, restart the client", True),
     # C third-party
     "C0001": ErrorSpec("C0001", 502, "AI service temporarily unavailable, please try again later", "Check the API Key quota and network; if it persists, test connectivity in Settings", True),

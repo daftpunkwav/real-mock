@@ -10,10 +10,6 @@ as error frames) must be registered.
 
 Best-effort lexical net: it sees literal keyword arguments only, not
 variables or dynamic construction.
-
-Legacy allowlist: the connection-lifecycle codes below were emitted before
-the guard existed. Extending the allowlist is deliberately painful — the
-fix is to register the code instead.
 """
 
 from __future__ import annotations
@@ -23,8 +19,10 @@ from pathlib import Path
 
 INTERVIEW_ROOT = Path("src/realmock/domains/interview")
 
-#: Pre-existing wire codes not yet registered in the CATALOG.
-LEGACY_UNREGISTERED = frozenset({"B2001", "B2002", "B2003"})
+#: Pre-existing wire codes not yet registered in the CATALOG. All interview
+#: wire codes are registered now; keep the mechanism so a future unregistered
+#: literal still fails here instead of shipping an undeclared contract.
+LEGACY_UNREGISTERED: frozenset[str] = frozenset()
 
 
 def _api_root() -> Path:

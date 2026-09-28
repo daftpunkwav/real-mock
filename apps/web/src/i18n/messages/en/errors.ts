@@ -54,6 +54,12 @@ export const errors = {
   "A1009.hint": "Wait for parsing to finish; the list page updates automatically",
   "B1002": "Resume parsing was interrupted by a restart",
   "B1002.hint": "Click retry to parse this resume again",
+  "B2001": "Interview room hit an internal error; the room stays open",
+  "B2001.hint": "Retry the turn; if it persists, leave and re-enter the interview",
+  "B2002": "Heartbeat timed out; connection closed",
+  "B2002.hint": "Refresh the page to re-enter the interview",
+  "B2003": "This interview is open in another window; this connection is no longer valid",
+  "B2003.hint": "Return to the original window, or reload here to take over the room",
   "B2004": "Too many malformed frames; connection closed",
   "B2004.hint": "Refresh the page to re-enter the interview; if it persists, restart the client",
   // A2 interview

@@ -158,8 +158,6 @@ def record_interview_learning(
                         "session_id": session_id,
                     }
                 )
-            if len(probes) > 200:
-                del probes[:-200]
 
             if report:
                 for w in (report.get("weaknesses") or [])[:5]:
@@ -172,6 +170,10 @@ def record_interview_learning(
                             "source": "report",
                         }
                     )
+            # Single truncation after ALL appends keeps the list bounded at
+            # 200 no matter which sources contributed this round.
+            if len(probes) > 200:
+                del probes[:-200]
 
             _save_unlocked(data)
     logger.info("system learning updated session=%s company=%s", session_id, company)

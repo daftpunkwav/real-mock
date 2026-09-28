@@ -69,7 +69,13 @@ async def purge_empty_sessions(
     for row in rows:
         try:
             messages = json.loads(row.messages or "[]")
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+            # Corrupt rows may still hold content: never purge them silently
+            # by type confusion (same contract as _load_session_messages).
+            logger.warning(
+                "Prep history unreadable, skipping purge sid=%s",
+                getattr(row, "id", ""),
+            )
             continue
         if isinstance(messages, list) and not any(
             m.get("role") in ("user", "assistant") and str(m.get("content") or "").strip()

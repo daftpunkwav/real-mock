@@ -33,10 +33,14 @@ class TestSecretsExtras:
         monkeypatch.setenv("SECRET_KEY", "plain-text-key-long-enough-xyz")
         assert len(sec._load_secret_bytes()) == 32
         sec._reset_cache()
-        # short base64 -> zero padded
+        # Short valid base64 (decodes to <16 bytes) falls through to the KDF
+        # path over the raw string — NOT the zero-pad decode path.
         monkeypatch.setenv("SECRET_KEY", _b64.b64encode(b"short").decode())
         sec._reset_cache()
-        assert len(sec._load_secret_bytes()) == 32
+        assert sec._load_secret_bytes() == sec._derive_key(
+            _b64.b64encode(b"short").decode().encode(), sec._MASTER_SALT
+        )
+        sec._reset_cache()
         # file fallback + corrupt file regenerate
         monkeypatch.delenv("SECRET_KEY", raising=False)
         sec._reset_cache()
@@ -44,6 +48,44 @@ class TestSecretsExtras:
         (tmp_path / ".secret.key").write_text("!!!not-base64!!!")
         sec._reset_cache()
         assert len(sec._load_secret_bytes()) == 32
+        sec._reset_cache()
+
+    def test_master_key_path_selection_boundary(self, tmp_path, monkeypatch) -> None:
+        """Pin the two master-key paths for base64-shaped plain text.
+
+        A SECRET_KEY of valid base64 charset always attempts the decode path
+        first; the split depends solely on the decoded length (>=16 bytes vs
+        not), regardless of whether the user meant plain text.
+        """
+        import base64 as _b64
+
+        from realmock.platform.core import secrets as sec
+
+        monkeypatch.setattr(sec, "_SHARED_DATA", tmp_path)
+        monkeypatch.setattr(sec, "_DEFAULT_KEYFILE", tmp_path / ".secret.key")
+
+        # Valid base64 charset decoding to >=16 bytes: zero-pad decode path,
+        # even though the user typed plain text.
+        monkeypatch.setenv("SECRET_KEY", "abcdefghijklmnopqrstuvwx")
+        sec._reset_cache()
+        assert sec._load_secret_bytes() == _b64.b64decode(
+            "abcdefghijklmnopqrstuvwx"
+        ).ljust(sec._KEY_BYTES, b"0")
+
+        # Valid base64 charset decoding to <16 bytes: KDF path over the raw
+        # string, not the decoded bytes.
+        monkeypatch.setenv("SECRET_KEY", "abcdefghijklmnop")
+        sec._reset_cache()
+        assert sec._load_secret_bytes() == sec._derive_key(
+            b"abcdefghijklmnop", sec._MASTER_SALT
+        )
+
+        # Non-base64 plain text always takes the KDF path.
+        monkeypatch.setenv("SECRET_KEY", "long-enough-secret-123")
+        sec._reset_cache()
+        assert sec._load_secret_bytes() == sec._derive_key(
+            b"long-enough-secret-123", sec._MASTER_SALT
+        )
         sec._reset_cache()
 
     def test_decrypt_bad_base64_and_wrong_key(self, monkeypatch, tmp_path) -> None:

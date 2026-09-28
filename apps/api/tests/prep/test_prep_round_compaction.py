@@ -62,6 +62,53 @@ async def test_compact_current_round_guards(monkeypatch) -> None:
     assert "No user turn" in out3.text
 
 @pytest.mark.asyncio
+async def test_compact_current_round_min_ratio_boundary(monkeypatch) -> None:
+    """Pin the exact COMPACT_TOOL_MIN_RATIO floor on a tiny window.
+
+    At ``usage == window * 0.3`` (inclusive) compaction is refused; one tick
+    above the floor it proceeds to the summarizer. The floor is ratio math,
+    so the same boundary must hold on small local-model windows (4k).
+    """
+    import realmock.domains.prep.agents.round_compaction as rc_mod
+    from realmock.domains.prep.agents.turn_state import TurnState
+    from realmock.platform.capabilities.ai.agent import WorkingMemory
+
+    mem = WorkingMemory()
+    fake_llm = SimpleNamespace(context_window=8000)
+    messages = [
+        {"role": "user", "content": "first question"},
+        {"role": "assistant", "content": "answer"},
+        {"role": "user", "content": "follow up"},
+    ]
+    window = 4096
+    floor = window * rc_mod.COMPACT_TOOL_MIN_RATIO
+
+    # Exactly at the floor (<=): refused without an LLM call.
+    monkeypatch.setattr(rc_mod, "estimate_messages_tokens", lambda _msgs: floor)
+    st = TurnState()
+    out = await rc_mod.compact_current_round(
+        messages=messages, context_window=window, memory=mem, llm=fake_llm,  # type: ignore[arg-type]
+        reply_locale="en", turn_state=st, objective_line="", resume_id=None, args={},
+    )
+    assert "not needed yet" in out.text
+    assert out.messages is None
+    assert not st.compact_used
+
+    # One token above the floor: proceeds to the summarizer (stubbed).
+    async def _fake_build(**kwargs):
+        return [{"role": "user", "content": "folded"}]
+
+    monkeypatch.setattr(rc_mod, "estimate_messages_tokens", lambda _msgs: floor + 1)
+    monkeypatch.setattr(rc_mod, "build_turn_context", _fake_build)
+    st2 = TurnState()
+    out2 = await rc_mod.compact_current_round(
+        messages=messages, context_window=window, memory=mem, llm=fake_llm,  # type: ignore[arg-type]
+        reply_locale="en", turn_state=st2, objective_line="", resume_id=None, args={},
+    )
+    assert out2.messages is not None
+    assert st2.compact_used
+
+@pytest.mark.asyncio
 async def test_compact_current_round_failure_branch(monkeypatch) -> None:
     import realmock.domains.prep.agents.round_compaction as rc_mod
     from realmock.domains.prep.agents.turn_state import TurnState
