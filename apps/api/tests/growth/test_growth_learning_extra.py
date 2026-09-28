@@ -68,3 +68,37 @@ def test_learning_corrupt_file_and_parse_branches(tmp_path, monkeypatch) -> None
     assert mod._parse_agent_state("") == {}
     assert mod._parse_agent_state("not-json") == {}
     assert mod._parse_agent_state(json.dumps(["not", "dict"])) == {}
+
+
+def test_get_system_insights_lock_timeout_serves_snapshot(tmp_path, monkeypatch) -> None:
+    """Read path is fail-open: lock timeout serves the last snapshot / empty
+    structure instead of raising FileLockTimeout (growth page must not 500)."""
+    import realmock.domains.growth.services.learning as mod
+    from realmock.platform.core.file_lock import FileLockTimeout
+
+    monkeypatch.setattr(mod, "_memory_path", lambda: tmp_path / "sys.json")
+    monkeypatch.setattr(mod, "_lock_path", lambda: tmp_path / "sys.json.lock")
+    real_file_lock = mod.file_lock
+    monkeypatch.setattr(mod, "_last_snapshot", None)
+
+    # First read with no snapshot: degrade to the empty default structure.
+    def _timeout(*a, **kw):
+        raise FileLockTimeout("timeout")
+
+    monkeypatch.setattr(mod, "file_lock", _timeout)
+    data = mod.get_system_insights()
+    assert data["company_session_counts"] == {}
+    assert data["recent_probes"] == []
+
+    # Successful read primes the snapshot...
+    monkeypatch.setattr(mod, "file_lock", real_file_lock)
+    sess = SimpleNamespace(id=1, company="Acme", role="BE", overall_score=80, agent_state={})
+    mod.record_interview_learning(sess)
+    primed = mod.get_system_insights()
+    assert primed["company_session_counts"].get("Acme") == 1
+    assert mod._last_snapshot is not None
+
+    # ...then a later lock timeout serves the stale snapshot.
+    monkeypatch.setattr(mod, "file_lock", _timeout)
+    stale = mod.get_system_insights()
+    assert stale["company_session_counts"].get("Acme") == 1

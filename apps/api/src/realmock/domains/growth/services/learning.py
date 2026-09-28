@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from realmock.platform.core.file_lock import file_lock
+from realmock.platform.core.file_lock import FileLockTimeout, file_lock
 
 logger = logging.getLogger(__name__)
 
@@ -179,11 +179,34 @@ def record_interview_learning(
     logger.info("system learning updated session=%s company=%s", session_id, company)
 
 
+# Last successfully-read learning snapshot. When the cross-process lock cannot
+# be acquired in time, the read path serves this instead of failing the growth
+# page (explicit fail-open for a read-only, non-critical aggregate).
+_last_snapshot: dict[str, Any] | None = None
+
+
 def get_system_insights(limit: int = 10) -> dict[str, Any]:
-    """System-insight summary for the growth page / API / interview runner."""
+    """System-insight summary for the growth page / API / interview runner.
+
+    Read path is fail-open: if the cross-process file lock cannot be acquired
+    within the timeout (a writer holds it across a slow disk), serve the last
+    snapshot (or an empty structure on first read) and log a warning instead of
+    letting ``FileLockTimeout`` turn into a 500. The summary is advisory input;
+    staleness is acceptable, unavailability of the growth page is not.
+    """
+    global _last_snapshot
     with _write_lock:
-        with file_lock(_lock_path(), timeout=5.0):
-            data = _load_unlocked()
+        try:
+            with file_lock(_lock_path(), timeout=5.0):
+                data = _load_unlocked()
+        except (FileLockTimeout, OSError):
+            logger.warning(
+                "system insights read degraded (lock unavailable); serving last snapshot",
+                exc_info=True,
+            )
+            data = _last_snapshot if _last_snapshot is not None else _default_data()
+        else:
+            _last_snapshot = data
     avgs_raw = data.get("avg_scores_by_company") or {}
     avg_scores = {
         k: round(v["sum"] / v["n"], 1) if v.get("n") else None
