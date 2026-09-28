@@ -45,6 +45,39 @@ router = APIRouter()
 _SSE_ERR_GENERIC = "Report generation failed; please retry later"
 _PSEUDO_STREAM_CHUNK = 48
 _EVENT_POLL_SECONDS = 1.0
+# Post-generation idle wait: the debrief can outlive the live relay (background
+# claim, LLM rounds, web verification), so poll the report row before giving up
+# (~60s total) and heartbeat every ~5s to keep idle proxies from closing.
+_IDLE_POLL_ROUNDS = 120
+_IDLE_POLL_SECONDS = 0.5
+_IDLE_HEARTBEAT_ROUNDS = 10
+
+
+def _observe_orphaned_task(task: asyncio.Task | None, session_id: int) -> None:
+    """Consume the result of a debrief task nobody will await.
+
+    After a client disconnect the generation task keeps running by design, but
+    nothing retrieves its result — an eventual exception would resurface only
+    as "exception was never retrieved" GC noise. Retrieve done-task exceptions
+    (the streaming error path already logged them) and log pending-task
+    failures through a done callback.
+    """
+    if task is None:
+        return
+    if task.done():
+        if not task.cancelled():
+            task.exception()
+        return
+
+    def _log_failure(done: asyncio.Task) -> None:
+        if not done.cancelled() and done.exception() is not None:
+            logger.error(
+                "Debrief failed after SSE disconnect sid=%s",
+                session_id,
+                exc_info=done.exception(),
+            )
+
+    task.add_done_callback(_log_failure)
 
 
 async def _generate_with_live_events(
@@ -56,6 +89,7 @@ async def _generate_with_live_events(
     generators cannot ``return`` a value.
     """
     queue = report_events.subscribe(session_id)
+    gen_task: asyncio.Task | None = None
     try:
         gen_task = asyncio.create_task(
             run_debrief_for_session(
@@ -86,6 +120,8 @@ async def _generate_with_live_events(
             yield format_sse_line(event)
     finally:
         report_events.unsubscribe(session_id, queue)
+        if not report_out:
+            _observe_orphaned_task(gen_task, session_id)
 
 
 def _messages_count(snap: SessionSnapshot) -> int:
@@ -277,12 +313,11 @@ async def get_report_stream(
                     yield sse_line
                 report = generated[0] if generated else None
             if report is None:
-                # The debrief often outlives the live-event relay (background
-                # claim, LLM rounds, web verification). Poll longer before
+                # The debrief often outlives the live-event relay; poll before
                 # giving up so the SSE stays open on slow generations instead
                 # of flashing A2004 while the agent is still working.
-                for _i in range(120):
-                    await asyncio.sleep(0.5)
+                for _i in range(_IDLE_POLL_ROUNDS):
+                    await asyncio.sleep(_IDLE_POLL_SECONDS)
                     # The debrief commits through a different Session. query().first()
                     # hands back the identity-mapped instance without refreshing its
                     # columns, so without expiring this poll re-reads its own snapshot
@@ -296,7 +331,7 @@ async def get_report_stream(
                     if row2 is not None and row2.status == STATUS_FAILED:
                         break
                     # Keep idle connections alive for proxies (~5s heartbeat).
-                    if _i % 10 == 9:
+                    if (_i + 1) % _IDLE_HEARTBEAT_ROUNDS == 0:
                         yield ": ping\n\n"
             if report is None:
                 yield format_sse_line(

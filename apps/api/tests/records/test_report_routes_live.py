@@ -130,6 +130,45 @@ async def test_report_stream_cancel_keeps_generating(db) -> None:
     assert store.get_report_row(db, sid_seed).status == store.STATUS_GENERATING  # type: ignore[union-attr]
 
 @pytest.mark.asyncio
+async def test_debrief_failure_after_disconnect_is_observed(caplog) -> None:
+    """A debrief that fails AFTER the client disconnected must be logged once
+    by the orphan-task observer instead of surfacing later as GC
+    "exception was never retrieved" noise."""
+    import logging as _logging
+
+    import realmock.domains.records.routes.report as rmod
+    from tests.fakes import FakeLLMClient
+
+    sid = 777004
+    started = asyncio.Event()
+
+    async def _late_failure(*a, **k):
+        started.set()
+        await asyncio.sleep(0.05)
+        raise RuntimeError("llm exploded after disconnect")
+
+    with patch.object(rmod, "run_debrief_for_session", side_effect=_late_failure):
+        out: list = []
+        gen = rmod._generate_with_live_events(
+            sid, snap=_snap(id=sid), llm=FakeLLMClient(), report_out=out
+        )
+        first = asyncio.ensure_future(gen.__anext__())
+        await started.wait()
+        # Client disconnect cancels the streaming generator mid-relay.
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        # The debrief task keeps running by design; wait for it to fail and
+        # for the done callback to log the failure.
+        with caplog.at_level(_logging.ERROR, logger=rmod.__name__):
+            await asyncio.sleep(0.2)
+        assert not out
+        assert any(
+            "failed after SSE disconnect" in record.message
+            for record in caplog.records
+        )
+
+@pytest.mark.asyncio
 async def test_report_stream_cancel_inner_failure_covered(db) -> None:
     import realmock.domains.records.routes.report as rmod
     from realmock.domains.records.services import report_store as store
