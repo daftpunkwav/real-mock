@@ -209,7 +209,13 @@ export function useReportLoad(sessionId: number) {
               {
                 session_id: sessionId,
                 report: event.report,
-                messages_count: 0,
+                // Server-echoed counts when present (0 keeps legacy backends
+                // from showing "undefined" instead of a number).
+                messages_count:
+                  typeof event.messages_count === "number" ? event.messages_count : 0,
+                ...(typeof event.duration_minutes === "number"
+                  ? { duration_minutes: event.duration_minutes }
+                  : {}),
                 status: "ready",
               },
               sessionId,

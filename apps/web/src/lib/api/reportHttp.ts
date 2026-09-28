@@ -22,6 +22,9 @@ export type ReportStreamEvent = {
   message?: string;
   code?: string;
   report?: DebriefReport;
+  /** Session metadata echoed on "done" (mirrors the GET response fields). */
+  messages_count?: number;
+  duration_minutes?: number | null;
 };
 
 export const reportHttp = {

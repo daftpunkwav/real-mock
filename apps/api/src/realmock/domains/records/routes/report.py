@@ -314,7 +314,17 @@ async def get_report_stream(
             for i in range(0, len(report_json), _PSEUDO_STREAM_CHUNK):
                 chunk = report_json[i : i + _PSEUDO_STREAM_CHUNK]
                 yield format_sse_line({"type": "token", "content": chunk})
-            yield format_sse_line({"type": "done", "report": report_payload})
+            # Session metadata rides the done event so a live-generated report
+            # renders the same summary counts as the GET path (a hardcoded 0
+            # used to trip the frontend's low-signal heuristic).
+            yield format_sse_line(
+                {
+                    "type": "done",
+                    "report": report_payload,
+                    "messages_count": _messages_count(snap),
+                    "duration_minutes": _duration_minutes(snap),
+                }
+            )
         except asyncio.CancelledError:
             # Client disconnect (navigation, StrictMode remount, timeout) must
             # NOT fail the report: the background debrief task keeps running
