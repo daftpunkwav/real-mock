@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { formatDate, formatDateTime, formatNumber, formatTokenCount } from "../format";
+import { formatDate, formatDateTime, formatNumber, formatTokenCount, parseTimestamp } from "../format";
 import { DEFAULT_LOCALE } from "../locales";
 import { setCurrentLocale } from "../resolve";
 
@@ -45,5 +45,29 @@ describe("date formatting", () => {
     expect(() => formatDate(Number.NaN)).not.toThrow();
     expect(formatDate(Number.NaN)).toBe("Invalid Date");
     expect(formatDateTime("not-a-date")).toBe("Invalid Date");
+  });
+});
+
+describe("parseTimestamp", () => {
+  it("reads naive backend timestamps as UTC, not local time", () => {
+    // The backend persists naive UTC (SQLite drops tzinfo); parsing it as
+    // local time skewed every relative age by the UTC offset.
+    expect(parseTimestamp("2026-09-28T16:00:00").getTime()).toBe(
+      Date.UTC(2026, 8, 28, 16, 0, 0),
+    );
+    expect(parseTimestamp("2026-09-28 16:00:00.123456").getTime()).toBe(
+      Date.UTC(2026, 8, 28, 16, 0, 0, 123),
+    );
+  });
+
+  it("leaves explicit timezones and Date objects untouched", () => {
+    expect(parseTimestamp("2026-09-28T16:00:00Z").getTime()).toBe(
+      Date.UTC(2026, 8, 28, 16, 0, 0),
+    );
+    expect(parseTimestamp("2026-09-28T16:00:00+08:00").getTime()).toBe(
+      Date.UTC(2026, 8, 28, 8, 0, 0),
+    );
+    const d = new Date();
+    expect(parseTimestamp(d)).toBe(d);
   });
 });

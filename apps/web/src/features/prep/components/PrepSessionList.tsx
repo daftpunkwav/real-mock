@@ -12,12 +12,13 @@ import { memo, useMemo, useState } from "react";
 import { Archive, ArchiveRestore, ChevronRight, Eraser, MessageSquare, Plus, Square, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useT, type Translator } from "@/i18n";
+import { parseTimestamp } from "@/i18n/format";
 import type { PrepSessionSummary } from "@/lib/api/contract";
 import { cn } from "@/lib/utils";
 
 /** Relative time label; falls back to M-D after 7 days. */
 function relativeTime(iso: string, t: Translator<"prep">): string {
-  const time = Date.parse(iso);
+  const time = parseTimestamp(iso).getTime();
   if (Number.isNaN(time)) return "";
   const min = Math.floor((Date.now() - time) / 60000);
   if (min < 1) return t("sessions.time.justNow");

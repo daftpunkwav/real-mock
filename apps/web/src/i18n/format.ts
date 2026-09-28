@@ -35,8 +35,22 @@ function intlTag(): string {
   return LOCALE_META[getLocale()].intl;
 }
 
+/**
+ * Parse a backend timestamp. Backend datetimes are naive UTC (SQLite drops
+ * tzinfo), so ISO strings without an explicit offset are UTC — anchoring them
+ * prevents `new Date("...T16:42:00")` from being read as local time, which
+ * skewed every relative age by the UTC offset.
+ */
+export function parseTimestamp(value: DateInput): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" && value !== "" && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) {
+    return new Date(`${value.replace(" ", "T")}Z`);
+  }
+  return new Date(value);
+}
+
 function toDate(value: DateInput): Date {
-  return value instanceof Date ? value : new Date(value);
+  return parseTimestamp(value);
 }
 
 function formatDateWith(value: DateInput, cacheKey: string, opts: Intl.DateTimeFormatOptions): string {
