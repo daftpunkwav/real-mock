@@ -1,4 +1,4 @@
-"""Company question-style brief cache (one row per company/role/level/type+language)."""
+"""Company research caches: setup-page briefs and cross-session planning digests."""
 
 from __future__ import annotations
 
@@ -32,4 +32,23 @@ class CompanyBrief(SessionsBase):
     style: Mapped[str] = mapped_column(Text, default="")
     focus_areas: Mapped[str] = mapped_column(Text, default="[]")  # JSON string list
     process: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class CompanyDigest(SessionsBase):
+    """Cached company-research digest shared across sessions and processes.
+
+    Interview style is mostly a company-and-role fact, so the second interview
+    at the same company skips the bounded web research entirely and starts
+    planning from the cached digest. Cleared together with the briefs from the
+    settings page; failures are never cached.
+    """
+
+    __tablename__ = "company_digests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_key: Mapped[str] = mapped_column(String(140), unique=True, nullable=False)
+    company_name: Mapped[str] = mapped_column(String(120), default="")
+    lang: Mapped[str] = mapped_column(String(10), default="")
+    digest: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)

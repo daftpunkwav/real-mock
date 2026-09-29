@@ -256,3 +256,54 @@ def test_schedule_research_retry_persists_delayed_digest(monkeypatch):
     asyncio.run(_flow())
     assert persisted == ["Interview process: digest"]
     assert calls["n"] == 1
+
+
+# ---- cross-session digest cache ----------------------------------------------
+
+
+def test_digest_cache_roundtrip(db) -> None:
+    assert cr.get_cached_digest("Acme Corp", "Backend", "zh-CN") is None
+    cr.store_digest_cache("Acme Corp", "Backend", "zh-CN", "Interview process: cached digest")
+    assert (
+        cr.get_cached_digest("Acme Corp", "Backend", "zh-CN") == "Interview process: cached digest"
+    )
+    # The key folds company + role + language: a different locale misses.
+    assert cr.get_cached_digest("acme corp", "backend", "en") is None
+
+
+def test_digest_cache_ignores_blank_inputs(db) -> None:
+    cr.store_digest_cache("", "Backend", "en", "digest")
+    cr.store_digest_cache("Acme", "Backend", "en", "   ")
+    assert cr.get_cached_digest("", "Backend", "en") is None
+    assert cr.get_cached_digest("Acme", "Backend", "en") is None
+
+
+@pytest.mark.asyncio
+async def test_cached_research_reads_cache_before_llm(db) -> None:
+    cr.store_digest_cache("Acme Corp", "Backend", "en", "Interview process: from cache")
+    llm = FakeLLMClient(tokens=["would-be research"])
+    out = await cr.research_company_context_cached(
+        llm, company="Acme Corp", role="Backend", level="mid"
+    )
+    assert out == "Interview process: from cache"
+    # The research loop never ran: the whole point of the cache.
+    assert llm.stream_calls == []
+
+
+@pytest.mark.asyncio
+async def test_cached_research_miss_runs_and_stores(db) -> None:
+    llm = FakeLLMClient(tokens=[json.dumps(_research_payload(), ensure_ascii=False)])
+    out = await cr.research_company_context_cached(
+        llm, company="Acme Corp", role="Backend", level="mid"
+    )
+    assert out is not None
+    assert cr.get_cached_digest("acmecorp", "Backend", "en") == out
+
+
+@pytest.mark.asyncio
+async def test_cached_research_failure_is_not_cached(db) -> None:
+    llm = FakeLLMClient(tokens=["unusable output"])
+    assert (
+        await cr.research_company_context_cached(llm, company="Acme", role="R", level="L") is None
+    )
+    assert cr.get_cached_digest("Acme", "R", "en") is None

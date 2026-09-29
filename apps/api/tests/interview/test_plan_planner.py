@@ -510,7 +510,7 @@ async def test_generate_plan_standalone_custom_company_researches(monkeypatch) -
         assert kwargs["company"] == "Acme"
         return "STANDALONE-DIGEST"
 
-    monkeypatch.setattr(pl, "research_company_context", fake_research)
+    monkeypatch.setattr(pl, "research_company_context_cached", fake_research)
     await pl.generate_plan_for_session(7)
     assert row.company_research == "STANDALONE-DIGEST"
     assert row.plan_status == pl.PLAN_STATUS_READY
@@ -527,7 +527,7 @@ async def test_generate_plan_standalone_research_failure_still_plans(monkeypatch
     async def failed_research(llm_arg, **kwargs):
         return None
 
-    monkeypatch.setattr(pl, "research_company_context", failed_research)
+    monkeypatch.setattr(pl, "research_company_context_cached", failed_research)
     await pl.generate_plan_for_session(7)
     assert row.company_research == ""
     assert row.plan_status == pl.PLAN_STATUS_READY
@@ -543,7 +543,7 @@ async def test_generate_plan_catalog_company_skips_research(monkeypatch) -> None
     async def fail_research(llm_arg, **kwargs):
         raise AssertionError("catalog companies must not research inline")
 
-    monkeypatch.setattr(pl, "research_company_context", fail_research)
+    monkeypatch.setattr(pl, "research_company_context_cached", fail_research)
     await pl.generate_plan_for_session(7)
     assert row.plan_status == pl.PLAN_STATUS_READY
 
@@ -594,7 +594,7 @@ async def test_generate_plan_process_round_reuses_process_digest(monkeypatch) ->
     async def fail_research(llm_arg, **kwargs):
         raise AssertionError("process rounds must not research inline")
 
-    monkeypatch.setattr(pl, "research_company_context", fail_research)
+    monkeypatch.setattr(pl, "research_company_context_cached", fail_research)
     await pl.generate_plan_for_session(7)
     assert row.plan_status == pl.PLAN_STATUS_READY
     assert "PROC-DIGEST" in llm.json_calls[0][1]["content"]

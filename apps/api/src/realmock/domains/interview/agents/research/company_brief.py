@@ -20,16 +20,22 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.models import CompanyBrief
+from realmock.domains.interview.models import CompanyBrief, CompanyDigest
 from realmock.domains.interview.agents.research.company_research import (
-    STANDALONE_FETCH_BUDGET,
-    STANDALONE_MAX_SECONDS,
-    STANDALONE_SEARCH_BUDGET,
     run_web_research,
 )
 from realmock.platform.capabilities.ai.llm.json_extract import extract_json_object
 
 logger = logging.getLogger(__name__)
+
+#: Brief-scoped research budgets. The brief is a speed-sensitive preview card
+#: (the setup page polls it while the user types), so it runs fewer rounds
+#: than session-planning research: two searches and one page read cover the
+#: common case, and the persistent cache recovers depth on later requests.
+BRIEF_SEARCH_BUDGET = 2
+BRIEF_FETCH_BUDGET = 2
+BRIEF_MAX_SECONDS = 30.0
+BRIEF_MAX_ROUNDS = 6
 
 #: After a failed generation the key fails fast for this long, so a retry
 #: storm (user clicking retry, or a flapping network) cannot keep burning
@@ -144,13 +150,15 @@ def _parse_focus(raw: str) -> list[str]:
 
 
 def clear_company_briefs(db: Session) -> int:
-    """Drop the whole brief cache including in-memory failure cooldowns.
+    """Drop the whole brief cache (and the digest cache) plus failure cooldowns.
 
     The settings-page action promises regeneration on the next request, so a
-    key that just failed must not stay cooled down after the clear.
+    key that just failed must not stay cooled down after the clear, and the
+    cross-session planning digests must not outlive the cleared briefs.
     """
     count = db.query(CompanyBrief).count()
     db.query(CompanyBrief).delete(synchronize_session=False)
+    db.query(CompanyDigest).delete(synchronize_session=False)
     db.commit()
     _recent_failures.clear()
     return count
@@ -183,9 +191,10 @@ async def generate_company_brief(
         llm,
         system=system,
         user=user,
-        search_budget=STANDALONE_SEARCH_BUDGET,
-        fetch_budget=STANDALONE_FETCH_BUDGET,
-        max_seconds=STANDALONE_MAX_SECONDS,
+        search_budget=BRIEF_SEARCH_BUDGET,
+        fetch_budget=BRIEF_FETCH_BUDGET,
+        max_seconds=BRIEF_MAX_SECONDS,
+        max_rounds=BRIEF_MAX_ROUNDS,
     )
     if final is None:
         return None
@@ -273,6 +282,10 @@ async def get_or_create_brief(
 
 
 __all__ = [
+    "BRIEF_FETCH_BUDGET",
+    "BRIEF_MAX_ROUNDS",
+    "BRIEF_MAX_SECONDS",
+    "BRIEF_SEARCH_BUDGET",
     "BRIEF_JSON_CONTRACT",
     "clear_company_briefs",
     "company_cache_key",

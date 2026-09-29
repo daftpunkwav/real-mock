@@ -25,7 +25,7 @@ from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     deferred_digest_persist,
     needs_company_research,
-    research_company_context,
+    research_company_context_cached,
     schedule_research_retry,
 )
 from realmock.domains.interview.agents.planning.plan_prompts import (
@@ -117,7 +117,9 @@ async def _company_context(db: Session, session: InterviewSession, llm: Any) -> 
     Process rounds reuse the round planner's persisted digest — research runs
     once per process. Standalone sessions with a custom (non-catalog) company
     research inline under a tight budget and persist the digest on the row so
-    the interviewer opening prompt can reuse it.
+    the interviewer opening prompt can reuse it. The digest itself comes from
+    the cross-session cache when a previous interview already researched the
+    company, which skips the research wait entirely.
     """
     company = session.company or ""
     digest = ""
@@ -128,7 +130,7 @@ async def _company_context(db: Session, session: InterviewSession, llm: Any) -> 
             digest = (getattr(process, "company_research", "") or "").strip()
     elif needs_company_research(company):
         digest = (
-            await research_company_context(
+            await research_company_context_cached(
                 llm,
                 company=company,
                 role=session.role,

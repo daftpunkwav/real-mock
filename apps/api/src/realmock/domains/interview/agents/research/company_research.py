@@ -16,6 +16,7 @@ Planning must never block an interview.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -23,7 +24,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.interview.agents.research.prompts import RESEARCH_WRAP_UP_HINT
-from realmock.domains.interview.models import InterviewProcess, InterviewSession
+from realmock.domains.interview.models import CompanyDigest, InterviewProcess, InterviewSession
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.agent.tools import (
     ToolBundle,
@@ -100,6 +101,97 @@ def needs_company_research(company: str) -> bool:
     """True when ``company`` is not in the built-in catalog (custom name)."""
     name = (company or "").strip()
     return bool(name) and get_company_by_id(name) is None
+
+
+def _normalize(name: str) -> str:
+    return "".join((name or "").strip().lower().split())
+
+
+def digest_cache_key(company: str, role: str, ui_locale: str | None) -> str:
+    """Cache identity of a research digest: company + role + language.
+
+    Interview style is a company-and-role fact; level and interview type
+    barely move it, so folding them in would only multiply research runs.
+    The language rides the key because the digest text follows the UI locale.
+    """
+    scope = f"{_normalize(role)}|{(ui_locale or '').strip() or 'en'}"
+    return f"{_normalize(company)}:{hashlib.sha1(scope.encode('utf-8')).hexdigest()[:10]}"
+
+
+def get_cached_digest(company: str, role: str, ui_locale: str | None) -> str | None:
+    """Cross-session digest cache lookup (own short DB session; None on any miss or failure)."""
+    key = digest_cache_key(company, role, ui_locale)
+    try:
+        with sessions_db_session() as db:
+            row = db.query(CompanyDigest).filter(CompanyDigest.company_key == key).first()
+            digest = (row.digest or "").strip() if row is not None else ""
+            if digest:
+                logger.info("company digest cache hit company=%s", company)
+                return digest
+    except Exception:
+        logger.debug("company digest cache read failed", exc_info=True)
+    return None
+
+
+def store_digest_cache(company: str, role: str, ui_locale: str | None, digest: str) -> None:
+    """Persist a successful digest into the cross-session cache (never raises)."""
+    if not (company or "").strip() or not (digest or "").strip():
+        return
+    key = digest_cache_key(company, role, ui_locale)
+    try:
+        with sessions_db_session() as db:
+            row = db.query(CompanyDigest).filter(CompanyDigest.company_key == key).first()
+            if row is None:
+                db.add(
+                    CompanyDigest(
+                        company_key=key,
+                        company_name=company.strip(),
+                        lang=(ui_locale or "").strip() or "en",
+                        digest=digest.strip(),
+                    )
+                )
+            else:
+                row.digest = digest.strip()
+            db.commit()
+    except Exception:
+        logger.debug("company digest cache write failed key=%s", key, exc_info=True)
+
+
+async def research_company_context_cached(
+    llm: Any,
+    *,
+    company: str,
+    role: str,
+    level: str,
+    ui_locale: str | None = None,
+    search_budget: int = RESEARCH_SEARCH_BUDGET,
+    fetch_budget: int = RESEARCH_FETCH_BUDGET,
+    max_seconds: float = PROCESS_MAX_SECONDS,
+    tool_timeout: float = RESEARCH_TOOL_TIMEOUT_SECONDS,
+) -> str | None:
+    """Read-through cache around :func:`research_company_context`.
+
+    The second interview at the same company skips the web research entirely
+    and planning starts immediately from the cached digest. Failures are not
+    cached: the next session retries the research.
+    """
+    cached = get_cached_digest(company, role, ui_locale)
+    if cached:
+        return cached
+    digest = await research_company_context(
+        llm,
+        company=company,
+        role=role,
+        level=level,
+        ui_locale=ui_locale,
+        search_budget=search_budget,
+        fetch_budget=fetch_budget,
+        max_seconds=max_seconds,
+        tool_timeout=tool_timeout,
+    )
+    if digest:
+        store_digest_cache(company, role, ui_locale, digest)
+    return digest
 
 
 def blend_company_context(catalog_context: str, digest: str) -> str:
@@ -366,6 +458,9 @@ def schedule_research_retry(
             )
             if digest:
                 persist(digest)
+                # The late retry also warms the cross-session cache so the
+                # next interview at this company starts from the digest.
+                store_digest_cache(company, role, ui_locale, digest)
         except Exception:
             logger.debug("delayed research retry failed company=%s", company, exc_info=True)
         finally:
@@ -387,10 +482,14 @@ __all__ = [
     "STANDALONE_SEARCH_BUDGET",
     "blend_company_context",
     "deferred_digest_persist",
+    "digest_cache_key",
+    "get_cached_digest",
     "load_session_company_research",
     "schedule_research_retry",
     "needs_company_research",
     "render_digest",
     "research_company_context",
+    "research_company_context_cached",
     "run_web_research",
+    "store_digest_cache",
 ]

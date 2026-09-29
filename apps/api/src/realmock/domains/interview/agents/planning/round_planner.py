@@ -22,7 +22,7 @@ from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     deferred_digest_persist,
     needs_company_research,
-    research_company_context,
+    research_company_context_cached,
     schedule_research_retry,
 )
 from realmock.domains.interview.agents.planning.round_plan_prompts import (
@@ -86,12 +86,14 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 resume_payload = get_resume_agent_payload(api_db, process.resume_id)
 
             # Custom (non-catalog) companies have no interview-style context:
-            # research the company once here and persist the digest so later
-            # rounds' flow planners and the interviewer prompt reuse it.
+            # research the company once here (or reuse the cross-session cache
+            # when an earlier interview already researched it) and persist the
+            # digest so later rounds' flow planners and the interviewer prompt
+            # reuse it.
             digest = ""
             if needs_company_research(process.company or ""):
                 digest = (
-                    await research_company_context(
+                    await research_company_context_cached(
                         llm,
                         company=process.company or "",
                         role=process.role,
