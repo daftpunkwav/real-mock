@@ -93,8 +93,8 @@ def _decrypt_channel_key(channel: LlmProviderChannel) -> str:
             return decrypt_secret(raw) or ""
         except Exception as e:
             raise ValueError(
-                f"supplier channel {channel.kind} API Key decryption failed,"
-                " please go to the settings page to save again."
+                f"API key decryption failed for supplier channel {channel.kind}. "
+                'Please go to the "Settings" page to save it again.'
             ) from e
     return raw
 

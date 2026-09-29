@@ -33,7 +33,10 @@ def _dec(row: Any, name: str) -> str:
     try:
         return decrypt_secret(text) or ""
     except Exception as e:
-        raise ValueError(f"key field {name} Decryption failed, please go to the settings page to save the key again.") from e
+        raise ValueError(
+            f"Decryption failed for key field {name}. "
+            'Please go to the "Settings" page to save it again.'
+        ) from e
 
 
 def parse_json(field: str | None) -> dict[str, Any]:

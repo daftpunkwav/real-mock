@@ -114,7 +114,7 @@ class TestEncryptDecrypt:
             decrypt_secret(tampered)
 
     def test_wrong_format_raises(self) -> None:
-        with pytest.raises(ValueError, match="Encrypted string format error"):
+        with pytest.raises(ValueError, match="Malformed enc:v2 ciphertext"):
             decrypt_secret("enc:v2:only:four")
 
     def test_random_salt_and_nonce(self) -> None:

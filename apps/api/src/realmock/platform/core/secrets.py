@@ -69,7 +69,7 @@ def validate_master_key_env() -> str:
 
 
 class LegacySecretFormatError(ValueError):
-    """The old encryption format cannot be decrypted, please save the API Key again."""
+    """Legacy ``enc:v1`` ciphertext cannot be decrypted; re-save the API key to migrate it."""
 
 
 @lru_cache(maxsize=128)
@@ -100,7 +100,7 @@ def _load_secret_bytes() -> bytes:
     """
     raw = os.environ.get("SECRET_KEY")
     if raw:
-        # Supports both base64 encoding and plain text strings (automatic normalization)
+        # Accept both base64-encoded and plain-text SECRET_KEY values.
         try:
             decoded = base64.b64decode(raw, validate=True)
             if len(decoded) >= 16:
@@ -115,9 +115,12 @@ def _load_secret_bytes() -> bytes:
                     "required to decrypt existing ciphertext",
                     len(decoded),
                 )
-                # Intentional retention of zero padding rather than KDF derivation: using derivation instead makes the same SECRET_KEY
-                # After obtaining different masters, all existing ciphertexts deployed by the existing short keys cannot be decrypted.
-                # Zero padding does not increase entropy at a known cost (effective entropy ≥16 bytes, prod gating enforced).
+                # Deliberately keep the zero-pad decode instead of switching to
+                # KDF derivation: deriving would turn the same SECRET_KEY value
+                # into a different master key, orphaning every enc:v2 ciphertext
+                # already stored under the zero-pad master. Zero padding adds no
+                # entropy — an accepted cost (effective entropy is at least the
+                # 16 bytes of decoded input, the minimum the prod gate enforces).
                 return decoded.ljust(_KEY_BYTES, b"0")[:_KEY_BYTES]
         except Exception:
             logger.debug("SECRET_KEY is not base64, derived from a plain text string")
@@ -163,7 +166,8 @@ def _load_secret_bytes() -> bytes:
     except OSError:
         pass
     logger.warning(
-        "SECRET_KEY not detected, one-time key generated: %s; please provide environment variables explicitly for production environment",
+        "SECRET_KEY not set; generated an ephemeral master key at %s. "
+        "Set SECRET_KEY explicitly in production",
         _DEFAULT_KEYFILE,
     )
     return fresh
@@ -186,7 +190,11 @@ def _reset_cache() -> None:
 
 
 def encrypt_secret(plaintext: str | None) -> str | None:
-    """Encrypted string; ``None`` / NULL value is returned unchanged."""
+    """Encrypt a secret string.
+
+    ``None``/empty values and already-encrypted ``enc:v2:`` ciphertext are
+    returned unchanged.
+    """
     if not plaintext:
         return plaintext
     if plaintext.startswith(f"{_VERSION_V2}:"):
@@ -196,9 +204,9 @@ def encrypt_secret(plaintext: str | None) -> str | None:
     master = _master_bytes()
     key = _derive_key(master, salt)
     cipher_with_tag = AESGCM(key).encrypt(nonce, plaintext.encode("utf-8"), None)
-    # GCM output = ciphertext || tag; write format after splitting
+    # GCM output = ciphertext || tag; split it so the tag becomes its own enc:v2 field.
     if len(cipher_with_tag) < _TAG_BYTES:
-        raise ValueError("AES-GCM output length abnormality")
+        raise ValueError("AES-GCM output is shorter than the authentication tag")
     ct = cipher_with_tag[:-_TAG_BYTES]
     tag = cipher_with_tag[-_TAG_BYTES:]
     return (
@@ -215,7 +223,8 @@ def decrypt_secret(value: str | None) -> str | None:
     if not value:
         return value
     if value.startswith(f"{_VERSION_V1}:"):
-        # Old formats cannot be decrypted backwards-compatible—avoid silent migration misidentification key errors.
+        # Fail loud instead of silently migrating: a decryption failure must
+        # not be misread as a wrong key.
         raise LegacySecretFormatError(
             "An old version (enc:v1) encrypted API Key was detected. Please go to the \"Settings\" page to save it again."
         )
@@ -224,7 +233,7 @@ def decrypt_secret(value: str | None) -> str | None:
         return value
     parts = value.split(":", 5)
     if len(parts) != 6:
-        raise ValueError("Encrypted string format error")
+        raise ValueError("Malformed enc:v2 ciphertext: expected 5 colon-separated fields")
     _, _, salt_b64, nonce_b64, tag_b64, ct_b64 = parts
     try:
         salt = base64.b64decode(salt_b64)
@@ -232,13 +241,16 @@ def decrypt_secret(value: str | None) -> str | None:
         tag = base64.b64decode(tag_b64)
         ct = base64.b64decode(ct_b64)
     except Exception as exc:
-        raise ValueError("Encrypted string base64 parsing failed") from exc
+        raise ValueError("Encrypted string: failed to base64-decode salt/nonce/tag/ciphertext") from exc
     master = _master_bytes()
     key = _derive_key(master, salt)
     try:
         plain_bytes = AESGCM(key).decrypt(nonce, ct + tag, None)
     except Exception as exc:
-        raise ValueError("AES-GCM decryption or authentication failed: the key may have been changed or the data has been tampered with") from exc
+        raise ValueError(
+            "AES-GCM decryption or authentication failed: the master key may "
+            "have changed or the ciphertext was tampered with"
+        ) from exc
     return plain_bytes.decode("utf-8")
 
 
