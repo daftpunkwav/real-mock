@@ -311,35 +311,32 @@ def test_strip_memory_section() -> None:
     assert _mixin()._strip_memory_section("plain  ") == "plain"
 
 
-def test_refresh_system_memory_no_messages() -> None:
-    m = _mixin()
-    m.messages = []
-    m.refresh_system_memory()  # no crash
-    assert m.messages == []
-
-
-def test_refresh_system_memory_non_system_head() -> None:
-    m = _mixin()
-    m.messages = [{"role": "user", "content": "hi"}]
-    m.refresh_system_memory()
-    assert m.messages[0]["content"] == "hi"
-
-
-def test_refresh_system_memory_non_str_content() -> None:
-    m = _mixin()
-    m.messages = [{"role": "system", "content": {"bad": 1}}]  # type: ignore[dict-item]
-    m.refresh_system_memory()
-    assert m.messages[0]["content"] == {"bad": 1}
-
-
-def test_refresh_system_memory_replaces_memory() -> None:
+def test_memory_block_carries_state_without_touching_head() -> None:
     m = _mixin()
     m.agent_state = {"asked_questions": ["new Q"]}
     m.cognitive_memory = None  # type: ignore[attr-defined]
-    m.messages = [{"role": "system", "content": "base\n\n" + _MEMORY_SECTION_MARKER + "\nold"}]
-    m.refresh_system_memory()
-    assert "new Q" in m.messages[0]["content"]
-    assert "old" not in m.messages[0]["content"]
+    block = m.memory_block()
+    assert _MEMORY_SECTION_MARKER in block
+    assert "new Q" in block
+    # Transient by design: building the block never rewrites the head.
+    assert m.messages[0]["content"] == "base"
+
+
+def test_memory_block_empty_when_no_state() -> None:
+    m = _mixin()
+    m.cognitive_memory = None  # type: ignore[attr-defined]
+    assert m.memory_block() == ""
+
+
+def test_memory_block_rebuilds_from_current_state() -> None:
+    m = _mixin()
+    m.cognitive_memory = None  # type: ignore[attr-defined]
+    m.agent_state = {"asked_questions": ["question A"]}
+    first = m.memory_block()
+    m.agent_state = {"asked_questions": ["question B"]}
+    second = m.memory_block()
+    assert "question A" in first and "question B" not in first
+    assert "question B" in second and "question A" not in second
 
 
 def test_refresh_system_head_guards() -> None:

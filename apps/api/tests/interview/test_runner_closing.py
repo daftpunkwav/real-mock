@@ -48,7 +48,7 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         agent_state={},
         current_phase_idx=0,
         session=SimpleNamespace(current_phase="identity_check"),
-        refresh_system_memory=lambda: None,
+        memory_block=lambda: "",
         record_assistant_text=lambda text: agent.messages.append({"role": "assistant", "content": text}),
         note_turn_output=lambda output: None,
         note_verdict=lambda verdict: setattr(agent.session, "result", verdict),

@@ -68,13 +68,15 @@ def budget_hint(
     }
 
 
-def _build_environment_hint(llm: Any) -> dict[str, str]:
+def build_environment_hint(llm: Any) -> dict[str, str]:
     """Serving-model + wall-clock anchor line, one per request, never persisted.
 
     Interview prep is time-sensitive (this season's processes, "recent"
     experience posts); without an anchor the model guesses the year. The
     model name grounds "which model are you" for BYOK setups where the
     serving model is a per-provider runtime fact no prompt can hardcode.
+    Public so call paths that bypass the loop (domain regeneration calls)
+    can anchor their requests the same way.
     """
     import datetime as _dt
 
@@ -242,7 +244,7 @@ async def run_agent_loop(
     tool_calls_so_far = 0
     # Environment anchor: exactly ONE model+date/time line per request as a
     # transient suffix — never persisted, so history carries no stale values.
-    environment_hint = _build_environment_hint(llm)
+    environment_hint = build_environment_hint(llm)
     # Output-cap continuation: one seamless resumption when a final answer was
     # cut by the model's max-output limit.
     continuation_used = False

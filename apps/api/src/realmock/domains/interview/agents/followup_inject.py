@@ -1,9 +1,12 @@
-"""Follow-up signals + RAG-hit injection and message-tail normalization.
+"""Follow-up signal analysis + this turn's transient guidance blocks.
 
-Extracted from :mod:`realmock.domains.interview.agents.interviewer.runner` with a single responsibility:
-- Analyze the follow-up signal (needs_followup), inject a system message, and record weaknesses;
-- Inject RAG hits as a system message;
-- Normalize the message tail: ensure the user message is last and this turn's appended system prompts follow it.
+Single responsibility: analyze the follow-up signal against the candidate's
+reply and collect the system messages that guide THIS call only. The blocks
+are transient — they concern this one answer, so persisting them would resurface
+stale guidance every later turn (until a step boundary folded it away) and
+grow the history linearly. Facts the interviewer should keep (weak points,
+follow-up clue categories) still land in agent_state for the memory section
+and the growth learning loop.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from realmock.domains.interview.agents.followup import analyze as analyze_follow
 logger = logging.getLogger(__name__)
 
 
-def append_followup_and_rag(
+def build_turn_guidance(
     state: InterviewSessionState,
     *,
     user_text: str,
@@ -25,16 +28,16 @@ def append_followup_and_rag(
     tech_domains: list[str],
     phase_id: str,
     rag_msg: dict[str, Any] | None,
-    face: dict[str, Any] | None,
-    build_user_content: Any,
     session_id: int,
     pending_probe: str | None = None,
-) -> None:
-    """Inject the follow-up signal + RAG hits + reorder the message tail (keeping user last).
+) -> list[dict[str, Any]]:
+    """Analyze the reply and return this turn's guidance blocks (not persisted).
 
-    Follow-up guidance and RAG system messages are temporarily stored in append order, then restored in their original order after the user message is replaced,
-    ensuring that only system prompts appended for the current turn follow user.
+    Returns system messages for the current LLM call only: the follow-up
+    directive (when the signal fires) and the RAG company-knowledge block
+    (when retrieval hit). The caller appends them to the transient call tail.
     """
+    blocks: list[dict[str, Any]] = []
     signal = analyze_followup(
         user_text,
         question=last_question,
@@ -43,7 +46,7 @@ def append_followup_and_rag(
         pending_probe=pending_probe,
     )
     if signal.needs_followup:
-        state.messages.append(
+        blocks.append(
             {
                 "role": "system",
                 "content": f"[Follow-up guidance: {signal.category}] {signal.suggested_probe}",
@@ -64,40 +67,9 @@ def append_followup_and_rag(
             len(user_text),
         )
 
-    state.refresh_system_memory()
-
     if rag_msg:
-        state.messages.append(rag_msg)
-
-    # Follow-up / RAG were appended after user; pop them, replace user, then re-append
-    if not state.messages:
-        return
-    trailing_msgs: list[dict[str, Any]] = []
-    for _ in range(5):
-        if not state.messages:
-            break
-        tail = state.messages[-1]
-        if tail.get("role") != "system":
-            break
-        content = tail.get("content", "")
-        if not (
-            isinstance(content, str)
-            and (
-                content.startswith("[Follow-up guidance")
-                or content.startswith("[Question guidance")
-                or content.startswith("## Company knowledge")
-                or content.startswith("## Enterprise knowledge base")
-                or content.startswith("## Enterprise Knowledge Base")
-            )
-        ):
-            break
-        trailing_msgs.append(state.messages.pop())
-    trailing_msgs.reverse()
-
-    user_content = build_user_content(user_text, face)
-    state.messages[-1] = {"role": "user", "content": user_content}
-    for m in trailing_msgs:
-        state.messages.append(m)
+        blocks.append(rag_msg)
+    return blocks
 
 
-__all__ = ["append_followup_and_rag"]
+__all__ = ["build_turn_guidance"]

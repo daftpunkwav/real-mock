@@ -198,8 +198,12 @@ async def test_early_and_tool_yield_and_pace():
     r = _mk_runner_pace(qn=1)
     async def _tools(runner, outcome, msgs, db, temperature=0.75):
         from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
-        assert msgs[0]["content"].startswith("[Position] Step")
-        assert "[Pace:" in msgs[0]["content"]
+        # Position/Pace ride the transient TAIL: the frozen head stays in
+        # place so the provider prefix cache survives across turns.
+        assert msgs[0] == {"role": "user", "content": "hi"}
+        assert msgs[-1]["role"] == "system"
+        assert msgs[-1]["content"].startswith("[Position] Step")
+        assert "[Pace:" in msgs[-1]["content"]
         outcome["value"] = ToolRoundResult(msgs, '{"say": "early hi", "v": 1}')
         yield StreamEvent.make_token("tool-tok")
     with patch("realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _tools):
@@ -297,9 +301,9 @@ async def test_boundary_pins_end_before_phase_advance():
             evs = await _collect(stream_turn(r, "hi", MagicMock()))
             assert any(e.kind == EventKind.TURN_COMPLETE for e in evs)
     assert r.agent.mark_step_boundary.called
-    # Snapshot happens after the real append_followup_and_rag appended the
-    # user turn ([assistant, user], len 2); the mocked advance appends nothing,
-    # so the pinned end must equal that pre-advance count.
-    assert r.agent.mark_step_boundary.call_args.kwargs.get("end") == 2
+    # Snapshot equals the pre-advance history count: the user turn (the
+    # mocked advance appends nothing). Turn guidance is transient now, so it
+    # never inflates the persisted history the boundary spans.
+    assert r.agent.mark_step_boundary.call_args.kwargs.get("end") == 1
     assert evs[-1].phase_changed is True
 

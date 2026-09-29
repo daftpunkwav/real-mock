@@ -45,7 +45,6 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
             personality, CLOSING_BY_PERSONALITY["professional"]
         )
         jump_to_summary_phase(runner.agent, [p.id for p in runner.agent.phases])
-        runner.agent.refresh_system_memory()
 
         context_window = runner.prompter.get_context_window(db)
         api_messages = list(runner.agent.messages)
@@ -57,12 +56,18 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
             api_messages = await compact_with_summary(
                 api_messages, context_window, llm=runner.llm, keep_recent=24
             )
+        # The structured memory rides the call tail (same transient design as
+        # regular turns): the wrap-up reads asked/weak state without a
+        # per-call rewrite of the frozen head.
+        memory_block = runner.agent.memory_block()
         # The closing directive rides only as the call-tail system message: it
         # must not enter persistent history (the session completes right after,
         # so persisting it would just duplicate it into the LLM call below).
         api_messages = api_messages + [
             {"role": "system", "content": closing_system_prompt(style_hint)},
         ]
+        if memory_block:
+            api_messages.append({"role": "system", "content": memory_block})
         # Ground the wrap-up and verdict in the whole round's score trajectory
         # (last_turn_score alone only ever carried the final judged turn).
         score_section = runner.agent._score_section()

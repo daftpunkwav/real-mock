@@ -21,7 +21,7 @@ from realmock.domains.interview.agents.agent_policies import BACKGROUND
 from realmock.domains.interview.agents.events import LedgerWriteError, StreamEvent
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
-from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
+from realmock.domains.interview.agents.followup_inject import build_turn_guidance
 from realmock.domains.interview.agents.step_compaction import (
     spawn_boundary_compaction,
 )
@@ -32,6 +32,7 @@ from realmock.domains.interview.agents.say_first import (
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
+from realmock.platform.capabilities.ai.agent.loop import build_environment_hint
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
@@ -64,15 +65,13 @@ async def stream_turn(
         rag_msg = await runner.tools.maybe_retrieve_rag(
             query=f"{last_question} {user_text}".strip(),
         )
-        append_followup_and_rag(
+        guidance_blocks = build_turn_guidance(
             runner.agent,
             user_text=user_text,
             last_question=last_question,
             tech_domains=runner.prompter.get_tech_domains(db),
             phase_id=runner.agent.current_phase().id,
             rag_msg=rag_msg,
-            face=face,
-            build_user_content=runner.prompter.build_user_content,
             session_id=runner.session.id,
             pending_probe=pending_probe,
         )
@@ -83,13 +82,33 @@ async def stream_turn(
         api_messages = await runner.prompter.build_api_messages(
             user_text, face, image_b64, context_window=context_window
         )
-        # Pace is a transient, one-shot hint for this LLM call only. Do not
-        # persist it in message history: it would make messages[-1] a system
-        # message and break the "user message is last" invariant, and on
-        # image turns it would be replaced by the multimodal user content.
-        prefix = step_msg if not pace_msg else f"{step_msg}\n{pace_msg}"
-        if prefix:
-            api_messages = [{"role": "system", "content": prefix}, *api_messages]
+        # Everything below rides the TRANSIENT tail (after the last user
+        # message — the same slot the platform loop uses for [Context]/
+        # [Budget]) and is rebuilt from state every call, never persisted:
+        # persisting per-turn guidance resurfaced it on every later turn,
+        # and a per-turn head rewrite would invalidate the provider prefix
+        # cache for the whole frozen system head.
+        tail: list[dict[str, Any]] = list(guidance_blocks)
+        memory_block = runner.agent.memory_block()
+        if memory_block:
+            tail.append({"role": "system", "content": memory_block})
+        if not image_b64 and isinstance(face, dict) and face:
+            # Face hints ride the call copy only; the persisted user text
+            # stays clean ("candidate appears nervous" must not haunt turn 30).
+            hinted = runner.prompter.build_user_content(user_text, face)
+            if hinted != user_text:
+                for message in reversed(api_messages):
+                    if message.get("role") == "user":
+                        message["content"] = hinted
+                        break
+        # Position/Pace: their text changes every turn; prepending them would
+        # shift the entire frozen head one position per turn and punch through
+        # the prefix cache. On image turns build_api_messages already embedded
+        # the face hints in the multimodal user content.
+        suffix = step_msg if not pace_msg else f"{step_msg}\n{pace_msg}"
+        if suffix:
+            tail.append({"role": "system", "content": suffix})
+        api_messages.extend(tail)
 
         outcome: dict[str, Any] = {}
         t_tools = time.perf_counter()
@@ -120,8 +139,12 @@ async def stream_turn(
         else:
             say_mode = "regenerated"
             output = None
+            # Same-turn regeneration bypasses the loop, so it would miss the
+            # [Context] environment anchor every loop round carries — append
+            # it here to keep the model/date grounding consistent.
+            regen_messages = [*result.messages, build_environment_hint(runner.llm)]
             async for item in stream_say_first(
-                runner.llm, runner.tools, result.messages, temperature=0.75
+                runner.llm, runner.tools, regen_messages, temperature=0.75
             ):
                 if isinstance(item, TurnOutput):
                     output = item

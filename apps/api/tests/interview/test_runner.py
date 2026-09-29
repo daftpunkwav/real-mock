@@ -507,14 +507,14 @@ def test_agent_public_methods_no_longer_underscore(db) -> None:
         "mark_active", "mark_completed",
         "record_user_text", "record_assistant_text",
         "advance_phase_if_needed",
-        "build_opening_prompt", "refresh_system_memory",
+        "build_opening_prompt", "memory_block",
         "set_questions_in_phase", "reset_messages",
     }
     assert public.issubset(set(dir(InterviewSessionState)))
 
 
-def test_refresh_system_memory_updates_asked_questions(db) -> None:
-    """Each turn refreshes structured memory in the system prompt so asked_questions stays current."""
+def test_memory_block_carries_asked_questions(db) -> None:
+    """The transient memory block carries asked questions; the persisted head does not."""
     from realmock.domains.interview.agents.session_state import InterviewSessionState
 
     session = _make_session(db)
@@ -529,39 +529,32 @@ def test_refresh_system_memory_updates_asked_questions(db) -> None:
     # Simulate one question already asked after opening
     agent.agent_state.setdefault("asked_questions", [])
     agent.agent_state["asked_questions"].append("Please describe your Redis cache design")
-    agent.refresh_system_memory()
+    block = agent.memory_block()
 
-    system_content = agent.messages[0]["content"]
-    assert "Session structured memory" in system_content
-    assert "Redis cache design" in system_content
+    assert "Session structured memory" in block
+    assert "Redis cache design" in block
+    assert "Redis cache design" not in agent.messages[0]["content"]
 
 
-def test_refresh_system_memory_replaces_old_memory(db) -> None:
-    """Refresh should replace the old memory block rather than append another."""
+def test_memory_block_rebuilds_from_current_state(db) -> None:
+    """Each rebuild reflects the current agent_state, never a stale copy."""
     from realmock.domains.interview.agents.session_state import InterviewSessionState
 
     session = _make_session(db)
     session.messages = json.dumps([
-        {"role": "system", "content": (
-            "You are the interviewer\n\n"
-            "## Session structured memory (do not repeat asked questions)\n"
-            "Covered:\n- Previous question A"
-        )},
+        {"role": "system", "content": "You are the interviewer"},
     ], ensure_ascii=False)
     db.commit()
     db.refresh(session)
 
     agent = InterviewSessionState(session, FakeLLMClient())
-    agent.agent_state.setdefault("asked_questions", [])
+    agent.agent_state["asked_questions"] = ["Previous question A"]
+    first = agent.memory_block()
     agent.agent_state["asked_questions"] = ["New question B"]
-    agent.refresh_system_memory()
+    second = agent.memory_block()
 
-    system_content = agent.messages[0]["content"]
-    # Old memory replaced: no longer contains old question A; should contain new question B
-    assert "Previous question A" not in system_content
-    assert "New question B" in system_content
-    # Must not have two memory markers
-    assert system_content.count("## Session structured memory") == 1
+    assert "Previous question A" in first and "New question B" not in first
+    assert "New question B" in second and "Previous question A" not in second
 
 
 def test_stream_turn_records_weak_point_on_followup(db) -> None:
@@ -849,11 +842,21 @@ def test_stream_turn_pace_hint_is_transient(db) -> None:
 
     events = asyncio.run(run())
 
-    # The LLM call starts with the transient pace system hint.
+    # The pace hint reaches the LLM in the transient suffix AFTER the history
+    # (the platform loop's own hint slot); the message history keeps its own
+    # shape (user here: this seeded session never ran an opening, so there is
+    # no system head) and is never rewritten.
     assert llm.stream_calls, "the turn must call the LLM"
     first_call = llm.stream_calls[0]
-    assert first_call[0]["role"] == "system"
-    assert "[Pace:" in first_call[0]["content"]
+    assert first_call[0]["role"] == "user"
+    pace_idx = next(
+        i for i, m in enumerate(first_call) if "[Pace:" in str(m.get("content") or "")
+    )
+    assert pace_idx > 0
+    assert first_call[pace_idx]["role"] == "system"
+    # The loop's own [Context] anchor rides the same transient suffix,
+    # appended after the domain hint — and none of it persists.
+    assert "[Context]" in str(first_call[-1]["content"] or "")
 
     # ...and the persisted history keeps the plain user-tail invariant.
     roles = [m.get("role") for m in runner.agent.messages]

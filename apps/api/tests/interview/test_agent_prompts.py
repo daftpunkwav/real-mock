@@ -237,7 +237,9 @@ def test_refresh_system_head_swaps_candidate_and_phase() -> None:
     assert "Work experience" not in head  # dump detail gone (project names stay)
     assert "Phase: Your questions (reverse_qa)" in head  # stale phase refreshed
     assert "## Full flow" in head
-    assert "Covered: Old question" in head  # memory section survives
+    # The memory section is transient now: the head must not carry it (a
+    # per-turn head rewrite would invalidate the provider prefix cache).
+    assert "Covered: Old question" not in head
 
 
 def test_refresh_system_head_keeps_full_block_for_questioning_phase() -> None:

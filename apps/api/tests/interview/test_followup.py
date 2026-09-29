@@ -126,25 +126,36 @@ def test_vague_still_triggers_in_reverse_qa_phase() -> None:
 # ---- message-tail normalization guards ----
 
 
-def test_append_followup_and_rag_empty_messages_noop() -> None:
+def test_build_turn_guidance_persists_nothing() -> None:
+    """Guidance blocks are transient: history and the head are never touched."""
     from types import SimpleNamespace
 
-    from realmock.domains.interview.agents.followup_inject import append_followup_and_rag
+    from realmock.domains.interview.agents.followup_inject import build_turn_guidance
 
-    state = SimpleNamespace(
-        messages=[],
-        agent_state={},
-        refresh_system_memory=lambda: None,
-    )
-    append_followup_and_rag(
+    state = SimpleNamespace(messages=[], agent_state={})
+    blocks = build_turn_guidance(
         state,
         user_text="hello",
         last_question="",
         tech_domains=[],
         phase_id="warmup",
         rag_msg=None,
-        face=None,
-        build_user_content=lambda t, f: t,
         session_id=1,
     )
+    assert blocks == []
     assert state.messages == []
+
+    rag = {"role": "system", "content": "## Company knowledge\nhit"}
+    blocks = build_turn_guidance(
+        state,
+        user_text="I am not sure about that",
+        last_question="Explain your cache design",
+        tech_domains=[],
+        phase_id="project_deep_dive",
+        rag_msg=rag,
+        session_id=1,
+    )
+    assert state.messages == []  # still untouched
+    kinds = [b["content"][:20] for b in blocks]
+    assert any("[Follow-up guidance" in k for k in kinds)
+    assert any("## Company knowledge" in k for k in kinds)

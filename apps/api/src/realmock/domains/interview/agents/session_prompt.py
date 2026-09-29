@@ -21,6 +21,7 @@ from realmock.domains.interview.agents.agent_prompts import (
     build_system_prompt,
     candidate_block,
     compact_candidate_block,
+    github_evidence_block,
     needs_compact_candidate,
 )
 from realmock.domains.interview.workflows import Workflow
@@ -159,7 +160,12 @@ class SessionPromptMixin:
         )
 
     def _memory_section(self) -> str:
-        """Structured memory summary (still usable after compression)."""
+        """Structured memory summary as a standalone system block (no marker padding).
+
+        Transient by design: it is rebuilt from agent_state every turn and
+        appended to the call tail, never written into the frozen head — a
+        per-turn head rewrite would invalidate the provider prefix cache.
+        """
         text = WorkingMemory.from_state(self.agent_state).render()
         cognitive_graph = getattr(self, "cognitive_memory", None)
         if cognitive_graph is not None:
@@ -168,7 +174,11 @@ class SessionPromptMixin:
                 text = (text + "\n\n" + cog_text).strip()
         if not text:
             return ""
-        return f"\n\n{_MEMORY_SECTION_MARKER}\n" + text
+        return f"{_MEMORY_SECTION_MARKER}\n" + text
+
+    def memory_block(self) -> str:
+        """Full memory section for the transient call tail ("" when empty)."""
+        return self._memory_section()
 
     def _score_section(self) -> str:
         """Render the per-question score trajectory (empty when no scores yet).
@@ -316,14 +326,16 @@ class SessionPromptMixin:
             allow_plan_ops=self._plan_is_agent_authored(),
             flow_language=self._flow_language(),
             voice_directive=getattr(self, "voice_directive", "") or "",
+            github_evidence=(getattr(self.session, "github_evidence", "") or "").strip(),
         )
-        # System learning (stable for the session) + prior rounds + structured memory (refreshed each turn)
+        # System learning (stable for the session) + prior rounds. The
+        # structured memory is NOT part of the head: it rides the transient
+        # call tail each turn (see memory_block).
         full = (
             prompt
             + self._opening_section()
             + self._system_learning_section()
             + self._process_round_section()
-            + self._memory_section()
         )
         try:
             from realmock.platform.capabilities.ai.context.estimation import (
@@ -343,7 +355,12 @@ class SessionPromptMixin:
 
     @staticmethod
     def _strip_memory_section(content: str) -> str:
-        """Drop the trailing structured-memory section (and blank lines before it)."""
+        """Drop the trailing structured-memory section (and blank lines before it).
+
+        Legacy-shape tolerance only: heads built before the memory section
+        moved to the transient tail still carry it; stripping keeps the
+        phase-refresh rebuild from duplicating it.
+        """
         for marker in (
             _MEMORY_SECTION_MARKER,
             "## Conversation structured memory (do not repeat questions that have been asked)",
@@ -351,26 +368,6 @@ class SessionPromptMixin:
             if marker in content:
                 return content.split(marker)[0].rstrip()
         return content.rstrip()
-
-    def refresh_system_memory(self) -> None:
-        """Refresh the structured-memory section in the system prompt head.
-
-        Called each turn so asked_questions / weak_points / github_findings stay
-        current after long-context compression, avoiding repeat questions and
-        lost weak-spot tracking.
-
-        Only replaces the memory section inside ``messages[0]`` system content;
-        does not rebuild the whole prompt (avoids re-querying profile/company).
-        """
-        if not self.messages or self.messages[0].get("role") != "system":
-            return
-        content = self.messages[0].get("content", "")
-        if not isinstance(content, str):
-            return
-        content = self._strip_memory_section(content)
-        memory = self._memory_section()
-        if memory:
-            self.messages[0]["content"] = content + "\n\n" + memory
 
     def refresh_system_head(self, phase, *, profile=None, candidate=None) -> None:
         """Rebuild the phase-dependent sections of ``messages[0]`` on phase advance.
@@ -380,7 +377,9 @@ class SessionPromptMixin:
         and the ``## Current phase`` lines. Entering a phase that asks no
         resume questions (reverse_qa / summary) swaps the block for the
         compact identity card; every entry refreshes the phase lines so the
-        head no longer points at the opening phase.
+        head no longer points at the opening phase. The pre-gathered GitHub
+        evidence sits between the candidate block and the phase lines and is
+        carried across the rebuild.
 
         ``profile`` / ``candidate`` are injected for tests; when omitted the
         candidate rows are re-read (phase advances are rare, so one extra
@@ -431,6 +430,12 @@ class SessionPromptMixin:
                 # section entirely.
                 restored = candidate_block(profile, candidate, compact=False)
                 middle = (restored or compact_candidate_block(profile, candidate)) + "\n"
+            # The GitHub evidence sits between the candidate block and the
+            # phase lines; the strip above removed it with the candidate
+            # block, so re-render it from the session row.
+            middle += github_evidence_block(
+                (getattr(self.session, "github_evidence", "") or "").strip()
+            )
 
         new_phase_block = (
             "## Current phase\n"
@@ -438,11 +443,7 @@ class SessionPromptMixin:
             f"Goal: {phase.description}\n"
             f"Ask {phase.min_questions}-{phase.max_questions} questions in this phase.\n\n"
         )
-        updated = head + middle + new_phase_block + flow_tail
-        memory = self._memory_section()
-        if memory:
-            updated += "\n\n" + memory
-        self.messages[0]["content"] = updated
+        self.messages[0]["content"] = head + middle + new_phase_block + flow_tail
 
 
 __all__ = ["SessionPromptMixin"]
