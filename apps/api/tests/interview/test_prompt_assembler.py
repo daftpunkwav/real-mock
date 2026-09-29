@@ -100,6 +100,36 @@ async def test_prompt_compact_token_estimate_failure(monkeypatch) -> None:
     assert out == [{"role": "user", "content": "short"}]
 
 
+@pytest.mark.asyncio
+async def test_compaction_patch_keeps_authoritative_lists(monkeypatch) -> None:
+    """Compaction write-back must not truncate the anti-repeat / weak-spot stores.
+
+    The WorkingMemory view caps asked questions (24) and weak points (16);
+    the stores keep ~200 / 100 entries. Writing the capped view back would
+    silently shrink the authoritative lists.
+    """
+    from realmock.domains.interview.agents import prompt_assembler as mod
+
+    asked = [f"question {i}" for i in range(60)]
+    weak = [f"weak {i}" for i in range(40)]
+    agent_state: dict[str, Any] = {"asked_questions": list(asked), "weak_points": list(weak)}
+    agent = SimpleNamespace(
+        messages=[{"role": "user", "content": "hi"}],
+        agent_state=agent_state,
+    )
+    asm = mod.PromptAssembler(SimpleNamespace(id=3), agent, llm=None)
+
+    async def _fake_compact(messages, context_window, **k):
+        return messages[:1]
+
+    monkeypatch.setattr(mod, "compact_with_summary", _fake_compact)
+    monkeypatch.setattr(mod, "estimate_messages_tokens", lambda m: 1)
+    monkeypatch.setattr(mod, "adaptive_fold_thresholds", lambda w: (0.3, 0.5))
+    await asm.build_api_messages("hi", None, None, context_window=2000)
+    assert agent_state["asked_questions"] == asked
+    assert agent_state["weak_points"] == weak
+
+
 def test_prompt_tech_domains_and_context_window(monkeypatch) -> None:
     from realmock.domains.interview.agents import prompt_assembler as mod
 

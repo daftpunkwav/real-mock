@@ -112,10 +112,12 @@ class PromptAssembler:
                 threshold=ephemeral_ratio,
             )
             patch = memory.to_state_patch()
-            # asked_questions here is a display-capped view (the store keeps
-            # ~200 entries for anti-repeat); writing it back would truncate
-            # the authoritative list.
+            # asked_questions / weak_points here are display-capped views (the
+            # stores keep ~200 / 100 entries for anti-repeat and cross-round
+            # learning); writing them back would truncate the authoritative
+            # lists to the view size.
             patch.pop("asked_questions", None)
+            patch.pop("weak_points", None)
             self.agent.agent_state.update(patch)
             if len(compressed) < len(messages):
                 try:
