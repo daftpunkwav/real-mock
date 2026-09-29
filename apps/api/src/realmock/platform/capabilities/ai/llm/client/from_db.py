@@ -113,7 +113,9 @@ def build_from_db(
         extra_body, extra_headers = _extras_body_headers(cfg)
     else:
         if profile_explicit:
-            # Entries explicitly specified by the scenario lack credentials: do not fall back silently, retain the entry information and let the request report an error
+            # A profile-explicit entry without credentials must not fall back
+            # to env settings silently: keep the entry as-is and let the
+            # request fail with a clear error.
             return cls(
                 api_base=cfg.get("api_base") or "",
                 api_key="",
@@ -126,7 +128,9 @@ def build_from_db(
                 supports_vision=bool(cfg.get("supports_vision")),
                 full_url=bool(cfg.get("full_url")),
             )
-        # The pipeline already contains the stage_configs fallback; here only the environment variables are added to the final level.
+        # get_stage_config_for_runtime already applies the stage_configs
+        # fallback chain; only env-var settings are layered on here as the
+        # last resort.
         api_base = cfg.get("api_base") or settings.llm_api_base
         raw_api_key = cfg_api_key or settings.llm_api_key
         try:

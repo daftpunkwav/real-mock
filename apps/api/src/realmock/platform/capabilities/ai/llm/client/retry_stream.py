@@ -151,8 +151,9 @@ async def stream_text_retry(
     async with pinned as c:
         attempt = 0
         while True:
-            # sanitizer rebuilds according to attempt: discards the last remaining data when retrying fails.
-            # Half special token buffering and <think> opening and closing status to avoid polluting new streams
+            # Fresh sanitizer per attempt: leftover partial-token buffers and
+            # <think> open/close state from a failed attempt must not bleed
+            # into the retry stream.
             sanitizer = StreamSanitizer()
             try:
                 async with c.stream("POST", url, headers=headers, json=payload) as resp:
@@ -161,7 +162,8 @@ async def stream_text_retry(
                             usage.note_request_start()
                         usage.note_response_meta(getattr(resp, "headers", None))
                     if resp.status_code in (400, 422) and "stream_options" in payload:
-                        # The supplier does not support stream_options: visible downgrade (logging) and then remove and retry.
+                        # Supplier rejects stream_options: log the downgrade,
+                        # drop the option, and retry without it.
                         body = (await resp.aread()).decode("utf-8", "ignore")
                         if "stream_options" in body:
                             client._stream_usage_disabled = True

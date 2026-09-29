@@ -164,7 +164,8 @@ def _accumulate_usage(agent: "PrepAgent") -> None:
         estimate_tokens(str(m.get("content") or "")) for m in agent.messages
         if isinstance(m, dict)
     )
-    # Accumulated actual usage (available when the supplier returns; the estimated value is only used for the ring proportion)
+    # Accumulated actual usage (present only when the supplier reports it;
+    # the text estimate above only feeds the ring proportion)
     usage = getattr(agent.llm, "usage", None)
     if usage is not None:
         agent.session.prompt_tokens = (agent.session.prompt_tokens or 0) + (usage.prompt_tokens or 0)

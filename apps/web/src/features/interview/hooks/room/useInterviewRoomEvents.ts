@@ -242,7 +242,8 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
         d.waitMsRef.current = Math.min(60, Math.max(7, msg.wait_seconds)) * 1000;
       }
       // Answer window (server clamps 90-300s): counts from the candidate's
-      // FIRST input, displayed as 作答时间 in the chat panel.
+      // FIRST input, shown by the chat panel's answer-time timer
+      // (i18n key chat.timer.answer).
       if (typeof msg.answer_wait_seconds === "number" && msg.answer_wait_seconds > 0) {
         d.answerWaitMsRef.current = Math.min(300, Math.max(90, msg.answer_wait_seconds)) * 1000;
       }
