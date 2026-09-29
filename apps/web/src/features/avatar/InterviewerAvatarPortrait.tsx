@@ -20,7 +20,7 @@ export function InterviewerAvatarPortrait({
   profile,
   emotion,
   speaking,
-  motion: { mouthOpen, blink },
+  motion: { mouthOpen, mouthWide, mouthRound, blink, bob },
 }: InterviewerAvatarPortraitProps) {
   const t = useT("media");
   const browY =
@@ -43,8 +43,10 @@ export function InterviewerAvatarPortrait({
         : emotion === "encouraging"
           ? 0.25
           : 0.12;
-  const mouthH = speaking ? 6 + mouthOpen * 14 : 4 + mouthBase * 8;
-  const mouthW = speaking ? 22 + mouthOpen * 6 : 20;
+  const mouthH = speaking ? 6 + mouthOpen * 14 + mouthRound * 4 : 4 + mouthBase * 8;
+  const mouthW = speaking
+    ? (22 + mouthOpen * 6) * (1 + mouthWide * 0.25 - mouthRound * 0.2)
+    : 20;
   const cheekOpacity =
     emotion === "smile" || emotion === "happy" || emotion === "encouraging" ? 0.35 : 0.12;
 
@@ -74,6 +76,7 @@ export function InterviewerAvatarPortrait({
       <ellipse cx="100" cy="100" rx="52" ry="58" fill={profile.skin} />
       <ellipse cx="100" cy="108" rx="40" ry="48" fill="#000" opacity={0.06} />
 
+      <g transform={`translate(0 ${bob.toFixed(2)})`}>
       {/* Hair — multi-layer path overlay */}
       {profile.gender === "female" ? (
         <>
@@ -132,6 +135,17 @@ export function InterviewerAvatarPortrait({
         opacity={0.35}
       />
 
+      {/* Glasses — senior/strict personas */}
+      {profile.glasses && (
+        <g stroke="#334155" strokeWidth="1.6" fill="none" opacity={0.85}>
+          <rect x="68" y="87" width="24" height="16" rx="7" />
+          <rect x="108" y="87" width="24" height="16" rx="7" />
+          <path d="M92 95 L108 95" />
+          <path d="M68 93 L58 91" />
+          <path d="M132 93 L142 91" />
+        </g>
+      )}
+
       {/* nose */}
       <path
         d="M100 102 L97 118 Q100 123 103 118 Z"
@@ -166,6 +180,7 @@ export function InterviewerAvatarPortrait({
       {speaking && mouthOpen > 0.35 && (
         <ellipse cx="100" cy="136" rx={mouthW / 3.2} ry={mouthH / 3.5} fill="#d48a8a" opacity={0.55} />
       )}
+      </g>
     </svg>
   );
 }

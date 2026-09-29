@@ -5,14 +5,14 @@ import { AVATAR_ASSETS } from "./talkingheadAssets";
 import { useTalkingHeadBoot } from "./talkingheadBoot";
 import { useTalkingHeadEmotion } from "./talkingheadEmotion";
 import { useTalkingHeadGaze } from "./talkingheadGaze";
-import { useTalkingHeadMouth } from "./talkingheadMouth";
+import { useTalkingHeadPerformance } from "./talkingheadPerformance";
 import { webglSupported } from "./talkingheadSupport";
 
 /**
  * Assembly layer for the @met4citizen/talkinghead 3D avatar adapter.
  *
- * Boot and teardown, gaze, expression morphing, and mouth animation live in
- * dedicated modules. This file only assembles those hooks, mounts the renderer,
+ * Boot and teardown, gaze, expression morphing, and the performance loop
+ * (lips, gestures, blinking) live in dedicated modules. This file only assembles those hooks, mounts the renderer,
  * and exposes metadata; talkingheadBoot owns the dynamic library import.
  */
 
@@ -28,7 +28,7 @@ function TalkingHeadRenderer({
   const { mountRef, headRef } = useTalkingHeadBoot(avatarId, { onProgress, onReady, onFailed });
   useTalkingHeadGaze(headRef, speaking);
   useTalkingHeadEmotion(headRef, emotion);
-  useTalkingHeadMouth(headRef, audioLevel, speaking);
+  useTalkingHeadPerformance(headRef, audioLevel, speaking);
 
   return <div ref={mountRef} className="absolute inset-0" />;
 }

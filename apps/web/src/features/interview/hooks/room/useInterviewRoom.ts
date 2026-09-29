@@ -42,7 +42,6 @@ export function useInterviewRoom(sessionId: number) {
       awaitingSpeechEndRef: rf.awaitingSpeechEndRef,
       speechFallbackRef: rf.speechFallbackRef,
       setAiSpeaking: setSt.setAiSpeaking,
-      setAudioLevel: setSt.setAudioLevel,
       setAudioBlocked: setSt.setAudioBlocked,
     });
 
@@ -212,7 +211,6 @@ export function useInterviewRoom(sessionId: number) {
     handleFaceAnalysis: actions.handleFaceAnalysis,
     emotion: st.emotion,
     aiSpeaking: st.aiSpeaking,
-    audioLevel: st.audioLevel,
     audioUnlocked,
     audioBlocked: st.audioBlocked,
     handleEnableAudio: actions.handleEnableAudio,

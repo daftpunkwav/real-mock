@@ -26,6 +26,7 @@ from realmock.domains.interview.protocols.round_chain import (
     KIND_TECH_2,
     KIND_TECH_DEEP,
     RoundStep,
+    avatar_for_personality,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,7 @@ class PlannedRound:
             strictness=self.strictness,
             focus=self.focus,
             label=self.label,
+            avatar_id=avatar_for_personality(self.personality),
         )
 
 

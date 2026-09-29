@@ -335,6 +335,17 @@ button:active:not(:disabled),
   transform: scale(0.98);
 }
 
+/* Avatar idle breathing: gentle vertical sway of the portrait bust. */
+@keyframes avatar-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -3px) scale(1.006);
+  }
+}
+
 /* Sidebar toggle icon: remounts when the theme flips; a quick tilt-fade
    makes the state change register at the point of control. The switch
    itself is a plain, instant class flip owned by ThemeProvider. */

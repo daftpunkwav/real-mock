@@ -40,6 +40,26 @@ class RoundStep:
     focus: str
     #: Backend-side display name (English); localized names live in the frontend i18n.
     label: str
+    #: Interviewer appearance for this round (avatar_id). A company loop is a
+    #: sequence of DIFFERENT interviewers, so each round carries its own look
+    #: — and through the avatar→voice mapping, its own voice gender.
+    avatar_id: str = ""
+
+
+#: Round persona → avatar look. One interviewer per round type, matching the
+#: persona the prompts already declare (HR rounds are female interviewers —
+#: with the avatar→voice mapping this is also what keeps their voice female).
+AVATAR_BY_PERSONALITY = {
+    "expert": "senior_male",
+    "pressure": "strict_expert",
+    "hr": "hr_female",
+    "professional": "professional_male",
+}
+
+
+def avatar_for_personality(personality: str) -> str:
+    """Interviewer avatar for a round persona; unknown personas stay generic."""
+    return AVATAR_BY_PERSONALITY.get((personality or "").strip(), "professional_male")
 
 
 def _step(round_no: int, kind: str, workflow: str, personality: str, style: str, strictness: int, focus: str, label: str) -> RoundStep:
@@ -52,6 +72,7 @@ def _step(round_no: int, kind: str, workflow: str, personality: str, style: str,
         strictness=max(1, min(10, strictness)),
         focus=focus,
         label=label,
+        avatar_id=avatar_for_personality(personality),
     )
 
 
@@ -173,6 +194,7 @@ def round_chain(base_workflow: str, max_rounds: int) -> list[RoundStep]:
                 strictness=base.strictness,
                 focus=base.focus,
                 label=base.label,
+                avatar_id=base.avatar_id,
             )
         )
     last = steps[-1]
@@ -197,6 +219,7 @@ def step_for(base_workflow: str, round_no: int, max_rounds: int) -> RoundStep | 
 
 
 __all__ = [
+    "AVATAR_BY_PERSONALITY",
     "KIND_CROSS",
     "KIND_HR_1",
     "KIND_HR_2",
@@ -205,6 +228,7 @@ __all__ = [
     "KIND_TECH_2",
     "KIND_TECH_DEEP",
     "RoundStep",
+    "avatar_for_personality",
     "round_chain",
     "step_for",
 ]

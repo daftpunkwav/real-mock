@@ -30,7 +30,8 @@ export function InterviewerAvatar({
 }: InterviewerAvatarProps) {
   const t = useT("media");
   const profile = AVATAR_PROFILES[avatarId] || AVATAR_PROFILES.professional_male!;
-  const { mouthOpen, blink } = useInterviewerAvatarMotion(speaking, audioLevel);
+  const motion = useInterviewerAvatarMotion(speaking, audioLevel);
+  const { mouthOpen } = motion;
 
   const sceneBg = SCENE_FALLBACK[sceneId] || SCENE_FALLBACK.meeting_room;
   const sceneImg = SCENES[sceneId] || SCENES.meeting_room;
@@ -49,13 +50,16 @@ export function InterviewerAvatar({
         }}
       />
 
-      {/* bust area */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[min(100%,340px)] h-[88%] flex flex-col items-center justify-end">
+      {/* bust area — a slow breathing sway keeps the portrait alive at idle */}
+      <div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[min(100%,340px)] h-[88%] flex flex-col items-center justify-end"
+        style={{ animation: "avatar-breathe 4.2s ease-in-out infinite" }}
+      >
         <InterviewerAvatarPortrait
           profile={profile}
           emotion={emotion}
           speaking={speaking}
-          motion={{ mouthOpen, blink }}
+          motion={motion}
         />
       </div>
 

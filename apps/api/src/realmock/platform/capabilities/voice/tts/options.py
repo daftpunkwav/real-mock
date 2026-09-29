@@ -15,6 +15,25 @@ AVATARS = [
     {"id": "young_female", "name": "Young Female Interviewer", "voice": "zh-CN-XiaoxiaoNeural"},
 ]
 
+_AVATAR_GENDER = {
+    "professional_male": "male",
+    "senior_male": "male",
+    "strict_expert": "male",
+    "gentle_female": "female",
+    "hr_female": "female",
+    "young_female": "female",
+}
+
+
+def avatar_gender(avatar_id: str) -> str:
+    """Interviewer gender for an avatar id ("female"/"male"/"" when unknown).
+
+    Single source of truth for prompt-side facts and the voice-gender guard
+    test: every female avatar must resolve to a female voice in EVERY vendor
+    mapping.
+    """
+    return _AVATAR_GENDER.get((avatar_id or "").strip(), "")
+
 TTS_VOICES = [
     {"id": "zh-CN-XiaoxiaoNeural", "name": "Xiaoxiao (female)"},
     {"id": "zh-CN-YunxiNeural", "name": "Yunxi (male)"},

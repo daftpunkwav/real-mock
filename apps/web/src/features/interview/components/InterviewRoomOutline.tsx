@@ -28,7 +28,6 @@ export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
     sessionMeta,
     emotion,
     aiSpeaking,
-    audioLevel,
     showOutline,
     handleOutlineChange,
     requestHint,
@@ -65,7 +64,6 @@ export function InterviewRoomOutline({ room }: { room: InterviewRoomModel }) {
         sceneId={sessionMeta.scene_id}
         emotion={emotion}
         speaking={aiSpeaking}
-        audioLevel={audioLevel}
       />
       <div className="rounded-lg border border-surface-border bg-surface-card p-3.5 sm:p-4 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-3 shrink-0 gap-2">

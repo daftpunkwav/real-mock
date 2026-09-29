@@ -14,6 +14,8 @@ export interface AvatarProfile {
   shirt: string;
   accent: string;
   gender: "male" | "female";
+  /** Distinct look feature: thin-frame glasses (senior/strict personas). */
+  glasses?: boolean;
 }
 
 export const AVATAR_PROFILES: Record<string, AvatarProfile> = {
@@ -34,6 +36,7 @@ export const AVATAR_PROFILES: Record<string, AvatarProfile> = {
     shirt: "#fafaf9",
     accent: "#a8a29e",
     gender: "male",
+    glasses: true,
   },
   gentle_female: {
     labelKey: "avatar.profile.gentle_female",
@@ -70,5 +73,6 @@ export const AVATAR_PROFILES: Record<string, AvatarProfile> = {
     shirt: "#e7e5e4",
     accent: "#ef4444",
     gender: "male",
+    glasses: true,
   },
 };

@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ClientEvent } from "@/types";
 import { useTTSPlayer } from "@/features/media";
 import type { AnyRef } from "./useInterviewRoomEvents";
+import { publishTTSLevel } from "@/features/avatar/levelSink";
 
 interface InterviewRoomTtsBindingDeps {
   playbackGenRef: AnyRef<number>;
@@ -14,7 +15,6 @@ interface InterviewRoomTtsBindingDeps {
   awaitingSpeechEndRef: AnyRef<boolean>;
   speechFallbackRef: AnyRef<ReturnType<typeof setTimeout> | null>;
   setAiSpeaking: Dispatch<SetStateAction<boolean>>;
-  setAudioLevel: Dispatch<SetStateAction<number>>;
   setAudioBlocked: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -34,11 +34,13 @@ export function useInterviewRoomTtsBinding(deps: InterviewRoomTtsBindingDeps) {
     audioUnlocked,
   } = useTTSPlayer();
 
-  const { setAiSpeaking, setAudioLevel, setAudioBlocked } = deps;
+  const { setAiSpeaking, setAudioBlocked } = deps;
 
   useEffect(() => {
     setOnSpeakingChange(setAiSpeaking);
-    setOnAudioLevel(setAudioLevel);
+    // Per-frame levels bypass React state (it re-rendered the whole room at
+    // 60fps): the avatar renderers read the sink inside their own rAF loops.
+    setOnAudioLevel(publishTTSLevel);
     setOnPlaybackBlocked(setAudioBlocked);
     setOnPlaybackDone(() => {
       const g = deps.playbackGenRef.current;
@@ -62,7 +64,6 @@ export function useInterviewRoomTtsBinding(deps: InterviewRoomTtsBindingDeps) {
     setOnPlaybackBlocked,
     setOnPlaybackDone,
     setAiSpeaking,
-    setAudioLevel,
     setAudioBlocked,
     deps.playbackGenRef,
     deps.lastPlaybackDoneGenRef,

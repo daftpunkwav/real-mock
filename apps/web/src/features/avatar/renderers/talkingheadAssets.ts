@@ -19,6 +19,12 @@ interface TalkingHeadAsset {
   light?: { ambient: number; direct: number; directColor: number };
 }
 
+/**
+ * Per-interviewer identity: baseline morphs keep each face distinct even when
+ * two avatars share a GLB (strict_expert is a re-skinned senior_male), and the
+ * lighting temperature sells the personality. Morph names are ARKit-52; ones
+ * a model lacks are silently ignored by setValue.
+ */
 export const AVATAR_ASSETS: Record<string, TalkingHeadAsset> = {
   professional_male: {
     url: "/avatars/professional_male.glb",
@@ -41,6 +47,7 @@ export const AVATAR_ASSETS: Record<string, TalkingHeadAsset> = {
       headRotateX: 0.1,
       eyesLookDown: 0,
       eyesLookUp: 0.06,
+      mouthFrown: 0.06,
       eyeBlinkLeft: 0.02,
       eyeBlinkRight: 0.02,
     },
@@ -54,11 +61,15 @@ export const AVATAR_ASSETS: Record<string, TalkingHeadAsset> = {
       headRotateX: 0.1,
       eyesLookDown: 0,
       eyesLookUp: 0.05,
-      browInnerUp: 0.15,
+      browDownLeft: 0.35,
+      browDownRight: 0.35,
+      eyeSquintLeft: 0.25,
+      eyeSquintRight: 0.25,
+      mouthFrown: 0.18,
       eyeBlinkLeft: 0.02,
       eyeBlinkRight: 0.02,
     },
-    light: { ambient: 0.9, direct: 11, directColor: 0xffd0b0 },
+    light: { ambient: 0.85, direct: 11.5, directColor: 0xf0d8c0 },
   },
   gentle_female: {
     url: "/avatars/gentle_female.glb",
@@ -68,7 +79,9 @@ export const AVATAR_ASSETS: Record<string, TalkingHeadAsset> = {
       headRotateX: 0.1,
       eyesLookDown: 0,
       eyesLookUp: 0.08,
-      mouthSmile: 0.15,
+      mouthSmile: 0.18,
+      cheekSquintLeft: 0.12,
+      cheekSquintRight: 0.12,
     },
     light: { ambient: 1.3, direct: 7.5, directColor: 0xffeef0 },
   },
@@ -77,9 +90,11 @@ export const AVATAR_ASSETS: Record<string, TalkingHeadAsset> = {
     body: "F",
     mood: "neutral",
     baseline: {
-      headRotateX: 0.1,
+      headRotateX: 0.08,
       eyesLookDown: 0,
       eyesLookUp: 0.07,
+      mouthSmile: 0.08,
+      browInnerUp: 0.06,
     },
     light: { ambient: 1.2, direct: 8, directColor: 0xffe8d8 },
   },
@@ -91,7 +106,9 @@ export const AVATAR_ASSETS: Record<string, TalkingHeadAsset> = {
       headRotateX: 0.11,
       eyesLookDown: 0,
       eyesLookUp: 0.09,
-      mouthSmile: 0.2,
+      mouthSmile: 0.22,
+      browOuterUpLeft: 0.12,
+      browOuterUpRight: 0.12,
     },
     light: { ambient: 1.35, direct: 7, directColor: 0xfff0e8 },
   },

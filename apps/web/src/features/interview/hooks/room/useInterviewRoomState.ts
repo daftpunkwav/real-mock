@@ -40,7 +40,6 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   const [currentPhaseTitle, setCurrentPhaseTitle] = useState("");
   const [emotion, setEmotion] = useState("neutral");
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [sttFailUntil, setSttFailUntil] = useState(0);
   const [showOutline, setShowOutline] = useState(true);
@@ -166,7 +165,6 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       currentPhaseTitle,
       emotion,
       aiSpeaking,
-      audioLevel,
       audioBlocked,
       sttFailUntil,
       showOutline,
@@ -186,7 +184,6 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
       setCurrentPhaseTitle,
       setEmotion,
       setAiSpeaking,
-      setAudioLevel,
       setAudioBlocked,
       setSttFailUntil,
       setShowOutline,

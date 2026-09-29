@@ -185,7 +185,11 @@ def _session_from_process(process: InterviewProcess, round_no: int) -> Interview
         personality=step.personality if step else process.personality,
         strictness=step.strictness if step else process.strictness,
         interview_style=step.interview_style if step else process.interview_style,
-        avatar_id=process.avatar_id,
+        # A company loop is a sequence of DIFFERENT interviewers: each round's
+        # look (and, through the avatar→voice mapping, its voice gender) comes
+        # from the round persona. The process-level choice only backfills when
+        # no round step resolved (defensive).
+        avatar_id=(step.avatar_id if step else "") or process.avatar_id,
         scene_id=process.scene_id,
         ui_locale=process.ui_locale or "",
         reference_detail=process.reference_detail or "outline",

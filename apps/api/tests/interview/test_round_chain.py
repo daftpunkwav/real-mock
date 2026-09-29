@@ -93,3 +93,40 @@ def test_final_judgement_only_on_last_round():
             for step in steps[:-1]:
                 assert "final" not in step.focus.lower(), (base, budget, step.round_no)
             assert "final" in steps[-1].focus.lower(), (base, budget)
+
+
+def test_chain_assigns_per_round_interviewer_avatars() -> None:
+    """Each round persona carries its own look: HR rounds are female
+    interviewers (whose avatar→voice mapping keeps their voice female),
+    pressure rounds the strict expert, expert rounds the senior male."""
+    steps = round_chain("technical", 4)
+    assert steps[0].avatar_id == "senior_male"  # expert
+    assert steps[1].avatar_id == "senior_male"  # expert
+    assert steps[2].avatar_id == "hr_female"  # hr
+    assert steps[3].avatar_id == "professional_male"  # professional
+    # The pressure persona shows up inside the round budget on the
+    # management chain (its round 2).
+    stress = step_for("management", 2, 5)
+    assert stress is not None and stress.avatar_id == "strict_expert"
+
+
+def test_sessions_from_process_carry_round_avatars(db) -> None:
+    """Round sessions take the round persona's avatar — an HR round must not
+    inherit the process-level male default (that mismatch is what gave female
+    interviewer personas male voices)."""
+    process = _process(db)
+    r1 = _session_from_process(process, 1)
+    r3 = _session_from_process(process, 3)
+    assert r1.avatar_id == "senior_male"
+    assert r3.avatar_id == "hr_female"
+
+
+def test_avatar_for_personality_falls_back_to_generic() -> None:
+    """Personas outside the map (LLM plans may author "gentle") stay on the
+    generic professional look — consistent with the persona prompts, which
+    declare no gender for them."""
+    from realmock.domains.interview.protocols.round_chain import avatar_for_personality
+
+    assert avatar_for_personality("gentle") == "professional_male"
+    assert avatar_for_personality("made_up") == "professional_male"
+    assert avatar_for_personality("") == "professional_male"

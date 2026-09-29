@@ -16,6 +16,7 @@ from realmock.platform.services.candidate_read import get_candidate_profile, get
 from realmock.domains.interview.models import InterviewProcess
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.platform.catalogs.company import get_company_context
+from realmock.platform.capabilities.voice.tts.options import avatar_gender
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.domains.interview.agents.agent_prompts import (
     build_system_prompt,
@@ -224,11 +225,15 @@ class SessionPromptMixin:
         """
         if step is None:
             return ""
+        avatar = (getattr(self.session, "avatar_id", "") or "").strip()
+        gender = avatar_gender(avatar)
+        look = f" Interviewer appearance: {avatar}"
+        look += f" ({gender})." if gender else "."
         return (
             f"\n\n## This round: {step.label} (round {step.round_no})\n"
             f"Interviewer persona this round: {step.personality} style, "
             f"interview_style={step.interview_style}, strictness={step.strictness}/10. "
-            "You ARE this interviewer; do not mention other rounds' interviewers.\n"
+            "You ARE this interviewer; do not mention other rounds' interviewers." + look + "\n"
             f"This round focus: {step.focus}."
         )
 
