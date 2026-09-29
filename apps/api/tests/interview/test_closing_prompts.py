@@ -9,13 +9,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 
-from realmock.domains.interview.agents.interviewer import runner_closing as rcmod
 from realmock.domains.interview.agents.closing_prompts import (
     CLOSING_BY_PERSONALITY,
     closing_system_prompt,
     jump_to_summary_phase,
 )
-from realmock.domains.interview.agents.turn_output import TurnOutput
 
 
 def test_closing_by_personality_covers_all() -> None:
@@ -64,76 +62,3 @@ def test_jump_to_summary_empty_ids_stays_zero() -> None:
     st = _state(0, [])
     # len([])-1 = -1 -> max(0,-1)=0, no advance
     assert jump_to_summary_phase(st, []) is False
-
-
-# ---- runner_closing ----
-
-def _make_runner(monkeypatch, *, status="active", personality="professional", say="Thanks, bye."):
-    from tests.fakes import FakeLLMClient
-
-    phases = [
-        SimpleNamespace(id="identity_check", name="Identity"),
-        SimpleNamespace(id="summary", name="Summary"),
-    ]
-
-    agent = SimpleNamespace(
-        phases=phases,
-        messages=[{"role": "system", "content": "sys"}],
-        agent_state={},
-        current_phase_idx=0,
-        session=SimpleNamespace(current_phase="identity_check"),
-        refresh_system_memory=lambda: None,
-        record_assistant_text=lambda text: agent.messages.append({"role": "assistant", "content": text}),
-        note_turn_output=lambda output: None,
-        note_verdict=lambda verdict: setattr(agent.session, "result", verdict),
-        mark_completed=lambda: setattr(session, "status", "completed"),
-        save_state=lambda db: None,
-        current_phase=lambda: phases[agent.current_phase_idx],
-        phase_title_for_display=lambda: "",
-        _score_section=lambda: "## scores\n1. 4/5 — good",
-    )
-    session = SimpleNamespace(
-        status=status, personality=personality, id=1, current_phase="identity_check",
-    )
-    # bind mark_completed closure over session
-    orig_mark = agent.mark_completed
-    del orig_mark
-    agent.mark_completed = lambda: setattr(session, "status", "completed")
-
-    prompter = SimpleNamespace(get_context_window=lambda db: 0)
-    llm = FakeLLMClient(tokens=[say])
-    tools = SimpleNamespace(collect_chat_tools=lambda include_function_tools=True: [])
-
-    runner = SimpleNamespace(session=session, agent=agent, prompter=prompter, llm=llm, tools=tools)
-
-    async def fake_say_first(llm_arg, tools_arg, api_messages, *, temperature):
-        from realmock.domains.interview.agents.events import StreamEvent as SE
-
-        yield SE.make_token(say)
-        yield TurnOutput(say=say, emotion="smile", wait_seconds=0, interview_complete=False, verdict="passed")
-
-    monkeypatch.setattr(rcmod, "stream_say_first", fake_say_first)
-    monkeypatch.setattr(rcmod, "append_turn", lambda db, sess, **k: {"turn_id": "t-0001"})
-    monkeypatch.setattr(rcmod, "take_pending_tools", lambda state: [])
-    monkeypatch.setattr(rcmod, "run_finish_lifecycle", lambda db, sess, **k: {})
-    return runner
-
-
-async def _coro(value):
-    return value
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
