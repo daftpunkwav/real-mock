@@ -78,9 +78,12 @@ class Settings(BaseSettings):
 
     # GitHub (interview verification tool; optional PAT, increase API quota)
     github_token: str = ""
-    # Whether the interview agent enables function calling tool loop
+    # Whether the interview agent enables function calling tool loop.
+    # Default 3 rounds: the candidate is waiting, so evidence gathering must
+    # stay short; the policy cap (INTERVIEWER_LOOP.max_rounds=8) only exists
+    # so a deployment can raise it deliberately.
     interview_tools_enabled: bool = True
-    interview_max_tool_rounds: int = Field(default=6, ge=0, le=8)
+    interview_max_tool_rounds: int = Field(default=3, ge=0, le=8)
 
     # LLM call: Whether to allow local/private network base_url. Production must be False.
     allow_local_llm: bool = Field(default=False)

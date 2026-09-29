@@ -23,7 +23,9 @@ class ToolGuardPolicy:
     circuit_streak: int = 2
     circuit_ttl_sec: float = 600.0
     timeout_override_min: float = 5.0
-    timeout_override_max: float = 180.0
+    # Cap on the model-supplied per-call extension: a candidate is waiting,
+    # so even a "slow page" may not stall a reply for minutes.
+    timeout_override_max: float = 60.0
 
 
 @dataclass(frozen=True)

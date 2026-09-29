@@ -591,7 +591,7 @@ async def test_execute_passes_clamped_timeout_override(monkeypatch) -> None:
     )
     await r.run_tool_rounds([{"role": "user", "content": "hi"}], MagicMock())
     # Both clamp ends: below the band -> min, above it -> max.
-    assert seen == [5.0, 180.0, None, None]
+    assert seen == [5.0, 60.0, None, None]
 
 
 def test_tool_definitions_carry_timeout_override() -> None:

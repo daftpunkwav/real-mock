@@ -168,12 +168,12 @@ _PAST_RECORD_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 
 
 #: Optional per-call timeout override, injected into every tool schema
-#: (prep-domain pattern): the model may extend a slow fetch, clamped 5-180s.
+#: (prep-domain pattern): the model may extend a slow fetch, clamped 5-60s.
 _TIMEOUT_SECONDS_PARAM = {
     "type": "number",
     "description": (
-        "Optional per-call timeout in seconds (5-180). Raise it only for a "
-        "slow page fetch or a large repo scan; keep every other call fast."
+        "Optional per-call timeout in seconds (5-60). Raise it only for a "
+        "slow page fetch; keep every other call fast."
     ),
 }
 
