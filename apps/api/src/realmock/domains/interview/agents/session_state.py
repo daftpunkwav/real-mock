@@ -220,13 +220,17 @@ class InterviewSessionState(SessionPromptMixin):
         """Per-turn step-position line (transient; never persisted).
 
         The planner supplies the flow, but pacing is the interviewer's own
-        sovereignty: this line only tells it where it stands.
+        sovereignty: this line only tells it where it stands. The step's
+        question-style tag (when the plan carries one) rides along so the
+        mix of fundamentals / deep-dive / scenario questions stays visible.
         """
         total = len(self.phases)
         step_no = self.current_phase_idx + 1
         question_no = self.questions_in_phase + 1
+        kind = (getattr(self.current_phase(), "kind", "") or "").strip()
+        kind_part = f" ({kind.replace('_', ' ')})" if kind and kind != "summary" else ""
         return (
-            f"[Position] Step {step_no} of {total}; this is question "
+            f"[Position] Step {step_no} of {total}{kind_part}; this is question "
             f"{question_no} of the current step. You own the pacing: move on "
             "when the step's focus is covered."
         )
@@ -421,6 +425,9 @@ class InterviewSessionState(SessionPromptMixin):
             f"Entering new phase: {phase.name} ({phase.description}). "
             "Begin asking questions for this phase. Do not use emoji in replies."
         )
+        kind = (getattr(phase, "kind", "") or "").strip()
+        if kind and kind not in (REVERSE_QA_KIND, "summary"):
+            message += f" Question style for this step: {kind.replace('_', ' ')}."
         if _is_summary_phase(phase):
             scores = self._score_section()
             if scores:

@@ -15,7 +15,9 @@ from realmock.domains.interview.workflows import Workflow
 
 logger = logging.getLogger(__name__)
 
-MIN_PLAN_STEPS = 8
+# A short HR/final round is legitimate, so the floor stays low; the planner
+# prompt sizes the round to its type.
+MIN_PLAN_STEPS = 5
 MAX_PLAN_STEPS = 30
 MIN_QUESTIONS = 2
 STEP_QUESTIONS_MAX = 15

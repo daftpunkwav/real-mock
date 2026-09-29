@@ -12,8 +12,8 @@ PLAN_JSON_CONTRACT = """{
   "language": "\"zh\" or \"en\" (the interview language, see rule 8)",
   "opening": {"style": "\"identity_confirm\" | \"resume_ack\" | \"casual_warmup\" (see rule 3)", "note": "<one-line personalization with concrete facts: candidate name + one resume fact>"},
   "steps": [
-    {"title": "<short step title in the interview language>", "focus": "<what to assess and how>", "max_questions": 6, "kind": "reverse_qa" (only on the candidate-questions step)},
-    ... 8 to 30 steps total ...
+    {"title": "<short step title in the interview language>", "focus": "<what to assess and how>", "max_questions": 6, "kind": "fundamentals|project_deep_dive|scenario|system_design" (free tag; "reverse_qa" only on the candidate-questions step)},
+    ... 5 to 30 steps total ...
   ]
 }"""
 
@@ -23,8 +23,8 @@ Output exactly one JSON object matching this contract (no markdown fences, no co
 {contract}
 
 Hard rules:
-1. 8 to 30 steps; every step is a themed block of Q&A, not a single question.
-2. Cover the candidate's real material: each resume project gets at least one dedicated deep-dive step.
+1. 5 to 30 steps; every step is a themed block of Q&A, not a single question. Size the round to its reality: a technical round runs fuller; an HR or final round may be short.
+2. Choose the question mix from the company's style (the "Target company" block): fundamentals checks (rapid-fire concept drills), project deep dives, scenario questions (a realistic business situation — ask how the candidate would implement it), system design. A drills-heavy company gets more fundamentals steps; a business-driven company gets more scenario steps. Without a style signal, balance fundamentals + project + one scenario. Project deep dives: one dedicated step per round is the default — depth beats coverage; merge or skip them for short or non-technical rounds.
 3. Step 1 is the opening step and MUST realize the chosen opening.style (do not always pick identity_confirm — roll the dice every session, weighted by the interviewer personality: pressure/expert lean resume_ack, gentle/hr lean casual_warmup or identity_confirm, professional picks any):
    - identity_confirm: brief identity check (name + applied role), one short exchange, then into the first topic.
    - resume_ack: state you have read the resume, recap the candidate by name plus one concrete resume fact, confirm OK, and go straight into the opening topic — no identity interrogation.
