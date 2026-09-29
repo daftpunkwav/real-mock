@@ -110,7 +110,7 @@ class TestEncryptDecrypt:
         parts[2] = ("Z" if salt[0] != "Z" else "Y") + salt[1:]
         tampered = ":".join(parts)
         # salt mismatch → derived key differs → GCM auth fails by design.
-        with pytest.raises((ValueError, Exception)):
+        with pytest.raises(ValueError, match="AES-GCM decryption or authentication failed"):
             decrypt_secret(tampered)
 
     def test_wrong_format_raises(self) -> None:
