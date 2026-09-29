@@ -84,9 +84,11 @@ async def gather_evidence(username: str) -> str:
     parts.append(head)
 
     repos = await _call("github_list_repos", {"username": username, "per_page": 10})
+    # github_list_repos resolves to {"username", "count", "repos": [...]}.
+    repo_items = repos.get("repos") if isinstance(repos, dict) else repos
     candidates = [
         r
-        for r in (repos if isinstance(repos, list) else [])
+        for r in (repo_items if isinstance(repo_items, list) else [])
         if isinstance(r, dict) and str(r.get("name") or "").strip() and not r.get("fork")
     ]
     candidates.sort(key=lambda r: r.get("stargazers_count") or 0, reverse=True)
@@ -100,7 +102,9 @@ async def gather_evidence(username: str) -> str:
         "github_get_readme", {"owner": username, "repo": str(top[0].get("name"))}
     )
     if isinstance(readme, dict):
-        content = str(readme.get("content") or readme.get("text") or "").strip()
+        # Verified contract (rest_ops_repo._get_readme): the decoded text is
+        # under "content"; errors carry an "error" key (filtered by _call).
+        content = str(readme.get("content") or "").strip()
         if content:
             flag = " (truncated)" if readme.get("truncated") else ""
             parts.append(f"README of {top[0].get('name')}{flag}: {content[:_README_CHARS]}")

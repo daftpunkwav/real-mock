@@ -21,7 +21,12 @@ def _fake_executor(user=None, repos=None, readme=None, fail_user=False):
                 return json.dumps({"error": "execution_failed", "message": "rate limited"})
             return json.dumps(user or {})
         if name == "github_list_repos":
-            return json.dumps(repos or [])
+            # Real executor contract (rest_ops_user._list_repos): a dict with
+            # the repo list under "repos", NOT a bare list.
+            items = repos or []
+            return json.dumps(
+                {"username": arguments.get("username"), "count": len(items), "repos": items}
+            )
         if name == "github_get_readme":
             return json.dumps(readme or {})
         return json.dumps({"error": "unknown_github_tool", "name": name})
@@ -38,8 +43,12 @@ async def test_gather_evidence_renders_user_repos_readme(monkeypatch) -> None:
             user={"login": "octo", "name": "Octo Dev", "public_repos": 12, "bio": "builder"},
             repos=[
                 {"name": "forked-thing", "fork": True, "stargazers_count": 500},
-                {"name": "web-agent", "stargazers_count": 42, "language": "Python",
-                 "description": "An agent framework"},
+                {
+                    "name": "web-agent",
+                    "stargazers_count": 42,
+                    "language": "Python",
+                    "description": "An agent framework",
+                },
                 {"name": "tiny-cli", "stargazers_count": 7, "language": "Go"},
             ],
             readme={"content": "# web-agent\nIt orchestrates tools.", "truncated": True},
@@ -55,9 +64,7 @@ async def test_gather_evidence_renders_user_repos_readme(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_gather_evidence_user_error_is_empty(monkeypatch) -> None:
-    monkeypatch.setattr(
-        ge, "execute_github_tool", _fake_executor(fail_user=True)
-    )
+    monkeypatch.setattr(ge, "execute_github_tool", _fake_executor(fail_user=True))
     assert await ge.gather_evidence("octo") == ""
 
 
