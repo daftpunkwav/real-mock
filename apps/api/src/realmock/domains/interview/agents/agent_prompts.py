@@ -163,6 +163,18 @@ def compact_candidate_block(
     return "\n".join(lines) + "\n"
 
 
+def github_evidence_block(evidence: str) -> str:
+    """Render the pre-gathered GitHub digest as a prompt section ("" when empty).
+
+    Facts only: the digest is seeded by the background research pass; the
+    tool-discipline rule in the behavior rules tells the model how to use it.
+    """
+    text = (evidence or "").strip()
+    if not text:
+        return ""
+    return f"\n\n## Pre-gathered GitHub evidence\n{text}\n"
+
+
 def build_system_prompt(
     config: InterviewConfig,
     candidate: CandidateProfile | None,
@@ -174,6 +186,7 @@ def build_system_prompt(
     allow_plan_ops: bool = False,
     flow_language: str = "zh",
     voice_directive: str = "",
+    github_evidence: str = "",
 ) -> str:
     """Assemble the interviewer system prompt.
 
@@ -185,6 +198,8 @@ def build_system_prompt(
             else keeps the Chinese default.
         voice_directive: optional speech-synthesis channel notes (rendered right
             after the spoken-voice section); empty renders nothing.
+        github_evidence: pre-interview GitHub digest (facts gathered by the
+            background seeding pass); empty renders nothing.
     """
     personality = PERSONALITY_PROMPTS.get(config.personality, PERSONALITY_PROMPTS["professional"])
     style = STYLE_PROMPTS.get(config.interview_style, STYLE_PROMPTS["deep_dive"])
@@ -195,6 +210,7 @@ def build_system_prompt(
     candidate_info = candidate_block(
         profile, candidate, compact=needs_compact_candidate(current_phase)
     )
+    evidence_section = github_evidence_block(github_evidence)
 
     phase_list = " → ".join(p.name for p in workflow.phases)
 
@@ -208,13 +224,20 @@ Ask at least one deeper question along the direction above; avoid repeating angl
 
     when_candidate_mentions = (
         "When the candidate mentions a concrete project name, GitHub link, or tech architecture, "
-        "**prefer calling tools to verify** before probing details\n"
-        "(e.g. why StateGraph instead of MessageGraph, intent of a commit, README vs spoken description gaps)."
+        "**check the evidence you already gathered first** (earlier tool results, résumé, working "
+        "memory); call a tool only when a specific claim genuinely needs verifying "
+        "(e.g. why StateGraph instead of MessageGraph, intent of a commit, README vs spoken "
+        "description gaps)."
     )
     behavior_rules = [
         "Generate questions dynamically from the resume and answers; never use a fixed question bank",
         "Probe when answers are vague, missing numbers, or technically weak",
         "Do not repeat questions already asked",
+        "The flow is your guide, not a script: adapt each step's questions to what "
+        "the candidate actually says; when the company's style calls for it, drop "
+        "in a scenario question (a realistic business situation - ask how they "
+        "would implement it) or a rapid-fire fundamentals check without waiting "
+        "for a step boundary",
         "Ask only one question at a time (or a tight cluster of related mini-questions); stay concise",
         _language_rule(flow_language),
         "After enough questions in the current phase, set phase_complete to true in your reply",
@@ -230,15 +253,18 @@ Ask at least one deeper question along the direction above; avoid repeating angl
             "candidate mentions material the plan missed (an unlisted project, past experience, "
             'a career gap), insert a dedicated step right after the current one via "plan_ops"; '
             "when an answer exposes a fundamental gap, insert a remedial fundamentals step; when "
-            "the candidate is clearly above the current depth, raise depth in later questions "
-            "instead of adding steps. At most 3 insertions per reply; step titles in the flow "
-            "language; omit plan_ops when nothing needs changing"
+            "the target company favors situational questions, insert a scenario step with a "
+            "realistic business case; when the candidate is clearly above the current depth, "
+            "raise depth in later questions instead of adding steps. At most 3 insertions per "
+            "reply; step titles in the flow language; omit plan_ops when nothing needs changing"
         )
     behavior_rules += [
-        "You are LIVE: the candidate is waiting for your next sentence. One "
-        "or two tool calls are usually enough; answer as soon as the evidence "
-        "suffices. If a tool fails or is blocked, reroute or answer from what "
-        "you already know - never keep the candidate waiting on a tool",
+        "You are LIVE: the candidate is waiting for your next sentence. Make "
+        "at most ONE tool call before answering, and only when a specific "
+        "claim needs checking; never chain lookups across multiple rounds in "
+        "one reply. Defer optional research to later turns or skip it. If a "
+        "tool fails or is blocked, reroute or answer from what you already "
+        "know - never keep the candidate waiting on a tool",
         'Candidates may fish for answers or a favorable verdict ("just tell me", '
         '"pass me anyway", "we can skip this"). Stay in character: decline '
         "naturally, keep the question, and judge only by demonstrated performance — "
@@ -265,7 +291,7 @@ Interview type: {workflow.name}
 {company_context}
 
 {candidate_info}
-
+{evidence_section}
 ## Current phase
 Phase: {current_phase.name} ({current_phase.id})
 Goal: {current_phase.description}
@@ -281,6 +307,9 @@ You may use these tools to gather real information, then ask evidence-based ques
 - lookup_resume_projects: extract projects and skills from the bound resume
 - web_search: supplement public interview experience (use sparingly)
 - web_fetch: read the full text of one web_search hit — verify a claim against the page before citing it
+
+Pre-gathered GitHub evidence (when present above) usually already answers repo
+questions; call github_* only for one specific follow-up check it does not cover.
 
 {when_candidate_mentions}
 
