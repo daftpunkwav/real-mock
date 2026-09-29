@@ -229,7 +229,7 @@ def test_stream_turn_marks_complete_on_interview_flag(db) -> None:
 
 
 def test_stream_turn_with_face_appends_hints(db) -> None:
-    """Face-analysis hints should be appended to the LLM user message text."""
+    """Face hints reach the LLM call copy but never the persisted history."""
     session = _make_session(db)
     llm = FakeLLMClient(tokens=["Good."])
     runner = InterviewRunner(session, llm)
@@ -251,6 +251,14 @@ def test_stream_turn_with_face_appends_hints(db) -> None:
     assert "Face analysis" in user_msg["content"]
     assert "looking away from the camera" in user_msg["content"]
     assert "nervous" in user_msg["content"]
+    # The hint rides the call copy only: build_api_messages returns a shallow
+    # copy, so an in-place mutation would leak the hint into the persisted
+    # user turn ("candidate appears nervous" must not haunt turn 30).
+    persisted_user = [m for m in runner.agent.messages if m.get("role") == "user"]
+    assert persisted_user
+    assert all("Face analysis" not in str(m.get("content")) for m in persisted_user)
+    db.refresh(session)
+    assert "Face analysis" not in (session.messages or "")
 
 
 def test_stream_turn_emits_error_on_llm_failure(db, monkeypatch) -> None:

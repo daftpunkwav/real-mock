@@ -95,11 +95,14 @@ async def stream_turn(
         if not image_b64 and isinstance(face, dict) and face:
             # Face hints ride the call copy only; the persisted user text
             # stays clean ("candidate appears nervous" must not haunt turn 30).
+            # build_api_messages returns a shallow copy whose dicts are shared
+            # with agent.messages, so the hinted user message must REPLACE the
+            # entry in this copy — mutating the dict in place would persist.
             hinted = runner.prompter.build_user_content(user_text, face)
             if hinted != user_text:
-                for message in reversed(api_messages):
-                    if message.get("role") == "user":
-                        message["content"] = hinted
+                for idx in range(len(api_messages) - 1, -1, -1):
+                    if api_messages[idx].get("role") == "user":
+                        api_messages[idx] = {"role": "user", "content": hinted}
                         break
         # Position/Pace: their text changes every turn; prepending them would
         # shift the entire frozen head one position per turn and punch through
