@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 _MAX_LIST = 16
+# Anti-repeat floor: the interview domain stores ~200 asked questions but a
+# 16-item view let long interviews re-ask what the model could no longer see.
+# 24 covers a whole hour-long round at ~40 chars/line for ~1k chars.
+_ASKED_LIST = 24
 _ITEM_CHARS = 160
 # Digest note budget for absorbed dialogue: room for ~6 clipped exchanges
 # instead of the single-message regular note clip.
@@ -70,7 +74,7 @@ class WorkingMemory:
         notes = [str(x) for x in (raw.get("memory_notes") or []) if x]
         quiz = str(raw.get("pending_quiz") or "")
         return cls(
-            asked=asked[-_MAX_LIST:],
+            asked=asked[-_ASKED_LIST:],
             weak_points=weak[-_MAX_LIST:],
             findings=findings[-_MAX_LIST:],
             notes=notes[-_MAX_LIST:],
@@ -90,7 +94,7 @@ class WorkingMemory:
 
     def remember(self, kind: str, text: str) -> None:
         if kind == "asked":
-            _bounded_append(self.asked, text)
+            _bounded_append(self.asked, text, limit=_ASKED_LIST)
         elif kind == "weak":
             _bounded_append(self.weak_points, text)
         elif kind == "finding":
@@ -136,7 +140,7 @@ class WorkingMemory:
         """Model-visible memory paragraph (without marker)."""
         parts: list[str] = []
         if self.asked:
-            parts.append("Covered: " + "; ".join(self.asked[-8:]))
+            parts.append("Covered: " + "; ".join(self.asked[-_ASKED_LIST:]))
         if self.weak_points:
             parts.append("Weak spots: " + "; ".join(self.weak_points[-8:]))
         if self.findings:

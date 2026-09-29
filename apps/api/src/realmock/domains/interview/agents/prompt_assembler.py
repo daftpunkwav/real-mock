@@ -111,7 +111,12 @@ class PromptAssembler:
                 keep_recent=_COMPACT_KEEP_RECENT,
                 threshold=ephemeral_ratio,
             )
-            self.agent.agent_state.update(memory.to_state_patch())
+            patch = memory.to_state_patch()
+            # asked_questions here is a display-capped view (the store keeps
+            # ~200 entries for anti-repeat); writing it back would truncate
+            # the authoritative list.
+            patch.pop("asked_questions", None)
+            self.agent.agent_state.update(patch)
             if len(compressed) < len(messages):
                 try:
                     before_tokens = estimate_messages_tokens(messages)
