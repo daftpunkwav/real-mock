@@ -30,7 +30,10 @@ from realmock.domains.interview.schemas import (
     InterviewSessionResponse,
 )
 from realmock.domains.interview.schemas.session import PlanStepView
-from realmock.domains.interview.agents import generate_plan_for_session
+from realmock.domains.interview.agents import (
+    generate_plan_for_session,
+    seed_session_github_evidence,
+)
 from realmock.domains.interview.protocols.plan_schema import (
     parse_plan,
     plan_step_views,
@@ -88,6 +91,9 @@ def create_session(
     db.refresh(session)
     # Plan the interview flow in the background; the opening turn waits (bounded).
     background_tasks.add_task(generate_plan_for_session, session.id)
+    # Seed pre-interview GitHub evidence in parallel (pure REST, seconds); the
+    # interviewer reads it from the frozen head instead of crawling repos live.
+    background_tasks.add_task(seed_session_github_evidence, session.id)
     set_session_cookie(
         response,
         scope="iv",

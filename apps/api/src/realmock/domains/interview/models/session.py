@@ -62,6 +62,10 @@ class InterviewSession(SessionsBase):
     plan_status: Mapped[str | None] = mapped_column(String(20), default="")
     # Target-company web-research digest (planning stage; empty when none).
     company_research: Mapped[str] = mapped_column(Text, default="")
+    # Pre-interview GitHub evidence digest (seeded in the background right
+    # after creation; the interviewer reads it instead of crawling repos live
+    # while the candidate waits).
+    github_evidence: Mapped[str] = mapped_column(Text, default="")
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

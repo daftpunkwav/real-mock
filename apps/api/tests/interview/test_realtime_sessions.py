@@ -58,7 +58,10 @@ def test_sessions_crud_gaps():
         assert out == {"id": 9}
         assert added["s"].access_token == "tok123"
         assert added["s"].ai_overrides == "{}"
-        bg.add_task.assert_called_once()
+        # Two background tasks: flow planning + GitHub evidence seeding.
+        assert bg.add_task.call_count == 2
+        bg.add_task.assert_any_call(mod.generate_plan_for_session, None)
+        bg.add_task.assert_any_call(mod.seed_session_github_evidence, None)
         cookie.assert_called_once()
         to_resp.assert_called_once()
     # create with overrides + locale trim (bypass 10-char validation to hit [:10] slice)
