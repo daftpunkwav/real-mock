@@ -128,8 +128,12 @@ class TestProviderCrud:
     def test_create_duplicate(self, api_db) -> None:
         _wipe(api_db)
         _provider(api_db, name="dup")
-        with pytest.raises(ApiBusinessError, match="already exists"):
+        # Regression: this validation failure must route to A0001 (422), not
+        # A0007 (Unsafe URL) — a client localizing the code shows the wrong copy.
+        with pytest.raises(ApiBusinessError, match="already exists") as e:
             models_routes.create_provider(reg.ProviderCreate(name="dup"), api_db)
+        assert e.value.error_code == "A0001"
+        assert e.value.status_code == 422
 
     def test_create_bad_base(self, api_db) -> None:
         _wipe(api_db)
@@ -161,8 +165,9 @@ class TestProviderCrud:
         _provider(api_db, name="u2")  # seed only; duplicate-name guard reads it by name
         with pytest.raises(ApiBusinessError):
             models_routes.update_provider(p1.id, reg.ProviderUpdate(name="   "), api_db)
-        with pytest.raises(ApiBusinessError, match="already exists"):
+        with pytest.raises(ApiBusinessError, match="already exists") as dup:
             models_routes.update_provider(p1.id, reg.ProviderUpdate(name="u2"), api_db)
+        assert dup.value.error_code == "A0001"
         out = models_routes.update_provider(p1.id, reg.ProviderUpdate(name="u1b", enabled=False), api_db)
         assert out["name"] == "u1b"
 
