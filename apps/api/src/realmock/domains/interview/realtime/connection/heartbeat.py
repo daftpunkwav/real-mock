@@ -12,6 +12,8 @@ from realmock.domains.interview.realtime.core.session_registry import verify_con
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
+    from fastapi import WebSocket
+
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -34,10 +36,10 @@ class HeartbeatMixin:
         _superseded: bool
 
         @property
-        def session_id(self): ...
+        def session_id(self) -> int: ...
 
         @property
-        def ws(self): ...
+        def ws(self) -> WebSocket: ...
 
         send: Callable[..., Coroutine[Any, Any, None]]
 

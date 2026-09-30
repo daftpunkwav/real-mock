@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     import asyncio
     from collections.abc import AsyncIterator, Callable, Coroutine
 
+    from fastapi import WebSocket
+
     from realmock.domains.interview.agents.events import StreamEvent
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
@@ -45,10 +47,10 @@ class ConnectionAuthMixin:
         _superseded: bool
 
         @property
-        def session_id(self): ...
+        def session_id(self) -> int: ...
 
         @property
-        def ws(self): ...
+        def ws(self) -> WebSocket: ...
 
         send: Callable[..., Coroutine[Any, Any, None]]
         _fail_and_close: Callable[..., Coroutine[Any, Any, None]]

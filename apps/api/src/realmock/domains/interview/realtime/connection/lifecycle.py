@@ -25,6 +25,8 @@ from realmock.domains.interview.realtime.core.session_registry import release_se
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
+    from fastapi import WebSocket
+
     from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
@@ -41,10 +43,10 @@ class ConnectionLifecycleMixin:
         _superseded: bool
 
         @property
-        def session_id(self): ...
+        def session_id(self) -> int: ...
 
         @property
-        def ws(self): ...
+        def ws(self) -> WebSocket: ...
 
         authenticate: Callable[..., Coroutine[Any, Any, InterviewSession | None]]
         bind_pipeline: Callable[..., Coroutine[Any, Any, bool]]

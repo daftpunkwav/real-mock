@@ -15,6 +15,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Protocol
 
+from fastapi import WebSocket
+
 from realmock.platform.config import get_settings
 from realmock.platform.database import sessions_db_session
 
@@ -32,7 +34,7 @@ class SessionConnection(Protocol):
     async def send(self, msg_type: str, **payload) -> None: ...
 
     @property
-    def ws(self): ...
+    def ws(self) -> WebSocket: ...
 
 
 def _lease_token(handler: SessionConnection) -> str:
