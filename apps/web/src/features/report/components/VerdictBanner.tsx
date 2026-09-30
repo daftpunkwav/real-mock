@@ -18,7 +18,7 @@ export function VerdictBanner({
   const Icon = passed ? CheckCircle2 : XCircle;
   return (
     <div
-      className="mt-4 flex items-start gap-3 rounded-md border p-4"
+      className="flex items-start gap-3 rounded-md border p-4"
       style={{
         background: passed ? "var(--success-soft)" : "var(--danger-soft)",
         borderColor: passed

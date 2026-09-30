@@ -7,7 +7,7 @@ export function ShortSessionAlert({ show }: { show: boolean }) {
   const t = useT("report");
   if (!show) return null;
   return (
-    <div className="alert alert-warning mb-6">
+    <div className="alert alert-warning">
       {t("alerts.shortSession")}
     </div>
   );

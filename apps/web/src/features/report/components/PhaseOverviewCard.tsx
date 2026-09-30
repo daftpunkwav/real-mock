@@ -13,7 +13,7 @@ export function PhaseOverviewCard({ summary }: { summary?: Record<string, string
   const entries = Object.entries(summary ?? {}).filter(([, text]) => text?.trim());
   if (entries.length === 0) return null;
   return (
-    <div className="surface-card mt-4 p-4">
+    <div className="surface-card p-4">
       <h3 className="mb-3 text-[13px] font-semibold tracking-tight text-ink">
         {t("sections.phaseOverview")}
       </h3>

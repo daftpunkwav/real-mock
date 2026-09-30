@@ -5,7 +5,8 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useT } from "@/i18n";
 import { useReportLoad } from "@/features/report/useReportLoad";
 import {
@@ -86,25 +87,48 @@ export default function ReportPage() {
 
   return (
     <div className="page-shell anim-rise">
+      {/* Page-level back entry: visible on every tab, so leaving the report
+          never depends on which section the reader happens to be in. */}
+      <Link
+        href="/history"
+        className="mb-4 inline-flex w-fit items-center gap-1.5 rounded-md border border-surface-border px-3 py-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:border-[var(--primary)] hover:text-ink"
+      >
+        <ArrowLeft size={13} /> {t("summary.backLink")}
+      </Link>
+
       <VerdictBanner verdict={report.verdict} reasoning={report.verdict_reasoning} />
 
-      <nav className="eval-tabs mt-4" role="tablist">
+      <nav className="eval-tabs mt-4" role="tablist" aria-label={t("tabs.navAria")}>
         {REPORT_TAB_IDS.filter((id) => tabs.includes(id)).map((id) => (
           <button
             key={id}
             type="button"
             role="tab"
+            id={`report-tab-${id}`}
+            aria-controls={`report-panel-${id}`}
             aria-selected={current === id}
             className={`eval-tab ${current === id ? "is-active" : ""}`}
             onClick={() => setActiveTab(id)}
           >
             {t(REPORT_TAB_LABEL_KEYS[id])}
+            {current === id && (
+              <motion.span
+                layoutId="report-tab-underline"
+                className="eval-tab-underline"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
           </button>
         ))}
       </nav>
 
       {current === "overview" && (
-        <div role="tabpanel">
+        <div
+          role="tabpanel"
+          id="report-panel-overview"
+          aria-labelledby="report-tab-overview"
+          className="flex flex-col gap-5"
+        >
           <ScoreSummaryCard
             duration={duration}
             messagesCount={messagesCount}
@@ -120,14 +144,23 @@ export default function ReportPage() {
       )}
 
       {current === "turns" && (
-        <div role="tabpanel">
+        <div
+          role="tabpanel"
+          id="report-panel-turns"
+          aria-labelledby="report-tab-turns"
+          className="flex flex-col gap-5"
+        >
           <TurnDeepNotes notes={report.turn_notes} ledger={ledger} />
         </div>
       )}
 
       {current === "verdict" && (
-        <div role="tabpanel">
-          <VerdictBanner verdict={report.verdict} reasoning={report.verdict_reasoning} />
+        <div
+          role="tabpanel"
+          id="report-panel-verdict"
+          aria-labelledby="report-tab-verdict"
+          className="flex flex-col gap-5"
+        >
           {report.verdict === "passed" && (
             <Section
               title={t("sections.highlights")}
@@ -157,7 +190,12 @@ export default function ReportPage() {
       )}
 
       {current === "plan" && (
-        <div role="tabpanel">
+        <div
+          role="tabpanel"
+          id="report-panel-plan"
+          aria-labelledby="report-tab-plan"
+          className="flex flex-col gap-5"
+        >
           <Section title={t("sections.trainingPlan")} items={report.training_plan} tone="warning" />
           <Section
             title={t("sections.improvementSuggestions")}

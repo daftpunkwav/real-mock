@@ -120,7 +120,7 @@ export function DeepQaCard({ note, index }: { note: TurnNote; index?: number }) 
             />
           </button>
           {showReference && (
-            <div className="mt-1.5 rounded-md border border-surface-border bg-surface-alt p-2.5 text-[12px] leading-relaxed text-ink">
+            <div className="mt-1.5 rounded-md border border-surface-border bg-surface-alt p-3 text-[12px] leading-relaxed text-ink">
               <ReportRichText text={note.reference_answer} />
             </div>
           )}

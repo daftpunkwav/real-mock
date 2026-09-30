@@ -17,7 +17,7 @@ const DIMS = [
 export function DimensionScores({ scores }: { scores: NormalizedScores }) {
   const t = useT("report");
   return (
-    <div className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       {DIMS.map((d) => {
         const value = scores[d.key];
         const display = formatScore(value);

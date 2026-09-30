@@ -48,7 +48,7 @@ export function ExternalNotesCard({ notes }: { notes?: string[] }) {
   if (!notes?.length) return null;
   return (
     <div
-      className="mt-4 rounded-md border p-4"
+      className="rounded-md border p-4"
       style={{
         background: "var(--info-soft)",
         borderColor: "color-mix(in srgb, var(--primary) 22%, transparent)",

@@ -1889,7 +1889,7 @@ button:active:not(:disabled),
 
   /* ---------- Interview drill cards ---------- */
   .eval-qa-card {
-    padding: 0.875rem 1rem;
+    padding: 1rem 1.125rem;
     background: var(--background-alt);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);

@@ -32,8 +32,8 @@ export function ScoreRadar({ scores }: { scores: NormalizedScores }) {
   const hasAny = values.some((v) => v > 0);
 
   return (
-    <div className="surface-card mb-6 p-4">
-      <h3 className="mb-1 text-center text-[14px] font-semibold tracking-tight text-ink">
+    <div className="surface-card p-4">
+      <h3 className="mb-1 text-center text-[13px] font-semibold tracking-tight text-ink">
         {t("radar.title")}
       </h3>
       <p className="mb-4 text-center text-[11px] text-ink-subtle">{t("radar.subtitle")}</p>
