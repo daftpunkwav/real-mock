@@ -8,17 +8,19 @@
  * the deck and the offset wraps over one deck: each duplicate then stands
  * exactly where its sibling stood, so the wrap is invisible. Coverage is
  * structural — the strip is always ~1.8x the container — so cards run edge
- * to edge at any zoom with a few always off-screen, and a 4% mask softens
- * the rims without ever opening a gap.
+ * to edge at any zoom with a few always off-screen, and the mask plus rim
+ * mist soften the rims without ever opening a gap. Hard scrolling lends the
+ * belt a temporary speed boost that eases back to the base drift.
  */
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
+import { useMotionValueEvent, useScroll, useVelocity } from "framer-motion";
 import { useT } from "@/i18n";
 import { RING_CARDS, type RingCard } from "../content";
 
 /* Design-space geometry, scaled as a whole to the container width.
    Flat and uniform: every card sits PITCH from its neighbours and moves at
-   one constant speed — no perspective, no angle-dependent gaps, nothing to
+   one base speed — no perspective, no angle-dependent gaps, nothing to
    pop at the rims. */
 const CARD_WIDTH = 180;
 const CARD_HEIGHT = 240;
@@ -32,10 +34,14 @@ const STRIP_CARDS = DECK * COPY_COUNT;
 const LOOP_SPAN = DECK * PITCH; // strip offset wraps over one deck
 const VISIBLE_SPAN = 10 * PITCH; // design width mapped onto the container: ~10 cards on screen
 const SPEED = 34; // design px/s, deck drifts left to right
+const BOOST_RANGE = 1.4; // scroll can add up to this multiple on top of SPEED
+const BOOST_REF_SPEED = 1600; // scroll px/s that reaches the full boost
+const BOOST_EASE = 4; // 1/s rate constant of the exponential ease in the loop
 const SCALE_FLOOR = 0.8; // phone widths stop here instead of shrinking cards into confetti
-/* Mask fade per side, a fraction of the band: a whisper of softening at the
-   rims. Purely cosmetic — equal pitch means nothing can bunch up or vanish. */
-const FADE_PCT = 4;
+/* Mask fade per side, a fraction of the band: cards dissolve over this span
+   at the rims. Purely cosmetic — equal pitch means nothing can bunch up or
+   vanish. */
+const FADE_PCT = 9;
 const BAND_MASK = `linear-gradient(90deg, transparent 0, black ${FADE_PCT}%, black ${100 - FADE_PCT}%, transparent 100%)`;
 
 const VARIANT_STYLE: Record<string, string> = {
@@ -492,11 +498,24 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
   }
 }
 
-export function CardStrip() {
+// memo: the hero's Morse title ticks React state every second; the strip
+// takes no props and reads locale via context, so memo keeps that tick from
+// reconciling the 36-card subtree while locale switches still come through.
+export const CardStrip = memo(function CardStrip() {
   const t = useT("home");
   const wrapRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  // Scroll speed target written outside React state: the rAF loop below
+  // eases its local boost toward this each frame, so wheel flicks speed the
+  // belt up and it settles back to the base drift without any re-render.
+  const boostTargetRef = useRef(1);
+  const { scrollY } = useScroll();
+  const scrollVelocity = useVelocity(scrollY);
+  useMotionValueEvent(scrollVelocity, "change", (v) => {
+    const ratio = Math.min(Math.abs(v) / BOOST_REF_SPEED, 1);
+    boostTargetRef.current = 1 + ratio * BOOST_RANGE;
+  });
 
   // The strip is authored at VISIBLE_SPAN and scaled to the container width
   // in BOTH directions, so cards run edge to edge (no dead margins on wide
@@ -522,16 +541,19 @@ export function CardStrip() {
   // gate) instead of burning rAF.
   useEffect(() => {
     const strip = stripRef.current;
-    if (!strip) return;
+    const gate = wrapRef.current;
+    if (!strip || !gate) return;
     let offset = 0;
     let raf = 0;
     let last = 0;
+    let boost = 1;
     let onScreen = true;
 
     const tick = (t: number) => {
       const dt = Math.min((t - last) / 1000, 0.1);
       last = t;
-      offset = (offset + SPEED * dt) % LOOP_SPAN;
+      boost += (boostTargetRef.current - boost) * Math.min(1, dt * BOOST_EASE);
+      offset = (offset + SPEED * boost * dt) % LOOP_SPAN;
       strip.style.transform = `translate3d(${offset.toFixed(2)}px, 0, 0)`;
       raf = requestAnimationFrame(tick);
     };
@@ -547,17 +569,29 @@ export function CardStrip() {
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    // Gate on the static band, not the moving strip: the strip's border box
+    // slides right with the offset and eventually leaves the viewport whole,
+    // while its overflowing cards (laid out at negative lefts) still paint —
+    // gating on it would park the belt mid-picture with no way back.
     const io = new IntersectionObserver(
       (entries) => {
-        onScreen = entries[0]?.isIntersecting ?? true;
+        onScreen = (entries[entries.length - 1] ?? entries[0])?.isIntersecting ?? true;
         if (onScreen && !raf) start();
         if (!onScreen && raf) stop();
       },
       { threshold: 0 },
     );
-    io.observe(strip);
+    io.observe(gate);
     const onVis = () => {
-      if (!document.hidden && onScreen && !raf) start();
+      if (document.hidden || !onScreen) return;
+      if (raf) {
+        // A background tab pauses rAF without cancelling it, so the running
+        // loop resumes on its own with a stale `last`; re-base it or the
+        // clamped dt turns the whole hidden span into one visible jump.
+        last = performance.now();
+      } else {
+        start();
+      }
     };
     document.addEventListener("visibilitychange", onVis);
     if (onScreen) start();
@@ -675,8 +709,26 @@ export function CardStrip() {
               );
             })}
           </div>
+
+          {/* Rim mist: the page colour bleeds in from both ends over the
+              same span as the mask, so cards sink into the backdrop at the
+              rims instead of merely turning translucent. Static, paints
+              once, and matches either theme through --background. */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            aria-hidden
+            style={{
+              background:
+                "linear-gradient(90deg, color-mix(in srgb, var(--background) 62%, transparent) 0, transparent 9%, transparent 91%, color-mix(in srgb, var(--background) 62%, transparent) 100%)",
+            }}
+          />
+
+          {/* Specular sweep: a soft light band crossing the belt every few
+              seconds (styles in globals.css). Inside the masked band, so it
+              inherits the rim fade; parked at opacity 0 between sweeps. */}
+          <div className="card-strip-sweep pointer-events-none absolute inset-y-0 left-0" aria-hidden />
         </div>
       </div>
     </div>
   );
-}
+});

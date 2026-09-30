@@ -646,23 +646,136 @@ button:active:not(:disabled),
     opacity: 0;
   }
 
+  /* Rare meteors: long-cycle keyframes where the streak occupies only the
+     first sliver of each loop, so the sky stays still between visits.
+     Motion is screen-space translate with the streak angle matching its
+     path, bright head leading toward travel. Base state is opacity 0 —
+     the global reduced-motion freeze parks them invisible. */
+  .meteor {
+    position: absolute;
+    width: 150px;
+    height: 1.5px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, rgba(226, 232, 240, 0.85), transparent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .meteor-a {
+    top: 16%;
+    left: 74%;
+    animation: meteor-a 11s ease-out 2.5s infinite;
+  }
+  .meteor-b {
+    top: 38%;
+    left: 84%;
+    width: 110px;
+    animation: meteor-b 17s ease-out 6.5s infinite;
+  }
+  @keyframes meteor-a {
+    0% {
+      transform: translate3d(0, 0, 0) rotate(-15deg);
+      opacity: 0;
+    }
+    2% {
+      opacity: 0.9;
+    }
+    9% {
+      transform: translate3d(-34vw, 13vh, 0) rotate(-15deg);
+      opacity: 0;
+    }
+    100% {
+      transform: translate3d(-34vw, 13vh, 0) rotate(-15deg);
+      opacity: 0;
+    }
+  }
+  @keyframes meteor-b {
+    0% {
+      transform: translate3d(0, 0, 0) rotate(-17deg);
+      opacity: 0;
+    }
+    1.5% {
+      opacity: 0.7;
+    }
+    8% {
+      transform: translate3d(-24vw, 11vh, 0) rotate(-17deg);
+      opacity: 0;
+    }
+    100% {
+      transform: translate3d(-24vw, 11vh, 0) rotate(-17deg);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .meteor-a,
+    .meteor-b {
+      animation: none;
+    }
+  }
+
+  /* Card strip specular sweep: one soft light band crossing the hero belt
+     every 9s (visible ~2.3s of the cycle). Transform + opacity only, and
+     parked invisible outside its window; it inherits the band's rim mask
+     from its parent. */
+  .card-strip-sweep {
+    width: 26%;
+    background: linear-gradient(
+      78deg,
+      transparent,
+      rgba(255, 255, 255, 0.05) 42%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 255, 255, 0.05) 58%,
+      transparent
+    );
+    opacity: 0;
+    animation: card-strip-sweep 9s ease-in-out infinite;
+  }
+  @keyframes card-strip-sweep {
+    0% {
+      transform: translateX(-130%);
+      opacity: 0;
+    }
+    4% {
+      opacity: 1;
+    }
+    22% {
+      opacity: 1;
+    }
+    26% {
+      transform: translateX(500%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(500%);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card-strip-sweep {
+      animation: none;
+    }
+  }
+
   /* Hero title glyphs: each glyph is inline-block so it can hop. The hop
      amplitude comes in through --hero-hop (low = dot, high = dash), one
-     glyph at a time marching through the Morse bit stream. */
+     glyph at a time marching through the Morse bit stream. will-change
+     rides only the hopping glyph — promoting the whole title would pin
+     ~20 idle layers for the sake of one moving span. */
   .hero-title-glyph {
     display: inline-block;
-    will-change: transform;
   }
   .hero-title-glyph.morse-hopping {
+    will-change: transform;
     animation: hero-morse-hop 0.52s cubic-bezier(0.33, 1.18, 0.55, 1) both;
   }
   @keyframes hero-morse-hop {
     0%,
     100% {
       transform: translateY(0) scale(1);
+      filter: brightness(1);
     }
     28% {
       transform: translateY(calc(var(--hero-hop, 12px) * -1)) scale(1.03);
+      filter: brightness(1.45);
     }
     52% {
       transform: translateY(calc(var(--hero-hop, 12px) * -0.35)) scale(1);

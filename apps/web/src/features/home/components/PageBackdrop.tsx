@@ -32,7 +32,8 @@ function starShadowList(count: number, seed: number, alphaRange: [number, number
  * Full-page backdrop shared by every home section — a staged night sky:
  * three star layers (far / mid / near) that drift apart on scroll for
  * parallax depth, three vast nebula washes giving the void a colour floor,
- * a breathing near layer, and the faint brand bank along the foot.
+ * a breathing near layer, rare meteors, and the faint brand bank along the
+ * foot.
  */
 export function PageBackdrop() {
   const reduce = useReducedMotion();
@@ -40,12 +41,15 @@ export function PageBackdrop() {
   const midStars = useMemo(() => starShadowList(56, 777, [0.12, 0.36]), []);
   const brightStars = useMemo(() => starShadowList(16, 42, [0.42, 0.78]), []);
 
-  // Parallax: the deeper the layer, the more it trails the scroll. Layers
-  // start 320px above the viewport so the drift never exposes a bare edge.
-  const { scrollY } = useScroll();
-  const yFar = useTransform(scrollY, [0, 4000], [0, reduce ? 0 : 70]);
-  const yMid = useTransform(scrollY, [0, 4000], [0, reduce ? 0 : 150]);
-  const yNear = useTransform(scrollY, [0, 4000], [0, reduce ? 0 : 260]);
+  // Parallax: the deeper the layer, the more it trails the scroll. Input is
+  // scrollYProgress (0..1 over the whole document), so the drift spans the
+  // full page however long it grows; a fixed px range would freeze the sky
+  // beyond it. Layers start 320px above the viewport so the drift never
+  // exposes a bare edge.
+  const { scrollYProgress } = useScroll();
+  const yFar = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 70]);
+  const yMid = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 150]);
+  const yNear = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 260]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
@@ -87,6 +91,13 @@ export function PageBackdrop() {
             style={{ boxShadow: brightStars }}
           />
         </motion.div>
+
+        {/* Occasional meteors (styles in globals.css). They live inside
+            .home-stars, so the light theme fades them out with the sky;
+            base state is invisible, which is also what the global
+            reduced-motion animation freeze parks them at. */}
+        <div className="meteor meteor-a" />
+        <div className="meteor meteor-b" />
       </div>
 
       <div
