@@ -24,7 +24,6 @@ describe("parseStructuredErrorResponse", () => {
             hint: "check key",
             trace_id: "req-9",
             retryable: true,
-            params: { seconds: 30 },
           },
         }),
         502,
@@ -36,7 +35,6 @@ describe("parseStructuredErrorResponse", () => {
       hint: "check key",
       traceId: "req-9",
       retryable: true,
-      params: { seconds: 30 },
     });
   });
 

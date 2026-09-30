@@ -681,9 +681,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Voice Catalog Api V1 Settings Catalog Get"
+                  "$ref": "#/components/schemas/VoiceCatalogResponse"
                 }
               }
             }
@@ -823,9 +821,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response List Model Options Api V1 Settings Models Get"
+                  "$ref": "#/components/schemas/ModelOptionsResponse"
                 }
               }
             }
@@ -846,9 +842,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response List Providers Api V1 Settings Providers Get"
+                  "$ref": "#/components/schemas/ProviderListResponse"
                 }
               }
             }
@@ -877,9 +871,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Create Provider Api V1 Settings Providers Post"
+                  "$ref": "#/components/schemas/ProviderNameResponse"
                 }
               }
             }
@@ -911,9 +903,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Recommended Vendors Api V1 Settings Vendors Get"
+                  "$ref": "#/components/schemas/RecommendedVendorsResponse"
                 }
               }
             }
@@ -946,9 +936,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Apply Recommended Vendor Api V1 Settings Vendors  Vendor Id  Apply Post"
+                  "$ref": "#/components/schemas/VendorApplyResponse"
                 }
               }
             }
@@ -1000,9 +988,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Provider Api V1 Settings Providers  Provider Id  Put"
+                  "$ref": "#/components/schemas/ProviderNameResponse"
                 }
               }
             }
@@ -1043,9 +1029,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Provider Api V1 Settings Providers  Provider Id  Delete"
+                  "$ref": "#/components/schemas/SettingsDeleteResponse"
                 }
               }
             }
@@ -1106,9 +1090,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Provider Channel Api V1 Settings Providers  Provider Id  Channels  Kind  Put"
+                  "$ref": "#/components/schemas/ProviderChannelResponse"
                 }
               }
             }
@@ -1160,9 +1142,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Fetch Channel Model Catalog Api V1 Settings Providers  Provider Id  Channels  Kind  Catalog Get"
+                  "$ref": "#/components/schemas/ChannelModelCatalogResponse"
                 }
               }
             }
@@ -1214,9 +1194,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Create Model Api V1 Settings Providers  Provider Id  Models Post"
+                  "$ref": "#/components/schemas/ModelProfileResponse"
                 }
               }
             }
@@ -1268,9 +1246,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Model Api V1 Settings Models  Model Id  Put"
+                  "$ref": "#/components/schemas/ModelProfileResponse"
                 }
               }
             }
@@ -1310,9 +1286,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Model Api V1 Settings Models  Model Id  Delete"
+                  "$ref": "#/components/schemas/SettingsDeleteResponse"
                 }
               }
             }
@@ -1343,9 +1317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Bindings Api V1 Settings Bindings Get"
+                  "$ref": "#/components/schemas/BindingsResponse"
                 }
               }
             }
@@ -1387,9 +1359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Binding Api V1 Settings Bindings  Task  Put"
+                  "$ref": "#/components/schemas/BindingsResponse"
                 }
               }
             }
@@ -1432,9 +1402,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Test Model Api V1 Settings Test Model  Model Id  Post"
+                  "$ref": "#/components/schemas/LLMTestResponse"
                 }
               }
             }
@@ -1466,9 +1434,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Github Status Api V1 Settings Integrations Github Get"
+                  "$ref": "#/components/schemas/GithubStatusResponse"
                 }
               }
             }
@@ -1498,9 +1464,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Save Github Api V1 Settings Integrations Github Post"
+                  "$ref": "#/components/schemas/GithubStatusResponse"
                 }
               }
             }
@@ -1530,9 +1494,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Clear Github Api V1 Settings Integrations Github Delete"
+                  "$ref": "#/components/schemas/GithubStatusResponse"
                 }
               }
             }
@@ -1564,9 +1526,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Test Github Api V1 Settings Integrations Github Test Post"
+                  "$ref": "#/components/schemas/GithubTestResponse"
                 }
               }
             }
@@ -2334,7 +2294,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepTruncateResponse"
+                }
               }
             }
           },
@@ -2375,7 +2337,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -2405,7 +2369,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           }
@@ -2442,7 +2408,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -2493,7 +2461,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepArchiveResponse"
+                }
               }
             }
           },
@@ -2544,7 +2514,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepLinkResponse"
+                }
               }
             }
           },
@@ -2723,7 +2695,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepMemoryTagsResponse"
+                }
               }
             }
           }
@@ -2753,7 +2727,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -3562,9 +3538,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Company Brief Api V1 Interview Company Brief Post"
+                  "$ref": "#/components/schemas/CompanyBriefResponse"
                 }
               }
             }
@@ -3596,11 +3570,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "type": "object",
-                  "title": "Response Delete Company Briefs Api V1 Interview Company Briefs Delete"
+                  "$ref": "#/components/schemas/CompanyBriefsClearResponse"
                 }
               }
             }
@@ -3974,8 +3944,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/GrowthHistoryItem"
                   },
                   "type": "array",
                   "title": "Response Get Growth History Api V1 Growth History Get"
@@ -4000,9 +3969,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get System Growth Insights Api V1 Growth System Insights Get"
+                  "$ref": "#/components/schemas/SystemGrowthInsights"
                 }
               }
             }
@@ -4024,9 +3991,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Aggregated Growth Stats Api V1 Growth Aggregated Get"
+                  "$ref": "#/components/schemas/GrowthAggregatedStats"
                 }
               }
             }
@@ -4048,9 +4013,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Growth Insight Api V1 Growth Insight Get"
+                  "$ref": "#/components/schemas/GrowthInsightEnvelope"
                 }
               }
             }
@@ -4073,6 +4036,7 @@
             "required": false,
             "schema": {
               "type": "string",
+              "maxLength": 10,
               "default": "zh-CN",
               "title": "Locale"
             }
@@ -4084,9 +4048,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Refresh Growth Insight Api V1 Growth Insight Refresh Post"
+                  "$ref": "#/components/schemas/GrowthInsightRefreshResponse"
                 }
               }
             }
@@ -4779,9 +4741,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Voice Catalog Api Settings Catalog Get"
+                  "$ref": "#/components/schemas/VoiceCatalogResponse"
                 }
               }
             }
@@ -4921,9 +4881,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response List Model Options Api Settings Models Get"
+                  "$ref": "#/components/schemas/ModelOptionsResponse"
                 }
               }
             }
@@ -4944,9 +4902,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response List Providers Api Settings Providers Get"
+                  "$ref": "#/components/schemas/ProviderListResponse"
                 }
               }
             }
@@ -4975,9 +4931,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Create Provider Api Settings Providers Post"
+                  "$ref": "#/components/schemas/ProviderNameResponse"
                 }
               }
             }
@@ -5009,9 +4963,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Recommended Vendors Api Settings Vendors Get"
+                  "$ref": "#/components/schemas/RecommendedVendorsResponse"
                 }
               }
             }
@@ -5044,9 +4996,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Apply Recommended Vendor Api Settings Vendors  Vendor Id  Apply Post"
+                  "$ref": "#/components/schemas/VendorApplyResponse"
                 }
               }
             }
@@ -5098,9 +5048,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Provider Api Settings Providers  Provider Id  Put"
+                  "$ref": "#/components/schemas/ProviderNameResponse"
                 }
               }
             }
@@ -5141,9 +5089,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Provider Api Settings Providers  Provider Id  Delete"
+                  "$ref": "#/components/schemas/SettingsDeleteResponse"
                 }
               }
             }
@@ -5204,9 +5150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Provider Channel Api Settings Providers  Provider Id  Channels  Kind  Put"
+                  "$ref": "#/components/schemas/ProviderChannelResponse"
                 }
               }
             }
@@ -5258,9 +5202,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Fetch Channel Model Catalog Api Settings Providers  Provider Id  Channels  Kind  Catalog Get"
+                  "$ref": "#/components/schemas/ChannelModelCatalogResponse"
                 }
               }
             }
@@ -5312,9 +5254,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Create Model Api Settings Providers  Provider Id  Models Post"
+                  "$ref": "#/components/schemas/ModelProfileResponse"
                 }
               }
             }
@@ -5366,9 +5306,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Model Api Settings Models  Model Id  Put"
+                  "$ref": "#/components/schemas/ModelProfileResponse"
                 }
               }
             }
@@ -5408,9 +5346,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Model Api Settings Models  Model Id  Delete"
+                  "$ref": "#/components/schemas/SettingsDeleteResponse"
                 }
               }
             }
@@ -5441,9 +5377,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Bindings Api Settings Bindings Get"
+                  "$ref": "#/components/schemas/BindingsResponse"
                 }
               }
             }
@@ -5485,9 +5419,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Binding Api Settings Bindings  Task  Put"
+                  "$ref": "#/components/schemas/BindingsResponse"
                 }
               }
             }
@@ -5530,9 +5462,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Test Model Api Settings Test Model  Model Id  Post"
+                  "$ref": "#/components/schemas/LLMTestResponse"
                 }
               }
             }
@@ -5564,9 +5494,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Github Status Api Settings Integrations Github Get"
+                  "$ref": "#/components/schemas/GithubStatusResponse"
                 }
               }
             }
@@ -5596,9 +5524,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Save Github Api Settings Integrations Github Post"
+                  "$ref": "#/components/schemas/GithubStatusResponse"
                 }
               }
             }
@@ -5628,9 +5554,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Clear Github Api Settings Integrations Github Delete"
+                  "$ref": "#/components/schemas/GithubStatusResponse"
                 }
               }
             }
@@ -5662,9 +5586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Test Github Api Settings Integrations Github Test Post"
+                  "$ref": "#/components/schemas/GithubTestResponse"
                 }
               }
             }
@@ -6432,7 +6354,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepTruncateResponse"
+                }
               }
             }
           },
@@ -6473,7 +6397,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -6503,7 +6429,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           }
@@ -6540,7 +6468,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -6591,7 +6521,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepArchiveResponse"
+                }
               }
             }
           },
@@ -6642,7 +6574,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepLinkResponse"
+                }
               }
             }
           },
@@ -6821,7 +6755,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepMemoryTagsResponse"
+                }
               }
             }
           }
@@ -6851,7 +6787,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -7660,9 +7598,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Company Brief Api Interview Company Brief Post"
+                  "$ref": "#/components/schemas/CompanyBriefResponse"
                 }
               }
             }
@@ -7694,11 +7630,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "type": "object",
-                  "title": "Response Delete Company Briefs Api Interview Company Briefs Delete"
+                  "$ref": "#/components/schemas/CompanyBriefsClearResponse"
                 }
               }
             }
@@ -8072,8 +8004,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/GrowthHistoryItem"
                   },
                   "type": "array",
                   "title": "Response Get Growth History Api Growth History Get"
@@ -8098,9 +8029,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get System Growth Insights Api Growth System Insights Get"
+                  "$ref": "#/components/schemas/SystemGrowthInsights"
                 }
               }
             }
@@ -8122,9 +8051,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Aggregated Growth Stats Api Growth Aggregated Get"
+                  "$ref": "#/components/schemas/GrowthAggregatedStats"
                 }
               }
             }
@@ -8146,9 +8073,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Growth Insight Api Growth Insight Get"
+                  "$ref": "#/components/schemas/GrowthInsightEnvelope"
                 }
               }
             }
@@ -8171,6 +8096,7 @@
             "required": false,
             "schema": {
               "type": "string",
+              "maxLength": 10,
               "default": "zh-CN",
               "title": "Locale"
             }
@@ -8182,9 +8108,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Refresh Growth Insight Api Growth Insight Refresh Post"
+                  "$ref": "#/components/schemas/GrowthInsightRefreshResponse"
                 }
               }
             }
@@ -8295,6 +8219,24 @@
         ],
         "title": "AvatarOption"
       },
+      "BindingFallback": {
+        "properties": {
+          "handler": {
+            "type": "string",
+            "title": "Handler"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "handler",
+          "mode"
+        ],
+        "title": "BindingFallback"
+      },
       "BindingUpdate": {
         "properties": {
           "profile_id": {
@@ -8331,6 +8273,27 @@
           "profile_id"
         ],
         "title": "BindingUpdate"
+      },
+      "BindingsResponse": {
+        "properties": {
+          "chat": {
+            "$ref": "#/components/schemas/TaskBindingView"
+          },
+          "stt": {
+            "$ref": "#/components/schemas/TaskBindingView"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/TaskBindingView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chat",
+          "stt",
+          "tts"
+        ],
+        "title": "BindingsResponse",
+        "description": "Task → default handler map (keys fixed by ``STAGE_BY_TASK``)."
       },
       "Body_upload_resume_api_resume_upload_post": {
         "properties": {
@@ -8551,6 +8514,32 @@
         ],
         "title": "CatalogOption"
       },
+      "ChannelModelCatalogResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "vendor",
+              "remote"
+            ],
+            "title": "Source"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "models"
+        ],
+        "title": "ChannelModelCatalogResponse",
+        "description": "Model ids offered for one channel (vendor descriptor or /models endpoint)."
+      },
       "ChannelUpdate": {
         "properties": {
           "vendor": {
@@ -8729,6 +8718,56 @@
           "company"
         ],
         "title": "CompanyBriefRequest"
+      },
+      "CompanyBriefResponse": {
+        "properties": {
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "style": {
+            "type": "string",
+            "title": "Style"
+          },
+          "focus_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Focus Areas"
+          },
+          "process": {
+            "type": "string",
+            "title": "Process"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company",
+          "style",
+          "focus_areas",
+          "process",
+          "cached"
+        ],
+        "title": "CompanyBriefResponse",
+        "description": "Agent-researched question-style brief (cached or freshly generated)."
+      },
+      "CompanyBriefsClearResponse": {
+        "properties": {
+          "cleared": {
+            "type": "integer",
+            "title": "Cleared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cleared"
+        ],
+        "title": "CompanyBriefsClearResponse"
       },
       "CompanyFit": {
         "properties": {
@@ -8977,6 +9016,105 @@
         ],
         "title": "FinishInterviewResponse"
       },
+      "GithubStatusResponse": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "tail": {
+            "type": "string",
+            "title": "Tail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "tail"
+        ],
+        "title": "GithubStatusResponse",
+        "description": "Link status: configured flag plus tail mask, never the secret."
+      },
+      "GithubTestResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining"
+          },
+          "reset_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reset In"
+          },
+          "authenticated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authenticated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "GithubTestResponse",
+        "description": "Rate-limit probe result (success carries quota, failure carries a message)."
+      },
       "GithubTokenSave": {
         "properties": {
           "token": {
@@ -9009,6 +9147,349 @@
         },
         "type": "object",
         "title": "GithubTokenTest"
+      },
+      "GrowthAggregatedStats": {
+        "properties": {
+          "top_weaknesses": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Top Weaknesses"
+          },
+          "total_interviews": {
+            "type": "integer",
+            "title": "Total Interviews"
+          },
+          "total_plans": {
+            "type": "integer",
+            "title": "Total Plans"
+          },
+          "total_weak_skills": {
+            "type": "integer",
+            "title": "Total Weak Skills"
+          },
+          "growth_pct": {
+            "type": "integer",
+            "title": "Growth Pct"
+          },
+          "growth_level": {
+            "type": "string",
+            "title": "Growth Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "top_weaknesses",
+          "total_interviews",
+          "total_plans",
+          "total_weak_skills",
+          "growth_pct",
+          "growth_level"
+        ],
+        "title": "GrowthAggregatedStats",
+        "description": "Rule-based growth-page stats from ``GrowthAgent.analyze``."
+      },
+      "GrowthHistoryItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "weak_skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Weak Skills"
+          },
+          "training_plan": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Training Plan"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "weak_skills",
+          "training_plan",
+          "created_at"
+        ],
+        "title": "GrowthHistoryItem",
+        "description": "One per-session growth snapshot (writers persist validated ``list[str]``)."
+      },
+      "GrowthInsightEnvelope": {
+        "properties": {
+          "insight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrowthInsightPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "generating",
+              "empty"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "insight",
+          "status"
+        ],
+        "title": "GrowthInsightEnvelope"
+      },
+      "GrowthInsightPayload": {
+        "properties": {
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "trajectory": {
+            "type": "string",
+            "title": "Trajectory"
+          },
+          "trajectory_stage": {
+            "type": "string",
+            "enum": [
+              "rising",
+              "stalling",
+              "plateau",
+              "insufficient"
+            ],
+            "title": "Trajectory Stage"
+          },
+          "recurring_weaknesses": {
+            "items": {
+              "$ref": "#/components/schemas/GrowthWeaknessPattern"
+            },
+            "type": "array",
+            "title": "Recurring Weaknesses"
+          },
+          "improving_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Improving Areas"
+          },
+          "resume_gap_insights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Resume Gap Insights"
+          },
+          "training_plan": {
+            "items": {
+              "$ref": "#/components/schemas/GrowthTrainingFocus"
+            },
+            "type": "array",
+            "title": "Training Plan"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "session_count": {
+            "type": "integer",
+            "title": "Session Count",
+            "default": 0
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale",
+            "default": "zh-CN"
+          }
+        },
+        "type": "object",
+        "required": [
+          "headline",
+          "trajectory",
+          "trajectory_stage",
+          "recurring_weaknesses",
+          "improving_areas",
+          "resume_gap_insights",
+          "training_plan"
+        ],
+        "title": "GrowthInsightPayload",
+        "description": "LLM insight body (``normalize_growth_insight`` + row metadata)."
+      },
+      "GrowthInsightRefreshResponse": {
+        "properties": {
+          "scheduled": {
+            "type": "boolean",
+            "title": "Scheduled"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "generating",
+              "ready"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheduled",
+          "status"
+        ],
+        "title": "GrowthInsightRefreshResponse"
+      },
+      "GrowthProbeItem": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "point": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "title": "GrowthProbeItem",
+        "description": "One recent weak-point probe (entries come from a local JSON file)."
+      },
+      "GrowthTrainingFocus": {
+        "properties": {
+          "area": {
+            "type": "string",
+            "title": "Area"
+          },
+          "based_on": {
+            "type": "string",
+            "title": "Based On"
+          },
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "area",
+          "based_on",
+          "actions"
+        ],
+        "title": "GrowthTrainingFocus"
+      },
+      "GrowthWeaknessPattern": {
+        "properties": {
+          "skill": {
+            "type": "string",
+            "title": "Skill"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "trend": {
+            "type": "string",
+            "title": "Trend"
+          },
+          "advice": {
+            "type": "string",
+            "title": "Advice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skill",
+          "count",
+          "trend",
+          "advice"
+        ],
+        "title": "GrowthWeaknessPattern"
       },
       "HTTPValidationError": {
         "properties": {
@@ -9634,6 +10115,56 @@
         "type": "object",
         "title": "ModelCapabilitiesIn"
       },
+      "ModelCapabilitiesResponse": {
+        "properties": {
+          "chat": {
+            "type": "boolean",
+            "title": "Chat"
+          },
+          "vision": {
+            "type": "boolean",
+            "title": "Vision"
+          },
+          "audio_input": {
+            "type": "boolean",
+            "title": "Audio Input"
+          },
+          "audio_output": {
+            "type": "boolean",
+            "title": "Audio Output"
+          },
+          "reasoning": {
+            "type": "boolean",
+            "title": "Reasoning"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chat",
+          "vision",
+          "audio_input",
+          "audio_output",
+          "reasoning"
+        ],
+        "title": "ModelCapabilitiesResponse"
+      },
+      "ModelOptionsResponse": {
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfileResponse"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelOptionsResponse",
+        "description": "Flat model list for the scene selector (enabled entries only)."
+      },
       "ModelProfileCreate": {
         "properties": {
           "model": {
@@ -9691,6 +10222,80 @@
           "model"
         ],
         "title": "ModelProfileCreate"
+      },
+      "ModelProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "provider_id": {
+            "type": "integer",
+            "title": "Provider Id"
+          },
+          "provider_name": {
+            "type": "string",
+            "title": "Provider Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "stt",
+              "tts"
+            ],
+            "title": "Kind"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "context_window": {
+            "type": "integer",
+            "title": "Context Window"
+          },
+          "max_output": {
+            "type": "integer",
+            "title": "Max Output"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilitiesResponse"
+          },
+          "extras": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extras"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider_id",
+          "provider_name",
+          "kind",
+          "model",
+          "display_name",
+          "label",
+          "context_window",
+          "max_output",
+          "capabilities",
+          "extras",
+          "enabled"
+        ],
+        "title": "ModelProfileResponse",
+        "description": "External view of one model entry (``profile_to_response``; no secret keys)."
       },
       "ModelProfileUpdate": {
         "properties": {
@@ -9941,6 +10546,25 @@
         },
         "type": "object",
         "title": "PrepArchiveRequest"
+      },
+      "PrepArchiveResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "PrepArchiveResponse",
+        "description": "PATCH /sessions/{id}/archive: new session status."
       },
       "PrepAskEvent": {
         "properties": {
@@ -10291,6 +10915,20 @@
         "type": "object",
         "title": "PrepCreateRequest"
       },
+      "PrepDeletedResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "PrepDeletedResponse",
+        "description": "Delete / purge / batch-delete result (rows removed)."
+      },
       "PrepForkRequest": {
         "properties": {
           "up_to": {
@@ -10419,6 +11057,31 @@
         },
         "type": "object",
         "title": "PrepLinkRequest"
+      },
+      "PrepLinkResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "linked_session_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "PrepLinkResponse",
+        "description": "PUT /sessions/{id}/link: the session's linked target (null = unlinked)."
       },
       "PrepMemoryBatchDelete": {
         "properties": {
@@ -10648,6 +11311,23 @@
           "updated_at"
         ],
         "title": "PrepMemorySummary"
+      },
+      "PrepMemoryTagsResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags"
+        ],
+        "title": "PrepMemoryTagsResponse",
+        "description": "GET /memories/tags: distinct tags, most-recently-used first."
       },
       "PrepMemoryUpdate": {
         "properties": {
@@ -11180,6 +11860,20 @@
         ],
         "title": "PrepTruncateRequest"
       },
+      "PrepTruncateResponse": {
+        "properties": {
+          "message_count": {
+            "type": "integer",
+            "title": "Message Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_count"
+        ],
+        "title": "PrepTruncateResponse",
+        "description": "POST /sessions/{id}/messages/truncate: history length after the cut."
+      },
       "ProcessCreateRequest": {
         "properties": {
           "role": {
@@ -11465,6 +12159,50 @@
         ],
         "title": "ProjectCard"
       },
+      "ProviderChannelResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "stt",
+              "tts"
+            ],
+            "title": "Kind"
+          },
+          "vendor": {
+            "type": "string",
+            "title": "Vendor"
+          },
+          "api_base": {
+            "type": "string",
+            "title": "Api Base"
+          },
+          "full_url": {
+            "type": "boolean",
+            "title": "Full Url"
+          },
+          "protocol": {
+            "type": "string",
+            "title": "Protocol"
+          },
+          "has_api_key": {
+            "type": "boolean",
+            "title": "Has Api Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "vendor",
+          "api_base",
+          "full_url",
+          "protocol",
+          "has_api_key"
+        ],
+        "title": "ProviderChannelResponse",
+        "description": "External channel view (``channel_to_response``; key masked to a boolean)."
+      },
       "ProviderCreate": {
         "properties": {
           "name": {
@@ -11503,6 +12241,41 @@
           "name"
         ],
         "title": "ProviderCreate"
+      },
+      "ProviderListResponse": {
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderWithModelsResponse"
+            },
+            "type": "array",
+            "title": "Providers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "providers"
+        ],
+        "title": "ProviderListResponse"
+      },
+      "ProviderNameResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ProviderNameResponse",
+        "description": "Create/update provider result."
       },
       "ProviderUpdate": {
         "properties": {
@@ -11557,6 +12330,159 @@
         },
         "type": "object",
         "title": "ProviderUpdate"
+      },
+      "ProviderWithModelsResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "website_url": {
+            "type": "string",
+            "title": "Website Url"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderChannelResponse"
+            },
+            "type": "array",
+            "title": "Channels"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProfileResponse"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "website_url",
+          "notes",
+          "channels",
+          "models"
+        ],
+        "title": "ProviderWithModelsResponse"
+      },
+      "RecommendedVendorCapability": {
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "catalog_label": {
+            "type": "string",
+            "title": "Catalog Label"
+          },
+          "default_model": {
+            "type": "string",
+            "title": "Default Model"
+          },
+          "default_api_base": {
+            "type": "string",
+            "title": "Default Api Base"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint"
+          },
+          "adapted": {
+            "type": "boolean",
+            "title": "Adapted"
+          },
+          "def": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VendorCapabilityDef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_id",
+          "label",
+          "catalog_label",
+          "default_model",
+          "default_api_base",
+          "hint",
+          "adapted"
+        ],
+        "title": "RecommendedVendorCapability"
+      },
+      "RecommendedVendorResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "docs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Docs"
+          },
+          "capabilities": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RecommendedVendorCapability"
+            },
+            "type": "object",
+            "title": "Capabilities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "docs",
+          "capabilities"
+        ],
+        "title": "RecommendedVendorResponse",
+        "description": "Level 1 of the recommended-vendor cascade (capabilities keyed by model type)."
+      },
+      "RecommendedVendorsResponse": {
+        "properties": {
+          "vendors": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendedVendorResponse"
+            },
+            "type": "array",
+            "title": "Vendors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vendors"
+        ],
+        "title": "RecommendedVendorsResponse"
       },
       "RepoEvidence": {
         "properties": {
@@ -12412,6 +13338,20 @@
         ],
         "title": "SessionHistoryItem"
       },
+      "SettingsDeleteResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "SettingsDeleteResponse",
+        "description": "Delete result for providers and model entries."
+      },
       "SkillTrust": {
         "properties": {
           "solid": {
@@ -12645,6 +13585,123 @@
         },
         "type": "object",
         "title": "StageModelCapability"
+      },
+      "SystemGrowthInsights": {
+        "properties": {
+          "company_session_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Company Session Counts",
+            "default": {}
+          },
+          "role_session_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Role Session Counts",
+            "default": {}
+          },
+          "avg_scores_by_company": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Avg Scores By Company",
+            "default": {}
+          },
+          "followup_category_hits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Followup Category Hits",
+            "default": {}
+          },
+          "tool_call_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tool Call Counts",
+            "default": {}
+          },
+          "recent_probes": {
+            "items": {
+              "$ref": "#/components/schemas/GrowthProbeItem"
+            },
+            "type": "array",
+            "title": "Recent Probes",
+            "default": []
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "github_token_configured": {
+            "type": "boolean",
+            "title": "Github Token Configured",
+            "default": false
+          },
+          "interview_tools_enabled": {
+            "type": "boolean",
+            "title": "Interview Tools Enabled",
+            "default": false
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "SystemGrowthInsights",
+        "description": "Cross-interview system aggregates plus environment flags for the growth page.\n\n``extra=\"allow\"``: the read path is fail-open and serves whatever snapshot\nsurvived normalization, so unknown keys pass through instead of failing."
+      },
+      "TaskBindingView": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "stt",
+              "tts"
+            ],
+            "title": "Task"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelProfileResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fallback": {
+            "$ref": "#/components/schemas/BindingFallback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task",
+          "profile",
+          "fallback"
+        ],
+        "title": "TaskBindingView"
       },
       "TurnNote": {
         "properties": {
@@ -13197,6 +14254,192 @@
         ],
         "title": "ValidationError"
       },
+      "VendorApplyResponse": {
+        "properties": {
+          "provider_id": {
+            "type": "integer",
+            "title": "Provider Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_provider": {
+            "type": "boolean",
+            "title": "Created Provider"
+          },
+          "configured_kinds": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "stt",
+                "tts"
+              ]
+            },
+            "type": "array",
+            "title": "Configured Kinds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_id",
+          "name",
+          "created_provider",
+          "configured_kinds"
+        ],
+        "title": "VendorApplyResponse",
+        "description": "One-click provisioning result."
+      },
+      "VendorCapabilityDef": {
+        "properties": {
+          "transport": {
+            "type": "string",
+            "title": "Transport"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Models"
+          },
+          "request": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Request"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transport",
+          "models",
+          "request",
+          "notes"
+        ],
+        "title": "VendorCapabilityDef",
+        "description": "Deep request template metadata from the vendor descriptor JSON."
+      },
+      "VoiceCatalogResponse": {
+        "properties": {
+          "reasoning": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceProviderOptionResponse"
+            },
+            "type": "array",
+            "title": "Reasoning"
+          },
+          "recognize": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceProviderOptionResponse"
+            },
+            "type": "array",
+            "title": "Recognize"
+          },
+          "speak": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceProviderOptionResponse"
+            },
+            "type": "array",
+            "title": "Speak"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reasoning",
+          "recognize",
+          "speak"
+        ],
+        "title": "VoiceCatalogResponse",
+        "description": "Three-stage supplier capability catalog (``GET /settings/catalog``)."
+      },
+      "VoiceProviderOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "can_speech_recognize": {
+            "type": "boolean",
+            "title": "Can Speech Recognize"
+          },
+          "can_interview_reason": {
+            "type": "boolean",
+            "title": "Can Interview Reason"
+          },
+          "can_speech_speak": {
+            "type": "boolean",
+            "title": "Can Speech Speak"
+          },
+          "recognize_via": {
+            "type": "string",
+            "enum": [
+              "native_audio",
+              "transcribe_only",
+              "none"
+            ],
+            "title": "Recognize Via"
+          },
+          "speak_via": {
+            "type": "string",
+            "enum": [
+              "native_audio",
+              "tts_from_text",
+              "none"
+            ],
+            "title": "Speak Via"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "coming_soon"
+            ],
+            "title": "Status"
+          },
+          "default_model": {
+            "type": "string",
+            "title": "Default Model"
+          },
+          "default_api_base": {
+            "type": "string",
+            "title": "Default Api Base"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint"
+          },
+          "vendor": {
+            "type": "string",
+            "title": "Vendor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "can_speech_recognize",
+          "can_interview_reason",
+          "can_speech_speak",
+          "recognize_via",
+          "speak_via",
+          "status",
+          "default_model",
+          "default_api_base",
+          "hint",
+          "vendor"
+        ],
+        "title": "VoiceProviderOptionResponse",
+        "description": "One catalog provider row (``catalog_schema._p`` shape)."
+      },
       "WorkflowTypeOption": {
         "properties": {
           "id": {
@@ -13222,6 +14465,57 @@
           "phases"
         ],
         "title": "WorkflowTypeOption"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "hint": {
+            "default": "",
+            "title": "Hint",
+            "type": "string"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "trace_id": {
+            "default": "",
+            "title": "Trace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "APIError": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "detail",
+          "error"
+        ],
+        "title": "APIError",
+        "type": "object"
       }
     }
   }

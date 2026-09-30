@@ -16,6 +16,8 @@ export type SystemGrowthInsights = {
     role?: string;
     point?: string;
     session_id?: number;
+    /** Set to "report" when the probe came from a report summary instead of agent state */
+    source?: string;
   }[];
   updated_at?: string | null;
   github_token_configured?: boolean;

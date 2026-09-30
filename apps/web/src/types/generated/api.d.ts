@@ -3266,6 +3266,13 @@ export interface components {
              */
             voice: string;
         };
+        /** BindingFallback */
+        BindingFallback: {
+            /** Handler */
+            handler: string;
+            /** Mode */
+            mode: string;
+        };
         /** BindingUpdate */
         BindingUpdate: {
             /** Profile Id */
@@ -3280,6 +3287,15 @@ export interface components {
              * @default
              */
             fallback_mode: string | null;
+        };
+        /**
+         * BindingsResponse
+         * @description Task → default handler map (keys fixed by ``STAGE_BY_TASK``).
+         */
+        BindingsResponse: {
+            chat: components["schemas"]["TaskBindingView"];
+            stt: components["schemas"]["TaskBindingView"];
+            tts: components["schemas"]["TaskBindingView"];
         };
         /** Body_upload_resume_api_resume_upload_post */
         Body_upload_resume_api_resume_upload_post: {
@@ -3393,6 +3409,19 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * ChannelModelCatalogResponse
+         * @description Model ids offered for one channel (vendor descriptor or /models endpoint).
+         */
+        ChannelModelCatalogResponse: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "vendor" | "remote";
+            /** Models */
+            models: string[];
+        };
         /** ChannelUpdate */
         ChannelUpdate: {
             /** Vendor */
@@ -3472,6 +3501,27 @@ export interface components {
              * @default
              */
             locale: string;
+        };
+        /**
+         * CompanyBriefResponse
+         * @description Agent-researched question-style brief (cached or freshly generated).
+         */
+        CompanyBriefResponse: {
+            /** Company */
+            company: string;
+            /** Style */
+            style: string;
+            /** Focus Areas */
+            focus_areas: string[];
+            /** Process */
+            process: string;
+            /** Cached */
+            cached: boolean;
+        };
+        /** CompanyBriefsClearResponse */
+        CompanyBriefsClearResponse: {
+            /** Cleared */
+            cleared: number;
         };
         /** CompanyFit */
         CompanyFit: {
@@ -3582,6 +3632,36 @@ export interface components {
             /** Overall Score */
             overall_score?: number | null;
         };
+        /**
+         * GithubStatusResponse
+         * @description Link status: configured flag plus tail mask, never the secret.
+         */
+        GithubStatusResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Tail */
+            tail: string;
+        };
+        /**
+         * GithubTestResponse
+         * @description Rate-limit probe result (success carries quota, failure carries a message).
+         */
+        GithubTestResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message?: string | null;
+            /** Status */
+            status?: number | null;
+            /** Limit */
+            limit?: number | null;
+            /** Remaining */
+            remaining?: number | null;
+            /** Reset In */
+            reset_in?: number | null;
+            /** Authenticated */
+            authenticated?: boolean | null;
+        };
         /** GithubTokenSave */
         GithubTokenSave: {
             /** Token */
@@ -3591,6 +3671,136 @@ export interface components {
         GithubTokenTest: {
             /** Token */
             token?: string | null;
+        };
+        /**
+         * GrowthAggregatedStats
+         * @description Rule-based growth-page stats from ``GrowthAgent.analyze``.
+         */
+        GrowthAggregatedStats: {
+            /** Top Weaknesses */
+            top_weaknesses: [
+                string,
+                number
+            ][];
+            /** Total Interviews */
+            total_interviews: number;
+            /** Total Plans */
+            total_plans: number;
+            /** Total Weak Skills */
+            total_weak_skills: number;
+            /** Growth Pct */
+            growth_pct: number;
+            /** Growth Level */
+            growth_level: string;
+        };
+        /**
+         * GrowthHistoryItem
+         * @description One per-session growth snapshot (writers persist validated ``list[str]``).
+         */
+        GrowthHistoryItem: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: number;
+            /** Weak Skills */
+            weak_skills: string[];
+            /** Training Plan */
+            training_plan: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GrowthInsightEnvelope */
+        GrowthInsightEnvelope: {
+            insight: components["schemas"]["GrowthInsightPayload"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "generating" | "empty";
+        };
+        /**
+         * GrowthInsightPayload
+         * @description LLM insight body (``normalize_growth_insight`` + row metadata).
+         */
+        GrowthInsightPayload: {
+            /** Headline */
+            headline: string;
+            /** Trajectory */
+            trajectory: string;
+            /**
+             * Trajectory Stage
+             * @enum {string}
+             */
+            trajectory_stage: "rising" | "stalling" | "plateau" | "insufficient";
+            /** Recurring Weaknesses */
+            recurring_weaknesses: components["schemas"]["GrowthWeaknessPattern"][];
+            /** Improving Areas */
+            improving_areas: string[];
+            /** Resume Gap Insights */
+            resume_gap_insights: string[];
+            /** Training Plan */
+            training_plan: components["schemas"]["GrowthTrainingFocus"][];
+            /** Generated At */
+            generated_at?: string | null;
+            /**
+             * Session Count
+             * @default 0
+             */
+            session_count: number;
+            /**
+             * Locale
+             * @default zh-CN
+             */
+            locale: string;
+        };
+        /** GrowthInsightRefreshResponse */
+        GrowthInsightRefreshResponse: {
+            /** Scheduled */
+            scheduled: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "generating" | "ready";
+        };
+        /**
+         * GrowthProbeItem
+         * @description One recent weak-point probe (entries come from a local JSON file).
+         */
+        GrowthProbeItem: {
+            /** Company */
+            company?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Point */
+            point?: string | null;
+            /** Session Id */
+            session_id?: number | null;
+            /** Source */
+            source?: string | null;
+        };
+        /** GrowthTrainingFocus */
+        GrowthTrainingFocus: {
+            /** Area */
+            area: string;
+            /** Based On */
+            based_on: string;
+            /** Actions */
+            actions: string[];
+        };
+        /** GrowthWeaknessPattern */
+        GrowthWeaknessPattern: {
+            /** Skill */
+            skill: string;
+            /** Count */
+            count: number;
+            /** Trend */
+            trend: string;
+            /** Advice */
+            advice: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3838,6 +4048,27 @@ export interface components {
              */
             reasoning: boolean;
         };
+        /** ModelCapabilitiesResponse */
+        ModelCapabilitiesResponse: {
+            /** Chat */
+            chat: boolean;
+            /** Vision */
+            vision: boolean;
+            /** Audio Input */
+            audio_input: boolean;
+            /** Audio Output */
+            audio_output: boolean;
+            /** Reasoning */
+            reasoning: boolean;
+        };
+        /**
+         * ModelOptionsResponse
+         * @description Flat model list for the scene selector (enabled entries only).
+         */
+        ModelOptionsResponse: {
+            /** Models */
+            models: components["schemas"]["ModelProfileResponse"][];
+        };
         /** ModelProfileCreate */
         ModelProfileCreate: {
             /** Model */
@@ -3880,6 +4111,40 @@ export interface components {
              * Enabled
              * @default true
              */
+            enabled: boolean;
+        };
+        /**
+         * ModelProfileResponse
+         * @description External view of one model entry (``profile_to_response``; no secret keys).
+         */
+        ModelProfileResponse: {
+            /** Id */
+            id: number;
+            /** Provider Id */
+            provider_id: number;
+            /** Provider Name */
+            provider_name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "chat" | "stt" | "tts";
+            /** Model */
+            model: string;
+            /** Display Name */
+            display_name: string;
+            /** Label */
+            label: string;
+            /** Context Window */
+            context_window: number;
+            /** Max Output */
+            max_output: number;
+            capabilities: components["schemas"]["ModelCapabilitiesResponse"];
+            /** Extras */
+            extras: {
+                [key: string]: unknown;
+            };
+            /** Enabled */
             enabled: boolean;
         };
         /** ModelProfileUpdate */
@@ -3957,6 +4222,16 @@ export interface components {
              * @default true
              */
             archived: boolean;
+        };
+        /**
+         * PrepArchiveResponse
+         * @description PATCH /sessions/{id}/archive: new session status.
+         */
+        PrepArchiveResponse: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
         };
         /** PrepAskEvent */
         PrepAskEvent: {
@@ -4160,6 +4435,14 @@ export interface components {
              */
             target_company: string;
         };
+        /**
+         * PrepDeletedResponse
+         * @description Delete / purge / batch-delete result (rows removed).
+         */
+        PrepDeletedResponse: {
+            /** Deleted */
+            deleted: number;
+        };
         /** PrepForkRequest */
         PrepForkRequest: {
             /**
@@ -4201,6 +4484,16 @@ export interface components {
         };
         /** PrepLinkRequest */
         PrepLinkRequest: {
+            /** Linked Session Id */
+            linked_session_id?: number | null;
+        };
+        /**
+         * PrepLinkResponse
+         * @description PUT /sessions/{id}/link: the session's linked target (null = unlinked).
+         */
+        PrepLinkResponse: {
+            /** Id */
+            id: number;
             /** Linked Session Id */
             linked_session_id?: number | null;
         };
@@ -4313,6 +4606,14 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * PrepMemoryTagsResponse
+         * @description GET /memories/tags: distinct tags, most-recently-used first.
+         */
+        PrepMemoryTagsResponse: {
+            /** Tags */
+            tags: string[];
         };
         /** PrepMemoryUpdate */
         PrepMemoryUpdate: {
@@ -4544,6 +4845,14 @@ export interface components {
             /** Expected Message Count */
             expected_message_count?: number | null;
         };
+        /**
+         * PrepTruncateResponse
+         * @description POST /sessions/{id}/messages/truncate: history length after the cut.
+         */
+        PrepTruncateResponse: {
+            /** Message Count */
+            message_count: number;
+        };
         /** ProcessCreateRequest */
         ProcessCreateRequest: {
             /** Role */
@@ -4662,6 +4971,27 @@ export interface components {
             /** Deep Questions */
             deep_questions?: components["schemas"]["InterviewQa"][];
         };
+        /**
+         * ProviderChannelResponse
+         * @description External channel view (``channel_to_response``; key masked to a boolean).
+         */
+        ProviderChannelResponse: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "chat" | "stt" | "tts";
+            /** Vendor */
+            vendor: string;
+            /** Api Base */
+            api_base: string;
+            /** Full Url */
+            full_url: boolean;
+            /** Protocol */
+            protocol: string;
+            /** Has Api Key */
+            has_api_key: boolean;
+        };
         /** ProviderCreate */
         ProviderCreate: {
             /** Name */
@@ -4684,6 +5014,21 @@ export interface components {
             /** Channels */
             channels?: components["schemas"]["ChannelWrite"][];
         };
+        /** ProviderListResponse */
+        ProviderListResponse: {
+            /** Providers */
+            providers: components["schemas"]["ProviderWithModelsResponse"][];
+        };
+        /**
+         * ProviderNameResponse
+         * @description Create/update provider result.
+         */
+        ProviderNameResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** ProviderUpdate */
         ProviderUpdate: {
             /** Name */
@@ -4694,6 +5039,64 @@ export interface components {
             website_url?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** ProviderWithModelsResponse */
+        ProviderWithModelsResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Website Url */
+            website_url: string;
+            /** Notes */
+            notes: string;
+            /** Channels */
+            channels: components["schemas"]["ProviderChannelResponse"][];
+            /** Models */
+            models: components["schemas"]["ModelProfileResponse"][];
+        };
+        /** RecommendedVendorCapability */
+        RecommendedVendorCapability: {
+            /** Provider Id */
+            provider_id: string;
+            /** Label */
+            label: string;
+            /** Catalog Label */
+            catalog_label: string;
+            /** Default Model */
+            default_model: string;
+            /** Default Api Base */
+            default_api_base: string;
+            /** Hint */
+            hint: string;
+            /** Adapted */
+            adapted: boolean;
+            def?: components["schemas"]["VendorCapabilityDef"] | null;
+        };
+        /**
+         * RecommendedVendorResponse
+         * @description Level 1 of the recommended-vendor cascade (capabilities keyed by model type).
+         */
+        RecommendedVendorResponse: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Docs */
+            docs: {
+                [key: string]: string;
+            };
+            /** Capabilities */
+            capabilities: {
+                [key: string]: components["schemas"]["RecommendedVendorCapability"];
+            };
+        };
+        /** RecommendedVendorsResponse */
+        RecommendedVendorsResponse: {
+            /** Vendors */
+            vendors: components["schemas"]["RecommendedVendorResponse"][];
         };
         /** RepoEvidence */
         RepoEvidence: {
@@ -5089,6 +5492,14 @@ export interface components {
              */
             ledger_frozen: boolean;
         };
+        /**
+         * SettingsDeleteResponse
+         * @description Delete result for providers and model entries.
+         */
+        SettingsDeleteResponse: {
+            /** Deleted */
+            deleted: number;
+        };
         /** SkillTrust */
         SkillTrust: {
             /** Solid */
@@ -5213,6 +5624,79 @@ export interface components {
              * @default false
              */
             supports_video_input: boolean;
+        };
+        /**
+         * SystemGrowthInsights
+         * @description Cross-interview system aggregates plus environment flags for the growth page.
+         *
+         *     ``extra="allow"``: the read path is fail-open and serves whatever snapshot
+         *     survived normalization, so unknown keys pass through instead of failing.
+         */
+        SystemGrowthInsights: {
+            /**
+             * Company Session Counts
+             * @default {}
+             */
+            company_session_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Role Session Counts
+             * @default {}
+             */
+            role_session_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Avg Scores By Company
+             * @default {}
+             */
+            avg_scores_by_company: {
+                [key: string]: number | null;
+            };
+            /**
+             * Followup Category Hits
+             * @default {}
+             */
+            followup_category_hits: {
+                [key: string]: number;
+            };
+            /**
+             * Tool Call Counts
+             * @default {}
+             */
+            tool_call_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Recent Probes
+             * @default []
+             */
+            recent_probes: components["schemas"]["GrowthProbeItem"][];
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Github Token Configured
+             * @default false
+             */
+            github_token_configured: boolean;
+            /**
+             * Interview Tools Enabled
+             * @default false
+             */
+            interview_tools_enabled: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** TaskBindingView */
+        TaskBindingView: {
+            /**
+             * Task
+             * @enum {string}
+             */
+            task: "chat" | "stt" | "tts";
+            profile: components["schemas"]["ModelProfileResponse"] | null;
+            fallback: components["schemas"]["BindingFallback"];
         };
         /** TurnNote */
         TurnNote: {
@@ -5600,6 +6084,87 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * VendorApplyResponse
+         * @description One-click provisioning result.
+         */
+        VendorApplyResponse: {
+            /** Provider Id */
+            provider_id: number;
+            /** Name */
+            name: string;
+            /** Created Provider */
+            created_provider: boolean;
+            /** Configured Kinds */
+            configured_kinds: ("chat" | "stt" | "tts")[];
+        };
+        /**
+         * VendorCapabilityDef
+         * @description Deep request template metadata from the vendor descriptor JSON.
+         */
+        VendorCapabilityDef: {
+            /** Transport */
+            transport: string;
+            /** Models */
+            models: string[];
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes: string;
+        };
+        /**
+         * VoiceCatalogResponse
+         * @description Three-stage supplier capability catalog (``GET /settings/catalog``).
+         */
+        VoiceCatalogResponse: {
+            /** Reasoning */
+            reasoning: components["schemas"]["VoiceProviderOptionResponse"][];
+            /** Recognize */
+            recognize: components["schemas"]["VoiceProviderOptionResponse"][];
+            /** Speak */
+            speak: components["schemas"]["VoiceProviderOptionResponse"][];
+        };
+        /**
+         * VoiceProviderOptionResponse
+         * @description One catalog provider row (``catalog_schema._p`` shape).
+         */
+        VoiceProviderOptionResponse: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Can Speech Recognize */
+            can_speech_recognize: boolean;
+            /** Can Interview Reason */
+            can_interview_reason: boolean;
+            /** Can Speech Speak */
+            can_speech_speak: boolean;
+            /**
+             * Recognize Via
+             * @enum {string}
+             */
+            recognize_via: "native_audio" | "transcribe_only" | "none";
+            /**
+             * Speak Via
+             * @enum {string}
+             */
+            speak_via: "native_audio" | "tts_from_text" | "none";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "coming_soon";
+            /** Default Model */
+            default_model: string;
+            /** Default Api Base */
+            default_api_base: string;
+            /** Hint */
+            hint: string;
+            /** Vendor */
+            vendor: string;
+        };
         /** WorkflowTypeOption */
         WorkflowTypeOption: {
             /** Id */
@@ -5608,6 +6173,34 @@ export interface components {
             name: string;
             /** Phases */
             phases: string[];
+        };
+        /** ErrorBody */
+        ErrorBody: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+            /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+            /**
+             * Trace Id
+             * @default
+             */
+            trace_id: string;
+        };
+        /** APIError */
+        APIError: {
+            /** Detail */
+            detail: string;
+            error: components["schemas"]["ErrorBody"];
         };
     };
     responses: never;
@@ -6136,9 +6729,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VoiceCatalogResponse"];
                 };
             };
         };
@@ -6244,9 +6835,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ModelOptionsResponse"];
                 };
             };
         };
@@ -6266,9 +6855,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderListResponse"];
                 };
             };
         };
@@ -6292,9 +6879,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderNameResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6323,9 +6908,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RecommendedVendorsResponse"];
                 };
             };
         };
@@ -6347,9 +6930,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VendorApplyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6384,9 +6965,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderNameResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6417,9 +6996,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SettingsDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6455,9 +7032,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderChannelResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6489,9 +7064,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ChannelModelCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6526,9 +7099,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ModelProfileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6563,9 +7134,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ModelProfileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6596,9 +7165,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SettingsDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6627,9 +7194,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BindingsResponse"];
                 };
             };
         };
@@ -6655,9 +7220,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BindingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6688,9 +7251,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LLMTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6719,9 +7280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubStatusResponse"];
                 };
             };
         };
@@ -6745,9 +7304,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6776,9 +7333,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubStatusResponse"];
                 };
             };
         };
@@ -6802,9 +7357,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7214,7 +7767,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepTruncateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7245,7 +7798,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7274,7 +7827,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
         };
@@ -7298,7 +7851,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7333,7 +7886,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepArchiveResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7368,7 +7921,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepLinkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7493,7 +8046,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepMemoryTagsResponse"];
                 };
             };
         };
@@ -7517,7 +8070,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8019,9 +8572,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CompanyBriefResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8050,9 +8601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["CompanyBriefsClearResponse"];
                 };
             };
         };
@@ -8256,9 +8805,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["GrowthHistoryItem"][];
                 };
             };
         };
@@ -8278,9 +8825,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SystemGrowthInsights"];
                 };
             };
         };
@@ -8300,9 +8845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GrowthAggregatedStats"];
                 };
             };
         };
@@ -8322,9 +8865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GrowthInsightEnvelope"];
                 };
             };
         };
@@ -8346,9 +8887,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GrowthInsightRefreshResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8880,9 +9419,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VoiceCatalogResponse"];
                 };
             };
         };
@@ -8988,9 +9525,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ModelOptionsResponse"];
                 };
             };
         };
@@ -9010,9 +9545,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderListResponse"];
                 };
             };
         };
@@ -9036,9 +9569,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderNameResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9067,9 +9598,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RecommendedVendorsResponse"];
                 };
             };
         };
@@ -9091,9 +9620,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VendorApplyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9128,9 +9655,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderNameResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9161,9 +9686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SettingsDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9199,9 +9722,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderChannelResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9233,9 +9754,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ChannelModelCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9270,9 +9789,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ModelProfileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9307,9 +9824,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ModelProfileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9340,9 +9855,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SettingsDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9371,9 +9884,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BindingsResponse"];
                 };
             };
         };
@@ -9399,9 +9910,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BindingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9432,9 +9941,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LLMTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9463,9 +9970,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubStatusResponse"];
                 };
             };
         };
@@ -9489,9 +9994,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9520,9 +10023,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubStatusResponse"];
                 };
             };
         };
@@ -9546,9 +10047,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GithubTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9958,7 +10457,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepTruncateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9989,7 +10488,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10018,7 +10517,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
         };
@@ -10042,7 +10541,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10077,7 +10576,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepArchiveResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10112,7 +10611,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepLinkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10237,7 +10736,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepMemoryTagsResponse"];
                 };
             };
         };
@@ -10261,7 +10760,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10763,9 +11262,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CompanyBriefResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10794,9 +11291,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["CompanyBriefsClearResponse"];
                 };
             };
         };
@@ -11000,9 +11495,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["GrowthHistoryItem"][];
                 };
             };
         };
@@ -11022,9 +11515,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SystemGrowthInsights"];
                 };
             };
         };
@@ -11044,9 +11535,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GrowthAggregatedStats"];
                 };
             };
         };
@@ -11066,9 +11555,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GrowthInsightEnvelope"];
                 };
             };
         };
@@ -11090,9 +11577,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GrowthInsightRefreshResponse"];
                 };
             };
             /** @description Validation Error */

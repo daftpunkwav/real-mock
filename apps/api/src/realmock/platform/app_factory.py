@@ -39,6 +39,7 @@ from realmock.platform.core.error_handlers import (
 from realmock.platform.core.local_only import LOCAL_API_DEPENDENCIES
 from realmock.platform.core.logging import get_trace_id, reset_trace_id, set_trace_id
 from realmock.platform.core.security import UnsafeURLError
+from realmock.platform.schemas.errors import APIError, ErrorBody
 
 logger = logging.getLogger(__name__)
 
@@ -162,9 +163,36 @@ def add_default_cors(app: FastAPI, *, cors_origin_list: list[str]) -> None:
 
 
 def register_core_error_handlers(app: FastAPI) -> None:
-    """Register 5 handlers for a unified error response envelope (single truth)."""
+    """Register 5 handlers for a unified error response envelope (single truth).
+
+    Also registers the envelope as OpenAPI components (``APIError``/``ErrorBody``):
+    no single route declares it as its response_model, yet every JSON error
+    response passes through the shared handlers, so the schema is attached to
+    the generated document instead of staying an implicit contract.
+    """
     app.add_exception_handler(RequestValidationError, on_request_validation)  # type: ignore[arg-type]
     app.add_exception_handler(HTTPException, on_http_exception)  # type: ignore[arg-type]
     app.add_exception_handler(StarletteHTTPException, on_starlette_http_exception)  # type: ignore[arg-type]
     app.add_exception_handler(UnsafeURLError, on_unsafe_url)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, on_unhandled_exception)
+    _register_error_envelope_schema(app)
+
+
+def _register_error_envelope_schema(app: FastAPI) -> None:
+    """Attach the shared error envelope to the OpenAPI components (idempotent)."""
+    original = app.openapi
+
+    def openapi_with_error_envelope() -> dict[str, Any]:
+        schema = original()
+        components = schema.setdefault("components", {}).setdefault("schemas", {})
+        body_schema = ErrorBody.model_json_schema()
+        api_schema = APIError.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+        # Nested definitions move to the referenced components entry.
+        api_schema.pop("$defs", None)
+        components.setdefault("ErrorBody", body_schema)
+        components.setdefault("APIError", api_schema)
+        return schema
+
+    app.openapi = openapi_with_error_envelope  # type: ignore[method-assign]

@@ -317,6 +317,40 @@ class PrepMemoryBatchDelete(BaseModel):
     ids: list[int] = Field(default_factory=list, min_length=1, max_length=100)
 
 
+# --- Management-operation responses (owner-level routes without a body model) ---
+
+class PrepTruncateResponse(BaseModel):
+    """POST /sessions/{id}/messages/truncate: history length after the cut."""
+
+    message_count: int
+
+
+class PrepDeletedResponse(BaseModel):
+    """Delete / purge / batch-delete result (rows removed)."""
+
+    deleted: int
+
+
+class PrepArchiveResponse(BaseModel):
+    """PATCH /sessions/{id}/archive: new session status."""
+
+    id: int
+    status: str
+
+
+class PrepLinkResponse(BaseModel):
+    """PUT /sessions/{id}/link: the session's linked target (null = unlinked)."""
+
+    id: int
+    linked_session_id: int | None = None
+
+
+class PrepMemoryTagsResponse(BaseModel):
+    """GET /memories/tags: distinct tags, most-recently-used first."""
+
+    tags: list[str]
+
+
 __all__ = [
     "COMPACTION_INTENSITIES",
     "DIRECTIVE_MAX_CHARS",
@@ -326,6 +360,7 @@ __all__ = [
     "PrepAskEvent",
     "PrepAskQuestion",
     "PrepArchiveRequest",
+    "PrepArchiveResponse",
     "PrepCompactRequest",
     "PrepCompactResponse",
     "PrepContextBucket",
@@ -335,16 +370,20 @@ __all__ = [
     "PrepForkResponse",
     "PrepHistoryMessage",
     "PrepLinkRequest",
+    "PrepLinkResponse",
     "PrepMemoryBatchDelete",
     "PrepMemoryCreate",
     "PrepMemoryDetail",
     "PrepMemorySummary",
+    "PrepMemoryTagsResponse",
     "PrepMemoryUpdate",
     "PrepMessageRequest",
     "PrepMessageResponse",
     "PrepPurgeAllRequest",
     "PrepSessionCreateResponse",
+    "PrepDeletedResponse",
     "PrepSessionSummary",
     "PrepSummaryUpdateRequest",
     "PrepTruncateRequest",
+    "PrepTruncateResponse",
 ]

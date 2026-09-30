@@ -23,16 +23,21 @@ from fastapi import APIRouter, Depends
 
 from realmock.domains.prep.routes import chat, create, history, lists, manage, memories
 from realmock.domains.prep.schemas import (
+    PrepArchiveResponse,
     PrepCompactResponse,
     PrepContextResponse,
+    PrepDeletedResponse,
     PrepForkResponse,
     PrepHistoryMessage,
+    PrepLinkResponse,
     PrepMemoryDetail,
     PrepMemorySummary,
+    PrepMemoryTagsResponse,
     PrepMessageResponse,
     PrepSessionCreateResponse,
     PrepSessionSummary,
     PrepSuggestionsResponse,
+    PrepTruncateResponse,
     ResumePickerItem,
 )
 from realmock.platform.core.constants import (
@@ -173,33 +178,39 @@ router.add_api_route(
     "/sessions/{session_id}/messages/truncate",
     history.truncate_prep_messages,
     methods=["POST"],
+    response_model=PrepTruncateResponse,
 )
 router.add_api_route(
     "/sessions/{session_id}",
     manage.delete_prep_session,
     methods=["DELETE"],
+    response_model=PrepDeletedResponse,
 )
 router.add_api_route(
     "/sessions/purge-empty",
     manage.purge_empty_sessions,
     methods=["POST"],
+    response_model=PrepDeletedResponse,
     dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/sessions/purge-all",
     manage.purge_all_sessions,
     methods=["POST"],
+    response_model=PrepDeletedResponse,
     dependencies=[_manage_limit()],
 )
 router.add_api_route(
     "/sessions/{session_id}/archive",
     manage.archive_prep_session,
     methods=["PATCH"],
+    response_model=PrepArchiveResponse,
 )
 router.add_api_route(
     "/sessions/{session_id}/link",
     manage.link_prep_session,
     methods=["PUT"],
+    response_model=PrepLinkResponse,
 )
 router.add_api_route(
     "/sessions/{session_id}/reissue",
@@ -224,11 +235,13 @@ router.add_api_route(
     "/memories/tags",
     memories.list_memory_tags,
     methods=["GET"],
+    response_model=PrepMemoryTagsResponse,
 )
 router.add_api_route(
     "/memories/batch-delete",
     memories.batch_delete_memories,
     methods=["POST"],
+    response_model=PrepDeletedResponse,
     dependencies=[_manage_limit()],
 )
 router.add_api_route(

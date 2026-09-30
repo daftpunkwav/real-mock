@@ -26,7 +26,22 @@ class CompanyBriefRequest(BaseModel):
     locale: str = Field(default="", max_length=10)
 
 
-@router.post("/company-brief")
+class CompanyBriefResponse(BaseModel):
+    """Agent-researched question-style brief (cached or freshly generated)."""
+
+    company: str
+    style: str
+    focus_areas: list[str]
+    process: str
+    cached: bool
+
+
+class CompanyBriefsClearResponse(BaseModel):
+
+    cleared: int
+
+
+@router.post("/company-brief", response_model=CompanyBriefResponse)
 async def company_brief(body: CompanyBriefRequest, api_db: Session = Depends(get_api_db), db: Session = Depends(get_sessions_db)) -> dict[str, Any]:
     """Agent-researched brief (style / focus areas / process) for the setup preview.
 
@@ -53,7 +68,7 @@ async def company_brief(body: CompanyBriefRequest, api_db: Session = Depends(get
     return brief
 
 
-@router.delete("/company-briefs")
+@router.delete("/company-briefs", response_model=CompanyBriefsClearResponse)
 def delete_company_briefs(db: Session = Depends(get_sessions_db)) -> dict[str, int]:
     """Clear the whole question-style brief cache (settings-page action)."""
     return {"cleared": clear_company_briefs(db)}

@@ -49,6 +49,8 @@ export interface VoiceProviderOption {
   default_model?: string;
   default_api_base?: string;
   hint?: string;
+  /** Vendor group id (platform.vendors); "" = not a vendor entry */
+  vendor: string;
 }
 
 export interface VoiceCatalog {

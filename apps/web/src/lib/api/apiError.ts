@@ -54,28 +54,26 @@ export interface ParsedApiError extends ApiErrorOptions {
 export async function parseStructuredErrorResponse(res: Response): Promise<ParsedApiError> {
   const text = await res.text();
   if (!text) return { message: getTranslator("common")("request.failed", { status: res.status }) };
-  try {
-    const data = JSON.parse(text) as {
-      detail?: unknown;
-      message?: string;
-      error?: {
-        code?: string;
+    try {
+      const data = JSON.parse(text) as {
+        detail?: unknown;
         message?: string;
-        hint?: string;
-        trace_id?: string;
-        retryable?: boolean;
-        params?: Record<string, string | number>;
+        error?: {
+          code?: string;
+          message?: string;
+          hint?: string;
+          trace_id?: string;
+          retryable?: boolean;
+        };
       };
-    };
-    if (data.error?.message) {
-      return {
-        message: data.error.message,
-        code: data.error.code,
-        hint: data.error.hint,
-        traceId: data.error.trace_id,
-        retryable: data.error.retryable,
-        params: data.error.params,
-      };
+      if (data.error?.message) {
+        return {
+          message: data.error.message,
+          code: data.error.code,
+          hint: data.error.hint,
+          traceId: data.error.trace_id,
+          retryable: data.error.retryable,
+        };
     }
     if (typeof data.detail === "string") return { message: data.detail };
     if (Array.isArray(data.detail)) {
