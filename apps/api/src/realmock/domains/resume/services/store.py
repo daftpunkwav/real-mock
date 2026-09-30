@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from realmock.platform.models import Resume
 from realmock.platform.config import get_settings
@@ -34,8 +34,18 @@ logger = logging.getLogger(__name__)
 
 
 def list_rows(db: Session) -> list[Resume]:
-    """Return all resume rows, newest first."""
-    return db.query(Resume).order_by(Resume.created_at.desc()).all()
+    """Return all resume rows, newest first.
+
+    ``raw_text`` stays deferred: every caller (list response mapping, review
+    wipe, delete-all) reads the other columns only, so listing never loads the
+    full resume text of every row.
+    """
+    return (
+        db.query(Resume)
+        .options(defer(Resume.raw_text))
+        .order_by(Resume.created_at.desc())
+        .all()
+    )
 
 
 def get_row(db: Session, resume_id: int) -> Resume | None:

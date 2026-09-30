@@ -472,19 +472,30 @@ def delete_model(db: Session, model_id: int) -> dict[str, Any]:
 
 def list_bindings_payload(db: Session) -> dict[str, Any]:
     migrate_stages_to_profiles(db)
+    # One batched query per table instead of 3 queries per task, then join in
+    # memory: same rows as the per-task lookups, ~3 queries total.
+    bindings = {
+        b.task: b
+        for b in db.query(TaskBinding).filter(TaskBinding.task.in_(STAGE_BY_TASK)).all()
+    }
+    profiles: dict[int, ModelProfile] = {}
+    if bindings:
+        profile_rows = (
+            db.query(ModelProfile)
+            .filter(ModelProfile.id.in_([b.profile_id for b in bindings.values()]))
+            .all()
+        )
+        profiles = {p.id: p for p in profile_rows}
+    provider_ids = {p.provider_id for p in profiles.values()}
+    providers: dict[int, LlmProvider] = {}
+    if provider_ids:
+        provider_rows = db.query(LlmProvider).filter(LlmProvider.id.in_(provider_ids)).all()
+        providers = {pr.id: pr for pr in provider_rows}
     out: dict[str, Any] = {}
     for task, stage in STAGE_BY_TASK.items():
-        binding = db.query(TaskBinding).filter(TaskBinding.task == task).first()
-        profile = (
-            db.query(ModelProfile).filter(ModelProfile.id == binding.profile_id).first()
-            if binding
-            else None
-        )
-        provider = (
-            db.query(LlmProvider).filter(LlmProvider.id == profile.provider_id).first()
-            if profile
-            else None
-        )
+        binding = bindings.get(task)
+        profile = profiles.get(binding.profile_id) if binding else None
+        provider = providers.get(profile.provider_id) if profile else None
         out[task] = {
             "task": task,
             "profile": profile_to_response(profile, provider) if profile else None,

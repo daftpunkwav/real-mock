@@ -11,7 +11,7 @@ from typing import cast
 
 from fastapi import BackgroundTasks, Depends, Request, Response
 from pydantic import TypeAdapter
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
@@ -107,7 +107,23 @@ def create_session(
 
 def list_sessions(db: Session = Depends(get_sessions_db)):
     """History list: Only metadata is returned, excluding access_token (anti-enumeration theft capability token)."""
-    sessions = db.query(InterviewSession).order_by(InterviewSession.created_at.desc()).all()
+    # Metadata-only projection: keep the transcript/report payload columns
+    # deferred so one history page does not load every session's full Text
+    # columns. ``to_session_response`` reads only small metadata columns + plan.
+    sessions = (
+        db.query(InterviewSession)
+        .options(
+            defer(InterviewSession.messages),
+            defer(InterviewSession.report),
+            defer(InterviewSession.agent_state),
+            defer(InterviewSession.company_research),
+            defer(InterviewSession.github_evidence),
+            defer(InterviewSession.ai_overrides),
+            defer(InterviewSession.access_token),
+        )
+        .order_by(InterviewSession.created_at.desc())
+        .all()
+    )
     return [to_session_response(s, include_token=False) for s in sessions]
 
 

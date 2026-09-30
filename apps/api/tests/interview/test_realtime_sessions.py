@@ -83,7 +83,10 @@ def test_sessions_crud_gaps():
         assert len(saved.ui_locale) <= 10
     # list_sessions
     db3 = MagicMock()
-    db3.query.return_value.order_by.return_value.all.return_value = [_session_row(), _session_row(id=2)]
+    db3.query.return_value.options.return_value.order_by.return_value.all.return_value = [
+        _session_row(),
+        _session_row(id=2),
+    ]
     with patch.object(mod, "to_session_response", side_effect=lambda s, include_token=False: {"id": s.id}):
         assert mod.list_sessions(db3) == [{"id": 1}, {"id": 2}]
     # get_session 404 / 403 / ok

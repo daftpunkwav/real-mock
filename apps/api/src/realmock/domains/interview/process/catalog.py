@@ -10,7 +10,7 @@ import json
 import logging
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from realmock.domains.interview.ledger.store import is_frozen, load_ledger
 from realmock.domains.interview.models import InterviewSession
@@ -28,8 +28,27 @@ class InterviewSessionCatalog:
     """Read-only catalog backed by interview_sessions."""
 
     def list_sessions(self, db: Session) -> list[SessionCatalogItem]:
-        """Newest-first session metadata (no transcript payloads)."""
-        rows = db.query(InterviewSession).order_by(InterviewSession.created_at.desc()).all()
+        """Newest-first session metadata (no transcript payloads).
+
+        Heavy Text columns stay deferred: ``_to_item`` reads only metadata
+        columns plus the ``ledger_frozen`` flag, so listing never pulls the
+        transcript/report/plan payloads into memory.
+        """
+        rows = (
+            db.query(InterviewSession)
+            .options(
+                defer(InterviewSession.messages),
+                defer(InterviewSession.report),
+                defer(InterviewSession.plan),
+                defer(InterviewSession.agent_state),
+                defer(InterviewSession.company_research),
+                defer(InterviewSession.github_evidence),
+                defer(InterviewSession.ai_overrides),
+                defer(InterviewSession.access_token),
+            )
+            .order_by(InterviewSession.created_at.desc())
+            .all()
+        )
         return [self._to_item(s) for s in rows]
 
     def get_session(self, db: Session, session_id: int) -> SessionSnapshot | None:
