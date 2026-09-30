@@ -76,9 +76,9 @@ class PrepHistoryMessage(BaseModel):
 
 
 class PrepSuggestionsRequest(BaseModel):
-    # Model/thinking override follows the chat turn snapshot (None = binding default).
+    # Model override follows the chat turn snapshot (None = binding default);
+    # thinking is always off for this call (a nicety on a short budget).
     model_profile_id: int | None = None
-    reasoning_effort: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_\-]{1,32}$")
     # Language for the generated questions (zh-CN/en; others fall back to en).
     ui_locale: str | None = None
 

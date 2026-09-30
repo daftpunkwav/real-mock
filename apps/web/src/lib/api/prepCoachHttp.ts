@@ -54,16 +54,15 @@ export const prepCoachHttp = {
     request<PrepContextBreakdown>(`/v1/prep/sessions/${sessionId}/context`),
   suggestFollowups: (
     sessionId: number,
-    params?: { modelProfileId?: number | null; reasoningEffort?: ReasoningEffort | null; uiLocale?: string },
+    params?: { modelProfileId?: number | null; uiLocale?: string },
   ) =>
     request<{ suggestions: string[] }>(`/v1/prep/sessions/${sessionId}/suggestions`, {
       method: "POST",
-      // Server side caps the LLM call at 20s and degrades to an empty list;
-      // the default transport budget comfortably covers that.
+      // Server side caps the LLM call at 20s (thinking disabled) and degrades
+      // to an empty list; the default transport budget comfortably covers that.
       body: params
         ? JSON.stringify({
             model_profile_id: params.modelProfileId ?? undefined,
-            reasoning_effort: params.reasoningEffort ?? undefined,
             ui_locale: params.uiLocale || undefined,
           })
         : undefined,

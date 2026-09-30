@@ -394,6 +394,7 @@ def _suggest_llm(monkeypatch, result=None, error=None):
     class _JsonLLM:
         model = "test-model"
         context_window = 8000
+        build_kwargs: dict | None = None
 
         async def chat_json(self, messages, temperature=0.3, max_tokens=None):
             _JsonLLM.prompt = messages[0]["content"]
@@ -403,7 +404,18 @@ def _suggest_llm(monkeypatch, result=None, error=None):
 
     fake = _JsonLLM()
     monkeypatch.setattr(
-        chat_route.LLMClient, "from_db", staticmethod(lambda api_db, *, profile_id=None, reasoning_effort=None: fake)
+        chat_route.LLMClient,
+        "from_db",
+        staticmethod(
+            lambda api_db, *, profile_id=None, enable_thinking=True: (
+                setattr(
+                    fake,
+                    "build_kwargs",
+                    {"profile_id": profile_id, "enable_thinking": enable_thinking},
+                )
+                or fake
+            )
+        ),
     )
     return fake
 
@@ -476,6 +488,9 @@ async def test_suggestions_edges(db, monkeypatch) -> None:
         "简历量墙数据要再准备吗?",
     ]
     assert "Assistant's latest reply" in fake.prompt
+    # Thinking is suppressed for this auxiliary call: a reasoning model would
+    # burn the short budget on deliberation and the card would never refresh.
+    assert fake.build_kwargs == {"profile_id": None, "enable_thinking": False}
 
     with pytest.raises(ApiBusinessError):
         await chat_route.suggest_prep_followups(row.id, db=db, access="bad-token")

@@ -207,19 +207,21 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
       prepCoachHttp
         .suggestFollowups(sid, {
           modelProfileId: model?.id ?? null,
-          reasoningEffort: model?.capabilities.reasoning ? resources.effort : null,
           uiLocale: locale,
         })
         .then((res) => {
           if (sid !== viewingRef.current) return;
           const list = (res.suggestions ?? []).filter((s) => typeof s === "string" && s.trim());
-          setQuickSuggestions(list.length > 0 ? list : null);
+          // A nicety never downgrades the card: an empty refresh (LLM timed
+          // out or failed server-side) keeps the previous suggestions rather
+          // than snapping back to the static defaults.
+          if (list.length > 0) setQuickSuggestions(list);
         })
         .catch(() => {
           /* Keep the current card (defaults on first failure). */
         });
     },
-    [resources.chatModels, resources.selectedModelId, resources.defaultChatProfile, resources.effort, locale],
+    [resources.chatModels, resources.selectedModelId, resources.defaultChatProfile, locale],
   );
   useEffect(() => {
     setQuickSuggestions(null);

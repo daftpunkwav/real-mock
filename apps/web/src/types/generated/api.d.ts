@@ -4500,8 +4500,6 @@ export interface components {
         PrepSuggestionsRequest: {
             /** Model Profile Id */
             model_profile_id?: number | null;
-            /** Reasoning Effort */
-            reasoning_effort?: string | null;
             /** Ui Locale */
             ui_locale?: string | null;
         };

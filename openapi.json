@@ -11071,18 +11071,6 @@
             ],
             "title": "Model Profile Id"
           },
-          "reasoning_effort": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-zA-Z0-9_\\-]{1,32}$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reasoning Effort"
-          },
           "ui_locale": {
             "anyOf": [
               {

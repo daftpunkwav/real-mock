@@ -346,10 +346,13 @@ async def suggest_prep_followups(
     if exchange is None:
         return PrepSuggestionsResponse()
     user_text, reply = exchange
+    # Thinking is disabled: a reasoning model would burn the short budget on
+    # deliberation and always blow the timeout, leaving the card frozen on
+    # its default prompts.
     llm = LLMClient.from_db(
         api_db,
         profile_id=params.model_profile_id,
-        reasoning_effort=params.reasoning_effort,
+        enable_thinking=False,
     )
     prompt = _SUGGESTIONS_PROMPT.format(
         locale_name=_locale_label(params.ui_locale),
@@ -362,7 +365,7 @@ async def suggest_prep_followups(
             timeout=_SUGGESTIONS_TIMEOUT_SECONDS,
         )
     except Exception as exc:
-        logger.info("Prep suggestions skipped sid=%s: %s", session_id, exc)
+        logger.info("Prep suggestions skipped sid=%s: %s: %s", session_id, type(exc).__name__, exc)
         return PrepSuggestionsResponse()
     raw = verdict.get("suggestions") if isinstance(verdict, dict) else None
     suggestions: list[str] = []

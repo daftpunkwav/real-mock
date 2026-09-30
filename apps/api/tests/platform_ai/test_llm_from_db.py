@@ -68,6 +68,21 @@ def test_reasoning_dropped_without_capability() -> None:
     assert out.kw["reasoning_effort"] is None
 
 
+def test_thinking_opt_out_disables_reasoning() -> None:
+    """enable_thinking=False suppresses reasoning even for a capable profile."""
+    cfg = {
+        "api_base": "https://x", "api_key": "k", "model": "m",
+        "reasoning_capable": True,
+        "extras": {"reasoning": {"variants": ["low", "high"], "defaultVariant": "high"}},
+    }
+    ctx, ctx2, ctx3 = _patch(cfg)
+    with ctx, ctx2, ctx3:
+        out = build_from_db(
+            _FakeClient, MagicMock(), reasoning_effort="high", enable_thinking=False
+        )  # type: ignore[arg-type]
+    assert out.kw["reasoning_effort"] is None
+
+
 def test_default_reasoning_variant_used_without_explicit_effort() -> None:
     """No caller effort → extras.reasoning.defaultVariant applies (capability-gated)."""
     cfg = {

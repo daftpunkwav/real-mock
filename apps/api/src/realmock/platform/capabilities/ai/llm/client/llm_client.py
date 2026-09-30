@@ -93,10 +93,19 @@ class LLMClient:
         *,
         profile_id: int | None = None,
         reasoning_effort: str | None = None,
+        enable_thinking: bool = True,
     ) -> "LLMClient":
-        """Build from the model entry system (default task binding or scene-level ``profile_id`` override)."""
+        """Build from the model entry system (default task binding or scene-level ``profile_id`` override).
+
+        ``enable_thinking=False`` suppresses the reasoning parameter even for
+        thinking-capable profiles — for auxiliary calls on a tight time budget.
+        """
         return build_from_db(
-            cls, db, profile_id=profile_id, reasoning_effort=reasoning_effort
+            cls,
+            db,
+            profile_id=profile_id,
+            reasoning_effort=reasoning_effort,
+            enable_thinking=enable_thinking,
         )
 
     def _build_payload(

@@ -81,12 +81,15 @@ def build_from_db(
     *,
     profile_id: int | None = None,
     reasoning_effort: str | None = None,
+    enable_thinking: bool = True,
 ) -> Any:
     """Build a client from the model-profile system (default task binding or scenario-level ``profile_id`` override).
 
     ``reasoning_effort`` applies only when the selected profile declares ``reasoning_capable``;
     without an override, the profile's declared default level (``extras.reasoning.defaultVariant``)
-    is used; without either, no reasoning parameter is sent. Without an explicit ``profile_id``,
+    is used; without either, no reasoning parameter is sent. ``enable_thinking=False`` suppresses
+    the reasoning parameter entirely — for auxiliary calls (summaries, suggestions) where a
+    thinking budget would only burn the caller's time cap. Without an explicit ``profile_id``,
     use the default chat binding, then let the pipeline fall back to stage_configs;
     environment variables are the last-resort fallback.
     """
@@ -105,11 +108,13 @@ def build_from_db(
             cfg.get("max_tokens") or settings.llm_max_tokens
         )
         protocol = cfg.get("protocol") or DEFAULT_LLM_PROTOCOL
-        reasoning = (
-            reasoning_effort
-            if reasoning_effort and cfg.get("reasoning_capable")
-            else _default_reasoning_effort(cfg)
-        )
+        reasoning = None
+        if enable_thinking:
+            reasoning = (
+                reasoning_effort
+                if reasoning_effort and cfg.get("reasoning_capable")
+                else _default_reasoning_effort(cfg)
+            )
         extra_body, extra_headers = _extras_body_headers(cfg)
     else:
         if profile_explicit:
