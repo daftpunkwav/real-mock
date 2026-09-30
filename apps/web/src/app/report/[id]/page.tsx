@@ -114,6 +114,7 @@ export default function ReportPage() {
             {current === id && (
               <motion.span
                 layoutId="report-tab-underline"
+                layoutScroll
                 className="eval-tab-underline"
                 transition={{ type: "spring", stiffness: 420, damping: 34 }}
               />

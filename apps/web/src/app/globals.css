@@ -672,6 +672,11 @@ button:active:not(:disabled),
       animation: none;
     }
   }
+  /* Mirror of the meteors: the daylight pool is invisible on the dark
+     stage, so don't keep its drift layer alive there. */
+  html.dark .daylight-drift {
+    animation: none;
+  }
 
   /* Rare meteors: long-cycle keyframes where the streak occupies only the
      first sliver of each loop, so the sky stays still between visits.
@@ -737,6 +742,12 @@ button:active:not(:disabled),
     .meteor-b {
       animation: none;
     }
+  }
+  /* The meteors ride the night sky only: on the light surface .home-stars
+     is invisible, so the running keyframes would just burn a layer. */
+  html:not(.dark) .meteor-a,
+  html:not(.dark) .meteor-b {
+    animation: none;
   }
 
   /* Card strip specular sweep: one soft light band crossing the hero belt
@@ -1889,7 +1900,7 @@ button:active:not(:disabled),
 
   /* ---------- Interview drill cards ---------- */
   .eval-qa-card {
-    padding: 1rem 1.125rem;
+    padding: 0.875rem 1rem;
     background: var(--background-alt);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);

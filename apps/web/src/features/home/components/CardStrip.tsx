@@ -550,7 +550,7 @@ export const CardStrip = memo(function CardStrip() {
     let onScreen = true;
 
     const tick = (t: number) => {
-      const dt = Math.min((t - last) / 1000, 0.1);
+      const dt = Math.min(Math.max((t - last) / 1000, 0), 0.1);
       last = t;
       boost += (boostTargetRef.current - boost) * Math.min(1, dt * BOOST_EASE);
       offset = (offset + SPEED * boost * dt) % LOOP_SPAN;
@@ -718,8 +718,7 @@ export const CardStrip = memo(function CardStrip() {
             className="pointer-events-none absolute inset-0"
             aria-hidden
             style={{
-              background:
-                "linear-gradient(90deg, color-mix(in srgb, var(--background) 62%, transparent) 0, transparent 9%, transparent 91%, color-mix(in srgb, var(--background) 62%, transparent) 100%)",
+              background: `linear-gradient(90deg, color-mix(in srgb, var(--background) 62%, transparent) 0, transparent ${FADE_PCT}%, transparent ${100 - FADE_PCT}%, color-mix(in srgb, var(--background) 62%, transparent) 100%)`,
             }}
           />
 

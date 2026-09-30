@@ -85,7 +85,8 @@ class PrepSuggestionsRequest(BaseModel):
 
 class PrepSuggestionsResponse(BaseModel):
     # Up to 4 short follow-up questions; empty when there is nothing to base
-    # them on or the LLM call failed (the UI keeps its default prompts then).
+    # them on or the LLM call failed (the UI then keeps whatever it showed:
+    # the previous suggestions, or its defaults on first load).
     suggestions: list[str] = Field(default_factory=list)
 
 

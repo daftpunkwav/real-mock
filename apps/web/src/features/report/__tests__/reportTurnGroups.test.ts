@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   groupNotesByPhase,
   orderNotesByLedger,
-} from "../components/TurnDeepNotes";
+} from "../turnGroups";
 import { PHASE_ORDER } from "@/config/phases";
 import type { TurnNote } from "@/types/domains/report";
 import type { LedgerDocument } from "@/types/domains/records";
