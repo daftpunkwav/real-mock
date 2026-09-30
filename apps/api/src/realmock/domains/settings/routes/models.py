@@ -1,8 +1,10 @@
 """Model-profile API (capability declarations): provider / channel / model / task-binding routes.
 
-Request bodies and DB access live in ``realmock.domains.settings.services.model_registry``
-and ``vendor_apply``; this file only assembles routes and validates URL formats. Mounted
-under the ``/settings`` prefix alongside the three-stage configuration routes.
+This file only assembles endpoints; request bodies, validation (including URL
+format checks), and DB access live in
+``realmock.domains.settings.services.model_registry`` / ``validation`` /
+``vendor_apply``. Mounted under the ``/settings`` prefix alongside the
+three-stage configuration routes.
 """
 
 from __future__ import annotations
@@ -12,8 +14,6 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
-from realmock.platform.core.errors import ApiBusinessError, get_spec
 from realmock.platform.database import get_db
 from realmock.platform.services.pipeline.config import (
     get_provider_model_rows,
@@ -33,46 +33,25 @@ from realmock.domains.settings.schemas import (
 )
 from realmock.domains.settings.services.model_registry import (
     BindingUpdate,
-    CHANNEL_KINDS,
+    ChannelUpdate,
     ModelProfileCreate,
     ModelProfileUpdate,
-    ChannelUpdate,
     ProviderCreate,
     ProviderUpdate,
-    apply_channel_key,
-    get_profile,
-    get_provider,
+    create_model as create_model_record,
+    create_provider as create_provider_record,
+    delete_model as delete_model_record,
+    delete_provider as delete_provider_record,
     list_bindings_payload,
     list_providers_payload,
-    merge_profile_extras,
-    upsert_channel,
     update_binding_record,
+    update_model as update_model_record,
+    update_provider as update_provider_record,
+    upsert_channel,
 )
 from realmock.domains.settings.services.vendor_apply import apply_vendor, channel_model_catalog
 
 router = APIRouter()
-
-
-def _safe_base(url: str, *, label: str) -> None:
-    """Validate URL protocol format only (same policy as stage config)."""
-    from urllib.parse import urlparse
-
-    from realmock.platform.config import get_settings
-
-    if not (url or "").strip():
-        return
-    parsed = urlparse(url.strip())
-    require_https = bool(get_settings().is_prod)
-    scheme_ok = parsed.scheme == "https" if require_https else parsed.scheme in ("http", "https")
-    if not scheme_ok or not parsed.hostname:
-        raise ApiBusinessError(
-            get_spec("A0007"),
-            message=(
-                f"Invalid {label}: only http(s) URLs are allowed"
-                + (" (production requires https)" if require_https else "")
-                + "; check and retry, or use Test to verify connectivity"
-            ),
-        )
 
 
 @router.get("/models", response_model=ModelOptionsResponse)
@@ -114,70 +93,18 @@ def apply_recommended_vendor(vendor_id: str, db: Session = Depends(get_db)) -> d
 
 @router.post("/providers", response_model=ProviderNameResponse)
 def create_provider(body: ProviderCreate, db: Session = Depends(get_db)) -> dict:
-    name = body.name.strip()
-    if not name:
-        raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
-    if db.query(LlmProvider).filter(LlmProvider.name == name).first():
-        raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
-    for channel in body.channels:
-        _safe_base(channel.api_base, label="Base URL")
-        if channel.kind not in CHANNEL_KINDS:
-            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {channel.kind}")
-    _safe_base(body.website_url, label="Website URL")
-    row = LlmProvider(
-        name=name,
-        enabled=body.enabled,
-        website_url=body.website_url.strip(),
-        notes=body.notes.strip(),
-    )
-    db.add(row)
-    db.flush()
-    for channel in body.channels:
-        channel_row = LlmProviderChannel(
-            provider_id=row.id,
-            kind=channel.kind,
-            vendor=channel.vendor.strip(),
-            api_base=channel.api_base.strip(),
-            full_url=channel.full_url,
-            protocol=channel.protocol,
-        )
-        apply_channel_key(channel_row, channel.api_key)
-        db.add(channel_row)
-    db.commit()
-    db.refresh(row)
-    return {"id": row.id, "name": row.name}
+    return create_provider_record(db, body)
 
 
 @router.put("/providers/{provider_id}", response_model=ProviderNameResponse)
 def update_provider(provider_id: int, body: ProviderUpdate, db: Session = Depends(get_db)) -> dict:
-    row = get_provider(db, provider_id)
-    if body.name is not None:
-        name = body.name.strip()
-        if not name:
-            raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
-        exists = db.query(LlmProvider).filter(LlmProvider.name == name, LlmProvider.id != provider_id).first()
-        if exists:
-            raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
-        row.name = name
-    if body.enabled is not None:
-        row.enabled = body.enabled
-    if body.website_url is not None:
-        _safe_base(body.website_url, label="Website URL")
-        row.website_url = body.website_url.strip()
-    if body.notes is not None:
-        row.notes = body.notes.strip()
-    db.commit()
-    return {"id": row.id, "name": row.name}
+    return update_provider_record(db, provider_id, body)
 
 
 @router.put("/providers/{provider_id}/channels/{kind}", response_model=ProviderChannelResponse)
 def update_provider_channel(
     provider_id: int, kind: str, body: ChannelUpdate, db: Session = Depends(get_db)
 ) -> dict:
-    if kind not in CHANNEL_KINDS:
-        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {kind}")
-    if body.api_base is not None:
-        _safe_base(body.api_base, label="Base URL")
     return upsert_channel(db, provider_id, kind, body)
 
 
@@ -192,117 +119,22 @@ def fetch_channel_model_catalog(provider_id: int, kind: str, db: Session = Depen
 def delete_provider(provider_id: int, db: Session = Depends(get_db)) -> dict:
     """Delete the provider and everything under it: model entries, channel settings,
     and task bindings pointing at its entries (the UI asks for confirmation first)."""
-    row = get_provider(db, provider_id)
-    profile_ids = [
-        pid
-        for (pid,) in db.query(ModelProfile.id)
-        .filter(ModelProfile.provider_id == provider_id)
-        .all()
-    ]
-    if profile_ids:
-        db.query(TaskBinding).filter(TaskBinding.profile_id.in_(profile_ids)).delete(
-            synchronize_session=False
-        )
-    db.query(ModelProfile).filter(ModelProfile.provider_id == provider_id).delete(
-        synchronize_session=False
-    )
-    db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == provider_id).delete(
-        synchronize_session=False
-    )
-    db.delete(row)
-    db.commit()
-    return {"deleted": provider_id}
+    return delete_provider_record(db, provider_id)
 
 
 @router.post("/providers/{provider_id}/models", response_model=ModelProfileResponse)
 def create_model(provider_id: int, body: ModelProfileCreate, db: Session = Depends(get_db)) -> dict:
-    provider = get_provider(db, provider_id)
-    model = body.model.strip()
-    if not model:
-        raise ApiBusinessError(get_spec("A0001"), message="Model name cannot be empty")
-    if body.kind not in CHANNEL_KINDS:
-        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown model type: {body.kind}")
-    dup = (
-        db.query(ModelProfile)
-        .filter(ModelProfile.provider_id == provider_id, ModelProfile.model == model)
-        .first()
-    )
-    if dup:
-        raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
-    row = ModelProfile(
-        provider_id=provider.id,
-        kind=body.kind,
-        model=model,
-        display_name=body.display_name.strip(),
-        context_window=body.context_window,
-        max_output=body.max_output,
-        cap_chat=body.capabilities.chat,
-        cap_vision=body.capabilities.vision,
-        cap_audio_in=body.capabilities.audio_input,
-        cap_audio_out=body.capabilities.audio_output,
-        cap_reasoning=body.capabilities.reasoning,
-        enabled=body.enabled,
-    )
-    row.extras = merge_profile_extras(row, body.extras)
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return profile_to_response(row, provider)
+    return create_model_record(db, provider_id, body)
 
 
 @router.put("/models/{model_id}", response_model=ModelProfileResponse)
 def update_model(model_id: int, body: ModelProfileUpdate, db: Session = Depends(get_db)) -> dict:
-    row = get_profile(db, model_id)
-    if body.model is not None:
-        model = body.model.strip()
-        dup = (
-            db.query(ModelProfile)
-            .filter(
-                ModelProfile.provider_id == row.provider_id,
-                ModelProfile.model == model,
-                ModelProfile.id != model_id,
-            )
-            .first()
-        )
-        if dup:
-            raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
-        row.model = model
-    if body.kind is not None:
-        if body.kind not in CHANNEL_KINDS:
-            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown model type: {body.kind}")
-        row.kind = body.kind
-    if body.display_name is not None:
-        row.display_name = body.display_name.strip()
-    if body.context_window is not None:
-        row.context_window = body.context_window
-    if body.max_output is not None:
-        row.max_output = body.max_output
-    if body.capabilities is not None:
-        row.cap_chat = body.capabilities.chat
-        row.cap_vision = body.capabilities.vision
-        row.cap_audio_in = body.capabilities.audio_input
-        row.cap_audio_out = body.capabilities.audio_output
-        row.cap_reasoning = body.capabilities.reasoning
-    if body.enabled is not None:
-        row.enabled = body.enabled
-    row.extras = merge_profile_extras(row, body.extras)
-    db.commit()
-    db.refresh(row)
-    provider = db.query(LlmProvider).filter(LlmProvider.id == row.provider_id).first()
-    return profile_to_response(row, provider)
+    return update_model_record(db, model_id, body)
 
 
 @router.delete("/models/{model_id}", response_model=SettingsDeleteResponse)
 def delete_model(model_id: int, db: Session = Depends(get_db)) -> dict:
-    row = get_profile(db, model_id)
-    if db.query(TaskBinding).filter(TaskBinding.profile_id == model_id).count():
-        raise ApiBusinessError(
-            get_spec("A0001"),
-            message="This model is bound to a task; change the default processor first",
-        )
-    db.delete(row)
-    db.commit()
-    return {"deleted": model_id}
+    return delete_model_record(db, model_id)
 
 
 @router.get("/bindings", response_model=BindingsResponse)

@@ -30,6 +30,7 @@ from realmock.platform.services.pipeline.config import (
     migrate_stages_to_profiles,
     profile_to_response,
 )
+from realmock.domains.settings.services.validation import safe_base
 
 #: Channel kinds mirroring the task vocabulary; every provider owns at most one channel per kind.
 CHANNEL_KINDS = ("chat", "stt", "tts")
@@ -274,6 +275,8 @@ def upsert_channel(db: Session, provider_id: int, kind: str, body: ChannelUpdate
     """Create or partially update one provider channel; unknown kind is rejected."""
     if not _valid_kind(kind):
         raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {kind}")
+    if body.api_base is not None:
+        safe_base(body.api_base, label="Base URL")
     provider = get_provider(db, provider_id)
     channel = get_channel(db, provider.id, kind)
     if channel is None:
@@ -291,6 +294,180 @@ def upsert_channel(db: Session, provider_id: int, kind: str, body: ChannelUpdate
     db.commit()
     db.refresh(channel)
     return channel_to_response(channel)
+
+
+def create_provider(db: Session, body: ProviderCreate) -> dict[str, Any]:
+    """Validate and persist a new provider with its channels."""
+    name = body.name.strip()
+    if not name:
+        raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
+    if db.query(LlmProvider).filter(LlmProvider.name == name).first():
+        raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
+    for channel in body.channels:
+        safe_base(channel.api_base, label="Base URL")
+        if channel.kind not in CHANNEL_KINDS:
+            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {channel.kind}")
+    safe_base(body.website_url, label="Website URL")
+    row = LlmProvider(
+        name=name,
+        enabled=body.enabled,
+        website_url=body.website_url.strip(),
+        notes=body.notes.strip(),
+    )
+    db.add(row)
+    db.flush()
+    for channel in body.channels:
+        channel_row = LlmProviderChannel(
+            provider_id=row.id,
+            kind=channel.kind,
+            vendor=channel.vendor.strip(),
+            api_base=channel.api_base.strip(),
+            full_url=channel.full_url,
+            protocol=channel.protocol,
+        )
+        apply_channel_key(channel_row, channel.api_key)
+        db.add(channel_row)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "name": row.name}
+
+
+def update_provider(db: Session, provider_id: int, body: ProviderUpdate) -> dict[str, Any]:
+    """Partially update a provider; ``None`` fields keep their current value."""
+    row = get_provider(db, provider_id)
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
+        exists = db.query(LlmProvider).filter(LlmProvider.name == name, LlmProvider.id != provider_id).first()
+        if exists:
+            raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
+        row.name = name
+    if body.enabled is not None:
+        row.enabled = body.enabled
+    if body.website_url is not None:
+        safe_base(body.website_url, label="Website URL")
+        row.website_url = body.website_url.strip()
+    if body.notes is not None:
+        row.notes = body.notes.strip()
+    db.commit()
+    return {"id": row.id, "name": row.name}
+
+
+def delete_provider(db: Session, provider_id: int) -> dict[str, Any]:
+    """Delete the provider and everything under it: model entries, channel settings,
+    and task bindings pointing at its entries (the UI asks for confirmation first)."""
+    row = get_provider(db, provider_id)
+    profile_ids = [
+        pid
+        for (pid,) in db.query(ModelProfile.id)
+        .filter(ModelProfile.provider_id == provider_id)
+        .all()
+    ]
+    if profile_ids:
+        db.query(TaskBinding).filter(TaskBinding.profile_id.in_(profile_ids)).delete(
+            synchronize_session=False
+        )
+    db.query(ModelProfile).filter(ModelProfile.provider_id == provider_id).delete(
+        synchronize_session=False
+    )
+    db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == provider_id).delete(
+        synchronize_session=False
+    )
+    db.delete(row)
+    db.commit()
+    return {"deleted": provider_id}
+
+
+def create_model(db: Session, provider_id: int, body: ModelProfileCreate) -> dict[str, Any]:
+    """Validate and persist one model entry under a provider."""
+    provider = get_provider(db, provider_id)
+    model = body.model.strip()
+    if not model:
+        raise ApiBusinessError(get_spec("A0001"), message="Model name cannot be empty")
+    if body.kind not in CHANNEL_KINDS:
+        raise ApiBusinessError(get_spec("A0001"), message=f"Unknown model type: {body.kind}")
+    dup = (
+        db.query(ModelProfile)
+        .filter(ModelProfile.provider_id == provider_id, ModelProfile.model == model)
+        .first()
+    )
+    if dup:
+        raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
+    row = ModelProfile(
+        provider_id=provider.id,
+        kind=body.kind,
+        model=model,
+        display_name=body.display_name.strip(),
+        context_window=body.context_window,
+        max_output=body.max_output,
+        cap_chat=body.capabilities.chat,
+        cap_vision=body.capabilities.vision,
+        cap_audio_in=body.capabilities.audio_input,
+        cap_audio_out=body.capabilities.audio_output,
+        cap_reasoning=body.capabilities.reasoning,
+        enabled=body.enabled,
+    )
+    row.extras = merge_profile_extras(row, body.extras)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return profile_to_response(row, provider)
+
+
+def update_model(db: Session, model_id: int, body: ModelProfileUpdate) -> dict[str, Any]:
+    """Partially update one model entry; ``None`` fields keep their current value."""
+    row = get_profile(db, model_id)
+    if body.model is not None:
+        model = body.model.strip()
+        dup = (
+            db.query(ModelProfile)
+            .filter(
+                ModelProfile.provider_id == row.provider_id,
+                ModelProfile.model == model,
+                ModelProfile.id != model_id,
+            )
+            .first()
+        )
+        if dup:
+            raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
+        row.model = model
+    if body.kind is not None:
+        if body.kind not in CHANNEL_KINDS:
+            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown model type: {body.kind}")
+        row.kind = body.kind
+    if body.display_name is not None:
+        row.display_name = body.display_name.strip()
+    if body.context_window is not None:
+        row.context_window = body.context_window
+    if body.max_output is not None:
+        row.max_output = body.max_output
+    if body.capabilities is not None:
+        row.cap_chat = body.capabilities.chat
+        row.cap_vision = body.capabilities.vision
+        row.cap_audio_in = body.capabilities.audio_input
+        row.cap_audio_out = body.capabilities.audio_output
+        row.cap_reasoning = body.capabilities.reasoning
+    if body.enabled is not None:
+        row.enabled = body.enabled
+    row.extras = merge_profile_extras(row, body.extras)
+    db.commit()
+    db.refresh(row)
+    provider = db.query(LlmProvider).filter(LlmProvider.id == row.provider_id).first()
+    return profile_to_response(row, provider)
+
+
+def delete_model(db: Session, model_id: int) -> dict[str, Any]:
+    """Delete one model entry unless a task binding still points at it."""
+    row = get_profile(db, model_id)
+    if db.query(TaskBinding).filter(TaskBinding.profile_id == model_id).count():
+        raise ApiBusinessError(
+            get_spec("A0001"),
+            message="This model is bound to a task; change the default processor first",
+        )
+    db.delete(row)
+    db.commit()
+    return {"deleted": model_id}
 
 
 def list_bindings_payload(db: Session) -> dict[str, Any]:

@@ -1,7 +1,8 @@
 """Models-CRUD tests for realmock.domains.settings.routes.models.
 
-Covers: base-URL guard, model-option listing, provider/channel/model CRUD,
-  task bindings, and HTTP smoke for providers/models/bindings.
+Covers: base-URL guard (services.validation.safe_base), model-option listing,
+  provider/channel/model CRUD, task bindings, and HTTP smoke for
+  providers/models/bindings.
 Conventions: wiped api_db per test; autouse table creation.
 """
 
@@ -16,6 +17,7 @@ from fastapi.testclient import TestClient
 from realmock.asgi import app
 from realmock.domains.settings.routes import models as models_routes
 from realmock.domains.settings.services import model_registry as reg
+from realmock.domains.settings.services import validation
 from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.core.ratelimit import reset_rate_limit
 
@@ -86,24 +88,24 @@ def _profile(api_db, provider_id, model="m1", kind="chat", **kw):
 
 class TestSafeBase:
     def test_empty_ok(self) -> None:
-        models_routes._safe_base("", label="Base URL")
+        validation.safe_base("", label="Base URL")
 
     def test_bad_scheme(self) -> None:
         with pytest.raises(ApiBusinessError):
-            models_routes._safe_base("ftp://x", label="Base URL")
+            validation.safe_base("ftp://x", label="Base URL")
 
     def test_no_hostname(self) -> None:
         with pytest.raises(ApiBusinessError):
-            models_routes._safe_base("http://", label="Base URL")
+            validation.safe_base("http://", label="Base URL")
 
     def test_prod_suffix(self, monkeypatch) -> None:
         monkeypatch.setattr(
-            "realmock.platform.config.get_settings",
+            "realmock.domains.settings.services.validation.get_settings",
             lambda: SimpleNamespace(is_prod=True),
         )
         with pytest.raises(ApiBusinessError, match="production requires https"):
-            models_routes._safe_base("http://example.com", label="Base URL")
-        models_routes._safe_base("https://example.com", label="Base URL")
+            validation.safe_base("http://example.com", label="Base URL")
+        validation.safe_base("https://example.com", label="Base URL")
 
 
 class TestListModelOptions:
