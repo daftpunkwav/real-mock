@@ -14,7 +14,6 @@ still require the capability token.
 
 from __future__ import annotations
 
-import json
 import logging
 
 from fastapi import Depends, Request, Response
@@ -22,11 +21,13 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession
 from realmock.domains.prep.models import commit_session, utcnow
-from realmock.domains.prep.services import LINKED_BLOCK_MARKER, format_linked_session
+from realmock.domains.prep.services import refresh_linked_block
+from realmock.domains.prep.services.maintenance import (
+    purge_empty_sessions as purge_empty_session_rows,
+)
 from realmock.domains.prep.schemas import PrepArchiveRequest, PrepLinkRequest, PrepPurgeAllRequest
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
-from realmock.platform.core.security import redact_api_key
 from realmock.platform.core.session_auth import (
     cookie_should_be_secure,
     new_access_token,
@@ -64,27 +65,7 @@ async def purge_empty_sessions(
 ):
     """Delete sessions that never accumulated user/assistant content."""
     assert_csrf_if_cookie_only(request, used_header=False)
-    rows = db.query(PrepSession).all()
-    deleted = 0
-    for row in rows:
-        try:
-            messages = json.loads(row.messages or "[]")
-        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
-            # Corrupt rows may still hold content: never purge them silently
-            # by type confusion (same contract as _load_session_messages).
-            logger.warning(
-                "Prep history unreadable, skipping purge sid=%s",
-                getattr(row, "id", ""),
-            )
-            continue
-        if isinstance(messages, list) and not any(
-            m.get("role") in ("user", "assistant") and str(m.get("content") or "").strip()
-            for m in messages
-            if isinstance(m, dict)
-        ):
-            db.delete(row)
-            deleted += 1
-    commit_session(db)
+    deleted = purge_empty_session_rows(db)
     return {"deleted": deleted}
 
 
@@ -164,54 +145,8 @@ async def link_prep_session(
     session.linked_session_id = target
     session.updated_at = utcnow()
     commit_session(db)
-    _refresh_linked_block(session, db)
+    refresh_linked_block(session, db)
     return {"id": session_id, "linked_session_id": target}
-
-
-def _refresh_linked_block(session: PrepSession, db: Session) -> None:
-    """Rewrite the linked-session system block so linking takes effect this turn.
-
-    The seeded system messages (prompt + context blocks) are never touched;
-    only the dedicated linked block after the leading system run is replaced.
-    Best-effort: a broken history must not fail the link itself.
-    """
-    try:
-        try:
-            messages = json.loads(session.messages or "[]")
-        except json.JSONDecodeError:
-            return
-        if not isinstance(messages, list):
-            return
-        kept = [
-            m for m in messages
-            if not (
-                isinstance(m, dict)
-                and m.get("role") == "system"
-                and isinstance(m.get("content"), str)
-                and m["content"].startswith(LINKED_BLOCK_MARKER)
-            )
-        ]
-        block = format_linked_session(db, session.linked_session_id)
-        if block:
-            # Anchor after the leading system run (multi-message seeding):
-            # the block reads as one more pinned context section.
-            anchor = 0
-            while (
-                anchor < len(kept)
-                and isinstance(kept[anchor], dict)
-                and kept[anchor].get("role") == "system"
-            ):
-                anchor += 1
-            kept.insert(anchor, {"role": "system", "content": f"{LINKED_BLOCK_MARKER}\n{block}"})
-        session.messages = json.dumps(kept, ensure_ascii=False)
-        session.updated_at = utcnow()
-        commit_session(db)
-    except Exception as exc:
-        db.rollback()
-        logger.warning(
-            "Linked-block refresh failed sid=%s: %s",
-            session.id, redact_api_key(str(exc)),
-        )
 
 
 __all__ = [

@@ -40,6 +40,8 @@ _projection: SessionScoreProjectionPort = _NoopScoreProjection()
 def register_session_score_projection(port: SessionScoreProjectionPort) -> None:
     """Register the interview score-projection adapter (composition root)."""
     global _projection
+    if not isinstance(_projection, _NoopScoreProjection) and port is not _projection:
+        logger.warning("session score projection re-registered; replacing previous adapter")
     _projection = port
 
 

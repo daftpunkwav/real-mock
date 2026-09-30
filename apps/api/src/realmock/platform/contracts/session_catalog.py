@@ -9,11 +9,14 @@ Score writes use :mod:`realmock.platform.contracts.session_score` separately.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 class SessionCatalogItem(BaseModel):
@@ -128,6 +131,8 @@ _catalog: SessionCatalogPort = _EmptySessionCatalog()
 def register_session_catalog(catalog: SessionCatalogPort) -> None:
     """Register the session catalog implementation (composition root / interview)."""
     global _catalog
+    if not isinstance(_catalog, _EmptySessionCatalog) and catalog is not _catalog:
+        logger.warning("session catalog re-registered; replacing previous adapter")
     _catalog = catalog
 
 

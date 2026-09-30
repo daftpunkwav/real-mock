@@ -23,7 +23,7 @@ from realmock.domains.growth.services.insight_scheduler import (
     schedule_growth_insight_regen,
 )
 from realmock.domains.growth.services.insight_store import get_latest_insight, insight_response
-from realmock.domains.growth.services.learning import get_system_insights
+from realmock.domains.growth.services.learning import system_insights_with_capability_flags
 from realmock.platform.database import get_sessions_db
 
 logger = logging.getLogger(__name__)
@@ -70,16 +70,7 @@ def get_growth_history(db: Session = Depends(get_sessions_db)) -> list[dict[str,
 @router.get("/system-insights", response_model=SystemGrowthInsights)
 def get_system_growth_insights() -> dict[str, Any]:
     """System-level self-growth insights (cross-interview aggregates)."""
-    from realmock.platform.capabilities.integrations.github.token_store import has_stored_token
-    from realmock.platform.config import get_settings
-
-    insights = get_system_insights(limit=15)
-    # The growth page renders these two flags from the payload; a stored
-    # credential or process-env token both count as configured.
-    settings = get_settings()
-    insights["github_token_configured"] = bool(has_stored_token() or settings.github_token)
-    insights["interview_tools_enabled"] = bool(settings.interview_tools_enabled)
-    return insights
+    return system_insights_with_capability_flags(limit=15)
 
 
 @router.get("/aggregated", response_model=GrowthAggregatedStats)

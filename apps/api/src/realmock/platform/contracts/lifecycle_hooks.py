@@ -28,21 +28,30 @@ _on_report_summary: ReportSummaryHandler | None = None
 _system_insights_provider: SystemInsightsProvider | None = None
 
 
+def _warn_replacement(slot: str, current: Any, incoming: Any) -> None:
+    """Single-slot registration silently overwrites otherwise; make it loud."""
+    if current is not None and incoming is not None and incoming is not current:
+        logger.warning("%s handler re-registered; replacing previous handler", slot)
+
+
 def set_on_interview_finished(handler: InterviewFinishedHandler | None) -> None:
     """Register (or clear) the records ingest handler for interview finish."""
     global _on_interview_finished
+    _warn_replacement("interview-finished", _on_interview_finished, handler)
     _on_interview_finished = handler
 
 
 def set_on_report_summary(handler: ReportSummaryHandler | None) -> None:
     """Register (or clear) the growth handler for report-summary ready."""
     global _on_report_summary
+    _warn_replacement("report-summary", _on_report_summary, handler)
     _on_report_summary = handler
 
 
 def set_system_insights_provider(provider: SystemInsightsProvider | None) -> None:
     """Register (or clear) the system-insights callable for interview runners."""
     global _system_insights_provider
+    _warn_replacement("system-insights", _system_insights_provider, provider)
     _system_insights_provider = provider
 
 

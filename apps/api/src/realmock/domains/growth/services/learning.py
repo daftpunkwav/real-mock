@@ -272,8 +272,25 @@ def get_system_insights(limit: int = 10) -> dict[str, Any]:
     }
 
 
+def system_insights_with_capability_flags(limit: int = 15) -> dict[str, Any]:
+    """System insights plus the capability flags the growth page renders.
+
+    A stored credential or process-env token both count as configured;
+    ``interview_tools_enabled`` mirrors the process-env switch.
+    """
+    from realmock.platform.capabilities.integrations.github.token_store import has_stored_token
+    from realmock.platform.config import get_settings
+
+    insights = get_system_insights(limit=limit)
+    settings = get_settings()
+    insights["github_token_configured"] = bool(has_stored_token() or settings.github_token)
+    insights["interview_tools_enabled"] = bool(settings.interview_tools_enabled)
+    return insights
+
+
 __all__ = [
     "LearningSessionLike",
     "get_system_insights",
     "record_interview_learning",
+    "system_insights_with_capability_flags",
 ]

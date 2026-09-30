@@ -12,6 +12,13 @@ stay in orchestration functions in this file, while mechanical assembly is split
 Runtime configuration priority: ``model_profiles`` system (task_bindings → provider+model entry)
 > legacy ``stage_configs`` > legacy ``llm_settings``. On first use, stage_configs are imported once
 into the model-entry system; the stage_configs table is retained for rollback safety, but runtime no longer reads it.
+
+Layering note (accepted debt): the model-entry symbol group re-exported here
+(``STAGE_BY_TASK`` / ``DEFAULT_FALLBACK`` / ``ensure_provider_channels`` /
+``migrate_stages_to_profiles`` / ``profile_to_response`` / the secrets-extras helpers)
+is settings-domain business hosted in platform so bootstrap and domains can share
+it; relocating it under ``domains/settings`` needs a dedicated stage (today's
+consumers: ``domains/settings/*``, ``bootstrap``, and the platform runtime resolver).
 """
 
 from __future__ import annotations

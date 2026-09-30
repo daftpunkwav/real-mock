@@ -33,11 +33,10 @@ def _growth_table(engine):
 
 
 def test_growth_system_insights_includes_github_flag(monkeypatch) -> None:
-    import importlib
-
-    mod = importlib.import_module("realmock.domains.growth.routes.router")
-
-    monkeypatch.setattr(mod, "get_system_insights", lambda limit=15: {"a": 1})
+    monkeypatch.setattr(
+        "realmock.domains.growth.services.learning.get_system_insights",
+        lambda limit=15: {"a": 1},
+    )
     monkeypatch.setattr(
         "realmock.platform.capabilities.integrations.github.token_store.has_stored_token",
         lambda: False,
