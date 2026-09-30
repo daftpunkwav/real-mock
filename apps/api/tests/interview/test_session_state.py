@@ -320,6 +320,18 @@ def test_advance_phase_marker_and_max(db) -> None:
     assert st4.questions_in_phase == 1
 
 
+def test_last_phase_counter_caps_at_phase_budget(db) -> None:
+    """Past the last phase the counter would otherwise grow on every further
+    turn; it must cap at the phase budget so step_message stays sane."""
+    st = _state(db)
+    st.current_phase_idx = len(st.phases) - 1
+    cap = st.current_phase().max_questions
+    st.questions_in_phase = cap
+    for _ in range(5):
+        assert st.advance_phase_if_needed("x", phase_complete=True) is False
+    assert st.questions_in_phase == cap
+
+
 def test_load_state_tolerates_malformed_types(db) -> None:
     st = _state(
         db,

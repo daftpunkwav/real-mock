@@ -374,7 +374,12 @@ class InterviewSessionState(SessionPromptMixin):
         if phase_complete or max_reached:
             # Defense: Avoid crossing the boundary and going beyond the end of the workflow
             if self.current_phase_idx >= len(self.phases) - 1:
-                self.questions_in_phase += 1
+                # Last phase: the counter would otherwise grow unboundedly on
+                # every further turn (display-only, but step_message would show
+                # nonsense like "question 400 of the current step"). Cap it at
+                # the phase budget once reached.
+                cap = self.current_phase().max_questions
+                self.questions_in_phase = min(self.questions_in_phase + 1, cap)
                 return False
             self._advance_phase()
             return True

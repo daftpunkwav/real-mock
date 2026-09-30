@@ -100,8 +100,21 @@ def _prune_dangling_tool_tail(messages: list[dict]) -> list[dict]:
     end: orphan tool results, incomplete result runs, and trailing tool-calling
     assistants are removed until the tail is protocol-clean. Mid-history pairs
     cannot be broken by a suffix cut and are left untouched.
+
+    Anything dropped is logged: a heavily malformed history can shed many
+    messages here, and the cut must stay diagnosable.
     """
-    out = [m for m in messages if isinstance(m, dict)]
+    kept = _prune_tail_until_clean([m for m in messages if isinstance(m, dict)])
+    if len(kept) < len(messages):
+        logger.warning(
+            "Pruned dangling tool tail: %d -> %d messages (prefix cut)",
+            len(messages),
+            len(kept),
+        )
+    return kept
+
+
+def _prune_tail_until_clean(out: list[dict]) -> list[dict]:
     while True:
         if not out:
             return out

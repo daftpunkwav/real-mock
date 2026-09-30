@@ -217,6 +217,39 @@ def test_load_ledger_rebuilds_corrupt_evidence_row(db) -> None:
     assert doc["turns"] == []
 
 
+def test_load_ledger_skips_corrupt_turn_row(db) -> None:
+    """A torn/hand-edited turn row degrades to a skipped turn plus the corrupt
+    flag instead of failing every read of the session's ledger."""
+    row = _row(db)
+    append_turn(db, row, phase="p", assistant_text="a1")
+    db.add(InterviewTurn(session_id=row.id, turn_id="t-broken", seq=99, turn="{not json"))
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
+    assert len(doc["turns"]) == 1
+    assert doc["turns"][0]["assistant"]["text"] == "a1"
+
+
+def test_append_last_turn_flag_skips_corrupt_newest_row(db) -> None:
+    """Flagging onto an unparsable newest row is a logged no-op, not a crash."""
+    row = _row(db)
+    append_turn(db, row, phase="p", assistant_text="a1")
+    newest = (
+        db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id)
+        .order_by(InterviewTurn.seq.desc())
+        .first()
+    )
+    assert newest is not None
+    newest.turn = "{broken"
+    db.commit()
+
+    append_last_turn_flag(db, row, "k", "v")  # must not raise
+    doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
+
+
 def test_freeze_ledger_logs_and_keeps_corrupt_evidence(db) -> None:
     """Freezing a ledger with preserved corruption keeps the evidence."""
     row = _row(db)

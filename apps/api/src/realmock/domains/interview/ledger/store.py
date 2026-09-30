@@ -64,8 +64,10 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
         "schema": SCHEMA,
         "session_id": int(session_id),
         "frozen": bool(frozen),
-        "turns": [json.loads(r.turn) for r in rows if r.seq != CORRUPT_SEQ],
+        "turns": [],
     }
+    # One corrupt turn row (hand-edited DB, torn write) must degrade to a
+    # skipped turn, not kill every read of the session's ledger.
     for r in rows:
         if r.seq == CORRUPT_SEQ:
             try:
@@ -76,6 +78,16 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
                 doc["corrupt"] = True
                 if isinstance(evidence.get("raw_unparsed"), str):
                     doc["raw_unparsed"] = evidence["raw_unparsed"][:CORRUPT_RAW_MAX]
+            continue
+        try:
+            doc["turns"].append(json.loads(r.turn))
+        except (json.JSONDecodeError, TypeError):
+            doc["corrupt"] = True
+            logger.warning(
+                "ledger turn row unparsable sid=%s seq=%s; skipped",
+                session_id,
+                r.seq,
+            )
     return doc
 
 
@@ -210,7 +222,20 @@ def append_last_turn_flag(
     if not turns:
         return
     row = turns[-1]
-    turn = json.loads(row.turn)
+    try:
+        turn = json.loads(row.turn)
+    except (json.JSONDecodeError, TypeError):
+        # A corrupt newest row cannot take a flag; skipping beats failing the
+        # realtime event that merely wanted to annotate it.
+        logger.warning(
+            "ledger newest turn unparsable sid=%s seq=%s; flag %s skipped",
+            session_id,
+            row.seq,
+            key,
+        )
+        return
+    if not isinstance(turn, dict):
+        return
     flags = turn.get("flags")
     if not isinstance(flags, dict):
         flags = {}

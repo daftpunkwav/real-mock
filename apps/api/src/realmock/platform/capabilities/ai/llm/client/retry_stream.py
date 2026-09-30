@@ -60,11 +60,14 @@ async def stream_message_round_retry(
         while True:
             assembler = _OpenAIRoundAssembler()
             emitted = False
+            if usage is not None:
+                # Anchor per attempt (same semantics as streaming's
+                # _open_stream_with_retry): a retried stream then reports the
+                # successful attempt's latency, not the retry ladder's wait.
+                usage.note_request_start()
             try:
                 async with c.stream("POST", url, headers=headers, json=payload) as resp:
                     if usage is not None:
-                        if attempt == 0:
-                            usage.note_request_start()
                         usage.note_response_meta(getattr(resp, "headers", None))
                     if resp.status_code in (400, 422) and "stream_options" in payload:
                         body = (await resp.aread()).decode("utf-8", "ignore")
@@ -155,11 +158,14 @@ async def stream_text_retry(
             # <think> open/close state from a failed attempt must not bleed
             # into the retry stream.
             sanitizer = StreamSanitizer()
+            if usage is not None:
+                # Anchor per attempt (same semantics as streaming's
+                # _open_stream_with_retry): a retried stream then reports the
+                # successful attempt's latency, not the retry ladder's wait.
+                usage.note_request_start()
             try:
                 async with c.stream("POST", url, headers=headers, json=payload) as resp:
                     if usage is not None:
-                        if attempt == 0:
-                            usage.note_request_start()
                         usage.note_response_meta(getattr(resp, "headers", None))
                     if resp.status_code in (400, 422) and "stream_options" in payload:
                         # Supplier rejects stream_options: log the downgrade,

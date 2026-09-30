@@ -64,15 +64,60 @@ def _default_data() -> dict[str, Any]:
     }
 
 
+def _normalize(data: Any) -> dict[str, Any]:
+    """Coerce a loaded snapshot into the expected shape.
+
+    A partially-written or hand-edited file can hold valid JSON of the wrong
+    shape (a bare list, string-valued counters, non-dict score entries); left
+    as-is it would poison every later read/write with AttributeErrors. Keep
+    the well-typed parts, drop the rest, and fill missing keys with defaults.
+    """
+    if not isinstance(data, dict):
+        return _default_data()
+    norm = _default_data()
+    for key in (
+        "followup_category_hits",
+        "tool_call_counts",
+        "company_session_counts",
+        "role_session_counts",
+    ):
+        raw = data.get(key)
+        if isinstance(raw, dict):
+            norm[key] = {
+                str(k): int(v)
+                for k, v in raw.items()
+                if isinstance(v, (int, float)) and not isinstance(v, bool)
+            }
+    avgs = data.get("avg_scores_by_company")
+    if isinstance(avgs, dict):
+        clean: dict[str, dict[str, int]] = {}
+        for k, v in avgs.items():
+            if (
+                isinstance(v, dict)
+                and isinstance(v.get("sum"), (int, float))
+                and isinstance(v.get("n"), (int, float))
+                and not isinstance(v.get("sum"), bool)
+                and not isinstance(v.get("n"), bool)
+            ):
+                clean[str(k)] = {"sum": int(v["sum"]), "n": int(v["n"])}
+        norm["avg_scores_by_company"] = clean
+    probes = data.get("effective_probes")
+    if isinstance(probes, list):
+        norm["effective_probes"] = [p for p in probes if isinstance(p, dict)]
+    if isinstance(data.get("updated_at"), str):
+        norm["updated_at"] = data["updated_at"]
+    return norm
+
+
 def _load_unlocked() -> dict[str, Any]:
     path = _memory_path()
     if not path.exists():
         return _default_data()
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return _normalize(json.loads(path.read_text(encoding="utf-8")))
     except Exception as e:
         logger.warning("failed to read system_learning: %s", e)
-        return {"version": 1}
+        return _default_data()
 
 
 def _save_unlocked(data: dict[str, Any]) -> None:

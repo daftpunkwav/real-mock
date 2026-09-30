@@ -17,6 +17,18 @@ from __future__ import annotations
 from typing import Any
 
 
+def _safe_index(value: Any) -> int | None:
+    """Coerce a stream-event index to int; None when malformed.
+
+    Non-conforming gateways can send non-numeric indices (``"abc"``, objects);
+    a raw ``int()`` there would raise and kill the whole streaming turn.
+    """
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return None
+
+
 class _OpenAIRoundAssembler:
     """openai_chat streaming deltas → (reasoning deltas, drained content deltas, assembled message).
 
@@ -65,7 +77,11 @@ class _OpenAIRoundAssembler:
         for tc in delta.get("tool_calls") or []:
             if not isinstance(tc, dict):
                 continue
-            idx = int(tc.get("index") or 0)
+            idx = _safe_index(tc.get("index"))
+            if idx is None:
+                # Unattributable fragment: skip it rather than merge it into
+                # call 0 (corrupting that call) or crash the stream.
+                continue
             slot = self._calls.setdefault(
                 idx, {"id": "", "function": {"name": "", "arguments": ""}}
             )
@@ -134,19 +150,22 @@ class _AnthropicRoundAssembler:
         if etype == "content_block_start":
             block = event.get("content_block") or {}
             btype = block.get("type")
-            idx = int(event.get("index") or 0)
-            if btype == "tool_use":
+            idx = _safe_index(event.get("index"))
+            if btype == "tool_use" and idx is not None:
                 self._blocks[idx] = {
                     "id": str(block.get("id") or ""),
                     "name": str(block.get("name") or ""),
                     "args": "",
                 }
-            elif btype == "thinking":
+            elif btype == "thinking" and idx is not None:
                 self._thinking[idx] = {"thinking": "", "signature": ""}
             return ""
         if etype != "content_block_delta":
             return ""
-        idx = int(event.get("index") or 0)
+        raw_idx = _safe_index(event.get("index"))
+        # A malformed index routes nowhere (-1) instead of killing the stream;
+        # text deltas below do not depend on it and are still preserved.
+        idx = -1 if raw_idx is None else raw_idx
         delta = event.get("delta") or {}
         dtype = delta.get("type")
         if dtype == "thinking_delta":

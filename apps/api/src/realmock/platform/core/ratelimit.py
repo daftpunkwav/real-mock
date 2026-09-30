@@ -23,6 +23,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import math
 import threading
 import time
 from collections import deque
@@ -186,7 +187,10 @@ def _check_rate_limit_db_once(
         except (json.JSONDecodeError, TypeError):
             stamps = []
         stamps = [float(t) for t in stamps if isinstance(t, (int, float))]
-        stamps = [t for t in stamps if t > now - window_seconds]
+        # Non-finite timestamps (corrupt/hand-edited row; JSON "1e400" parses
+        # to inf) would never fall out of the sliding window and permanently
+        # brick the key with 429s, so drop them like expired ones.
+        stamps = [t for t in stamps if math.isfinite(t) and t > now - window_seconds]
         if len(stamps) >= limit:
             retry_after = max(1, int(window_seconds - (now - stamps[0])))
             raise ApiBusinessError(

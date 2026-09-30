@@ -131,7 +131,13 @@ def _clip_list_str(values: object, limit: int, item_max: int = 200) -> list[str]
 
 
 def _coerce_int_score(v: object) -> int | None:
-    """Lenient int coercion: int / float / numeric strings (incl. ``"88.7"``); else None."""
+    """Lenient int coercion: int / float / numeric strings (incl. ``"88.7"``); else None.
+
+    Decimal input is TRUNCATED toward zero on purpose (``"88.7"`` -> 88),
+    matching the pinned behavior in tests and already-stored rows; only
+    computed aggregates (``compute_score_from_dims``,
+    ``benchmark_percentile_from_score``) round.
+    """
     try:
         return int(v)  # type: ignore[arg-type, call-overload]
     except (TypeError, ValueError):

@@ -251,6 +251,38 @@ def test_anthropic_round_assembler_thinking_and_tool_use() -> None:
     ]
 
 
+def test_openai_round_assembler_malformed_index_skipped() -> None:
+    """A non-numeric tool_call index skips that fragment instead of killing the whole streaming round."""
+    from realmock.platform.capabilities.ai.llm.client.assemblers import _OpenAIRoundAssembler
+
+    a = _OpenAIRoundAssembler()
+    a.feed({"choices": [{"delta": {"tool_calls": [
+        {"index": 0, "id": "c1", "function": {"name": "web_search", "arguments": '{"q": 1}'}}
+    ]}}]})
+    a.feed({"choices": [{"delta": {"tool_calls": [{"index": "abc", "function": {"arguments": "garbage"}}]}}]})
+    a.feed({"choices": [{"delta": {"tool_calls": [{"index": {"bad": 1}, "function": {"arguments": "x"}}]}}]})
+    msg = a.message()
+    assert msg["tool_calls"] == [
+        {"id": "c1", "type": "function", "function": {"name": "web_search", "arguments": '{"q": 1}'}}
+    ]
+
+
+def test_anthropic_round_assembler_malformed_index_no_crash() -> None:
+    """A malformed block index routes nowhere instead of raising; text deltas still assemble."""
+    from realmock.platform.capabilities.ai.llm.client.assemblers import _AnthropicRoundAssembler
+
+    a = _AnthropicRoundAssembler()
+    a.feed({"type": "content_block_start", "index": "abc", "content_block": {"type": "text"}})
+    a.feed({"type": "content_block_delta", "index": "oops", "delta": {"type": "text_delta", "text": "Hello"}})
+    assert a.feed({
+        "type": "content_block_delta", "index": None,
+        "delta": {"type": "thinking_delta", "thinking": "x"},
+    }) == "x"
+    msg = a.message()
+    assert msg["content"] == "Hello"
+    assert "tool_calls" not in msg
+
+
 # ── Streaming 429/5xx retries (retry_stream: raise_for_status must run after the retry decision) ──────
 
 

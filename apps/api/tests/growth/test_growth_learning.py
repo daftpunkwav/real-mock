@@ -57,3 +57,29 @@ def test_learning_concurrent_rmw(tmp_path, monkeypatch):
 
     insights = get_system_insights()
     assert insights["company_session_counts"].get("bytedance") == 20
+
+
+def test_learning_wrong_shape_file_normalized(tmp_path, monkeypatch):
+    """Valid JSON of the wrong shape must degrade to defaults instead of
+    poisoning later reads/writes with AttributeErrors."""
+    monkeypatch.setattr(learning_mod, "_memory_path", lambda: tmp_path / "sys.json")
+    (tmp_path / "sys.json").write_text(
+        json.dumps({
+            "company_session_counts": "nope",
+            "avg_scores_by_company": {"acme": {"sum": "x", "n": 0}},
+            "effective_probes": [1, "two", {"point": "kept"}],
+            "updated_at": 123,
+        }),
+        encoding="utf-8",
+    )
+
+    session = SimpleNamespace(id=7, role="r", company="c", overall_score=80, agent_state=None)
+    record_interview_learning(session)  # must not raise
+
+    insights = get_system_insights()
+    # The string-valued counter map was dropped; the new write starts clean.
+    assert insights["company_session_counts"].get("c") == 1
+    # Non-dict score entries are dropped; the new session's score lands.
+    assert insights["avg_scores_by_company"].get("c") == 80.0
+    # Only dict probes survive normalization.
+    assert [p.get("point") for p in insights["recent_probes"]] == ["kept"]

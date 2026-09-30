@@ -194,6 +194,23 @@ class TestDbRatelimitBranches:
             rl._check_rate_limit_db(bucket_key=("k", "x"), limit=2, window_seconds=60)
         assert e.value.status_code == 429
 
+    def test_nonfinite_timestamps_never_brick_key(self, monkeypatch) -> None:
+        """JSON Infinity/NaN (literal or 1e400 overflow) must leave the window
+        like expired stamps instead of pinning the key at 429 forever."""
+        import math
+
+        now = time.time()
+        row = SimpleNamespace(
+            bucket_key="k:x",
+            timestamps_json=json.dumps([float("inf"), float("nan"), now]),
+        )
+        db = _FakeDB(row=row)
+        monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
+        # Without the finite filter the lingering inf alone reaches limit=2.
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=2, window_seconds=60)
+        saved = json.loads(row.timestamps_json)
+        assert saved and all(math.isfinite(t) for t in saved)
+
     def test_commit_failure_reraises(self, monkeypatch) -> None:
         db = _FakeDB(row=None, fail_commit=True)
         monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
