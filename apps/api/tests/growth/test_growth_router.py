@@ -47,6 +47,7 @@ def test_growth_system_insights_includes_github_flag(monkeypatch) -> None:
     assert resp.status_code == 200
     assert resp.json()["a"] == 1
     assert "github_token_configured" in resp.json()
+    assert "interview_tools_enabled" in resp.json()
 
 
 def test_growth_aggregated_stats(db) -> None:

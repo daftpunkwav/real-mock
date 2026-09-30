@@ -19,6 +19,18 @@ from realmock.platform.services.pipeline.config import (
     get_provider_model_rows,
     profile_to_response,
 )
+from realmock.domains.settings.schemas import (
+    BindingsResponse,
+    ChannelModelCatalogResponse,
+    ModelOptionsResponse,
+    ModelProfileResponse,
+    ProviderChannelResponse,
+    ProviderListResponse,
+    ProviderNameResponse,
+    RecommendedVendorsResponse,
+    SettingsDeleteResponse,
+    VendorApplyResponse,
+)
 from realmock.domains.settings.services.model_registry import (
     BindingUpdate,
     CHANNEL_KINDS,
@@ -63,7 +75,7 @@ def _safe_base(url: str, *, label: str) -> None:
         )
 
 
-@router.get("/models")
+@router.get("/models", response_model=ModelOptionsResponse)
 def list_model_options(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Flat model list for scene selector (enabled entries only, with ability bits and context windows)."""
     rows = get_provider_model_rows(db)
@@ -76,12 +88,12 @@ def list_model_options(db: Session = Depends(get_db)) -> dict[str, Any]:
     }
 
 
-@router.get("/providers")
+@router.get("/providers", response_model=ProviderListResponse)
 def list_providers(db: Session = Depends(get_db)) -> dict[str, Any]:
     return list_providers_payload(db)
 
 
-@router.get("/vendors")
+@router.get("/vendors", response_model=RecommendedVendorsResponse, response_model_exclude_none=True)
 def recommended_vendors() -> dict[str, Any]:
     """Recommended (adapted) vendors tree: level 1 vendor, level 2 model type.
 
@@ -93,14 +105,14 @@ def recommended_vendors() -> dict[str, Any]:
     return recommended_vendors_payload()
 
 
-@router.post("/vendors/{vendor_id}/apply")
+@router.post("/vendors/{vendor_id}/apply", response_model=VendorApplyResponse)
 def apply_recommended_vendor(vendor_id: str, db: Session = Depends(get_db)) -> dict:
     """One-click provisioning: provider shell + one channel and default entry per adapted
     capability; Base URLs and names prefill from the vendor catalog, API Keys stay empty."""
     return apply_vendor(db, vendor_id)
 
 
-@router.post("/providers")
+@router.post("/providers", response_model=ProviderNameResponse)
 def create_provider(body: ProviderCreate, db: Session = Depends(get_db)) -> dict:
     name = body.name.strip()
     if not name:
@@ -136,7 +148,7 @@ def create_provider(body: ProviderCreate, db: Session = Depends(get_db)) -> dict
     return {"id": row.id, "name": row.name}
 
 
-@router.put("/providers/{provider_id}")
+@router.put("/providers/{provider_id}", response_model=ProviderNameResponse)
 def update_provider(provider_id: int, body: ProviderUpdate, db: Session = Depends(get_db)) -> dict:
     row = get_provider(db, provider_id)
     if body.name is not None:
@@ -158,7 +170,7 @@ def update_provider(provider_id: int, body: ProviderUpdate, db: Session = Depend
     return {"id": row.id, "name": row.name}
 
 
-@router.put("/providers/{provider_id}/channels/{kind}")
+@router.put("/providers/{provider_id}/channels/{kind}", response_model=ProviderChannelResponse)
 def update_provider_channel(
     provider_id: int, kind: str, body: ChannelUpdate, db: Session = Depends(get_db)
 ) -> dict:
@@ -169,14 +181,14 @@ def update_provider_channel(
     return upsert_channel(db, provider_id, kind, body)
 
 
-@router.get("/providers/{provider_id}/channels/{kind}/catalog")
+@router.get("/providers/{provider_id}/channels/{kind}/catalog", response_model=ChannelModelCatalogResponse)
 def fetch_channel_model_catalog(provider_id: int, kind: str, db: Session = Depends(get_db)) -> dict:
     """Model ids offered for this channel: vendor descriptor list or the provider's
     OpenAI-compatible /models endpoint."""
     return channel_model_catalog(db, provider_id, kind)
 
 
-@router.delete("/providers/{provider_id}")
+@router.delete("/providers/{provider_id}", response_model=SettingsDeleteResponse)
 def delete_provider(provider_id: int, db: Session = Depends(get_db)) -> dict:
     """Delete the provider and everything under it: model entries, channel settings,
     and task bindings pointing at its entries (the UI asks for confirmation first)."""
@@ -202,7 +214,7 @@ def delete_provider(provider_id: int, db: Session = Depends(get_db)) -> dict:
     return {"deleted": provider_id}
 
 
-@router.post("/providers/{provider_id}/models")
+@router.post("/providers/{provider_id}/models", response_model=ModelProfileResponse)
 def create_model(provider_id: int, body: ModelProfileCreate, db: Session = Depends(get_db)) -> dict:
     provider = get_provider(db, provider_id)
     model = body.model.strip()
@@ -238,7 +250,7 @@ def create_model(provider_id: int, body: ModelProfileCreate, db: Session = Depen
     return profile_to_response(row, provider)
 
 
-@router.put("/models/{model_id}")
+@router.put("/models/{model_id}", response_model=ModelProfileResponse)
 def update_model(model_id: int, body: ModelProfileUpdate, db: Session = Depends(get_db)) -> dict:
     row = get_profile(db, model_id)
     if body.model is not None:
@@ -280,7 +292,7 @@ def update_model(model_id: int, body: ModelProfileUpdate, db: Session = Depends(
     return profile_to_response(row, provider)
 
 
-@router.delete("/models/{model_id}")
+@router.delete("/models/{model_id}", response_model=SettingsDeleteResponse)
 def delete_model(model_id: int, db: Session = Depends(get_db)) -> dict:
     row = get_profile(db, model_id)
     if db.query(TaskBinding).filter(TaskBinding.profile_id == model_id).count():
@@ -293,11 +305,11 @@ def delete_model(model_id: int, db: Session = Depends(get_db)) -> dict:
     return {"deleted": model_id}
 
 
-@router.get("/bindings")
+@router.get("/bindings", response_model=BindingsResponse)
 def get_bindings(db: Session = Depends(get_db)) -> dict[str, Any]:
     return list_bindings_payload(db)
 
 
-@router.put("/bindings/{task}")
+@router.put("/bindings/{task}", response_model=BindingsResponse)
 def update_binding(task: str, body: BindingUpdate, db: Session = Depends(get_db)) -> dict[str, Any]:
     return update_binding_record(db, task, body)

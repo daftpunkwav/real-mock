@@ -37,6 +37,7 @@ from realmock.platform.services.pipeline.config import (
     stage_to_response,
     update_stage_config,
 )
+from realmock.domains.settings.schemas import VoiceCatalogResponse
 from realmock.domains.settings.services.route_timing import run_timed_stage_test
 from realmock.domains.settings.services.validation import safe_base, validate_stage_config
 from realmock.domains.settings.services.stage_tests import test_recognize, test_reason, test_speak
@@ -44,7 +45,7 @@ from realmock.domains.settings.services.stage_tests import test_recognize, test_
 router = APIRouter()
 
 
-@router.get("/catalog")
+@router.get("/catalog", response_model=VoiceCatalogResponse)
 def get_voice_catalog() -> dict[str, Any]:
     """Three-stage supplier capability catalog."""
     return catalog_payload()

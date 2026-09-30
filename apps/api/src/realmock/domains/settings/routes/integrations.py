@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from realmock.domains.settings.schemas import GithubStatusResponse, GithubTestResponse
 from realmock.domains.settings.services.github_integration import (
     GithubTokenSave,
     GithubTokenTest,
@@ -25,25 +26,25 @@ from realmock.platform.database import get_db
 router = APIRouter()
 
 
-@router.get("/integrations/github")
+@router.get("/integrations/github", response_model=GithubStatusResponse)
 def github_status(db: Session = Depends(get_db)) -> dict[str, Any]:
     """GitHub link status: configured flag plus tail mask, never the secret."""
     return get_github_status(db)
 
 
-@router.post("/integrations/github")
+@router.post("/integrations/github", response_model=GithubStatusResponse)
 def save_github(body: GithubTokenSave, db: Session = Depends(get_db)) -> dict[str, Any]:
     """Validate, encrypt, and store the GitHub personal access token."""
     return save_github_token(db, body.token)
 
 
-@router.delete("/integrations/github")
+@router.delete("/integrations/github", response_model=GithubStatusResponse)
 def clear_github(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Delete the stored GitHub token (process-env fallback still applies)."""
     return clear_github_token(db)
 
 
-@router.post("/integrations/github/test")
+@router.post("/integrations/github/test", response_model=GithubTestResponse)
 async def test_github(body: GithubTokenTest, db: Session = Depends(get_db)) -> dict[str, Any]:
     """Probe ``GET /rate_limit`` with the candidate, stored, or env token.
 

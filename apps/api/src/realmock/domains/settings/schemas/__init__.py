@@ -1,0 +1,53 @@
+"""Settings domain schemas (HTTP response contracts)."""
+
+from __future__ import annotations
+
+from realmock.domains.settings.schemas.providers import (
+    BindingFallback,
+    BindingsResponse,
+    ChannelModelCatalogResponse,
+    GithubStatusResponse,
+    GithubTestResponse,
+    ModelCapabilitiesResponse,
+    ModelKind,
+    ModelOptionsResponse,
+    ModelProfileResponse,
+    ProviderChannelResponse,
+    ProviderListResponse,
+    ProviderNameResponse,
+    ProviderWithModelsResponse,
+    RecommendedVendorCapability,
+    RecommendedVendorResponse,
+    RecommendedVendorsResponse,
+    SettingsDeleteResponse,
+    TaskBindingView,
+    VendorApplyResponse,
+    VendorCapabilityDef,
+    VoiceCatalogResponse,
+    VoiceProviderOptionResponse,
+)
+
+__all__ = [
+    "BindingFallback",
+    "BindingsResponse",
+    "ChannelModelCatalogResponse",
+    "GithubStatusResponse",
+    "GithubTestResponse",
+    "ModelCapabilitiesResponse",
+    "ModelKind",
+    "ModelOptionsResponse",
+    "ModelProfileResponse",
+    "ProviderChannelResponse",
+    "ProviderListResponse",
+    "ProviderNameResponse",
+    "ProviderWithModelsResponse",
+    "RecommendedVendorCapability",
+    "RecommendedVendorResponse",
+    "RecommendedVendorsResponse",
+    "SettingsDeleteResponse",
+    "TaskBindingView",
+    "VendorApplyResponse",
+    "VendorCapabilityDef",
+    "VoiceCatalogResponse",
+    "VoiceProviderOptionResponse",
+]

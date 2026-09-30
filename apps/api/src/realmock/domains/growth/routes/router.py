@@ -6,11 +6,18 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from realmock.domains.growth.agents.growth import GrowthAgent
 from realmock.domains.growth.models.growth import GrowthRecord
+from realmock.domains.growth.schemas import (
+    GrowthAggregatedStats,
+    GrowthHistoryItem,
+    GrowthInsightEnvelope,
+    GrowthInsightRefreshResponse,
+    SystemGrowthInsights,
+)
 from realmock.domains.growth.services.insight_scheduler import (
     is_generating,
     schedule_growth_insight_regen,
@@ -41,7 +48,7 @@ def _safe_json_list(raw: str | None, *, field: str, record_id: int) -> list[Any]
         return []
 
 
-@router.get("/history")
+@router.get("/history", response_model=list[GrowthHistoryItem])
 def get_growth_history(db: Session = Depends(get_sessions_db)) -> list[dict[str, Any]]:
     records = (
         db.query(GrowthRecord).order_by(GrowthRecord.created_at.desc()).limit(_HISTORY_LIMIT).all()
@@ -60,21 +67,22 @@ def get_growth_history(db: Session = Depends(get_sessions_db)) -> list[dict[str,
     ]
 
 
-@router.get("/system-insights")
+@router.get("/system-insights", response_model=SystemGrowthInsights)
 def get_system_growth_insights() -> dict[str, Any]:
     """System-level self-growth insights (cross-interview aggregates)."""
     from realmock.platform.capabilities.integrations.github.token_store import has_stored_token
     from realmock.platform.config import get_settings
 
     insights = get_system_insights(limit=15)
-    # The growth page renders a GitHub-linkage hint from this flag; a stored
+    # The growth page renders these two flags from the payload; a stored
     # credential or process-env token both count as configured.
     settings = get_settings()
     insights["github_token_configured"] = bool(has_stored_token() or settings.github_token)
+    insights["interview_tools_enabled"] = bool(settings.interview_tools_enabled)
     return insights
 
 
-@router.get("/aggregated")
+@router.get("/aggregated", response_model=GrowthAggregatedStats)
 def get_aggregated_growth_stats(db: Session = Depends(get_sessions_db)) -> dict[str, Any]:
     """Aggregated growth stats computed on request (frontend can drop ``computeGrowthStats``)."""
     records = (
@@ -86,7 +94,7 @@ def get_aggregated_growth_stats(db: Session = Depends(get_sessions_db)) -> dict[
     return GrowthAgent().analyze(records)
 
 
-@router.get("/insight")
+@router.get("/insight", response_model=GrowthInsightEnvelope)
 def get_growth_insight(db: Session = Depends(get_sessions_db)) -> dict[str, Any]:
     """Latest LLM growth analysis (``insight: null`` until the first regen)."""
     body = insight_response(get_latest_insight(db))
@@ -97,8 +105,10 @@ def get_growth_insight(db: Session = Depends(get_sessions_db)) -> dict[str, Any]
     return body
 
 
-@router.post("/insight/refresh")
-async def refresh_growth_insight(locale: str = "zh-CN") -> dict[str, Any]:
+@router.post("/insight/refresh", response_model=GrowthInsightRefreshResponse)
+async def refresh_growth_insight(
+    locale: str = Query(default="zh-CN", max_length=10),
+) -> dict[str, Any]:
     """Schedule a background regeneration; returns immediately (single-flight)."""
     # Async on purpose: a sync route runs in the threadpool where no event
     # loop exists, so schedule_growth_insight_regen could never spawn the
