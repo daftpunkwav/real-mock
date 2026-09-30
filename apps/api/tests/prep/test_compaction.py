@@ -315,12 +315,12 @@ def test_finalize_records_backend_truth_count() -> None:
 
 
 def test_finalize_after_drop_keeps_single_assistant() -> None:
-    """Regenerate-style drop followed by a stopped persist must not duplicate the reply."""
-    from realmock.domains.prep.agents.chat import _drop_trailing_assistant
+    """Regenerate-style exchange drop followed by a stopped persist must not duplicate the reply."""
+    from realmock.domains.prep.agents.chat import _drop_trailing_exchange
 
     agent = _agent_with_history(1)
-    _drop_trailing_assistant(agent)
-    assert agent.messages[-1].get("role") == "user"
+    _drop_trailing_exchange(agent)
+    assert agent.messages == []
     finalize(agent, list(agent.messages), "partial", _FakeDB(), stopped=True, turn_id="t2")  # type: ignore[arg-type]
     assistants = [m for m in agent.messages if m.get("role") == "assistant"]
     assert len(assistants) == 1 and assistants[0].get("stopped") is True

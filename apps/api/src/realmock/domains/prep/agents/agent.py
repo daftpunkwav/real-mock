@@ -520,7 +520,7 @@ class PrepAgent:
         Args:
             user_text: Latest user message content.
             db: Sessions database session (turn persists through it).
-            drop_last_assistant: Regenerate support — drop the trailing reply first.
+            drop_last_assistant: Regenerate support — drop the trailing exchange (reply + question) first.
             ui_locale: UI locale hint for the reply language (zh-CN/en).
             context_session_ids: Per-turn referenced sessions (transient injection).
             compact_threshold: Auto-compact trigger fraction (None = agent default).
@@ -551,7 +551,7 @@ class PrepAgent:
         Args:
             user_text: Latest user message content.
             db: Sessions database session (turn persists through it).
-            drop_last_assistant: Regenerate support — drop the trailing reply first.
+            drop_last_assistant: Regenerate support — drop the trailing exchange (reply + question) first.
             ui_locale: UI locale hint for the reply language (zh-CN/en).
             context_session_ids: Per-turn referenced sessions (transient injection).
             compact_threshold: Auto-compact trigger fraction (None = agent default).

@@ -152,8 +152,9 @@ export function usePrepMessageActions(opts: {
   const handleRegenerate = useCallback(
     async (msg: PrepChatMessage) => {
       const t = getTranslator("prep");
-      // drop_last_assistant pops the backend's trailing reply, so only the
-      // latest assistant message may be regenerated; older turns would orphan.
+      // drop_last_assistant replaces the backend's trailing user+assistant
+      // pair, so only the latest assistant message may be regenerated; older
+      // turns would orphan.
       const lastAssistant = [...messagesRef.current].reverse().find((m) => m.role === "assistant");
       if (!lastAssistant || lastAssistant.id !== msg.id) {
         toast.error(t("actions.regenerateLatestOnly"));
@@ -168,7 +169,14 @@ export function usePrepMessageActions(opts: {
       stopStreamRef.current();
       if (prepSessionId != null) await waitForStoppedPersist(prepSessionId);
       setMessages((m) => m.filter((x) => x.id !== msg.id));
-      void sendMessageRef.current(input, undefined, true, { dropLastAssistant: true });
+      // drop_last_assistant replaces the trailing user+assistant pair, so the
+      // rerun lands at the same indices: pin the new reply to the old
+      // assistant's index (no new reservation) when it is known, letting the
+      // done envelope heal the count otherwise.
+      void sendMessageRef.current(input, undefined, true, {
+        dropLastAssistant: true,
+        reservedUserIndex: msg.backendIndex !== undefined ? msg.backendIndex - 1 : undefined,
+      });
     },
     [pairedUserContent, prepSessionId, setMessages, waitForStoppedPersist],
   );

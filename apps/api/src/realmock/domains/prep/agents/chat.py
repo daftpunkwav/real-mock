@@ -66,12 +66,27 @@ def polish_final(text: str) -> tuple[str, dict[str, Any] | None]:
     return sanitize_special_tokens(cleaned, quiz_renderer=prep_quiz_renderer).strip(), ask_event
 
 
-def _drop_trailing_assistant(agent: "PrepAgent") -> None:
-    """Regenerate support: remove the last assistant reply so the turn can rerun."""
+def _drop_trailing_exchange(agent: "PrepAgent") -> None:
+    """Regenerate support: remove the last exchange so the turn can rerun.
+
+    Pops the trailing assistant reply and the trailing user question it
+    answers; the rerun then re-appends its content, so stored history never
+    holds two consecutive identical user rows (which a refresh would render
+    as duplicate bubbles). A user-only tail (a previously failed turn that
+    persisted just the question) is popped too, so regenerating it does not
+    duplicate the question either. Role-guarded: a trailing system block or
+    a non-user message before the reply is left in place.
+    """
     if (
         agent.messages
         and isinstance(agent.messages[-1], dict)
         and agent.messages[-1].get("role") == "assistant"
+    ):
+        agent.messages.pop()
+    if (
+        agent.messages
+        and isinstance(agent.messages[-1], dict)
+        and agent.messages[-1].get("role") == "user"
     ):
         agent.messages.pop()
 
@@ -173,7 +188,7 @@ async def _prepare_turn(
         agent: Live PrepAgent (messages/turn state mutated in place).
         user_text: Latest user message content.
         db: Sessions database session (context assembly may read linked sessions).
-        drop_last_assistant: Regenerate support — drop the trailing reply first.
+        drop_last_assistant: Regenerate support — drop the trailing exchange (reply + question) first.
         ui_locale: UI locale hint for the reply language.
         context_session_ids: Per-turn referenced sessions (transient injection).
         compact_threshold: Auto-compact trigger fraction (None = agent default).
@@ -190,7 +205,7 @@ async def _prepare_turn(
         agent.memory_index_limit = memory_index_limit
     await agent._ensure_system(db, ui_locale)
     if drop_last_assistant:
-        _drop_trailing_assistant(agent)
+        _drop_trailing_exchange(agent)
     agent.messages.append({"role": "user", "content": user_text})
     pre_build = list(agent.messages)
     build_report: dict[str, Any] = {}
@@ -219,7 +234,7 @@ async def run_chat(
         agent: Live PrepAgent (messages/memory/counters mutated in place).
         user_text: Latest user message content.
         db: Sessions database session (turn persists through it).
-        drop_last_assistant: Regenerate support — drop the trailing reply first.
+        drop_last_assistant: Regenerate support — drop the trailing exchange (reply + question) first.
         ui_locale: UI locale hint for the reply language.
         context_session_ids: Per-turn referenced sessions (transient injection).
         compact_threshold: Auto-compact trigger fraction (None = agent default).
@@ -338,7 +353,7 @@ async def run_chat_stream(
         agent: Live PrepAgent (messages/memory/counters mutated in place).
         user_text: Latest user message content.
         db: Sessions database session (turn persists through it).
-        drop_last_assistant: Regenerate support — drop the trailing reply first.
+        drop_last_assistant: Regenerate support — drop the trailing exchange (reply + question) first.
         ui_locale: UI locale hint for the reply language.
         context_session_ids: Per-turn referenced sessions (transient injection).
         compact_threshold: Auto-compact trigger fraction (None = agent default).

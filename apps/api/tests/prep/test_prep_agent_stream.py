@@ -259,7 +259,7 @@ def test_chat_stream_cancel_persists_partial_turn_as_stopped() -> None:
 
 
 def test_run_chat_drop_last_assistant_regenerates() -> None:
-    """drop_last_assistant removes the previous reply so the turn reruns."""
+    """drop_last_assistant removes the previous user+assistant exchange so the turn reruns."""
     from realmock.domains.prep.agents.chat import run_chat
 
     llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
@@ -276,6 +276,27 @@ def test_run_chat_drop_last_assistant_regenerates() -> None:
     # Early content path returns the model text directly.
     assert asyncio.run(run()) == "fresh"
     assert "stale" not in json.dumps(agent.messages, ensure_ascii=False)
+    # The rerun replaces the old exchange: exactly one user row remains, so a
+    # refresh never renders the same question twice.
+    users = [m for m in agent.messages if m.get("role") == "user"]
+    assert [m.get("content") for m in users] == ["q again"]
+
+
+def test_run_chat_drop_last_assistant_user_only_tail() -> None:
+    """Regenerating after a failed turn (user-only tail) must not duplicate the question."""
+    from realmock.domains.prep.agents.chat import run_chat
+
+    llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
+    session = _FakeSession()
+    session.messages = json.dumps([{"role": "user", "content": "q"}])
+    agent = PrepAgent(session, llm)  # type: ignore[arg-type]
+
+    async def run():
+        return await run_chat(agent, "q", _FakeDB(), drop_last_assistant=True)  # type: ignore[arg-type]
+
+    assert asyncio.run(run()) == "fresh"
+    users = [m for m in agent.messages if m.get("role") == "user"]
+    assert [m.get("content") for m in users] == ["q"]
 
 
 def test_chat_stream_ask_user_keeps_search_groups(monkeypatch) -> None:

@@ -57,7 +57,9 @@ interface QueuedSend {
 const MAX_QUEUED_PER_SESSION = 3;
 /** Backend indices reserved per fresh turn: user message + assistant reply. */
 const RESERVE_TURN_INDICES = 2;
-/** Backend indices reserved when regenerating (user message already counted). */
+/** Backend indices reserved when regenerating without a pinned index: the
+ * rerun replaces the trailing user+assistant pair, so reservations only drift
+ * until the done envelope reports the real length and resyncs. */
 const RESERVE_REGENERATE_INDICES = 1;
 
 export function usePrepSend(opts: {
@@ -234,11 +236,13 @@ export function usePrepSend(opts: {
       setInput("");
       return true;
     }
-    // Regenerate drops the stale assistant reply locally; the backend drops it too.
+    // Regenerate drops the stale assistant reply locally; the backend replaces
+    // the trailing user+assistant pair.
     if (viewing && dropLast) {
       setMessages((m) => (m.length > 0 && m[m.length - 1]?.role === "assistant" ? m.slice(0, -1) : m));
     }
-    // Reserve backend indices: user + assistant (net +1 when regenerating).
+    // Reserve backend indices: user + assistant (regenerate usually passes a
+    // pinned reservedUserIndex instead — no new reservation needed).
     // Queued follow-ups reuse the index reserved when they were queued.
     const userBackendIndex =
       sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, dropLast ? RESERVE_REGENERATE_INDICES : RESERVE_TURN_INDICES);

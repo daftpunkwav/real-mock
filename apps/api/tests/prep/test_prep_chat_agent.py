@@ -51,20 +51,31 @@ def test_polish_final_strips_and_recovers() -> None:
     assert "<tool_call>" not in cleaned
     assert ask is not None and ask["question"] == "Q?"
 
-def test_drop_trailing_assistant() -> None:
-    from realmock.domains.prep.agents.chat import _drop_trailing_assistant
+def test_drop_trailing_exchange() -> None:
+    from realmock.domains.prep.agents.chat import _drop_trailing_exchange
 
+    # Full exchange: the reply and its question both go, so a rerun re-appends
+    # the question at the same index instead of duplicating it.
     agent = SimpleNamespace(messages=[{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}])
-    _drop_trailing_assistant(agent)  # type: ignore[arg-type]
-    assert agent.messages == [{"role": "user", "content": "q"}]
-    _drop_trailing_assistant(agent)
-    assert agent.messages == [{"role": "user", "content": "q"}]
+    _drop_trailing_exchange(agent)  # type: ignore[arg-type]
+    assert agent.messages == []
+    _drop_trailing_exchange(agent)
+    assert agent.messages == []
+    # User-only tail (a previously failed turn): the question goes too.
     agent2 = SimpleNamespace(messages=[{"role": "user", "content": "q"}])
-    _drop_trailing_assistant(agent2)  # type: ignore[arg-type]
-    assert len(agent2.messages) == 1
+    _drop_trailing_exchange(agent2)  # type: ignore[arg-type]
+    assert agent2.messages == []
+    # Non-dict and non-user messages are left in place.
     agent3 = SimpleNamespace(messages=["not-a-dict"])
-    _drop_trailing_assistant(agent3)  # type: ignore[arg-type]
+    _drop_trailing_exchange(agent3)  # type: ignore[arg-type]
     assert agent3.messages == ["not-a-dict"]
+    agent4 = SimpleNamespace(messages=[
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+    ])
+    _drop_trailing_exchange(agent4)  # type: ignore[arg-type]
+    assert agent4.messages == [{"role": "system", "content": "s"}]
 
 @pytest.mark.asyncio
 async def test_inject_refs_empty_and_block(monkeypatch) -> None:
