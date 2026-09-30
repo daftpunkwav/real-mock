@@ -646,6 +646,33 @@ button:active:not(:disabled),
     opacity: 0;
   }
 
+  /* The light theme's counterpart of the night sky: soft colour pools giving
+     the white surface depth. Hidden on the dark stage — the mirror of
+     .home-stars hiding on the light surface. The drifting wash rides a very
+     slow clock; no will-change, the running animation promotes it anyway. */
+  .home-daylight {
+    transition: opacity var(--dur-slow) var(--ease);
+  }
+  html.dark .home-daylight {
+    opacity: 0;
+  }
+  .daylight-drift {
+    animation: daylight-drift 80s ease-in-out infinite alternate;
+  }
+  @keyframes daylight-drift {
+    from {
+      transform: translate3d(-1.5%, -1%, 0);
+    }
+    to {
+      transform: translate3d(1.5%, 1.5%, 0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .daylight-drift {
+      animation: none;
+    }
+  }
+
   /* Rare meteors: long-cycle keyframes where the streak occupies only the
      first sliver of each loop, so the sky stays still between visits.
      Motion is screen-space translate with the streak angle matching its

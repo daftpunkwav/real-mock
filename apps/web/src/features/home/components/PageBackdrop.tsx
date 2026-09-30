@@ -65,6 +65,30 @@ export function PageBackdrop() {
         }}
       />
 
+      {/* Daylight counterpart of the night sky: soft colour pools giving
+          the white surface depth. Hidden while the dark stage is on — the
+          exact mirror of .home-stars hiding on the light surface. One wash
+          drifts on a very slow clock so the day stage feels alive too. */}
+      <div className="home-daylight absolute inset-0">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: [
+              "radial-gradient(1100px 700px at 10% -10%, color-mix(in srgb, #4285f4 9%, transparent), transparent 62%)",
+              "radial-gradient(900px 620px at 92% 10%, color-mix(in srgb, #7c5cff 7%, transparent), transparent 60%)",
+              "radial-gradient(760px 540px at 76% 62%, color-mix(in srgb, #f9ab00 5%, transparent), transparent 60%)",
+            ].join(", "),
+          }}
+        />
+        <div
+          className="daylight-drift absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(1000px 720px at 48% 118%, color-mix(in srgb, #1fb6c9 7%, transparent), transparent 58%)",
+          }}
+        />
+      </div>
+
       {/* The night sky belongs to the dark stage; on the light surface the
           grain would read as dirt, so .home-stars fades the layers out. */}
       <div className="home-stars absolute inset-0">
