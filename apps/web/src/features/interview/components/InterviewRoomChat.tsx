@@ -50,6 +50,8 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
             {sessionStatus === "active" ? t("chat.empty.restored") : t("chat.empty.starting")}
           </p>
         )}
+        {/* Messages are append-only (restore replaces wholesale), so the
+            array index is a stable key; memoized bubbles skip re-render. */}
         {messages.map((m, i) => (
           <ChatBubble key={i} role={m.role} content={m.content} />
         ))}

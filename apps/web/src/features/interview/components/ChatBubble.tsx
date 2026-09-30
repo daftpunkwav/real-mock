@@ -1,10 +1,15 @@
 "use client";
 
+import { memo } from "react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-/** Interview chat bubble: candidate / interviewer / legacy nudge styles. */
-export function ChatBubble({
+/**
+ * Interview chat bubble: candidate / interviewer / legacy nudge styles.
+ * Memoized: the streaming bubble updates per WS token, and memo lets the
+ * settled history bubbles skip re-render on every token.
+ */
+export const ChatBubble = memo(function ChatBubble({
   role,
   content,
   streaming = false,
@@ -57,4 +62,4 @@ export function ChatBubble({
       </div>
     </div>
   );
-}
+});
