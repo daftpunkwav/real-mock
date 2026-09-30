@@ -39,7 +39,11 @@ def _extract_from_request(
     if chosen and cookie_tok and not header_tok:
         assert_csrf_if_cookie_only(request, used_header=False)
     elif chosen and not header_tok and not cookie_tok:
-        # Query only: CSRF is also required (to prevent tokens from being exploited across sites after being logged)
+        # Query only: CSRF is also required (to prevent tokens from being
+        # exploited across sites after being logged). Non-prod compatibility
+        # only — tokens in URL query strings land in access logs and proxies,
+        # so keep every use visible in the dev log.
+        logger.warning("Capability token accepted via URL query path=%s", request.url.path)
         assert_csrf_if_cookie_only(request, used_header=False)
     elif chosen and used_header:
         pass

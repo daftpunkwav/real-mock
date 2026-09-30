@@ -89,6 +89,28 @@ class TestLocalOnly:
 
         require_local_peer(_req(host="127.0.0.1"))
 
+    def test_ipv4_mapped_loopback_passes(self, monkeypatch) -> None:
+        """Dual-stack peers report IPv4 loopback as ::ffff:127.0.0.1 — allowed."""
+        from realmock.platform.core.local_only import require_local_peer
+
+        monkeypatch.setenv("TEST_MODE", "0")
+        require_local_peer(_req(host="::ffff:127.0.0.1"))
+
+    def test_test_mode_does_not_bypass_loopback(self, monkeypatch) -> None:
+        """A leftover TEST_MODE=1 must not expose management APIs to the LAN."""
+        from realmock.platform.config import get_settings
+        from realmock.platform.core.local_only import require_local_peer
+
+        monkeypatch.setenv("TEST_MODE", "1")
+        monkeypatch.setenv("ENV", "dev")
+        get_settings.cache_clear()
+        try:
+            with pytest.raises(ApiBusinessError):
+                require_local_peer(_req(host="192.168.1.10"))
+        finally:
+            monkeypatch.setenv("ENV", "dev")
+            get_settings.cache_clear()
+
     def test_reject_cross_site(self) -> None:
         from realmock.platform.core.local_only import reject_cross_site_fetch
 

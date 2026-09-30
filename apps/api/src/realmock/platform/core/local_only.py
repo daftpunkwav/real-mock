@@ -7,16 +7,29 @@ preventing arbitrary LAN clients from modifying BYOK configuration when ``HOST=0
 from __future__ import annotations
 
 import ipaddress
-import os
 
 from typing import Any
 
 from fastapi import Depends, Request
 from urllib.parse import urlparse
 
-from realmock.platform.config import get_settings
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth.csrf import is_origin_in_cors_allowlist
+
+
+def _is_loopback_peer(peer: str) -> bool:
+    """True for loopback peers, including IPv4-mapped ``::ffff:127.0.0.1`` forms."""
+    try:
+        ip = ipaddress.ip_address(peer.strip("[]"))
+    except ValueError:
+        return False
+    if ip.is_loopback:
+        return True
+    # Dual-stack servers report IPv4 loopback peers as "::ffff:a.b.c.d";
+    # that mapped address is loopback too.
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped.is_loopback
+    return False
 
 
 def require_local_peer(  # noqa: B008 - WS scopes cannot inject Request; see docstring
@@ -26,8 +39,9 @@ def require_local_peer(  # noqa: B008 - WS scopes cannot inject Request; see doc
     """Allow direct loopback connections only; otherwise return 403.
 
     Starlette TestClient uses ``testclient`` as its peer and is always allowed.
-    ``TEST_MODE=1`` allows real HTTP only outside production;
-    when ``env=prod``, this switch is ignored to prevent an accidental deployment bypass.
+    ``TEST_MODE=1`` does NOT bypass the loopback check: the flag only skips
+    startup work, and an exported leftover variable must never expose
+    management endpoints to the LAN (``env=prod`` never honored it either).
 
     WebSocket-scope dependency solves cannot inject ``Request``, so this guard
     is called with ``request=None`` on WS endpoints; it short-circuits there —
@@ -41,16 +55,7 @@ def require_local_peer(  # noqa: B008 - WS scopes cannot inject Request; see doc
         raise_error("A0405")
     if peer == "testclient":
         return
-    if (
-        os.environ.get("TEST_MODE") == "1"
-        and not get_settings().is_prod
-    ):
-        return
-    try:
-        ip = ipaddress.ip_address(peer.strip("[]"))
-    except ValueError as e:
-        raise_error("A0405", cause=e)
-    if not ip.is_loopback:
+    if not _is_loopback_peer(peer):
         raise_error("A0405")
 
 

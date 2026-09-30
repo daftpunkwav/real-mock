@@ -63,6 +63,33 @@ class TestExtract:
         with pytest.raises(ApiBusinessError):
             ex._extract_from_request(req, scope="iv", session_id=1, x_interview_token=None, token="q")
 
+    def test_query_only_logs_warning(self, monkeypatch, caplog) -> None:
+        """Query-token use (non-prod compat) stays visible: it leaks into access logs."""
+        import logging
+
+        from realmock.platform.core.session_auth import extract as ex
+
+        monkeypatch.setattr(ex, "get_settings", lambda: SimpleNamespace(is_prod=False, cors_origin_list=[]))
+        monkeypatch.setattr(ex, "assert_csrf_if_cookie_only", lambda *a, **k: None)
+        req = _http_req(path="/api/v1/prep/sessions/1/message")
+        with caplog.at_level(logging.WARNING, logger="realmock.platform.core.session_auth.extract"):
+            assert ex._extract_from_request(req, scope="iv", session_id=1, x_interview_token=None, token="q") == "q"
+        assert any("URL query" in r.message for r in caplog.records)
+
+    def test_header_and_cookie_paths_do_not_warn(self, monkeypatch, caplog) -> None:
+        import logging
+
+        from realmock.platform.core.session_auth import extract as ex
+
+        monkeypatch.setattr(ex, "get_settings", lambda: SimpleNamespace(is_prod=False, cors_origin_list=[]))
+        monkeypatch.setattr(ex, "assert_csrf_if_cookie_only", lambda *a, **k: None)
+        with caplog.at_level(logging.WARNING, logger="realmock.platform.core.session_auth.extract"):
+            header_req = _http_req(headers={"x-interview-token": "h"})
+            assert ex._extract_from_request(header_req, scope="iv", session_id=1, x_interview_token="h", token=None) == "h"
+            cookie_req = _http_req(cookies={"iv_1": "c"})
+            assert ex._extract_from_request(cookie_req, scope="iv", session_id=1, x_interview_token=None, token=None) == "c"
+        assert not [r for r in caplog.records if "URL query" in r.message]
+
     def test_prod_strips_query(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import extract as ex
 
