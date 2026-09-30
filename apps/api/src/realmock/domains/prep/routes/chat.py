@@ -1,7 +1,10 @@
 """Prep session conversations: synchronous messages, SSE streaming, message history,
 and context breakdown (with capability-token validation).
 
-SSE streaming errors return only a redacted user-facing message; the original exception goes to logger.exception.
+SSE streaming errors surface verbatim provider text only for user-actionable
+upstream classes (quota exhausted / rate limited / context overflow), secret-
+redacted and length-capped; every other failure falls back to the generic copy
+while the original exception goes to logger.exception.
 All operations here require the capability token issued at creation (``X-Interview-Token``).
 Turns are serialized per session (``services.turn_lock``): a queued request
 reloads the committed history inside the lock instead of acting on the
@@ -46,10 +49,11 @@ from realmock.domains.prep.schemas import (
 from realmock.domains.prep.services import session_turn_lock
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
+from realmock.platform.capabilities.ai.llm.provider_errors import is_diagnosable_upstream_error
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 from realmock.platform.core.sse import format_sse_line, sse_error_event
 from realmock.platform.core.session_auth import assert_session_token, extract_prep_token
 from realmock.platform.database import get_api_db, get_sessions_db
@@ -58,6 +62,8 @@ logger = logging.getLogger(__name__)
 
 # Redacted user-facing SSE error copy (upstream exception text is logged only).
 _SSE_ERR_GENERIC = "Coaching response failed, please try again later"
+# Verbatim provider text is length-capped like other model-facing observations.
+_SSE_DETAIL_MAX_CHARS = 400
 _PREP_FORBIDDEN = "Don't have access to this coaching session"
 
 
@@ -220,11 +226,19 @@ async def prep_message_stream(
                     "last_latency_ms": getattr(usage_acc, "last_latency_ms", 0.0) or 0.0,
                 })
         except Exception as e:
-            # Redact credentials, keep the original wording: upstream errors
-            # (quota exhausted, rate limited, context overflow) must reach the
-            # user verbatim so the cause is diagnosable — only truly opaque
-            # internals fall back to the generic copy.
-            safe_detail = redact_api_key(str(e)) or _SSE_ERR_GENERIC
+            # Only provider conditions the user can act on (quota exhausted,
+            # rate limited, context overflow) surface their verbatim text so
+            # the cause is diagnosable; every other failure class (auth,
+            # gateway, SDK internals) falls back to the generic copy — raw
+            # upstream traces may carry internal URLs or header fragments.
+            # Embedded credentials are masked either way.
+            if is_diagnosable_upstream_error(e):
+                safe_detail = (
+                    redact_secrets_in_text(str(e))[:_SSE_DETAIL_MAX_CHARS]
+                    or _SSE_ERR_GENERIC
+                )
+            else:
+                safe_detail = _SSE_ERR_GENERIC
             logger.exception("Prep streaming generation failed sid=%s: %s", session_id, safe_detail)
             yield format_sse_line(sse_error_event(e, message=safe_detail))
 

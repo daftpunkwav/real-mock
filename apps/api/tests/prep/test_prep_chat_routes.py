@@ -5,6 +5,8 @@ Conventions: No real LLM/network; LLM and PrepAgent faked via monkeypatch; rate 
 """
 from __future__ import annotations
 import json
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 from realmock.asgi import app
@@ -240,8 +242,17 @@ async def test_prep_message_stream_disconnect_breaks(db, monkeypatch) -> None:
     assert "tok1" in body.decode()
     assert "tok2-never" not in body.decode()
 
+class _UpstreamError(RuntimeError):
+    """Provider-shaped error: optional HTTP status like httpx SDK exceptions."""
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        if status is not None:
+            self.response = SimpleNamespace(status_code=status, text=message)  # type: ignore[attr-defined]
+
+
 @pytest.mark.asyncio
-async def test_prep_message_stream_error_is_redacted(db, monkeypatch) -> None:
+async def test_prep_message_stream_quota_error_is_redacted(db, monkeypatch) -> None:
     import realmock.domains.prep.routes.chat as chat_route
     from realmock.domains.prep.schemas import PrepMessageRequest
 
@@ -250,7 +261,12 @@ async def test_prep_message_stream_error_is_redacted(db, monkeypatch) -> None:
 
     class _Agent(_FakeAgent):
         async def chat_stream(self, *args, **kwargs):
-            raise RuntimeError("sk-secret-boom")
+            # Quota / rate-limit text is provider boilerplate: surface it
+            # verbatim with embedded credentials masked.
+            raise RuntimeError(
+                "Error code: 429 - {'error': {'message': 'Rate limit reached for "
+                "sk-abcdef1234567890abcdef12', 'code': 'rate_limit_exceeded'}}"
+            )
             yield "unreachable"  # pragma: no cover
 
     monkeypatch.setattr(chat_route, "PrepAgent", lambda session, llm: _Agent())
@@ -266,9 +282,73 @@ async def test_prep_message_stream_error_is_redacted(db, monkeypatch) -> None:
     async for chunk in resp.body_iterator:
         body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
     text = body.decode()
-    # Upstream errors surface verbatim (credential-redacted), not as generic copy.
-    assert "sk-s***boom" in text
-    assert "sk-secret-boom" not in text
+    assert "Rate limit reached" in text
+    assert "sk-abcdef1234567890abcdef12" not in text
+    assert "sk-a***" in text
+
+
+@pytest.mark.asyncio
+async def test_prep_message_stream_overflow_error_verbatim(db, monkeypatch) -> None:
+    import realmock.domains.prep.routes.chat as chat_route
+    from realmock.domains.prep.schemas import PrepMessageRequest
+
+    row = _session(db)
+    _patch_llm(monkeypatch)
+
+    class _Agent(_FakeAgent):
+        async def chat_stream(self, *args, **kwargs):
+            raise _UpstreamError(
+                "This model's maximum context length is 8192 tokens, "
+                "however you requested 9000 tokens",
+                status=400,
+            )
+            yield "unreachable"  # pragma: no cover
+
+    monkeypatch.setattr(chat_route, "PrepAgent", lambda session, llm: _Agent())
+
+    class _Req:
+        async def is_disconnected(self) -> bool:
+            return False
+
+    resp = await chat_route.prep_message_stream(
+        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+    )
+    body = b""
+    async for chunk in resp.body_iterator:
+        body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
+    assert "maximum context length" in body.decode()
+
+
+@pytest.mark.asyncio
+async def test_prep_message_stream_opaque_error_is_generic(db, monkeypatch) -> None:
+    import realmock.domains.prep.routes.chat as chat_route
+    from realmock.domains.prep.schemas import PrepMessageRequest
+
+    row = _session(db)
+    _patch_llm(monkeypatch)
+
+    class _Agent(_FakeAgent):
+        async def chat_stream(self, *args, **kwargs):
+            # Non-actionable internals (gateway URL, SDK trace) must never
+            # reach the client: fall back to the generic copy.
+            raise RuntimeError("connect timeout to http://10.0.0.3:8080/v1 upstream-secret")
+            yield "unreachable"  # pragma: no cover
+
+    monkeypatch.setattr(chat_route, "PrepAgent", lambda session, llm: _Agent())
+
+    class _Req:
+        async def is_disconnected(self) -> bool:
+            return False
+
+    resp = await chat_route.prep_message_stream(
+        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+    )
+    body = b""
+    async for chunk in resp.body_iterator:
+        body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
+    text = body.decode()
+    assert "upstream-secret" not in text
+    assert chat_route._SSE_ERR_GENERIC in text
 
 @pytest.mark.asyncio
 async def test_get_prep_messages_edges(db) -> None:
@@ -364,7 +444,7 @@ def test_prep_message_http_surfaces_ask_dialog(db, monkeypatch) -> None:
     assert body["ask_user"]["question"] == "Which direction?"
     assert body["ask_user"]["options"] == ["backend", "frontend"]
 
-def test_prep_stream_http_error_redacted(db, monkeypatch) -> None:
+def test_prep_stream_http_error_generic_fallback(db, monkeypatch) -> None:
     row = _session(db)
     _patch_llm(monkeypatch)
 
@@ -383,8 +463,9 @@ def test_prep_stream_http_error_redacted(db, monkeypatch) -> None:
         ) as resp:
             assert resp.status_code == 200
             body = "".join(resp.iter_text())
-    # Upstream failures surface verbatim (credential-redacted), never generic copy.
-    assert "upstream-secret" in body
+    # Non-actionable upstream failures surface the generic copy only.
+    assert "upstream-secret" not in body
+    assert "Coaching response failed" in body
 
 
 def _suggest_llm(monkeypatch, result=None, error=None):

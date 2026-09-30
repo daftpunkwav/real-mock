@@ -12,7 +12,10 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from realmock.platform.capabilities.ai.llm import provider_errors as pe_mod
-from realmock.platform.capabilities.ai.llm.provider_errors import is_context_overflow
+from realmock.platform.capabilities.ai.llm.provider_errors import (
+    is_context_overflow,
+    is_diagnosable_upstream_error,
+)
 
 
 
@@ -61,3 +64,31 @@ def test_is_context_overflow_never_raises() -> None:
             raise RuntimeError("no str")
 
     assert is_context_overflow(_BadStr()) is False
+
+
+def test_is_diagnosable_rate_limit_and_quota() -> None:
+    assert is_diagnosable_upstream_error(ValueError("rate_limit_exceeded")) is True
+    assert is_diagnosable_upstream_error(ValueError("insufficient_quota: add credits")) is True
+    assert is_diagnosable_upstream_error(_exc_with(429, text="slow down")) is True
+    assert is_diagnosable_upstream_error(ValueError("Rate limit reached for gpt-4o")) is True
+    assert is_diagnosable_upstream_error(ValueError("You exceeded your quota")) is True
+    assert is_diagnosable_upstream_error(ValueError("insufficient balance in account")) is True
+
+
+def test_is_diagnosable_overflow_and_rejections() -> None:
+    assert is_diagnosable_upstream_error(ValueError("context_length_exceeded")) is True
+    assert is_diagnosable_upstream_error(
+        _exc_with(400, text="Maximum context length reached")
+    ) is True
+    # Auth, gateway and opaque SDK failures stay log-only.
+    assert is_diagnosable_upstream_error(_exc_with(401, text="invalid api key")) is False
+    assert is_diagnosable_upstream_error(ValueError("connection reset by peer")) is False
+    assert is_diagnosable_upstream_error(ValueError("connect timeout to http://10.0.0.3:8080/v1")) is False
+
+
+def test_is_diagnosable_never_raises() -> None:
+    class _BadStr(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("no str")
+
+    assert is_diagnosable_upstream_error(_BadStr()) is False
