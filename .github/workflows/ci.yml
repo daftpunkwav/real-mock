@@ -36,7 +36,7 @@ jobs:
       - name: Install deps and toolchain
         # Pin toolchain (matches local verification): ruff 0.16 default rule expansion causes ~252 findings
         run: |
-          pip install -q -e apps/api
+          pip install -q -e 'apps/api[dev]'
           pip install -q ruff==0.15.20 mypy==2.1.0 pytest-cov==7.1.0 pip-audit==2.10.1
 
       - name: ruff static check

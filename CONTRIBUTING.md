@@ -6,7 +6,7 @@ agent-specific working rules live in [AGENTS.md](AGENTS.md).
 
 ## Setup
 
-- Backend: Python 3.12 (CI) / >=3.11 — `pip install -e ./apps/api`
+- Backend: Python 3.12 (CI) / >=3.11 — `pip install -e './apps/api[dev]'` (tests live in the `dev` extra; the runtime image needs no extras)
 - Frontend: Node 24 (see [.nvmrc](.nvmrc)) — `npm ci` inside `apps/web`
 - One-command local dev: `scripts/dev.sh start|stop` (frontend on 8080, backend on 8081, logs and PIDs under `logs/`)
 

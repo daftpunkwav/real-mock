@@ -40,6 +40,7 @@ cd apps/web && npm run dev
 ## 测试与契约
 
 ```bash
+pip install -e './apps/api[dev]'  # 一次性:pytest 在 dev extra 中(运行时安装无需 extra)
 cd apps/api && pytest    # 后端测试(testpaths = tests,按域 / 分层组织)
 cd apps/web && npm test  # 前端测试(vitest)
 ```

@@ -17,6 +17,8 @@ Keep a single worker in local development: the resume deep-review concurrency ca
 ## Test
 
 ```bash
+# once: pytest lives in the dev extra (the runtime install needs no extras)
+pip install -e './apps/api[dev]'
 cd apps/api && pytest
 ```
 

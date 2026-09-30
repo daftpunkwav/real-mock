@@ -53,7 +53,12 @@ dependencies = [
     "chromadb>=1.5.0,<2",
     "ddgs>=9.0.0,<10",
     "cryptography>=50.0.0,<51",
-    # Tests (shared by local regression and CI)
+]
+
+[project.optional-dependencies]
+# Test tooling only: the runtime install (Docker image) does not need pytest.
+# Local dev / CI install: pip install -e './apps/api[dev]'
+dev = [
     "pytest>=8.3.0,<10",
     "pytest-asyncio>=0.24.0,<2",
 ]

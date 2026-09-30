@@ -17,6 +17,8 @@ python -m uvicorn realmock.asgi:app --host 127.0.0.1 --port 8081
 ## 测试
 
 ```bash
+# 仅首次需要:pytest 在 dev extra 中(运行时安装无需 extra)
+pip install -e './apps/api[dev]'
 cd apps/api && pytest
 ```
 

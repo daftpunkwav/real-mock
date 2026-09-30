@@ -5,7 +5,7 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 
 ## 环境准备
 
-- 后端：Python 3.12（CI）/ >=3.11 —— `pip install -e ./apps/api`
+- 后端：Python 3.12（CI）/ >=3.11 —— `pip install -e './apps/api[dev]'`（测试依赖在 `dev` extra；运行时镜像无需 extra）
 - 前端：Node 24（见 [.nvmrc](.nvmrc)）—— 在 `apps/web` 内 `npm ci`
 - 一键本地开发：`scripts/dev.sh start|stop`（前端 8080，后端 8081，日志与 PID 在 `logs/`）
 

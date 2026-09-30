@@ -40,6 +40,7 @@ The deep-review concurrency cap (3) is counted **per process** and is not shared
 ## Tests & Contract
 
 ```bash
+pip install -e './apps/api[dev]'  # once: pytest lives in the dev extra (runtime install needs no extras)
 cd apps/api && pytest    # backend tests (testpaths = tests, grouped by domain / layer)
 cd apps/web && npm test  # frontend tests (vitest)
 ```
