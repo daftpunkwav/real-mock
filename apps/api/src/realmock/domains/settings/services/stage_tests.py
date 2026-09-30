@@ -13,6 +13,10 @@ from sqlalchemy.orm import Session
 from realmock.platform.capabilities.ai.llm.unified_client import UnifiedLLMClient
 from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
+from realmock.platform.capabilities.voice.stt.providers.cloud import is_local_stt_model
+from realmock.platform.capabilities.voice.stt.providers.whisper import (
+    local_stt_unavailable_reason,
+)
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_custom_speech, synthesize_speech
 from realmock.platform.capabilities.voice.config.catalog import find_provider
 from realmock.platform.services.pipeline.config import get_stage_config_for_runtime
@@ -92,6 +96,18 @@ async def test_recognize(db: Session, *, profile_id: int | None = None) -> dict:
         audio_b64, sample_rate=16000, creds=creds, prefer_cloud=True
     )
     text = transcription.text
+    # The local provider yields empty text when the model failed to load
+    # (first use downloads weights); report the load failure instead of a
+    # generic mismatch so the toast is actionable.
+    if not text and transcription.provider == "local":
+        model_size = creds.model if is_local_stt_model(creds.model) else "small"
+        load_error = local_stt_unavailable_reason(model_size)
+        if load_error:
+            return {
+                "success": False,
+                "message": f"Local recognition model failed to load: {load_error}",
+                "model": cfg.get("model") or provider,
+            }
     if transcription.fallback:
         return {
             "success": False,

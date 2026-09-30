@@ -21,6 +21,7 @@ from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
+from realmock.platform.capabilities.voice.stt.providers.whisper import local_stt_unavailable_reason
 from realmock.domains.interview.realtime.voice.pipeline import _is_echo_of_assistant, _pick_stt_text
 
 if TYPE_CHECKING:
@@ -171,6 +172,7 @@ class TurnSttFinishMixin:
             return
 
         asr_text = ""
+        stt_provider = ""
         if pcm_b64:
             raw_sr = data.get("sample_rate") or 16000
             try:
@@ -194,6 +196,7 @@ class TurnSttFinishMixin:
                 len(getattr(stt_result, "text", "") or ""),
             )
             asr_text = stt_result.text
+            stt_provider = getattr(stt_result, "provider", "") or ""
             if stt_result.fallback:
                 await self.send(
                     "info",
@@ -235,6 +238,7 @@ class TurnSttFinishMixin:
                 len(getattr(stt_result, "text", "") or ""),
             )
             asr_text = stt_result.text
+            stt_provider = getattr(stt_result, "provider", "") or ""
             if stt_result.fallback:
                 await self.send(
                     "info",
@@ -258,9 +262,22 @@ class TurnSttFinishMixin:
             now = asyncio.get_event_loop().time()
             if now - self.ctx.last_stt_error_at >= _STT_ERROR_RESEND_SECONDS:
                 self.ctx.last_stt_error_at = now
+                message = "Could not recognize the speech; speak again or type instead"
+                # A local model that failed to load always yields empty text;
+                # telling the candidate to "speak again" would loop forever, so
+                # surface the load failure instead (same C2001 code, so the
+                # client-side STT-failure handling stays unchanged).
+                load_error = (
+                    local_stt_unavailable_reason() if stt_provider == "local" else None
+                )
+                if load_error:
+                    message = (
+                        "Local recognition is unavailable (model load failed: "
+                        f"{load_error}); type instead or fix the local model"
+                    )
                 await self.send(
                     "error",
-                    message="Could not recognize the speech; speak again or type instead",
+                    message=message,
                     code="C2001",
                     retryable=True,
                 )

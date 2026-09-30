@@ -3,8 +3,8 @@
 import base64
 import io
 import logging
+import time
 import wave
-from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -14,15 +14,61 @@ _BILINGUAL_PROMPT = (
     "English technical terms such as Agent, GitHub, Docker, Kubernetes, SQL, HTTP, and REST."
 )
 
+# Model cache policy: successes live for the process lifetime; a failed load
+# (first use downloads weights from HuggingFace) is remembered so subsequent
+# calls fail fast instead of re-hanging every utterance on a fresh download
+# attempt, but is retried after _RETRY_AFTER_SECONDS so transient network
+# failures recover without a restart. The reason is kept for
+# local_stt_unavailable_reason() so callers can surface it to the user.
+_MODELS: dict[str, object] = {}
+_FAILURES: dict[str, tuple[float, str]] = {}
+_RETRY_AFTER_SECONDS = 300.0
 
-@lru_cache(maxsize=1)
-def _get_model(model_size: str):
+
+def _get_model(model_size: str = "base"):
+    cached = _MODELS.get(model_size)
+    if cached is not None:
+        return cached
+    now = time.monotonic()
+    failed_at, _reason = _FAILURES.get(model_size, (0.0, ""))
+    if now - failed_at < _RETRY_AFTER_SECONDS:
+        return None
     try:
         from faster_whisper import WhisperModel
-        return WhisperModel(model_size, device="cpu", compute_type="int8")
+        model = WhisperModel(model_size, device="cpu", compute_type="int8")
     except Exception as e:
-        logger.warning("faster-whisper is not available: %s", e)
+        _FAILURES[model_size] = (now, str(e))
+        logger.error(
+            "Local STT model %r failed to load (first use downloads weights from "
+            "HuggingFace); local recognition is unavailable, retry in %ss: %s",
+            model_size,
+            _RETRY_AFTER_SECONDS,
+            e,
+        )
         return None
+    _FAILURES.pop(model_size, None)
+    _MODELS[model_size] = model
+    return model
+
+
+def local_stt_unavailable_reason(model_size: str | None = None) -> str | None:
+    """Most recent local model load failure, or ``None`` when recognition works.
+
+    ``model_size`` filters to one size; ``None`` considers any failed size (the
+    weight download path is shared, so one failure usually explains all sizes).
+    """
+    if model_size is not None and model_size in _MODELS:
+        return None
+    if not _FAILURES:
+        return None
+    _, reason = max(_FAILURES.items(), key=lambda kv: kv[1][0])[1]
+    return reason
+
+
+def reset_model_cache() -> None:
+    """Test hook: clear cached models and remembered load failures."""
+    _MODELS.clear()
+    _FAILURES.clear()
 
 
 def pcm_base64_to_wav_bytes(pcm_b64: str, sample_rate: int = 16000) -> bytes:

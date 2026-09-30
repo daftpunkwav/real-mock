@@ -1,7 +1,8 @@
 """Whisper STT tests for src/realmock/platform/capabilities/voice/stt/whisper.py.
 
 Covers: pcm_base64_to_wav_bytes shape/error branches, _get_model success/import/
-ctor branches, transcribe_pcm_base64 no-model/short/success/lang-prob/short-text/
+ctor/backoff-fail-fast/retry branches and the unavailable-reason accessor,
+transcribe_pcm_base64 no-model/short/success/lang-prob/short-text/
 exception branches, warmup success/failure, transcribe_pcm_base64_async delegation
 (model faked, no download).
 Conventions: no real network/model downloads (all clients mocked).
@@ -54,7 +55,7 @@ def test_pcm_to_wav_bytes():
 
 
 def test_get_model_success(monkeypatch):
-    whisper_mod._get_model.cache_clear()
+    whisper_mod.reset_model_cache()
     fake_cls = MagicMock(return_value=object())
     fake_mod = types.ModuleType("faster_whisper")
     fake_mod.WhisperModel = fake_cls
@@ -63,21 +64,24 @@ def test_get_model_success(monkeypatch):
         m = whisper_mod._get_model("base")
         assert m is not None
         fake_cls.assert_called_once_with("base", device="cpu", compute_type="int8")
+        assert whisper_mod.local_stt_unavailable_reason("base") is None
     finally:
-        whisper_mod._get_model.cache_clear()
+        whisper_mod.reset_model_cache()
 
 
 def test_get_model_failure_import():
-    whisper_mod._get_model.cache_clear()
+    whisper_mod.reset_model_cache()
     try:
         with patch.dict(sys.modules, {"faster_whisper": None}):
             assert whisper_mod._get_model("base") is None
+            assert whisper_mod._get_model("base") is None
+            assert whisper_mod.local_stt_unavailable_reason() is not None
     finally:
-        whisper_mod._get_model.cache_clear()
+        whisper_mod.reset_model_cache()
 
 
 def test_get_model_failure_ctor(monkeypatch):
-    whisper_mod._get_model.cache_clear()
+    whisper_mod.reset_model_cache()
     fake_mod = types.ModuleType("faster_whisper")
 
     def _boom(*a, **k):
@@ -87,8 +91,44 @@ def test_get_model_failure_ctor(monkeypatch):
     monkeypatch.setitem(sys.modules, "faster_whisper", fake_mod)
     try:
         assert whisper_mod._get_model("base") is None
+        assert whisper_mod.local_stt_unavailable_reason("base") == "no model"
     finally:
-        whisper_mod._get_model.cache_clear()
+        whisper_mod.reset_model_cache()
+
+
+def test_get_model_fail_fast_within_backoff(monkeypatch):
+    # Within the retry window a second call must not attempt another download.
+    whisper_mod.reset_model_cache()
+    fake_mod = types.ModuleType("faster_whisper")
+    fake_cls = MagicMock(side_effect=RuntimeError("offline"))
+    fake_mod.WhisperModel = fake_cls
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake_mod)
+    try:
+        assert whisper_mod._get_model("base") is None
+        assert whisper_mod._get_model("base") is None
+        fake_cls.assert_called_once()
+    finally:
+        whisper_mod.reset_model_cache()
+
+
+def test_get_model_retries_after_backoff(monkeypatch):
+    whisper_mod.reset_model_cache()
+    fake_mod = types.ModuleType("faster_whisper")
+    fake_cls = MagicMock(side_effect=[RuntimeError("offline"), object()])
+    fake_mod.WhisperModel = fake_cls
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake_mod)
+    try:
+        assert whisper_mod._get_model("base") is None
+        failed_at = whisper_mod._FAILURES["base"][0]
+        whisper_mod._FAILURES["base"] = (
+            failed_at - whisper_mod._RETRY_AFTER_SECONDS,
+            "offline",
+        )
+        assert whisper_mod._get_model("base") is not None
+        assert fake_cls.call_count == 2
+        assert whisper_mod.local_stt_unavailable_reason() is None
+    finally:
+        whisper_mod.reset_model_cache()
 
 
 def test_transcribe_no_model():
