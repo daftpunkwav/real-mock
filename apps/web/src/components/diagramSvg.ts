@@ -27,13 +27,26 @@ export function isErrorDiagramSvg(svg: string): boolean {
  * non-navigable render container — this pass only shrinks the residue.
  */
 export function sanitizeDiagramSvg(svg: string): string {
-  return svg
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, "")
-    .replace(/<(embed|object|iframe|link|meta)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1\s*>)/gi, "")
-    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+(?:href|xlink:href)\s*=\s*("|\')\s*javascript:[^"']*\1/gi, "")
-    .replace(/\s+(?:href|xlink:href)\s*=\s*("|\')\s*data:text\/html[^"']*\1/gi, "");
+  const blockTag = /<(script|foreignObject)\b[^>]*>[\s\S]*?<\/\1\b[^>]*>/gi;
+  // Closing tags may carry attributes (`</script foo>`), and removing one
+  // nested block can splice leftover fragments into a fresh active tag
+  // (`<scr<script>ipt>`), so the pass repeats until the text is stable.
+  const loneTag = /<\/?(?:script|foreignObject|embed|object|iframe|link|meta)\b[^>]*>/gi;
+  // The `on...=` name may directly follow `/` (`<img src=x/onload=...>`),
+  // not only whitespace; the separator character is kept.
+  const inlineHandler = /([\s/])on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+  const activeUrl =
+    /([\s/])(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript:|data:text\/html)[^"]*"|'\s*(?:javascript:|data:text\/html)[^']*')/gi;
+  let out = svg;
+  for (;;) {
+    const next = out
+      .replace(blockTag, "")
+      .replace(loneTag, "")
+      .replace(inlineHandler, "$1")
+      .replace(activeUrl, "$1");
+    if (next === out) return next;
+    out = next;
+  }
 }
 
 /**
