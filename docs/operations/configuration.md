@@ -29,7 +29,7 @@ Backend configuration lives in `apps/api/src/realmock/platform/config.py` (`Sett
 | `SILENCE_NUDGE_SECONDS` | `silence_nudge_seconds` | Interview silence nudge interval | `10` (range 1-600) |
 | `GITHUB_TOKEN` | `github_token` | Optional GitHub PAT (raises API quota) | `""` (empty) |
 | `INTERVIEW_TOOLS_ENABLED` | `interview_tools_enabled` | Interview agent function-calling tool loop | `True` |
-| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | Tool-loop round cap (hard cap 8 in `agents/agent_policies.py: INTERVIEWER_LOOP`) | `6` (range 0-8) |
+| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | Tool-loop round cap (policy cap 8 in `agents/agent_policies.py: INTERVIEWER_LOOP`; deployment can raise it deliberately) | `3` (range 0-8) |
 | `ALLOW_LOCAL_LLM` | `allow_local_llm` | Allow local / private-network `base_url` | `False` |
 | `WS_LEASE_BACKEND` | `ws_lease_backend` | WS lease store: `memory` (single worker) / `database` (multi-worker) | `memory` |
 | `RATELIMIT_BACKEND` | `ratelimit_backend` | Rate-limit store: `memory` / `database` | `memory` |
@@ -53,6 +53,7 @@ Backend configuration lives in `apps/api/src/realmock/platform/config.py` (`Sett
 | `env=prod` requires `SECRET_KEY` (>= 16 bytes); without it, startup raises | `asgi.py: _check_secret_key_policy` |
 | `ws_lease_backend` / `ratelimit_backend` = `memory` logs a multi-worker warning | `bootstrap/db_bootstrap.py: _warn_inmemory_backends` |
 | `rag_backend=stepfun` without `stepfun_vector_store_id` logs a warning; startup attempts to create a vector store | `config.py` model validator |
+| Database bootstrap failure logs a repair checklist (file lock, permissions, data directory) and the process exits fail-fast | `bootstrap/db_bootstrap.py: _log_startup_failure` |
 
 ## Frontend variables
 

@@ -34,7 +34,7 @@ Feature-first 业务模块；每个 feature 自持组件、hook 与测试。跨 
 | `settings/` | 设置页（供应商、模型、阶段、集成） |
 | `prep/` | Prep 教练对话 UI（输入区、上下文面板、斜杠命令） |
 | `interview/` | 面试房间（含编码白板：纯沙盒草稿本 —— 代码经 `src/lib/code-runner/` 在浏览器运行，无 LLM 评估、无服务端裁定；服务端不持有白板状态，也没有编码相关的 WS 契约）；房间 hook 装配在 `interview/hooks/room/` 有独立 README |
-| `report/` | 报告展示（标签页、分数格式化、实时事件） |
+| `report/` | 报告展示（标签页、分数格式化、实时事件）；`turnGroups.ts` 承载深度问答的纯逻辑分组（台账顺序 + 按阶段分组，不含 React，可单元测试） |
 | `history/` | 面试历史页 |
 | `growth/` | 成长统计页 |
 | `media/` | 共享媒体基础件：麦克风采集器（`recorder/`）、TTS 播放器 |

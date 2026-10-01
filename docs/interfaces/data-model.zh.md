@@ -44,7 +44,7 @@
 
 | 表 | 域 | 用途（关键列） |
 | --- | --- | --- |
-| `rate_limit_buckets` | platform | 限流桶（共享表后端） |
+| `rate_limit_buckets` | platform | 限流桶（共享表后端）；过期桶由与内存后端共用的定时门控清扫删除（至多每 120 秒一轮，`platform/core/ratelimit.py`） |
 | `prep_sessions` | prep | 备面教练会话：target_role、target_company、messages、token_usage、prompt / completion / cached tokens、status、access_token、linked_session_id、summary、message_count |
 | `prep_memories` | prep | 长期备面记忆：用户标记轮次、要点、agent 笔记 |
 | `interview_sessions` | interview | 进行中的面试间状态：role / level / company、workflow_type、status、current_phase、agent_state、messages、ledger_frozen、report、overall_score、process_id、round_no、result、plan |
@@ -52,6 +52,7 @@
 | `interview_processes` | interview | 多轮面试流程，会话经 process_id 挂在其下：max_rounds、current_round、round_plan、round_plan_status、流程记忆 |
 | `ws_session_leases` | interview | 每会话仅一条活跃 WS 租约：`session_id` 唯一、lease_token |
 | `company_briefs` | interview | 公司 / 岗位 / 级别 / 面试类型的缓存简报：`company_key` 唯一 |
+| `company_digests` | interview | 跨会话与流程共享的公司调研摘要缓存（`company_key` 唯一）；同公司第二次面试直接以摘要起步规划，失败不缓存 |
 | `interview_reports` | records | 每会话一份复盘报告：`session_id` 唯一、status、payload、model_meta |
 | `growth_records` | growth | 每会话的成长快照：`session_id` 唯一、weak_skills、common_mistakes、training_plan |
 | `growth_insights` | growth | 最新 LLM 成长洞见：每档案一行（payload JSON、locale、session_count） |

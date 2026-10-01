@@ -8,7 +8,7 @@
 
 | Job | 运行器 / 工具链 | 步骤 |
 | --- | --- | --- |
-| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.12，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api`，并安装锁定版本 `ruff==0.15.20`、`mypy==2.1.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；`ruff check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview / growth 六个域；`pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
+| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.12，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api` 并带上 `dev` extra（`pip install -e 'apps/api[dev]'`；该 extra 携带 pytest / pytest-asyncio），再安装锁定版本 `ruff==0.15.20`、`mypy==2.1.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；`ruff check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview / growth 六个域；`pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
 | `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（vitest,阈值由 `apps/web/vitest.config.mts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
 
 backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LLM_API_BASE` 与 `CORS_ORIGINS`。
@@ -21,7 +21,7 @@ backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LL
 | --- | --- |
 | 基础镜像 | `python:3.12-slim` |
 | 额外运行时 | 经 apt 安装 Node.js（Debian bookworm 自带 Node 18.x）——供 agent `code_exec` 工具运行 JavaScript 片段 |
-| 安装 | `pip install ./apps/api`（`ARG PIP_INDEX_URL` 可为弱网环境提供镜像源） |
+| 安装 | `pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" ./apps/api`（`ARG PIP_INDEX_URL` 可为弱网环境提供镜像源；retries/timeout 防止 opencv 等大 wheel 下载中断）——运行时安装，不带 `dev` extra |
 | 端口 / 入口 | 8081；`uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
 | 运行时数据 | DB / Chroma / 上传文件位于容器内 `/app/apps/api/src/realmock/platform/data`——运行时需在该路径挂载卷 |
 

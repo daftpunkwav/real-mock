@@ -6,7 +6,7 @@ Mechanisms that exist in the code, per mechanism. All paths below are verified s
 
 | Guard | Behavior |
 | --- | --- |
-| `require_local_peer(request)` | Local management endpoints accept only loopback peers; non-loopback IPs are rejected with `A0405`. The Starlette `testclient` peer is always allowed; `TEST_MODE=1` permits real HTTP outside production only (ignored when `env=prod`). FastAPI cannot inject `Request` on WebSocket scopes, so WS endpoints call it with `request=None`, where it short-circuits — WS endpoints authenticate through session capability tokens instead. |
+| `require_local_peer(request)` | Local management endpoints accept only loopback peers; non-loopback IPs are rejected with `A0405`. The Starlette `testclient` peer is always allowed. `TEST_MODE=1` does **not** bypass the loopback check — the flag only skips startup work (an exported leftover variable must never expose management endpoints to the LAN). FastAPI cannot inject `Request` on WebSocket scopes, so WS endpoints call it with `request=None`, where it short-circuits — WS endpoints authenticate through session capability tokens instead. |
 | `reject_cross_site_fetch(request)` | Rejects browser-driven cross-site requests (`Sec-Fetch-Site: cross-site`) with `A0403`. Non-browser clients (curl) do not send the header and pass. HTTP-only; `request=None` on WS scopes short-circuits. |
 | `require_same_origin_for_writes(request)` | On unsafe methods (POST / PUT / PATCH / DELETE), `Origin` or `Referer` must be in the CORS allowlist, else `A0403`. Closes the gap `reject_cross_site_fetch` cannot: a page served from another localhost port is `same-site`, and body-less writes are CORS simple requests that skip preflight. Non-browser clients that send neither header pass. HTTP-only; `request=None` on WS scopes short-circuits. |
 | `guard_ws_origin(websocket)` | Cross-site WS handshakes are closed before accept (close code 1008). Browsers always send `Origin`; hostnames must be `localhost` / loopback IPs; absent origin (non-browser) passes. |
@@ -21,7 +21,7 @@ Capability tokens per session — the local-first product has no multi-user logi
 | --- | --- |
 | `tokens.py` | `new_access_token()` — url-safe token with ~32 bytes of entropy (`secrets.token_urlsafe(32)`); `tokens_match()` constant-time comparison; `assert_session_token()` assertion helper. |
 | `cookies.py` | HttpOnly cookies named `iv_{id}` / `prep_{id}` (scope `CookieScope = Literal["iv", "prep"]`), max age `COOKIE_MAX_AGE` = 90 days; `cookie_should_be_secure()` decides the Secure flag. |
-| `extract.py` | HTTP extraction order: `X-Interview-Token` header > cookie > query; WebSocket extraction via the `mock.<token>` sub-protocol prefix. Production rejects query `?token=` (proxy / access-log leakage). On the cookie-only path, extraction calls the CSRF check. |
+| `extract.py` | HTTP extraction order: `X-Interview-Token` header > cookie > query; WebSocket extraction via the `mock.<token>` sub-protocol prefix. Production rejects query `?token=` (proxy / access-log leakage). Outside production, every query-token acceptance logs a warning (tokens in URLs land in access logs). On the cookie-only path, extraction calls the CSRF check. |
 | `csrf.py` | `assert_csrf_if_cookie_only()` — Origin / Referer must match the CORS allowlist (`cors_origin_list`), as CSRF mitigation for cookie authentication. |
 
 ## Outbound request protection (`security/url.py`, `security/url_pin.py`)

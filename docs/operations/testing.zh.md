@@ -5,10 +5,11 @@
 ## 后端
 
 ```bash
+pip install -e 'apps/api[dev]'
 cd apps/api && pytest
 ```
 
-`testpaths = tests` 配置于 `apps/api/pyproject.toml`；目录布局镜像源码树——每域一目录，外加 platform 与横切套件。
+pytest 位于 `apps/api/pyproject.toml` 的 `dev` extra（`[project.optional-dependencies]`）中，editable 开发安装需带上它；运行时安装（Docker 镜像）不需要。`testpaths = tests` 配置于 `apps/api/pyproject.toml`；目录布局镜像源码树——每域一目录，外加 platform 与横切套件。
 
 ### 领域套件
 
@@ -32,6 +33,7 @@ cd apps/api && pytest
 | `voice/` | 语音能力（voice 配置、resolve、TTS） |
 | `architecture/` | 架构守卫测试 |
 | `smoke/` | platform 与各域服务的聚合启动冒烟 |
+| `tests/test_prompt_hygiene.py`（tests 根目录文件） | prompt 文本必须位于 prompt 模块（`prompts.py` / `*_prompts.py`），不得内联在业务文件中（AST 守卫） |
 
 ### 共享夹具
 
@@ -53,6 +55,7 @@ cd apps/api && pytest
 | `test_app_factory.py` | `app_factory`/`asgi` 入口与中间件行为 |
 | `test_exposure_guards.py` | 部署暴露回归（local-only peer 检查；`ENV=prod` 时对非环回 peer 不得采纳 `TEST_MODE`） |
 | `test_openapi_contract_sync.py` | 见下方契约守卫 |
+| `test_ws_error_code_registry.py` | interview 域 WS 层发出的 `code=` 字面量必须已注册进平台错误 `CATALOG`（AST 守卫） |
 
 ### 契约守卫
 
@@ -75,7 +78,7 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | `npx tsc --noEmit` | TypeScript 类型门 |
 | `npm run lint` | ESLint |
 
-测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 72 个 `*.test.ts(x)` 文件。
+测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 78 个 `*.test.ts(x)` 文件。
 
 ## CI 门禁
 

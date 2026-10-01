@@ -34,7 +34,7 @@ Feature-first business modules; each owns its components, hooks, and tests. Cros
 | `settings/` | Settings pages (providers, models, stages, integrations) |
 | `prep/` | Prep coach chat UI (composer, context panel, slash commands) |
 | `interview/` | Interview room (incl. the coding whiteboard: a pure sandbox scratchpad — code runs in the browser via `src/lib/code-runner/`, no LLM evaluation and no server verdict; the server holds no whiteboard state and no coding WS contract); the room hook assembly has its own README in `interview/hooks/room/` |
-| `report/` | Report display (tabs, score formatting, live events) |
+| `report/` | Report display (tabs, score formatting, live events); `turnGroups.ts` holds the pure ledger-ordering + phase-grouping logic for the deep-dive Q&A (no React, unit-testable) |
 | `history/` | Interview history page |
 | `growth/` | Growth statistics page |
 | `media/` | Shared media primitives: mic recorder (`recorder/`), TTS player |

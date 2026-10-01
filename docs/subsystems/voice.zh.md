@@ -17,7 +17,7 @@
 | 模块 | 用途 |
 | --- | --- |
 | `base.py` | `SttProvider` 适配器契约与 `SttCredentials`。 |
-| `providers/whisper.py` | 共享 faster-whisper 服务(模型缓存、双语 prompt);供本地供应方使用。 |
+| `providers/whisper.py` | 共享 faster-whisper 服务(模型缓存、双语 prompt);供本地供应方使用。模型加载失败(首次使用会从 HuggingFace 下载权重)会被记住,并在 5 分钟退避(`_RETRY_AFTER_SECONDS` = 300)后重试;`local_stt_unavailable_reason()` 暴露失败原因,面试间据此在 `C2001` 错误帧上呈现,设置页识别测试也会报告该原因而非笼统的不匹配。 |
 | `providers/local.py` | `LocalWhisperProvider` — 本地 faster-whisper 转写。 |
 | `providers/cloud.py` | OpenAI 兼容云转写服务(`/v1/audio/transcriptions`),使用专用 ASR 凭据;供 OpenAI 兼容路径使用,本身不是路由 handler id。 |
 | `providers/openai_compat.py` | `OpenAICompatProvider` 与 `MimoAudioProvider`。 |

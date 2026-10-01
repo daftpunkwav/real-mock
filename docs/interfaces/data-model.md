@@ -44,7 +44,7 @@ Business ORM models must be registered before `create_all` but cannot live in `p
 
 | Table | Domain | Purpose (key columns) |
 | --- | --- | --- |
-| `rate_limit_buckets` | platform | Rate-limit buckets (shared table backend) |
+| `rate_limit_buckets` | platform | Rate-limit buckets (shared table backend); stale buckets are dropped by a time-gated sweep shared with the in-memory backend (one pass at most every 120 s, `platform/core/ratelimit.py`) |
 | `prep_sessions` | prep | Prep coach sessions: target_role, target_company, messages, token_usage, prompt/completion/cached tokens, status, access_token, linked_session_id, summary, message_count |
 | `prep_memories` | prep | Long-term prep memories: user-rated turns, facts, agent notes |
 | `interview_sessions` | interview | In-progress room state: role / level / company, workflow_type, status, current_phase, agent_state, messages, ledger_frozen, report, overall_score, process_id, round_no, result, plan |
@@ -52,6 +52,7 @@ Business ORM models must be registered before `create_all` but cannot live in `p
 | `interview_processes` | interview | Multi-round pipeline; sessions hang off via process_id: max_rounds, current_round, round_plan, round_plan_status, process memory |
 | `ws_session_leases` | interview | One active WS lease per session: `session_id` unique, lease_token |
 | `company_briefs` | interview | Cached company / role / level / interview-type brief: `company_key` unique |
+| `company_digests` | interview | Cached company-research digest shared across sessions and processes (`company_key` unique); a second interview at the same company starts planning from it, failures are never cached |
 | `interview_reports` | records | Debrief report per session: `session_id` unique, status, payload, model_meta |
 | `growth_records` | growth | Per-session growth snapshot: `session_id` unique, weak_skills, common_mistakes, training_plan |
 | `growth_insights` | growth | Latest LLM growth insight: one row per profile (payload JSON, locale, session_count) |

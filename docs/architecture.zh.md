@@ -10,7 +10,7 @@
 | `domains/` | 七个业务域 | `platform` + 自身包；绝不依赖其他域 |
 | `bootstrap/` | 组合根：数据库装配（`db_bootstrap.py`）与 sessions ORM（`sessions_orm.py`） | `platform` + `domains` |
 
-`bootstrap/` 位于 `platform/` 之外，因为它需要导入各域包，在建表前注册其 ORM 模型；platform 到 domain 的导入属于架构违规（由 `tests/architecture/test_platform_no_domain_imports.py` 守护）。
+`bootstrap/` 位于 `platform/` 之外，因为它需要导入各域包，在建表前注册其 ORM 模型；platform 到 domain 的导入属于架构违规（由 `tests/architecture/test_platform_no_domain_imports.py` 守护）。代码中声明了一处分层例外：`platform/services/pipeline/` 承载 settings 域业务（stage → model-entry 迁移、key/extras 辅助、运行时解析），供 bootstrap 与各域共享；`platform/services/pipeline/config.py` 将其标注为已接受的债务（accepted debt）。
 
 ## 业务域
 
@@ -41,6 +41,7 @@
 | `test_app_factory.py` | `app_factory` / `asgi` 入口与中间件行为 |
 | `test_exposure_guards.py` | 部署暴露面守卫回归 |
 | `test_openapi_contract_sync.py` | 仓库内 `openapi.json` 与应用实时 schema 一致 |
+| `test_ws_error_code_registry.py` | AST 守卫：interview 域 WS 层发出的 `code=` 字面量必须已注册进平台错误 `CATALOG` |
 
 ## 域内分层惯例
 

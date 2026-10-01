@@ -17,6 +17,12 @@ The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers 
 
 `scripts/export_openapi.py` → root `openapi.json` → `apps/web/src/types/generated/api.d.ts` (run `cd apps/web && npm run generate:api-types`). Guards: `apps/api/tests/architecture/test_api_v1_paths.py` (both prefixes exist) and `test_openapi_contract_sync.py` (committed `openapi.json` matches the live app schema).
 
+## Error envelope and response models
+
+Every JSON error response is emitted by the shared handlers in `platform/core/error_handlers.py` and uses one envelope: `{"detail": ..., "error": {"code", "message", "hint", "retryable", "trace_id"}}`. Business codes come from the site-wide catalog `platform/core/errors.py` (the `A` families for generic / resume / interview / coaching / settings, `B` for system, `C` for third-party); plain `HTTPException`s fall back to `http_{status}` codes. The envelope is registered as OpenAPI components `APIError` / `ErrorBody` (`platform/app_factory.py: register_core_error_handlers`), and growth / settings / prep / interview routes declare typed `response_model`s, so the generated `api.d.ts` covers both shapes. Request-validation failures return the `A0001` envelope (HTTP 422) — for example an over-length `locale` query on `/growth/insight/refresh` (`max_length=10`).
+
+SSE error events follow a fixed disclosure rule (`platform/capabilities/ai/llm/provider_errors.py: is_diagnosable_upstream_error`): only user-actionable upstream classes (context overflow / rate limit / quota exhaustion) keep their verbatim provider text — secret-redacted, and capped at 400 characters in usage summaries (`llm/usage.py: note_request_error`); every other failure falls back to the route's generic copy (`domains/prep/routes/chat.py`, `domains/resume/routes/analyze.py`).
+
 ## Endpoints by domain
 
 Paths below are relative to `/api/v1`; each also exists under the legacy `/api` alias.
@@ -68,6 +74,7 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | DELETE | `/prep/sessions/{session_id}` | delete session |
 | POST | `/prep/sessions/purge-empty`, `/prep/sessions/purge-all` | purge |
 | PATCH / PUT / POST | `/prep/sessions/{session_id}/archive`, `/prep/sessions/{session_id}/link`, `/prep/sessions/{session_id}/reissue` | archive / link resume / reissue token |
+| POST | `/prep/sessions/{session_id}/suggestions` | AI follow-up suggestions for the quick-prompts card (best-effort) |
 | GET / POST | `/prep/memories`, `/prep/memories/tags`, `/prep/memories/batch-delete` | long-term memories |
 | GET / PATCH / DELETE | `/prep/memories/{memory_id}` | memory item |
 

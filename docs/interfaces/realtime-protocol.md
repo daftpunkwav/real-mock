@@ -9,6 +9,7 @@ The realtime interview room runs over a single WebSocket per session. The wire-l
 | URL | `/api/v1/ws/interview/{session_id}` (legacy alias `/api/ws/interview/{session_id}`); route in `domains/interview/routes/ws/interview.py`, registered without a domain prefix |
 | Origin guard | `guard_ws_origin` (`platform/core/local_only.py`) closes browser-driven cross-site handshakes before accept with code `1008`; non-browser clients without an `Origin` header pass. The guard is **origin-based** (anti-CSRF for browsers), **not IP-based**: WS scopes cannot run request-level dependency guards (FastAPI cannot inject `Request` there), so there is no IP-layer loopback restriction on WS connections — session capability tokens remain the real auth |
 | Capability token | `extract_ws_token` (`platform/core/session_auth/extract.py`) resolves the session token in priority order: cookie `iv_{session_id}` > subprotocol `mock.<token>` > query `token=` (ignored in production); the handshake response echoes only a `mock.<token>` subprotocol taken from the client's own list |
+| Post-auth reseed | After token verification a live connection re-seeds missing pre-interview GitHub evidence (`seed_session_github_evidence`, idempotent, single-flight). Seeding is a fire-and-forget background task, so a process restart before it finished would leave the column permanently empty. The reseed never blocks authentication; failures fall back to the interviewer's live lookups as before |
 
 ## Frame format
 

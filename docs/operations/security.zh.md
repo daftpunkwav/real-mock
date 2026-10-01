@@ -6,7 +6,7 @@
 
 | 守卫 | 行为 |
 | --- | --- |
-| `require_local_peer(request)` | 本地管理端点仅接受环回对端;非环回 IP 以 `A0405` 拒绝。Starlette `testclient` 对端始终放行;`TEST_MODE=1` 仅在非生产环境放行真实 HTTP(`env=prod` 时忽略)。FastAPI 无法在 WebSocket 作用域注入 `Request`,因此 WS 端点以 `request=None` 调用,此时守卫短路 — WS 端点改经会话能力令牌认证。 |
+| `require_local_peer(request)` | 本地管理端点仅接受环回对端;非环回 IP 以 `A0405` 拒绝。Starlette `testclient` 对端始终放行。`TEST_MODE=1` **不会**绕过环回检查——该标志只跳过启动引导工作(导出残留的环境变量绝不能把管理端点暴露给局域网)。FastAPI 无法在 WebSocket 作用域注入 `Request`,因此 WS 端点以 `request=None` 调用,此时守卫短路 — WS 端点改经会话能力令牌认证。 |
 | `reject_cross_site_fetch(request)` | 拒绝浏览器驱动的跨站请求(`Sec-Fetch-Site: cross-site`),返回 `A0403`。非浏览器客户端(curl)不发送该头,直接放行。仅限 HTTP;WS 作用域 `request=None` 时短路。 |
 | `require_same_origin_for_writes(request)` | 非安全方法(POST / PUT / PATCH / DELETE)要求 `Origin` 或 `Referer` 在 CORS 白名单内,否则 `A0403`。补上 `reject_cross_site_fetch` 覆盖不到的缺口:另一 localhost 端口属 `same-site`,且无请求体的写请求是 CORS 简单请求、不触发预检。两者都不发送的非浏览器客户端直接放行。仅限 HTTP;WS 作用域 `request=None` 时短路。 |
 | `guard_ws_origin(websocket)` | 跨站 WS 握手在 accept 之前关闭(关闭码 1008)。浏览器必发 `Origin`;主机名必须是 `localhost` / 环回 IP;无 Origin(非浏览器)放行。 |
@@ -21,7 +21,7 @@
 | --- | --- |
 | `tokens.py` | `new_access_token()` — url-safe 令牌,约 32 字节熵(`secrets.token_urlsafe(32)`);`tokens_match()` 常数时间比较;`assert_session_token()` 断言助手。 |
 | `cookies.py` | HttpOnly cookie,名为 `iv_{id}` / `prep_{id}`(作用域 `CookieScope = Literal["iv", "prep"]`),有效期 `COOKIE_MAX_AGE` = 90 天;`cookie_should_be_secure()` 决定 Secure 标志。 |
-| `extract.py` | HTTP 提取顺序:`X-Interview-Token` 头 > cookie > query;WebSocket 经 `mock.<token>` 子协议前缀提取。生产环境拒绝 query `?token=`(防代理 / 访问日志泄露)。仅 cookie 认证路径上,提取时会调用 CSRF 校验。 |
+| `extract.py` | HTTP 提取顺序:`X-Interview-Token` 头 > cookie > query;WebSocket 经 `mock.<token>` 子协议前缀提取。生产环境拒绝 query `?token=`(防代理 / 访问日志泄露)。非生产环境下,每次接受 query 令牌都会记录 warning(URL 中的令牌会落入访问日志)。仅 cookie 认证路径上,提取时会调用 CSRF 校验。 |
 | `csrf.py` | `assert_csrf_if_cookie_only()` — Origin / Referer 必须命中 CORS 允许列表(`cors_origin_list`),作为 cookie 认证的 CSRF 缓解。 |
 
 ## 出站请求防护(`security/url.py`、`security/url_pin.py`)

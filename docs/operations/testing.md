@@ -5,10 +5,11 @@ Backend tests live in `apps/api/tests/`, frontend tests in `apps/web/src/` besid
 ## Backend
 
 ```bash
+pip install -e 'apps/api[dev]'
 cd apps/api && pytest
 ```
 
-`testpaths = tests` is set in `apps/api/pyproject.toml`; the layout mirrors the source tree — one directory per domain, plus platform and cross-cutting suites.
+pytest lives in the `dev` extra of `apps/api/pyproject.toml` (`[project.optional-dependencies]`), so the editable dev install must include it; the runtime install (Docker image) does not need it. `testpaths = tests` is set in `apps/api/pyproject.toml`; the layout mirrors the source tree — one directory per domain, plus platform and cross-cutting suites.
 
 ### Domain suites
 
@@ -32,6 +33,7 @@ cd apps/api && pytest
 | `voice/` | Voice capabilities (voice config, resolve, TTS) |
 | `architecture/` | Architecture guard tests |
 | `smoke/` | Aggregate boot smoke across platform and domain services |
+| `tests/test_prompt_hygiene.py` (root-level file) | Prompt text lives in prompt modules (`prompts.py` / `*_prompts.py`), not inline in business files (AST guard) |
 
 ### Shared fixtures
 
@@ -53,6 +55,7 @@ cd apps/api && pytest
 | `test_app_factory.py` | `app_factory`/`asgi` entry-point and middleware behavior |
 | `test_exposure_guards.py` | Deployment-exposure regressions (local-only peer check; `ENV=prod` must not honor `TEST_MODE` for non-loopback peers) |
 | `test_openapi_contract_sync.py` | See contract guards below |
+| `test_ws_error_code_registry.py` | WS-emitted `code=` literals in the interview domain must be registered in the platform error `CATALOG` (AST guard) |
 
 ### Contract guards
 
@@ -75,7 +78,7 @@ Realtime tests patch module-level symbols in the owning module (e.g. `turn.stt_f
 | `npx tsc --noEmit` | TypeScript type gate |
 | `npm run lint` | ESLint |
 
-Tests live in `__tests__/` directories next to the code they cover; the current scale is 72 `*.test.ts(x)` files across `src/`.
+Tests live in `__tests__/` directories next to the code they cover; the current scale is 78 `*.test.ts(x)` files across `src/`.
 
 ## CI gates
 

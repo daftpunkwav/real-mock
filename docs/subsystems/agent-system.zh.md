@@ -33,7 +33,7 @@
 | 后端 | 强制控制 |
 | --- | --- |
 | `process.py`(`ProcessIsolation`) | 墙钟超时、私有临时工作目录、净化环境。不切换用户、不阻断网络、无 cgroup 限额。Windows、开发机与非 root 进程下的默认后端。 |
-| `linux_job.py`(`LinuxJobIsolation`) | 仅限 Linux。切换到非特权账户(默认 `nobody`,经 `setpriv` / `runuser`),全新网络命名空间(`unshare -n`,loopback 亦关闭),`/sys/fs/cgroup/realmock-codeexec` 下的 cgroup v2 `memory.max`(默认 256 MiB)与 `cpu.max`(默认 `50000 100000` — 半个 CPU),并在私有挂载命名空间内尽力将 `/` 重挂载为只读。通过探测 OS 助手选择启动策略,优先级:`contained` > `userns-mapped` > `userns-netonly` > `netonly` > `plain`。无法强制执行的控制一律以 `<control>=unavailable` 显式记入 `notes` — 绝不静默降级。可用 `CODEEXEC_*` 环境变量调节。 |
+| `linux_job.py`(`LinuxJobIsolation`) | 仅限 Linux。切换到非特权账户(默认 `nobody`,经 `setpriv` / `runuser`),全新网络命名空间(`unshare -n`,loopback 亦关闭),`/sys/fs/cgroup/realmock-codeexec` 下的 cgroup v2 `memory.max`(默认 256 MiB)与 `cpu.max`(默认 `50000 100000` — 半个 CPU),并在私有挂载命名空间内尽力将 `/` 重挂载为只读。通过探测 OS 助手选择启动策略,优先级:`contained` > `userns-mapped` > `netonly` > `userns-netonly` > `plain`。无法强制执行的控制一律以 `<control>=unavailable` 显式记入 `notes` — 绝不静默降级。可用 `CODEEXEC_*` 环境变量调节。 |
 
 ## `context/` — 上下文窗口管理
 
@@ -74,6 +74,6 @@ HTTP 面:`domains/settings/routes/models.py` 与 `domains/settings/routes/model_
 
 ## 域级实例
 
-- **Prep agents** — [`domains/prep/agents/`](../../apps/api/src/realmock/domains/prep/agents/README.md):轮次编排(`chat.py`、`agent.py`)、每轮工具集策略(`turn_tools.py`)、带 `ask_user` 分发的工具执行回调(`tool_exec.py`;`ask_user` 工具发出 `ask_user` 事件并抛出 `AgentHalt`)、轮内压缩(`round_compaction.py`,`MidTurnCompaction`)、投机流式(`streaming.py`)、持久化(`persist.py`);子包 `context/`、`ask_user/`、`tools/`(家族 `basic/`、`candidate/`、`memory/`、`repo/`、`system/`)。
+- **Prep agents** — [`domains/prep/agents/`](../../apps/api/src/realmock/domains/prep/agents/README.md):轮次编排(`chat.py`、`agent.py`、`turn_state.py`)、每轮工具集策略(`turn_tools.py`)、带 `ask_user` 分发的工具执行回调(`tool_exec.py`;`ask_user` 工具发出 `ask_user` 事件并抛出 `AgentHalt`)、内联测验漂移渲染(`quiz_render.py`)、轮末记忆沉淀(`memory_precipitate.py` — 单次建议性 LLM 调用,仅在给出判定时写入)、轮内压缩(`round_compaction.py`,`MidTurnCompaction`)、投机流式(`streaming.py`)、持久化(`persist.py`);子包 `context/`、`ask_user/`、`tools/`(家族 `basic/`、`candidate/`、`memory/`、`repo/`、`system/`)。
 - **Interview agents** — [`domains/interview/agents/`](../../apps/api/src/realmock/domains/interview/agents/README.md):每角色一个子包(`interviewer/`、`topology/`、`hint/`、`planning/`、`research/`、`memory/`),共享内核平铺在包根。包 `__init__` 即 facade:`realtime` / `routes` / `process` 只依赖它以及两个叶契约 `agents.events` 与 `agents.agent_text`。`say_first.py` 为面试轮次解析 say-first 协议。
 - **Growth insight agent** — [`domains/growth/agents/insight.py`](../../apps/api/src/realmock/domains/growth/agents/insight.py):跨会话分析,在历史 / 简历 / 档案证据上跑有界工具循环(与 resume-review 循环同一套守卫语义);结果持久化到 `growth_insights`,并在每场面试结束后由 `insight_scheduler` 单飞重生成。

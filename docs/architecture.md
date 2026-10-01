@@ -10,7 +10,7 @@ The backend is a modular monolith: one FastAPI process, packaged as `realmock` (
 | `domains/` | The seven business domains | `platform` + own package; never another domain |
 | `bootstrap/` | Composition root: database wiring (`db_bootstrap.py`) and the session ORM (`sessions_orm.py`) | `platform` + `domains` |
 
-`bootstrap/` sits outside `platform/` because it imports domain packages to register their ORM models before table creation; a platform-to-domain import is an architecture violation (guarded by `tests/architecture/test_platform_no_domain_imports.py`).
+`bootstrap/` sits outside `platform/` because it imports domain packages to register their ORM models before table creation; a platform-to-domain import is an architecture violation (guarded by `tests/architecture/test_platform_no_domain_imports.py`). One layering exception is declared in code: `platform/services/pipeline/` hosts settings-domain business (stage → model-entry migration, key/extras helpers, runtime resolution) so bootstrap and the domains can share it; `platform/services/pipeline/config.py` records this as accepted debt.
 
 ## Domains
 
@@ -41,6 +41,7 @@ Dependency direction: `bootstrap/` -> `domains/` -> `platform/`; cross-domain co
 | `test_app_factory.py` | Entry-point and middleware behavior of `app_factory` / `asgi` |
 | `test_exposure_guards.py` | Deployment-exposure guard regressions |
 | `test_openapi_contract_sync.py` | The committed `openapi.json` matches the live app schema |
+| `test_ws_error_code_registry.py` | AST guard: `code=` literals emitted by the interview domain's WS layers must be registered in the platform error `CATALOG` |
 
 ## Domain anatomy
 

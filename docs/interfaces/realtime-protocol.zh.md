@@ -9,6 +9,7 @@
 | URL | `/api/v1/ws/interview/{session_id}`（兼容别名 `/api/ws/interview/{session_id}`）；路由位于 `domains/interview/routes/ws/interview.py`，注册时不带域内前缀 |
 | Origin 守卫 | `guard_ws_origin`（`platform/core/local_only.py`）在 accept 之前关闭浏览器发起的跨站握手，关闭码 `1008`；无 `Origin` 头的非浏览器客户端放行。该守卫是 **origin 维度**（防浏览器 CSRF），**不是 IP 维度**：WS scope 无法运行请求级依赖守卫（FastAPI 无法注入 `Request`），因此 WS 连接没有 IP 层的 loopback 限制——会话能力令牌才是真正的鉴权 |
 | 能力令牌 | `extract_ws_token`（`platform/core/session_auth/extract.py`）按优先级解析会话令牌：cookie `iv_{session_id}` > 子协议 `mock.<token>` > query `token=`（生产环境忽略）；握手响应只回显来自客户端自身列表的 `mock.<token>` 子协议 |
+| 鉴权后补种 | 令牌校验通过后，活跃连接会补种缺失的赛前 GitHub 证据（`seed_session_github_evidence`，幂等、单飞）。补种本是 fire-and-forget 的后台任务，进程若在其完成前重启，该列将永久为空。补种绝不阻塞鉴权；失败时照旧回退到面试官的实时查询 |
 
 ## 帧格式
 

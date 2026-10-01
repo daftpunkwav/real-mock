@@ -8,7 +8,7 @@ Triggers: push to `main` and all pull requests. Concurrency group `ci-<ref>` wit
 
 | Job | Runner / toolchain | Steps |
 | --- | --- | --- |
-| `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.12 with pip cache keyed on `apps/api/pyproject.toml` | install `apps/api` editable plus pinned `ruff==0.15.20`, `mypy==2.1.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`; `ruff check apps/api`; `mypy src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview / growth domains; `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` (chromadb 1.5.9 known issues, no fixed release yet) |
+| `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.12 with pip cache keyed on `apps/api/pyproject.toml` | install `apps/api` editable with the `dev` extra (`pip install -e 'apps/api[dev]'`; the extra carries pytest / pytest-asyncio) plus pinned `ruff==0.15.20`, `mypy==2.1.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`; `ruff check apps/api`; `mypy src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview / growth domains; `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` (chromadb 1.5.9 known issues, no fixed release yet) |
 | `frontend` (Frontend (tsc / lint / test / build / audit)) | ubuntu-latest, 20 min cap; Node 24 with npm cache keyed on `apps/web/package-lock.json` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (vitest with coverage thresholds from `apps/web/vitest.config.mts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |
 
 The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, and `CORS_ORIGINS` as job env.
@@ -21,7 +21,7 @@ The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, and 
 | --- | --- |
 | Base | `python:3.12-slim` |
 | Extra runtime | Node.js installed via apt (Debian bookworm ships Node 18.x) — used by the agent `code_exec` tool for JavaScript snippets |
-| Install | `pip install ./apps/api` (`ARG PIP_INDEX_URL` provides an optional mirror for weak networks) |
+| Install | `pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" ./apps/api` (`ARG PIP_INDEX_URL` provides an optional mirror for weak networks; the retries/timeout guard large wheels like opencv) — runtime install without the `dev` extra |
 | Port / entry | 8081; `uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
 | Runtime data | DB / Chroma / uploads live under `/app/apps/api/src/realmock/platform/data` inside the container — mount a volume there at runtime |
 

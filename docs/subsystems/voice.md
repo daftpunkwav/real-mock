@@ -17,7 +17,7 @@ Catalog entries marked `coming_soon` (e.g. the `native_audio` entries `zhipu_glm
 | Module | Purpose |
 | --- | --- |
 | `base.py` | `SttProvider` adapter contract and `SttCredentials`. |
-| `providers/whisper.py` | Shared faster-whisper service (cached model, bilingual prompt); consumed by the local provider. |
+| `providers/whisper.py` | Shared faster-whisper service (cached model, bilingual prompt); consumed by the local provider. A failed model load (first use downloads weights from HuggingFace) is remembered and retried after a 5-minute backoff (`_RETRY_AFTER_SECONDS` = 300); `local_stt_unavailable_reason()` exposes the failure so the interview room surfaces it on a `C2001` error frame and the settings recognition test reports it instead of a generic mismatch. |
 | `providers/local.py` | `LocalWhisperProvider` — local faster-whisper transcription. |
 | `providers/cloud.py` | OpenAI-compatible cloud transcription service (`/v1/audio/transcriptions`) with dedicated ASR credentials; used by the OpenAI-compatible path, not a router handler id itself. |
 | `providers/openai_compat.py` | `OpenAICompatProvider` and `MimoAudioProvider`. |
