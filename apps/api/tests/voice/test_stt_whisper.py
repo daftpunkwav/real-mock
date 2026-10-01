@@ -111,6 +111,28 @@ def test_get_model_fail_fast_within_backoff(monkeypatch):
         whisper_mod.reset_model_cache()
 
 
+def test_get_model_fresh_boot_no_phantom_backoff(monkeypatch):
+    """A monotonic clock still under the retry window is not a backoff.
+
+    ``time.monotonic()`` counts from boot, so on a freshly started machine it
+    can be below ``_RETRY_AFTER_SECONDS``. With no recorded failure the
+    constructor must still be attempted: the old ``(0.0, ...)`` default read
+    every fresh boot as a recent failure and silently disabled local STT for
+    the first minutes of uptime (first seen on a CI runner).
+    """
+    whisper_mod.reset_model_cache()
+    fake_cls = MagicMock(return_value=object())
+    fake_mod = types.ModuleType("faster_whisper")
+    fake_mod.WhisperModel = fake_cls
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake_mod)
+    monkeypatch.setattr(whisper_mod.time, "monotonic", lambda: 10.0)
+    try:
+        assert whisper_mod._get_model("base") is not None
+        fake_cls.assert_called_once()
+    finally:
+        whisper_mod.reset_model_cache()
+
+
 def test_get_model_retries_after_backoff(monkeypatch):
     whisper_mod.reset_model_cache()
     fake_mod = types.ModuleType("faster_whisper")

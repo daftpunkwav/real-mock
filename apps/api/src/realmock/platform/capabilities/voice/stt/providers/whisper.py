@@ -30,8 +30,12 @@ def _get_model(model_size: str = "base"):
     if cached is not None:
         return cached
     now = time.monotonic()
-    failed_at, _reason = _FAILURES.get(model_size, (0.0, ""))
-    if now - failed_at < _RETRY_AFTER_SECONDS:
+    # ``None`` means "never failed here" — a (0.0, ...) default would read as
+    # a failure moments ago whenever the monotonic clock is still under the
+    # retry window (a freshly booted machine), silently disabling local STT
+    # for the first minutes of uptime.
+    failure = _FAILURES.get(model_size)
+    if failure is not None and now - failure[0] < _RETRY_AFTER_SECONDS:
         return None
     try:
         from faster_whisper import WhisperModel
