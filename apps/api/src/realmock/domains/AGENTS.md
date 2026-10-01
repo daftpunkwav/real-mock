@@ -17,8 +17,8 @@ rules shared by all domains.
 
 Each domain keeps the same layers: `routes/` (HTTP), `schemas/` (pydantic
 request/response), `services/`, `agents/` (LLM roles, where present),
-`models/` (ORM). New code goes in the matching layer rather than introducing
-a new top-level concept.
+`models/` (ORM, where present). New code goes in the matching layer rather
+than introducing a new top-level concept.
 
 ## Adding a domain
 
