@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/api/contract";
 import { resolvePhaseLabels } from "@/config/phases";
+import { getTranslator } from "@/i18n/resolve";
 import { useLocale } from "@/i18n/localeContext";
+import { toast } from "@/components/Toast";
 import { interviewHttp as api } from "@/lib/api/clients";
 import { toVisibleChatMessages } from "../../messages";
 
@@ -41,7 +43,11 @@ export function useInterviewRoomBootstrap(sessionId: number) {
   );
   const [lastAssistantContent, setLastAssistantContent] = useState("");
   const [historySessionId, setHistorySessionId] = useState<number | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyAttempt, setHistoryAttempt] = useState(0);
   const [planSteps, setPlanSteps] = useState<PlanStepView[]>([]);
+  /** Session whose history load is in flight; a retry of the same id keeps the error. */
+  const historyLoadSessionRef = useRef<number | null>(null);
 
   const phaseLabels = useMemo(
     () => resolvePhaseLabels(phaseLabelOverlay, locale),
@@ -51,9 +57,14 @@ export function useInterviewRoomBootstrap(sessionId: number) {
   useEffect(() => {
     if (!sessionIdValid) return;
     let cancelled = false;
+    const sessionChanged = historyLoadSessionRef.current !== sessionId;
+    historyLoadSessionRef.current = sessionId;
     setTokenMissing(false);
     setHistoryMessages([]);
     setHistorySessionId(null);
+    // A retry of the same session must keep the failure visible until messages
+    // actually arrive. Clearing it here makes an active session look restored.
+    if (sessionChanged) setHistoryError(false);
     setRestoredPhase("");
     setSessionStatus("");
     setLastAssistantContent("");
@@ -93,10 +104,13 @@ export function useInterviewRoomBootstrap(sessionId: number) {
         const lastAsst = [...visible].reverse().find((m) => m.role === "assistant");
         setLastAssistantContent(lastAsst?.content || "");
         setHistorySessionId(sessionId);
+        setHistoryError(false);
       } catch {
         if (!cancelled) {
-          setHistoryMessages([]);
-          setHistorySessionId(sessionId);
+          // Leave history unloaded. Marking the session restored with [] makes
+          // an active interview look like an empty conversation.
+          setHistoryError(true);
+          toast.error(getTranslator("interview")("chat.empty.historyFailed"));
         }
       }
 
@@ -118,7 +132,7 @@ export function useInterviewRoomBootstrap(sessionId: number) {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, sessionIdValid]);
+  }, [sessionId, sessionIdValid, historyAttempt]);
 
   return {
     sessionIdValid,
@@ -131,6 +145,8 @@ export function useInterviewRoomBootstrap(sessionId: number) {
     phaseLabels,
     lastAssistantContent,
     historySessionId,
+    historyError,
+    retryHistory: () => setHistoryAttempt((n) => n + 1),
     planSteps,
   };
 }

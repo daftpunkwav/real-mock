@@ -21,10 +21,12 @@ const STAGE_STYLES: Record<string, string> = {
 export function InsightCard({
   insight,
   status,
+  notice,
   onRefresh,
 }: {
   insight: GrowthInsight | null;
-  status: "loading" | "empty" | "generating" | "ready";
+  status: "loading" | "empty" | "generating" | "ready" | "error";
+  notice?: string | null;
   onRefresh: () => void;
 }) {
   const t = useT("growth");
@@ -48,7 +50,23 @@ export function InsightCard({
         ) : null
       }
     >
-      {status === "loading" || status === "generating" ? (
+      {notice && insight ? (
+        <p className="mb-3 text-[12px] text-[var(--warning-ink)]">{notice}</p>
+      ) : null}
+      {status === "error" && !insight ? (
+        <div className="py-8 text-center">
+          <p className="mb-3 text-[13px] text-[var(--danger-ink)]">
+            {notice ?? t("insight.pollTimeout")}
+          </p>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90"
+          >
+            {t("insight.generate")}
+          </button>
+        </div>
+      ) : status === "loading" || status === "generating" ? (
         <div className="flex items-center gap-2 py-8 text-[13px] text-ink-muted">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
           {status === "generating"

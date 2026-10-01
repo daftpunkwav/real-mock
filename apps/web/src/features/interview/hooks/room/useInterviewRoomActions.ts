@@ -68,31 +68,35 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
 
   const { send, stopTTS, unlockAudio, flushHeldQueue, retryLastFailed } = deps;
 
-  const submitUserMessageRef = useRef<(text: string, pcm?: string, sampleRate?: number) => void>(
-    () => {},
-  );
+  const submitUserMessageRef = useRef<
+    (text: string, pcm?: string, sampleRate?: number) => boolean
+  >(() => false);
 
   const submitUserMessage = useCallback(
     (text: string, pcmBase64 = "", sampleRate = 16000) => {
       const d = depsRef.current;
       const trimmed = text.trim();
-      if (!trimmed && !pcmBase64) return;
+      if (!trimmed && !pcmBase64) return false;
       const imageBase64 = d.videoRef.current?.captureFrame() ?? undefined;
       const payload = {
         text: trimmed,
         face_analysis: d.faceRef.current,
         image_base64: imageBase64,
       };
-      if (pcmBase64) {
-        const sr =
-          Number.isFinite(sampleRate) && sampleRate >= 8000 && sampleRate <= 96000
-            ? Math.round(sampleRate)
-            : 16000;
-        send({ type: "user_turn_end", pcm: pcmBase64, sample_rate: sr, ...payload });
-      } else {
-        send({ type: "user_text", ...payload });
-      }
+      const sent = pcmBase64
+        ? send({
+            type: "user_turn_end",
+            pcm: pcmBase64,
+            sample_rate:
+              Number.isFinite(sampleRate) && sampleRate >= 8000 && sampleRate <= 96000
+                ? Math.round(sampleRate)
+                : 16000,
+            ...payload,
+          })
+        : send({ type: "user_text", ...payload });
+      if (!sent) return false;
       d.partialTextRef.current = "";
+      return true;
     },
     [send],
   );
@@ -132,7 +136,13 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
       return;
     }
     d.partialTextRef.current = partial;
-    submitUserMessageRef.current(partial, pcm, sampleRate);
+    const sent = submitUserMessageRef.current(partial, pcm, sampleRate);
+    if (!sent) {
+      toast.error(getTranslator("interview")("room.toast.sendDisconnected"));
+      // An empty box can take the transcript. A draft the candidate already
+      // typed must stay; the recognizer text is a different buffer.
+      if (cleaned && !d.inputText.trim()) d.setInputText(cleaned);
+    }
   }, []);
 
   const onPartialStable = useCallback((text: string) => {
@@ -202,7 +212,10 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
     const d = depsRef.current;
     if (!d.canInput) return;
     if (d.inputText.trim()) {
-      submitUserMessage(d.inputText.trim());
+      if (!submitUserMessage(d.inputText.trim())) {
+        toast.error(getTranslator("interview")("room.toast.sendDisconnected"));
+        return;
+      }
       d.setInputText("");
     } else if (d.recorderRef.current.isRecording) {
       d.recorderRef.current.flush();

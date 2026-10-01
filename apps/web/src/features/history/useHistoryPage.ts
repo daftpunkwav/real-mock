@@ -25,6 +25,7 @@ export function useHistoryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [nextRoundIndex, setNextRoundIndex] = useState<Record<number, EligibleProcess>>({});
+  const [processError, setProcessError] = useState<string | null>(null);
   const [startingNext, setStartingNext] = useState(false);
   const seqRef = useRef(0);
 
@@ -33,16 +34,20 @@ export function useHistoryPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [list, processes] = await Promise.all([
-        recordsHttp.listSessions(),
-        interviewHttp
-          .listProcesses()
-          .then(selectEligibleProcesses)
-          .catch(() => []),
-      ]);
+      const list = await recordsHttp.listSessions();
       if (seq !== seqRef.current) return;
       setSessions(list);
-      setNextRoundIndex(buildNextRoundIndex(processes));
+      try {
+        const processes = selectEligibleProcesses(await interviewHttp.listProcesses());
+        if (seq !== seqRef.current) return;
+        setProcessError(null);
+        setNextRoundIndex(buildNextRoundIndex(processes));
+      } catch (e) {
+        if (seq !== seqRef.current) return;
+        setProcessError(
+          e instanceof Error ? e.message : getTranslator("history")("detail.processesFailed"),
+        );
+      }
       const firstCompleted = list.find((s) => s.status === "completed");
       const fallback = list[0];
       setSelectedId(firstCompleted?.id ?? fallback?.id ?? null);
@@ -107,6 +112,7 @@ export function useHistoryPage() {
     selected,
     stats,
     nextRoundIndex,
+    processError,
     startingNext,
     startNextRound,
     load,

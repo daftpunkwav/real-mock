@@ -107,17 +107,52 @@ class TestChannelModelCatalog:
         _wipe(api_db)
         pid = self._channel(api_db, "chat", api_base="https://api.example.com/v1")
         response = type("_R", (), {"raise_for_status": lambda self: None, "json": lambda self: {"data": [{"id": "b-model"}, {"id": "a-model"}]}})()
-        with patch.object(va.httpx, "get", return_value=response) as mock_get:
+        seen: dict = {}
+
+        class _Client:
+            def get(self, url, headers=None):
+                seen["url"] = url
+                seen["headers"] = headers
+                return response
+
+            def close(self):
+                seen["closed"] = True
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+                return False
+
+        with patch.object(va, "make_pinned_client", return_value=_Client()) as mock_client:
             out = va.channel_model_catalog(api_db, pid, "chat")
         assert out == {"source": "remote", "models": ["a-model", "b-model"]}
-        assert mock_get.call_args.args[0] == "https://api.example.com/v1/models"
+        assert mock_client.call_args.args[0] == "https://api.example.com/v1/models"
+        assert seen["url"] == "https://api.example.com/v1/models"
+        assert seen["closed"] is True
 
     def test_remote_failure_raises(self, api_db) -> None:
         _wipe(api_db)
         pid = self._channel(api_db, "chat", api_base="https://api.example.com/v1")
-        with patch.object(va.httpx, "get", side_effect=OSError("boom")):
+        with patch.object(va, "make_pinned_client", side_effect=OSError("boom")):
             with pytest.raises(ApiBusinessError, match="Failed to fetch the model list"):
                 va.channel_model_catalog(api_db, pid, "chat")
+
+    def test_remote_private_url_rejected(self, api_db, monkeypatch) -> None:
+        import ipaddress
+
+        import realmock.platform.core.security.url as url_mod
+
+        _wipe(api_db)
+        pid = self._channel(api_db, "chat", api_base="http://169.254.169.254")
+        monkeypatch.setattr(
+            url_mod,
+            "_resolve_all",
+            lambda host: [ipaddress.ip_address("169.254.169.254")],
+        )
+        with pytest.raises(ApiBusinessError, match="Failed to fetch the model list"):
+            va.channel_model_catalog(api_db, pid, "chat")
 
     def test_no_source_raises(self, api_db) -> None:
         _wipe(api_db)

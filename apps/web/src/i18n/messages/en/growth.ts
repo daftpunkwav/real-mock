@@ -14,6 +14,8 @@ export const growth = {
   "insight.generating": "AI is analyzing your interview history…",
   "insight.loading": "Loading…",
   "insight.empty": "After an interview, AI builds a cross-session growth analysis from all reports, your resume, and profile.",
+  "insight.pollTimeout": "Analysis is still running and this wait timed out. Refresh again in a moment.",
+  "insight.refreshFailed": "Couldn't regenerate the growth analysis",
   "insight.stage.rising": "Rising",
   "insight.stage.stalling": "Stalling",
   "insight.stage.plateau": "Plateau",

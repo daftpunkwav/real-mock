@@ -21,6 +21,7 @@ export default function HistoryPage() {
     selected,
     stats,
     nextRoundIndex,
+    processError,
     startingNext,
     startNextRound,
     load,
@@ -60,6 +61,7 @@ export default function HistoryPage() {
             selected={selected}
             stats={stats}
             nextRoundNo={nextRoundNo}
+            processError={processError}
             startingNext={startingNext}
             onStartNextRound={
               selectedProcessId ? () => startNextRound(selectedProcessId) : undefined

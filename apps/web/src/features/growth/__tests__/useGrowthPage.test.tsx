@@ -139,4 +139,50 @@ describe("useGrowthPage insight polling", () => {
       vi.useRealTimers();
     }
   });
+
+  it("does not mark a timed-out regen as finished", async () => {
+    vi.useFakeTimers();
+    try {
+      mockStableLoads();
+      mockedGetInsight.mockResolvedValue({ insight: OLD_INSIGHT, status: "generating" });
+      const { result } = renderHook(() => useGrowthPage());
+      await act(async () => {});
+      expect(result.current.aiStatus).toBe("generating");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000 * 61);
+      });
+      expect(result.current.aiStatus).toBe("ready");
+      expect(result.current.aiInsight?.headline).toBe("old");
+      expect(result.current.aiNotice).toBeTruthy();
+
+      mockedGetInsight.mockResolvedValue({ insight: null, status: "generating" });
+      mockedRefreshInsight.mockResolvedValue({ scheduled: true, status: "generating" });
+      await act(async () => {
+        await result.current.refreshInsight();
+      });
+      expect(result.current.aiStatus).toBe("generating");
+      expect(result.current.aiNotice).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("surfaces an error when a regen times out before any insight exists", async () => {
+    vi.useFakeTimers();
+    try {
+      mockStableLoads();
+      mockedGetInsight.mockResolvedValue({ insight: null, status: "generating" });
+      const { result, unmount } = renderHook(() => useGrowthPage());
+      await act(async () => {});
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000 * 61);
+      });
+      expect(result.current.aiStatus).toBe("error");
+      expect(result.current.aiInsight).toBeNull();
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

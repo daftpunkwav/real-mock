@@ -14,6 +14,8 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
     streamingText,
     chatEndRef,
     sessionStatus,
+    historyError,
+    retryHistory,
     canInput,
     inputText,
     setInputText,
@@ -25,6 +27,7 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
     turnState,
   } = room;
   const t = useT("interview");
+  const tCommon = useT("common");
   const timerVisible = canInput && turnTimer.phase !== null;
   // 1s ticker: the countdown chip re-renders once per second while visible.
   // The interval only runs while the chip is on screen (same gating as the
@@ -45,13 +48,25 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
   return (
     <div className="rounded-lg border border-surface-border bg-surface-card flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.length === 0 && !streamingText && (
+        {historyError && (
+          <div className="py-3 text-center">
+            <p className="text-xs text-ink-subtle">{t("chat.empty.historyFailed")}</p>
+            <button
+              type="button"
+              className="btn-secondary mt-3 !px-2.5 !py-1 !text-xs"
+              onClick={retryHistory}
+            >
+              {tCommon("action.retry")}
+            </button>
+          </div>
+        )}
+        {messages.length === 0 && !streamingText && !historyError && (
           <p className="text-xs text-ink-subtle text-center py-6">
             {sessionStatus === "active" ? t("chat.empty.restored") : t("chat.empty.starting")}
           </p>
         )}
-        {/* Messages are append-only (restore replaces wholesale), so the
-            array index is a stable key; memoized bubbles skip re-render. */}
+        {/* Merged history keeps earlier turns ahead of live socket turns, so
+            the array index stays stable for unchanged prefixes. */}
         {messages.map((m, i) => (
           <ChatBubble key={i} role={m.role} content={m.content} />
         ))}

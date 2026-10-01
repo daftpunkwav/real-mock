@@ -28,6 +28,7 @@ export default function GrowthPage() {
     load,
     aiInsight,
     aiStatus,
+    aiNotice,
     refreshInsight,
   } = useGrowthPage();
 
@@ -55,6 +56,7 @@ export default function GrowthPage() {
             <InsightCard
               insight={aiInsight}
               status={aiStatus}
+              notice={aiNotice}
               onRefresh={() => void refreshInsight()}
             />
             <TopWeaknessesSection

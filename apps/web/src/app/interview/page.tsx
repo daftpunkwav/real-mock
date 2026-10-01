@@ -67,8 +67,10 @@ export default function InterviewSetupPage() {
       <ContinueProcesses
         processes={continuation.processes}
         loading={continuation.loading}
+        loadError={continuation.loadError}
         startingId={continuation.startingId}
         onStart={continuation.startNext}
+        onRetry={continuation.reload}
       />
       {loading ? (
         <SetupLoading />

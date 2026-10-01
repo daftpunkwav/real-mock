@@ -64,6 +64,21 @@ describe("InsightCard", () => {
     expect(screen.getByText("insight.generating")).toBeTruthy();
   });
 
+  it("renders a timeout as an error with a retry, not an empty success", () => {
+    const onRefresh = vi.fn();
+    render(
+      <InsightCard
+        insight={null}
+        status="error"
+        notice="still running"
+        onRefresh={onRefresh}
+      />,
+    );
+    expect(screen.getByText("still running")).toBeTruthy();
+    fireEvent.click(screen.getByText("insight.generate"));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the empty guide with a generate button", () => {
     const onRefresh = vi.fn();
     render(<InsightCard insight={null} status="empty" onRefresh={onRefresh} />);

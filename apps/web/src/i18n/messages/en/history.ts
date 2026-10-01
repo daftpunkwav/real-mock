@@ -46,6 +46,7 @@ export const history = {
   "detail.roundResult": "Round result",
   "detail.nextRound": "Start round {n}",
   "detail.nextRoundFailed": "Failed to start the next round",
+  "detail.processesFailed": "Couldn't load the next-round action",
 
   "detail.empty": "Select a record to see details",
 } as const;

@@ -14,6 +14,8 @@ export const growth = {
   "insight.generating": "AI 正在分析你的面试历史…",
   "insight.loading": "加载中…",
   "insight.empty": "完成面试后,AI 会基于全部面试报告、简历与档案生成跨场成长分析。",
+  "insight.pollTimeout": "分析仍在进行，这次等待已超时。可以稍后再刷新。",
+  "insight.refreshFailed": "没能重新生成成长分析",
   "insight.stage.rising": "上升期",
   "insight.stage.stalling": "停滞",
   "insight.stage.plateau": "平台期",

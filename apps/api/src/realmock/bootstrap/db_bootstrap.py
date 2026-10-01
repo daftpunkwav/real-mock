@@ -18,10 +18,6 @@ from realmock.bootstrap.sessions_orm import (
     register_sessions_domain_models,
     sessions_column_migrations,
 )
-from realmock.domains.interview.ledger.migration import (
-    backfill_ledger_rows,
-    drop_legacy_ledger_column,
-)
 from realmock.platform.config import get_settings
 from realmock.platform.core.migrate import API_MIGRATIONS, apply_column_migrations, run_migrations
 from realmock.platform.database import (
@@ -70,11 +66,26 @@ def _run_migrations(session_domains: Collection[str] | None) -> None:
     if sessions_migrations:
         apply_column_migrations(get_sessions_engine(), migrations=sessions_migrations)
     if session_domains is None or "interview" in session_domains:
-        # Ledger restructure: copy the legacy blob into interview_turns and
-        # drop the column. Both steps are idempotent and skip on fresh DBs.
-        with sessions_db_session() as db:
-            backfill_ledger_rows(db)
-            drop_legacy_ledger_column(db)
+        # Importing the ledger package registers every interview ORM on
+        # SessionsBase. Keep that off the module body so a prep-only process
+        # does not create interview tables.
+        _migrate_interview_ledger()
+
+
+def _migrate_interview_ledger() -> None:
+    """Copy the legacy ledger blob into interview_turns, then drop the column.
+
+    Both steps are idempotent and skip on fresh databases. The import is
+    inside the function so it runs only for processes that own interview.
+    """
+    from realmock.domains.interview.ledger.migration import (
+        backfill_ledger_rows,
+        drop_legacy_ledger_column,
+    )
+
+    with sessions_db_session() as db:
+        backfill_ledger_rows(db)
+        drop_legacy_ledger_column(db)
 
 
 def _log_startup_failure(stage: str) -> None:

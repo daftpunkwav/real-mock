@@ -8,6 +8,7 @@ import type { InterviewConfig, Options, ResumePickerItem } from "@/lib/api/contr
 import {
   SETUP_PREFS_KEY,
   readSetupPrefs,
+  resolvePersistedModelIds,
   restoreModelId,
   restoreSetupConfig,
   writeSetupPrefs,
@@ -103,6 +104,28 @@ describe("readSetupPrefs / writeSetupPrefs", () => {
     };
     writeSetupPrefs(prefs);
     expect(readSetupPrefs()).toEqual(prefs);
+  });
+});
+
+describe("resolvePersistedModelIds", () => {
+  it("keeps stored ids when the catalog request failed", () => {
+    expect(
+      resolvePersistedModelIds(
+        false,
+        { chatModelId: null, sttModelId: null, ttsModelId: null },
+        { chatModelId: 4, sttModelId: 5, ttsModelId: 6 },
+      ),
+    ).toEqual({ chatModelId: 4, sttModelId: 5, ttsModelId: 6 });
+  });
+
+  it("writes the live selection once the catalog has loaded", () => {
+    expect(
+      resolvePersistedModelIds(
+        true,
+        { chatModelId: 9, sttModelId: null, ttsModelId: 1 },
+        { chatModelId: 4, sttModelId: 5, ttsModelId: 6 },
+      ),
+    ).toEqual({ chatModelId: 9, sttModelId: null, ttsModelId: 1 });
   });
 });
 

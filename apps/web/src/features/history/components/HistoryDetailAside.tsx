@@ -24,12 +24,14 @@ export function HistoryDetailAside({
   selected,
   stats,
   nextRoundNo,
+  processError,
   startingNext,
   onStartNextRound,
 }: {
   selected: SessionHistoryItem | null;
   stats: { total: number; completed: number; active: number; avgScore: number | null };
   nextRoundNo?: number | null;
+  processError?: string | null;
   startingNext?: boolean;
   onStartNextRound?: () => void;
 }) {
@@ -112,6 +114,9 @@ export function HistoryDetailAside({
               ) : (
                 <p className="py-1 text-center text-[11px] text-ink-subtle">{t("detail.notStarted")}</p>
               )}
+              {processError ? (
+                <p className="text-[12px] text-[var(--danger-ink)]">{processError}</p>
+              ) : null}
               {selected.status === "completed" && nextRoundNo && onStartNextRound && (
                 <button
                   type="button"

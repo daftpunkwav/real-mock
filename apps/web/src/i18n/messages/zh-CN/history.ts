@@ -46,6 +46,7 @@ export const history = {
   "detail.roundResult": "轮次结果",
   "detail.nextRound": "进入第{n}面",
   "detail.nextRoundFailed": "进入下一轮失败",
+  "detail.processesFailed": "没能加载下一轮入口",
 
   "detail.empty": "选择一条记录查看详情",
 } as const;

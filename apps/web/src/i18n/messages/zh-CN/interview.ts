@@ -133,6 +133,7 @@ export const interview = {
 
   // ---- 房间:聊天列 ----
   "chat.empty.restored": "已恢复会话，等待你的回答",
+  "chat.empty.historyFailed": "没能恢复对话记录，请重试",
   "chat.empty.starting": "面试即将开始,请保持镜头对准自己",
   "chat.input.placeholder": "输入文字回答,或开麦说话…",
   "chat.input.waiting": "等待面试官…",
@@ -209,6 +210,7 @@ export const interview = {
   "room.toast.audioEnabled": "声音已启用",
   "room.toast.audioEnableFailed": "无法启用声音，请检查浏览器权限",
   "room.toast.finishDisconnected": "连接已断开，无法结束面试，请重试",
+  "room.toast.sendDisconnected": "连接已断开，回答未发送，请重试",
   "room.toast.finishing": "面试官正在做收尾评价…",
   "room.toast.ttsFailed": "语音播放失败",
   "room.toast.interruptedCount": "已打断发言（累计 {n} 次，会影响礼貌评分）",
@@ -328,6 +330,7 @@ export const interview = {
   "process.roundN": "第{n}面",
   "process.next": "开始第{n}面",
   "process.nextFailed": "进入下一轮失败",
+  "process.loadFailed": "没能加载进行中的面试流程",
   "room.verdict.passed": "面试官宣判：本轮通过",
   "room.verdict.failed": "面试官宣判：本轮未通过",
 } as const;

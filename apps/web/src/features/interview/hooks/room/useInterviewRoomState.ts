@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/api/contract";
 import type { ClientEvent, FaceAnalysis } from "@/types";
 import type { VideoPanelHandle } from "../../components/VideoPanel";
+import { mergeRestoredMessages } from "../../messages";
 
 /** Server-backed turn countdown shown in the left chat panel. */
 export interface TurnTimerState {
@@ -86,6 +87,8 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const showOutlineRef = useRef(showOutline);
   const sendRef = useRef<(p: ClientEvent) => boolean>(() => false);
+  const streamingTextRef = useRef(streamingText);
+  streamingTextRef.current = streamingText;
 
   /** Reset session-scoped state and refs when sessionId changes. */
   useEffect(() => {
@@ -124,11 +127,12 @@ export function useInterviewRoomState(deps: InterviewRoomStateDeps) {
   useEffect(() => {
     if (historySessionId !== sessionId) return;
     if (historyMessages.length > 0) {
-      setMessages(historyMessages);
+      const partial = streamingTextRef.current;
+      setMessages((live) => mergeRestoredMessages(historyMessages, live, partial));
       const chars = historyMessages
         .filter((m) => m.role === "assistant")
         .reduce((n, m) => n + m.content.length, 0);
-      setTokenUsage(chars);
+      setTokenUsage((prev) => Math.max(prev, chars));
     }
     if (restoredPhase) setCurrentPhase(restoredPhase);
     if (lastAssistantContent) {

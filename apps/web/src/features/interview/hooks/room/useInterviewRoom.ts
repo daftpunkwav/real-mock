@@ -65,7 +65,7 @@ export function useInterviewRoom(sessionId: number) {
   // at text-complete, ahead of the playback): typing is available immediately,
   // but PCM capture waits so the speaker output is not transcribed as the user.
   const captureEnabled = turnState === "USER_SPEAKING" && !st.finishingUi && !st.aiSpeaking;
-  const canInput = turnState === "USER_SPEAKING" && !st.finishingUi;
+  const canInput = connected && turnState === "USER_SPEAKING" && !st.finishingUi;
 
   useInterviewRoomSilenceTimer({
     micEnabled,
@@ -183,6 +183,8 @@ export function useInterviewRoom(sessionId: number) {
     goSetup,
     sessionMeta: bootstrap.sessionMeta,
     sessionStatus: bootstrap.sessionStatus,
+    historyError: bootstrap.historyError,
+    retryHistory: bootstrap.retryHistory,
     phaseLabels: bootstrap.phaseLabels,
     planSteps: bootstrap.planSteps,
     currentPhase: st.currentPhase,

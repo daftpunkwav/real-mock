@@ -19,9 +19,11 @@ import httpx  # noqa: F401 - retain the module-level reference so tests can patc
 # The pin section was moved to url_pin.py; re-export it here to preserve ``realmock.platform.core.security.url.*``
 # Both import paths are available (security/__init__ and test take these symbols through this module)
 from .url_pin import (  # noqa: F401
+    PinnedHostSyncTransport,
     PinnedHostTransport,
     PinnedHttpTarget,
     make_pinned_async_client,
+    make_pinned_client,
 )
 
 logger = logging.getLogger(__name__)

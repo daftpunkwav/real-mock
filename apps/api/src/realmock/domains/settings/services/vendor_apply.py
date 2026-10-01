@@ -9,11 +9,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import httpx
 from sqlalchemy.orm import Session
 
+from realmock.platform.config import get_settings
 from realmock.platform.core.errors import ApiBusinessError, get_spec
 from realmock.platform.core.secrets import decrypt_secret
+from realmock.platform.core.security import make_pinned_client
 from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile
 from realmock.platform.vendors import CAPABILITIES, vendor_def, recommended_vendors_payload
 from realmock.domains.settings.services.model_registry import get_provider
@@ -156,10 +157,18 @@ def _fetch_remote_models(channel: LlmProviderChannel) -> list[str]:
         api_key = decrypt_secret(api_key) or ""
     url = channel.api_base.rstrip("/") + "/models"
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    settings = get_settings()
     try:
-        response = httpx.get(url, headers=headers, timeout=10.0)
-        response.raise_for_status()
-        data = response.json()
+        # Same runtime SSRF gate as LLM egress: policy check, DNS pin, no redirects.
+        with make_pinned_client(
+            url,
+            allow_local=bool(settings.allow_local_llm),
+            require_https=bool(settings.is_prod),
+            timeout=10.0,
+        ) as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
     except Exception as e:
         raise ApiBusinessError(
             get_spec("C0001"), message=f"Failed to fetch the model list: {e}"

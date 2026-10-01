@@ -20,14 +20,22 @@ export function useProcessContinuation() {
   const router = useRouter();
   const [processes, setProcesses] = useState<EligibleProcess[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     api
       .listProcesses()
-      .then((rows) => setProcesses(selectEligibleProcesses(rows)))
-      .catch(() => setProcesses([]))
+      .then((rows) => {
+        setProcesses(selectEligibleProcesses(rows));
+        setLoadError(null);
+      })
+      .catch((e) => {
+        setLoadError(
+          e instanceof Error ? e.message : getTranslator("interview")("process.loadFailed"),
+        );
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -49,7 +57,7 @@ export function useProcessContinuation() {
     }
   };
 
-  return { processes, loading, startingId, startNext, reload: load };
+  return { processes, loading, loadError, startingId, startNext, reload: load };
 }
 
 export function roundLabel(t: Translator<"interview">, n: number) {
@@ -123,17 +131,21 @@ export function ContinueProcessRow({
 export function ContinueProcesses({
   processes,
   loading,
+  loadError,
   startingId,
   onStart,
+  onRetry,
 }: {
   processes: EligibleProcess[];
   loading: boolean;
+  loadError: string | null;
   startingId: number | null;
   onStart: (process: EligibleProcess) => void;
+  onRetry: () => void;
 }) {
   const t = useT("interview");
-  if (loading && processes.length === 0) return null;
-  if (processes.length === 0) return null;
+  const tCommon = useT("common");
+  if (!loadError && processes.length === 0) return null;
   return (
     <section className="surface-card shrink-0 p-3.5">
       <div className="mb-2 flex items-center gap-2">
@@ -142,6 +154,19 @@ export function ContinueProcesses({
         </span>
         <h2 className="text-[13px] font-semibold">{t("process.title")}</h2>
       </div>
+      {loadError ? (
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[12px] text-[var(--danger-ink)]">{loadError}</p>
+          <button
+            type="button"
+            className="btn-secondary shrink-0 !px-2.5 !py-1 !text-xs"
+            onClick={onRetry}
+            disabled={loading}
+          >
+            {tCommon("action.retry")}
+          </button>
+        </div>
+      ) : null}
       <div className="grid gap-1.5">
         {processes.map((p) => (
           <ContinueProcessRow

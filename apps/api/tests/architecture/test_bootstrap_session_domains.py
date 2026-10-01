@@ -48,6 +48,37 @@ def test_register_empty_domains_skips_business_packages(monkeypatch: pytest.Monk
     assert imported == []
 
 
+def test_db_bootstrap_import_skips_interview_orm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Importing the composition root must not register interview tables.
+
+    Ledger migration imports interview models. That import stays inside the
+    interview migration function; a prep-only process never calls it.
+    """
+    import importlib
+
+    for name in list(sys.modules):
+        if name == "realmock.bootstrap.db_bootstrap" or name.startswith("realmock.domains.interview"):
+            monkeypatch.delitem(sys.modules, name, raising=False)
+
+    imported: list[str] = []
+    real_import = __import__
+
+    def tracking_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "realmock.domains.interview.models" or name.startswith(
+            (
+                "realmock.domains.interview.models.",
+                "realmock.domains.interview.ledger",
+            )
+        ):
+            imported.append(name)
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr("builtins.__import__", tracking_import)
+    importlib.import_module("realmock.bootstrap.db_bootstrap")
+    assert imported == []
+    assert "realmock.domains.interview.models" not in sys.modules
+
+
 def test_register_prep_only_skips_interview(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in list(sys.modules):
         if name.startswith("realmock.domains.interview.models"):

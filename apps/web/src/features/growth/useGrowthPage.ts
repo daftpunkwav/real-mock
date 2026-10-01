@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { growthHttp as api } from "@/lib/api/clients";
 import type { GrowthInsight } from "@/lib/api/clients";
 import { getTranslator } from "@/i18n/resolve";
+import { toast } from "@/components/Toast";
 import type { GrowthRecord } from "@/types";
 import { computeGrowthStats } from "./growthStats";
 import type { SystemInsights } from "./types";
@@ -68,14 +69,21 @@ export function useGrowthPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [aiInsight, setAiInsight] = useState<InsightEnvelope["insight"]>(null);
-  const [aiStatus, setAiStatus] = useState<"loading" | "empty" | "generating" | "ready">("loading");
+  const [aiStatus, setAiStatus] = useState<"loading" | "empty" | "generating" | "ready" | "error">(
+    "loading",
+  );
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const seqRef = useRef(0);
+  const insightRef = useRef(aiInsight);
+  insightRef.current = aiInsight;
 
   const applyInsight = useCallback((env: InsightEnvelope | null) => {
     if (!env) {
+      setAiNotice(null);
       setAiStatus("empty");
       return;
     }
+    setAiNotice(null);
     setAiInsight(env.insight ? normalizeInsight(env.insight) : null);
     // A regen in flight wins over the stale snapshot: staying "generating"
     // keeps the poller alive so the fresh analysis actually surfaces when it
@@ -91,7 +99,8 @@ export function useGrowthPage() {
       tries += 1;
       if (tries > INSIGHT_POLL_MAX) {
         window.clearInterval(id);
-        setAiStatus("ready");
+        setAiNotice(getTranslator("growth")("insight.pollTimeout"));
+        setAiStatus(insightRef.current ? "ready" : "error");
         return;
       }
       try {
@@ -112,9 +121,12 @@ export function useGrowthPage() {
   const refreshInsight = useCallback(async (locale?: string) => {
     try {
       await api.refreshInsight(locale);
+      setAiNotice(null);
       setAiStatus("generating");
-    } catch {
-      /* refresh failures surface on the next manual attempt */
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : getTranslator("growth")("insight.refreshFailed"),
+      );
     }
   }, []);
 
@@ -170,6 +182,7 @@ export function useGrowthPage() {
     load,
     aiInsight,
     aiStatus,
+    aiNotice,
     refreshInsight,
   };
 }

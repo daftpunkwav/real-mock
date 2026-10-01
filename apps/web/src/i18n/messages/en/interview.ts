@@ -136,6 +136,7 @@ export const interview = {
 
   // ---- Room: chat column ----
   "chat.empty.restored": "Session restored; waiting for your answer",
+  "chat.empty.historyFailed": "Couldn't restore the conversation. Please retry.",
   "chat.empty.starting": "The interview is about to start; keep your face in view",
   "chat.input.placeholder": "Type your answer, or speak into the mic…",
   "chat.input.waiting": "Waiting for the interviewer…",
@@ -214,6 +215,7 @@ export const interview = {
   "room.toast.audioEnabled": "Audio enabled",
   "room.toast.audioEnableFailed": "Could not enable audio; check browser permissions",
   "room.toast.finishDisconnected": "Connection lost; couldn't end the interview. Please retry.",
+  "room.toast.sendDisconnected": "Connection lost; the answer was not sent. Please retry.",
   "room.toast.finishing": "The interviewer is wrapping up the evaluation…",
   "room.toast.ttsFailed": "Voice playback failed",
   "room.toast.interruptedCount": "Interrupted the speaker ({n} times total; affects the politeness score)",
@@ -344,6 +346,7 @@ export const interview = {
   "process.roundN": "Round {n}",
   "process.next": "Start round {n}",
   "process.nextFailed": "Failed to start the next round",
+  "process.loadFailed": "Couldn't load in-progress interview processes",
   "room.verdict.passed": "Interviewer verdict: you passed this round",
   "room.verdict.failed": "Interviewer verdict: you did not pass this round",
   "options.company.google.sample0": "Design Google Maps routing algorithm at scale.",

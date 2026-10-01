@@ -67,6 +67,29 @@ export function readSetupPrefs(): StoredSetupPrefs {
   }
 }
 
+/**
+ * Model ids to persist. A failed catalog must keep the last saved ids;
+ * writing the unset nulls would erase them.
+ */
+export function resolvePersistedModelIds(
+  catalogReady: boolean,
+  live: Pick<StoredSetupPrefs, "chatModelId" | "sttModelId" | "ttsModelId">,
+  stored: StoredSetupPrefs,
+): Pick<StoredSetupPrefs, "chatModelId" | "sttModelId" | "ttsModelId"> {
+  if (catalogReady) {
+    return {
+      chatModelId: live.chatModelId,
+      sttModelId: live.sttModelId,
+      ttsModelId: live.ttsModelId,
+    };
+  }
+  return {
+    chatModelId: stored.chatModelId,
+    sttModelId: stored.sttModelId,
+    ttsModelId: stored.ttsModelId,
+  };
+}
+
 /** Persist the full preference set; storage failures are non-fatal. */
 export function writeSetupPrefs(prefs: StoredSetupPrefs): void {
   try {

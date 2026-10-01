@@ -17,6 +17,7 @@ import {
 } from "../setup/optionLabels";
 import {
   readSetupPrefs,
+  resolvePersistedModelIds,
   restoreModelId,
   restoreSetupConfig,
   writeSetupPrefs,
@@ -64,6 +65,8 @@ export function useInterviewSetup() {
   /** True once catalog-dependent restores finished; gates preference write-back. */
   const [prefsRestored, setPrefsRestored] = useState(false);
   const restoreGatesRef = useRef(2);
+  /** False when the model catalog request failed, so write-back keeps stored ids. */
+  const modelsReadyRef = useRef(false);
   const markPrefsRestored = () => {
     restoreGatesRef.current -= 1;
     if (restoreGatesRef.current <= 0) setPrefsRestored(true);
@@ -122,16 +125,25 @@ export function useInterviewSetup() {
         setChatModelId(restoreModelId(storedPrefs.chatModelId, chat));
         setSttModelId(restoreModelId(storedPrefs.sttModelId, stt));
         setTtsModelId(restoreModelId(storedPrefs.ttsModelId, tts));
+        modelsReadyRef.current = true;
         markPrefsRestored();
       })
-      .catch(() => markPrefsRestored());
+      .catch(() => {
+        modelsReadyRef.current = false;
+        markPrefsRestored();
+      });
     settingsHttp.getBindings().then(setDefaultBindings).catch(() => {});
   }, [storedPrefs]);
 
   // Write-back on every change so the next visit restores the latest choices.
   useEffect(() => {
     if (!prefsRestored) return;
-    writeSetupPrefs({ config, multiRound, chatModelId, sttModelId, ttsModelId, effort, referenceDetail });
+    const modelIds = resolvePersistedModelIds(
+      modelsReadyRef.current,
+      { chatModelId, sttModelId, ttsModelId },
+      storedPrefs,
+    );
+    writeSetupPrefs({ config, multiRound, ...modelIds, effort, referenceDetail });
   }, [prefsRestored, config, multiRound, chatModelId, sttModelId, ttsModelId, effort, referenceDetail]);
 
   const set = (patch: Partial<InterviewConfig>) => setConfig((c) => ({ ...c, ...patch }));
