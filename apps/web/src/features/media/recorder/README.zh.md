@@ -15,4 +15,4 @@
 | `audioRecorderTypes.ts` | Web Speech API 类型 |
 | `recorderInternalRefs.ts` | 录音 hook 的共享 ref 容器 |
 
-TTS 播放在上一级(`useTTSPlayer*.ts`、`ttsAudio.ts`);本目录只管采集侧。
+TTS 播放在上一级(`useTTSPlayer*.ts`、`ttsAudio.ts`、`ttsLevelLoop.ts`);本目录只管采集侧。

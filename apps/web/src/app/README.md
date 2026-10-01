@@ -6,7 +6,7 @@ Next.js App Router: one route segment per page.
 | --- | --- |
 | `page.tsx` | Home |
 | `profile/` | Candidate profile editor |
-| `resume/` | Resume list / upload / review; `resume/preview/` serves the server-rendered preview page |
+| `resume/` | Resume list / upload / review; `resume/preview/` is the standalone original-file preview page (client-rendered) |
 | `settings/` | Settings |
 | `prep/` | Prep coach chat |
 | `interview/[id]/` | Interview room |

@@ -10,7 +10,7 @@ Feature-first business modules. Each feature owns its components, hooks, and tes
 | `settings/` | Settings pages (providers, models, stages, integrations) |
 | `prep/` | Prep coach chat UI (composer, context panel, slash commands) |
 | `interview/` | Interview room; the room hook assembly has its own README in [interview/hooks/room/](interview/hooks/room/README.md) |
-| `report/` | Report display (tabs, score formatting, live events) |
+| `report/` | Report display (tabs, score formatting, phase-grouped per-turn notes, live events) |
 | `history/` | Interview history page |
 | `growth/` | Growth statistics page |
 | `media/` | Shared media primitives: mic recorder ([recorder/](media/recorder/README.md)), TTS player |

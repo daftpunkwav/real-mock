@@ -6,7 +6,7 @@ Next.js App Router:每个页面一个路由段。
 | --- | --- |
 | `page.tsx` | 首页 |
 | `profile/` | 候选人档案编辑器 |
-| `resume/` | 简历列表 / 上传 / 评价;`resume/preview/` 为服务端渲染的预览页 |
+| `resume/` | 简历列表 / 上传 / 评价;`resume/preview/` 为独立原件预览页(客户端渲染) |
 | `settings/` | 设置 |
 | `prep/` | Prep 教练会话 |
 | `interview/[id]/` | 面试房 |

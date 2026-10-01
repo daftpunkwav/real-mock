@@ -4,7 +4,7 @@ Framework-free utilities shared across features.
 
 | Module / directory | Purpose |
 | --- | --- |
-| `api/` | HTTP client stack: request / SSE core (`apiRequest.ts`, `apiSse.ts`, `apiUrl.ts`, `apiError.ts`, `base.ts`) and per-domain clients (`*Http.ts`, `clients.ts`, `contract.ts`) |
+| `api/` | HTTP client stack: request / SSE core (`apiRequest.ts`, `apiSse.ts`, `apiUrl.ts`, `apiError.ts`, `base.ts`), per-domain clients (`*Http.ts`, `clients.ts`, `contract.ts`), plus `resumeAnalyzeEvents.ts` (resume-analyze SSE event types) and `useAlignedBackendUrl.ts` (hydration-safe backend URL hook) |
 | `code-runner/` | In-browser code execution: `pythonRunner.ts` (Skulpt), `javascriptRunner.ts` (Blob Worker), `typescriptRunner.ts` (type-stripping), plus `registry.ts` / `output.ts` / `types.ts` |
 | `cnText.ts` | CJK text helpers (full-width punctuation normalization for legacy review data) |
 | `thinkStream.ts` | Splits streaming content into thinking vs. final answer (`<think>` / `<thinking>` tag forms) |

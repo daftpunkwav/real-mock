@@ -4,7 +4,7 @@
 
 | 模块 / 目录 | 用途 |
 | --- | --- |
-| `api/` | HTTP 客户端栈:request / SSE 核心(`apiRequest.ts`、`apiSse.ts`、`apiUrl.ts`、`apiError.ts`、`base.ts`)与按域客户端(`*Http.ts`、`clients.ts`、`contract.ts`) |
+| `api/` | HTTP 客户端栈:request / SSE 核心(`apiRequest.ts`、`apiSse.ts`、`apiUrl.ts`、`apiError.ts`、`base.ts`)、按域客户端(`*Http.ts`、`clients.ts`、`contract.ts`),以及 `resumeAnalyzeEvents.ts`(简历分析 SSE 事件类型)与 `useAlignedBackendUrl.ts`(水合安全的后端 URL hook) |
 | `code-runner/` | 浏览器内代码执行:`pythonRunner.ts`(Skulpt)、`javascriptRunner.ts`(Blob Worker)、`typescriptRunner.ts`(类型剥离),及 `registry.ts` / `output.ts` / `types.ts` |
 | `cnText.ts` | 中文文本助手(面向存量评价数据的全角标点归一化) |
 | `thinkStream.ts` | 将流式内容拆分为思考过程与最终回答(`<think>` / `<thinking>` 标签形态) |

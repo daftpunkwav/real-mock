@@ -15,4 +15,4 @@ Mic capture for the interview room: WebAudio capture loop, VAD / barge-in detect
 | `audioRecorderTypes.ts` | Web Speech API typings |
 | `recorderInternalRefs.ts` | Shared ref container for the recorder hooks |
 
-TTS playback lives one level up (`useTTSPlayer*.ts`, `ttsAudio.ts`); this directory is capture-side only.
+TTS playback lives one level up (`useTTSPlayer*.ts`, `ttsAudio.ts`, `ttsLevelLoop.ts`); this directory is capture-side only.
