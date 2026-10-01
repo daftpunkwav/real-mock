@@ -112,6 +112,8 @@ export default function ReportPage() {
           >
             {t(REPORT_TAB_LABEL_KEYS[id])}
             {current === id && (
+              // One shared layout element re-parented to the active tab, so
+              // the underline slides between tabs instead of remounting.
               <motion.span
                 layoutId="report-tab-underline"
                 layoutScroll
