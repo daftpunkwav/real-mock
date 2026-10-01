@@ -34,27 +34,30 @@ export function sanitizeDiagramSvg(svg: string): string {
   const loneTag = /<\/?(?:script|foreignObject|embed|object|iframe|link|meta)\b[^>]*>/gi;
   // The `on...=` name may directly follow `/` (`<img src=x/onload=...>`),
   // not only whitespace; the separator character is kept.
-  const inlineHandler = /([\s/])on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+  const inlineHandler = /([\s/])on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
   const activeUrl =
     /([\s/])(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript:|data:text\/html)[^"]*"|'\s*(?:javascript:|data:text\/html)[^']*')/gi;
   // A malformed tail can leave a bare active tag with no closing `>` for
   // the tag passes to catch; escaping the literal keeps the output free of
   // any active-tag substring (well-formed input never has one).
   const strayOpen = /<\/?((?:script|iframe|foreignObject|embed|object|link|meta)\b)/gi;
-  // Repeat until the text is stable: removing one nested block can splice
-  // leftover fragments into a fresh active tag (`<scr<script>ipt>`), and
-  // every pass strictly shrinks the text, so this terminates.
+  // Rerun while any pass still has something to remove: removing a nested
+  // block can splice leftover fragments into a fresh active tag
+  // (`<scr<script>ipt>`). The condition is the disjunction of the pass
+  // patterns themselves, so every iteration provably shrinks the text.
+  const residue = new RegExp(
+    [loneTag, inlineHandler, activeUrl, strayOpen].map((r) => `(?:${r.source})`).join("|"),
+    "i",
+  );
   let out = svg;
-  let prev: string;
-  do {
-    prev = out;
+  while (residue.test(out)) {
     out = out
       .replace(blockTag, "")
       .replace(loneTag, "")
       .replace(inlineHandler, "$1")
       .replace(activeUrl, "$1")
       .replace(strayOpen, "&lt;$1");
-  } while (out !== prev);
+  }
   return out;
 }
 
