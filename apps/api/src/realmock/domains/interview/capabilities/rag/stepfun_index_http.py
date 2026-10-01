@@ -18,7 +18,6 @@ from realmock.platform.core.security import (
     UnsafeURLError,
     is_safe_http_url,
     make_pinned_async_client,
-    redact_api_key,
 )
 from realmock.platform.config import get_settings
 
@@ -64,9 +63,8 @@ class StepFunIndexHttp:
             resp = await client.post(url, headers=self._headers(), json=payload)
             if resp.status_code >= 400:
                 logger.warning(
-                    "StepFun create vector_store failed: status=%s key=%s",
+                    "StepFun create vector_store failed: status=%s",
                     resp.status_code,
-                    redact_api_key(api_key),
                 )
             resp.raise_for_status()
             data = resp.json()

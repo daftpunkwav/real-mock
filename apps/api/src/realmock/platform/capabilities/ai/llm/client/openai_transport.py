@@ -13,10 +13,7 @@ from typing import Any
 import httpx
 
 from realmock.platform.config import get_settings
-from realmock.platform.core.security import (
-    make_pinned_async_client,
-    redact_api_key,
-)
+from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.core.secrets import LegacySecretFormatError, decrypt_secret
 
 from .base import _is_local_allowed, _require_https, _retry_request
@@ -116,11 +113,10 @@ async def chat_completions(
                 usage.note_response_diagnostics(getattr(e.response, "headers", None))
                 usage.note_request_error(e)
             logger.warning(
-                "%s failed: model=%s status=%s key=%s",
+                "%s failed: model=%s status=%s",
                 log_label,
                 model,
                 e.response.status_code,
-                redact_api_key(api_key),
             )
             raise
         except BaseException as e:
@@ -233,10 +229,9 @@ async def embed_texts(
             data = resp.json()
         except httpx.HTTPStatusError as e:
             logger.warning(
-                "LLM embed failed: model=%s status=%s key=%s",
+                "LLM embed failed: model=%s status=%s",
                 payload["model"],
                 e.response.status_code,
-                redact_api_key(embed_key),
             )
             raise
 

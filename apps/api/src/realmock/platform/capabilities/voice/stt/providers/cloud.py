@@ -12,7 +12,7 @@ import logging
 import httpx
 
 from realmock.platform.config import get_settings
-from realmock.platform.core.security import make_pinned_async_client, redact_api_key
+from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 
 logger = logging.getLogger(__name__)
@@ -124,14 +124,13 @@ async def transcribe_pcm_cloud(
         except Exception:
             logger.debug("Failed to read STT error response body", exc_info=True)
         logger.error(
-            "Cloud STT HTTP %s key=%s: %s",
+            "Cloud STT HTTP %s: %s",
             e.response.status_code,
-            redact_api_key(key),
             body,
         )
         return ""
     except Exception as e:
-        logger.error("Cloud STT failed key=%s: %s", redact_api_key(key), e)
+        logger.error("Cloud STT failed: %s", e)
         return ""
 
     text = ""

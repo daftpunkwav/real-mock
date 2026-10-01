@@ -1,7 +1,7 @@
 """Chat endpoint tests for apps/api/src/realmock/platform/capabilities/ai/llm/client/chat_endpoints.py.
 
 Covers: chat/test_connection/chat_message across protocols with usage recording
-and redacted-key error logging.
+and key-free error logging.
 
 Conventions: no real network (httpx/pinned client mocked); asyncio_mode=auto.
 """
@@ -59,7 +59,7 @@ async def test_chat_success_records_usage() -> None:
 
 
 @pytest.mark.asyncio
-async def test_chat_http_error_logs_redacted_key(caplog: pytest.LogCaptureFixture) -> None:
+async def test_chat_http_error_log_omits_key(caplog: pytest.LogCaptureFixture) -> None:
     client = _client()
     http = AsyncMock()
     err_resp = MagicMock()
@@ -72,9 +72,10 @@ async def test_chat_http_error_logs_redacted_key(caplog: pytest.LogCaptureFixtur
         pytest.raises(httpx.HTTPStatusError),
     ):
         await ce_mod.chat(client, [{"role": "user", "content": "hi"}])
-    # Redaction: full key must not appear in warning records.
-    assert any("sk-t***cdef" in r.getMessage() for r in caplog.records)
+    # No key material in warning records — not even the masked form.
+    assert caplog.records
     assert not any("sk-test-1234567890abcdef" in r.getMessage() for r in caplog.records)
+    assert not any("sk-t***cdef" in r.getMessage() for r in caplog.records)
 
 
 @pytest.mark.asyncio
