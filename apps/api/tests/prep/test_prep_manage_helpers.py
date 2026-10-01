@@ -8,6 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 import pytest
+from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 @pytest.fixture(autouse=True)
@@ -16,19 +17,15 @@ def _clean_limits():
     yield
     reset_rate_limit()
 
-def test_require_existing_missing() -> None:
+def test_require_existing_missing(db) -> None:
     import importlib
 
     mod = importlib.import_module("realmock.domains.prep.routes.manage")
 
-    db = MagicMock()
-    db.query.return_value.filter.return_value.first.return_value = None
-    with patch.object(mod, "raise_error", side_effect=RuntimeError("A3001")):
-        try:
-            mod._require_existing_session(999, db)
-            assert False
-        except RuntimeError:
-            pass
+    # Real DB lookup misses → the route's shared raise_error fires with A3001.
+    with pytest.raises(ApiBusinessError) as ei:
+        mod._require_existing_session(999, db)
+    assert ei.value.error_code == "A3001"
 
 def test_refresh_linked_block_bad_json_and_non_list() -> None:
     import importlib

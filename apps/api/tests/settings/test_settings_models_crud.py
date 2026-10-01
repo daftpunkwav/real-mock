@@ -370,3 +370,28 @@ def test_settings_models_http_smoke() -> None:
             assert r3.status_code == 200
     finally:
         reset_rate_limit()
+
+
+def test_vendor_apply_and_channel_catalog_http_smoke(api_db) -> None:
+    """Route-layer smoke for the two provisioning endpoints (vendor apply +
+    channel catalog); the service layer is covered in test_vendor_apply.py."""
+    _wipe(api_db)
+    reset_rate_limit()
+    try:
+        with TestClient(app) as client:
+            r = client.post("/api/v1/settings/vendors/minimax/apply")
+            assert r.status_code == 200
+            body = r.json()
+            assert body["created_provider"] is True
+            assert body["name"] == "MiniMax"
+            assert set(body["configured_kinds"]) == {"chat", "stt", "tts"}
+            provider_id = body["provider_id"]
+            catalog = client.get(
+                f"/api/v1/settings/providers/{provider_id}/channels/chat/catalog"
+            )
+            assert catalog.status_code == 200
+            cat = catalog.json()
+            assert cat["source"] == "vendor"
+            assert "MiniMax-M3" in cat["models"]
+    finally:
+        reset_rate_limit()

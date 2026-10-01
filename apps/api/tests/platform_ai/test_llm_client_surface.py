@@ -388,9 +388,15 @@ async def test_chat_json_test_connection_embed() -> None:
         new=AsyncMock(return_value={"a": 1}),
     ):
         assert await c.chat_json([{"role": "user", "content": "hi"}]) == {"a": 1}
-    with patch.object(lc_mod._llm_ext, "test_connection", new=AsyncMock(return_value=(True, "ok"))):
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.llm_client_ext.test_connection",
+        new=AsyncMock(return_value=(True, "ok")),
+    ):
         assert await c.test_connection() == (True, "ok")
-    with patch.object(lc_mod._llm_ext, "embed", new=AsyncMock(return_value=[[0.1]])):
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.llm_client_ext.embed",
+        new=AsyncMock(return_value=[[0.1]]),
+    ):
         assert await c.embed(["hi"]) == [[0.1]]
 
 

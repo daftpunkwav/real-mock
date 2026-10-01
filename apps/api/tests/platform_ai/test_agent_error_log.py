@@ -79,3 +79,6 @@ def test_log_never_raises(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     # A directory is not writable as a file: must be swallowed, not raised.
     monkeypatch.setenv(PATH_ENV, str(tmp_path))
     log_agent_error(tool="t", kind="k", message="m")
+    # The failed write left no artifacts behind.
+    assert tmp_path.is_dir()
+    assert list(tmp_path.iterdir()) == []

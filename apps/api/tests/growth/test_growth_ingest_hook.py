@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from unittest.mock import MagicMock, patch
 
 
@@ -34,12 +36,16 @@ def test_ingest_no_regen_when_not_created() -> None:
         sched.assert_not_called()
 
 
-def test_ingest_regen_schedule_failure_swallowed() -> None:
+def test_ingest_regen_schedule_failure_swallowed(caplog) -> None:
     from realmock.domains.growth.services import ingest as mod
 
     with (
         patch.object(mod, "persist_growth_from_summary", return_value=(MagicMock(), True)),
         patch.object(mod, "record_interview_learning"),
         patch.object(mod, "schedule_growth_insight_regen", side_effect=RuntimeError("no loop")),
+        caplog.at_level(logging.ERROR, logger="realmock.domains.growth.services.ingest"),
     ):
         mod.handle_report_summary(_payload(9203))  # must not raise
+    assert any(
+        "growth insight regen scheduling failed" in r.message for r in caplog.records
+    )

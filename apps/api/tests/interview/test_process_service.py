@@ -6,8 +6,9 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from realmock.platform.core.ratelimit import reset_rate_limit
@@ -36,25 +37,45 @@ def test_process_detail_not_found(db) -> None:
     assert exc.value.code == "A2001"
 
 
-def test_record_round_finished_missing_process() -> None:
+def test_record_round_finished_missing_process(db, caplog) -> None:
     from realmock.domains.interview.process import process_service as mod
 
-    db = MagicMock()
-    db.query.return_value.filter.return_value.first.return_value = None
-    session = SimpleNamespace(id=1, process_id=999, round_no=1, result="passed")
-    mod.record_round_finished(db, session)  # type: ignore[arg-type]
-    # No crash, warning path (278-279).
+    session = SimpleNamespace(id=1, process_id=999999, round_no=1, result="passed")
+    with caplog.at_level(logging.WARNING):
+        mod.record_round_finished(db, session)  # type: ignore[arg-type]
+    assert any(
+        "record_round_finished: process missing" in r.message for r in caplog.records
+    )
 
 
-def test_record_round_finished_exception_rolls_back() -> None:
+def test_record_round_finished_exception_rolls_back(db, caplog) -> None:
+    from realmock.domains.interview.models import InterviewProcess
     from realmock.domains.interview.process import process_service as mod
 
-    db = MagicMock()
-    db.query.side_effect = RuntimeError("db down")
-    db.rollback = MagicMock()
-    session = SimpleNamespace(id=2, process_id=1, round_no=1, result="passed")
-    mod.record_round_finished(db, session)  # type: ignore[arg-type]
-    db.rollback.assert_called()
+    proc = InterviewProcess(role="fe", level="mid", company="acme")
+    db.add(proc)
+    db.commit()
+    original_memory = proc.memory
+    session = SimpleNamespace(id=1, process_id=proc.id, round_no=1, result="passed")
+
+    def _boom(*args, **kwargs):
+        proc.memory = "dirty"
+        raise RuntimeError("db down")
+
+    with (
+        patch.object(mod, "append_round", side_effect=_boom),
+        caplog.at_level(logging.ERROR),
+    ):
+        mod.record_round_finished(db, session)  # type: ignore[arg-type]
+
+    assert any(
+        "record_round_finished failed" in r.message for r in caplog.records
+    )
+    # The failed unit of work must leave no residue: without the rollback the
+    # pending dirty write would be flushed by the next commit on this session.
+    db.commit()
+    db.expire_all()
+    assert db.get(InterviewProcess, proc.id).memory == original_memory
 
 
 # ---- turns (115, 118, 122, 155, 166-168) ----

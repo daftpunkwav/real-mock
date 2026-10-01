@@ -108,6 +108,8 @@ def test_upsert_pending_keeps_fresh_generating(db) -> None:
 
 def test_mark_failed_missing_row_no_crash(db) -> None:
     store.mark_failed(db, 999998, "x")  # no raise
+    # The miss must not create a phantom row.
+    assert store.get_report_row(db, 999998) is None
 
 
 def test_mark_failed_truncates(db) -> None:

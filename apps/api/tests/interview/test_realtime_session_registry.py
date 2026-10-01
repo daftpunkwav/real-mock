@@ -45,47 +45,64 @@ async def test_lease_token_and_memory_claim_release():
 
 
 @pytest.mark.asyncio
-async def test_verify_and_database_paths(monkeypatch):
+async def test_verify_lease_memory_backend_short_circuits():
     r = WsConnectionRegistry()
     h = _conn(2)
+    # Memory backend (default): lease is always valid, handler untouched.
     assert await r.verify_lease(h) is True
-    monkeypatch.setattr("realmock.domains.interview.realtime.core.session_registry.get_settings", lambda: MagicMock(ws_lease_backend="database"))
-    with patch("realmock.domains.interview.realtime.core.session_registry._db_lease_matches_sync", return_value=True):
-        assert await r.verify_lease(h) is True
-    with patch("realmock.domains.interview.realtime.core.session_registry._db_lease_matches_sync", return_value=False):
-        assert await r.verify_lease(h) is False
-        assert h._superseded is True
-    h2 = _conn(3)
-    with patch("realmock.domains.interview.realtime.core.session_registry._persist_lease_sync", return_value=None):
-        await r.claim(h2)
-    with patch("realmock.domains.interview.realtime.core.session_registry._release_lease_sync", return_value=None):
-        await r.release(h2)
+    assert h._superseded is False
     reset_session_registry_for_tests()
     assert active_handlers_for_tests() == {}
 
 
 @pytest.mark.asyncio
-async def test_sync_persist_release_match():
-    db = MagicMock()
-    db.query.return_value.filter.return_value.first.return_value = None
-    cm = MagicMock()
-    cm.__enter__.return_value = db
-    cm.__exit__.return_value = False
-    with patch("realmock.domains.interview.realtime.core.session_registry.sessions_db_session", return_value=cm):
-        _persist_lease_sync(1, "tok")
-        assert db.add.called
-        row = MagicMock(lease_token="tok")
-        db.query.return_value.filter.return_value.first.return_value = row
-        assert _db_lease_matches_sync(1, "tok") is True
-        assert _db_lease_matches_sync(1, "other") is False
-        db2 = MagicMock()
-        db2.query.return_value.filter.return_value.filter.return_value.first.return_value = row
-        cm2 = MagicMock()
-        cm2.__enter__.return_value = db2
-        cm2.__exit__.return_value = False
-        with patch("realmock.domains.interview.realtime.core.session_registry.sessions_db_session", return_value=cm2):
-            _release_lease_sync(1, "tok")
-            assert db2.delete.called
+async def test_database_backend_lease_roundtrip(monkeypatch, db):
+    """ws_lease_backend=database lifecycle through the public registry API.
+
+    Drives claim → verify → reclaim-by-other-window → verify → release against
+    the real sqlite sessions DB, so inlining the private *_sync helpers into
+    the registry methods cannot silently bypass these tests.
+    """
+    import realmock.domains.interview.models  # noqa: F401 — register WsSessionLease
+    from realmock.domains.interview.models import WsSessionLease
+    from realmock.platform.config import get_settings
+
+    monkeypatch.setenv("WS_LEASE_BACKEND", "database")
+    get_settings.cache_clear()
+    try:
+        r = WsConnectionRegistry()
+        h = _conn(42, token="tok-42")
+
+        await r.claim(h)
+        row = db.query(WsSessionLease).filter(WsSessionLease.session_id == 42).first()
+        assert row is not None and row.lease_token == "tok-42"
+        assert await r.verify_lease(h) is True
+        assert h._superseded is False
+
+        # Another window reclaimed the lease: verification must fail and mark
+        # this handler superseded.
+        row.lease_token = "tok-other"
+        db.commit()
+        assert await r.verify_lease(h) is False
+        assert h._superseded is True
+
+        # Releasing with the stale token must NOT delete the newer lease...
+        await r.release(h)
+        db.expire_all()
+        row2 = db.query(WsSessionLease).filter(WsSessionLease.session_id == 42).first()
+        assert row2 is not None and row2.lease_token == "tok-other"
+
+        # ...while the current leaseholder's release does remove the row, and
+        # verification of a leaseless session reports False.
+        h2 = _conn(42, token="tok-other")
+        await r.release(h2)
+        db.expire_all()
+        assert (
+            db.query(WsSessionLease).filter(WsSessionLease.session_id == 42).first() is None
+        )
+        assert await r.verify_lease(h2) is False
+    finally:
+        get_settings.cache_clear()
 
 
 @pytest.mark.asyncio

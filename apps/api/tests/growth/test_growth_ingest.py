@@ -6,6 +6,7 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -40,15 +41,19 @@ def _growth_table(engine):
 # ---- ingest (29-31, 34-35, 50-51) ----
 
 
-def test_ingest_persist_failure_returns() -> None:
+def test_ingest_persist_failure_returns(caplog) -> None:
     from realmock.domains.growth.services import ingest as mod
     from realmock.platform.contracts.report_summary import ReportSummaryPayload
 
     payload = ReportSummaryPayload(session_id=9101, overall_score=80)
-    with patch.object(
-        mod, "persist_growth_from_summary", side_effect=RuntimeError("db down")
+    with (
+        patch.object(
+            mod, "persist_growth_from_summary", side_effect=RuntimeError("db down")
+        ),
+        caplog.at_level(logging.ERROR, logger="realmock.domains.growth.services.ingest"),
     ):
         mod.handle_report_summary(payload)
+    assert any("growth persist failed" in r.message for r in caplog.records)
 
 
 def test_ingest_skip_when_not_created() -> None:
@@ -64,7 +69,7 @@ def test_ingest_skip_when_not_created() -> None:
         learn.assert_not_called()
 
 
-def test_ingest_learning_failure_logged() -> None:
+def test_ingest_learning_failure_logged(caplog) -> None:
     from realmock.domains.growth.services import ingest as mod
     from realmock.platform.contracts.report_summary import ReportSummaryPayload
 
@@ -72,8 +77,10 @@ def test_ingest_learning_failure_logged() -> None:
     with (
         patch.object(mod, "persist_growth_from_summary", return_value=(MagicMock(), True)),
         patch.object(mod, "record_interview_learning", side_effect=RuntimeError("learn down")),
+        caplog.at_level(logging.ERROR, logger="realmock.domains.growth.services.ingest"),
     ):
         mod.handle_report_summary(payload)
+    assert any("growth learning failed" in r.message for r in caplog.records)
 
 
 def test_register_handlers_wires_hook() -> None:

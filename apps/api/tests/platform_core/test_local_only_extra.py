@@ -177,7 +177,8 @@ class TestLocalOnly:
 def test_writes_allowed_for_local_client_and_allowlisted_origin(headers) -> None:
     from realmock.platform.core.local_only import require_same_origin_for_writes
 
-    require_same_origin_for_writes(_req(headers=headers, method="POST"))
+    # Passing the guard returns None (no rejection raised).
+    assert require_same_origin_for_writes(_req(headers=headers, method="POST")) is None
 
 
 def test_write_from_foreign_origin_is_rejected() -> None:
@@ -194,12 +195,15 @@ def test_write_from_foreign_origin_is_rejected() -> None:
 def test_reads_from_foreign_origin_still_pass_this_guard() -> None:
     from realmock.platform.core.local_only import require_same_origin_for_writes
 
-    require_same_origin_for_writes(
-        _req(headers=[(b"origin", b"http://localhost:9999")], method="GET")
+    assert (
+        require_same_origin_for_writes(
+            _req(headers=[(b"origin", b"http://localhost:9999")], method="GET")
+        )
+        is None
     )
 
 
 def test_ws_scope_short_circuits_write_guard() -> None:
     from realmock.platform.core.local_only import require_same_origin_for_writes
 
-    require_same_origin_for_writes(None)
+    assert require_same_origin_for_writes(None) is None

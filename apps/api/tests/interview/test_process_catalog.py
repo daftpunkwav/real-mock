@@ -7,6 +7,7 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -185,8 +186,14 @@ def test_to_snapshot_defaults_and_frozen(db) -> None:
     assert snap.ledger_frozen is False
 
 
-def test_apply_overall_score_missing_no_crash(db) -> None:
-    InterviewSessionScoreProjection().apply_overall_score(db, 999999, 80)
+def test_apply_overall_score_missing_no_crash(db, caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        InterviewSessionScoreProjection().apply_overall_score(db, 999999, 80)
+    assert any(
+        "apply_overall_score: session missing" in r.message for r in caplog.records
+    )
+    # The miss must not create a phantom row.
+    assert db.get(InterviewSession, 999999) is None
 
 
 def test_apply_overall_score_ok_and_rollback(db) -> None:

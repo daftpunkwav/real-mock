@@ -59,7 +59,11 @@ async def test_cap_result_large_keeps_head_and_tail() -> None:
 
 
 def test_note_company_finding_none_state_noop() -> None:
-    _note_company_finding(None, tool="lookup_company_profile", subject="bytedance", result="r")
+    # None agent_state is the documented noop: returns None, creates nothing.
+    assert (
+        _note_company_finding(None, tool="lookup_company_profile", subject="bytedance", result="r")
+        is None
+    )
 
 
 def test_note_company_finding_appends_and_caps() -> None:

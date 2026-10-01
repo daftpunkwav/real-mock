@@ -20,6 +20,19 @@ from realmock.platform.core.security import is_safe_http_url
 from realmock.platform.core.session_auth import extract_ws_token
 
 
+@pytest.fixture(autouse=True)
+def _api_tables(engine, api_engine):
+    """TestClient-based guards here must not depend on other files creating tables first."""
+    from realmock.platform.database import ApiBase, SessionsBase
+    import realmock.domains.interview.models  # noqa: F401
+    import realmock.domains.prep.models  # noqa: F401
+    import realmock.platform.models  # noqa: F401
+
+    ApiBase.metadata.create_all(bind=api_engine)
+    SessionsBase.metadata.create_all(bind=engine)
+    yield
+
+
 def test_local_only_prod_ignores_test_mode(monkeypatch):
     """When env=prod, TEST_MODE must not allow non-loopback addresses."""
     from realmock.platform.config import get_settings
@@ -46,7 +59,8 @@ def test_local_only_testclient_always_ok(monkeypatch):
     get_settings.cache_clear()
     req = MagicMock()
     req.client.host = "testclient"
-    require_local_peer(req)  # Does not throw
+    # Positive contract: the TestClient peer passes even in prod (returns None).
+    assert require_local_peer(req) is None
     monkeypatch.setenv("ENV", "dev")
     get_settings.cache_clear()
 
