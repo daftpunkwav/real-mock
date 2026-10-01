@@ -137,4 +137,4 @@ def test_web_search_wrapper(monkeypatch) -> None:
         "_search_with_ddgs",
         lambda q, mr: [{"href": "https://a.test", "title": "T", "body": "B"}],
     )
-    assert "https://a.test" in web_mod.web_search("q")
+    assert web_mod.web_search("q") == "[1] T\n    URL: https://a.test\n    Snippet: B"

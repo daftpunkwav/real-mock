@@ -66,4 +66,6 @@ def test_public_tool_args_drops_secrets() -> None:
 
 def test_public_tool_args_serializes_nested_objects() -> None:
     out = public_tool_args({"filters": {"site": "github.com", "limit": 3}})
-    assert "github.com" in str(out["filters"])
+    filters = json.loads(out["filters"])
+    assert filters["site"] == "github.com"
+    assert filters["limit"] == 3

@@ -168,7 +168,7 @@ async def test_get_section_skills_summary_links() -> None:
     summary = json.loads(await specs["resume_get_section"].handler({"section": "summary"}))
     assert summary["data"]["summary"] == "great"
     links = json.loads(await specs["resume_get_section"].handler({"section": "links"}))
-    assert "github.com" in links["data"]["github_urls"][0]
+    assert links["data"]["github_urls"] == ["https://github.com/owner/repo"]
 
 
 @pytest.mark.asyncio
