@@ -167,8 +167,10 @@ def _use_db_ratelimit() -> bool:
 
 # Last DB bucket sweep (monotonic). Sweeps are time-gated so the request hot
 # path pays at most one extra DELETE per ``_CLEANUP_INTERVAL_SECONDS``, not
-# per request; the module start value triggers at most one extra pass.
-_last_db_sweep = 0.0
+# per request. ``-inf`` = never swept: on a freshly booted machine the
+# monotonic clock itself can sit below the interval, and a 0.0 start would
+# then wrongly gate away the very first cleanup pass.
+_last_db_sweep = float("-inf")
 
 
 def _sweep_stale_db_buckets(db: Session) -> int:
@@ -431,4 +433,4 @@ def reset_rate_limit(key: str | None = None) -> None:
     # does not leak into the next (and so tests can probe the DB path again).
     _db_degraded_until = 0.0
     # Re-arm the DB bucket sweep so test isolation matches a fresh process.
-    _last_db_sweep = 0.0
+    _last_db_sweep = float("-inf")
