@@ -226,10 +226,8 @@ def test_build_snapshot_and_bundle(db) -> None:
 def test_market_sites_include_job_boards() -> None:
     from realmock.domains.resume.services.sites import RESUME_MARKET_SEARCH_SITES
 
-    assert "nowcoder.com" in RESUME_MARKET_SEARCH_SITES
-    assert "zhipin.com" in RESUME_MARKET_SEARCH_SITES
-    assert "linkedin.com" in RESUME_MARKET_SEARCH_SITES
-    assert "levels.fyi" in RESUME_MARKET_SEARCH_SITES
+    sites = set(RESUME_MARKET_SEARCH_SITES)
+    assert {"nowcoder.com", "zhipin.com", "linkedin.com", "levels.fyi"} <= sites
     assert len(RESUME_MARKET_SEARCH_SITES) >= 8
 
 

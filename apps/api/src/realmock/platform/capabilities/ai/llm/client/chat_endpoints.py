@@ -13,10 +13,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from realmock.platform.core.prompts import strip_emojis
-from realmock.platform.core.security import (
-    make_pinned_async_client,
-    redact_api_key,
-)
+from realmock.platform.core.security import make_pinned_async_client
 
 from realmock.platform.capabilities.ai.llm.defaults import (
     LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
@@ -85,10 +82,9 @@ async def chat(
             client.usage.note_response_diagnostics(getattr(e.response, "headers", None))
             client.usage.note_request_error(e)
             logger.warning(
-                "Unified LLM chat failed: model=%s status=%s key=%s",
+                "Unified LLM chat failed: model=%s status=%s",
                 client.model,
                 e.response.status_code,
-                redact_api_key(client.api_key),
             )
             raise
         except BaseException as e:

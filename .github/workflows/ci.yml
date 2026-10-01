@@ -9,6 +9,10 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: jobs only check out code and publish no artifacts.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

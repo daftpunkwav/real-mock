@@ -27,13 +27,38 @@ export function isErrorDiagramSvg(svg: string): boolean {
  * non-navigable render container — this pass only shrinks the residue.
  */
 export function sanitizeDiagramSvg(svg: string): string {
-  return svg
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, "")
-    .replace(/<(embed|object|iframe|link|meta)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1\s*>)/gi, "")
-    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+(?:href|xlink:href)\s*=\s*("|\')\s*javascript:[^"']*\1/gi, "")
-    .replace(/\s+(?:href|xlink:href)\s*=\s*("|\')\s*data:text\/html[^"']*\1/gi, "");
+  const blockTag = /<(script|foreignObject)\b[^>]*>[\s\S]*?<\/\1\b[^>]*>/gi;
+  // Closing tags may carry attributes (`</script foo>`), and removing one
+  // nested block can splice leftover fragments into a fresh active tag
+  // (`<scr<script>ipt>`), so the pass repeats until the text is stable.
+  const loneTag = /<\/?(?:script|foreignObject|embed|object|iframe|link|meta)\b[^>]*>/gi;
+  // The `on...=` name may directly follow `/` (`<img src=x/onload=...>`),
+  // not only whitespace; the separator character is kept.
+  const inlineHandler = /([\s/])on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
+  const activeUrl =
+    /([\s/])(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript:|data:text\/html)[^"]*"|'\s*(?:javascript:|data:text\/html)[^']*')/gi;
+  // A malformed tail can leave a bare active tag with no closing `>` for
+  // the tag passes to catch; escaping the literal keeps the output free of
+  // any active-tag substring (well-formed input never has one).
+  const strayOpen = /<\/?((?:script|iframe|foreignObject|embed|object|link|meta)\b)/gi;
+  // Rerun while any pass still has something to remove: removing a nested
+  // block can splice leftover fragments into a fresh active tag
+  // (`<scr<script>ipt>`). The condition is the disjunction of the pass
+  // patterns themselves, so every iteration provably shrinks the text.
+  const residue = new RegExp(
+    [loneTag, inlineHandler, activeUrl, strayOpen].map((r) => `(?:${r.source})`).join("|"),
+    "i",
+  );
+  let out = svg;
+  while (residue.test(out)) {
+    out = out
+      .replace(blockTag, "")
+      .replace(loneTag, "")
+      .replace(inlineHandler, "$1")
+      .replace(activeUrl, "$1")
+      .replace(strayOpen, "&lt;$1");
+  }
+  return out;
 }
 
 /**

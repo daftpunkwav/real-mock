@@ -47,6 +47,39 @@ describe("sanitizeDiagramSvg", () => {
     expect(clean).not.toContain("javascript:");
     expect(clean).toContain("https://example.com");
   });
+
+  it("drops script blocks whose closing tag carries attributes", () => {
+    const dirty = '<svg><script src="x">alert(1)</script foo="bar"><rect/></svg>';
+    expect(sanitizeDiagramSvg(dirty)).toBe("<svg><rect/></svg>");
+  });
+
+  it("removes spliced tags after nested-block removal until stable", () => {
+    const dirty = "<svg><scr<script></script>ipt>alert(1)</scr</script>ipt></svg>";
+    const clean = sanitizeDiagramSvg(dirty);
+    expect(clean.toLowerCase()).not.toContain("<script");
+    expect(clean).not.toContain("alert(1)</scr");
+  });
+
+  it("strips unclosed active tags and leftover script bodies", () => {
+    const dirty = '<svg><script src="x">alert(1)<rect/></svg>';
+    const clean = sanitizeDiagramSvg(dirty);
+    expect(clean.toLowerCase()).not.toContain("<script");
+    expect(clean).toContain("<rect");
+  });
+
+  it("strips inline handlers glued to a slash separator", () => {
+    const dirty = '<svg><img src="x"/onload=alert(1)><rect/></svg>';
+    const clean = sanitizeDiagramSvg(dirty);
+    expect(clean).not.toContain("onload");
+    expect(clean).toContain("<rect");
+  });
+
+  it("escapes stray active-tag openings without a closing bracket", () => {
+    const dirty = "<svg><text>x</text><script";
+    const clean = sanitizeDiagramSvg(dirty);
+    expect(clean).not.toContain("<script");
+    expect(clean).toContain("&lt;script");
+  });
 });
 
 describe("fitDiagramSvg", () => {

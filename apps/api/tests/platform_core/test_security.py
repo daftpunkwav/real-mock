@@ -51,7 +51,9 @@ class TestRedactApiKey:
             ("basic dXNlcjpwYXNz", "Basic ***"),
             # Vendor-specific prefixes
             ("sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234", "sk-a***1234"),
-            ("AIzaSyAbcDefGhiJklMnoPqrStuVwxYz1234567", "AIza***4567"),
+            # One char past the Google API key shape (AIza + 35) so scanners
+            # do not flag the fixture as a live credential.
+            ("AIzaSyAbcDefGhiJklMnoPqrStuVwxYz12345678", "AIza***5678"),
             ("step-3.7-flash-abcdefghijklmnop", "step***mnop"),
             # Short strings and everyday phrases are no longer misclassified as ***
             ("short", "short"),

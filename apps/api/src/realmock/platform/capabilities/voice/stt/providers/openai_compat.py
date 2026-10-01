@@ -9,7 +9,7 @@ import logging
 import httpx
 
 from realmock.platform.config import get_settings
-from realmock.platform.core.security import make_pinned_async_client, redact_api_key
+from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 
 logger = logging.getLogger(__name__)
@@ -66,14 +66,13 @@ class MimoAudioProvider:
                 data = resp.json()
         except httpx.HTTPStatusError as e:
             logger.error(
-                "MimoAudio ASR HTTP %s key=%s: %s",
+                "MimoAudio ASR HTTP %s: %s",
                 e.response.status_code,
-                redact_api_key(api_key),
                 e.response.text[:200],
             )
             return ""
         except Exception as e:
-            logger.error("MimoAudio ASR failed key=%s: %s", redact_api_key(api_key), e)
+            logger.error("MimoAudio ASR failed: %s", e)
             return ""
 
         msg = data.get("choices", [{}])[0].get("message", {}) if data.get("choices") else {}

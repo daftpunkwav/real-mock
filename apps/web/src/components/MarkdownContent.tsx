@@ -283,8 +283,10 @@ function isSeparatorRow(line: string): boolean {
   if (!t) return false;
   // | --- | :---: | ---: |
   if (/^\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(t)) return true;
-  if (/^:?-{3,}:?(\s+|:?-{3,}:?)+$/.test(t)) return true;
-  return false;
+  // Unpiped dashes: groups must be joined by whitespace. Keeping `\s+` as the
+  // only separator makes the quantifiers charset-disjoint; an alternation
+  // that also allows adjacent groups backtracks exponentially on long runs.
+  return /^:?-{3,}:?(?:\s+:?-{3,}:?)+$/.test(t);
 }
 
 export function MarkdownContent({

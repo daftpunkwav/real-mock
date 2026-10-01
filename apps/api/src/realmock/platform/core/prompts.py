@@ -24,42 +24,45 @@ AGENT_OUTPUT_RULES = f"""
 """.strip()
 
 # Common emoji / symbol blocks; ASCII control markers like [emotion:smile] are unaffected.
+# Ranges are data instead of \U escapes in a character class: astral escapes
+# are misread by static analyzers, and a table keeps every entry disjoint by
+# construction (sub-ranges covered by a block are simply omitted).
+_EMOJI_RANGES: tuple[tuple[int, int], ...] = (
+    (0x1F1E0, 0x1F1FF),  # flags
+    (0x1F300, 0x1F5FF),  # misc symbols & pictographs
+    (0x1F600, 0x1F64F),  # emoticons
+    (0x1F680, 0x1F6FF),  # transport & map
+    (0x1F700, 0x1F7FF),
+    (0x1F780, 0x1F7FF),
+    (0x1F800, 0x1F8FF),
+    (0x1F900, 0x1F9FF),  # supplemental symbols
+    (0x1FA00, 0x1FAFF),
+    (0x2700, 0x27BF),  # dingbats
+    (0x2600, 0x26FF),  # misc symbols (☀ etc.)
+    (0x2300, 0x23FF),
+    (0x2B00, 0x2BFF),
+    (0xFE00, 0xFE0F),  # variation selectors
+    (0x200D, 0x200D),  # ZWJ (emoji joiner)
+    (0x203C, 0x203C),
+    (0x2049, 0x2049),
+    (0x2194, 0x2199),
+    (0x21A9, 0x21AA),
+    (0x25AA, 0x25AB),
+    (0x25B6, 0x25B6),
+    (0x25C0, 0x25C0),
+    (0x25FB, 0x25FE),
+    (0x2934, 0x2935),
+    (0x3030, 0x3030),
+    (0x303D, 0x303D),
+    (0x3297, 0x3297),
+    (0x3299, 0x3299),
+)
 _EMOJI_RE = re.compile(
     "["
-    "\U0001F1E0-\U0001F1FF"  # flags
-    "\U0001F300-\U0001F5FF"  # misc symbols & pictographs
-    "\U0001F600-\U0001F64F"  # emoticons
-    "\U0001F680-\U0001F6FF"  # transport & map
-    "\U0001F700-\U0001F77F"
-    "\U0001F780-\U0001F7FF"
-    "\U0001F800-\U0001F8FF"
-    "\U0001F900-\U0001F9FF"  # supplemental symbols
-    "\U0001FA00-\U0001FA6F"
-    "\U0001FA70-\U0001FAFF"
-    "\U00002702-\U000027B0"  # dingbats
-    "\U00002700-\U000027BF"
-    "\U00002600-\U000026FF"  # misc symbols (☀ etc.)
-    "\U00002300-\U000023FF"
-    "\U00002B00-\U00002BFF"
-    "\U0000FE00-\U0000FE0F"  # variation selectors
-    "\U0000200D"  # ZWJ (emoji joiner)
-    "\U0000203C\U00002049"
-    "\U00002194-\U00002199"
-    "\U000021A9-\U000021AA"
-    "\U0000231A-\U0000231B"
-    "\U000023E9-\U000023F3"
-    "\U000023F8-\U000023FA"
-    "\U000025AA-\U000025AB"
-    "\U000025B6\U000025C0"
-    "\U000025FB-\U000025FE"
-    "\U00002934-\U00002935"
-    "\U00002B05-\U00002B07"
-    "\U00002B1B-\U00002B1C"
-    "\U00002B50\U00002B55"
-    "\U00003030\U0000303D"
-    "\U00003297\U00003299"
-    "]+",
-    flags=re.UNICODE,
+    + "".join(
+        f"{chr(lo)}-{chr(hi)}" if hi > lo else chr(lo) for lo, hi in _EMOJI_RANGES
+    )
+    + "]+"
 )
 
 # Common kaomoji (lightweight cleanup, not full NLP).
