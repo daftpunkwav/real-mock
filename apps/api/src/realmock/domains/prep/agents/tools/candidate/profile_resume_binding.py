@@ -33,9 +33,6 @@ PROFILE_RESUME_NAMES = frozenset(
     }
 )
 
-# Backward-compatible alias.
-_PROFILE_RESUME_NAMES = PROFILE_RESUME_NAMES
-
 
 async def run_profile_or_resume(
     name: str, args: dict[str, Any], *, resume_id: int | None
@@ -83,10 +80,6 @@ def load_profile_or_resume_spec(name: str, resume_id: int | None) -> Any:
         if bound is None:
             return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
         return bound
-
-
-# Backward-compatible alias.
-_load_profile_or_resume_spec = load_profile_or_resume_spec
 
 
 __all__ = ["PROFILE_RESUME_NAMES", "load_profile_or_resume_spec", "run_profile_or_resume"]

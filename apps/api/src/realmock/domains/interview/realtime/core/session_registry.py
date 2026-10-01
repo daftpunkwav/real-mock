@@ -125,8 +125,8 @@ class WsConnectionRegistry:
 
     async def verify_lease(self, handler: SessionConnection) -> bool:
         """Verify the lease token in database mode; if it fails, it will be marked superseded."""
-        cfg = get_settings()
-        if cfg.ws_lease_backend != "database":
+        settings = get_settings()
+        if settings.ws_lease_backend != "database":
             return True
         token = _lease_token(handler)
         ok = await asyncio.to_thread(_db_lease_matches_sync, handler.session_id, token)
@@ -136,26 +136,26 @@ class WsConnectionRegistry:
 
     async def claim(self, handler: SessionConnection) -> None:
         """Occupy the session lease for the handler; if there is an old connection, notify and close the old connection."""
-        cfg = get_settings()
+        settings = get_settings()
         token = _lease_token(handler)
         old: SessionConnection | None = None
         async with self._lock:
             old = self._handlers.get(handler.session_id)
             self._handlers[handler.session_id] = handler
             handler._superseded = False
-        if cfg.ws_lease_backend == "database":
+        if settings.ws_lease_backend == "database":
             await asyncio.to_thread(_persist_lease_sync, handler.session_id, token)
         if old is not None and old is not handler:
             await self._supersede_old(old, handler.session_id)
 
     async def release(self, handler: SessionConnection) -> None:
         """Only released if the handler still holds the lease (the replaced old connection must not accidentally delete the new connection)."""
-        cfg = get_settings()
+        settings = get_settings()
         token = _lease_token(handler)
         async with self._lock:
             if self._handlers.get(handler.session_id) is handler:
                 self._handlers.pop(handler.session_id, None)
-        if cfg.ws_lease_backend == "database":
+        if settings.ws_lease_backend == "database":
             await asyncio.to_thread(_release_lease_sync, handler.session_id, token)
 
     def clear_for_tests(self) -> None:

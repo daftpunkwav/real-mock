@@ -267,10 +267,14 @@ def usage_event(agent: "PrepAgent") -> dict[str, Any] | None:
     if usage is None or not (usage.prompt_tokens or usage.completion_tokens):
         return None
     event = {"type": "usage", **usage.to_dict()}
-    for key in ("requests", "last_request_id", "last_latency_ms", "last_error"):
+    for key in ("last_request_id", "last_latency_ms", "last_error"):
         value = getattr(usage, key, None)
         if value:
             event[key] = value
+    # Wire key stays "requests" (frontend contract); the accumulator counts
+    # usage-bearing (billed) responses, which is what this number means.
+    if usage.billed_responses:
+        event["requests"] = usage.billed_responses
     return event
 
 

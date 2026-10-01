@@ -10,7 +10,11 @@ import logging
 from fastapi import Header, Query, Request, WebSocket
 
 from realmock.platform.config import get_settings
-from realmock.platform.core.session_auth.cookies import CookieScope, cookie_name
+from realmock.platform.core.session_auth.cookies import (
+    COOKIE_SCOPE_INTERVIEW,
+    CookieScope,
+    cookie_name,
+)
 from realmock.platform.core.session_auth.csrf import assert_csrf_if_cookie_only
 
 logger = logging.getLogger(__name__)
@@ -59,7 +63,7 @@ def extract_token(
     """HTTP dependencies for interviews / reports: Header > Cookie > query (no query in prod)."""
     return _extract_from_request(
         request,
-        scope="iv",
+        scope=COOKIE_SCOPE_INTERVIEW,
         session_id=session_id,
         x_interview_token=x_interview_token,
         token=token,
@@ -105,7 +109,7 @@ def extract_ws_token(
         When the token came through a subprotocol, the second item is the complete subprotocol string for ``accept(subprotocol=...)``.
     """
     if session_id is not None:
-        cookie_tok = (websocket.cookies.get(cookie_name("iv", session_id)) or "").strip()
+        cookie_tok = (websocket.cookies.get(cookie_name(COOKIE_SCOPE_INTERVIEW, session_id)) or "").strip()
         if cookie_tok:
             return cookie_tok, None
 

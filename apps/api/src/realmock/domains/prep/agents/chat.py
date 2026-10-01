@@ -42,7 +42,7 @@ from .persist import (
     usage_event,
 )
 from .quiz_render import prep_quiz_renderer
-from .streaming import make_display_filter, slice_stream, stream_tool_rounds
+from .streaming import make_display_filter, slice_stream, stream_background_events
 
 if TYPE_CHECKING:
     from .agent import PrepAgent
@@ -60,7 +60,7 @@ _THINKING_STATUS = {
 }
 
 
-def polish_final(text: str) -> tuple[str, dict[str, Any] | None]:
+def sanitize_final_reply(text: str) -> tuple[str, dict[str, Any] | None]:
     """Outbound sanitization: recover inline ask_user calls + strip special tokens/inline tool blocks. Returns ``(body, ask event or None)``."""
     cleaned, ask_event = extract_inline_ask_user(text or "")
     return sanitize_special_tokens(cleaned, quiz_renderer=prep_quiz_renderer).strip(), ask_event
@@ -271,7 +271,7 @@ async def run_chat(
                 # Trailing model text is the final answer; an inline ask_user
                 # drift is rescued into the response's dialog field while the
                 # prose stays as the reply body (mirrors the stream channel).
-                final, inline_ask = polish_final(early)
+                final, inline_ask = sanitize_final_reply(early)
                 if inline_ask is not None:
                     ask_event = inline_ask
             if ask_event is not None:
@@ -318,7 +318,7 @@ def _new_content_state() -> dict[str, Any]:
     }
 
 
-def _take_mid_turn_report_event(agent: "PrepAgent") -> dict[str, Any] | None:
+def _take_mid_turn_compaction_report(agent: "PrepAgent") -> dict[str, Any] | None:
     """Consume the mid-turn compaction report as an SSE event (or None)."""
     report = agent._turn_state.mid_turn_report
     if report is None:
@@ -397,7 +397,7 @@ async def run_chat_stream(
     events: asyncio.Queue = asyncio.Queue(maxsize=_EVENT_QUEUE_MAXSIZE)
     asked_user: dict[str, Any] = {"on": False}
     # Speculative content-streaming state: one display filter held across rounds
-    # so its rules (the display mirror of polish_final) apply across chunk and
+    # so its rules (the display mirror of sanitize_final_reply) apply across chunk and
     # round boundaries; the loop-end flush releases any held-back tail.
     content_state: dict[str, Any] = _new_content_state()
     outcome: dict[str, Any] = {}
@@ -414,7 +414,7 @@ async def run_chat_stream(
     final: str = ""
     finalized = False
     try:
-        async for item in stream_tool_rounds(
+        async for item in stream_background_events(
             agent._run_tool_rounds, outcome, events, working, db,
             asked_user=asked_user, content_state=content_state,
         ):
@@ -448,7 +448,7 @@ async def run_chat_stream(
 
         # Agent-invoked mid-turn compaction ran inside the loop: surface it
         # like any other tool-driven step before the final answer streams.
-        mid_event = _take_mid_turn_report_event(agent)
+        mid_event = _take_mid_turn_compaction_report(agent)
         if mid_event is not None:
             yield mid_event
 
@@ -479,7 +479,7 @@ async def run_chat_stream(
         inline_ask = None
         if early:
             # The final text of the model is the final answer (may be accompanied by inline ask_user drift): first purify and rescue and then slice and playback
-            final, inline_ask = polish_final(early)
+            final, inline_ask = sanitize_final_reply(early)
             if final and not content_state.get("streamed"):
                 # Nothing was streamed live (non-streaming LLM fallback): replay in slices.
                 async for piece in slice_stream(final):
@@ -493,7 +493,7 @@ async def run_chat_stream(
                 # failed mid-stream). Regenerating would repeat on screen and
                 # fork from persisted history — finish with the streamed text.
                 filtered = str(content_state.get("filtered_text") or "")
-                final = polish_final(filtered)[0].strip()
+                final = sanitize_final_reply(filtered)[0].strip()
                 if not final:
                     # Streamed text sanitized to nothing: fall through to the
                     # live closing stream below.
@@ -567,7 +567,7 @@ async def run_chat_stream(
 __all__ = [
     "compaction_event",
     "finalize",
-    "polish_final",
+    "sanitize_final_reply",
     "run_chat",
     "run_chat_stream",
     "usage_event",

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from realmock.platform.core.session_auth.cookies import (
     COOKIE_MAX_AGE,
+    COOKIE_SCOPE_INTERVIEW,
     CookieScope,
     clear_session_cookie,
     cookie_name,
@@ -46,6 +47,7 @@ __all__ = [
     "HEADER_NAME",
     "WS_SUBPROTOCOL_PREFIX",
     "COOKIE_MAX_AGE",
+    "COOKIE_SCOPE_INTERVIEW",
     "CookieScope",
     "HasAccessToken",
     "cookie_name",

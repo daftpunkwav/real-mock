@@ -227,7 +227,7 @@ class TestTraceId:
             ws, session_id=1, access_token=_StubSession.access_token
         )
         # Because status=completed, handle sends error and then returns.
-        await handler.handle()
+        await handler.serve_session()
 
         # trace_id should now be injected (set_trace_id is a module-level ContextVar).
         tid = get_trace_id()
@@ -263,7 +263,7 @@ class TestFailAndClose:
 
         ws = _make_mock_ws()
         handler = InterviewWSHandler(ws, session_id=1, access_token="wrong-token")
-        await handler.handle()
+        await handler.serve_session()
 
         # Send an error first, then close with 4401
         assert ws.send_json.await_count == 1
@@ -278,7 +278,7 @@ class TestFailAndClose:
 
         ws = _make_mock_ws()
         handler = InterviewWSHandler(ws, session_id=999)
-        await handler.handle()
+        await handler.serve_session()
 
         assert ws.send_json.await_count == 1
         assert ws.send_json.await_args[0][0]["type"] == "error"
@@ -299,7 +299,7 @@ class TestFailAndClose:
         handler = InterviewWSHandler(
             ws, session_id=1, access_token="test-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
-        await handler.handle()
+        await handler.serve_session()
 
         # The state check now occurs before claim/initialization: a completed session immediately sends "The interview has ended".
         assert ws.send_json.await_count == 1

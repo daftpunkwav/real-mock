@@ -121,7 +121,7 @@ async def test_ws_bad_token_does_not_claim_lease(monkeypatch: pytest.MonkeyPatch
     assert ws_mod.active_handlers_for_tests()[7] is good
 
     attacker = ws_mod.InterviewWSHandler(bad_ws, session_id=7, access_token="wrong")
-    await attacker.handle()
+    await attacker.serve_session()
 
     assert ws_mod.active_handlers_for_tests()[7] is good
     assert good._superseded is False

@@ -142,10 +142,10 @@ class ConnectionAuthMixin:
             session, self.ctx.llm, self.ctx.agent, rag=rag, task_spawner=self._spawn
         )
 
-        cfg = get_settings()
-        settings_voice = self.ctx.tts_creds.voice or cfg.tts_voice
+        settings = get_settings()
+        settings_voice = self.ctx.tts_creds.voice or settings.tts_voice
         self.ctx.tts_voice = settings_voice
-        self.ctx.whisper_model = self.ctx.stt_creds.model or cfg.whisper_model
+        self.ctx.whisper_model = self.ctx.stt_creds.model or settings.whisper_model
         await self._announce_fallbacks()
 
         await self._bind_prosody()

@@ -47,10 +47,10 @@ def test_to_dict_and_merge() -> None:
         "cached_tokens": 3,
         "reasoning_tokens": 0,
     }
-    other = UsageAccumulator(prompt_tokens=10, completion_tokens=20, cached_tokens=30, requests=2)
+    other = UsageAccumulator(prompt_tokens=10, completion_tokens=20, cached_tokens=30, billed_responses=2)
     acc.merge(other)
     assert acc.prompt_tokens == 11
-    assert acc.requests == 2
+    assert acc.billed_responses == 2
     acc.merge(None)
     assert acc.prompt_tokens == 11
 
@@ -60,7 +60,7 @@ def test_record_response_openai() -> None:
     ok = acc.record_response({"usage": {"prompt_tokens": 10, "completion_tokens": 5}}, CHAT)
     assert ok is True
     assert acc.prompt_tokens == 10
-    assert acc.requests == 1
+    assert acc.billed_responses == 1
 
 
 def test_record_response_openai_cached_details() -> None:
@@ -98,7 +98,7 @@ def test_record_response_anthropic() -> None:
     assert acc.record_response(data, ANTH) is True
     assert acc.prompt_tokens == 8
     assert acc.cached_tokens == 2
-    assert acc.requests == 1
+    assert acc.billed_responses == 1
 
 
 def test_record_response_responses() -> None:
@@ -118,7 +118,7 @@ def test_record_stream_anthropic_message_start() -> None:
     ev = {"type": "message_start", "message": {"usage": {"input_tokens": 5, "output_tokens": 1}}}
     assert acc.record_stream_event(ev, ANTH) is True
     assert acc.prompt_tokens == 5
-    assert acc.requests == 1
+    assert acc.billed_responses == 1
 
 
 def test_record_stream_anthropic_message_delta_folds_cumulative() -> None:
@@ -158,7 +158,7 @@ def test_record_stream_anthropic_usage_across_rounds() -> None:
     round_(1200, 600)
     assert acc.completion_tokens == 1400
     assert acc.prompt_tokens == 2200
-    assert acc.requests == 2
+    assert acc.billed_responses == 2
 
 
 def test_record_stream_anthropic_other_returns_false() -> None:
@@ -184,7 +184,7 @@ def test_record_stream_openai_chat_usage() -> None:
 def test_absorb_anthropic_empty_returns_false() -> None:
     acc = UsageAccumulator()
     assert acc.record_response({"usage": {}}, ANTH) is False
-    assert acc.requests == 0
+    assert acc.billed_responses == 0
 
 
 def test_record_response_openai_reasoning_tokens() -> None:
@@ -220,7 +220,7 @@ def test_record_response_responses_reasoning_tokens() -> None:
     assert acc.reasoning_tokens == 3
 
 
-def test_note_response_meta_captures_headers_and_latency(monkeypatch) -> None:
+def test_note_response_diagnostics_captures_headers_and_latency(monkeypatch) -> None:
     # Injected clock instead of sleep(): a real 10ms sleep can round to 0ms on
     # Windows' coarse monotonic granularity, making this test randomly red.
     import realmock.platform.capabilities.ai.llm.usage as usage_mod
@@ -236,7 +236,7 @@ def test_note_response_meta_captures_headers_and_latency(monkeypatch) -> None:
         def get(self, key, default=None):
             return super().get(key.lower(), default)
 
-    acc.note_response_meta(_Headers({"x-request-id": "req-123"}))
+    acc.note_response_diagnostics(_Headers({"x-request-id": "req-123"}))
     assert acc.last_request_id == "req-123"
     assert acc.last_latency_ms == 50.0
 

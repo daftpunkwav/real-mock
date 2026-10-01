@@ -41,7 +41,10 @@ class UsageAccumulator:
     completion_tokens: int = 0
     cached_tokens: int = 0
     reasoning_tokens: int = 0
-    requests: int = 0
+    # Responses whose provider usage was counted into these totals (i.e. billed
+    # requests), not the raw HTTP request count: a request without a parseable
+    # usage block never increments it. Serialized on the wire as "requests".
+    billed_responses: int = 0
     # Diagnostics of the most recent request (best-effort; defaults mean unknown).
     last_request_id: str = ""
     last_latency_ms: float = 0.0
@@ -71,7 +74,7 @@ class UsageAccumulator:
         self.completion_tokens += other.completion_tokens
         self.cached_tokens += other.cached_tokens
         self.reasoning_tokens += other.reasoning_tokens
-        self.requests += other.requests
+        self.billed_responses += other.billed_responses
 
     def note_request_start(self) -> None:
         """Mark the start of one provider request (latency measurement anchor)."""
@@ -85,7 +88,7 @@ class UsageAccumulator:
         if len(self.last_error) > 300:
             self.last_error = self.last_error[:297] + "..."
 
-    def note_response_meta(self, headers: Any) -> None:
+    def note_response_diagnostics(self, headers: Any) -> None:
         """Capture upstream request-id headers and request latency (best-effort).
 
         ``headers`` is an ``httpx.Headers``-like mapping; only the common
@@ -185,7 +188,7 @@ class UsageAccumulator:
         self.completion_tokens += completion
         self.cached_tokens += cached
         self.reasoning_tokens += reasoning
-        self.requests += 1
+        self.billed_responses += 1
         return True
 
     def _absorb_anthropic(self, usage: dict[str, Any], *, count_request: bool) -> bool:
@@ -200,5 +203,5 @@ class UsageAccumulator:
         # Anthropic reports thinking as part of output_tokens; there is no
         # separate reasoning field, so nothing extra to fold in here.
         if count_request:
-            self.requests += 1
+            self.billed_responses += 1
         return True

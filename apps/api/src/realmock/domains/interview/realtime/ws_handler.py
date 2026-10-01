@@ -65,19 +65,19 @@ class InterviewWSHandler(
         access_token: str | None = None,
         ws_subprotocol: str | None = None,
     ) -> None:
-        cfg = get_settings()
+        settings = get_settings()
         self.ctx = ConnectionContext(
             ws=websocket,
             session_id=session_id,
             client_access_token=(access_token or "").strip(),
             ws_subprotocol=ws_subprotocol,
-            tts_voice=cfg.tts_voice,
-            session_prosody=VoiceProsody(voice=cfg.tts_voice),
-            whisper_model=cfg.whisper_model,
+            tts_voice=settings.tts_voice,
+            session_prosody=VoiceProsody(voice=settings.tts_voice),
+            whisper_model=settings.whisper_model,
             nudge_cooldown_sec=float(max(
                 _NUDGE_COOLDOWN_FLOOR_SECONDS,
                 int(
-                    getattr(cfg, "silence_nudge_seconds", _NUDGE_COOLDOWN_DEFAULT_SECONDS)
+                    getattr(settings, "silence_nudge_seconds", _NUDGE_COOLDOWN_DEFAULT_SECONDS)
                     or _NUDGE_COOLDOWN_DEFAULT_SECONDS
                 ),
             )),

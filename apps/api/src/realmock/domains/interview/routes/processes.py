@@ -27,6 +27,7 @@ from realmock.domains.interview.process.process_service import (
 )
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
+    COOKIE_SCOPE_INTERVIEW,
     cookie_should_be_secure,
     new_access_token,
     set_session_cookie,
@@ -49,7 +50,7 @@ def _issue_session_cookie(
     db.commit()
     set_session_cookie(
         response,
-        scope="iv",
+        scope=COOKIE_SCOPE_INTERVIEW,
         session_id=session.id,
         token=token,
         secure=cookie_should_be_secure(request),

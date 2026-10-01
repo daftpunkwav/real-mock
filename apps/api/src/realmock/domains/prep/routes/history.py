@@ -53,7 +53,7 @@ from realmock.platform.database import get_api_db, get_sessions_db
 
 logger = logging.getLogger(__name__)
 
-_PREP_FORBIDDEN = "Don't have access to this coaching session"
+_PREP_FORBIDDEN_DETAIL = "Don't have access to this coaching session"
 
 
 def _require_existing_writable_session(session_id: int, db: Session) -> PrepSession:
@@ -380,7 +380,7 @@ async def fork_prep_session(
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     messages = _load_session_messages(session)
     if body.up_to < 0:
         kept = list(messages)

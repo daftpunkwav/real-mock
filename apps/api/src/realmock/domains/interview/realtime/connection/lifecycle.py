@@ -5,7 +5,7 @@ Responsibilities are split by dependency direction:
 - :mod:`heartbeat` — idle heartbeat and timeout disconnection;
 - :mod:`message_dispatcher` — inbound message dispatch and audio buffering.
 
-This module retains the main :meth:`handle` loop, send/receive primitives, and failure-close path.
+This module retains the main :meth:`serve_session` loop, send/receive primitives, and failure-close path.
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ class ConnectionLifecycleMixin:
     # main loop
     # ------------------------------------------------------------------
 
-    async def handle(self) -> None:
+    async def serve_session(self) -> None:
         """Own the socket lifetime: handshake → pipeline bind → message loop.
 
         The opening flow runs before the loop; each later turn builds a

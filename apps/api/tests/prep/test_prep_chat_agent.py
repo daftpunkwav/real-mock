@@ -1,6 +1,6 @@
 """Chat agent tests for realmock.domains.prep.agents.chat.
 
-Covers: polish_final, _drop_trailing_assistant, _inject_refs, _begin_turn, _force_compact_context, _final_answer_with_overflow_retry, content-state helpers, run_chat and run_chat_stream branches including inline ask-user handling
+Covers: sanitize_final_reply, _drop_trailing_assistant, _inject_refs, _begin_turn, _force_compact_context, _final_answer_with_overflow_retry, content-state helpers, run_chat and run_chat_stream branches including inline ask-user handling
 Conventions: No real LLM/network; LLM and context builders faked via monkeypatch; rate limits reset per test
 """
 from __future__ import annotations
@@ -40,14 +40,14 @@ def _make_agent(monkeypatch=None, llm=None):
 async def _collect(agen):
     return [i async for i in agen]
 
-def test_polish_final_strips_and_recovers() -> None:
-    from realmock.domains.prep.agents.chat import polish_final
+def test_sanitize_final_reply_strips_and_recovers() -> None:
+    from realmock.domains.prep.agents.chat import sanitize_final_reply
 
-    text, event = polish_final("hello <|im_start|> world")
+    text, event = sanitize_final_reply("hello <|im_start|> world")
     assert "<|im_start|>" not in text
     assert event is None
     body = 'intro <tool_call>{"name": "ask_user", "arguments": {"question": "Q?", "options": ["A","B"]}}</tool_call> tail'
-    cleaned, ask = polish_final(body)
+    cleaned, ask = sanitize_final_reply(body)
     assert "<tool_call>" not in cleaned
     assert ask is not None and ask["question"] == "Q?"
 
@@ -174,11 +174,11 @@ def test_new_content_state_and_mid_turn_report() -> None:
     assert callable(st["filter"].flush)
 
     agent = SimpleNamespace(_turn_state=SimpleNamespace(mid_turn_report=None), context_window=8000)
-    assert chat_mod._take_mid_turn_report_event(agent) is None  # type: ignore[arg-type]
+    assert chat_mod._take_mid_turn_compaction_report(agent) is None  # type: ignore[arg-type]
     agent._turn_state.mid_turn_report = {
         "before": 10, "after": 4, "prompt_tokens": 1, "completion_tokens": 2, "latency_ms": 3.0
     }
-    evt = chat_mod._take_mid_turn_report_event(agent)  # type: ignore[arg-type]
+    evt = chat_mod._take_mid_turn_compaction_report(agent)  # type: ignore[arg-type]
     assert evt is not None and evt["type"] == "compaction"
     assert evt["before"] == 10
     assert agent._turn_state.mid_turn_report is None
@@ -292,7 +292,7 @@ async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeyp
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _fake_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _fake_rounds)
     # unexpected shape logs warning then falls to closing stream
     agent.llm = SimpleNamespace(
         chat_stream=lambda *a, **k: _agen(["closing"]),
@@ -330,7 +330,7 @@ async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeyp
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _fake_rounds2)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _fake_rounds2)
     monkeypatch.setattr(chat_mod, "finalize_with_delta", lambda *a, **k: {"type": "usage", "prompt_tokens": 1})
     items2 = [i async for i in chat_mod.run_chat_stream(agent, "hi", _FakeDB())]  # type: ignore[arg-type]
     assert "tail-tok" in items2
@@ -360,7 +360,7 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _boom_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _boom_rounds)
     with pytest.raises(RuntimeError, match="loop-boom"):
         async for _ in chat_mod.run_chat_stream(agent, "hi", _FakeDB()):  # type: ignore[arg-type]
             pass
@@ -371,7 +371,7 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _ok_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _ok_rounds)
 
     calls = {"n": 0}
 
@@ -400,7 +400,7 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _streamed_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _streamed_rounds)
     agent.llm = SimpleNamespace(
         chat_stream=lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not regenerate")),
         context_window=8000,
@@ -426,7 +426,7 @@ async def test_run_chat_stream_cancel_persists(monkeypatch) -> None:
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _cancel_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _cancel_rounds)
     persisted = {}
     monkeypatch.setattr(chat_mod, "persist_cancel", lambda *a, **k: persisted.update({"ok": True}))
     agent = _make_agent()
@@ -463,7 +463,7 @@ async def test_run_chat_stream_cancel_persists_streamed_trace(monkeypatch) -> No
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _partial_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _partial_rounds)
     captured = {}
 
     def _fake_persist(agent, working, final, content_state, db, **kwargs):
@@ -508,7 +508,7 @@ async def test_run_chat_stream_cancel_prefers_outcome_trace(monkeypatch) -> None
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _done_rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _done_rounds)
 
     async def _cancel_closing(messages, temperature=0.7):
         raise asyncio.CancelledError()
@@ -550,7 +550,7 @@ def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None
         if False:
             yield "x"
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _rounds)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _rounds)
     monkeypatch.setattr(chat_mod, "slice_stream", lambda text: _agen([text]))
 
     async def _agen(items):
@@ -560,7 +560,7 @@ def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None
     def _polish(text):
         return "", {"question": "Q?", "options": ["A", "B"]}
 
-    monkeypatch.setattr(chat_mod, "polish_final", _polish)
+    monkeypatch.setattr(chat_mod, "sanitize_final_reply", _polish)
     agent = _make_agent()
     agent.pending_reply_text = lambda: "wait-line"  # type: ignore[method-assign]
     monkeypatch.setattr(chat_mod, "finalize_with_delta", lambda *a, **k: None)
@@ -613,7 +613,7 @@ async def test_run_chat_stream_error_persists_question(monkeypatch) -> None:
         raise RuntimeError("stream exploded")
         yield  # pragma: no cover
 
-    monkeypatch.setattr(chat_mod, "stream_tool_rounds", _boom_run)
+    monkeypatch.setattr(chat_mod, "stream_background_events", _boom_run)
 
     agent = _make_agent()
     saved: dict = {}

@@ -1,6 +1,6 @@
 """Prep streaming helpers: speculative content tokens, event queue for tool rounds, and early-body replay.
 
-The orchestration layer (``run_chat_stream`` in :mod:`chat`) uses :func:`stream_tool_rounds`
+The orchestration layer (``run_chat_stream`` in :mod:`chat`) uses :func:`stream_background_events`
 to run tool rounds in the background and relay their event queue; :func:`event_loopbacks`
 builds the per-round callbacks (thinking deltas, tool progress, and display-filtered
 speculative content tokens); :func:`slice_stream` replays a fully buffered answer body
@@ -43,26 +43,26 @@ _DISPLAY_BLOCK_MAX_CHARS = 4000
 
 
 class DisplayTextFilter:
-    """Incremental display mirror of the persist-path sanitization (``polish_final``).
+    """Incremental display mirror of the persist-path sanitization (``sanitize_final_reply``).
 
     Speculative streaming shows model body text before the loop knows whether a
     round is final, so the display channel must apply the same rules the final
     answer will get, or refresh would rewrite what the user just read:
 
     - ``<tool_call>…</tool_call>`` blocks mentioning ``ask_user`` are held back
-      and dropped — the JSON-style drift form ``polish_final`` strips at persist
+      and dropped — the JSON-style drift form ``sanitize_final_reply`` strips at persist
       (the platform cleaner releases invoke-less blocks as text, so this filter
       owns that rule);
     - template special tokens and ``<invoke>``-style tool blocks are removed via
       the platform filters (quiz ``<question>`` converts to body text);
-    - emojis are NOT removed — ``polish_final`` keeps them, so display and
+    - emojis are NOT removed — ``sanitize_final_reply`` keeps them, so display and
       persisted history must keep them too;
     - leading whitespace of the first emission is stripped (mirrors
-      ``polish_final``'s final ``strip()``); trailing whitespace is not
+      ``sanitize_final_reply``'s final ``strip()``); trailing whitespace is not
       retracted live — polish strips it at persist and HTML renders it away.
 
     Output is display-only: the persisted message always comes from
-    ``polish_final`` on the unpolished final text (which also rescues buildable
+    ``sanitize_final_reply`` on the unpolished final text (which also rescues buildable
     ask_user blocks into dialog events).
     """
 
@@ -116,7 +116,7 @@ class DisplayTextFilter:
             if "ask_user" not in block:
                 out.append(self._OPEN + block + self._CLOSE)
             # ask_user blocks are dropped: the dialog event (when the args are
-            # buildable) is produced by polish_final on the unpolished final text.
+            # buildable) is produced by sanitize_final_reply on the unpolished final text.
         return self._emit_downstream("".join(out))
 
     def flush(self) -> str:
@@ -125,7 +125,7 @@ class DisplayTextFilter:
         return self._emit_downstream(tail)
 
     def _emit_downstream(self, text: str) -> str:
-        """Run released text through the platform filters, mirroring polish_final's
+        """Run released text through the platform filters, mirroring sanitize_final_reply's
         leading strip on the first emission (trailing whitespace cannot be
         retracted live; polish strips it at persist and HTML renders it away)."""
         result = self._tool_calls.feed(self._tokens.feed(text))
@@ -152,7 +152,7 @@ def event_loopbacks(
     ``on_tool_step`` is optional: when tool progress arrives, record it synchronously (for example,
     in a ``tool_steps`` list for persistence). ``content_state`` enables speculative streaming:
     body-text deltas from every round pass through the caller-owned ``filter``
-    (:class:`DisplayTextFilter`, the display mirror of ``polish_final``) and are relayed as
+    (:class:`DisplayTextFilter`, the display mirror of ``sanitize_final_reply``) and are relayed as
     ``token`` events; the first delta also clears the status line. The caller owns the dict
     (``streamed`` / ``status_cleared`` / ``filtered_text`` plus the ``filter``) so it can flush the
     held-back tail after the loop returns. Returns ``(on_thinking, on_tool, on_content)``;
@@ -237,7 +237,7 @@ def slice_stream(text: str) -> AsyncIterator[str]:
     return _gen()
 
 
-async def stream_tool_rounds(
+async def stream_background_events(
     run: Any,
     outcome: dict[str, Any],
     events: asyncio.Queue,
@@ -284,5 +284,5 @@ __all__ = [
     "event_loopbacks",
     "make_display_filter",
     "slice_stream",
-    "stream_tool_rounds",
+    "stream_background_events",
 ]

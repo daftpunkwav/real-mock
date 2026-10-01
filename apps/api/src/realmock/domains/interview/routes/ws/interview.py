@@ -37,4 +37,4 @@ async def interview_websocket(
         access_token=access,
         ws_subprotocol=echo_proto,
     )
-    await handler.handle()
+    await handler.serve_session()

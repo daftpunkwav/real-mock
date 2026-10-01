@@ -1,6 +1,6 @@
 """Streaming tests for realmock.domains.prep.agents.streaming.
 
-Covers: make_display_filter, event_loopbacks on_content, _public_args, _display_result and stream_tool_rounds success/error/cancel paths
+Covers: make_display_filter, event_loopbacks on_content, _public_args, _display_result and stream_background_events success/error/cancel paths
 Conventions: No real LLM; background tasks faked where needed; rate limits reset per test
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from realmock.domains.prep.agents.streaming import (
     _public_args,
     event_loopbacks,
     make_display_filter,
-    stream_tool_rounds,
+    stream_background_events,
 )
 
 @pytest.fixture(autouse=True)
@@ -83,7 +83,7 @@ def test_display_result_truncates_with_marker() -> None:
     assert len(out) < len(big)
 
 @pytest.mark.asyncio
-async def test_stream_tool_rounds_success_relays() -> None:
+async def test_stream_background_events_success_relays() -> None:
     events: asyncio.Queue = asyncio.Queue()
     outcome: dict = {}
 
@@ -91,24 +91,24 @@ async def test_stream_tool_rounds_success_relays() -> None:
         assert kwargs.get("events") is events
         return ("ok-value",)
 
-    collected = [i async for i in stream_tool_rounds(_run, outcome, events)]
+    collected = [i async for i in stream_background_events(_run, outcome, events)]
     assert collected == []
     assert outcome["value"] == ("ok-value",)
 
 @pytest.mark.asyncio
-async def test_stream_tool_rounds_failure_records_error() -> None:
+async def test_stream_background_events_failure_records_error() -> None:
     events: asyncio.Queue = asyncio.Queue()
     outcome: dict = {}
 
     async def _boom(*args, **kwargs):
         raise RuntimeError("wheel-boom")
 
-    collected = [i async for i in stream_tool_rounds(_boom, outcome, events)]
+    collected = [i async for i in stream_background_events(_boom, outcome, events)]
     assert collected == []
     assert isinstance(outcome.get("error"), RuntimeError)
 
 @pytest.mark.asyncio
-async def test_stream_tool_rounds_cancel_while_running() -> None:
+async def test_stream_background_events_cancel_while_running() -> None:
     events: asyncio.Queue = asyncio.Queue()
     outcome: dict = {}
 
@@ -118,7 +118,7 @@ async def test_stream_tool_rounds_cancel_while_running() -> None:
 
     async def _consume():
         count = 0
-        async for item in stream_tool_rounds(_slow, outcome, events):
+        async for item in stream_background_events(_slow, outcome, events):
             count += 1
             if count >= 1:
                 break
@@ -129,7 +129,7 @@ async def test_stream_tool_rounds_cancel_while_running() -> None:
     assert await asyncio.wait_for(_consume(), timeout=5) == 1
 
 @pytest.mark.asyncio
-async def test_stream_tool_rounds_cancel_logs_generic(monkeypatch) -> None:
+async def test_stream_background_events_cancel_logs_generic(monkeypatch) -> None:
     import realmock.domains.prep.agents.streaming as streaming_mod
 
     events: asyncio.Queue = asyncio.Queue()
@@ -166,7 +166,7 @@ async def test_stream_tool_rounds_cancel_logs_generic(monkeypatch) -> None:
     async def _run(*args, **kwargs):
         return "x"
 
-    collected = [i async for i in stream_tool_rounds(_run, outcome, events)]
+    collected = [i async for i in stream_background_events(_run, outcome, events)]
 
     assert collected == []
     assert any("background task ended" in w for w in warnings)

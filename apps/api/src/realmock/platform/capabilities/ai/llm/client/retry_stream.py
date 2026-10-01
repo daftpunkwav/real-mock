@@ -68,7 +68,7 @@ async def stream_message_round_retry(
             try:
                 async with c.stream("POST", url, headers=headers, json=payload) as resp:
                     if usage is not None:
-                        usage.note_response_meta(getattr(resp, "headers", None))
+                        usage.note_response_diagnostics(getattr(resp, "headers", None))
                     if resp.status_code in (400, 422) and "stream_options" in payload:
                         body = (await resp.aread()).decode("utf-8", "ignore")
                         if "stream_options" in body:
@@ -166,7 +166,7 @@ async def stream_text_retry(
             try:
                 async with c.stream("POST", url, headers=headers, json=payload) as resp:
                     if usage is not None:
-                        usage.note_response_meta(getattr(resp, "headers", None))
+                        usage.note_response_diagnostics(getattr(resp, "headers", None))
                     if resp.status_code in (400, 422) and "stream_options" in payload:
                         # Supplier rejects stream_options: log the downgrade,
                         # drop the option, and retry without it.

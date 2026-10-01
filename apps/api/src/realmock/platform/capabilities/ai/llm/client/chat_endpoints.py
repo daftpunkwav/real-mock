@@ -80,10 +80,10 @@ async def chat(
                 )
             )
             resp.raise_for_status()
-            client.usage.note_response_meta(getattr(resp, "headers", None))
+            client.usage.note_response_diagnostics(getattr(resp, "headers", None))
             data = resp.json()
         except httpx.HTTPStatusError as e:
-            client.usage.note_response_meta(getattr(e.response, "headers", None))
+            client.usage.note_response_diagnostics(getattr(e.response, "headers", None))
             client.usage.note_request_error(e)
             logger.warning(
                 "Unified LLM chat failed: model=%s status=%s key=%s",
@@ -186,7 +186,7 @@ async def chat_message(
                 )
             )
             resp.raise_for_status()
-            client.usage.note_response_meta(getattr(resp, "headers", None))
+            client.usage.note_response_diagnostics(getattr(resp, "headers", None))
             data = resp.json()
         except BaseException as e:
             client.usage.note_request_error(e)

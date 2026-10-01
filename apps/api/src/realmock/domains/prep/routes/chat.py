@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 _SSE_ERR_GENERIC = "Coaching response failed, please try again later"
 # Verbatim provider text is length-capped like other model-facing observations.
 _SSE_DETAIL_MAX_CHARS = 400
-_PREP_FORBIDDEN = "Don't have access to this coaching session"
+_PREP_FORBIDDEN_DETAIL = "Don't have access to this coaching session"
 
 
 def _build_prep_llm(api_db: Session, body: PrepMessageRequest) -> LLMClient:
@@ -95,7 +95,7 @@ async def prep_message(
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
         raise_error("A3002")
     llm = _build_prep_llm(api_db, body)
@@ -156,7 +156,7 @@ async def prep_message_stream(
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
         raise_error("A3002")
     llm = _build_prep_llm(api_db, body)
@@ -253,7 +253,7 @@ def get_prep_messages(
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     messages = _load_session_messages(session)
     # Historical messages may contain leaked template tokens from before the
     # sanitizer was in place: clean before display without mutating the store.
@@ -281,7 +281,7 @@ def get_prep_context(
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     messages = _load_session_messages(session)
     counts = build_context_breakdown(messages)
     buckets = [PrepContextBucket(key=key, tokens=counts.get(key, 0)) for key in BREAKDOWN_ORDER]
@@ -349,7 +349,7 @@ async def suggest_prep_followups(
     session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
     if not session:
         raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     params = body or PrepSuggestionsRequest()
     exchange = _last_exchange(_load_session_messages(session))
     if exchange is None:

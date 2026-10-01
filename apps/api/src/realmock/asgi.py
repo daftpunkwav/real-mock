@@ -69,12 +69,12 @@ async def lifespan(app: FastAPI):
         await asyncio.to_thread(_bootstrap_db_and_seed)
     await ensure_rag_index()
     sweep_interrupted_resume_parses()
-    cfg = get_settings()
-    logger.info("RealMock backend started env=%s", cfg.env)
+    settings = get_settings()
+    logger.info("RealMock backend started env=%s", settings.env)
     try:
         yield
     finally:
-        if not cfg.is_prod and os.environ.get("TEST_MODE") == "1":
+        if not settings.is_prod and os.environ.get("TEST_MODE") == "1":
             logger.debug("test mode: skip engine dispose")
         else:
             try:
@@ -145,7 +145,7 @@ def _shutdown_engine() -> None:
 def create_app() -> FastAPI:
     """Build the aggregated FastAPI app: domain routers + middleware."""
     configure_logging()
-    cfg = get_settings()
+    settings = get_settings()
     app = FastAPI(
         title="RealMock API",
         description=(
@@ -158,10 +158,10 @@ def create_app() -> FastAPI:
 
     install_trace_middleware(app)
 
-    _check_cors_policy(cfg)
-    add_default_cors(app, cors_origin_list=cfg.cors_origin_list)
+    _check_cors_policy(settings)
+    add_default_cors(app, cors_origin_list=settings.cors_origin_list)
 
-    _check_secret_key_policy(cfg)
+    _check_secret_key_policy(settings)
 
     include_with_legacy_api_alias(app, SERVICE_ROUTERS)
 
@@ -203,5 +203,5 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    boot = get_settings()
-    uvicorn.run(app, host=boot.host, port=boot.port)
+    settings = get_settings()
+    uvicorn.run(app, host=settings.host, port=settings.port)

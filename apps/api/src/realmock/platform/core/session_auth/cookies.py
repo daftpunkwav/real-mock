@@ -5,11 +5,16 @@ Extracted from ``session_auth``; public symbols are still exported centrally by 
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Final, Literal
 
 from fastapi import Request, Response
 
 from realmock.platform.config import get_settings
+
+# Cookie scope values are wire contract (the cookie name is "<scope>_<session_id>"):
+# "iv" abbreviates the interview domain. Renaming a value would invalidate every
+# already-issued cookie, so the abbreviation is pinned as a named constant.
+COOKIE_SCOPE_INTERVIEW: Final = "iv"
 
 CookieScope = Literal["iv", "prep"]
 # Long-lived on purpose: capability cookies are the only access proof for history

@@ -111,7 +111,7 @@ class _FakeLLM:
 
     async def chat(self, messages: Any, **kw: Any) -> str:
         self.calls.append((messages, kw))
-        self.usage.requests += 1
+        self.usage.billed_responses += 1
         self.usage.prompt_tokens += 10
         self.usage.completion_tokens += 5
         item = self.script.pop(0) if self.script else "S"

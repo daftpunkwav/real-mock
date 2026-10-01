@@ -956,10 +956,10 @@ def test_run_chat_clears_stale_pending_quiz() -> None:
     assert "Pending quiz" not in json.dumps(agent.messages, ensure_ascii=False)
 
 
-def test_display_filter_mirrors_polish_final() -> None:
-    """Chunked display-filter output must equal polish_final's text exactly —
+def test_display_filter_mirrors_sanitize_final_reply() -> None:
+    """Chunked display-filter output must equal sanitize_final_reply's text exactly —
     what the user reads live is what persistence will keep (no refresh rewrite)."""
-    from realmock.domains.prep.agents.chat import polish_final
+    from realmock.domains.prep.agents.chat import sanitize_final_reply
     from realmock.domains.prep.agents.streaming import DisplayTextFilter
 
     samples = [
@@ -973,7 +973,7 @@ def test_display_filter_mirrors_polish_final() -> None:
     for text in samples:
         f = DisplayTextFilter()
         out = "".join(f.feed(text[k:k + 7]) for k in range(0, len(text), 7)) + f.flush()
-        expected, _ = polish_final(text)
+        expected, _ = sanitize_final_reply(text)
         assert out == expected, f"mirror mismatch for: {text!r}"
 
 

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, defer
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
+    COOKIE_SCOPE_INTERVIEW,
     assert_session_token,
     cookie_should_be_secure,
     extract_token,
@@ -96,7 +97,7 @@ def create_session(
     background_tasks.add_task(seed_session_github_evidence, session.id)
     set_session_cookie(
         response,
-        scope="iv",
+        scope=COOKIE_SCOPE_INTERVIEW,
         session_id=session.id,
         token=token,
         secure=cookie_should_be_secure(request),

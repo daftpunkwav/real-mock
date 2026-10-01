@@ -41,7 +41,7 @@ class ConnectionContext:
     # ──Talk turn status ────────────────────────────────
     turn_state: TurnState = TurnState.IDLE
 
-    # ──Business object (assigned in handle)──────────────────
+    # ──Business object (assigned in bind_pipeline)──────────────────
     orchestrator: InterviewOrchestrator = field(default_factory=InterviewOrchestrator)
     agent: InterviewSessionState | None = None
     llm: LLMClient | None = None

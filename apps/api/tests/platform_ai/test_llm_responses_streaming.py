@@ -135,7 +135,7 @@ def test_stream_message_round_dispatches_responses_assembler(monkeypatch) -> Non
         def note_request_start(self):
             return None
 
-        def note_response_meta(self, headers):
+        def note_response_diagnostics(self, headers):
             return None
 
         def note_request_error(self, exc):

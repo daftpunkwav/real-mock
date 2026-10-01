@@ -77,7 +77,7 @@ async def _open_stream_with_retry(
                 continue
             raise
         if usage is not None:
-            usage.note_response_meta(getattr(resp, "headers", None))
+            usage.note_response_diagnostics(getattr(resp, "headers", None))
         if is_retryable_status(resp.status_code) and attempt < len(RETRY_DELAYS):
             last_exc = httpx.HTTPStatusError(
                 f"transient {resp.status_code}",

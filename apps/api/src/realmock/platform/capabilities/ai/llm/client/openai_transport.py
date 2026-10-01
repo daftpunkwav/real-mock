@@ -109,11 +109,11 @@ async def chat_completions(
             )
             resp.raise_for_status()
             if usage is not None:
-                usage.note_response_meta(getattr(resp, "headers", None))
+                usage.note_response_diagnostics(getattr(resp, "headers", None))
             return resp.json()
         except httpx.HTTPStatusError as e:
             if usage is not None:
-                usage.note_response_meta(getattr(e.response, "headers", None))
+                usage.note_response_diagnostics(getattr(e.response, "headers", None))
                 usage.note_request_error(e)
             logger.warning(
                 "%s failed: model=%s status=%s key=%s",
