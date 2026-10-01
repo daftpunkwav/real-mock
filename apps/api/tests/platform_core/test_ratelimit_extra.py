@@ -379,3 +379,90 @@ def test_ratelimit_double_checked_lock_second_return() -> None:
         mod._LOCK = orig_lock
         monkeypatch_holder["done"] = True
     assert monkeypatch_holder["done"] is True
+
+
+class TestDbBucketSweep:
+    """DB-backend rows must be recycled like memory buckets, not grow forever."""
+
+    def test_sweep_deletes_only_expired_rows(self, db) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from realmock.platform.models import RateLimitBucket
+
+        stale = RateLimitBucket(bucket_key="old:ip", timestamps_json="[]")
+        stale.updated_at = datetime.now(timezone.utc) - timedelta(
+            seconds=rl._BUCKET_TTL_SECONDS + 60
+        )
+        fresh = RateLimitBucket(bucket_key="new:ip", timestamps_json="[]")
+        db.add(stale)
+        db.add(fresh)
+        db.commit()
+
+        deleted = rl._sweep_stale_db_buckets(db)
+
+        assert deleted == 1
+        db.expire_all()
+        assert (
+            db.query(RateLimitBucket)
+            .filter(RateLimitBucket.bucket_key == "old:ip")
+            .first()
+            is None
+        )
+        assert (
+            db.query(RateLimitBucket)
+            .filter(RateLimitBucket.bucket_key == "new:ip")
+            .first()
+            is not None
+        )
+
+    def test_maybe_sweep_runs_gated_and_never_raises(self, session_factory, monkeypatch) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from realmock.platform.models import RateLimitBucket
+
+        reset_rate_limit()  # re-arm the sweep gate for a deterministic first pass
+        monkeypatch.setattr(rl, "SessionsSessionLocal", session_factory)
+
+        def _insert_stale() -> None:
+            s = session_factory()
+            try:
+                s.add(
+                    RateLimitBucket(
+                        bucket_key="sweep:ip",
+                        timestamps_json="[]",
+                        updated_at=datetime.now(timezone.utc)
+                        - timedelta(seconds=rl._BUCKET_TTL_SECONDS + 60),
+                    )
+                )
+                s.commit()
+            finally:
+                s.close()
+
+        def _stale_row_exists() -> bool:
+            s = session_factory()
+            try:
+                return (
+                    s.query(RateLimitBucket)
+                    .filter(RateLimitBucket.bucket_key == "sweep:ip")
+                    .first()
+                    is not None
+                )
+            finally:
+                s.close()
+
+        # First call after reset passes the gate: the stale row is removed.
+        _insert_stale()
+        rl._maybe_sweep_db_buckets()
+        assert _stale_row_exists() is False
+
+        # Within the cooldown the sweep is gated: a new stale row survives.
+        _insert_stale()
+        rl._maybe_sweep_db_buckets()
+        assert _stale_row_exists() is True
+
+        # A broken storage must never raise into the request path.
+        def _boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(rl, "SessionsSessionLocal", _boom)
+        rl._maybe_sweep_db_buckets()  # must not raise

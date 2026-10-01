@@ -77,6 +77,24 @@ def _run_migrations(session_domains: Collection[str] | None) -> None:
             drop_legacy_ledger_column(db)
 
 
+def _log_startup_failure(stage: str) -> None:
+    """Log an actionable repair path, then let the caller re-raise.
+
+    The process must still fail fast (a half-initialized database is worse
+    than a clean crash), but the operator needs to know what to check, not
+    just see a bare SQLAlchemy traceback.
+    """
+    logger.error(
+        "Startup %s failed. The SQLite file may be locked by another running "
+        "instance, on a read-only disk, or corrupted. Close other instances, "
+        "check file permissions of the database files (see API_DATABASE_URL / "
+        "SESSIONS_DATABASE_URL), then back up and restore the data directory "
+        "before restarting.",
+        stage,
+        exc_info=True,
+    )
+
+
 def bootstrap_databases_and_seed(
     *,
     session_domains: Collection[str] | None = None,
@@ -96,8 +114,12 @@ def bootstrap_databases_and_seed(
         maybe_migrate_legacy_app_db()
         _warn_inmemory_backends()
     register_sessions_domain_models(session_domains)
-    init_db()
-    _run_migrations(session_domains)
+    try:
+        init_db()
+        _run_migrations(session_domains)
+    except Exception:
+        _log_startup_failure("create tables / migrate")
+        raise
     if os.environ.get("TEST_MODE") == "1":
         logger.debug("TEST_MODE: skip seed_llm_settings")
         return
@@ -105,6 +127,9 @@ def bootstrap_databases_and_seed(
     try:
         seed_llm_settings(db)
         ensure_pipeline_migrated(db)
+    except Exception:
+        _log_startup_failure("seed")
+        raise
     finally:
         db.close()
 

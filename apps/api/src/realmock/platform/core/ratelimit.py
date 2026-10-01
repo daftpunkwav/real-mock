@@ -28,6 +28,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
@@ -164,6 +165,57 @@ def _use_db_ratelimit() -> bool:
     return get_settings().ratelimit_backend == "database"
 
 
+# Last DB bucket sweep (monotonic). Sweeps are time-gated so the request hot
+# path pays at most one extra DELETE per ``_CLEANUP_INTERVAL_SECONDS``, not
+# per request; the module start value triggers at most one extra pass.
+_last_db_sweep = 0.0
+
+
+def _sweep_stale_db_buckets(db: Session) -> int:
+    """Delete DB-backend buckets whose sliding window fully expired.
+
+    ``updated_at`` is bumped on every window write, so a row idle past
+    ``_BUCKET_TTL_SECONDS`` holds only out-of-window timestamps and is
+    recyclable — the DB mirror of the in-memory sweep (the memory backend
+    evicts idle buckets; the DB backend previously grew the table forever).
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=_BUCKET_TTL_SECONDS)
+    return (
+        db.query(RateLimitBucket)
+        .filter(RateLimitBucket.updated_at < cutoff)
+        .delete(synchronize_session=False)
+    )
+
+
+def _maybe_sweep_db_buckets() -> None:
+    """Opportunistic DB bucket GC after a successful DB check; never raises.
+
+    A failed cleanup must not turn a healthy rate-limit check into an error —
+    worst case stale rows survive until the next process-wide pass.
+    """
+    global _last_db_sweep
+    now = time.monotonic()
+    if now - _last_db_sweep < _CLEANUP_INTERVAL_SECONDS:
+        return
+    _last_db_sweep = now
+    try:
+        db = SessionsSessionLocal()
+    except Exception:
+        logger.debug("rate-limit bucket sweep skipped: no DB session", exc_info=True)
+        return
+    try:
+        deleted = _sweep_stale_db_buckets(db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.debug("rate-limit bucket sweep failed", exc_info=True)
+    else:
+        if deleted:
+            logger.info("Swept %d stale rate-limit bucket(s)", deleted)
+    finally:
+        db.close()
+
+
 def _check_rate_limit_db_once(
     *,
     bucket_key: tuple[str, str],
@@ -247,6 +299,7 @@ def _check_rate_limit_db(
                 )
                 # Probe succeeded: fully reset the degraded state.
                 _db_degraded_until = 0.0
+                _maybe_sweep_db_buckets()
                 return
             except IntegrityError:
                 if attempt == 1:
@@ -360,7 +413,7 @@ def rate_limit_dep(*, key: str, limit: int, window_seconds: int = 60):
 
 def reset_rate_limit(key: str | None = None) -> None:
     """Clear current limit status, only for testing."""
-    global _db_degraded_until
+    global _db_degraded_until, _last_db_sweep
     with _LOCK:
         if key is None:
             _BUCKETS.clear()
@@ -371,3 +424,5 @@ def reset_rate_limit(key: str | None = None) -> None:
     # Also clear the DB-degradation cooldown so a degraded state from one test
     # does not leak into the next (and so tests can probe the DB path again).
     _db_degraded_until = 0.0
+    # Re-arm the DB bucket sweep so test isolation matches a fresh process.
+    _last_db_sweep = 0.0
