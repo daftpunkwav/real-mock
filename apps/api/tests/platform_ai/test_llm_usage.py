@@ -241,9 +241,36 @@ def test_note_response_diagnostics_captures_headers_and_latency(monkeypatch) -> 
     assert acc.last_latency_ms == 50.0
 
 
-def test_note_request_error_truncates() -> None:
+def test_note_request_error_diagnosable_keeps_text_and_truncates() -> None:
     acc = UsageAccumulator()
-    acc.note_request_error(RuntimeError("boom " * 100))
-    assert acc.last_error.startswith("RuntimeError: boom")
-    assert len(acc.last_error) <= 300
+    # Rate-limit text is provider boilerplate: kept verbatim, capped at 400
+    # like the SSE error envelope.
+    acc.note_request_error(RuntimeError("Rate limit reached. " * 100))
+    assert acc.last_error.startswith("RuntimeError: Rate limit reached.")
+    assert len(acc.last_error) <= 400
     assert acc.last_error.endswith("...")
+
+
+def test_note_request_error_opaque_keeps_type_only() -> None:
+    acc = UsageAccumulator()
+    # Non-actionable internals (gateway URL, SDK trace) must never reach the
+    # client: only the exception type name is exposed.
+    acc.note_request_error(RuntimeError("connect timeout to http://10.0.0.3:8080/v1 upstream-secret"))
+    assert acc.last_error == "RuntimeError"
+
+
+def test_note_request_error_redacts_embedded_key() -> None:
+    acc = UsageAccumulator()
+    acc.note_request_error(RuntimeError("Rate limit reached for sk-abcdef1234567890abcdef12"))
+    assert "sk-abcdef1234567890abcdef12" not in acc.last_error
+    assert "sk-a***" in acc.last_error
+
+
+def test_note_request_error_str_never_raises() -> None:
+    class _BadStr(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("no str")
+
+    acc = UsageAccumulator()
+    acc.note_request_error(_BadStr())
+    assert acc.last_error == "_BadStr"

@@ -23,6 +23,9 @@ from time import monotonic
 from typing import Any
 
 from realmock.platform.core.constants import LLMProtocol
+from realmock.platform.core.security import redact_secrets_in_text
+
+from .provider_errors import is_diagnosable_upstream_error
 
 
 def _as_int(value: Any) -> int:
@@ -31,6 +34,10 @@ def _as_int(value: Any) -> int:
     except (TypeError, ValueError):
         return 0
     return n if n > 0 else 0
+
+
+# Client-facing last_error budget, matching the SSE error-detail cap.
+_LAST_ERROR_MAX_CHARS = 400
 
 
 @dataclass
@@ -83,10 +90,23 @@ class UsageAccumulator:
         self._request_started = monotonic()
 
     def note_request_error(self, exc: BaseException) -> None:
-        """Record a compact, key-free summary of the last failed request."""
-        self.last_error = f"{type(exc).__name__}: {exc}"
-        if len(self.last_error) > 300:
-            self.last_error = self.last_error[:297] + "..."
+        """Record a client-safe summary of the last failed request.
+
+        Only user-actionable provider conditions (quota exhausted / rate
+        limited / context overflow) keep their verbatim text — secret-redacted
+        and capped like the SSE error envelope — because that text is provider
+        boilerplate the user can act on. Every other failure (auth, gateway,
+        SDK internals) keeps only the exception type name: raw upstream traces
+        may carry internal URLs or header fragments, and the full detail stays
+        in the server logs.
+        """
+        if is_diagnosable_upstream_error(exc):
+            summary = f"{type(exc).__name__}: {redact_secrets_in_text(str(exc))}"
+        else:
+            summary = type(exc).__name__
+        if len(summary) > _LAST_ERROR_MAX_CHARS:
+            summary = summary[: _LAST_ERROR_MAX_CHARS - 3] + "..."
+        self.last_error = summary
 
     def note_response_diagnostics(self, headers: Any) -> None:
         """Capture upstream request-id headers and request latency (best-effort).
