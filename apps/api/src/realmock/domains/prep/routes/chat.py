@@ -23,7 +23,6 @@ import logging
 from typing import Any
 
 from fastapi import Depends, Request
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.agents.agent import PrepAgent
@@ -54,7 +53,7 @@ from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_specia
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.security import redact_secrets_in_text
-from realmock.platform.core.sse import format_sse_line, sse_error_event
+from realmock.platform.core.sse import format_sse_line, sse_error_event, sse_streaming_response
 from realmock.platform.core.session_auth import assert_session_token, extract_prep_token
 from realmock.platform.database import get_api_db, get_sessions_db
 
@@ -242,11 +241,7 @@ async def prep_message_stream(
             logger.exception("Prep streaming generation failed sid=%s: %s", session_id, safe_detail)
             yield format_sse_line(sse_error_event(e, message=safe_detail))
 
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return sse_streaming_response(event_stream())
 
 
 def get_prep_messages(

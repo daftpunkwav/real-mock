@@ -35,7 +35,7 @@ from realmock.platform.core.constants import DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.ratelimit import rate_limit_dep
 from realmock.platform.core.security import redact_api_key
-from realmock.platform.core.sse import format_sse_line, sse_error_event
+from realmock.platform.core.sse import format_sse_line, sse_error_event, sse_streaming_response
 from realmock.platform.core.session_auth import assert_session_token, extract_token
 from realmock.platform.database import get_api_db, get_sessions_db
 
@@ -43,6 +43,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _SSE_ERR_GENERIC = "Report generation failed; please retry later"
+# Chars per pseudo-streamed token chunk: small enough that the frontend
+# renders the report progressively (~8 chars per 60fps frame at most), large
+# enough that a multi-KB report does not turn into thousands of SSE events.
 _PSEUDO_STREAM_CHUNK = 48
 _EVENT_POLL_SECONDS = 1.0
 # Post-generation idle wait: the debrief can outlive the live relay (background
@@ -373,8 +376,4 @@ async def get_report_stream(
             logger.exception("stream report failed sid=%s: %s", session_id, safe_detail)
             yield format_sse_line(sse_error_event(e, message=_SSE_ERR_GENERIC, code="C1001"))
 
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return sse_streaming_response(event_stream())

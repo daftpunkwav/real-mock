@@ -10,7 +10,7 @@ import json
 from typing import cast
 
 from fastapi import BackgroundTasks, Depends, Request, Response
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session, defer
 
 from realmock.platform.core.constants import SessionStatus
@@ -154,13 +154,16 @@ def get_messages(
     if not session:
         raise_error("A2001")
     assert_session_token(session, access)
-    # Strong validation: only retain legal items that conform to the ChatMessage structure; bad data is reduced to an empty list
+    # Strong validation: only retain legal items that conform to the ChatMessage structure; bad data is reduced to an empty list.
+    # Only dirty-data classes (bad JSON, schema mismatch) degrade to an empty
+    # list; a database failure must surface as a 500 instead of masquerading
+    # as an empty history.
     try:
         raw = json.loads(session.messages or "[]")
         validated = _CHAT_MSG_ADAPTER.validate_python(raw)
         return [m.model_dump(mode="json") for m in validated]
-    except Exception:
-        # Historical dirty data: Return empty to avoid exposing internal exceptions to the outside world
+    except (ValueError, ValidationError):
+        # json.JSONDecodeError ⊂ ValueError; ValidationError = schema mismatch
         return []
 
 
@@ -168,7 +171,7 @@ def to_session_response(
     session: InterviewSession, *, include_token: bool = False
 ) -> InterviewSessionResponse:
     """Project a session row onto the API response (plan steps included)."""
-    plan = parse_plan(getattr(session, "plan", None))
+    plan = parse_plan(session.plan)
     return InterviewSessionResponse(
         id=session.id,
         role=session.role,
@@ -178,15 +181,17 @@ def to_session_response(
         personality=session.personality,
         strictness=session.strictness,
         interview_style=session.interview_style,
-        avatar_id=getattr(session, "avatar_id", None) or "professional_male",
-        scene_id=getattr(session, "scene_id", None) or "meeting_room",
+        # Defaults only fill NULL columns; a missing column must surface
+        # instead of being silently masked by getattr.
+        avatar_id=session.avatar_id or "professional_male",
+        scene_id=session.scene_id or "meeting_room",
         status=session.status,
         current_phase=session.current_phase,
         overall_score=session.overall_score,
-        process_id=getattr(session, "process_id", None),
-        round_no=getattr(session, "round_no", None),
-        result=getattr(session, "result", None),
-        plan_status=getattr(session, "plan_status", None),
+        process_id=session.process_id,
+        round_no=session.round_no,
+        result=session.result,
+        plan_status=session.plan_status,
         plan=cast("list[PlanStepView]", plan_step_views(plan)),
         started_at=session.started_at,
         ended_at=session.ended_at,

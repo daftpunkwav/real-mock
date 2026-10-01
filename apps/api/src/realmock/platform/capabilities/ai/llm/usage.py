@@ -18,8 +18,8 @@ last error raised by a request — all best-effort diagnostics, never required.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
+from time import monotonic
 from typing import Any
 
 from realmock.platform.core.constants import LLMProtocol
@@ -75,7 +75,9 @@ class UsageAccumulator:
 
     def note_request_start(self) -> None:
         """Mark the start of one provider request (latency measurement anchor)."""
-        self._request_started = time.monotonic()
+        # Module-level ``monotonic`` (not the stdlib alias) so tests can inject
+        # a deterministic clock instead of sleeping past OS timer granularity.
+        self._request_started = monotonic()
 
     def note_request_error(self, exc: BaseException) -> None:
         """Record a compact, key-free summary of the last failed request."""
@@ -92,7 +94,7 @@ class UsageAccumulator:
         try:
             started = getattr(self, "_request_started", None)
             if started is not None:
-                self.last_latency_ms = round((time.monotonic() - started) * 1000, 1)
+                self.last_latency_ms = round((monotonic() - started) * 1000, 1)
         except Exception:
             pass
         if headers is None:

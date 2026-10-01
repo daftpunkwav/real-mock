@@ -220,12 +220,17 @@ def test_record_response_responses_reasoning_tokens() -> None:
     assert acc.reasoning_tokens == 3
 
 
-def test_note_response_meta_captures_headers_and_latency() -> None:
-    import time
+def test_note_response_meta_captures_headers_and_latency(monkeypatch) -> None:
+    # Injected clock instead of sleep(): a real 10ms sleep can round to 0ms on
+    # Windows' coarse monotonic granularity, making this test randomly red.
+    import realmock.platform.capabilities.ai.llm.usage as usage_mod
+
+    clock = {"now": 100.0}
+    monkeypatch.setattr(usage_mod, "monotonic", lambda: clock["now"])
 
     acc = UsageAccumulator()
     acc.note_request_start()
-    time.sleep(0.01)
+    clock["now"] += 0.05
 
     class _Headers(dict):
         def get(self, key, default=None):
@@ -233,7 +238,7 @@ def test_note_response_meta_captures_headers_and_latency() -> None:
 
     acc.note_response_meta(_Headers({"x-request-id": "req-123"}))
     assert acc.last_request_id == "req-123"
-    assert acc.last_latency_ms >= 10.0
+    assert acc.last_latency_ms == 50.0
 
 
 def test_note_request_error_truncates() -> None:

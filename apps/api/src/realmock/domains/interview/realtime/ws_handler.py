@@ -40,6 +40,13 @@ from realmock.platform.core.constants import SessionStatus
 
 logger = logging.getLogger(__name__)
 
+# Silence-nudge cooldown floor (seconds): a shorter interval would stack
+# nudges against TTS playback and feel like spam to the candidate.
+_NUDGE_COOLDOWN_FLOOR_SECONDS = 5
+# Default cooldown (seconds) when settings omit silence_nudge_seconds or set
+# it to a falsy value.
+_NUDGE_COOLDOWN_DEFAULT_SECONDS = 10
+
 
 class InterviewWSHandler(
     ConnectionStackMixin,
@@ -67,7 +74,13 @@ class InterviewWSHandler(
             tts_voice=cfg.tts_voice,
             session_prosody=VoiceProsody(voice=cfg.tts_voice),
             whisper_model=cfg.whisper_model,
-            nudge_cooldown_sec=float(max(5, int(getattr(cfg, "silence_nudge_seconds", 10) or 10))),
+            nudge_cooldown_sec=float(max(
+                _NUDGE_COOLDOWN_FLOOR_SECONDS,
+                int(
+                    getattr(cfg, "silence_nudge_seconds", _NUDGE_COOLDOWN_DEFAULT_SECONDS)
+                    or _NUDGE_COOLDOWN_DEFAULT_SECONDS
+                ),
+            )),
             tts_queue=_SentenceTTSQueue(),
         )
 
