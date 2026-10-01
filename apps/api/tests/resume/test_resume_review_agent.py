@@ -637,7 +637,10 @@ async def test_finalize_self_correction_is_bounded(monkeypatch) -> None:
     """
     import asyncio
 
+    # finalize_review_json lives in review_json.py: the timeout is read from
+    # that module's global, so the patch must target it.
     import realmock.domains.resume.agents.review as rev
+    import realmock.domains.resume.agents.review_json as review_json
     from realmock.platform.capabilities.ai.agent import LoopResult
 
     class _HangLLM:
@@ -650,7 +653,7 @@ async def test_finalize_self_correction_is_bounded(monkeypatch) -> None:
             del messages, k
             return {"score": 6}
 
-    monkeypatch.setattr(rev, "REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(review_json, "REVIEW_SELF_CORRECTION_TIMEOUT_SECONDS", 0.05)
     loop = LoopResult(
         messages=[{"role": "user", "content": "overview"}],
         final_content="prose {broken",

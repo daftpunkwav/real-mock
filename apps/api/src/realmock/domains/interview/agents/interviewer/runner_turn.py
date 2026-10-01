@@ -40,6 +40,75 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+async def _assemble_turn_messages(
+    runner: "InterviewRunner",
+    db: Session,
+    *,
+    user_text: str,
+    face: dict[str, Any] | None,
+    image_b64: str | None,
+    last_question: str,
+    pending_probe: str | None,
+) -> list[dict[str, Any]]:
+    """Build the per-turn LLM call copy: history + transient guidance tail.
+
+    Returns the messages to send for this round; nothing is persisted (the
+    persisted history is owned by the runner's agent). See the tail comments
+    for why every per-turn line rides the transient tail.
+    """
+    rag_msg = await runner.tools.maybe_retrieve_rag(
+        query=f"{last_question} {user_text}".strip(),
+    )
+    guidance_blocks = build_turn_guidance(
+        runner.agent,
+        user_text=user_text,
+        last_question=last_question,
+        tech_domains=runner.prompter.get_tech_domains(db),
+        phase_id=runner.agent.current_phase().id,
+        rag_msg=rag_msg,
+        session_id=runner.session.id,
+        pending_probe=pending_probe,
+    )
+
+    context_window = runner.prompter.get_context_window(db)
+    step_msg = runner.agent.step_message()
+    pace_msg = runner.agent.pace_message()
+    api_messages = await runner.prompter.build_api_messages(
+        user_text, face, image_b64, context_window=context_window
+    )
+    # Everything below rides the TRANSIENT tail (after the last user
+    # message — the same slot the platform loop uses for [Context]/
+    # [Budget]) and is rebuilt from state every call, never persisted:
+    # persisting per-turn guidance resurfaced it on every later turn,
+    # and a per-turn head rewrite would invalidate the provider prefix
+    # cache for the whole frozen system head.
+    tail: list[dict[str, Any]] = list(guidance_blocks)
+    memory_block = runner.agent.memory_block()
+    if memory_block:
+        tail.append({"role": "system", "content": memory_block})
+    if not image_b64 and isinstance(face, dict) and face:
+        # Face hints ride the call copy only; the persisted user text
+        # stays clean ("candidate appears nervous" must not haunt turn 30).
+        # build_api_messages returns a shallow copy whose dicts are shared
+        # with agent.messages, so the hinted user message must REPLACE the
+        # entry in this copy — mutating the dict in place would persist.
+        hinted = runner.prompter.build_user_content(user_text, face)
+        if hinted != user_text:
+            for idx in range(len(api_messages) - 1, -1, -1):
+                if api_messages[idx].get("role") == "user":
+                    api_messages[idx] = {"role": "user", "content": hinted}
+                    break
+    # Position/Pace: their text changes every turn; prepending them would
+    # shift the entire frozen head one position per turn and punch through
+    # the prefix cache. On image turns build_api_messages already embedded
+    # the face hints in the multimodal user content.
+    suffix = step_msg if not pace_msg else f"{step_msg}\n{pace_msg}"
+    if suffix:
+        tail.append({"role": "system", "content": suffix})
+    api_messages.extend(tail)
+    return api_messages
+
+
 async def stream_turn(
     runner: "InterviewRunner",
     user_text: str,
@@ -62,56 +131,11 @@ async def stream_turn(
         if runner.agent.cognitive_memory.working_memory.pending_probes:
             pending_probe = runner.agent.cognitive_memory.working_memory.pending_probes.pop(0)
 
-        rag_msg = await runner.tools.maybe_retrieve_rag(
-            query=f"{last_question} {user_text}".strip(),
+        api_messages = await _assemble_turn_messages(
+            runner, db,
+            user_text=user_text, face=face, image_b64=image_b64,
+            last_question=last_question, pending_probe=pending_probe,
         )
-        guidance_blocks = build_turn_guidance(
-            runner.agent,
-            user_text=user_text,
-            last_question=last_question,
-            tech_domains=runner.prompter.get_tech_domains(db),
-            phase_id=runner.agent.current_phase().id,
-            rag_msg=rag_msg,
-            session_id=runner.session.id,
-            pending_probe=pending_probe,
-        )
-
-        context_window = runner.prompter.get_context_window(db)
-        step_msg = runner.agent.step_message()
-        pace_msg = runner.agent.pace_message()
-        api_messages = await runner.prompter.build_api_messages(
-            user_text, face, image_b64, context_window=context_window
-        )
-        # Everything below rides the TRANSIENT tail (after the last user
-        # message — the same slot the platform loop uses for [Context]/
-        # [Budget]) and is rebuilt from state every call, never persisted:
-        # persisting per-turn guidance resurfaced it on every later turn,
-        # and a per-turn head rewrite would invalidate the provider prefix
-        # cache for the whole frozen system head.
-        tail: list[dict[str, Any]] = list(guidance_blocks)
-        memory_block = runner.agent.memory_block()
-        if memory_block:
-            tail.append({"role": "system", "content": memory_block})
-        if not image_b64 and isinstance(face, dict) and face:
-            # Face hints ride the call copy only; the persisted user text
-            # stays clean ("candidate appears nervous" must not haunt turn 30).
-            # build_api_messages returns a shallow copy whose dicts are shared
-            # with agent.messages, so the hinted user message must REPLACE the
-            # entry in this copy — mutating the dict in place would persist.
-            hinted = runner.prompter.build_user_content(user_text, face)
-            if hinted != user_text:
-                for idx in range(len(api_messages) - 1, -1, -1):
-                    if api_messages[idx].get("role") == "user":
-                        api_messages[idx] = {"role": "user", "content": hinted}
-                        break
-        # Position/Pace: their text changes every turn; prepending them would
-        # shift the entire frozen head one position per turn and punch through
-        # the prefix cache. On image turns build_api_messages already embedded
-        # the face hints in the multimodal user content.
-        suffix = step_msg if not pace_msg else f"{step_msg}\n{pace_msg}"
-        if suffix:
-            tail.append({"role": "system", "content": suffix})
-        api_messages.extend(tail)
 
         outcome: dict[str, Any] = {}
         t_tools = time.perf_counter()
