@@ -1,6 +1,6 @@
 """Extract session capability tokens for HTTP (Header > Cookie > query) and WebSocket.
 
-Extracted from ``session_auth``; public symbols are still exported centrally by ``session_auth``.
+Public symbols are still exported centrally by ``session_auth``.
 """
 
 from __future__ import annotations

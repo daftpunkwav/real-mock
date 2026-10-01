@@ -1,8 +1,7 @@
 """UnifiedLLMClient non-streaming endpoints: ``chat`` / ``test_connection`` / ``chat_message``.
 
-All three share the synchronous request path "build URL+payload → pinned client POST → parse response",
-extracted from the main ``unified_client`` file; SSRF checks and outbound pinned-client semantics
-remain unchanged.
+All three share the synchronous request path "build URL+payload → pinned client POST → parse response";
+SSRF checks and the outbound pinned client live in :mod:`unified_client`.
 """
 
 from __future__ import annotations

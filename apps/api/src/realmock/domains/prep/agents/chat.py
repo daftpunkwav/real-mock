@@ -1,6 +1,6 @@
 """Prep chat orchestration: synchronous single turn and event-stream answers.
 
-The conversation layer extracted from the main ``agent`` file: ``run_chat`` /
+The prep agent conversation layer: ``run_chat`` /
 ``run_chat_stream`` drive tool rounds and replay the final answer. Persistence
 (``finalize``), the ``compaction``/``usage`` payloads, and cancel-time saves
 live in :mod:`persist`. The tool loop (``_run_tool_rounds``) remains in

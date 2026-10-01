@@ -1,6 +1,6 @@
 """Session Cookie utilities: naming / writing / clearing / Secure detection.
 
-Extracted from ``session_auth``; public symbols are still exported centrally by ``session_auth``.
+Public symbols are still exported centrally by ``session_auth``.
 """
 
 from __future__ import annotations

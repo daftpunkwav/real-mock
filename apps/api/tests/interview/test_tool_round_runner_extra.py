@@ -559,7 +559,7 @@ async def test_maybe_retrieve_rag_timeout_returns_none(monkeypatch) -> None:
     assert await r.maybe_retrieve_rag("query") is None
 
 
-# ---- P2: timeout_seconds override flows from schema args to the guard ----
+# ---- timeout_seconds override flows from schema args to the guard ----
 
 
 @pytest.mark.asyncio

@@ -35,7 +35,7 @@ def _as_int(value: Any) -> int:
 
 @dataclass
 class UsageAccumulator:
-    """The cumulative token usage during the life cycle of a request."""
+    """Cumulative token usage during one agent run (spanning several provider requests)."""
 
     prompt_tokens: int = 0
     completion_tokens: int = 0

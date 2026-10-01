@@ -74,7 +74,7 @@ def freeze_turn_tools(
             continue
         primary.append(item)
     declared = [*primary, *preloaded]
-    # Static compact-tool declaration: the live usage estimate moved to the
+    # Static compact-tool declaration: the live usage estimate lives in the
     # per-turn [Context usage] system suffix (build_working_context) — a
     # per-turn tool description would sit at the head of the provider
     # request and invalidate the whole prompt-cache prefix every turn.

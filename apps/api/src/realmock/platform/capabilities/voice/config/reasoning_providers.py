@@ -1,4 +1,4 @@
-"""Phase 2 Think about the processor catalog."""
+"""Reasoning (LLM) provider catalog."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 from .catalog_schema import _p
 
-# Thinking Processor (Phase 2)
+# Reasoning (LLM) provider entries.
 REASONING_PROVIDERS: list[dict[str, Any]] = [
     _p(
         id="custom",

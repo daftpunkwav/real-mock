@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
-# Visible snippet length for the session list (matches the historical list
-# behavior; the DB column is wider for headroom).
+# Visible snippet length for the session list; the DB column is wider for
+# headroom.
 SESSION_SUMMARY_SNIPPET_MAX_CHARS = 48
 
 

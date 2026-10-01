@@ -189,7 +189,7 @@ def test_load_session_research_tolerates_plain_rows() -> None:
     assert cr.load_session_company_research(None, SimpleNamespace()) == ""
 
 
-# ---- P1: relaxed budgets + delayed retry ----
+# ---- relaxed budgets + delayed retry ----
 
 
 def test_research_budgets_relaxed_for_accuracy():

@@ -1,6 +1,6 @@
 """Chat agent tests for realmock.domains.prep.agents.chat.
 
-Covers: sanitize_final_reply, _drop_trailing_assistant, _inject_refs, _begin_turn, _force_compact_context, _final_answer_with_overflow_retry, content-state helpers, run_chat and run_chat_stream branches including inline ask-user handling
+Covers: sanitize_final_reply, _drop_trailing_exchange, _inject_refs, _begin_turn, _force_compact_context, _final_answer_with_overflow_retry, content-state helpers, run_chat and run_chat_stream branches including inline ask-user handling
 Conventions: No real LLM/network; LLM and context builders faked via monkeypatch; rate limits reset per test
 """
 from __future__ import annotations

@@ -3,9 +3,7 @@
 Everything between "the agent loop ended" and "a review dict exists" lives
 here, including the evidence assembly the grounded repair pass is built from.
 Each slow phase announces itself on the live timeline so a long synthesis
-never looks like a hang. Moved verbatim from ``review.py`` (which re-exports
-the established import path for callers and tests); copy blocks come from
-``review_prompts.py``.
+never looks like a hang. Copy blocks come from ``review_prompts.py``.
 """
 
 from __future__ import annotations

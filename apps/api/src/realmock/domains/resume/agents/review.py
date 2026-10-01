@@ -26,11 +26,11 @@ from realmock.domains.resume.agents.process import (
     plan_titles_from_tool_names,
     process_tool_specs,
 )
-# JSON finalize chain and review copy blocks moved verbatim to sibling modules
+# The JSON finalize chain and review copy blocks live in sibling modules
 # (review_json.py / review_prompts.py); these imports keep the established
 # ``review`` import path working for callers and tests.
 from realmock.domains.resume.agents.review_json import (
-    _content_as_text,  # noqa: F401  # historical import path (tests)
+    _content_as_text,  # noqa: F401  # compatibility re-export (tests)
     _request_forced_final_answer,
     evidence_for_repair,
     finalize_review_json,
@@ -88,7 +88,7 @@ from realmock.platform.capabilities.ai.context.manager import compact_with_summa
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.defaults import resolve_context_window, resolve_max_output_tokens
 from realmock.platform.capabilities.ai.llm.json_extract import (
-    # Still imported under its historical private alias so tests can keep
+    # Imported under its established private alias so tests can keep
     # importing it from ``review``; the finalize chain uses review_json.py.
     extract_json_object as _extract_json_object,  # noqa: F401
 )

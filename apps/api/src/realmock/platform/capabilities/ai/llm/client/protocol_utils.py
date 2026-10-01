@@ -1,7 +1,8 @@
-"""Shared helpers for translating LLM protocols.
+"""Shared wire primitives for LLM protocol clients.
 
-Pure functions shared by protocol conversion modules (anthropic / responses / response extraction)
-(``_json_arguments``, ``_headers``); contains no protocol-specific logic.
+Small helpers shared by the protocol conversion modules: ``_json_arguments``
+and ``_headers``. A few protocol-specific branches (e.g. the anthropic
+header set) are inlined in place rather than abstracted away.
 """
 
 from __future__ import annotations

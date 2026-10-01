@@ -302,7 +302,7 @@ def test_full_hint_writer_receives_sanitized_messages(monkeypatch):
     assert any("COMPANY FACTS" in str(m.get("content")) for m in sent)
 
 
-# ---- P1: zero-tool fast path with full grounding ----
+# ---- zero-tool fast path with full grounding ----
 
 
 def test_full_hint_zero_tool_path_uses_single_writer_call(monkeypatch):

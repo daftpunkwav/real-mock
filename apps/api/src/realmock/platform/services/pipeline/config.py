@@ -3,7 +3,7 @@
 Public symbols remain importable from this module (tests and downstream code rely on this path); actual responsibilities
 stay in orchestration functions in this file, while mechanical assembly is split into grouped modules in the same directory:
 
-- ``secrets.py``: Key and extras JSON helpers
+- ``config_secrets.py``: Key and extras JSON helpers
 - ``stages.py``: persistence and views for the ``stage_configs`` table
 - ``legacy.py``: legacy LLMSettings → stage conversion
 - ``migration.py``: stage → provider + model entry + task binding (including ``allocate_provider_name``)
@@ -17,8 +17,8 @@ Layering note (accepted debt): the model-entry symbol group re-exported here
 (``STAGE_BY_TASK`` / ``DEFAULT_FALLBACK`` / ``ensure_provider_channels`` /
 ``migrate_stages_to_profiles`` / ``profile_to_response`` / the secrets-extras helpers)
 is settings-domain business hosted in platform so bootstrap and domains can share
-it; relocating it under ``domains/settings`` needs a dedicated stage (today's
-consumers: ``domains/settings/*``, ``bootstrap``, and the platform runtime resolver).
+it; relocating it under ``domains/settings`` would touch every consumer
+(``domains/settings/*``, ``bootstrap``, and the platform runtime resolver).
 """
 
 from __future__ import annotations

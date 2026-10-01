@@ -5,8 +5,7 @@ post-loop finalize phase notices (forced final / self-correction / repair),
 tool-budget and circuit-breaker refusal observations, and the text-only
 degradation notice for PDF reviews without page images. Pure text builders,
 no I/O; orchestration lives in ``review.py``, the JSON finalize chain in
-``review_json.py``. Moved verbatim from ``review.py`` (which re-exports the
-established import path for callers and tests).
+``review_json.py``.
 """
 
 from __future__ import annotations

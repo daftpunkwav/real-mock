@@ -1,4 +1,4 @@
-"""Phase 1 Identify the processor directory."""
+"""Speech-recognition (STT) provider catalog."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 from .catalog_schema import _p
 
-# Identify the processor (Phase 1)
+# Speech-recognition (STT) provider entries.
 RECOGNIZE_PROVIDERS: list[dict[str, Any]] = [
     _p(
         id="custom",

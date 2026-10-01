@@ -1,4 +1,4 @@
-"""Stage 3 Broadcast handler directory."""
+"""Text-to-speech (TTS) provider catalog."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 from .catalog_schema import _p
 
-# Broadcast Processor (Phase 3)
+# Text-to-speech (TTS) provider entries.
 SPEAK_PROVIDERS: list[dict[str, Any]] = [
     _p(
         id="custom",

@@ -313,7 +313,7 @@ def test_parallel_boundaries_are_serialized_by_lock():
 
 
 def test_pending_boundary_follows_earlier_splice_shift():
-    """P1 regression: a boundary recorded while an earlier compaction is still
+    """Regression: a boundary recorded while an earlier compaction is still
     running must be re-read from the queue at run time — the captured indexes
     go stale the moment the earlier task splices, and a stale slice deletes
     live dialogue of the wrong step."""

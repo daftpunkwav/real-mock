@@ -1,9 +1,9 @@
 """Single-session, single-connection lease registry for interview WebSockets.
 
-Extracted from ``ws_handler``; ``WsConnectionRegistry`` encapsulates in-process state and exposes only
+``WsConnectionRegistry`` encapsulates in-process state and exposes only
 explicit methods, preventing a mutable module-level dict from becoming an implicit global dependency.
 
-Deployment constraints (see deployment config):
+Deployment constraints (``ws_lease_backend`` setting):
 - ``memory``: under a single worker / single instance, guarantees only one active WS per session.
 - ``database``: the ``ws_session_leases`` table stores lease tokens; heartbeats validate the DB lease.
 """

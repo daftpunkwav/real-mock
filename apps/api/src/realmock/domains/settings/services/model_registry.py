@@ -1,6 +1,6 @@
 """Model entry system (capability-based declarations): request models and read/write services for providers / models / task bindings.
 
-Extracted from the routing layer, which now retains only endpoint assembly and validation;
+The routing layer retains only endpoint assembly and validation;
 this module contains Pydantic request bodies and DB reads/writes and can be unit-tested independently.
 """
 

@@ -1,7 +1,7 @@
 """Prep history surgery: compaction, summary edits, forks, and truncation.
 
-Split from ``chat.py`` (turn messaging) so each route module owns one duty:
-``chat.py`` runs turns and reads history; this module rewrites history.
+Each route module owns one duty: ``chat.py`` runs turns and reads history;
+this module rewrites history.
 Shared primitives (session loading, tool-tail pruning) live here; ``chat.py``
 imports the loader from this module.
 """

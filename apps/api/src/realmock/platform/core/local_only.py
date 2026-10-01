@@ -43,7 +43,7 @@ def require_local_peer(  # noqa: B008 - WS scopes cannot inject Request; see doc
     startup work, and an exported leftover variable must never expose
     management endpoints to the LAN (``env=prod`` never honored it either).
 
-    WebSocket-scope dependency solves cannot inject ``Request``, so this guard
+    WebSocket-scope dependencies cannot inject ``Request``, so this guard
     is called with ``request=None`` on WS endpoints; it short-circuits there —
     WS endpoints authenticate through session capability tokens instead.
     """

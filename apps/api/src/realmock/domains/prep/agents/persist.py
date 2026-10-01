@@ -1,7 +1,7 @@
 """Prep turn persistence: compaction events, message finalization, and usage deltas.
 
-Split from ``chat.py`` (turn orchestration) so each module owns one duty:
-``chat.py`` drives tool rounds and streams answers; this module persists turns
+Each module owns one duty: ``chat.py`` drives tool rounds and streams
+answers; this module persists turns
 and builds the ``compaction``/``usage`` SSE payloads. Cancellation and
 mid-turn failure land here too (``persist_cancel`` / ``persist_failed_turn``),
 so a stop or an error never loses the typed question.

@@ -1,4 +1,4 @@
-"""GitHub REST public auxiliary (error determination and paging clipping)."""
+"""GitHub REST shared helpers: error detection, paging clamps and URL path encoding."""
 
 from __future__ import annotations
 
