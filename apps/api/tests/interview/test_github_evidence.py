@@ -1,11 +1,13 @@
 """Tests for the pre-interview GitHub evidence seeding pass.
 
 Covers: digest rendering from REST fakes, error/fork degradation, the char
-cap, and the session-row seeding path (skip when seeded / no username / write).
+cap, and the session-row seeding path (skip when seeded / no username / write),
+plus restart-recovery: single-flight dedupe and the WS reconnect re-seed hook.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -178,3 +180,87 @@ async def test_seed_never_raises(monkeypatch) -> None:
 
     monkeypatch.setattr(ge, "sessions_db_session", _explode)
     await ge.seed_session_github_evidence(9)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Restart-recovery: single-flight dedupe + WS reconnect re-seed hook
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_seed_single_flight_dedupes_concurrent_calls(monkeypatch) -> None:
+    """A seed already in flight for the same session must not duplicate the crawl."""
+    row = SimpleNamespace(github_evidence="", profile_id=5)
+    _patch_db(monkeypatch, row, SimpleNamespace(github_username="octo"))
+    ge._SEED_INFLIGHT.clear()
+    calls: list[str] = []
+    gate = asyncio.Event()
+
+    async def _slow_gather(username: str) -> str:
+        calls.append(username)
+        await gate.wait()
+        return "GitHub user: octo"
+
+    monkeypatch.setattr(ge, "gather_evidence", _slow_gather)
+    first = asyncio.create_task(ge.seed_session_github_evidence(9))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)  # let the first task reach the in-flight gate
+    await ge.seed_session_github_evidence(9)  # second call: skipped
+    assert calls == ["octo"]
+    gate.set()
+    await first
+    assert calls.count("octo") == 1
+    assert not ge._SEED_INFLIGHT  # guard released on completion
+
+
+def _fake_auth_handler(session, spawned):
+    """Minimal handler stand-in for ConnectionAuthMixin.authenticate."""
+
+    class _Q:
+        def filter(self, *a, **k):
+            return self
+
+        def first(self):
+            return session
+
+    class _DB:
+        def query(self, model):
+            return _Q()
+
+    return (
+        SimpleNamespace(
+            ctx=SimpleNamespace(session_id=session.id, client_access_token="tok"),
+            _spawn=lambda coro: spawned.append(coro),
+        ),
+        _DB(),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "evidence, expected_spawns",
+    [("", 1), ("   ", 1), ("already seeded", 0)],
+)
+async def test_authenticate_reseeds_only_when_evidence_empty(
+    monkeypatch, evidence, expected_spawns
+) -> None:
+    """A live connection re-seeds (fire-and-forget) only when evidence is empty."""
+    from realmock.domains.interview.realtime.connection import auth as ws_auth
+    from realmock.domains.interview.realtime.connection.auth import ConnectionAuthMixin
+
+    session = SimpleNamespace(
+        id=7, access_token="tok", status="pending", github_evidence=evidence
+    )
+    handler, db = _fake_auth_handler(session, spawned := [])
+
+    async def _claim(h) -> None:
+        return None
+
+    monkeypatch.setattr(ws_auth, "claim_session_connection", _claim)
+
+    result = await ConnectionAuthMixin.authenticate(handler, db)
+
+    assert result is session
+    assert len(spawned) == expected_spawns
+    for coro in spawned:  # never-awaited cleanup
+        coro.close()

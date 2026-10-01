@@ -12,6 +12,7 @@ from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.session_auth import tokens_match
 from realmock.platform.database import api_db_session
 from realmock.domains.interview.agents import (
+    seed_session_github_evidence,
     session_llm,
     session_stt_credentials,
     session_tts_credentials,
@@ -91,6 +92,14 @@ class ConnectionAuthMixin:
             await self._fail_and_close("The interview has ended")
             return None
         await claim_session_connection(self)
+        # Second chance for the pre-interview evidence pass: seeding is a
+        # fire-and-forget background task, so a process restart before it
+        # finished used to leave the column permanently empty. Re-seed
+        # (idempotent, single-flight) when a live connection finds it empty;
+        # this never blocks authentication and failures fall back to the
+        # interviewer's live lookups as before.
+        if not (getattr(session, "github_evidence", "") or "").strip():
+            self._spawn(seed_session_github_evidence(session.id))
         return session
 
     # ------------------------------------------------------------------

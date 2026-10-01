@@ -111,8 +111,21 @@ async def gather_evidence(username: str) -> str:
     return "\n".join(parts)[:EVIDENCE_MAX_CHARS]
 
 
+# Single-flight guard: the create-path background seed and the WS reconnect
+# re-seed can race on the same session; only one crawl runs at a time. The
+# event loop is single-threaded, so check+add is atomic between awaits.
+_SEED_INFLIGHT: set[int] = set()
+
+
 async def seed_session_github_evidence(session_id: int) -> None:
-    """Best-effort evidence seeding on the session row; never raises."""
+    """Best-effort evidence seeding on the session row; never raises.
+
+    Idempotent: already-seeded sessions and sessions with a seed in flight
+    are skipped, so a reconnect after a process restart can safely re-run it.
+    """
+    if session_id in _SEED_INFLIGHT:
+        return
+    _SEED_INFLIGHT.add(session_id)
     try:
         with sessions_db_session() as db:
             session = db.get(InterviewSession, session_id)
@@ -135,6 +148,8 @@ async def seed_session_github_evidence(session_id: int) -> None:
                 )
     except Exception:
         logger.debug("github evidence seed failed sid=%s", session_id, exc_info=True)
+    finally:
+        _SEED_INFLIGHT.discard(session_id)
 
 
 __all__ = ["EVIDENCE_MAX_CHARS", "gather_evidence", "seed_session_github_evidence"]
