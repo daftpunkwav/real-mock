@@ -319,7 +319,10 @@ def test_finalize_after_drop_keeps_single_assistant() -> None:
     from realmock.domains.prep.agents.chat import _drop_trailing_exchange
 
     agent = _agent_with_history(1)
-    _drop_trailing_exchange(agent)
+    # The regenerate client replays the paired question verbatim; read it off
+    # the trailing exchange before dropping.
+    replayed = str(agent.messages[-2]["content"])
+    _drop_trailing_exchange(agent, replayed)
     assert agent.messages == []
     finalize(agent, list(agent.messages), "partial", _FakeDB(), stopped=True, turn_id="t2")  # type: ignore[arg-type]
     assistants = [m for m in agent.messages if m.get("role") == "assistant"]

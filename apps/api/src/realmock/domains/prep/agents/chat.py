@@ -66,7 +66,7 @@ def sanitize_final_reply(text: str) -> tuple[str, dict[str, Any] | None]:
     return sanitize_special_tokens(cleaned, quiz_renderer=prep_quiz_renderer).strip(), ask_event
 
 
-def _drop_trailing_exchange(agent: "PrepAgent") -> None:
+def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     """Regenerate support: remove the last exchange so the turn can rerun.
 
     Pops the trailing assistant reply and the trailing user question it
@@ -76,6 +76,13 @@ def _drop_trailing_exchange(agent: "PrepAgent") -> None:
     persisted just the question) is popped too, so regenerating it does not
     duplicate the question either. Role-guarded: a trailing system block or
     a non-user message before the reply is left in place.
+
+    The user pop is content-guarded: the trailing user row is the question
+    being replayed only when its text matches. A mismatch means the previous
+    turn never finished (a cancel inside the prepare window can persist
+    nothing, leaving an older exchange as the tail) — popping would delete a
+    turn the rerun does not replace, so the replayed text is appended as a
+    fresh turn instead.
     """
     if (
         agent.messages
@@ -87,6 +94,7 @@ def _drop_trailing_exchange(agent: "PrepAgent") -> None:
         agent.messages
         and isinstance(agent.messages[-1], dict)
         and agent.messages[-1].get("role") == "user"
+        and agent.messages[-1].get("content") == user_text
     ):
         agent.messages.pop()
 
@@ -205,7 +213,7 @@ async def _prepare_turn(
         agent.memory_index_limit = memory_index_limit
     await agent._ensure_system(db, ui_locale)
     if drop_last_assistant:
-        _drop_trailing_exchange(agent)
+        _drop_trailing_exchange(agent, user_text)
     agent.messages.append({"role": "user", "content": user_text})
     pre_build = list(agent.messages)
     build_report: dict[str, Any] = {}

@@ -178,6 +178,12 @@ def _sweep_stale_db_buckets(db: Session) -> int:
     ``_BUCKET_TTL_SECONDS`` holds only out-of-window timestamps and is
     recyclable — the DB mirror of the in-memory sweep (the memory backend
     evicts idle buckets; the DB backend previously grew the table forever).
+
+    Correctness requires every window to be shorter than the TTL: a row
+    touched within ``_BUCKET_TTL_SECONDS`` is never swept, so an idle row's
+    stamps are guaranteed stale. A ``window_seconds`` configured above the
+    TTL could get its in-window count wiped (fail-open direction); all
+    current call sites use the 60 s default window.
     """
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=_BUCKET_TTL_SECONDS)
     return (

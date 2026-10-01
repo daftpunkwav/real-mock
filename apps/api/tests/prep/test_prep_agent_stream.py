@@ -259,7 +259,11 @@ def test_chat_stream_cancel_persists_partial_turn_as_stopped() -> None:
 
 
 def test_run_chat_drop_last_assistant_regenerates() -> None:
-    """drop_last_assistant removes the previous user+assistant exchange so the turn reruns."""
+    """drop_last_assistant removes the previous user+assistant exchange so the turn reruns.
+
+    The regenerate client replays the paired question verbatim, which is what
+    lets the content guard recognise the trailing user row as replaceable.
+    """
     from realmock.domains.prep.agents.chat import run_chat
 
     llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
@@ -271,7 +275,7 @@ def test_run_chat_drop_last_assistant_regenerates() -> None:
     agent = PrepAgent(session, llm)  # type: ignore[arg-type]
 
     async def run():
-        return await run_chat(agent, "q again", _FakeDB(), drop_last_assistant=True)  # type: ignore[arg-type]
+        return await run_chat(agent, "q", _FakeDB(), drop_last_assistant=True)  # type: ignore[arg-type]
 
     # Early content path returns the model text directly.
     assert asyncio.run(run()) == "fresh"
@@ -279,7 +283,7 @@ def test_run_chat_drop_last_assistant_regenerates() -> None:
     # The rerun replaces the old exchange: exactly one user row remains, so a
     # refresh never renders the same question twice.
     users = [m for m in agent.messages if m.get("role") == "user"]
-    assert [m.get("content") for m in users] == ["q again"]
+    assert [m.get("content") for m in users] == ["q"]
 
 
 def test_run_chat_drop_last_assistant_user_only_tail() -> None:
@@ -297,6 +301,36 @@ def test_run_chat_drop_last_assistant_user_only_tail() -> None:
     assert asyncio.run(run()) == "fresh"
     users = [m for m in agent.messages if m.get("role") == "user"]
     assert [m.get("content") for m in users] == ["q"]
+
+
+def test_run_chat_drop_last_assistant_keeps_unrelated_exchange() -> None:
+    """A trailing user row that is not the replayed question stays put.
+
+    A cancel inside the prepare window persists nothing, leaving an older
+    exchange as the tail; regenerating then replays different text. Popping
+    that older user row would delete a turn the rerun does not replace, so
+    the guard keeps it and appends the replay as a fresh turn. The trailing
+    assistant reply is still dropped (role-guarded pop, same as the
+    pre-pairing behavior) — only the question row is protected.
+    """
+    from realmock.domains.prep.agents.chat import run_chat
+
+    llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
+    session = _FakeSession()
+    session.messages = json.dumps([
+        {"role": "user", "content": "older question"},
+        {"role": "assistant", "content": "older answer"},
+    ])
+    agent = PrepAgent(session, llm)  # type: ignore[arg-type]
+
+    async def run():
+        return await run_chat(agent, "new question", _FakeDB(), drop_last_assistant=True)  # type: ignore[arg-type]
+
+    assert asyncio.run(run()) == "fresh"
+    users = [m.get("content") for m in agent.messages if m.get("role") == "user"]
+    assert users == ["older question", "new question"]
+    assistants = [m.get("content") for m in agent.messages if m.get("role") == "assistant"]
+    assert assistants == ["fresh"]
 
 
 def test_chat_stream_ask_user_keeps_search_groups(monkeypatch) -> None:
