@@ -4,10 +4,12 @@ Prep interview coach domain: agent-driven chat with tools, long-term memories, u
 
 | Layer | Contents |
 | --- | --- |
-| `routes/` | `chat.py`, `create.py`, `history.py`, `lists.py`, `manage.py`, `memories.py` |
+| `routes/` | `chat.py`, `create.py`, `history.py`, `lists.py`, `manage.py`, `memories.py`, `router.py` (mounts the handlers; capability-token vs CSRF split) |
 | [`agents/`](agents/README.md) | Agent loop and tool machinery: `tools/` (registry + `basic/` `candidate/` `memory/` `repo/` `system/`), `context/` (seed / working / linked / hints / markers), `ask_user/`, streaming, turn state, round compaction, quiz rendering, persistence |
-| `services/` | `memories.py`, `linking.py` (cross-session links), `session_notes.py`, `session_stats.py`, `turn_lock.py` (per-session turn serialization) |
+| `services/` | `memories.py`, `linking.py` (cross-session links), `session_notes.py`, `session_stats.py`, `turn_lock.py` (per-session turn serialization), `maintenance.py` (destructive purges: what counts as deletable) |
+| `schemas/` | `prep.py` — request / response contract models |
 | `models/` | Coaching sessions and long-term memories (tables in `sessions.db`; single-user app, no owner column) |
+| `prompts.py` | Coach system prompt and loop hints (single home for prep prompt text) |
 | `main.py` / `startup.py` | Standalone assembly and lifecycle hooks |
 | `column_migrations.py` | Column-level migrations for prep tables |
 

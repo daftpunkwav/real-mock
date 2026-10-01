@@ -10,7 +10,7 @@ interview 域的 LLM 角色:一角色一子包,共享机制平铺在包根。包
 | `topology/` | 影子评估 agent:三段式后台评估 —— 评估、复核(仅当首轮自报 `evidence_insufficient`)、追问合成;grounding 全量逐字注入,无工具,预算 90 秒(`agent_policies.BACKGROUND`) |
 | `hint/` | 参考答案 agent(`hint_answer.py`):默认零工具、全量 grounding 直填;问题命中 GitHub 信号时升级为 github-only 的 2 轮循环 |
 | `planning/` | 流程规划与轮次规划(`planner.py`、`round_planner.py` 及各自提示词模块) |
-| `research/` | 公司联网调研与配置页 brief(`company_research.py`、`company_brief.py`) |
+| `research/` | 公司联网调研、配置页 brief 与开赛前 GitHub 证据摘要(`company_research.py`、`company_brief.py`、`github_evidence.py`) |
 | `memory/` | 认知记忆图 |
 
 ## 平铺内核

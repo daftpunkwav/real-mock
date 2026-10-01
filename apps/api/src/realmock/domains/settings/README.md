@@ -9,6 +9,7 @@ Settings domain: BYOK processor configuration, model capability registry, connec
 | `routes/model_tests.py` | Connectivity / model tests |
 | `routes/integrations.py` | Third-party integration credentials (GitHub) |
 | `services/` | `model_registry.py`, `vendor_apply.py` (apply vendor descriptors), `github_integration.py`, `stage_tests.py`, `validation.py`, `route_timing.py` |
+| `schemas/providers.py` | Response models mirroring the dicts returned by `routes/models.py` / `integrations.py` / `stages.py` |
 
 Thin domain: no `models/` or lifecycle hooks.
 

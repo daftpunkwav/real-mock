@@ -5,6 +5,7 @@
 | 层 | 内容 |
 | --- | --- |
 | `routes/router.py` | 成长 HTTP API(历史、洞见、聚合统计;挂载于 `/growth`) |
+| `schemas/responses.py` | 成长 HTTP API 的响应模型 |
 | `services/` | `ingest.py`(报告摘要钩子)、`learning.py`、`persist_from_summary.py`、`insight_scheduler.py`(单飞后台重生成)、`insight_store.py`(最新洞见持久化) |
 | `agents/growth.py` | 基于规则的 agent,把历史聚合为页面级统计 |
 | `agents/insight.py` | LLM 成长洞见 agent:在历史 / 简历 / 档案证据上跑有界工具循环 |

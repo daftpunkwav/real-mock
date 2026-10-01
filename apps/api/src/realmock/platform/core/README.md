@@ -11,7 +11,7 @@ Kernel utilities shared by every domain: configuration-adjacent constants, the e
 | `error_handlers.py` | Unified exception handlers and error-envelope construction; the app factory only registers them |
 | `logging.py` | Structured JSON-style logging with trace ids; `RedactFilter` replaces API keys / Authorization headers in log output |
 | `sse.py` | Shared SSE helpers: error envelopes (business errors keep catalog code / message / retryable), queue pump, streaming responses |
-| `ratelimit.py` | Lightweight in-process rate limiting (no external services) for expensive endpoints (LLM calls, uploads, analysis) |
+| `ratelimit.py` | Rate limiting for expensive endpoints (LLM calls, uploads, analysis): in-memory sliding window by default, optional database bucket backend (`ratelimit_backend=database`) for cross-worker consistency |
 | `file_lock.py` | Cross-process file lock: `msvcrt.locking` on Windows, `fcntl.flock` on POSIX |
 | `migrate.py` | SQLite column-completion migration engine + `api.db` manifest + Alembic version stamp; business DDL is owned by each domain's `column_migrations.py` |
 | `local_only.py` | Local-exposure guards: `require_local_peer` (loopback-only management endpoints) and the mount-level cross-site guard (`Sec-Fetch-Site` / Origin-Referer, error `A0403`) |

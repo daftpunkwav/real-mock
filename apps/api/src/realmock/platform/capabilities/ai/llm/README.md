@@ -7,6 +7,7 @@ Provider-facing LLM calls: one protocol stack with three wire protocols (OpenAI 
 | Module | Purpose |
 | --- | --- |
 | `unified_client.py` | `UnifiedLLMClient` entry point over the three protocols; delegates body building / parsing / streaming / endpoints to the modules below |
+| `base.py` | Shared client foundation: `LLMUpstreamError` (provider failures), the retry-ladder request wrapper, message-text extraction, environment guards (local-LLM / prod-HTTPS) |
 | `protocol_translate.py` | Request-body construction per protocol; protocol-specific message/tool conversion delegated to `anthropic_converters.py` / `responses_converters.py` (shared pure helpers in `protocol_utils.py`) |
 | `response_extract.py` | Response parsing (body / tool calls / reasoning / finish reasons / business errors / citations / server-tool items) and per-event SSE parsing; pure functions, no network |
 | `streaming.py` | Streaming transport shared by both clients: SSE parsing, usage collection, `stream_options` downgrade signal; retries on the shared ladder until the first delta, terminal provider errors raise `LLMUpstreamError` |

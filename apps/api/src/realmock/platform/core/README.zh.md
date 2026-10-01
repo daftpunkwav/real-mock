@@ -11,7 +11,7 @@
 | `error_handlers.py` | 统一异常处理器与错误信封构造;app factory 只负责注册 |
 | `logging.py` | 结构化 JSON 风格日志,含 trace id;`RedactFilter` 自动替换日志中的 API Key / Authorization 头 |
 | `sse.py` | 共享 SSE 辅助:错误信封(业务错误保留 catalog 码 / 消息 / 可重试标记)、队列泵、流式响应 |
-| `ratelimit.py` | 轻量进程内限流(无外部服务),保护昂贵端点(LLM 调用、上传、解析) |
+| `ratelimit.py` | 昂贵端点限流(LLM 调用、上传、解析):默认进程内滑动窗口,可选数据库桶后端(`ratelimit_backend=database`)保证跨 worker 一致 |
 | `file_lock.py` | 跨进程文件锁:Windows 用 `msvcrt.locking`,POSIX 用 `fcntl.flock` |
 | `migrate.py` | SQLite 列补全迁移引擎 + `api.db` manifest + Alembic 版本戳;业务 DDL 由各域自己的 `column_migrations.py` 持有 |
 | `local_only.py` | 本地暴露防护:`require_local_peer`(管理端点仅限 loopback 对端)与挂载层跨站防护(`Sec-Fetch-Site` / Origin-Referer,错误码 `A0403`) |

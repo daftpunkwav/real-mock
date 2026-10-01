@@ -9,6 +9,7 @@
 | `services/` | `report_store.py`、`report_events.py`(报告实时事件)、`debrief_runner.py`、`ingest.py`、`legacy_fallback.py` |
 | [`agents/report/`](agents/report/README.zh.md) | 报告 agent(两阶段 ReAct 流水线) |
 | `models/report.py` | 报告表 |
+| `schemas/` | `history.py`(历史列表响应)、`report.py`(报告负载,含旧版逐轮 review 块) |
 | `column_migrations.py` | 列级迁移 |
 
 测试:`apps/api/tests/records/`。

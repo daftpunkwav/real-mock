@@ -9,6 +9,7 @@
 | `routes/model_tests.py` | 连通性 / 模型测试 |
 | `routes/integrations.py` | 第三方集成凭据(GitHub) |
 | `services/` | `model_registry.py`、`vendor_apply.py`(应用厂商描述符)、`github_integration.py`、`stage_tests.py`、`validation.py`、`route_timing.py` |
+| `schemas/providers.py` | 响应模型,逐字段镜像 `routes/models.py` / `integrations.py` / `stages.py` 返回的 dict |
 
 薄域:无 `models/`、生命周期钩子。
 

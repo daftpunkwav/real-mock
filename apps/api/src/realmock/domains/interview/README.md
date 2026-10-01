@@ -10,7 +10,7 @@ Realistic interview room domain: realtime WebSocket conversation, multi-round pr
 | `protocols/` | Plan / round-plan schemas, deterministic round chains, process memory documents |
 | [`capabilities/`](capabilities/README.md) | Interview-specific capabilities: `rag/`, `vision/` |
 | `ledger/` | Append / freeze session ledger — one `interview_turns` row per turn plus a `ledger_frozen` column (interview is the sole writer; the legacy monolithic blob was migrated and dropped) |
-| `routes/` | `sessions.py`, `interview.py`, `turns.py`, `processes.py`, `options.py`, `brief.py`, `ws/` (WebSocket endpoint) |
+| `routes/` | `sessions.py`, `interview.py`, `turns.py`, `processes.py`, `options.py`, `options_data.py` (static option catalogs), `brief.py`, `ws/` (WebSocket endpoint) |
 | `models/` | `session.py`, `interview_turn.py`, `process.py`, `brief.py`, `ws_lease.py` |
 | `schemas/` | Session / process / options pydantic models |
 | `workflows.py` + `constants.py` | Phase / workflow SSOT (locked against the frontend `config/phases.ts` by `tests/interview/test_phase_ssot.py`) |

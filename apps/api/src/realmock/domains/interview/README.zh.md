@@ -10,7 +10,7 @@
 | `protocols/` | plan / round-plan schema、确定性轮次链、流程记忆文档 |
 | [`capabilities/`](capabilities/README.zh.md) | 面试专属能力:`rag/`、`vision/` |
 | `ledger/` | append / freeze 会话台账——每轮一行存于 `interview_turns` 表 + `ledger_frozen` 列(interview 是唯一写方; 旧整体 blob 已迁移删除) |
-| `routes/` | `sessions.py`、`interview.py`、`turns.py`、`processes.py`、`options.py`、`brief.py`、`ws/`(WebSocket 端点) |
+| `routes/` | `sessions.py`、`interview.py`、`turns.py`、`processes.py`、`options.py`、`options_data.py`(选项静态目录)、`brief.py`、`ws/`(WebSocket 端点) |
 | `models/` | `session.py`、`interview_turn.py`、`process.py`、`brief.py`、`ws_lease.py` |
 | `schemas/` | session / process / options 的 pydantic 模型 |
 | `workflows.py` + `constants.py` | 阶段 / 工作流 SSOT(由 `tests/interview/test_phase_ssot.py` 与前端 `config/phases.ts` 锁定对齐) |

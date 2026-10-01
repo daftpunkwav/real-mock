@@ -9,6 +9,7 @@ Anthropic messages、OpenAI responses),外加所有域共享的流式后处理�
 | 模块 | 职责 |
 | --- | --- |
 | `unified_client.py` | `UnifiedLLMClient` 入口,覆盖三种协议;请求体构造 / 解析 / 流式 / 端点均委托给下述模块 |
+| `base.py` | 共享客户端基座:`LLMUpstreamError`(提供方失败)、重试阶梯请求包装、消息文本抽取、环境守卫(本地 LLM / 生产 HTTPS) |
 | `protocol_translate.py` | 按协议构造请求体;协议特定的消息/工具转换委托给 `anthropic_converters.py` / `responses_converters.py`(共享纯函数在 `protocol_utils.py`) |
 | `response_extract.py` | 响应解析(正文 / 工具调用 / reasoning / 结束原因 / 业务错误 / 引用 / 服务端工具条目)与单事件 SSE 解析;纯函数,不发网络请求 |
 | `streaming.py` | 两个客户端共享的流式传输:SSE 解析、usage 收集、`stream_options` 降级信号;首个增量前按共享重试梯度重试,供应商终态错误抛 `LLMUpstreamError` |
