@@ -73,6 +73,13 @@ describe("sanitizeDiagramSvg", () => {
     expect(clean).not.toContain("onload");
     expect(clean).toContain("<rect");
   });
+
+  it("escapes stray active-tag openings without a closing bracket", () => {
+    const dirty = "<svg><text>x</text><script";
+    const clean = sanitizeDiagramSvg(dirty);
+    expect(clean).not.toContain("<script");
+    expect(clean).toContain("&lt;script");
+  });
 });
 
 describe("fitDiagramSvg", () => {

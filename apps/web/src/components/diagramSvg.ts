@@ -37,13 +37,18 @@ export function sanitizeDiagramSvg(svg: string): string {
   const inlineHandler = /([\s/])on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
   const activeUrl =
     /([\s/])(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript:|data:text\/html)[^"]*"|'\s*(?:javascript:|data:text\/html)[^']*')/gi;
+  // A malformed tail can leave a bare `<script`/`<iframe` with no closing
+  // `>` for the tag passes to catch; escaping the literal keeps the output
+  // free of any active-tag substring (well-formed input never has one).
+  const strayOpen = /<(script|iframe)/gi;
   let out = svg;
   for (;;) {
     const next = out
       .replace(blockTag, "")
       .replace(loneTag, "")
       .replace(inlineHandler, "$1")
-      .replace(activeUrl, "$1");
+      .replace(activeUrl, "$1")
+      .replace(strayOpen, "&lt;$1");
     if (next === out) return next;
     out = next;
   }
