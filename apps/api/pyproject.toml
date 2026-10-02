@@ -23,7 +23,10 @@ build-backend = "setuptools.build_meta"
 name = "realmock-api"
 version = "0.1.0"
 description = "RealMock mock-interview platform API (modular FastAPI monolith)"
-requires-python = ">=3.11"
+# Single supported runtime: 3.14 is the only version CI exercises and the only
+# version the Docker image ships, so the floor matches the tested floor rather
+# than claiming 3.11-3.13 support nothing verifies.
+requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115.0,<1",
     # Declared explicitly: platform/core/error_handlers.py and app_factory.py
@@ -31,12 +34,12 @@ dependencies = [
     # direct import should not rely on that transitive guarantee).
     "starlette>=0.40.0,<2",
     "uvicorn[standard]>=0.32.0,<1",
-    # Capped at the locally tested 2.0.51: SQLAlchemy 2.0.52+ tightened the
-    # legacy Query.order_by stubs (OrderByList), which broke mypy on CI while
-    # 2.0.51 passed (see commit migrating prep memories dedupe to select()).
-    # ~127 legacy Session.query() call sites remain across domains/platform;
-    # migrate them to the 2.0-style select() API before raising this cap.
-    "sqlalchemy>=2.0.36,<2.0.52",
+    # Cap raised from <2.0.52 to <3 after 2.1.2 verified green: mypy 2.4.0
+    # accepts the legacy Query.order_by stubs that 2.0.52 tightened, and the
+    # full pytest suite (96.32% coverage) passes. The ~127 legacy
+    # Session.query() call sites are still 2.0-style-but-deprecated API, so the
+    # next major is not something to opt into without a second verification.
+    "sqlalchemy>=2.0.36,<3",
     "pydantic>=2.10.0,<3",
     "pydantic-settings>=2.6.0,<3",
     "httpx>=0.28.0,<1",
@@ -45,7 +48,12 @@ dependencies = [
     # Image-PDF fallback: render pages to images for vision transcription (lazy-import path)
     "pymupdf>=1.24.0,<2",
     "python-docx>=1.1.2,<2",
-    "websockets>=12.0,<16",
+    # Cap raised from <16 to <18. The old cap was set before websockets 17
+    # existed; the only apparent blocker (langgraph-sdk pinning websockets<16)
+    # came from an orphaned langchain install in a shared site-packages, not
+    # from this dependency set - a clean resolve of these 19 direct deps
+    # pulls 101 packages and no langchain/langgraph. Verified on 17.1.
+    "websockets>=12.0,<18",
     "alembic>=1.14.0,<2",
     "edge-tts>=6.1.0,<8",
     "faster-whisper>=1.0.0,<2",
@@ -75,10 +83,11 @@ addopts = "-ra -q --strict-markers --import-mode=importlib"
 asyncio_mode = "auto"
 
 [tool.mypy]
-# Pin python_version to 3.12 (newer numpy stubs need 3.12+ syntax),
-# matching the CI python:3.12 image; requires-python remains >=3.11.
-python_version = "3.12"
-# Type-check against the deployment/CI platform (python:3.12-slim on Linux),
+# Pin python_version to 3.14, matching the CI python-version and the
+# python:3.14-slim image. Anything lower would type-check syntax that can
+# never reach production; anything higher is not yet in CI.
+python_version = "3.14"
+# Type-check against the deployment/CI platform (python:3.14-slim on Linux),
 # not the developer OS; POSIX-only APIs (os.killpg, pwd, ...) are real there.
 platform = "linux"
 ignore_missing_imports = true
@@ -87,7 +96,15 @@ explicit_package_bases = true
 mypy_path = "src"
 
 [tool.ruff]
-target-version = "py311"
+# Runtime floor is 3.14 (see requires-python), but the formatter target stays
+# at py313 on purpose. At py314 ruff applies PEP 758 and strips the
+# parentheses from every `except (A, B):`, rewriting 72 files to
+# `except A, B:` - valid on 3.14, unreadable to most reviewers, and a hard
+# import-time break on 3.13 for no functional gain. target-version is ruff's
+# "oldest supported syntax" knob, so holding it one notch below the runtime
+# keeps the committed style conventional. Raise it (and accept the reformat)
+# only if the floor moves to 3.14 permanently.
+target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]

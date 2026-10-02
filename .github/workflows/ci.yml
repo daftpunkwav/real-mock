@@ -41,15 +41,19 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
           cache-dependency-path: apps/api/pyproject.toml
 
       - name: Install deps and toolchain
-        # Pin toolchain (matches local verification): ruff 0.16 default rule expansion causes ~252 findings
+        # Toolchain pinned to the versions this gate was last verified green
+        # on. An older revision of this file held ruff at 0.15.20 because a
+        # 0.16 pre-release expanded the default rule set; the rule selection in
+        # pyproject.toml is explicit (E/F/I/N) and 0.16.10 reports zero findings,
+        # so the cap is gone. Bump only after this gate passes locally.
         run: |
           pip install -q -e 'apps/api[dev]'
-          pip install -q ruff==0.15.20 mypy==2.1.0 pytest-cov==7.1.0 pip-audit==2.10.1
+          pip install -q ruff==0.16.10 mypy==2.4.0 pytest-cov==7.1.0 pip-audit==2.10.1
 
       - name: OpenAPI contract is in sync (openapi.json)
         # openapi.json is committed and is the source the frontend generates its
