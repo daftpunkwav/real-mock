@@ -2,14 +2,7 @@
 
 /** Library built-in mood name (no serious; values ​​not listed will fall back to neutral). */
 export type TalkingMood =
-  | "neutral"
-  | "happy"
-  | "angry"
-  | "sad"
-  | "fear"
-  | "disgust"
-  | "love"
-  | "sleep";
+  "neutral" | "happy" | "angry" | "sad" | "fear" | "disgust" | "love" | "sleep";
 
 interface TalkingHeadAsset {
   url: string;
