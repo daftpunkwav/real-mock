@@ -12,12 +12,7 @@ import { ResumeSettingsPanel } from "./ResumeSettingsPanel";
 
 /** Categories group settings by domain: global, resumes, interview prep. */
 export type SettingsCategoryId =
-  | "interface"
-  | "models"
-  | "resume"
-  | "prep"
-  | "interview"
-  | "integrations";
+  "interface" | "models" | "resume" | "prep" | "interview" | "integrations";
 
 export type SettingsCategory = {
   id: SettingsCategoryId;

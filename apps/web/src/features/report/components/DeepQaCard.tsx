@@ -49,12 +49,12 @@ export function DeepQaCard({ note, index }: { note: TurnNote; index?: number }) 
   const hasLegacy = Boolean(note.user_review?.summary) || Boolean(note.interviewer_review?.intent);
   const hasDeep = Boolean(
     note.question ||
-      note.reference_answer ||
-      note.how_to_answer ||
-      (note.problems ?? []).length > 0 ||
-      (note.knowledge_points ?? []).length > 0 ||
-      note.knowledge_brushup ||
-      (note.exercises ?? []).length > 0,
+    note.reference_answer ||
+    note.how_to_answer ||
+    (note.problems ?? []).length > 0 ||
+    (note.knowledge_points ?? []).length > 0 ||
+    note.knowledge_brushup ||
+    (note.exercises ?? []).length > 0,
   );
 
   return (

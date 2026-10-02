@@ -29,13 +29,7 @@ export interface PrepUsageStats {
 
 /** Stable context-breakdown bucket keys (backend contract, GET .../context). */
 export type PrepContextBucketKey =
-  | "user"
-  | "assistant"
-  | "thinking"
-  | "tools"
-  | "system"
-  | "memory"
-  | "other";
+  "user" | "assistant" | "thinking" | "tools" | "system" | "memory" | "other";
 
 /** Measured tokens of one context bucket (mechanical estimate). */
 export interface PrepContextBucket {

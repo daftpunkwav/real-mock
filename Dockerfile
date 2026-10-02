@@ -1,6 +1,6 @@
 # Backend API image (build context = repo root)
 # DB / Chroma / uploads live under /app/apps/api/src/realmock/platform/data — mount a volume at runtime.
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 

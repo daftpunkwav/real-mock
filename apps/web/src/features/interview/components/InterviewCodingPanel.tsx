@@ -70,9 +70,7 @@ print("Reversed successfully!")
 type PanelTab = "problem" | "editor" | "console";
 
 type CodingMessageKey =
-  | "room.coding.tabProblem"
-  | "room.coding.tabEditor"
-  | "room.coding.tabConsole";
+  "room.coding.tabProblem" | "room.coding.tabEditor" | "room.coding.tabConsole";
 
 const PANEL_TABS: ReadonlyArray<{ id: PanelTab; labelKey: CodingMessageKey }> = [
   { id: "problem", labelKey: "room.coding.tabProblem" },

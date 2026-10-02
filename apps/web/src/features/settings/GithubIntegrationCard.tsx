@@ -10,7 +10,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Github, PlugZap } from "lucide-react";
+import { GitFork, PlugZap } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import { formatApiError } from "@/lib/api/base";
@@ -102,7 +102,7 @@ export function GithubIntegrationCard() {
   return (
     <div className="surface-card p-4">
       <div className="mb-1 flex items-center gap-2">
-        <Github size={16} className="text-[var(--primary)]" />
+        <GitFork size={16} className="text-[var(--primary)]" />
         <h2 className="text-[14px] font-semibold">{t("integrations.github.title")}</h2>
       </div>
       <p className="text-[13px] leading-relaxed text-ink-muted">{t("integrations.github.desc")}</p>

@@ -5,7 +5,7 @@
  * @description Project deep-dive: repo evidence, claim verdicts, project cards, deep-dive points.
  */
 
-import { ExternalLink, Github, Star } from "lucide-react";
+import { ExternalLink, GitFork, Star } from "lucide-react";
 import type { ResumeAnalysis, RepoEvidence, RepoVerification } from "../types";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { safeAbsoluteHttpUrl } from "@/components/markdownSafeUrl";
@@ -25,7 +25,7 @@ function RepoEvidenceCards({ items }: { items: RepoEvidence[] }) {
         {items.map((ev, i) => (
           <div key={i} className="surface-card !bg-surface-alt p-3.5 text-[12px] leading-relaxed">
             <div className="mb-1.5 flex items-center gap-2">
-              <Github size={13} className="shrink-0 text-ink-subtle" />
+              <GitFork size={13} className="shrink-0 text-ink-subtle" />
               {/* repo_evidence.url is model-emitted: only absolute http(s)
                   URLs may become links (render-boundary guard mirroring the
                   backend normalize allowlist). */}
