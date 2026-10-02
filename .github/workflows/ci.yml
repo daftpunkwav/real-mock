@@ -190,3 +190,21 @@ jobs:
             "https://github.com/woodruffw/zizmor/releases/download/v${version}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin
           zizmor --persona=pedantic --min-severity=medium .github/workflows/
+  repo-hygiene:
+    name: Repo hygiene (case collisions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: No case-insensitive path collisions
+        # The worktree is developed on Windows, where the filesystem cannot hold
+        # two paths differing only by case - so a colliding pair is easy to create
+        # in review and impossible to reproduce locally. Linux (CI) accepts it
+        # silently and every other Windows/macOS clone then breaks. Git only warns
+        # at checkout time, so this is the only place it can be enforced.
+        run: python3 scripts/ci/check_case_collisions.py
