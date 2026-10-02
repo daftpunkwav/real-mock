@@ -46,8 +46,10 @@ updates:
     # eslint >=10 crashes the lint run - eslint-plugin-react@7.37.5,
     # eslint-plugin-import@2.32.0 and eslint-plugin-jsx-a11y@6.10.2 (all
     # latest) still declare peers up to ^9 only, and react's rule context
-    # hits "getFilename is not a function" (PR #20). Remove a cap on the day
-    # its blocker ships support.
+    # hits "getFilename is not a function" (PR #20). js-yaml 5 and
+    # @redocly/openapi-core 2 are audit-driven overrides: raising them would
+    # force transitive consumers that declared lower majors onto an
+    # unverified line. Remove a cap on the day its blocker ships support.
     ignore:
       - dependency-name: "typescript"
         versions: [">=6"]
@@ -55,6 +57,10 @@ updates:
         versions: [">=25"]
       - dependency-name: "eslint"
         versions: [">=10"]
+      - dependency-name: "js-yaml"
+        versions: [">=5"]
+      - dependency-name: "@redocly/openapi-core"
+        versions: [">=2"]
 
   - package-ecosystem: "pip"
     directory: "/apps/api"
