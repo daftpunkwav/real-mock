@@ -1,0 +1,53 @@
+# Dependabot configuration.
+#
+# Three ecosystems are tracked:
+#   github-actions -> keeps the pinned action SHAs in .github/workflows/ci.yml current
+#                     without ever letting a tag move silently under us.
+#   npm            -> apps/web (package-lock.json is the only install source).
+#   pip            -> apps/api/pyproject.toml. Upper caps are explicit constraints
+#                     (see the file header); Dependabot only proposes bumps that stay
+#                     inside them, and CI remains the gate.
+#
+# Every group keeps the PR count low so the required-approval flow stays reviewable.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "javascript"
+    groups:
+      npm-production:
+        dependency-type: "production"
+      npm-development:
+        dependency-type: "development"
+
+  - package-ecosystem: "pip"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps-py)"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      pip:
+        patterns: ["*"]
