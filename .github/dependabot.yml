@@ -42,12 +42,19 @@ updates:
     # itself, not by preference. typescript >=6 fails openapi-typescript@7's
     # peer range typescript@^5.x at install time (npm ERESOLVE, see PR #17);
     # @types/node tracks the runtime major pinned in ci.yml/.nvmrc (24), so
-    # bump both together when the runtime moves (Node 26 is LTS 2026-10-28).
+    # bump both together when the runtime moves (Node 26 is LTS 2026-10-28);
+    # eslint >=10 crashes the lint run - eslint-plugin-react@7.37.5,
+    # eslint-plugin-import@2.32.0 and eslint-plugin-jsx-a11y@6.10.2 (all
+    # latest) still declare peers up to ^9 only, and react's rule context
+    # hits "getFilename is not a function" (PR #20). Remove a cap on the day
+    # its blocker ships support.
     ignore:
       - dependency-name: "typescript"
         versions: [">=6"]
       - dependency-name: "@types/node"
         versions: [">=25"]
+      - dependency-name: "eslint"
+        versions: [">=10"]
 
   - package-ecosystem: "pip"
     directory: "/apps/api"
