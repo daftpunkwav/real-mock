@@ -41,6 +41,16 @@ updates:
 
   - package-ecosystem: "pip"
     directory: "/apps/api"
+    # Upper caps in apps/api/pyproject.toml are deliberate and documented there.
+    # SQLAlchemy 2.0.52+ tightened the legacy Query.order_by overloads and broke
+    # mypy on CI; websockets is capped at the locally tested range. Dependabot
+    # widens those caps on its own, so ignore anything at or above them and let a
+    # human raise the cap once the code is actually ready for it.
+    ignore:
+      - dependency-name: "sqlalchemy"
+        versions: [">=2.0.52"]
+      - dependency-name: "websockets"
+        versions: [">=16"]
     schedule:
       interval: "weekly"
     commit-message:
