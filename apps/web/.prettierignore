@@ -6,8 +6,7 @@ package-lock.json
 src/types/generated
 next-env.d.ts
 vitest.config.mts
-.prettierrc.json
-package.json
+.prettierignore
 
 # Third-party runtime library (Skulpt) vendored into public/. Never format it:
 # the minified build is generated upstream and reformatting it would break
