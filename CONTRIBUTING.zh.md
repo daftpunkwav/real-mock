@@ -5,7 +5,7 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 
 ## 环境准备
 
-- 后端：Python 3.12（CI）/ >=3.11 —— `pip install -e './apps/api[dev]'`（测试依赖在 `dev` extra；运行时镜像无需 extra）
+- 后端：Python 3.14（`requires-python >=3.14`）—— 建项目 venv 并可编辑安装：`uv venv && uv pip install -e 'apps/api[dev]'`（测试依赖在 `dev` extra；运行时镜像无需 extra）。后端服务同样从该 venv 启动（`scripts/dev.sh`）
 - 前端：Node 24（见 [.nvmrc](.nvmrc)）—— 在 `apps/web` 内 `npm ci`
 - 一键本地开发：`scripts/dev.sh start|stop`（前端 8080，后端 8081，日志与 PID 在 `logs/`）
 
@@ -15,10 +15,11 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 
 | 门禁 | 命令 | 说明 |
 |---|---|---|
-| Lint | `python -m ruff check apps/api` | 在仓库根目录运行；CI 钉 `ruff==0.15.20` |
-| 类型 | `python -m mypy src` | CI 钉 `mypy==2.1.0`；阻塞门，必须保持 0 错误 |
-| 测试 | `python -m pytest` | CI 对 platform 内核与 profile / resume / settings / prep / interview / growth 六个域有 >=90% 覆盖率门(records 不在统计内) |
+| Lint | `python -m ruff check apps/api` | 在仓库根目录运行；CI 钉 `ruff==0.16.10` |
+| 类型 | `python -m mypy src` | CI 钉 `mypy==2.4.0`；阻塞门，必须保持 0 错误 |
+| 测试 | `python -m pytest` | CI 对整个 `realmock` 包有 >=90% 覆盖率门（`--cov=realmock`） |
 | 依赖审计 | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 已知问题且上游无修复版；已在 `pyproject.toml` 声明 |
+| 依赖政策 | `python scripts/ci/check_python_deps_policy.py` | 在仓库根目录运行；禁用包清单在 `scripts/ci/dependency-policy.json`（扫描已安装环境，含传递依赖） |
 
 前端，在 `apps/web` 下运行：
 
@@ -28,7 +29,20 @@ npm run lint       # eslint
 npm test           # vitest(覆盖率阈值由 apps/web/vitest.config.mts 强制)
 npm run build      # 生产构建
 npm run audit      # 依赖审计（high+ 未列入 npm-audit-allowlist.json 则失败）
+node scripts/check-i18n-usage.mjs                               # 幽灵键 + 死键（豁免清单：i18n-usage-allowlist.json）
+node ../../scripts/ci/check_npm_deps_policy.mjs                 # 禁用包（scripts/ci/dependency-policy.json）
 ```
+
+## Git 钩子（可选）
+
+仓库自带一个只查暂存文件的快速钩子（ruff + prettier，对齐两道格式门）。
+每个克隆启用一次：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+其余门禁刻意留在 CI——钩子是便利，不是门。
 
 ## 契约与生成物
 
@@ -62,4 +76,5 @@ API 契约链为 `scripts/export_openapi.py` -> `openapi.json` -> `apps/web/src/
 ## 文档
 
 每份文档配中文镜像（`<name>.zh.md`）并与代码保持同步；目录内文件名不再
-自解释时补 README。
+自解释时补 README。两项不变量均由 CI 强制：`scripts/ci/check_docs_pairs.py`
+对未配对页面报错，lychee（离线模式）对失效内链报错。

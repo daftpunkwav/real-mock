@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Fast staged-only checks that mirror the CI gates (ruff, prettier). The full
+# matrix - mypy, tests, audits, contract - stays in CI; this hook just keeps
+# formatting and lint from leaving the machine. Zero dependencies: uses the
+# project venv interpreters and whatever node/npm is on PATH.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+VENV_PY="$ROOT/.venv/Scripts/python.exe"
+[ -x "$VENV_PY" ] || VENV_PY="$ROOT/.venv/bin/python"
+cd "$ROOT"
+
+py=()
+while IFS= read -r f; do [ -n "$f" ] && py+=("$f"); done < <(
+  git diff --cached --name-only --diff-filter=ACMR -- 'apps/api/*.py' 'scripts/*.py'
+)
+web=()
+while IFS= read -r f; do [ -n "$f" ] && web+=("${f#apps/web/}"); done < <(
+  git diff --cached --name-only --diff-filter=ACMR -- \
+    'apps/web/*.ts' 'apps/web/*.tsx' 'apps/web/*.json' 'apps/web/*.css' 'apps/web/*.md'
+)
+
+if [ "${#py[@]}" -gt 0 ]; then
+  "$VENV_PY" -m ruff check "${py[@]}"
+  "$VENV_PY" -m ruff format --check "${py[@]}"
+fi
+
+if [ "${#web[@]}" -gt 0 ]; then
+  (cd apps/web && npx prettier --check "${web[@]}")
+fi
+
+exit 0

@@ -1,0 +1,17 @@
+{
+  "$comment": "Banned dependencies, per ecosystem. Names are canonical (npm: as in package-lock 'packages' keys minus node_modules prefix; pip: PEP 503 normalized distribution names). The check scans transitive trees too, so a ban here blocks any path of arrival. Extend with a reason - a ban without one will be questioned at review.",
+  "npm": {
+    "langchain": "banned: the agent loop is self-built on the platform; the langchain family must not enter the tree (a stray install once poisoned dependency resolution)",
+    "langgraph": "banned: same rationale as langchain - planning is self-built",
+    "@langchain/core": "banned: langchain family",
+    "langsmith": "banned: langchain family telemetry"
+  },
+  "pip": {
+    "langchain": "banned: the agent loop is self-built on the platform (see apps/api/pyproject.toml websockets cap note for the stray-install incident)",
+    "langchain-core": "banned: langchain family",
+    "langchain-community": "banned: langchain family",
+    "langgraph": "banned: same rationale as langchain - planning is self-built",
+    "langgraph-checkpoint": "banned: langgraph family",
+    "langsmith": "banned: langchain family telemetry"
+  }
+}

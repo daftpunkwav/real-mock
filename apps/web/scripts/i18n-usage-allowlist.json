@@ -1,0 +1,22 @@
+[
+  "action.cancel",
+  "action.confirm",
+  "action.copy",
+  "action.delete",
+  "action.edit",
+  "action.save",
+  "action.test",
+  "app.description",
+  "archive.stale",
+  "archive.title",
+  "list.loading",
+  "room.outline.title",
+  "setup.loading",
+  "slash.clear",
+  "slash.compact",
+  "slash.help",
+  "state.empty",
+  "state.error",
+  "state.saving",
+  "toast.uploaded"
+]
