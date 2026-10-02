@@ -11,7 +11,13 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
   pull_request:
+    # Markdown-only changes cannot affect any gate below (no gate reads prose);
+    # mixed diffs that touch code alongside docs still trigger every job.
+    paths-ignore:
+      - "**.md"
 
 # Least privilege: jobs only check out code and publish no artifacts.
 permissions:
