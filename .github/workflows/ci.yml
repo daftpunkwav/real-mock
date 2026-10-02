@@ -34,6 +34,10 @@ jobs:
       CORS_ORIGINS: "http://localhost:8080"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job here pushes; leaving the checkout token on disk would
+          # let anything in a later step (or a cached artifact) reuse it.
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -46,6 +50,15 @@ jobs:
         run: |
           pip install -q -e 'apps/api[dev]'
           pip install -q ruff==0.15.20 mypy==2.1.0 pytest-cov==7.1.0 pip-audit==2.10.1
+
+      - name: OpenAPI contract is in sync (openapi.json)
+        # openapi.json is committed and is the source the frontend generates its
+        # types from (npm run generate:api-types). Regenerating it here and
+        # failing on drift turns "someone changed a route signature and forgot
+        # to re-export" into a build failure instead of a silent mismatch.
+        run: |
+          python scripts/export_openapi.py
+          git diff --exit-code -- openapi.json
 
       - name: ruff static check
         run: python -m ruff check apps/api
@@ -84,6 +97,10 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job here pushes; leaving the checkout token on disk would
+          # let anything in a later step (or a cached artifact) reuse it.
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -111,3 +128,65 @@ jobs:
         # enforces npm-audit-allowlist.json (mirrors the pip-audit --ignore-vuln
         # pattern for unfixable upstream with unreachable entry points).
         run: npm run audit
+  docker:
+    name: Docker (backend + web image builds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job here pushes; leaving the checkout token on disk would
+          # let anything in a later step (or a cached artifact) reuse it.
+          persist-credentials: false
+
+      - name: Build backend image
+        # The deployable artifact is a container. Without this, a typo in a
+        # COPY path or a command that only works on Windows ships green and
+        # breaks at deploy time. Root context: .dockerignore keeps the build to
+        # apps/api plus the stt_fixtures.
+        run: docker build --tag realmock-api:ci .
+
+      - name: Build web image
+        # Context is apps/web; its .dockerignore already drops node_modules and
+        # .next, so this does not copy the 900 MB of local build state.
+        run: docker build --tag realmock-web:ci apps/web
+
+  workflow-lint:
+    name: Workflow lint (actionlint + zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No job here pushes; leaving the checkout token on disk would
+          # let anything in a later step (or a cached artifact) reuse it.
+          persist-credentials: false
+
+      - name: actionlint
+        # Catches workflow syntax errors, bad expressions and shellcheck issues
+        # in run blocks - the class of mistake that only shows up as a confusing
+        # red X in the Actions tab. Installed as a pinned release binary, so this
+        # adds no third-party action to the allow list.
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          curl -sSfL --retry 3 -o /tmp/actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
+          tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint
+          actionlint -color .github/workflows/*.yml
+
+      - name: zizmor
+        # Audits the workflows themselves for unsafe expression expansion,
+        # excessive permissions and unpinned actions. Complements actionlint: one
+        # checks that the YAML is correct, the other that it is safe.
+        run: |
+          set -euo pipefail
+          version=1.30.1
+          curl -sSfL --retry 3 -o /tmp/zizmor.tar.gz \
+            "https://github.com/woodruffw/zizmor/releases/download/v${version}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin
+          zizmor --persona=pedantic --min-severity=medium .github/workflows/
