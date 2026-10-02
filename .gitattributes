@@ -1,0 +1,46 @@
+# Normalise line endings at the git layer, not per-developer machine.
+#
+# core.autocrlf=true rewrites LF blobs to CRLF in the Windows working tree.
+# That is harmless for git, but it makes LF-only gates (.editorconfig, Prettier
+# with endOfLine=lf) unable to pass locally - `prettier --check` reports every
+# file as unformatted, forever, because writing the file immediately puts CRLF
+# back. Committing the normalisation here makes the checkout match the blob on
+# every platform, so the gates mean the same thing locally and in CI.
+* text=auto eol=lf
+
+# Binary files must never be line-ending translated.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.whl binary
+*.so binary
+*.dll binary
+*.dylib binary
+*.exe binary
+*.bin binary
+*.wasm binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.pack binary
+*.idx binary
+*.onnx binary
+*.safetensors binary
+*.pt binary
+*.pyc binary
+*.pyo binary
