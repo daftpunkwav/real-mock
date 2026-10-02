@@ -64,9 +64,7 @@ def _search_with_ddgs(query: str, max_results: int) -> list[dict]:
     with DDGS() as client:
         for backend in _DDGS_BACKENDS:
             try:
-                results = list(
-                    client.text(query, max_results=max_results, backend=backend)
-                )
+                results = list(client.text(query, max_results=max_results, backend=backend))
                 if results:
                     return results
                 errors.append(f"{backend}: empty")
@@ -74,7 +72,6 @@ def _search_with_ddgs(query: str, max_results: int) -> list[dict]:
                 errors.append(f"{backend}: {e}")
                 logger.info("ddgs backend=%s failed: %s", backend, e)
     raise RuntimeError("; ".join(errors)[:400] or "no backend succeeded")
-
 
 
 def _unavailable(detail: str) -> str:

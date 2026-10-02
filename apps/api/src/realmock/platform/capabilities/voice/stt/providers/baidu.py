@@ -8,9 +8,9 @@ import logging
 
 import httpx
 
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.core.security import make_pinned_async_client
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,7 @@ _ASR_URL = "https://vop.baidu.com/server_api"
 
 
 class BaiduProvider:
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         api_key = (creds.api_key or "").strip()
         secret = (creds.api_secret or "").strip()
         if not (api_key and secret):

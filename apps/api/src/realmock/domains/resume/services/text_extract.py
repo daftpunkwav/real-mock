@@ -46,9 +46,7 @@ def _assert_docx_zip_safe(file_path: Path) -> None:
     with zipfile.ZipFile(file_path, "r") as zf:
         infos = zf.infolist()
         if len(infos) > MAX_DOCX_ZIP_ENTRIES:
-            raise ValueError(
-                f"Too many DOCX entries ({len(infos)} > {MAX_DOCX_ZIP_ENTRIES})"
-            )
+            raise ValueError(f"Too many DOCX entries ({len(infos)} > {MAX_DOCX_ZIP_ENTRIES})")
         total = 0
         for info in infos:
             total += max(0, int(info.file_size))

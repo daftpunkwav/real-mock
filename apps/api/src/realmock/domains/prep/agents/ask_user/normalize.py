@@ -205,7 +205,13 @@ _ASK_MAX_QUESTIONS = 8
 # Per-question raw keys lifted from a questions-array item (same names as the
 # flat single-question shorthand, so one builder serves both shapes).
 _ASK_ITEM_FIELDS = (
-    "question", "options", "selection", "widget", "scale", "allow_custom", "suggested_index",
+    "question",
+    "options",
+    "selection",
+    "widget",
+    "scale",
+    "allow_custom",
+    "suggested_index",
 )
 
 

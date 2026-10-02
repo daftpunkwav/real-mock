@@ -30,10 +30,12 @@ def _anthropic_content_blocks(content: Any) -> Any:
             if url.startswith("data:"):
                 header, _, data = url.partition(",")
                 media_type = header[5:].split(";", 1)[0] or "image/jpeg"
-                blocks.append({
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": media_type, "data": data},
-                })
+                blocks.append(
+                    {
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": media_type, "data": data},
+                    }
+                )
             elif url:
                 blocks.append({"type": "image", "source": {"type": "url", "url": url}})
             continue
@@ -108,10 +110,12 @@ def _anthropic_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             # and an assistant turn is persisted as "" when the user hits Stop.
             # Dropping the entry instead would break the required role alternation.
             content = [{"type": "text", "text": "(no output)"}]
-        converted.append({
-            "role": role or "user",
-            "content": content,
-        })
+        converted.append(
+            {
+                "role": role or "user",
+                "content": content,
+            }
+        )
     return converted
 
 

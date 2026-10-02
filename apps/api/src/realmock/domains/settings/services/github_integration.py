@@ -112,9 +112,7 @@ async def test_github_token(db: Session, candidate: str | None = None) -> dict[s
         "ok": True,
         "limit": core.get("limit"),
         "remaining": core.get("remaining"),
-        "reset_in": max(0, int(core.get("reset", 0)) - time.time())
-        if core.get("reset")
-        else None,
+        "reset_in": max(0, int(core.get("reset", 0)) - time.time()) if core.get("reset") else None,
         "authenticated": bool(client.token),
     }
 

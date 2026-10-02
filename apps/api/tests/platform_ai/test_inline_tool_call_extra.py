@@ -14,7 +14,6 @@ from realmock.platform.capabilities.ai.llm.inline_tool_call import (
 )
 
 
-
 def test_partial_open_tag_buffered_across_feeds() -> None:
     c = InlineToolCallCleaner()
     assert c.feed("hello <tool_ca") == "hello "
@@ -44,7 +43,7 @@ def test_unclosed_block_converted_on_flush_and_oversized_passes_through() -> Non
     big = InlineToolCallCleaner()
     blob = '<tool_call><invoke name="quiz">' + "x" * 5000
     # Oversized unclosed block passes through as body text (open tag consumed as block start).
-    assert big.feed(blob) == blob[len("<tool_call>"):]
+    assert big.feed(blob) == blob[len("<tool_call>") :]
     assert big.flush() == ""
     assert _default_quiz_renderer("") == ""
     assert _default_quiz_renderer("Q") == "Q"

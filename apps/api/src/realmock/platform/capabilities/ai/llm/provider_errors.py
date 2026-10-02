@@ -13,12 +13,14 @@ from __future__ import annotations
 import re
 
 #: Provider error codes that unambiguously mean "context window exceeded".
-_OVERFLOW_CODES = frozenset({
-    "context_length_exceeded",
-    "context_window_exceeded",
-    "input_too_long",
-    "max_tokens_exceeded",
-})
+_OVERFLOW_CODES = frozenset(
+    {
+        "context_length_exceeded",
+        "context_window_exceeded",
+        "input_too_long",
+        "max_tokens_exceeded",
+    }
+)
 
 #: Message fragments (lowercased) that signal an over-budget request.
 _OVERFLOW_MESSAGE_RES = (
@@ -77,14 +79,16 @@ def is_context_overflow(exc: BaseException) -> bool:
 
 
 #: Provider error codes for quota / rate-limit rejections (user-actionable).
-_LIMIT_CODES = frozenset({
-    "rate_limit_exceeded",
-    "insufficient_quota",
-    "quota_exceeded",
-    "billing_hard_limit_reached",
-    "requests_limit_reached",
-    "too_many_requests",
-})
+_LIMIT_CODES = frozenset(
+    {
+        "rate_limit_exceeded",
+        "insufficient_quota",
+        "quota_exceeded",
+        "billing_hard_limit_reached",
+        "requests_limit_reached",
+        "too_many_requests",
+    }
+)
 
 #: Message fragments (lowercased) that signal a quota / rate-limit condition.
 _LIMIT_MESSAGE_RES = (

@@ -12,8 +12,8 @@ from realmock.platform.schemas.errors import APIError, ErrorBody
 from realmock.platform.schemas.pipeline import (
     LLMTestResponse,
     StageConfigResponse,
-    StageConfigUpdate,
     StageConfigsResponse,
+    StageConfigUpdate,
     StageFallbackConfig,
     StageModelCapability,
     StageTestRequest,

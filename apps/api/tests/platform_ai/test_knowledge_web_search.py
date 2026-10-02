@@ -114,7 +114,9 @@ def test_web_search_with_hits_truncates_to_max(monkeypatch) -> None:
     monkeypatch.setattr(
         web_mod,
         "_search_with_ddgs",
-        lambda q, mr: [{"href": f"https://a.test/{i}", "title": "t", "body": "b"} for i in range(10)],
+        lambda q, mr: [
+            {"href": f"https://a.test/{i}", "title": "t", "body": "b"} for i in range(10)
+        ],
     )
     _, hits = web_mod.web_search_with_hits("q", max_results=3)
     assert len(hits) == 3
@@ -122,6 +124,7 @@ def test_web_search_with_hits_truncates_to_max(monkeypatch) -> None:
 
 def test_web_search_with_hits_ddgs_failure_surfaces_unavailable(monkeypatch) -> None:
     """Single backend by decision: a ddgs failure yields SEARCH_UNAVAILABLE."""
+
     def _boom(q, mr):
         raise RuntimeError("ddgs down")
 
@@ -130,6 +133,7 @@ def test_web_search_with_hits_ddgs_failure_surfaces_unavailable(monkeypatch) -> 
     assert hits == []
     assert text.startswith("SEARCH_UNAVAILABLE")
     assert "ddgs down" in text
+
 
 def test_web_search_wrapper(monkeypatch) -> None:
     monkeypatch.setattr(

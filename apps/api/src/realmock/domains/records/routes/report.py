@@ -35,8 +35,8 @@ from realmock.platform.core.constants import DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.ratelimit import rate_limit_dep
 from realmock.platform.core.security import redact_api_key
-from realmock.platform.core.sse import format_sse_line, sse_error_event, sse_streaming_response
 from realmock.platform.core.session_auth import assert_session_token, extract_token
+from realmock.platform.core.sse import format_sse_line, sse_error_event, sse_streaming_response
 from realmock.platform.database import get_api_db, get_sessions_db
 
 logger = logging.getLogger(__name__)
@@ -83,9 +83,7 @@ def _observe_orphaned_task(task: asyncio.Task | None, session_id: int) -> None:
     task.add_done_callback(_log_failure)
 
 
-async def _generate_with_live_events(
-    session_id: int, *, snap, llm, report_out: list
-):
+async def _generate_with_live_events(session_id: int, *, snap, llm, report_out: list):
     """Run generation as a task, relaying live agent events as SSE.
 
     The final DebriefReport (or None) is appended to ``report_out`` — async
@@ -142,9 +140,7 @@ def _messages_count(snap: SessionSnapshot) -> int:
     if not isinstance(messages, list):
         return 0
     return sum(
-        1
-        for m in messages
-        if isinstance(m, dict) and m.get("role") in ("user", "assistant")
+        1 for m in messages if isinstance(m, dict) and m.get("role") in ("user", "assistant")
     )
 
 
@@ -163,9 +159,7 @@ def _duration_minutes(snap: SessionSnapshot) -> float | None:
     return None
 
 
-def _require_session(
-    db: Session, session_id: int, access: str | None
-) -> SessionSnapshot:
+def _require_session(db: Session, session_id: int, access: str | None) -> SessionSnapshot:
     catalog = get_session_catalog()
     raw = catalog.get_session_snapshot(db, session_id)
     if raw is None:
@@ -179,9 +173,7 @@ def _require_session(
     return snap
 
 
-def _require_finished_session(
-    db: Session, session_id: int, access: str | None
-) -> SessionSnapshot:
+def _require_finished_session(db: Session, session_id: int, access: str | None) -> SessionSnapshot:
     """Require a finished session (completed status or frozen ledger) for reports."""
     from realmock.platform.core.constants import SessionStatus
 

@@ -16,7 +16,8 @@ from realmock.domains.records.agents.report.normalize import normalize_report_pa
 from realmock.domains.records.agents.report.synthesis_agent import run_synthesis
 from realmock.domains.records.agents.report.turn_notes_agent import run_turn_notes_batch
 from realmock.domains.records.schemas.report import DebriefReport, TurnNote
-from realmock.platform.capabilities.ai.agent import OnAgentEvent as OnEvent, emit_agent_event
+from realmock.platform.capabilities.ai.agent import OnAgentEvent as OnEvent
+from realmock.platform.capabilities.ai.agent import emit_agent_event
 from realmock.platform.capabilities.ai.agent.tools import (
     github_tool_specs,
     profile_from_orm,
@@ -72,9 +73,7 @@ def build_context_specs(resume_id: int | None, profile_id: int | None) -> list:
             if payload is not None:
                 specs.extend(resume_tool_specs(snapshot_from_payload(payload)))
         row = (
-            get_user_profile(api_db, profile_id)
-            if profile_id
-            else get_default_user_profile(api_db)
+            get_user_profile(api_db, profile_id) if profile_id else get_default_user_profile(api_db)
         )
         if row is not None:
             specs.extend(profile_tool_specs(profile_from_orm(row)))

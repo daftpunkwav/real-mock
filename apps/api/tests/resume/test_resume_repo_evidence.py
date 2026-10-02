@@ -26,7 +26,17 @@ class _FakeGitHub:
         self._o = overrides
 
     async def get_repo(self, owner, repo):
-        return self._o.get("repo", {"stargazers_count": 5, "forks_count": 1, "language": "Python", "pushed_at": "2024-01-02T00:00:00Z", "description": "d", "default_branch": "main"})
+        return self._o.get(
+            "repo",
+            {
+                "stargazers_count": 5,
+                "forks_count": 1,
+                "language": "Python",
+                "pushed_at": "2024-01-02T00:00:00Z",
+                "description": "d",
+                "default_branch": "main",
+            },
+        )
 
     async def get_readme(self, owner, repo):
         return self._o.get("readme", {"content": "readme-body"})
@@ -35,10 +45,15 @@ class _FakeGitHub:
         return self._o.get("langs", {"Python": 10, "Go": 2})
 
     async def list_commits(self, owner, repo, per_page=3):
-        return self._o.get("commits", [{"commit": {"author": {"date": "2024-01-01T00:00:00Z"}, "message": "feat: x\nbody"}}])
+        return self._o.get(
+            "commits",
+            [{"commit": {"author": {"date": "2024-01-01T00:00:00Z"}, "message": "feat: x\nbody"}}],
+        )
 
     async def get_tree(self, owner, repo, branch="main"):
-        return self._o.get("tree", {"tree": [{"type": "blob", "path": "main.py"}], "truncated": False})
+        return self._o.get(
+            "tree", {"tree": [{"type": "blob", "path": "main.py"}], "truncated": False}
+        )
 
     async def get_file_content(self, owner, repo, path, ref="main"):
         files = self._o.get("files", {"main.py": {"content": "print(1)"}})
@@ -67,7 +82,9 @@ def test_is_error_and_pick_key_files() -> None:
     assert _is_error({"error": "x"}) is True
     assert _is_error("nope") is True
     assert _is_error({"stars": 1}) is False
-    picked = _pick_key_files(["README.md", "package.json", "main.py", "other.txt", "app.py"], limit=2)
+    picked = _pick_key_files(
+        ["README.md", "package.json", "main.py", "other.txt", "app.py"], limit=2
+    )
     assert "package.json" in picked
     assert len(picked) == 2
     root = _pick_key_files(["src/nested.py", "run.py"], limit=5)
@@ -80,9 +97,13 @@ async def test_evidence_meta_rate_limit_and_generic(monkeypatch) -> None:
     import realmock.domains.resume.services.repo_evidence as ev
 
     target = ev.extract_github_repos("https://github.com/o/r")[0]
-    out = await ev._evidence_for_repo(_FakeGitHub(repo={"error": "x", "status": 403, "message": "rate limit exceeded"}), target)
+    out = await ev._evidence_for_repo(
+        _FakeGitHub(repo={"error": "x", "status": 403, "message": "rate limit exceeded"}), target
+    )
     assert any("quota" in n for n in out["evidence_notes"])
-    out2 = await ev._evidence_for_repo(_FakeGitHub(repo={"error": "x", "message": "not found"}), target)
+    out2 = await ev._evidence_for_repo(
+        _FakeGitHub(repo={"error": "x", "message": "not found"}), target
+    )
     assert any("Failed" in n for n in out2["evidence_notes"])
     # Non-dict meta crashes on .get (implementation assumes dict); document current behavior.
     with pytest.raises(AttributeError):
@@ -116,7 +137,14 @@ async def test_evidence_tree_truncated_and_empty(monkeypatch) -> None:
 
     monkeypatch.setattr(ev, "get_last_quota", lambda: {})
     target = ev.extract_github_repos("https://github.com/o/r")[0]
-    tree = {"tree": [{"type": "blob", "path": "main.py"}, {"type": "tree", "path": "dir"}, {"path": ""}], "truncated": True}
+    tree = {
+        "tree": [
+            {"type": "blob", "path": "main.py"},
+            {"type": "tree", "path": "dir"},
+            {"path": ""},
+        ],
+        "truncated": True,
+    }
     out = await ev._evidence_for_repo(
         _FakeGitHub(tree=tree, readme={"error": "x"}, files={}), target
     )
@@ -124,7 +152,13 @@ async def test_evidence_tree_truncated_and_empty(monkeypatch) -> None:
     assert any("limited" in n for n in out["evidence_notes"])
 
     out2 = await ev._evidence_for_repo(
-        _FakeGitHub(readme={"error": "x"}, langs={"error": "x"}, commits={"error": "x"}, tree={"error": "x"}, files={}),
+        _FakeGitHub(
+            readme={"error": "x"},
+            langs={"error": "x"},
+            commits={"error": "x"},
+            tree={"error": "x"},
+            files={},
+        ),
         target,
     )
     assert any("limited" in n for n in out2["evidence_notes"])

@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 
-
-from realmock.platform.models import LLMSettings
-from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
+from realmock.domains.interview.models import InterviewSession
+from realmock.platform.models import LLMSettings
 from tests.fakes import FakeLLMClient
 
 
@@ -207,7 +206,9 @@ def test_stream_turn_marks_complete_on_interview_flag(db) -> None:
     """interview_complete=true in the protocol should end the interview."""
     session = _make_session(db)
     llm = FakeLLMClient(
-        tokens=_proto_tokens("The interview is over. Thank you for your time.", interview_complete=True)
+        tokens=_proto_tokens(
+            "The interview is over. Thank you for your time.", interview_complete=True
+        )
     )
     runner = InterviewRunner(session, llm)
 
@@ -237,11 +238,15 @@ def test_stream_turn_with_face_appends_hints(db) -> None:
     import asyncio
 
     async def run():
-        async for _ in runner.stream_turn("I'm listening", db, face={
-            "face_detected": True,
-            "looking_away": True,
-            "nervousness": 0.8,
-        }):
+        async for _ in runner.stream_turn(
+            "I'm listening",
+            db,
+            face={
+                "face_detected": True,
+                "looking_away": True,
+                "nervousness": 0.8,
+            },
+        ):
             pass
 
     asyncio.run(run())
@@ -270,7 +275,14 @@ def test_stream_turn_emits_error_on_llm_failure(db, monkeypatch) -> None:
             raise RuntimeError("LLM unavailable")
             yield  # unreachable, but keeps mypy happy
 
-        async def chat_message(self, messages, temperature: float = 0.7, response_format=None, tools=None, tool_choice=None):
+        async def chat_message(
+            self,
+            messages,
+            temperature: float = 0.7,
+            response_format=None,
+            tools=None,
+            tool_choice=None,
+        ):
             raise RuntimeError("LLM unavailable")
 
         async def chat_message_stream(self, messages, temperature: float = 0.7, tools=None):
@@ -295,10 +307,12 @@ def test_stream_turn_injects_followup_probe_when_vague(db) -> None:
     """Vague answers should inject follow-up guidance into LLM messages."""
     session = _make_session(db)
     # Seed the previous LLM question
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-        {"role": "assistant", "content": "Describe a performance optimization experience"},
-    ])
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+            {"role": "assistant", "content": "Describe a performance optimization experience"},
+        ]
+    )
     db.commit()
     db.refresh(session)
 
@@ -321,10 +335,15 @@ def test_stream_turn_injects_followup_probe_when_vague(db) -> None:
 def test_stream_turn_no_followup_probe_when_solid(db) -> None:
     """Concrete answers should not inject follow-up guidance."""
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-        {"role": "assistant", "content": "Please describe the impact of the performance optimization"},
-    ])
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+            {
+                "role": "assistant",
+                "content": "Please describe the impact of the performance optimization",
+            },
+        ]
+    )
     db.commit()
     db.refresh(session)
 
@@ -353,15 +372,15 @@ def test_stream_turn_applies_context_compression(db, api_db) -> None:
     # Seed 200 user/assistant turns to force compression
     base = [{"role": "system", "content": "You are the interviewer"}]
     base += [
-        {"role": "user" if i % 2 == 0 else "assistant",
-         "content": "Conversation content" * 20}
+        {"role": "user" if i % 2 == 0 else "assistant", "content": "Conversation content" * 20}
         for i in range(40)
     ]
     session.messages = json.dumps(base, ensure_ascii=False)
     settings = api_db.query(LLMSettings).filter(LLMSettings.id == 1).first()
     if settings is None:
-        settings = LLMSettings(id=1, api_key="x", api_base="http://x", model="m",
-                                context_window=500, max_tokens=100)
+        settings = LLMSettings(
+            id=1, api_key="x", api_base="http://x", model="m", context_window=500, max_tokens=100
+        )
         api_db.add(settings)
     else:
         settings.context_window = 500
@@ -396,7 +415,6 @@ def test_stream_turn_injects_rag_context(db) -> None:
     chroma_dir = Path(db.get_bind().url.database).parent / f"chroma_{uuid.uuid4().hex[:6]}"
     chroma_dir.mkdir(parents=True, exist_ok=True)
 
-
     class _StubRAG:
         def __init__(self):
             self.embed_called_with: list[str] = []
@@ -416,10 +434,13 @@ def test_stream_turn_injects_rag_context(db) -> None:
 
     rag = _StubRAG()
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-        {"role": "assistant", "content": "Please discuss performance optimization"},
-    ], ensure_ascii=False)
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+            {"role": "assistant", "content": "Please discuss performance optimization"},
+        ],
+        ensure_ascii=False,
+    )
     db.commit()
     db.refresh(session)
 
@@ -436,23 +457,30 @@ def test_stream_turn_injects_rag_context(db) -> None:
 
     last_call = llm.stream_calls[-1]
     system_msgs = [m["content"] for m in last_call if m["role"] == "system"]
-    assert any("Enterprise knowledge base search supplement" in s and "bytedance" in s for s in system_msgs), system_msgs
+    assert any(
+        "Enterprise knowledge base search supplement" in s and "bytedance" in s for s in system_msgs
+    ), system_msgs
 
 
 def test_stream_turn_skips_rag_when_no_hits(db) -> None:
     """On RAG miss, empty snippets must not be injected."""
+
     class _EmptyRAG:
         async def query_for_company(self, query, company_id, top_k=4):
             return []
+
         async def query(self, query, top_k=3, company_id=None):
             return []
 
     rag = _EmptyRAG()
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-        {"role": "assistant", "content": "Self-introduction"},
-    ], ensure_ascii=False)
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+            {"role": "assistant", "content": "Self-introduction"},
+        ],
+        ensure_ascii=False,
+    )
     db.commit()
     db.refresh(session)
 
@@ -474,18 +502,23 @@ def test_stream_turn_skips_rag_when_no_hits(db) -> None:
 
 def test_stream_turn_rag_error_does_not_break_turn(db) -> None:
     """When RAG raises, the interview turn should still complete without aborting."""
+
     class _BrokenRAG:
         async def query_for_company(self, query, company_id, top_k=4):
             raise RuntimeError("RAG unavailable")
+
         async def query(self, query, top_k=3, company_id=None):
             raise RuntimeError("RAG unavailable")
 
     rag = _BrokenRAG()
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-        {"role": "assistant", "content": "Self-introduction"},
-    ], ensure_ascii=False)
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+            {"role": "assistant", "content": "Self-introduction"},
+        ],
+        ensure_ascii=False,
+    )
     db.commit()
     db.refresh(session)
 
@@ -511,12 +544,18 @@ def test_agent_public_methods_no_longer_underscore(db) -> None:
     from realmock.domains.interview.agents.session_state import InterviewSessionState
 
     public = {
-        "save_state", "current_phase", "phases_remaining",
-        "mark_active", "mark_completed",
-        "record_user_text", "record_assistant_text",
+        "save_state",
+        "current_phase",
+        "phases_remaining",
+        "mark_active",
+        "mark_completed",
+        "record_user_text",
+        "record_assistant_text",
         "advance_phase_if_needed",
-        "build_opening_prompt", "memory_block",
-        "set_questions_in_phase", "reset_messages",
+        "build_opening_prompt",
+        "memory_block",
+        "set_questions_in_phase",
+        "reset_messages",
     }
     assert public.issubset(set(dir(InterviewSessionState)))
 
@@ -526,9 +565,12 @@ def test_memory_block_carries_asked_questions(db) -> None:
     from realmock.domains.interview.agents.session_state import InterviewSessionState
 
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-    ], ensure_ascii=False)
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+        ],
+        ensure_ascii=False,
+    )
     db.commit()
     db.refresh(session)
 
@@ -549,9 +591,12 @@ def test_memory_block_rebuilds_from_current_state(db) -> None:
     from realmock.domains.interview.agents.session_state import InterviewSessionState
 
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-    ], ensure_ascii=False)
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+        ],
+        ensure_ascii=False,
+    )
     db.commit()
     db.refresh(session)
 
@@ -568,10 +613,12 @@ def test_memory_block_rebuilds_from_current_state(db) -> None:
 def test_stream_turn_records_weak_point_on_followup(db) -> None:
     """Follow-up firing records the category in followup_clues but must NOT pollute weak_points with examiner guidance."""
     session = _make_session(db)
-    session.messages = json.dumps([
-        {"role": "system", "content": "You are the interviewer"},
-        {"role": "assistant", "content": "Describe a performance optimization experience"},
-    ])
+    session.messages = json.dumps(
+        [
+            {"role": "system", "content": "You are the interviewer"},
+            {"role": "assistant", "content": "Describe a performance optimization experience"},
+        ]
+    )
     db.commit()
     db.refresh(session)
 
@@ -604,8 +651,11 @@ def test_build_opening_prompt_includes_system_learning(db, monkeypatch) -> None:
     insights = {
         "avg_scores_by_company": {"bytedance": 65},
         "recent_probes": [
-            {"company": "bytedance", "role": "Backend engineer",
-             "point": "Insufficient understanding of cache consistency"},
+            {
+                "company": "bytedance",
+                "role": "Backend engineer",
+                "point": "Insufficient understanding of cache consistency",
+            },
         ],
     }
     set_system_insights_provider(lambda limit=10: insights)
@@ -666,10 +716,12 @@ def test_reverse_qa_phase_injects_company_representative_prompt(db) -> None:
     session = _make_session(db)
     # Set phase_idx to the phase before reverse_qa (scenario) with questions_in_phase
     # at max so advance_phase_if_needed moves to reverse_qa
-    session.agent_state = json.dumps({
-        "phase_idx": 6,  # scenario
-        "questions_in_phase": 2,  # scenario.max_questions=2
-    })
+    session.agent_state = json.dumps(
+        {
+            "phase_idx": 6,  # scenario
+            "questions_in_phase": 2,  # scenario.max_questions=2
+        }
+    )
     session.current_phase = "scenario"
     db.commit()
     db.refresh(session)
@@ -722,6 +774,7 @@ def test_non_reverse_qa_phase_uses_generic_entry_message(db) -> None:
     entry_msgs = [s for s in system_msgs if "Entering new phase" in s]
     assert entry_msgs, f"expected phase-entry message: {system_msgs}"
     assert not any("Role switch" in s for s in entry_msgs)
+
 
 # ── Runner tools wiring under RAG backends ──────────────────────────────
 
@@ -781,7 +834,8 @@ def test_interview_runner_collects_stepfun_tools(db) -> None:
     assert any(t.get("type") == "retrieval" for t in tools)
     # Also includes function tools such as GitHub
     assert any(
-        t.get("type") == "function" and (t.get("function") or {}).get("name", "").startswith("github_")
+        t.get("type") == "function"
+        and (t.get("function") or {}).get("name", "").startswith("github_")
         for t in tools
     )
 
@@ -857,9 +911,7 @@ def test_stream_turn_pace_hint_is_transient(db) -> None:
     assert llm.stream_calls, "the turn must call the LLM"
     first_call = llm.stream_calls[0]
     assert first_call[0]["role"] == "user"
-    pace_idx = next(
-        i for i, m in enumerate(first_call) if "[Pace:" in str(m.get("content") or "")
-    )
+    pace_idx = next(i for i, m in enumerate(first_call) if "[Pace:" in str(m.get("content") or ""))
     assert pace_idx > 0
     assert first_call[pace_idx]["role"] == "system"
     # The loop's own [Context] anchor rides the same transient suffix,
@@ -869,10 +921,7 @@ def test_stream_turn_pace_hint_is_transient(db) -> None:
     # ...and the persisted history keeps the plain user-tail invariant.
     roles = [m.get("role") for m in runner.agent.messages]
     assert roles[-1] == "assistant"
-    assert all(
-        "[Pace:" not in str(m.get("content") or "")
-        for m in runner.agent.messages
-    )
+    assert all("[Pace:" not in str(m.get("content") or "") for m in runner.agent.messages)
 
     turn_done = next(e for e in events if e.kind == EventKind.TURN_COMPLETE)
     assert turn_done.content == "Next question?"
@@ -880,6 +929,7 @@ def test_stream_turn_pace_hint_is_transient(db) -> None:
 
 def test_runner_background_task_lifecycle(db) -> None:
     import asyncio
+
     session = _make_session(db)
     llm = FakeLLMClient()
     runner = InterviewRunner(session, llm)
@@ -900,6 +950,7 @@ def test_runner_background_task_lifecycle(db) -> None:
 
 def test_runner_custom_task_spawner(db) -> None:
     import asyncio
+
     session = _make_session(db)
     llm = FakeLLMClient()
     spawned = []
@@ -924,7 +975,6 @@ def test_runner_custom_task_spawner(db) -> None:
             pass
 
     asyncio.run(run())
-
 
 
 def test_runner_facade_returns_copies_not_internals(db) -> None:

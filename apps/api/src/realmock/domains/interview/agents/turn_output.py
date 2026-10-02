@@ -51,7 +51,7 @@ class TurnScore:
     """Instant brief comments on the candidates’ answers in the previous round (for reuse in the next round of prompts and reports)."""
 
     brief: str = ""
-    rating: int = 0          # 1-5; 0=not provided
+    rating: int = 0  # 1-5; 0=not provided
     weak_points: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -73,7 +73,7 @@ class TurnOutput:
     # Dynamic flow maintenance: sanitized {"title","focus","max_questions","kind"}
     # steps to insert after the current one (empty tuple = no-op).
     plan_ops: tuple[dict, ...] = ()
-    degraded: bool = False   # True=no structured control area obtained (all default values)
+    degraded: bool = False  # True=no structured control area obtained (all default values)
 
 
 def parse_turn_output(
@@ -128,7 +128,9 @@ def parse_turn_output(
     plan_ops = _parse_plan_ops(controls.get("plan_ops"))
 
     if version != _PROTOCOL_VERSION:
-        logger.debug("Round output protocol version v=%s (currently %s)", version, _PROTOCOL_VERSION)
+        logger.debug(
+            "Round output protocol version v=%s (currently %s)", version, _PROTOCOL_VERSION
+        )
 
     return TurnOutput(
         say=say_text,
@@ -166,12 +168,14 @@ def _parse_plan_ops(raw: object) -> tuple[dict, ...]:
         if isinstance(max_q, bool) or not isinstance(max_q, int) or max_q < 1:
             max_q = 3
         max_q = min(max_q, STEP_QUESTIONS_MAX)
-        out.append({
-            "title": title,
-            "focus": focus,
-            "max_questions": max_q,
-            "kind": str(item.get("kind") or "").strip()[:30],
-        })
+        out.append(
+            {
+                "title": title,
+                "focus": focus,
+                "max_questions": max_q,
+                "kind": str(item.get("kind") or "").strip()[:30],
+            }
+        )
     return tuple(out)
 
 

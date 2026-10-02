@@ -21,7 +21,6 @@ import pytest
 from realmock.platform.capabilities.ai.agent.tools.isolation import base as iso_base
 
 
-
 def test_terminate_tree_current_platform() -> None:
     proc = MagicMock()
     proc.pid = 123

@@ -9,12 +9,16 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 
+
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -22,6 +26,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_persist_interrupt_stats_merges_via_facade(monkeypatch):
@@ -47,7 +52,10 @@ async def test_persist_interrupt_stats_merges_via_facade(monkeypatch):
         monkeypatch.setattr(h, "_persist_interrupt_stats_sync", _fake_sync)
         await h._persist_interrupt_stats()
         runner.record_interrupt_counts.assert_called_once_with(candidate=2, ai=1)
-        assert captured == {"sid": 1, "state": {"candidate_interrupts": 2, "ai_interrupts": 1, "existing": True}}
+        assert captured == {
+            "sid": 1,
+            "state": {"candidate_interrupts": 2, "ai_interrupts": 1, "existing": True},
+        }
 
         # Without a runner there is nothing to record or persist.
         h.ctx.runner = None
@@ -80,8 +88,7 @@ async def test_candidate_barge_in_branches():
             h2.ctx.turn_state = TurnState.PROCESSING
             h2.ctx.tts_queue.clear = AsyncMock()  # type: ignore[method-assign]
             h2.ctx.runner = MagicMock()
-            h2._persist_interrupt_stats = AsyncMock(
-                side_effect=RuntimeError("persist boom"))  # type: ignore[method-assign]
+            h2._persist_interrupt_stats = AsyncMock(side_effect=RuntimeError("persist boom"))  # type: ignore[method-assign]
             await h2._on_candidate_barge_in()
             assert h2.ctx.turn_state == TurnState.USER_SPEAKING
         finally:

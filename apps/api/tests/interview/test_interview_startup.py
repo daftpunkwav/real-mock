@@ -23,26 +23,9 @@ def _valid_plan_dict(n=8):
         "language": "zh",
         "opening": {"style": "identity_confirm", "note": ""},
         "steps": [
-            {"title": f"Step {i}", "focus": f"focus {i}", "max_questions": 2}
-            for i in range(n)
+            {"title": f"Step {i}", "focus": f"focus {i}", "max_questions": 2} for i in range(n)
         ],
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @contextmanager
@@ -50,35 +33,8 @@ def _sessions_ctx(db_obj):
     yield db_obj
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ---- startup / migrations ----
+
 
 def test_session_domains_declared() -> None:
     assert startup_mod.SESSION_DOMAINS == ("interview",)

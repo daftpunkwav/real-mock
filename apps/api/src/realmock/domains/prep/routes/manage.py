@@ -19,13 +19,12 @@ import logging
 from fastapi import Depends, Request, Response
 from sqlalchemy.orm import Session
 
-from realmock.domains.prep.models import PrepSession
-from realmock.domains.prep.models import commit_session, utcnow
+from realmock.domains.prep.models import PrepSession, commit_session, utcnow
+from realmock.domains.prep.schemas import PrepArchiveRequest, PrepLinkRequest, PrepPurgeAllRequest
 from realmock.domains.prep.services import refresh_linked_block
 from realmock.domains.prep.services.maintenance import (
     purge_empty_sessions as purge_empty_session_rows,
 )
-from realmock.domains.prep.schemas import PrepArchiveRequest, PrepLinkRequest, PrepPurgeAllRequest
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
@@ -96,9 +95,7 @@ async def archive_prep_session(
     """Archive (or restore) a session; archived sessions stay fully usable."""
     assert_csrf_if_cookie_only(request, used_header=False)
     session = _require_existing_session(session_id, db)
-    session.status = (
-        SessionStatus.ARCHIVED.value if body.archived else SessionStatus.ACTIVE.value
-    )
+    session.status = SessionStatus.ARCHIVED.value if body.archived else SessionStatus.ACTIVE.value
     session.updated_at = utcnow()
     commit_session(db)
     return {"id": session_id, "status": session.status}

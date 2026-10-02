@@ -15,7 +15,6 @@ from realmock.platform.services.pipeline import stages as pstages
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -23,7 +22,13 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import (
+        LlmProvider,
+        LLMSettings,
+        ModelProfile,
+        StageConfig,
+        TaskBinding,
+    )
 
     for m in (TaskBinding, ModelProfile, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()

@@ -7,9 +7,9 @@ import base64
 import logging
 import uuid
 
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.core.security import make_pinned_async_client
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,7 @@ _URL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash"
 
 
 class VolcengineProvider:
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         app_key = (creds.app_key or creds.app_id or "").strip()
         access_key = (creds.access_key or creds.api_key or "").strip()
         resource_id = (creds.resource_id or "volc.bigasr.auc_turbo").strip()
@@ -74,9 +72,7 @@ class VolcengineProvider:
             text = result.get("text") or ""
             if not text:
                 utterances = result.get("utterances") or []
-                text = "".join(
-                    (u.get("text") or "") for u in utterances if isinstance(u, dict)
-                )
+                text = "".join((u.get("text") or "") for u in utterances if isinstance(u, dict))
             return str(text).strip()
         if isinstance(result, str):
             return result.strip()

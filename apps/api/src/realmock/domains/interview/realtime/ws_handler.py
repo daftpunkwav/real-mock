@@ -13,30 +13,31 @@ from typing import Any
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.context import ConnectionContext
 from realmock.domains.interview.realtime.core.message_dispatcher import (
     AUDIO_BUFFER_MAX_BYTES as _AUDIO_BUFFER_MAX_BYTES,
+)
+from realmock.domains.interview.realtime.core.message_dispatcher import (
     MessageDispatcherMixin,
 )
-from realmock.domains.interview.realtime.report_scheduler import ReportSchedulerMixin
 from realmock.domains.interview.realtime.core.session_registry import (
+    active_handlers_for_tests,
     claim_session_connection,
     get_ws_connection_registry,
     release_session_connection,
     reset_session_registry_for_tests,
     reset_ws_connection_registry,
-    active_handlers_for_tests,
 )
+from realmock.domains.interview.realtime.report_scheduler import ReportSchedulerMixin
 from realmock.domains.interview.realtime.stacks.connection_stack import ConnectionStackMixin
 from realmock.domains.interview.realtime.stacks.media_stack import MediaStackMixin
 from realmock.domains.interview.realtime.stacks.turn_stack import TurnStackMixin
 from realmock.domains.interview.realtime.turn.streaming import _IMAGE_BASE64_MAX_LEN
 from realmock.domains.interview.realtime.voice.tts_queue import _SentenceTTSQueue
-from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody
 from realmock.platform.config import get_settings
 from realmock.platform.core.constants import SessionStatus
-
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +75,15 @@ class InterviewWSHandler(
             tts_voice=settings.tts_voice,
             session_prosody=VoiceProsody(voice=settings.tts_voice),
             whisper_model=settings.whisper_model,
-            nudge_cooldown_sec=float(max(
-                _NUDGE_COOLDOWN_FLOOR_SECONDS,
-                int(
-                    getattr(settings, "silence_nudge_seconds", _NUDGE_COOLDOWN_DEFAULT_SECONDS)
-                    or _NUDGE_COOLDOWN_DEFAULT_SECONDS
-                ),
-            )),
+            nudge_cooldown_sec=float(
+                max(
+                    _NUDGE_COOLDOWN_FLOOR_SECONDS,
+                    int(
+                        getattr(settings, "silence_nudge_seconds", _NUDGE_COOLDOWN_DEFAULT_SECONDS)
+                        or _NUDGE_COOLDOWN_DEFAULT_SECONDS
+                    ),
+                )
+            ),
             tts_queue=_SentenceTTSQueue(),
         )
 
@@ -117,7 +120,9 @@ class InterviewWSHandler(
                 return
             exc = t.exception()
             if exc is not None:
-                logger.exception("WS background task exception sid=%s: %s", self.ctx.session_id, exc)
+                logger.exception(
+                    "WS background task exception sid=%s: %s", self.ctx.session_id, exc
+                )
 
         task.add_done_callback(_done)
         return task
@@ -156,9 +161,7 @@ class InterviewWSHandler(
         branch sends the idempotent wrap-up notice through it).
         """
         session = (
-            db.query(InterviewSession)
-            .filter(InterviewSession.id == self.ctx.session_id)
-            .first()
+            db.query(InterviewSession).filter(InterviewSession.id == self.ctx.session_id).first()
         )
         if session is None:
             return None

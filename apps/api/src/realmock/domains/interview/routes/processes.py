@@ -10,10 +10,6 @@ from __future__ import annotations
 from fastapi import BackgroundTasks, Depends, Request, Response
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.schemas.process import (
-    ProcessCreateRequest,
-    ProcessCreatedResponse,
-)
 from realmock.domains.interview.agents import (
     generate_plan_for_session,
     generate_round_plan_for_process,
@@ -25,6 +21,11 @@ from realmock.domains.interview.process.process_service import (
     get_process_detail,
     list_processes,
 )
+from realmock.domains.interview.routes.sessions import to_session_response
+from realmock.domains.interview.schemas.process import (
+    ProcessCreatedResponse,
+    ProcessCreateRequest,
+)
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
     COOKIE_SCOPE_INTERVIEW,
@@ -33,12 +34,9 @@ from realmock.platform.core.session_auth import (
     set_session_cookie,
 )
 from realmock.platform.database import get_sessions_db
-from realmock.domains.interview.routes.sessions import to_session_response
 
 
-def _issue_session_cookie(
-    session, request: Request, response: Response, db: Session
-) -> None:
+def _issue_session_cookie(session, request: Request, response: Response, db: Session) -> None:
     """Attach a fresh access token + HttpOnly cookie to a newly created session.
 
     The token MUST be committed before the response goes out: the room loads

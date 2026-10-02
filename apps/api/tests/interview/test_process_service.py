@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -22,8 +23,6 @@ def _clean_limits():
 
 
 # ---- plan_prompts (61, 68, 78-89, 96) ----
-
-
 
 
 # ---- process_service (165, 278-279, 308-310) ----
@@ -43,9 +42,7 @@ def test_record_round_finished_missing_process(db, caplog) -> None:
     session = SimpleNamespace(id=1, process_id=999999, round_no=1, result="passed")
     with caplog.at_level(logging.WARNING):
         mod.record_round_finished(db, session)  # type: ignore[arg-type]
-    assert any(
-        "record_round_finished: process missing" in r.message for r in caplog.records
-    )
+    assert any("record_round_finished: process missing" in r.message for r in caplog.records)
 
 
 def test_record_round_finished_exception_rolls_back(db, caplog) -> None:
@@ -68,9 +65,7 @@ def test_record_round_finished_exception_rolls_back(db, caplog) -> None:
     ):
         mod.record_round_finished(db, session)  # type: ignore[arg-type]
 
-    assert any(
-        "record_round_finished failed" in r.message for r in caplog.records
-    )
+    assert any("record_round_finished failed" in r.message for r in caplog.records)
     # The failed unit of work must leave no residue: without the rollback the
     # pending dirty write would be flushed by the next commit on this session.
     db.commit()

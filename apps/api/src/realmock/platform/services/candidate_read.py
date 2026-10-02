@@ -81,9 +81,7 @@ def get_default_user_profile(db: Session) -> Any | None:
 def format_profile_summary(db: Session, profile_id: int | None = None) -> str:
     """Profile summary text (Prep / prompt injection)."""
     profile = (
-        get_user_profile(db, profile_id)
-        if profile_id is not None
-        else get_default_user_profile(db)
+        get_user_profile(db, profile_id) if profile_id is not None else get_default_user_profile(db)
     )
     if profile is None:
         return ""

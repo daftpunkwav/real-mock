@@ -25,8 +25,7 @@ def _valid_plan_dict(n=8):
         "language": "zh",
         "opening": {"style": "identity_confirm", "note": ""},
         "steps": [
-            {"title": f"Step {i}", "focus": f"focus {i}", "max_questions": 2}
-            for i in range(n)
+            {"title": f"Step {i}", "focus": f"focus {i}", "max_questions": 2} for i in range(n)
         ],
     }
 
@@ -40,8 +39,13 @@ def test_resume_summary() -> None:
 
 def test_config_shim_defaults() -> None:
     s = SimpleNamespace(
-        role="R", level="L", company="C", workflow_type=None,
-        personality=None, strictness=None, interview_style=None,
+        role="R",
+        level="L",
+        company="C",
+        workflow_type=None,
+        personality=None,
+        strictness=None,
+        interview_style=None,
     )
     shim = pl._config_shim(s)
     assert shim.workflow_type == "technical"
@@ -71,8 +75,13 @@ def test_process_section_missing_row(db) -> None:
     from realmock.domains.interview.models import InterviewSession
 
     s = InterviewSession(
-        profile_id=1, role="R", level="L", company="C", workflow_type="technical",
-        process_id=99999, round_no=1,
+        profile_id=1,
+        role="R",
+        level="L",
+        company="C",
+        workflow_type="technical",
+        process_id=99999,
+        round_no=1,
     )
     db.add(s)
     db.commit()
@@ -84,18 +93,33 @@ def test_process_section_with_memory(db) -> None:
     from realmock.domains.interview.protocols.process_memory import dump_memory, empty_memory
 
     mem = empty_memory()
-    mem["rounds"] = [{"round_no": 1, "session_id": 1, "result": "passed",
-                      "digest": {"summary": "good round", "topics_covered": ["Redis"]}}]
+    mem["rounds"] = [
+        {
+            "round_no": 1,
+            "session_id": 1,
+            "result": "passed",
+            "digest": {"summary": "good round", "topics_covered": ["Redis"]},
+        }
+    ]
     proc = InterviewProcess(
-        profile_id=1, role="Backend", level="Senior", company="bytedance",
-        max_rounds=3, memory=dump_memory(mem),
+        profile_id=1,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        max_rounds=3,
+        memory=dump_memory(mem),
     )
     db.add(proc)
     db.commit()
     db.refresh(proc)
     s = InterviewSession(
-        profile_id=1, role="Backend", level="Senior", company="bytedance",
-        workflow_type="technical", process_id=proc.id, round_no=2,
+        profile_id=1,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        process_id=proc.id,
+        round_no=2,
     )
     db.add(s)
     db.commit()
@@ -107,15 +131,27 @@ def test_round_pass_criteria_none_and_match() -> None:
     proc = SimpleNamespace(round_plan="{}", round_plan_status="")
     assert pl._round_pass_criteria(proc, 1) == ""
     # Ready plan with matching round_no
-    from realmock.domains.interview.protocols.round_plan_schema import RoundPlan, PlannedRound
+    from realmock.domains.interview.protocols.round_plan_schema import PlannedRound, RoundPlan
 
-    plan = RoundPlan(rounds=[
-        PlannedRound(round_no=1, kind="tech_1", workflow_type="technical",
-                     personality="professional", interview_style="deep_dive",
-                     strictness=3, focus="f", label="l", pass_criteria="Pass when solid"),
-    ])
+    plan = RoundPlan(
+        rounds=[
+            PlannedRound(
+                round_no=1,
+                kind="tech_1",
+                workflow_type="technical",
+                personality="professional",
+                interview_style="deep_dive",
+                strictness=3,
+                focus="f",
+                label="l",
+                pass_criteria="Pass when solid",
+            ),
+        ]
+    )
     proc2 = SimpleNamespace(
-        round_plan=json.dumps(plan.to_dict()), round_plan_status="ready", id=1,
+        round_plan=json.dumps(plan.to_dict()),
+        round_plan_status="ready",
+        id=1,
     )
     assert pl._round_pass_criteria(proc2, 1) == "Pass when solid"
     assert pl._round_pass_criteria(proc2, 2) == ""
@@ -188,10 +224,18 @@ async def test_generate_plan_success(monkeypatch) -> None:
     from tests.fakes import FakeLLMClient
 
     row = SimpleNamespace(
-        plan_status="", plan=None, profile_id=1, resume_id=None,
-        role="Backend", level="Senior", company="bytedance",
-        workflow_type="technical", personality="professional", strictness=3,
-        interview_style="deep_dive", ui_locale="zh-CN",
+        plan_status="",
+        plan=None,
+        profile_id=1,
+        resume_id=None,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        ui_locale="zh-CN",
     )
 
     class _Db:
@@ -225,10 +269,20 @@ async def test_generate_plan_success(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_generate_plan_llm_timeout_marks_failed(monkeypatch) -> None:
-    row = SimpleNamespace(plan_status="", plan=None, profile_id=1, resume_id=None,
-                          role="R", level="L", company="C", workflow_type="technical",
-                          personality="professional", strictness=3, interview_style="deep_dive",
-                          ui_locale=None)
+    row = SimpleNamespace(
+        plan_status="",
+        plan=None,
+        profile_id=1,
+        resume_id=None,
+        role="R",
+        level="L",
+        company="C",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        ui_locale=None,
+    )
 
     class _Db:
         def get(self, *a, **k):
@@ -264,10 +318,20 @@ async def test_generate_plan_llm_timeout_marks_failed(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_generate_plan_generic_exception_marks_failed(monkeypatch) -> None:
-    row = SimpleNamespace(plan_status="", plan=None, profile_id=1, resume_id=None,
-                          role="R", level="L", company="C", workflow_type="technical",
-                          personality="professional", strictness=3, interview_style="deep_dive",
-                          ui_locale=None)
+    row = SimpleNamespace(
+        plan_status="",
+        plan=None,
+        profile_id=1,
+        resume_id=None,
+        role="R",
+        level="L",
+        company="C",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        ui_locale=None,
+    )
 
     class _Db:
         def get(self, *a, **k):
@@ -395,7 +459,9 @@ async def test_ensure_plan_fallback_persisted(monkeypatch) -> None:
         def rollback(self):
             pass
 
-    s = SimpleNamespace(plan_status=pl.PLAN_STATUS_FAILED, plan="{}", workflow_type="technical", id=1)
+    s = SimpleNamespace(
+        plan_status=pl.PLAN_STATUS_FAILED, plan="{}", workflow_type="technical", id=1
+    )
     out = await pl.ensure_plan(_Db(), s)
     assert out is not None
     assert s.plan_status == pl.PLAN_STATUS_READY
@@ -411,7 +477,9 @@ async def test_ensure_plan_persist_failure_returns_none() -> None:
         def rollback(self):
             pass
 
-    s = SimpleNamespace(plan_status=pl.PLAN_STATUS_FAILED, plan="{}", workflow_type="technical", id=1)
+    s = SimpleNamespace(
+        plan_status=pl.PLAN_STATUS_FAILED, plan="{}", workflow_type="technical", id=1
+    )
     assert await pl.ensure_plan(_Db(), s) is None
 
 
@@ -429,7 +497,9 @@ async def test_ensure_plan_waits_for_pending(monkeypatch) -> None:
         def rollback(self):
             pass
 
-    s = SimpleNamespace(plan_status=pl.PLAN_STATUS_PENDING, plan="{}", workflow_type="technical", id=1)
+    s = SimpleNamespace(
+        plan_status=pl.PLAN_STATUS_PENDING, plan="{}", workflow_type="technical", id=1
+    )
     out = await pl.ensure_plan(_Db(), s)
     assert out is not None
 
@@ -437,28 +507,23 @@ async def test_ensure_plan_waits_for_pending(monkeypatch) -> None:
 # ---- startup / migrations ----
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ---- company research integration ---------------------------------------------
 
 
 def _plan_row(**overrides) -> SimpleNamespace:
     row = SimpleNamespace(
-        plan_status="", plan=None, profile_id=1, resume_id=None,
-        role="Backend", level="Senior", company="Acme",
-        workflow_type="technical", personality="professional", strictness=3,
-        interview_style="deep_dive", ui_locale="zh-CN",
+        plan_status="",
+        plan=None,
+        profile_id=1,
+        resume_id=None,
+        role="Backend",
+        level="Senior",
+        company="Acme",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        ui_locale="zh-CN",
     )
     for k, v in overrides.items():
         setattr(row, k, v)

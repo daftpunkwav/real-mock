@@ -15,7 +15,6 @@ import pytest
 import realmock.platform.capabilities.ai.agent.tools.codeexec as ce
 
 
-
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
     from realmock.platform.core.ratelimit import reset_rate_limit
@@ -82,14 +81,25 @@ def test_isolation_suffix_empty() -> None:
 
 def test_format_timeout_and_truncated() -> None:
     timed = ce.CodeResult(
-        language="python", exit_code=-1, stdout="part", stderr="",
-        duration_ms=12, timed_out=True, isolation="process", notes=("cgroup=unavailable",),
+        language="python",
+        exit_code=-1,
+        stdout="part",
+        stderr="",
+        duration_ms=12,
+        timed_out=True,
+        isolation="process",
+        notes=("cgroup=unavailable",),
     )
     obs = ce.format_observation(timed)
     assert "timeout" in obs
     assert "process" in obs
     trunc = ce.CodeResult(
-        language="python", exit_code=0, stdout="o", stderr="e",
-        duration_ms=1, truncated=True, isolation="process",
+        language="python",
+        exit_code=0,
+        stdout="o",
+        stderr="e",
+        duration_ms=1,
+        truncated=True,
+        isolation="process",
     )
     assert "(output truncated)" in ce.format_observation(trunc)

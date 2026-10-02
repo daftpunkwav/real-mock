@@ -11,13 +11,6 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.database import api_db_session, sessions_db_session
-from realmock.platform.services.candidate_read import get_candidate_profile, get_user_profile
-from realmock.domains.interview.models import InterviewProcess
-from realmock.domains.interview.schemas import InterviewConfig
-from realmock.platform.catalogs.company import get_company_context
-from realmock.platform.capabilities.voice.tts.options import avatar_gender
-from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.domains.interview.agents.agent_prompts import (
     build_system_prompt,
     candidate_block,
@@ -25,13 +18,20 @@ from realmock.domains.interview.agents.agent_prompts import (
     github_evidence_block,
     needs_compact_candidate,
 )
-from realmock.domains.interview.workflows import Workflow
 from realmock.domains.interview.agents.research.company_research import (
     blend_company_context,
     load_session_company_research,
 )
+from realmock.domains.interview.models import InterviewProcess
 from realmock.domains.interview.protocols.process_memory import load_memory, render_for_prompt
 from realmock.domains.interview.protocols.round_chain import step_for
+from realmock.domains.interview.schemas import InterviewConfig
+from realmock.domains.interview.workflows import Workflow
+from realmock.platform.capabilities.ai.agent import WorkingMemory
+from realmock.platform.capabilities.voice.tts.options import avatar_gender
+from realmock.platform.catalogs.company import get_company_context
+from realmock.platform.database import api_db_session, sessions_db_session
+from realmock.platform.services.candidate_read import get_candidate_profile, get_user_profile
 
 logger = logging.getLogger(__name__)
 

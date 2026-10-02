@@ -23,7 +23,9 @@ from realmock.platform.core.security.url import (
 
 @pytest.fixture
 def pub(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(sec_url, "_resolve_all", lambda host: [ipaddress.ip_address("93.184.216.34")])
+    monkeypatch.setattr(
+        sec_url, "_resolve_all", lambda host: [ipaddress.ip_address("93.184.216.34")]
+    )
 
 
 class TestUrlDeniedWording:
@@ -56,7 +58,9 @@ class TestUrlDeniedWording:
             pin_safe_http_url("http://example.com", require_https=True)
 
     def test_no_hostname(self, monkeypatch) -> None:
-        monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("93.184.216.34")])
+        monkeypatch.setattr(
+            sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("93.184.216.34")]
+        )
         assert is_safe_http_url("http:///x") is False
 
     def test_malformed_port_is_denied_not_raised(self, pub) -> None:
@@ -111,14 +115,23 @@ class TestUrlDeniedWording:
         assert sec_url._resolve_all("[::1]") == [ipaddress.ip_address("::1")]
         import socket as _sock
 
-        monkeypatch.setattr(_sock, "getaddrinfo", lambda *a, **k: (_ for _ in ()).throw(_sock.gaierror("nope")))
+        monkeypatch.setattr(
+            _sock, "getaddrinfo", lambda *a, **k: (_ for _ in ()).throw(_sock.gaierror("nope"))
+        )
         with pytest.raises(ValueError, match="Unable to resolve"):
             sec_url._resolve_all("nonexistent.invalid")
         # dedupe path: same ip twice via getaddrinfo
         import socket as _sock
 
         monkeypatch = pytest.MonkeyPatch()
-        monkeypatch.setattr(_sock, "getaddrinfo", lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0)), (2, 1, 6, "", ("93.184.216.34", 0))])
+        monkeypatch.setattr(
+            _sock,
+            "getaddrinfo",
+            lambda *a, **k: [
+                (2, 1, 6, "", ("93.184.216.34", 0)),
+                (2, 1, 6, "", ("93.184.216.34", 0)),
+            ],
+        )
         try:
             assert sec_url._resolve_all("example.com") == [ipaddress.ip_address("93.184.216.34")]
         finally:
@@ -136,9 +149,13 @@ class TestUrlDeniedWording:
 
     def test_is_localhost_family(self, monkeypatch) -> None:
         assert is_localhost_family("") is False
-        monkeypatch.setattr(sec_url, "_resolve_all", lambda h: (_ for _ in ()).throw(ValueError("x")))
+        monkeypatch.setattr(
+            sec_url, "_resolve_all", lambda h: (_ for _ in ()).throw(ValueError("x"))
+        )
         assert is_localhost_family("example.com") is False
         monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("127.0.0.1")])
         assert is_localhost_family("localhost") is True
-        monkeypatch.setattr(sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("93.184.216.34")])
+        monkeypatch.setattr(
+            sec_url, "_resolve_all", lambda h: [ipaddress.ip_address("93.184.216.34")]
+        )
         assert is_localhost_family("example.com") is False

@@ -98,7 +98,7 @@ class DisplayTextFilter:
                         self._buf = self._buf[emit_len:]
                     break
                 out.append(self._buf[:i])
-                self._buf = self._buf[i + len(self._OPEN):]
+                self._buf = self._buf[i + len(self._OPEN) :]
                 self._in_block = True
                 continue
             j = self._buf.find(self._CLOSE)
@@ -111,7 +111,7 @@ class DisplayTextFilter:
                     self._in_block = False
                 break
             block = self._buf[:j]
-            self._buf = self._buf[j + len(self._CLOSE):]
+            self._buf = self._buf[j + len(self._CLOSE) :]
             self._in_block = False
             if "ask_user" not in block:
                 out.append(self._OPEN + block + self._CLOSE)
@@ -159,6 +159,7 @@ def event_loopbacks(
     when ``events`` is None, the callbacks are no-ops (the non-streaming channel need not
     emit events).
     """
+
     async def on_thinking(text: str) -> None:
         # Model thinking increment (streaming rounds segment by segment / non-streaming entire segment): events are delivered to the front end in real time
         if events is not None:
@@ -229,11 +230,13 @@ def _display_result(result: Any) -> str:
 
 def slice_stream(text: str) -> AsyncIterator[str]:
     """Play back the topic content obtained at one time in small pieces to ensure smooth display on the front end."""
+
     async def _gen() -> AsyncIterator[str]:
         for k in range(0, len(text), _EARLY_SLICE_CHARS):
             yield text[k : k + _EARLY_SLICE_CHARS]
             if k + _EARLY_SLICE_CHARS < len(text):
                 await asyncio.sleep(_EARLY_SLICE_DELAY)
+
     return _gen()
 
 
@@ -252,6 +255,7 @@ async def stream_background_events(
     failure does not interrupt streaming. Cancellation is awaited so no orphan
     task (and no unretrieved exception) survives the stream.
     """
+
     async def produce() -> None:
         try:
             outcome["value"] = await run(*args, events=events, **kwargs)

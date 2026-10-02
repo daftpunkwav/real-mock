@@ -17,9 +17,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.realtime import ws_handler
 from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.platform.capabilities.voice.stt import SttCredentials, SttResult
 
 
@@ -63,8 +63,8 @@ class TestAudioBufferCap:
     @pytest.mark.asyncio
     async def test_audio_buffer_overflow_clears(self) -> None:
         from realmock.domains.interview.realtime.ws_handler import (
-            InterviewWSHandler,
             _AUDIO_BUFFER_MAX_BYTES,
+            InterviewWSHandler,
         )
 
         ws = _make_mock_ws()
@@ -130,9 +130,7 @@ class TestSetTurn:
         handler = InterviewWSHandler(ws, session_id=1)
         await handler.set_turn(TurnState.USER_SPEAKING)
         assert handler.ctx.turn_state == TurnState.USER_SPEAKING
-        ws.send_json.assert_called_once_with(
-            {"type": "turn_state", "state": "USER_SPEAKING"}
-        )
+        ws.send_json.assert_called_once_with({"type": "turn_state", "state": "USER_SPEAKING"})
 
 
 class TestSessionConnectionMutex:
@@ -191,9 +189,9 @@ class TestTraceId:
     @pytest.mark.asyncio
     async def test_handle_sets_trace_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The handle() entry point should inject trace_id in the form ws-{session}-{uuid}."""
-        from realmock.platform.core.logging import get_trace_id
         from realmock.domains.interview.realtime import ws_handler as ws_mod
         from realmock.platform.capabilities.ai.llm.client import LLMClient
+        from realmock.platform.core.logging import get_trace_id
 
         captured_tid: list[str] = []
 
@@ -202,7 +200,9 @@ class TestTraceId:
                 if False:
                     yield  # Empty async generator
 
-        monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, db: MagicMock(api_key="")))
+        monkeypatch.setattr(
+            LLMClient, "from_db", classmethod(lambda cls, db: MagicMock(api_key=""))
+        )
         monkeypatch.setattr(
             "realmock.domains.interview.realtime.core.context.InterviewOrchestrator", MagicMock()
         )
@@ -210,11 +210,13 @@ class TestTraceId:
             "realmock.domains.interview.realtime.connection.auth.InterviewRunner",
             lambda *a, **kw: _StubRunner(),
         )
+
         # Mock db.query to obtain the session
         class _StubSession:
             id = 1
             status = "completed"  # Make handle return early without sending opening
             access_token = "test-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.first.return_value = _StubSession()
         # handle() is defined in the connection_lifecycle module, so patch SessionLocal in that module.
@@ -239,9 +241,7 @@ class TestFailAndClose:
     """Authentication and state-failure paths should consistently send error + ws.close(4401)."""
 
     @staticmethod
-    def _patch_session_db(
-        monkeypatch: pytest.MonkeyPatch, session: object | None
-    ) -> MagicMock:
+    def _patch_session_db(monkeypatch: pytest.MonkeyPatch, session: object | None) -> MagicMock:
         """Patch SessionLocal in the connection_lifecycle module (where handle is defined)."""
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.first.return_value = session
@@ -470,7 +470,9 @@ class TestSttAlwaysRuns:
         with patch(
             "realmock.domains.interview.realtime.turn.stt_finish.transcribe_utterance_result",
             new_callable=AsyncMock,
-            return_value=SttResult(text="This is a sufficiently long technical answer in English", provider="local"),
+            return_value=SttResult(
+                text="This is a sufficiently long technical answer in English", provider="local"
+            ),
         ) as mock_tr:
             await h._on_user_turn_end(
                 {
@@ -576,6 +578,7 @@ class TestDispatchTable:
 
         assert ws_module._AUDIO_BUFFER_MAX_BYTES == AUDIO_BUFFER_MAX_BYTES
         assert stt_finish._AUDIO_BUFFER_MAX_BYTES == AUDIO_BUFFER_MAX_BYTES
+
 
 class TestLoadSessionStatusGate:
     """_load_session must hide finished sessions from per-turn handlers."""

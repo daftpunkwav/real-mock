@@ -40,9 +40,7 @@ def test_delete_session_removes_row(db) -> None:
     session = _session(db)
     sid = session.id
     with TestClient(app) as client:
-        resp = client.delete(
-            f"/api/v1/prep/sessions/{sid}", headers=_mgmt_headers(session)
-        )
+        resp = client.delete(f"/api/v1/prep/sessions/{sid}", headers=_mgmt_headers(session))
     assert resp.status_code == 200, resp.text
     assert resp.json() == {"deleted": sid}
     db.expire_all()
@@ -122,10 +120,12 @@ def test_link_injects_block_and_unlink_removes_it(db) -> None:
     linked = _session(
         db,
         target_role="Backend",
-        messages=json.dumps([
-            {"role": "user", "content": "How do I explain Raft?"},
-            {"role": "assistant", "content": "Start with leader election."},
-        ]),
+        messages=json.dumps(
+            [
+                {"role": "user", "content": "How do I explain Raft?"},
+                {"role": "assistant", "content": "Start with leader election."},
+            ]
+        ),
     )
     session = _session(
         db,

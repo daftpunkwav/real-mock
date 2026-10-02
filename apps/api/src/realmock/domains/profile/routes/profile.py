@@ -13,9 +13,9 @@ not query SQLAlchemy models directly or interpret field lengths.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from realmock.platform.database import get_db
 from realmock.domains.profile.schemas import UserProfileResponse, UserProfileUpdate
 from realmock.domains.profile.services import contract_guard, store
+from realmock.platform.database import get_db
 
 # Import-time guard: Update fields must map to ORM columns before setattr in the store.
 contract_guard.assert_profile_contract_aligned()

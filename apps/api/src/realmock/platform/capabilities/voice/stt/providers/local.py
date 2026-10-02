@@ -8,10 +8,6 @@ from realmock.platform.capabilities.voice.stt.providers.whisper import transcrib
 
 
 class LocalWhisperProvider:
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         model = creds.model if is_local_stt_model(creds.model) else "small"
-        return await transcribe_pcm_base64_async(
-            pcm_b64, sample_rate=sample_rate, model_size=model
-        )
+        return await transcribe_pcm_base64_async(pcm_b64, sample_rate=sample_rate, model_size=model)

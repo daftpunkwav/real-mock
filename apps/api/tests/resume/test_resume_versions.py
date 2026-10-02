@@ -8,7 +8,6 @@ from realmock.asgi import app
 from realmock.domains.resume.schemas.limits import MAX_RESUME_VERSIONS
 
 
-
 def test_upload_version_shares_family_and_stays_inactive(api_db) -> None:
     with TestClient(app) as client:
         first = client.post(

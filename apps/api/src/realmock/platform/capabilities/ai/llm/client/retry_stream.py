@@ -17,17 +17,17 @@ from typing import Any
 
 import httpx
 
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.ai.llm.retry_policy import (
     RETRY_DELAYS,
     is_retryable_status,
     sleep_retry,
 )
+from realmock.platform.core.security import make_pinned_async_client
 
+from ..stream_filters import StreamSanitizer
 from .assemblers import _OpenAIRoundAssembler
 from .base import LLMUpstreamError, _is_local_allowed, _require_https
 from .openai_transport import chat_completions_headers
-from ..stream_filters import StreamSanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -206,9 +206,7 @@ async def stream_text_retry(
                             if not isinstance(delta, dict):
                                 continue
                             reasoning = (
-                                delta.get("reasoning_content")
-                                or delta.get("reasoning")
-                                or ""
+                                delta.get("reasoning_content") or delta.get("reasoning") or ""
                             )
                             token = delta.get("content") or ""
                             if isinstance(reasoning, str) and reasoning:

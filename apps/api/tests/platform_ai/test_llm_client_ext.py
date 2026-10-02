@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from realmock.platform.core.ratelimit import reset_rate_limit
 
+from realmock.platform.core.ratelimit import reset_rate_limit
 
 
 @pytest.fixture(autouse=True)

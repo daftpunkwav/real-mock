@@ -56,7 +56,8 @@ def _score_band_rubric_fragment() -> str:
     return "\n    ".join(lines)
 
 
-_HARD_RULES = """Hard requirements:
+_HARD_RULES = (
+    """Hard requirements:
 1. No vague praise; every critique must trace to resume facts, profile facts, retrieval, or GitHub tool evidence
 2. No emoji
 3. In narrative and list fields, wrap key conclusions, numeric metrics, and must-fix items with **double asterisks**; never bold entire paragraphs; at most 2–4 emphasizes per item
@@ -64,11 +65,17 @@ _HARD_RULES = """Hard requirements:
 5. Never invent stars, commits, filenames, URLs, or school names
 6. GitHub tools are optional: use them only when the resume/profile suggests code repositories. Non-engineering resumes must skip GitHub
 7. If a target role is missing, search and judge from skills/projects keywords — never assume "software engineer"
-8. First call review_set_plan (""" + str(REVIEW_MIN_PLAN_STEPS) + """-""" + str(REVIEW_MAX_PLAN_STEPS) + """ steps). Write every plan title in the output language. The last step MUST be generating the evaluation JSON
+8. First call review_set_plan ("""
+    + str(REVIEW_MIN_PLAN_STEPS)
+    + """-"""
+    + str(REVIEW_MAX_PLAN_STEPS)
+    + """ steps). Write every plan title in the output language. The last step MUST be generating the evaluation JSON
 9. Keep the plan in sync with review_update_step as you work: mark each step in_progress when you start it and done/skipped when you finish it, so the live plan always shows executing vs completed work. Batch independent evidence calls in a single round and flag those steps mode=parallel
 10. dimension_scores must include every catalog key with a 0-100 score that matches the written critique — never leave overall score at 0 when the narrative is not a total rejection
 11. Use this dimension rubric — score ONLY from evidence gathered in THIS review (score must be supportable by facts in that dimension's comment):
-    """ + _score_band_rubric_fragment() + """
+    """
+    + _score_band_rubric_fragment()
+    + """
     The overall score must land in the band its evidence supports; name that band
     (standout / solid / mixed / weak) in overall_narrative.
     Identical evidence keeps an identical score. Scoring is identity-blind and
@@ -83,13 +90,17 @@ _HARD_RULES = """Hard requirements:
 13. interview_qa must drill into THIS resume's real projects and claims; answer_points cite concrete facts and results, never generic textbook advice
 14. The overview's contact block and resume_get_section("links") are extracted from the resume itself; if email or phone is non-empty there or visible on page images, never claim the resume lacks contact info
 15. Set dimension_weights for THIS resume from the base table below: raise (up to the allowed max) what matters most to this candidate's target role and direction, lower (down to the allowed min) what matters least. Cover every catalog key with a number. The platform clamps out-of-range values and renormalizes the total, so judge importance honestly instead of gaming one dimension. Follow the supreme principle: ability-bearing dimensions (tech_depth, impact_quantification, project_narrative, credibility) deserve the upper half of their ranges when the evidence is strong, and presentation dimensions (visual_layout, typography, keyword_ats) may sit at the low end when content outweighs polish; never raise a weight to offset thin pedigree, and never discount an ability dimension because school/award details are missing:
-    """ + _dimension_weight_table_fragment() + """"""
+    """
+    + _dimension_weight_table_fragment()
+    + """"""
+)
 
 
 def review_json_schema_text() -> str:
     """The evaluation JSON contract (ResumeAnalysis shape), shared by the agent
     prompt and the JSON-repair pass so both demand the exact same keys/shapes."""
-    return """You must return JSON (all fields present; user-facing strings follow the output-language rules):
+    return (
+        """You must return JSON (all fields present; user-facing strings follow the output-language rules):
 {
   "content_review": "content critique: evidence chains, verifiable skills, completeness, 280-450 chars/words",
   "layout_review": "layout critique: section order, priority, whitespace, columns, 220-380 chars/words",
@@ -129,7 +140,9 @@ def review_json_schema_text() -> str:
     {"repo": "owner/repo", "url": "", "stars": null, "forks": null, "language": "", "last_push": "", "description": "", "summary": "", "evidence_notes": []}
   ],
   "score": 0-100,
-  "dimension_scores": """ + dimension_scores_schema_fragment() + """,
+  "dimension_scores": """
+        + dimension_scores_schema_fragment()
+        + """,
   "dimension_weights": {"<every catalog key>": <number within its allowed range, see rule 15>},
   "strengths": ["6-10 concrete items, each tied to resume or profile evidence"],
   "weaknesses": ["5-8 items that name the gap and why it hurts"],
@@ -147,6 +160,7 @@ def review_json_schema_text() -> str:
   "search_queries_used": ["queries you actually ran via web_search"]
 }
 """
+    )
 
 
 def get_review_agent_prompt(locale: str = "zh-CN") -> str:
@@ -175,9 +189,7 @@ Visual / layout:
 - If page images are attached, judge layout, typography, hierarchy, and whitespace from what you see
 - If only parsed text is available, say so in layout_review / typography_review and judge from structure, heading markers, and information order
 """
-    return with_agent_output_rules(
-        body + schema + _HARD_RULES + "\n" + language_instruction(loc)
-    )
+    return with_agent_output_rules(body + schema + _HARD_RULES + "\n" + language_instruction(loc))
 
 
 # ── Parse / transcribe system prompts (consumed by services/parser.py) ──
@@ -291,7 +303,6 @@ def review_plan_reminder_text() -> str:
         "language; the last step must generate the evaluation JSON. "
         "Then keep the plan in sync with review_update_step as you work."
     )
-
 
 
 def review_self_correction_user(parse_error: str, locale: str) -> str:

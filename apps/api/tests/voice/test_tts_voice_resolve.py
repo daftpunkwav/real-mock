@@ -6,6 +6,7 @@ branches, with_emotion/voice_label branches.
 Conventions: no real network/model downloads (all clients mocked); pure logic;
 rate limits reset per test.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -54,7 +55,9 @@ async def test_resolve_prosody_strictness_and_emotion() -> None:
     from realmock.platform.capabilities.voice.tts import voice_resolve as vr
 
     # strictness unparsable -> default 3 (no adjustment).
-    p = vr.resolve_prosody(avatar_id=None, personality="professional", strictness="bad", emotion="neutral")  # type: ignore[arg-type]
+    p = vr.resolve_prosody(
+        avatar_id=None, personality="professional", strictness="bad", emotion="neutral"
+    )  # type: ignore[arg-type]
     assert p.rate == "+0%"
     high = vr.resolve_prosody(avatar_id=None, personality="pressure", strictness=9, emotion="happy")
     assert high.rate != "+0%" or high.pitch != "+0Hz"

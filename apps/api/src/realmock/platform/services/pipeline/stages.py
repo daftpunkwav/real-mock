@@ -28,8 +28,20 @@ def get_or_create_stage_config(db: Session, stage: str) -> StageConfig:
             stage=stage,
             supports_audio_input=stage == PipelineStage.RECOGNIZE,
             supports_audio_output=stage in (PipelineStage.REASON, PipelineStage.SPEAK),
-            fallback_handler=("local" if stage == PipelineStage.RECOGNIZE else "edge" if stage == PipelineStage.SPEAK else ""),
-            fallback_mode=("transcribe" if stage == PipelineStage.RECOGNIZE else "tts_from_text" if stage == PipelineStage.SPEAK else ""),
+            fallback_handler=(
+                "local"
+                if stage == PipelineStage.RECOGNIZE
+                else "edge"
+                if stage == PipelineStage.SPEAK
+                else ""
+            ),
+            fallback_mode=(
+                "transcribe"
+                if stage == PipelineStage.RECOGNIZE
+                else "tts_from_text"
+                if stage == PipelineStage.SPEAK
+                else ""
+            ),
         )
         db.add(row)
         db.commit()

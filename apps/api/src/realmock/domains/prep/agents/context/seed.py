@@ -23,6 +23,7 @@ from realmock.platform.services.candidate_read import format_profile_summary, fo
 _MEMORY_INDEX_LIMIT = 10
 _MEMORY_SUMMARY_CHARS = 120
 
+
 def format_memory_index(db: Session | None = None, *, limit: int | None = None) -> str:
     """Render the long-term memory index block for the system prompt (never raises).
 
@@ -79,8 +80,11 @@ def build_system_message(
     reply-language hint is intentionally excluded (per-turn suffix instead).
     """
     return "\n\n".join(
-        block for block in _system_blocks(
-            db, resume_id=resume_id, target_company=target_company,
+        block
+        for block in _system_blocks(
+            db,
+            resume_id=resume_id,
+            target_company=target_company,
             linked_session_id=linked_session_id,
             memory_index_limit=memory_index_limit,
         )
@@ -104,8 +108,11 @@ def build_system_messages(
     prefixes survive tail-block churn.
     """
     blocks = [
-        block for block in _system_blocks(
-            db, resume_id=resume_id, target_company=target_company,
+        block
+        for block in _system_blocks(
+            db,
+            resume_id=resume_id,
+            target_company=target_company,
             linked_session_id=linked_session_id,
             memory_index_limit=memory_index_limit,
         )

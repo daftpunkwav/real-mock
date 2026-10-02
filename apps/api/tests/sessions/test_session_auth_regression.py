@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from realmock.platform.core.session_auth import new_access_token
 from realmock.asgi import app
-from realmock.domains.prep.models import PrepSession
 from realmock.domains.interview.models import InterviewSession
+from realmock.domains.prep.models import PrepSession
+from realmock.platform.core.session_auth import new_access_token
 
 
 def test_report_get_requires_token(db) -> None:
@@ -100,7 +100,9 @@ async def test_ws_bad_token_does_not_claim_lease(monkeypatch: pytest.MonkeyPatch
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = _StubSession()
     # handle() is defined in the connection_lifecycle module, so patch SessionLocal in that module.
-    monkeypatch.setattr("realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", lambda: mock_db)
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", lambda: mock_db
+    )
 
     good_ws = MagicMock()
     good_ws.accept = AsyncMock()
@@ -113,9 +115,7 @@ async def test_ws_bad_token_does_not_claim_lease(monkeypatch: pytest.MonkeyPatch
     bad_ws.send_json = AsyncMock()
     bad_ws.close = AsyncMock()
 
-    good = ws_mod.InterviewWSHandler(
-        good_ws, session_id=7, access_token=_StubSession.access_token
-    )
+    good = ws_mod.InterviewWSHandler(good_ws, session_id=7, access_token=_StubSession.access_token)
     # Manually acquire the lease to simulate an authenticated legitimate user
     await ws_mod.claim_session_connection(good)
     assert ws_mod.active_handlers_for_tests()[7] is good

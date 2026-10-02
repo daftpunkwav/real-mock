@@ -8,13 +8,17 @@ Conventions: no real network/LLM (all external calls mocked); uses _make_handler
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 
+
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -22,6 +26,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_process_user_text_branches():
@@ -53,7 +58,9 @@ async def test_process_user_text_branches():
             h2._cancel_pending_playback = AsyncMock()  # type: ignore[method-assign]
             h2.set_turn = AsyncMock()  # type: ignore[method-assign]
             h2._open_mic_after_playback = AsyncMock()  # type: ignore[method-assign]
-            h2._stream_events_with_tts = AsyncMock(return_value=MagicMock(kind=EventKind.TURN_COMPLETE, is_complete=True))  # type: ignore[method-assign]
+            h2._stream_events_with_tts = AsyncMock(
+                return_value=MagicMock(kind=EventKind.TURN_COMPLETE, is_complete=True)
+            )  # type: ignore[method-assign]
             # force post-stream state USER_SPEAKING
             orig_stream = h2._stream_events_with_tts
 

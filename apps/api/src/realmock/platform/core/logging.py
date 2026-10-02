@@ -21,9 +21,7 @@ from typing import Any
 from realmock.platform.core.security import redact_api_key as _redact
 
 # Request-level trace_id, which facilitates stringing together logs of the same request
-_trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "trace_id", default=""
-)
+_trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="")
 
 
 def new_trace_id() -> str:

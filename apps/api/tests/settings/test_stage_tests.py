@@ -15,7 +15,12 @@ def test_stt_fixture_packaged_locally():
     # only the missing-file fallback in load_fixture.
     assert expected
     fixture_dir = (
-        Path(__file__).resolve().parents[2] / "src" / "realmock" / "platform" / "data" / "stt_fixtures"
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "realmock"
+        / "platform"
+        / "data"
+        / "stt_fixtures"
     )
     assert (fixture_dir / "audio_zh_growth.wav").is_file()
     assert (fixture_dir / "expected.json").is_file()

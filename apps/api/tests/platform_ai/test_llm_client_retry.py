@@ -28,9 +28,13 @@ def _patch_settings(monkeypatch: pytest.MonkeyPatch, *, allow_local: bool) -> No
     s.effective_embeddings_model = "text-embedding-3-small"
     s.is_prod = not allow_local
     # After splitting the client package, get_settings is distributed across the llm_client_ext / base / openai_transport submodules.
-    monkeypatch.setattr("realmock.platform.capabilities.ai.llm.client.llm_client_ext.get_settings", lambda: s)
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.llm_client_ext.get_settings", lambda: s
+    )
     monkeypatch.setattr("realmock.platform.capabilities.ai.llm.client.base.get_settings", lambda: s)
-    monkeypatch.setattr("realmock.platform.capabilities.ai.llm.client.openai_transport.get_settings", lambda: s)
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.openai_transport.get_settings", lambda: s
+    )
 
 
 def _make_client(monkeypatch: pytest.MonkeyPatch, *, allow_local: bool) -> Any:
@@ -48,7 +52,10 @@ def _make_client(monkeypatch: pytest.MonkeyPatch, *, allow_local: bool) -> Any:
 async def test_chat_4xx_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_client(monkeypatch, allow_local=False)
     # This test focuses on retry semantics: allow URL validation because real DNS results for the domain differ across environments.
-    monkeypatch.setattr("realmock.platform.capabilities.ai.llm.client.llm_client.is_safe_http_url", lambda *a, **kw: True)
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.llm_client.is_safe_http_url",
+        lambda *a, **kw: True,
+    )
     http_client = AsyncMock()
     fake_resp = MagicMock(spec=httpx.Response)
     fake_resp.status_code = 400
@@ -56,7 +63,9 @@ async def test_chat_4xx_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
         "400", request=MagicMock(), response=fake_resp
     )
     http_client.post = AsyncMock(return_value=fake_resp)
-    with patch("realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
         with pytest.raises(httpx.HTTPStatusError):
@@ -69,7 +78,10 @@ async def test_chat_4xx_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_chat_429_retries_then_returns(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_client(monkeypatch, allow_local=False)
     # As in test_chat_4xx_no_retry, allow URL validation and focus on retry semantics.
-    monkeypatch.setattr("realmock.platform.capabilities.ai.llm.client.llm_client.is_safe_http_url", lambda *a, **kw: True)
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.llm_client.is_safe_http_url",
+        lambda *a, **kw: True,
+    )
 
     succ = MagicMock(spec=httpx.Response)
     succ.status_code = 200
@@ -79,19 +91,19 @@ async def test_chat_429_retries_then_returns(monkeypatch: pytest.MonkeyPatch) ->
     http_client = AsyncMock()
     http_client.post = AsyncMock(
         side_effect=[
-            httpx.HTTPStatusError(
-                "429", request=MagicMock(), response=MagicMock(status_code=429)
-            ),
-            httpx.HTTPStatusError(
-                "429", request=MagicMock(), response=MagicMock(status_code=429)
-            ),
+            httpx.HTTPStatusError("429", request=MagicMock(), response=MagicMock(status_code=429)),
+            httpx.HTTPStatusError("429", request=MagicMock(), response=MagicMock(status_code=429)),
             succ,
         ]
     )
-    with patch("realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
-        with patch("realmock.platform.capabilities.ai.llm.retry_policy.asyncio.sleep", new=AsyncMock()):
+        with patch(
+            "realmock.platform.capabilities.ai.llm.retry_policy.asyncio.sleep", new=AsyncMock()
+        ):
             text = await client.chat([{"role": "user", "content": "hi"}])
     assert text == "ok"
     assert http_client.post.await_count == 3
@@ -116,20 +128,22 @@ async def test_chat_allows_loopback_in_dev(monkeypatch: pytest.MonkeyPatch) -> N
     succ.raise_for_status = MagicMock()
     http_client = AsyncMock()
     http_client.post = AsyncMock(return_value=succ)
-    with patch("realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.openai_transport.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
         text = await client.chat([{"role": "user", "content": "hi"}])
     assert text == "ok"
 
 
-
-
 # ── UnifiedLLMClient non-streaming chat_message (chat_endpoints: shared retry semantics) ──────
 
 
 @pytest.mark.asyncio
-async def test_unified_chat_message_429_retries_then_returns(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_unified_chat_message_429_retries_then_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Unified chat_message must retry 429 on the shared ladder, same as chat and both streaming paths."""
     _patch_settings(monkeypatch, allow_local=False)
     from realmock.platform.capabilities.ai.llm.client import UnifiedLLMClient
@@ -153,19 +167,19 @@ async def test_unified_chat_message_429_retries_then_returns(monkeypatch: pytest
     http_client = AsyncMock()
     http_client.post = AsyncMock(
         side_effect=[
-            httpx.HTTPStatusError(
-                "429", request=MagicMock(), response=MagicMock(status_code=429)
-            ),
-            httpx.HTTPStatusError(
-                "429", request=MagicMock(), response=MagicMock(status_code=429)
-            ),
+            httpx.HTTPStatusError("429", request=MagicMock(), response=MagicMock(status_code=429)),
+            httpx.HTTPStatusError("429", request=MagicMock(), response=MagicMock(status_code=429)),
             succ,
         ]
     )
-    with patch("realmock.platform.capabilities.ai.llm.client.chat_endpoints.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.chat_endpoints.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
-        with patch("realmock.platform.capabilities.ai.llm.retry_policy.asyncio.sleep", new=AsyncMock()):
+        with patch(
+            "realmock.platform.capabilities.ai.llm.retry_policy.asyncio.sleep", new=AsyncMock()
+        ):
             message = await client.chat_message([{"role": "user", "content": "hi"}])
     assert message["content"] == "ok"
     assert http_client.post.await_count == 3
@@ -193,12 +207,16 @@ async def test_unified_chat_message_4xx_no_retry(monkeypatch: pytest.MonkeyPatch
         "400", request=MagicMock(), response=fake_resp
     )
     http_client.post = AsyncMock(return_value=fake_resp)
-    with patch("realmock.platform.capabilities.ai.llm.client.chat_endpoints.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.chat_endpoints.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
         with pytest.raises(httpx.HTTPStatusError):
             await client.chat_message([{"role": "user", "content": "hi"}])
     assert http_client.post.await_count == 1
+
+
 # ── Streaming tool-round assembler (chat_message_stream events → message assembly) ──────────
 
 
@@ -209,20 +227,45 @@ def test_openai_round_assembler_joins_fragments() -> None:
     a = _OpenAIRoundAssembler()
     assert a.feed({"choices": [{"delta": {"reasoning_content": "Thinking"}}]}) == "Thinking"
     a.feed({"choices": [{"delta": {"content": "Main text"}}]})
-    a.feed({
-        "choices": [{
-            "delta": {
-                "tool_calls": [
-                    {"index": 0, "id": "c1", "function": {"name": "web_search", "arguments": '{"query": "interview'}}
-                ]
-            }
-        }]
-    })
-    a.feed({"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": ' experiences"}'}}]}}]})
+    a.feed(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "c1",
+                                "function": {
+                                    "name": "web_search",
+                                    "arguments": '{"query": "interview',
+                                },
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    )
+    a.feed(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [{"index": 0, "function": {"arguments": ' experiences"}'}}]
+                    }
+                }
+            ]
+        }
+    )
     msg = a.message()
     assert msg["content"] == "Main text"
     assert msg["tool_calls"] == [
-        {"id": "c1", "type": "function", "function": {"name": "web_search", "arguments": '{"query": "interview experiences"}'}}
+        {
+            "id": "c1",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": '{"query": "interview experiences"}'},
+        }
     ]
 
 
@@ -232,18 +275,45 @@ def test_anthropic_round_assembler_thinking_and_tool_use() -> None:
 
     a = _AnthropicRoundAssembler()
     a.feed({"type": "content_block_start", "index": 0, "content_block": {"type": "thinking"}})
-    assert a.feed({
-        "type": "content_block_delta", "index": 0,
-        "delta": {"type": "thinking_delta", "thinking": "Think about it"},
-    }) == "Think about it"
+    assert (
+        a.feed(
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "thinking_delta", "thinking": "Think about it"},
+            }
+        )
+        == "Think about it"
+    )
     a.feed({"type": "content_block_start", "index": 1, "content_block": {"type": "text"}})
-    a.feed({"type": "content_block_delta", "index": 1, "delta": {"type": "text_delta", "text": "Hello"}})
-    a.feed({
-        "type": "content_block_start", "index": 2,
-        "content_block": {"type": "tool_use", "id": "t1", "name": "lookup"},
-    })
-    a.feed({"type": "content_block_delta", "index": 2, "delta": {"type": "input_json_delta", "partial_json": '{"q": '}})
-    a.feed({"type": "content_block_delta", "index": 2, "delta": {"type": "input_json_delta", "partial_json": '"x"}'}})
+    a.feed(
+        {
+            "type": "content_block_delta",
+            "index": 1,
+            "delta": {"type": "text_delta", "text": "Hello"},
+        }
+    )
+    a.feed(
+        {
+            "type": "content_block_start",
+            "index": 2,
+            "content_block": {"type": "tool_use", "id": "t1", "name": "lookup"},
+        }
+    )
+    a.feed(
+        {
+            "type": "content_block_delta",
+            "index": 2,
+            "delta": {"type": "input_json_delta", "partial_json": '{"q": '},
+        }
+    )
+    a.feed(
+        {
+            "type": "content_block_delta",
+            "index": 2,
+            "delta": {"type": "input_json_delta", "partial_json": '"x"}'},
+        }
+    )
     msg = a.message()
     assert msg["content"] == "Hello"
     assert msg["tool_calls"] == [
@@ -256,14 +326,44 @@ def test_openai_round_assembler_malformed_index_skipped() -> None:
     from realmock.platform.capabilities.ai.llm.client.assemblers import _OpenAIRoundAssembler
 
     a = _OpenAIRoundAssembler()
-    a.feed({"choices": [{"delta": {"tool_calls": [
-        {"index": 0, "id": "c1", "function": {"name": "web_search", "arguments": '{"q": 1}'}}
-    ]}}]})
-    a.feed({"choices": [{"delta": {"tool_calls": [{"index": "abc", "function": {"arguments": "garbage"}}]}}]})
-    a.feed({"choices": [{"delta": {"tool_calls": [{"index": {"bad": 1}, "function": {"arguments": "x"}}]}}]})
+    a.feed(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "c1",
+                                "function": {"name": "web_search", "arguments": '{"q": 1}'},
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    )
+    a.feed(
+        {
+            "choices": [
+                {"delta": {"tool_calls": [{"index": "abc", "function": {"arguments": "garbage"}}]}}
+            ]
+        }
+    )
+    a.feed(
+        {
+            "choices": [
+                {"delta": {"tool_calls": [{"index": {"bad": 1}, "function": {"arguments": "x"}}]}}
+            ]
+        }
+    )
     msg = a.message()
     assert msg["tool_calls"] == [
-        {"id": "c1", "type": "function", "function": {"name": "web_search", "arguments": '{"q": 1}'}}
+        {
+            "id": "c1",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": '{"q": 1}'},
+        }
     ]
 
 
@@ -273,11 +373,23 @@ def test_anthropic_round_assembler_malformed_index_no_crash() -> None:
 
     a = _AnthropicRoundAssembler()
     a.feed({"type": "content_block_start", "index": "abc", "content_block": {"type": "text"}})
-    a.feed({"type": "content_block_delta", "index": "oops", "delta": {"type": "text_delta", "text": "Hello"}})
-    assert a.feed({
-        "type": "content_block_delta", "index": None,
-        "delta": {"type": "thinking_delta", "thinking": "x"},
-    }) == "x"
+    a.feed(
+        {
+            "type": "content_block_delta",
+            "index": "oops",
+            "delta": {"type": "text_delta", "text": "Hello"},
+        }
+    )
+    assert (
+        a.feed(
+            {
+                "type": "content_block_delta",
+                "index": None,
+                "delta": {"type": "thinking_delta", "thinking": "x"},
+            }
+        )
+        == "x"
+    )
     msg = a.message()
     assert msg["content"] == "Hello"
     assert "tool_calls" not in msg
@@ -301,6 +413,7 @@ def _stream_http_client(status_sequence):
             async def _gen():
                 for line in lines:
                     yield line
+
             return _gen()
 
         resp.aiter_lines = _aiter_lines
@@ -346,7 +459,9 @@ def _patch_retry_stream_env(monkeypatch: pytest.MonkeyPatch, http_client) -> Non
         return None
 
     sleeper.side_effect = _no_sleep
-    monkeypatch.setattr("realmock.platform.capabilities.ai.llm.client.retry_stream.asyncio.sleep", sleeper)
+    monkeypatch.setattr(
+        "realmock.platform.capabilities.ai.llm.client.retry_stream.asyncio.sleep", sleeper
+    )
     return sleeper
 
 
@@ -354,10 +469,14 @@ def _patch_retry_stream_env(monkeypatch: pytest.MonkeyPatch, http_client) -> Non
 async def test_chat_message_stream_429_retries_then_emits(monkeypatch: pytest.MonkeyPatch) -> None:
     """Streaming tool-round 429: retry with exponential backoff before any delta is emitted; the second attempt succeeds."""
     client = _make_client(monkeypatch, allow_local=False)
-    http_client = _stream_http_client([429, ['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]])
+    http_client = _stream_http_client(
+        [429, ['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]]
+    )
     _patch_retry_stream_env(monkeypatch, http_client)
 
-    with patch("realmock.platform.capabilities.ai.llm.client.retry_stream.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.retry_stream.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
         events = []
@@ -373,10 +492,14 @@ async def test_chat_message_stream_429_retries_then_emits(monkeypatch: pytest.Mo
 async def test_chat_stream_429_retries_then_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     """Streaming text 429: retry before any token is emitted; the second attempt emits the response body."""
     client = _make_client(monkeypatch, allow_local=False)
-    http_client = _stream_http_client([429, ['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]])
+    http_client = _stream_http_client(
+        [429, ['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]]
+    )
     _patch_retry_stream_env(monkeypatch, http_client)
 
-    with patch("realmock.platform.capabilities.ai.llm.client.retry_stream.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.retry_stream.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
         tokens = []
@@ -394,7 +517,9 @@ async def test_chat_message_stream_4xx_no_retry(monkeypatch: pytest.MonkeyPatch)
     http_client = _stream_http_client([400])
     _patch_retry_stream_env(monkeypatch, http_client)
 
-    with patch("realmock.platform.capabilities.ai.llm.client.retry_stream.make_pinned_async_client") as ac:
+    with patch(
+        "realmock.platform.capabilities.ai.llm.client.retry_stream.make_pinned_async_client"
+    ) as ac:
         ac.return_value.__aenter__.return_value = http_client
         ac.return_value.__aexit__.return_value = False
         with pytest.raises(httpx.HTTPStatusError):

@@ -9,14 +9,13 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
-
-from realmock.platform.config import get_settings
-from realmock.platform.database import ApiBase
 
 # Ensure all models based on ApiBase are registered in metadata
 import realmock.platform.models  # noqa: F401
+from alembic import context
+from realmock.platform.config import get_settings
+from realmock.platform.database import ApiBase
 
 config = context.config
 if config.config_file_name is not None:

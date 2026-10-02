@@ -7,11 +7,10 @@ preventing arbitrary LAN clients from modifying BYOK configuration when ``HOST=0
 from __future__ import annotations
 
 import ipaddress
-
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import Depends, Request
-from urllib.parse import urlparse
 
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth.csrf import is_origin_in_cors_allowlist

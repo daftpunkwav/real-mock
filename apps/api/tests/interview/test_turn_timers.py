@@ -86,9 +86,7 @@ def test_answer_timeout_prompt_language_split():
 def test_turn_output_answer_wait_clamped():
     from realmock.domains.interview.agents.turn_output import parse_turn_output
 
-    out = parse_turn_output(
-        {"v": 1, "wait_seconds": 20, "answer_wait_seconds": 5000}, say_text="x"
-    )
+    out = parse_turn_output({"v": 1, "wait_seconds": 20, "answer_wait_seconds": 5000}, say_text="x")
     assert out.wait_seconds == 20
     assert out.answer_wait_seconds == ANSWER_WAIT_MAX_SECONDS
     low = parse_turn_output({"answer_wait_seconds": 30}, say_text="x")

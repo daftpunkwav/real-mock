@@ -20,7 +20,6 @@ class ErrorBody(BaseModel):
 
 # Unify the error response shape and align it one by one with the envelope of the aggregation entry.
 class APIError(BaseModel):
-
     model_config = {"extra": "forbid"}
 
     detail: str

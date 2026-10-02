@@ -3,12 +3,17 @@
 Covers: sanitize_final_reply, _drop_trailing_exchange, _inject_refs, _begin_turn, _force_compact_context, _final_answer_with_overflow_retry, content-state helpers, run_chat and run_chat_stream branches including inline ask-user handling
 Conventions: No real LLM/network; LLM and context builders faked via monkeypatch; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import asyncio
 from types import SimpleNamespace
+
 import pytest
+
 from realmock.domains.prep.agents.turn_state import TurnState
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -17,6 +22,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 class _FakeSession:
     messages = "[]"
@@ -27,9 +33,11 @@ class _FakeSession:
     completion_tokens = 0
     cached_tokens = 0
 
+
 class _FakeDB:
     def commit(self) -> None:
         pass
+
 
 def _make_agent(monkeypatch=None, llm=None):
     from realmock.domains.prep.agents.agent import PrepAgent
@@ -37,8 +45,10 @@ def _make_agent(monkeypatch=None, llm=None):
     agent = PrepAgent(_FakeSession(), llm or SimpleNamespace(context_window=8000))  # type: ignore[arg-type]
     return agent
 
+
 async def _collect(agen):
     return [i async for i in agen]
+
 
 def test_sanitize_final_reply_strips_and_recovers() -> None:
     from realmock.domains.prep.agents.chat import sanitize_final_reply
@@ -51,12 +61,15 @@ def test_sanitize_final_reply_strips_and_recovers() -> None:
     assert "<tool_call>" not in cleaned
     assert ask is not None and ask["question"] == "Q?"
 
+
 def test_drop_trailing_exchange() -> None:
     from realmock.domains.prep.agents.chat import _drop_trailing_exchange
 
     # Full exchange: the reply and its question both go, so a rerun re-appends
     # the question at the same index instead of duplicating it.
-    agent = SimpleNamespace(messages=[{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}])
+    agent = SimpleNamespace(
+        messages=[{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}]
+    )
     _drop_trailing_exchange(agent, "q")  # type: ignore[arg-type]
     assert agent.messages == []
     _drop_trailing_exchange(agent, "q")
@@ -69,21 +82,26 @@ def test_drop_trailing_exchange() -> None:
     agent3 = SimpleNamespace(messages=["not-a-dict"])
     _drop_trailing_exchange(agent3, "q")  # type: ignore[arg-type]
     assert agent3.messages == ["not-a-dict"]
-    agent4 = SimpleNamespace(messages=[
-        {"role": "system", "content": "s"},
-        {"role": "user", "content": "q"},
-        {"role": "assistant", "content": "a"},
-    ])
+    agent4 = SimpleNamespace(
+        messages=[
+            {"role": "system", "content": "s"},
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "a"},
+        ]
+    )
     _drop_trailing_exchange(agent4, "q")  # type: ignore[arg-type]
     assert agent4.messages == [{"role": "system", "content": "s"}]
     # Content guard: a trailing user row holding different text (an older
     # exchange left behind by a cancelled turn) is never popped.
-    agent5 = SimpleNamespace(messages=[
-        {"role": "user", "content": "older question"},
-        {"role": "assistant", "content": "older answer"},
-    ])
+    agent5 = SimpleNamespace(
+        messages=[
+            {"role": "user", "content": "older question"},
+            {"role": "assistant", "content": "older answer"},
+        ]
+    )
     _drop_trailing_exchange(agent5, "new question")  # type: ignore[arg-type]
     assert agent5.messages == [{"role": "user", "content": "older question"}]
+
 
 @pytest.mark.asyncio
 async def test_inject_refs_empty_and_block(monkeypatch) -> None:
@@ -102,18 +120,24 @@ async def test_inject_refs_empty_and_block(monkeypatch) -> None:
     monkeypatch.setattr(
         chat_mod, "format_linked_sessions", lambda db, ids, exclude_id=None: "[refs] block"
     )
-    out4 = await chat_mod._inject_refs(agent, [{"role": "user", "content": "hi"}], _FakeDB(), [1, 2])  # type: ignore[arg-type]
+    out4 = await chat_mod._inject_refs(
+        agent, [{"role": "user", "content": "hi"}], _FakeDB(), [1, 2]
+    )  # type: ignore[arg-type]
     assert out4[-1] == {"role": "system", "content": "[refs] block"}
+
 
 def test_begin_turn_resets_and_clears_quiz() -> None:
     import realmock.domains.prep.agents.chat as chat_mod
 
     agent = _make_agent()
     agent.memory.pending_quiz = "open:q?"
-    policy = chat_mod._begin_turn(agent, CompactionOptions(intensity="light", directive="d", retain=2))
+    policy = chat_mod._begin_turn(
+        agent, CompactionOptions(intensity="light", directive="d", retain=2)
+    )
     assert agent.memory.pending_quiz == ""
     assert agent.last_turn_id
     assert policy.intensity == "light"
+
 
 @pytest.mark.asyncio
 async def test_force_compact_context(monkeypatch) -> None:
@@ -130,10 +154,14 @@ async def test_force_compact_context(monkeypatch) -> None:
     monkeypatch.setattr(agent, "_build_context", _fake_build)
     monkeypatch.setattr(chat_mod, "format_linked_sessions", lambda db, ids, exclude_id=None: "")
     out = await chat_mod._force_compact_context(
-        agent, CompactionOptions(), _FakeDB(), None  # type: ignore[arg-type]
+        agent,
+        CompactionOptions(),
+        _FakeDB(),
+        None,  # type: ignore[arg-type]
     )
     assert out == [{"role": "system", "content": "compacted"}]
     assert agent._turn_state.mid_turn_base is None
+
 
 @pytest.mark.asyncio
 async def test_final_answer_overflow_retry(monkeypatch) -> None:
@@ -158,7 +186,11 @@ async def test_final_answer_overflow_retry(monkeypatch) -> None:
 
     monkeypatch.setattr(chat_mod, "_force_compact_context", _fake_force)
     out = await chat_mod._final_answer_with_overflow_retry(
-        agent, [{"role": "user", "content": "hi"}], CompactionOptions(), _FakeDB(), None  # type: ignore[arg-type]
+        agent,
+        [{"role": "user", "content": "hi"}],
+        CompactionOptions(),
+        _FakeDB(),
+        None,  # type: ignore[arg-type]
     )
     assert out == "recovered"
 
@@ -171,8 +203,13 @@ async def test_final_answer_overflow_retry(monkeypatch) -> None:
     agent2.note_round_usage = lambda before: None  # type: ignore[attr-defined]
     with pytest.raises(RuntimeError, match="boom-not-overflow"):
         await chat_mod._final_answer_with_overflow_retry(
-            agent2, [], CompactionOptions(), _FakeDB(), None  # type: ignore[arg-type]
+            agent2,
+            [],
+            CompactionOptions(),
+            _FakeDB(),
+            None,  # type: ignore[arg-type]
         )
+
 
 def test_new_content_state_and_mid_turn_report() -> None:
     import realmock.domains.prep.agents.chat as chat_mod
@@ -184,12 +221,17 @@ def test_new_content_state_and_mid_turn_report() -> None:
     agent = SimpleNamespace(_turn_state=SimpleNamespace(mid_turn_report=None), context_window=8000)
     assert chat_mod._take_mid_turn_compaction_report(agent) is None  # type: ignore[arg-type]
     agent._turn_state.mid_turn_report = {
-        "before": 10, "after": 4, "prompt_tokens": 1, "completion_tokens": 2, "latency_ms": 3.0
+        "before": 10,
+        "after": 4,
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "latency_ms": 3.0,
     }
     evt = chat_mod._take_mid_turn_compaction_report(agent)  # type: ignore[arg-type]
     assert evt is not None and evt["type"] == "compaction"
     assert evt["before"] == 10
     assert agent._turn_state.mid_turn_report is None
+
 
 @pytest.mark.asyncio
 async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
@@ -200,9 +242,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
 
     monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
     finalized = {}
-    monkeypatch.setattr(
-        chat_mod, "finalize", lambda *a, **k: finalized.update({"ok": True})
-    )
+    monkeypatch.setattr(chat_mod, "finalize", lambda *a, **k: finalized.update({"ok": True}))
 
     # asked_user branch returns pending text and surfaces the dialog payload
     agent = _make_agent()
@@ -230,11 +270,17 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     # an inline ask_user rescued from the body becomes the dialog payload;
     # surrounding prose stays as the reply body (mirrors the stream channel)
     async def _rounds_inline(working, db, asked_user=None):
-        return working, (
-            'some prose first '
-            '<tool_call>{"name": "ask_user", "arguments": '
-            '{"question": "Q?", "options": ["A", "B"]}}</tool_call>'
-        ), [], [], ""
+        return (
+            working,
+            (
+                "some prose first "
+                '<tool_call>{"name": "ask_user", "arguments": '
+                '{"question": "Q?", "options": ["A", "B"]}}</tool_call>'
+            ),
+            [],
+            [],
+            "",
+        )
 
     monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_inline)
     out2b = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
@@ -244,10 +290,16 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
 
     # a dialog rescued from an otherwise-empty body keeps the waiting line
     async def _rounds_inline_bare(working, db, asked_user=None):
-        return working, (
-            '<tool_call>{"name": "ask_user", "arguments": '
-            '{"question": "Q?", "options": ["A", "B"]}}</tool_call>'
-        ), [], [], ""
+        return (
+            working,
+            (
+                '<tool_call>{"name": "ask_user", "arguments": '
+                '{"question": "Q?", "options": ["A", "B"]}}</tool_call>'
+            ),
+            [],
+            [],
+            "",
+        )
 
     monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_inline_bare)
     out2c = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
@@ -280,22 +332,33 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     out4 = await chat_mod.run_chat(agent, "hi", _FakeDB())  # type: ignore[arg-type]
     assert out4 == ""
 
+
 @pytest.mark.asyncio
 async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeypatch) -> None:
     import realmock.domains.prep.agents.chat as chat_mod
 
     async def _prep(agent, user_text, db, **kwargs):
-        return CompactionOptions(), "turn9", [{"role": "user", "content": "hi"}], [{"role": "user", "content": "hi"}], {}
+        return (
+            CompactionOptions(),
+            "turn9",
+            [{"role": "user", "content": "hi"}],
+            [{"role": "user", "content": "hi"}],
+            {},
+        )
 
     monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
     monkeypatch.setattr(
-        chat_mod, "compaction_event", lambda *a, **k: {"type": "compaction", "before": 9, "after": 3}
+        chat_mod,
+        "compaction_event",
+        lambda *a, **k: {"type": "compaction", "before": 9, "after": 3},
     )
 
     agent = _make_agent()
     agent.pending_reply_text = lambda: "wait-line"  # type: ignore[method-assign]
 
-    async def _fake_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _fake_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         outcome["value"] = ("unexpected-shape",)
         if False:
             yield "x"
@@ -331,7 +394,9 @@ async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeyp
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
     agent._turn_state.mid_turn_report = {"before": 5, "after": 2}
 
-    async def _fake_rounds2(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _fake_rounds2(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         asked_user["on"] = True
         content_state["filter"] = SimpleNamespace(flush=lambda: "tail-tok")
         outcome["value"] = ([], None, [], [], "")
@@ -339,11 +404,14 @@ async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeyp
             yield "x"
 
     monkeypatch.setattr(chat_mod, "stream_background_events", _fake_rounds2)
-    monkeypatch.setattr(chat_mod, "finalize_with_delta", lambda *a, **k: {"type": "usage", "prompt_tokens": 1})
+    monkeypatch.setattr(
+        chat_mod, "finalize_with_delta", lambda *a, **k: {"type": "usage", "prompt_tokens": 1}
+    )
     items2 = [i async for i in chat_mod.run_chat_stream(agent, "hi", _FakeDB())]  # type: ignore[arg-type]
     assert "tail-tok" in items2
     assert any(isinstance(i, dict) and i.get("type") == "compaction" for i in items2)
     assert any(isinstance(i, dict) and i.get("type") == "usage" for i in items2)
+
 
 @pytest.mark.asyncio
 async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> None:
@@ -363,7 +431,9 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
     # error propagation branch
     agent = _make_agent()
 
-    async def _boom_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _boom_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         outcome["error"] = RuntimeError("loop-boom")
         if False:
             yield "x"
@@ -401,7 +471,9 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
     assert "after-compact" in "".join(i for i in items if isinstance(i, str))
 
     # streamed content finishes without regeneration (polish path)
-    async def _streamed_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _streamed_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         content_state["streamed"] = True
         content_state["filtered_text"] = "already heard"
         outcome["value"] = ([], None, [], [], "")
@@ -417,6 +489,7 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
     assert agent is not None
     assert isinstance(items2, list)
 
+
 @pytest.mark.asyncio
 async def test_run_chat_stream_cancel_persists(monkeypatch) -> None:
     import asyncio
@@ -429,7 +502,9 @@ async def test_run_chat_stream_cancel_persists(monkeypatch) -> None:
     monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
-    async def _cancel_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _cancel_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         raise asyncio.CancelledError()
         if False:
             yield "x"
@@ -462,11 +537,19 @@ async def test_run_chat_stream_cancel_persists_streamed_trace(monkeypatch) -> No
     monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
-    async def _partial_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _partial_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         content_state["filtered_text"] = "partial answer so far"
         yield {"type": "thinking", "content": "first thought"}
         yield {"type": "thinking", "content": "\n\nsecond thought"}
-        yield {"type": "tool_step", "name": "web_search", "query": "面经", "args": {"query": "面经"}, "result": "hits"}
+        yield {
+            "type": "tool_step",
+            "name": "web_search",
+            "query": "面经",
+            "args": {"query": "面经"},
+            "result": "hits",
+        }
         raise asyncio.CancelledError()
         if False:
             yield "x"
@@ -504,7 +587,9 @@ async def test_run_chat_stream_cancel_prefers_outcome_trace(monkeypatch) -> None
     monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
-    async def _done_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _done_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None
+    ):
         yield {"type": "thinking", "content": "streamed mirror"}
         outcome["value"] = (
             [{"role": "user", "content": "hi"}],
@@ -537,6 +622,7 @@ async def test_run_chat_stream_cancel_prefers_outcome_trace(monkeypatch) -> None
 
     assert captured["thinking"] == "loop thinking"
     assert captured["tool_steps"] == [{"name": "tool", "query": "q"}]
+
 
 def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None:
     import realmock.domains.prep.agents.chat as chat_mod
@@ -581,7 +667,7 @@ def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None
 async def test_run_chat_persists_question_when_turn_fails(monkeypatch) -> None:
     """A turn that dies before finalize still persists the typed question."""
     import realmock.domains.prep.agents.chat as chat_mod
-    from realmock.platform.core.errors import ApiBusinessError, CATALOG
+    from realmock.platform.core.errors import CATALOG, ApiBusinessError
 
     async def _prep(agent, user_text, db, **kwargs):
         agent.messages.append({"role": "user", "content": user_text})
@@ -596,9 +682,7 @@ async def test_run_chat_persists_question_when_turn_fails(monkeypatch) -> None:
 
     monkeypatch.setattr(agent, "_run_tool_rounds", _boom)
     saved: dict = {}
-    monkeypatch.setattr(
-        agent, "_save", lambda db: saved.setdefault("last", list(agent.messages))
-    )
+    monkeypatch.setattr(agent, "_save", lambda db: saved.setdefault("last", list(agent.messages)))
 
     with pytest.raises(ApiBusinessError):
         await chat_mod.run_chat(agent, "my typed question", _FakeDB())  # type: ignore[arg-type]
@@ -625,9 +709,7 @@ async def test_run_chat_stream_error_persists_question(monkeypatch) -> None:
 
     agent = _make_agent()
     saved: dict = {}
-    monkeypatch.setattr(
-        agent, "_save", lambda db: saved.setdefault("last", list(agent.messages))
-    )
+    monkeypatch.setattr(agent, "_save", lambda db: saved.setdefault("last", list(agent.messages)))
 
     with pytest.raises(RuntimeError):
         async for _ in chat_mod.run_chat_stream(agent, "typed question", _FakeDB()):  # type: ignore[arg-type]

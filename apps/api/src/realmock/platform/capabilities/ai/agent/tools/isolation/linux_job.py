@@ -161,9 +161,7 @@ def _probe(argv: Sequence[str]) -> bool:
     return ok
 
 
-def _user_switch_argv(
-    username: str, uid: int, gid: int, *, probe: bool = True
-) -> tuple[str, ...]:
+def _user_switch_argv(username: str, uid: int, gid: int, *, probe: bool = True) -> tuple[str, ...]:
     """Best setpriv/runuser argv for dropping to ``username`` (else ``()``).
 
     The exact argv (flags included) is probe-validated so an unsupported
@@ -275,9 +273,7 @@ def build_plan(
             drops_to="unchanged",
             net_blocked=True,
             mount_prelude=True,
-            notes=(
-                "user_switch=unavailable (non-root single-id map keeps callers uid)",
-            ),
+            notes=("user_switch=unavailable (non-root single-id map keeps callers uid)",),
         )
     notes = ["cgroup=best-effort (see run notes)", "bind_ro=unavailable (no mount namespace)"]
     if not allow_network:
@@ -301,12 +297,12 @@ def build_plan(
 _MOUNT_PRELUDE = (
     "printf 'pending' > \"$1\" 2>/dev/null; "
     "mount --make-rprivate / 2>/dev/null; "
-    "mount --bind \"$0\" \"$0\" 2>/dev/null; "
+    'mount --bind "$0" "$0" 2>/dev/null; '
     "if mount -o remount,ro,bind / 2>/dev/null; then "
-    "mount -o remount,rw,bind \"$0\" 2>/dev/null; "
+    'mount -o remount,rw,bind "$0" 2>/dev/null; '
     "printf 'ro-ok' > \"$1\" 2>/dev/null; "
     "else printf 'ro-unavailable' > \"$1\" 2>/dev/null; fi; "
-    "shift; exec \"$@\""
+    'shift; exec "$@"'
 )
 
 
@@ -331,11 +327,17 @@ class LinuxJobIsolation:
     ) -> None:
         if os.name != "posix" or not sys.platform.startswith("linux"):
             raise RuntimeError("linux-job isolation requires Linux")
-        self.run_as_user = env_text(ENV_RUN_AS_USER, DEFAULT_RUN_AS_USER) if run_as_user is None else run_as_user.strip()
+        self.run_as_user = (
+            env_text(ENV_RUN_AS_USER, DEFAULT_RUN_AS_USER)
+            if run_as_user is None
+            else run_as_user.strip()
+        )
         if not self.run_as_user:
             raise ValueError("isolation user must not be empty")
         self.uid, self.gid = resolve_user_ids(self.run_as_user)
-        self.allow_network = env_flag(ENV_ALLOW_NETWORK, False) if allow_network is None else bool(allow_network)
+        self.allow_network = (
+            env_flag(ENV_ALLOW_NETWORK, False) if allow_network is None else bool(allow_network)
+        )
         if memory_max_bytes is None:
             raw_memory: int | str | None = os.environ.get(ENV_MEMORY_MAX_BYTES)
             if raw_memory is None:
@@ -394,9 +396,7 @@ class LinuxJobIsolation:
             allow_network=self.allow_network,
             unshare=unshare,
             user_switch=switch,
-            map_users_ok=_probe(
-                (unshare, "-U", "--map-users=0:0:1", "--map-groups=0:0:1", "true")
-            ),
+            map_users_ok=_probe((unshare, "-U", "--map-users=0:0:1", "--map-groups=0:0:1", "true")),
             netns_ok=_probe((unshare, "-n", "true")),
             mountns_netns_ok=_probe((unshare, "-m", "--propagation", "private", "-n", "true")),
             userns_mountns_netns_ok=_probe((unshare, "-U", "-m", "-n", "-r", "true")),
@@ -406,14 +406,16 @@ class LinuxJobIsolation:
         """Create and cap a per-run cgroup leaf; failures become notes."""
         if self.memory_max_bytes is None and self.cpu_max is None:
             return None
-        leaf = os.path.join(
-            self.cgroup_parent, f"snippet-{os.getpid()}-{next(_launch_counter)}"
-        )
+        leaf = os.path.join(self.cgroup_parent, f"snippet-{os.getpid()}-{next(_launch_counter)}")
         try:
             os.makedirs(self.cgroup_parent, exist_ok=True)
             try:
                 # Control files require a plain write (append mode is rejected).
-                with open(os.path.join(self.cgroup_parent, "cgroup.subtree_control"), "w", encoding="ascii") as fh:
+                with open(
+                    os.path.join(self.cgroup_parent, "cgroup.subtree_control"),
+                    "w",
+                    encoding="ascii",
+                ) as fh:
                     fh.write("+cpu +memory")
             except OSError:
                 pass  # Controllers may already be enabled or read-only; leaf writes decide.
@@ -423,7 +425,9 @@ class LinuxJobIsolation:
                 leaf = f"{leaf}-{secrets.token_hex(4)}"
                 os.mkdir(leaf)
         except OSError as exc:
-            notes.append(f"cgroup=unavailable (cannot create leaf under {self.cgroup_parent}: {exc.strerror or exc})")
+            notes.append(
+                f"cgroup=unavailable (cannot create leaf under {self.cgroup_parent}: {exc.strerror or exc})"
+            )
             return None
         knobs = []
         if self.memory_max_bytes is not None:
@@ -465,12 +469,13 @@ class LinuxJobIsolation:
         plan = self._select_plan()
         notes = list(plan.notes)
         notes.append(
-            f"plan={plan.kind} user={plan.drops_to} "
-            f"net={'blocked' if plan.net_blocked else 'open'}"
+            f"plan={plan.kind} user={plan.drops_to} net={'blocked' if plan.net_blocked else 'open'}"
         )
         status_name = f"{_MOUNT_STATUS_PREFIX}{secrets.token_hex(8)}"
         status_path = os.path.join(cwd, status_name)
-        inner: list[str] = ["/bin/sh", "-c", _MOUNT_PRELUDE, cwd, status_path] if plan.mount_prelude else []
+        inner: list[str] = (
+            ["/bin/sh", "-c", _MOUNT_PRELUDE, cwd, status_path] if plan.mount_prelude else []
+        )
         full_argv = [*plan.prefix, *inner, *plan.user_switch, *argv]
         leaf: str | None = None
         if self.memory_max_bytes is None and self.cpu_max is None:

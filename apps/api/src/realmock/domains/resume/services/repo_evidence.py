@@ -15,17 +15,17 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from realmock.platform.capabilities.integrations.github.client import GitHubClient
-from realmock.platform.capabilities.integrations.github.github_http import (
-    LOW_QUOTA_REMAINING,
-    get_last_quota,
-)
 from realmock.domains.resume.schemas.limits import (
     KEY_FILE_PATTERNS,
     MAX_EVIDENCE_COMMITS,
     MAX_EVIDENCE_FILE_CHARS,
     MAX_EVIDENCE_REPOS,
     MAX_README_CHARS,
+)
+from realmock.platform.capabilities.integrations.github.client import GitHubClient
+from realmock.platform.capabilities.integrations.github.github_http import (
+    LOW_QUOTA_REMAINING,
+    get_last_quota,
 )
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,9 @@ async def _evidence_for_repo(client: GitHubClient, target: _RepoTarget) -> dict:
                 "link a GitHub account under Settings → Integrations → GitHub (or set GITHUB_TOKEN) and re-evaluate"
             )
         else:
-            evidence["evidence_notes"].append(f"Failed to obtain warehouse metadata:{message or 'unknown error'}")
+            evidence["evidence_notes"].append(
+                f"Failed to obtain warehouse metadata:{message or 'unknown error'}"
+            )
         return evidence
     evidence.update(
         {
@@ -127,7 +129,9 @@ async def _evidence_for_repo(client: GitHubClient, target: _RepoTarget) -> dict:
         evidence["recent_commits"] = [
             {
                 "date": str((c.get("commit") or {}).get("author", {}).get("date", ""))[:10],
-                "message": str(((c.get("commit") or {}).get("message") or "")).split("\n", 1)[0][:80],
+                "message": str(((c.get("commit") or {}).get("message") or "")).split("\n", 1)[0][
+                    :80
+                ],
             }
             for c in commits[:MAX_EVIDENCE_COMMITS]
         ]
@@ -164,5 +168,7 @@ async def _evidence_for_repo(client: GitHubClient, target: _RepoTarget) -> dict:
         evidence.setdefault("key_files", []).append({"path": path, "excerpt": content})
 
     if not evidence.get("summary") and not evidence.get("key_files"):
-        evidence["evidence_notes"].append("The README/source code content has not been obtained, and the evidence is limited.")
+        evidence["evidence_notes"].append(
+            "The README/source code content has not been obtained, and the evidence is limited."
+        )
     return evidence

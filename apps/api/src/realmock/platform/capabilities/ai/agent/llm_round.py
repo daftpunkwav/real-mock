@@ -42,14 +42,14 @@ async def _call_llm_round(
     emit_content: OnTextFn | None = None,
 ) -> dict[str, Any]:
     """One model call: prefer streaming (with real-time reasoning-delta callbacks), falling back to
-non-streaming when unsupported.
+    non-streaming when unsupported.
 
-    On the streaming path, response text/tool calls are assembled by the client into a message
-    event matching the non-streaming ``chat_message`` shape; reasoning deltas have already been
-    delivered in real time, so the ``reasoning`` key is not read again.
-    ``emit_content``: optional real-time callback for raw body-text deltas (speculative
-    streaming — the caller decides whether the round's text is a final answer only after
-    the round completes); absent on the non-streaming fallback.
+        On the streaming path, response text/tool calls are assembled by the client into a message
+        event matching the non-streaming ``chat_message`` shape; reasoning deltas have already been
+        delivered in real time, so the ``reasoning`` key is not read again.
+        ``emit_content``: optional real-time callback for raw body-text deltas (speculative
+        streaming — the caller decides whether the round's text is a final answer only after
+        the round completes); absent on the non-streaming fallback.
     """
     streamer = getattr(llm, "chat_message_stream", None)
     if streamer is None:
@@ -72,7 +72,12 @@ non-streaming when unsupported.
                     msg = candidate
         if msg is not None:
             return msg
-        logger.warning("The Agent's streaming round did not return a message and fell back to non-streaming.")
+        logger.warning(
+            "The Agent's streaming round did not return a message and fell back to non-streaming."
+        )
     except NotImplementedError:
-        logger.info("LLM does not support the streaming tool wheel and falls back to non-streaming: %s", type(llm).__name__)
+        logger.info(
+            "LLM does not support the streaming tool wheel and falls back to non-streaming: %s",
+            type(llm).__name__,
+        )
     return await llm.chat_message(call_messages, temperature=temperature, tools=tools)

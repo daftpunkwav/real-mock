@@ -84,10 +84,18 @@ def test_list_sessions_shapes_rows_and_drops_unscored() -> None:
 def test_list_sessions_limit_accepts_numbers_only() -> None:
     sessions = [_snapshot(i, 60) for i in range(5)]
     catalog = _catalog(sessions)
-    assert len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": 2}))["sessions"]) == 2
-    assert len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": 2.0}))["sessions"]) == 2
+    assert (
+        len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": 2}))["sessions"]) == 2
+    )
+    assert (
+        len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": 2.0}))["sessions"])
+        == 2
+    )
     # Non-numeric limit falls back to the default page size.
-    assert len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": "many"}))["sessions"]) == 5
+    assert (
+        len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": "many"}))["sessions"])
+        == 5
+    )
 
 
 def test_get_report_rejects_invalid_session_id() -> None:

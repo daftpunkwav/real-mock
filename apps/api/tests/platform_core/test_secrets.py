@@ -31,12 +31,8 @@ def _stable_master_key(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
     monkeypatch.setenv("SECRET_KEY", _b64.b64encode(b"a" * 32).decode())
     # Override the default keyfile with a temporary directory
-    monkeypatch.setattr(
-        "realmock.platform.core.secrets._SHARED_DATA", tmp_path
-    )
-    monkeypatch.setattr(
-        "realmock.platform.core.secrets._DEFAULT_KEYFILE", tmp_path / ".secret.key"
-    )
+    monkeypatch.setattr("realmock.platform.core.secrets._SHARED_DATA", tmp_path)
+    monkeypatch.setattr("realmock.platform.core.secrets._DEFAULT_KEYFILE", tmp_path / ".secret.key")
     _reset_cache()
     yield
     _reset_cache()
@@ -66,9 +62,12 @@ class TestEncryptDecrypt:
         """Legacy ``enc:v1:`` ciphertext should explicitly raise ``LegacySecretFormatError``."""
         with pytest.raises(LegacySecretFormatError):
             decrypt_secret(
-                "enc:v1:" + base64.b64encode(b"x" * 16).decode() +
-                ":" + base64.b64encode(b"y" * 32).decode() +
-                ":" + base64.b64encode(b"z").decode()
+                "enc:v1:"
+                + base64.b64encode(b"x" * 16).decode()
+                + ":"
+                + base64.b64encode(b"y" * 32).decode()
+                + ":"
+                + base64.b64encode(b"z").decode()
             )
 
     def test_decrypt_empty_and_none(self) -> None:

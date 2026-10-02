@@ -36,7 +36,6 @@ from realmock.domains.profile.schemas.tech_domains import UpdateTechDomains
 
 # Full profile update body.
 class UserProfileUpdate(BaseModel):
-
     name: RequiredName
     gender: str = Field("", max_length=FIELD_MAX_LENGTH["gender"])
     identity: RequiredIdentity
@@ -49,9 +48,7 @@ class UserProfileUpdate(BaseModel):
     current_company: str = Field("", max_length=FIELD_MAX_LENGTH["current_company"])
     expected_salary: str = Field("", max_length=FIELD_MAX_LENGTH["expected_salary"])
     self_intro: RequiredSelfIntro
-    tech_domains: UpdateTechDomains = Field(
-        ..., max_length=TECH_DOMAINS_MAX_COUNT, min_length=1
-    )
+    tech_domains: UpdateTechDomains = Field(..., max_length=TECH_DOMAINS_MAX_COUNT, min_length=1)
     target_role: RequiredTargetRole
     github_username: str = Field("", max_length=FIELD_MAX_LENGTH["github_username"])
     portfolio_url: str = Field("", max_length=FIELD_MAX_LENGTH["portfolio_url"])
@@ -86,9 +83,7 @@ class UserProfileUpdate(BaseModel):
         because ``str([]) == "[]"`` would look filled if it were in that loop.
         """
         missing = [
-            name
-            for name in REQUIRED_STRING_FIELDS
-            if not str(getattr(self, name, "")).strip()
+            name for name in REQUIRED_STRING_FIELDS if not str(getattr(self, name, "")).strip()
         ]
         if not self.tech_domains:
             missing.append("tech_domains")

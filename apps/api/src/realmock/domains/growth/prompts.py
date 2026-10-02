@@ -75,7 +75,6 @@ The final assistant message (no tool calls) must be a single JSON object matchin
 )
 
 
-
 # Final-round wrap-up matching final_round_tool_free=True: the last round is
 # sent without a tools parameter, so the copy demands the complete JSON
 # directly.

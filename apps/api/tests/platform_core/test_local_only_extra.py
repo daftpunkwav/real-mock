@@ -115,7 +115,9 @@ class TestLocalOnly:
         from realmock.platform.core.local_only import reject_cross_site_fetch
 
         with pytest.raises(ApiBusinessError):
-            reject_cross_site_fetch(_req(host="127.0.0.1", headers=[(b"sec-fetch-site", b"cross-site")]))
+            reject_cross_site_fetch(
+                _req(host="127.0.0.1", headers=[(b"sec-fetch-site", b"cross-site")])
+            )
         reject_cross_site_fetch(_req(host="127.0.0.1"))
 
     def test_local_api_deps_registered(self) -> None:
@@ -135,8 +137,9 @@ class TestLocalOnly:
 
     @pytest.mark.asyncio
     async def test_guard_ws_origin(self) -> None:
-        from realmock.platform.core.local_only import _close_ws_forbidden, guard_ws_origin
         from starlette.websockets import WebSocketState
+
+        from realmock.platform.core.local_only import _close_ws_forbidden, guard_ws_origin
 
         class _WS:
             def __init__(self, origin="", state=WebSocketState.CONNECTING):

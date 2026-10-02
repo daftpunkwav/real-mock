@@ -15,15 +15,14 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from realmock.platform.core.constants import SessionStatus
-from realmock.platform.database import ApiBase, SessionsBase
-import realmock.domains.prep.models  # noqa: F401
 import realmock.domains.interview.models  # noqa: F401
+import realmock.domains.prep.models  # noqa: F401
 import realmock.platform.models  # noqa: F401
-
-from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
 from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.models import InterviewSession
+from realmock.platform.core.constants import SessionStatus
+from realmock.platform.database import ApiBase, SessionsBase
 
 
 @pytest.fixture
@@ -40,10 +39,18 @@ def ws_db():
 
 def _mk_session(db) -> InterviewSession:
     s = InterviewSession(
-        profile_id=1, role="Backend", level="intermediate", company="bytedance",
-        workflow_type="technical", personality="professional", strictness=3,
-        interview_style="deep_dive", status=SessionStatus.ACTIVE.value,
-        current_phase="basic_knowledge", messages="[]", agent_state="{}",
+        profile_id=1,
+        role="Backend",
+        level="intermediate",
+        company="bytedance",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        status=SessionStatus.ACTIVE.value,
+        current_phase="basic_knowledge",
+        messages="[]",
+        agent_state="{}",
     )
     db.add(s)
     db.commit()

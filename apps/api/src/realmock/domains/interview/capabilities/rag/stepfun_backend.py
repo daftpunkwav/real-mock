@@ -36,15 +36,15 @@ import json
 import logging
 from typing import Any
 
+from realmock.domains.interview.capabilities.rag._kb_data import _build_documents
+from realmock.domains.interview.capabilities.rag.stepfun_index_http import StepFunIndexHttp
+from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.config import Settings
 from realmock.platform.core.constants import RAGBackendKind
 from realmock.platform.core.security import (
     UnsafeURLError,
     assert_safe_http_url,
 )
-from realmock.platform.capabilities.ai.llm.client import LLMClient
-from realmock.domains.interview.capabilities.rag._kb_data import _build_documents
-from realmock.domains.interview.capabilities.rag.stepfun_index_http import StepFunIndexHttp
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,9 @@ class StepFunRetrievalRAG:
            → POST /vector_stores/{id}/files to attach it;
         3. On any failure, call ``logger.warning`` and do not raise (preserving the existing degradation policy).
         """
-        api_base = self._settings.effective_embeddings_base  # StepFun usually shares its base with chat
+        api_base = (
+            self._settings.effective_embeddings_base
+        )  # StepFun usually shares its base with chat
         api_key = self._llm.api_key
 
         if not api_key:

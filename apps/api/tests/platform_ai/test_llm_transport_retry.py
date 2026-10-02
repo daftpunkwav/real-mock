@@ -8,16 +8,14 @@ Conventions: no real network (httpx/pinned client mocked); asyncio_mode=auto.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-
-import asyncio
 
 import httpx
 import pytest
 
 from realmock.platform.capabilities.ai.llm.client import base as base_mod
-
 
 # ── _extract_message_text ──
 
@@ -147,7 +145,9 @@ async def test_retry_5xx_status_code_then_success(monkeypatch: pytest.MonkeyPatc
 async def test_retry_status_exhausted_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     resp = _ok_response(500)
-    resp.raise_for_status.side_effect = httpx.HTTPStatusError("500", request=MagicMock(), response=resp)
+    resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "500", request=MagicMock(), response=resp
+    )
     with pytest.raises(httpx.HTTPStatusError):
         await base_mod._retry_request(lambda: _coro(resp), max_retries=1)
 
@@ -170,13 +170,13 @@ async def test_retry_connect_error_then_success(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.asyncio
 async def test_retry_connect_error_exhausted() -> None:
     with pytest.raises(httpx.ConnectError):
-        await base_mod._retry_request(
-            lambda: _raise(httpx.ConnectError("down")), max_retries=1
-        )
+        await base_mod._retry_request(lambda: _raise(httpx.ConnectError("down")), max_retries=1)
 
 
 @pytest.mark.asyncio
-async def test_retry_write_error_and_remote_protocol_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_retry_write_error_and_remote_protocol_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     for exc in (
         httpx.WriteError("w"),

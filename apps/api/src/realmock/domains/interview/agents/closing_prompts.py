@@ -36,7 +36,7 @@ def closing_system_prompt(style_hint: str) -> str:
         + "5. Set interview_complete to true in your reply;"
         + nl
         + "6. Judge the round yourself based on question difficulty, the target role/level, and whether "
-        "this is an internship or a full-time position, then set \"verdict\" to \"passed\" or \"failed\" "
+        'this is an internship or a full-time position, then set "verdict" to "passed" or "failed" '
         "and announce the result naturally in your spoken summary"
     )
 
@@ -64,8 +64,7 @@ def jump_to_summary_phase(state: InterviewSessionState, phase_ids: list[str]) ->
 def closing_verdict_grounding(score_section: str) -> str:
     """Pin the wrap-up and passed/failed verdict to the round score trajectory."""
     return (
-        score_section
-        + "\nGround the wrap-up evaluation and the passed/failed verdict "
+        score_section + "\nGround the wrap-up evaluation and the passed/failed verdict "
         "in this trajectory."
     )
 

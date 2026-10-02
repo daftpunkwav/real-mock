@@ -58,11 +58,7 @@ _EMOJI_RANGES: tuple[tuple[int, int], ...] = (
     (0x3299, 0x3299),
 )
 _EMOJI_RE = re.compile(
-    "["
-    + "".join(
-        f"{chr(lo)}-{chr(hi)}" if hi > lo else chr(lo) for lo, hi in _EMOJI_RANGES
-    )
-    + "]+"
+    "[" + "".join(f"{chr(lo)}-{chr(hi)}" if hi > lo else chr(lo) for lo, hi in _EMOJI_RANGES) + "]+"
 )
 
 # Common kaomoji (lightweight cleanup, not full NLP).

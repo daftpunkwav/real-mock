@@ -97,7 +97,10 @@ def test_no_prior_version_yields_empty_block() -> None:
 
 def test_compact_anchor_requires_enough_dimensions() -> None:
     assert compact_score_anchor({"dimension_scores": {"a": {"score": 1}}}) is None
-    assert compact_score_anchor({"dimension_scores": {f"d{i}": {"score": 50} for i in range(4)}}) is not None
+    assert (
+        compact_score_anchor({"dimension_scores": {f"d{i}": {"score": 50} for i in range(4)}})
+        is not None
+    )
 
 
 def test_review_calibration_lookup_uses_prior_version(api_db) -> None:
@@ -196,20 +199,12 @@ async def test_visual_status_tracks_degradation(monkeypatch) -> None:
 def test_vision_notice_message_matrix() -> None:
     from realmock.domains.resume.agents.review import _vision_notice_message
 
+    assert _vision_notice_message(locale="en", file_type="pdf", visual_status="ok") is None
     assert (
-        _vision_notice_message(locale="en", file_type="pdf", visual_status="ok") is None
+        _vision_notice_message(locale="zh-CN", file_type="txt", visual_status="no_vision") is None
     )
-    assert (
-        _vision_notice_message(locale="zh-CN", file_type="txt", visual_status="no_vision")
-        is None
-    )
-    assert (
-        _vision_notice_message(locale="zh-CN", file_type="pdf", visual_status="bogus")
-        is None
-    )
-    zh = _vision_notice_message(
-        locale="zh-CN", file_type="pdf", visual_status="render_failed"
-    )
+    assert _vision_notice_message(locale="zh-CN", file_type="pdf", visual_status="bogus") is None
+    zh = _vision_notice_message(locale="zh-CN", file_type="pdf", visual_status="render_failed")
     en = _vision_notice_message(locale="en", file_type="pdf", visual_status="no_vision")
     assert zh is not None and "纯文本评审" in zh
     assert en is not None and "text-only review" in en

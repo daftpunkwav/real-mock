@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from realmock.domains.interview.agents.turn_output import parse_turn_output
 from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.agents.turn_output import parse_turn_output
 
 
 def test_verdict_parsed_from_controls():
@@ -83,12 +83,14 @@ def test_score_trajectory_capped_at_80():
 
 
 def test_score_section_renders_trajectory():
-    agent = _state_with_agent_state({
-        "turn_scores": [
-            {"brief": "solid depth", "rating": 4, "weak_points": ["no numbers"]},
-            {"brief": "", "rating": 2, "weak_points": []},
-        ]
-    })
+    agent = _state_with_agent_state(
+        {
+            "turn_scores": [
+                {"brief": "solid depth", "rating": 4, "weak_points": ["no numbers"]},
+                {"brief": "", "rating": 2, "weak_points": []},
+            ]
+        }
+    )
     section = agent._score_section()
     assert "1. 4/5 — solid depth (weak: no numbers)" in section
     assert "2. 2/5" in section
@@ -99,9 +101,9 @@ def test_score_section_empty_without_scores():
 
 
 def test_summary_phase_entry_carries_trajectory():
-    agent = _state_with_agent_state({
-        "turn_scores": [{"brief": "depth ok", "rating": 4, "weak_points": []}]
-    })
+    agent = _state_with_agent_state(
+        {"turn_scores": [{"brief": "depth ok", "rating": 4, "weak_points": []}]}
+    )
     phase = MagicMock()
     phase.id = "summary"
     phase.name = "Summary"
@@ -115,9 +117,9 @@ def test_summary_phase_entry_carries_trajectory():
 
 
 def test_non_summary_phase_entry_has_no_trajectory():
-    agent = _state_with_agent_state({
-        "turn_scores": [{"brief": "depth ok", "rating": 4, "weak_points": []}]
-    })
+    agent = _state_with_agent_state(
+        {"turn_scores": [{"brief": "depth ok", "rating": 4, "weak_points": []}]}
+    )
     phase = MagicMock()
     phase.id = "basic_knowledge"
     phase.name = "Fundamentals"
@@ -152,7 +154,9 @@ def test_pace_message_naive_started_at_treated_as_utc():
     from datetime import datetime, timedelta, timezone
 
     agent = _state_with_agent_state({})
-    agent.session.started_at = (datetime.now(timezone.utc) - timedelta(minutes=50)).replace(tzinfo=None)
+    agent.session.started_at = (datetime.now(timezone.utc) - timedelta(minutes=50)).replace(
+        tzinfo=None
+    )
     first = agent.pace_message()
     assert first is not None  # 50 min crosses the 30 mark...
     second = agent.pace_message()

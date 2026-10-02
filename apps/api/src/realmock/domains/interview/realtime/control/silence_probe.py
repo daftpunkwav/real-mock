@@ -58,7 +58,9 @@ class SilenceProbeMixin:
                 max_tokens=150,
             )
         except Exception:
-            logger.warning("Silence probe generation failed; falling back to template", exc_info=True)
+            logger.warning(
+                "Silence probe generation failed; falling back to template", exc_info=True
+            )
             return ""
         raw = strip_think_blocks(raw or "").strip()
         try:

@@ -15,7 +15,6 @@ from realmock.platform.core.constants import (
 
 # Single model capability switch.
 class StageModelCapability(BaseModel):
-
     supports_vision: bool = False
     supports_audio_input: bool = False
     supports_audio_output: bool = False
@@ -24,14 +23,12 @@ class StageModelCapability(BaseModel):
 
 # Staged downgrade handling configuration.
 class StageFallbackConfig(BaseModel):
-
     handler: str = ""
     mode: str = ""
 
 
 # A single stage handler saves the request.
 class StageConfigUpdate(BaseModel):
-
     provider: str = ""
     api_base: str = ""
     api_key: str = ""
@@ -46,7 +43,6 @@ class StageConfigUpdate(BaseModel):
 
 # Single stage handler returns.
 class StageConfigResponse(BaseModel):
-
     stage: str
     provider: str
     api_base: str
@@ -63,7 +59,6 @@ class StageConfigResponse(BaseModel):
 
 # The new version of the three-stage configuration returns.
 class StageConfigsResponse(BaseModel):
-
     recognize: StageConfigResponse
     reason: StageConfigResponse
     speak: StageConfigResponse
@@ -82,5 +77,4 @@ class LLMTestResponse(BaseModel):
 
 # Optional override; default configuration is saved in the library.
 class StageTestRequest(BaseModel):
-
     stage: Literal["recognize", "reason", "speak"] | None = None

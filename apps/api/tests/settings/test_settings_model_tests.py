@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -25,9 +26,7 @@ async def test_model_audio_in_branch(monkeypatch) -> None:
     import importlib
 
     mod = importlib.import_module("realmock.domains.settings.routes.model_tests")
-    monkeypatch.setattr(
-        mod, "get_profile", lambda db, mid: SimpleNamespace(cap_audio_in=True)
-    )
+    monkeypatch.setattr(mod, "get_profile", lambda db, mid: SimpleNamespace(cap_audio_in=True))
     monkeypatch.setattr(mod, "test_recognize", lambda db, profile_id: "rec")
     monkeypatch.setattr(mod, "run_timed_stage_test", AsyncMock(return_value={"ok": 1}))
     out = await mod.test_model(1, db=MagicMock())

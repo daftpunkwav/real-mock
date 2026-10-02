@@ -157,11 +157,12 @@ def truncate_chunk(text: str, *, limit: int) -> str:
     if len(text) <= limit:
         return text
     keep = max(80, (limit - 80) // 2)
-    return (
-        text[:keep]
-        + f"\n…[chunk truncated; original {len(text)} chars]…\n"
-        + text[-keep:]
-    )
+    return text[:keep] + f"\n…[chunk truncated; original {len(text)} chars]…\n" + text[-keep:]
 
 
-__all__ = ["extract_json_object", "iter_balanced_objects", "salvage_truncated_object", "truncate_chunk"]
+__all__ = [
+    "extract_json_object",
+    "iter_balanced_objects",
+    "salvage_truncated_object",
+    "truncate_chunk",
+]

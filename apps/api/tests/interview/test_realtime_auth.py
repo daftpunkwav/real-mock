@@ -5,14 +5,21 @@ prosody binding, STT warmup, runtime rebind, session flow, remainder gaps.
 Conventions: no real network/LLM (all external calls mocked); uses _make_handler for handler construction.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from realmock.domains.interview.realtime.core.session_registry import (
+    reset_session_registry_for_tests,
+)
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
-from realmock.domains.interview.realtime.core.session_registry import reset_session_registry_for_tests
+
 
 def _make_handler(sid=1, token="tok-abc"):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid, access_token=token)
 
 
@@ -26,6 +33,7 @@ async def _aiter(items):
     """Yield items as an async iterator (opening-stream stub)."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_authenticate_branches():
@@ -55,17 +63,32 @@ async def test_authenticate_branches():
 async def test_bind_pipeline_no_key_and_ok(monkeypatch):
     h = _make_handler()
     llm_nokey = MagicMock(api_key="")
-    monkeypatch.setattr("realmock.domains.interview.realtime.connection.auth.session_llm", lambda a, b: llm_nokey)
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.connection.auth.session_llm", lambda a, b: llm_nokey
+    )
     cm = MagicMock()
     cm.__enter__.return_value = MagicMock()
     cm.__exit__.return_value = False
-    monkeypatch.setattr("realmock.domains.interview.realtime.connection.auth.api_db_session", lambda: cm)
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.connection.auth.api_db_session", lambda: cm
+    )
     assert await h.bind_pipeline(MagicMock(), MagicMock()) is False
     llm_ok = MagicMock(api_key="sk")
-    monkeypatch.setattr("realmock.domains.interview.realtime.connection.auth.session_llm", lambda a, b: llm_ok)
-    monkeypatch.setattr("realmock.domains.interview.realtime.connection.auth.session_stt_credentials", lambda a, b: MagicMock(provider="local", model="base", voice="v"))
-    monkeypatch.setattr("realmock.domains.interview.realtime.connection.auth.session_tts_credentials", lambda a, b: MagicMock(handler="edge", voice="", mode="tts_from_text"))
-    with patch("realmock.domains.interview.capabilities.rag.company_rag.CompanyKnowledgeRAG", side_effect=RuntimeError("no rag")):
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.connection.auth.session_llm", lambda a, b: llm_ok
+    )
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.connection.auth.session_stt_credentials",
+        lambda a, b: MagicMock(provider="local", model="base", voice="v"),
+    )
+    monkeypatch.setattr(
+        "realmock.domains.interview.realtime.connection.auth.session_tts_credentials",
+        lambda a, b: MagicMock(handler="edge", voice="", mode="tts_from_text"),
+    )
+    with patch(
+        "realmock.domains.interview.capabilities.rag.company_rag.CompanyKnowledgeRAG",
+        side_effect=RuntimeError("no rag"),
+    ):
         h._announce_fallbacks = AsyncMock()  # type: ignore[method-assign]
         h._bind_prosody = AsyncMock()  # type: ignore[method-assign]
         h._warmup_stt = AsyncMock()  # type: ignore[method-assign]
@@ -82,7 +105,10 @@ async def test_announce_prosody_warmup_rebind_flow():
     h = _make_handler()
     h.ctx.stt_creds = MagicMock(provider="p1")
     h.ctx.tts_creds = MagicMock(handler="h1", mode="tts_from_text", voice="")
-    with patch("realmock.domains.interview.realtime.connection.auth.find_provider", return_value={"status": "coming_soon", "label": "L"}):
+    with patch(
+        "realmock.domains.interview.realtime.connection.auth.find_provider",
+        return_value={"status": "coming_soon", "label": "L"},
+    ):
         await h._announce_fallbacks()
     sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
     assert sum(1 for e in sent if e.get("type") == "info") >= 2
@@ -120,7 +146,9 @@ async def test_auth_remainder_gaps():
         h.ctx.stt_creds = MagicMock(provider="local")
         h.ctx.tts_creds = MagicMock(handler="edge", mode="text_only", voice="")
         h.ctx.ws.send_json.reset_mock()
-        with patch("realmock.domains.interview.realtime.connection.auth.find_provider", return_value=None):
+        with patch(
+            "realmock.domains.interview.realtime.connection.auth.find_provider", return_value=None
+        ):
             await h._announce_fallbacks()
         sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
         assert any("Captions-only" in e.get("message", "") for e in sent)
@@ -132,14 +160,20 @@ async def test_auth_remainder_gaps():
         h.ctx.tts_queue.set_prosody = MagicMock()
         h.ctx.tts_queue.set_tts_creds = MagicMock()
         h.ctx.tts_queue.set_on_sent = MagicMock()
-        with patch("realmock.domains.interview.realtime.connection.auth.resolve_prosody", return_value=MagicMock(rate=1.0, pitch=1.0, voice="pv")):
+        with patch(
+            "realmock.domains.interview.realtime.connection.auth.resolve_prosody",
+            return_value=MagicMock(rate=1.0, pitch=1.0, voice="pv"),
+        ):
             await h._bind_prosody()
         assert h.ctx.tts_voice != ""
         # warmup local + non-local
         h.ctx.stt_creds = MagicMock(provider="local")
         h.ctx.whisper_model = "base"
         h._spawn = MagicMock(side_effect=lambda c: (c.close(), MagicMock())[1])  # type: ignore[method-assign]
-        with patch("realmock.domains.interview.realtime.connection.auth.warmup_whisper", return_value=MagicMock()) as w:
+        with patch(
+            "realmock.domains.interview.realtime.connection.auth.warmup_whisper",
+            return_value=MagicMock(),
+        ) as w:
             await h._warmup_stt()
             h._spawn.assert_called()
             assert w.called
@@ -147,8 +181,14 @@ async def test_auth_remainder_gaps():
         h.ctx.stt_creds = MagicMock(provider="cloud")
         h.ctx.whisper_model = "cloud-model"
         with (
-            patch("realmock.domains.interview.realtime.connection.auth.is_local_stt_model", return_value=False),
-            patch("realmock.domains.interview.realtime.connection.auth.warmup_whisper", return_value=MagicMock()),
+            patch(
+                "realmock.domains.interview.realtime.connection.auth.is_local_stt_model",
+                return_value=False,
+            ),
+            patch(
+                "realmock.domains.interview.realtime.connection.auth.warmup_whisper",
+                return_value=MagicMock(),
+            ),
         ):
             await h._warmup_stt()
             h._spawn.assert_called_once()

@@ -17,13 +17,13 @@ from fastapi import Depends
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
-from realmock.platform.models import Resume
-from realmock.platform.core.errors import ApiBusinessError, raise_error
-from realmock.platform.database import get_db
 from realmock.domains.resume.schemas.limits import FILE_MIME
+from realmock.domains.resume.services import store
 from realmock.domains.resume.services.files import find_resume_file
 from realmock.domains.resume.services.render import pdf_page_count, render_pdf_page_png
-from realmock.domains.resume.services import store
+from realmock.platform.core.errors import ApiBusinessError, raise_error
+from realmock.platform.database import get_db
+from realmock.platform.models import Resume
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,9 @@ def get_resume_page_image(resume_id: int, page_no: int, db: Session = Depends(ge
     try:
         png = render_pdf_page_png(path, page_no)
     except ValueError as e:
-        logger.debug("The resume page number is out of bounds id=%s page=%s: %s", resume_id, page_no, e)
+        logger.debug(
+            "The resume page number is out of bounds id=%s page=%s: %s", resume_id, page_no, e
+        )
         raise_error("A0404", cause=e)
     except ApiBusinessError:
         raise

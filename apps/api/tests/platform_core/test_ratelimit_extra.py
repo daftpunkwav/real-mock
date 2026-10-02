@@ -46,7 +46,10 @@ def _clean_limits():
 
 class TestTrustedProxy:
     def test_empty_config_uses_loopback(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(trusted_proxy_cidr_list=[]),
+        )
         nets = rl._trusted_proxy_nets()
         assert len(nets) == 2
 
@@ -59,13 +62,19 @@ class TestTrustedProxy:
         assert len(nets) == 1
 
     def test_peer_trusted(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(trusted_proxy_cidr_list=[]),
+        )
         assert rl._peer_is_trusted_proxy("127.0.0.1") is True
         assert rl._peer_is_trusted_proxy("8.8.8.8") is False
         assert rl._peer_is_trusted_proxy("not-an-ip") is False
 
     def test_resolve_client_ip(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(trusted_proxy_cidr_list=[]),
+        )
         # trusted proxy + forwarded header
         r = _req(host="127.0.0.1", headers=[(b"x-forwarded-for", b"9.9.9.9, 8.8.8.8")])
         assert rl._resolve_client_ip(r) == "9.9.9.9"
@@ -104,8 +113,14 @@ class TestMemoryBuckets:
             rl.check_rate_limit_by_id(key="cov-byid", client_id="c1", limit=2, window_seconds=60)
         with pytest.raises(ApiBusinessError):
             rl.check_rate_limit_by_id(key="cov-byid", client_id="c1", limit=2, window_seconds=60)
-        assert rl.try_rate_limit_by_id(key="cov-byid", client_id="other", limit=1, window_seconds=60) is True
-        assert rl.try_rate_limit_by_id(key="cov-byid", client_id="c1", limit=1, window_seconds=60) is False
+        assert (
+            rl.try_rate_limit_by_id(key="cov-byid", client_id="other", limit=1, window_seconds=60)
+            is True
+        )
+        assert (
+            rl.try_rate_limit_by_id(key="cov-byid", client_id="c1", limit=1, window_seconds=60)
+            is False
+        )
         reset_rate_limit("cov-byid")
 
     def test_rate_limit_dep_and_reset_all(self) -> None:
@@ -116,9 +131,15 @@ class TestMemoryBuckets:
         reset_rate_limit()
 
     def test_use_db_flag(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(ratelimit_backend="database"))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(ratelimit_backend="database"),
+        )
         assert rl._use_db_ratelimit() is True
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(ratelimit_backend="memory"))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(ratelimit_backend="memory"),
+        )
         assert rl._use_db_ratelimit() is False
 
 
@@ -299,12 +320,18 @@ class TestDbRatelimitBranches:
         assert rl._db_degraded_until == 0.0
 
     def test_check_rate_limit_db_backend_routing(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(ratelimit_backend="database", trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(ratelimit_backend="database", trusted_proxy_cidr_list=[]),
+        )
         db = _FakeDB(row=None)
         monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
         rl.check_rate_limit(_req(), key="cov-db", limit=5, window_seconds=60)
         rl.check_rate_limit_by_id(key="cov-db", client_id="c", limit=5, window_seconds=60)
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(ratelimit_backend="memory", trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(ratelimit_backend="memory", trusted_proxy_cidr_list=[]),
+        )
 
 
 @pytest.mark.asyncio
@@ -313,22 +340,25 @@ async def test_ratelimit_window_expiry_pops_old_entries() -> None:
 
     reset_rate_limit()
     # Fill one bucket then age it past the window so popleft branches hit.
-    assert mod.try_rate_limit_by_id(
-        key="cov-final", client_id="c1", limit=1, window_seconds=60
-    ) is True
+    assert (
+        mod.try_rate_limit_by_id(key="cov-final", client_id="c1", limit=1, window_seconds=60)
+        is True
+    )
     # Second call without ageing is blocked.
-    assert mod.try_rate_limit_by_id(
-        key="cov-final", client_id="c1", limit=1, window_seconds=60
-    ) is False
+    assert (
+        mod.try_rate_limit_by_id(key="cov-final", client_id="c1", limit=1, window_seconds=60)
+        is False
+    )
     # Age timestamps by hand to force the while-popleft path (202/239).
     bucket = mod._BUCKETS[("cov-final", "c1")]
     old = time.monotonic() - 120.0
     bucket.timestamps.clear()
     bucket.timestamps.append(old)
     bucket.last_access = old
-    assert mod.try_rate_limit_by_id(
-        key="cov-final", client_id="c1", limit=1, window_seconds=60
-    ) is True
+    assert (
+        mod.try_rate_limit_by_id(key="cov-final", client_id="c1", limit=1, window_seconds=60)
+        is True
+    )
     reset_rate_limit("cov-final")
 
 
@@ -403,15 +433,10 @@ class TestDbBucketSweep:
         assert deleted == 1
         db.expire_all()
         assert (
-            db.query(RateLimitBucket)
-            .filter(RateLimitBucket.bucket_key == "old:ip")
-            .first()
-            is None
+            db.query(RateLimitBucket).filter(RateLimitBucket.bucket_key == "old:ip").first() is None
         )
         assert (
-            db.query(RateLimitBucket)
-            .filter(RateLimitBucket.bucket_key == "new:ip")
-            .first()
+            db.query(RateLimitBucket).filter(RateLimitBucket.bucket_key == "new:ip").first()
             is not None
         )
 

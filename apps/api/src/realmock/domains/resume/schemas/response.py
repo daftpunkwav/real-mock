@@ -18,13 +18,12 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from realmock.platform.schemas import CandidateProfile
 from realmock.domains.resume.schemas.limits import client_limits_payload
+from realmock.platform.schemas import CandidateProfile
 
 
 # One resume row as returned by list / get / upload / activate / retry.
 class ResumeResponse(BaseModel):
-
     id: int
     filename: str
     file_type: str
@@ -46,7 +45,6 @@ class ResumeResponse(BaseModel):
 # ``x-resume-catalog`` embeds the live payload so frontend tests can
 # compare values, not just property names.
 class ResumeDomainLimits(BaseModel):
-
     model_config = ConfigDict(
         json_schema_extra={"x-resume-catalog": cast("dict[str, Any]", client_limits_payload())}
     )

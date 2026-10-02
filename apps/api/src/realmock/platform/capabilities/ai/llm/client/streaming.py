@@ -17,20 +17,20 @@ from typing import Any
 
 import httpx
 
-from realmock.platform.core.prompts import strip_emojis
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.ai.llm.retry_policy import (
     RETRY_DELAYS,
     is_retryable_exception,
     is_retryable_status,
     sleep_retry,
 )
+from realmock.platform.core.prompts import strip_emojis
+from realmock.platform.core.security import make_pinned_async_client
 
+from ..stream_filters import StreamSanitizer
 from .assemblers import _AnthropicRoundAssembler, _OpenAIRoundAssembler, _ResponsesRoundAssembler
 from .base import LLMUpstreamError, _is_local_allowed, _require_https
 from .protocol_utils import _headers
 from .response_extract import parse_sse_event
-from ..stream_filters import StreamSanitizer
 
 logger = logging.getLogger(__name__)
 

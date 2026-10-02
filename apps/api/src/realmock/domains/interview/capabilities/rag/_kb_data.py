@@ -49,46 +49,50 @@ def _build_documents() -> tuple[list[str], list[dict[str, Any]], list[str]]:
             f"{company['name']} ({cid}) Interview style: {company['style']}. "
             f"Pressure level: {company['pressure_level']}."
         )
-        metadatas.append({
-            "company_id": cid,
-            "company_name": company["name"],
-            "section": "style",
-        })
+        metadatas.append(
+            {
+                "company_id": cid,
+                "company_name": company["name"],
+                "section": "style",
+            }
+        )
         ids.append(f"{cid}::style")
 
         # Slice 2: Focus Areas
         texts.append(
             f"{company['name']} Key areas to inspect: {', '.join(company['focus_areas'])}."
         )
-        metadatas.append({
-            "company_id": cid,
-            "company_name": company["name"],
-            "section": "focus_areas",
-        })
+        metadatas.append(
+            {
+                "company_id": cid,
+                "company_name": company["name"],
+                "section": "focus_areas",
+            }
+        )
         ids.append(f"{cid}::focus_areas")
 
         # Slice 3: Typical questions (one slice for each question)
         for idx, q in enumerate(company["sample_questions"]):
-            texts.append(
-                f"{company['name']}Examples of typical interview questions:{q}"
+            texts.append(f"{company['name']}Examples of typical interview questions:{q}")
+            metadatas.append(
+                {
+                    "company_id": cid,
+                    "company_name": company["name"],
+                    "section": "sample_question",
+                    "question_index": idx,
+                }
             )
-            metadatas.append({
-                "company_id": cid,
-                "company_name": company["name"],
-                "section": "sample_question",
-                "question_index": idx,
-            })
             ids.append(f"{cid}::q::{idx}")
 
         # Slice 4: Interview Process
-        texts.append(
-            f"{company['name']}Typical interview process:{company['interview_flow']}"
+        texts.append(f"{company['name']}Typical interview process:{company['interview_flow']}")
+        metadatas.append(
+            {
+                "company_id": cid,
+                "company_name": company["name"],
+                "section": "interview_flow",
+            }
         )
-        metadatas.append({
-            "company_id": cid,
-            "company_name": company["name"],
-            "section": "interview_flow",
-        })
         ids.append(f"{cid}::flow")
 
     return texts, metadatas, ids

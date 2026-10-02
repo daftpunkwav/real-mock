@@ -79,8 +79,7 @@ def get_last_quota() -> dict[str, Any]:
 def _rate_limit_markers(text: str) -> bool:
     lowered = (text or "").lower()
     return any(
-        marker in lowered
-        for marker in ("rate limit", "rate_limit", "ratelimit", "quota", "abuse")
+        marker in lowered for marker in ("rate limit", "rate_limit", "ratelimit", "quota", "abuse")
     )
 
 

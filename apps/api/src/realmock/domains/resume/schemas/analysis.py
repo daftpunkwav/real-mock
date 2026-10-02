@@ -15,21 +15,18 @@ from pydantic import BaseModel, Field
 
 # Single dimension score for a resume review.
 class DimensionScore(BaseModel):
-
     score: int = Field(ge=0, le=100)
     comment: str = ""
 
 
 # Before/after rewrite pair for a resume bullet.
 class RewriteExample(BaseModel):
-
     before: str = ""
     after: str = ""
 
 
 # Per-section review (education / work / projects / skills / layout).
 class SectionReview(BaseModel):
-
     section: str = ""
     score: int = Field(ge=0, le=100)
     verdict: str = ""
@@ -38,7 +35,6 @@ class SectionReview(BaseModel):
 
 # One predicted interview question with the interviewer's intent and a model answer.
 class InterviewQa(BaseModel):
-
     question: str = ""
     intent: str = ""
     answer_points: list[str] = Field(default_factory=list)
@@ -47,7 +43,6 @@ class InterviewQa(BaseModel):
 
 # Deep-dive card for one project.
 class ProjectCard(BaseModel):
-
     name: str = ""
     score: int = Field(ge=0, le=100)
     one_line: str = ""
@@ -58,7 +53,6 @@ class ProjectCard(BaseModel):
 
 # Three-tier skill trust: evidenced / claimed-only / missing for target role.
 class SkillTrust(BaseModel):
-
     solid: list[str] = Field(default_factory=list)
     claimed: list[str] = Field(default_factory=list)
     missing: list[str] = Field(default_factory=list)
@@ -66,7 +60,6 @@ class SkillTrust(BaseModel):
 
 # Career trajectory analysis.
 class CareerAnalysis(BaseModel):
-
     trajectory: str = ""
     stability_score: int = Field(ge=0, le=100)
     gaps: list[str] = Field(default_factory=list)
@@ -75,7 +68,6 @@ class CareerAnalysis(BaseModel):
 
 # Fit score for a company tier.
 class CompanyFit(BaseModel):
-
     tier: str = ""
     fit_score: int = Field(ge=0, le=100)
     reason: str = ""
@@ -83,7 +75,6 @@ class CompanyFit(BaseModel):
 
 # GitHub repo evidence: metadata plus commit/source observations.
 class RepoEvidence(BaseModel):
-
     repo: str = ""
     url: str = ""
     stars: int | None = None
@@ -97,7 +88,6 @@ class RepoEvidence(BaseModel):
 
 # Cross-check of resume claims against repository facts.
 class RepoVerification(BaseModel):
-
     repo: str = ""
     verdict: str = ""
     details: str = ""
@@ -107,7 +97,6 @@ class RepoVerification(BaseModel):
 #
 # Keeps legacy strengths/weaknesses/… fields and extends with dimension_scores etc.
 class ResumeAnalysis(BaseModel):
-
     score: int = Field(ge=0, le=100)
     strengths: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)

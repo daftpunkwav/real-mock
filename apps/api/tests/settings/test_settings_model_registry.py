@@ -16,7 +16,6 @@ from realmock.platform.core.errors import ApiBusinessError
 @pytest.fixture(autouse=True)
 def _clean_api_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -131,8 +130,9 @@ class TestRegistryHelpers:
 
     def test_merge_extras_capability_convention_keys(self, api_db) -> None:
         _wipe(api_db)
-        from realmock.platform.models import LlmProvider
         import json as _json
+
+        from realmock.platform.models import LlmProvider
 
         p = LlmProvider(name="ex3")
         api_db.add(p)
@@ -144,7 +144,10 @@ class TestRegistryHelpers:
                 m,
                 {
                     "reasoning": {"variants": ["Low", "high", "low", ""], "defaultVariant": "high"},
-                    "modalities": {"input": ["text", "image", "bogus"], "output": ["text", "bogus"]},
+                    "modalities": {
+                        "input": ["text", "image", "bogus"],
+                        "output": ["text", "bogus"],
+                    },
                     "tts_request": {"voice_setting": {"speed": 1.2}},
                 },
             )
@@ -155,8 +158,9 @@ class TestRegistryHelpers:
 
     def test_merge_extras_capability_convention_invalid_dropped(self, api_db) -> None:
         _wipe(api_db)
-        from realmock.platform.models import LlmProvider
         import json as _json
+
+        from realmock.platform.models import LlmProvider
 
         p = LlmProvider(name="ex4")
         api_db.add(p)

@@ -26,7 +26,12 @@ _ANTHROPIC_THINKING_BUDGET = {
 }
 
 # Labels with dedicated Anthropic thinking shapes (compat endpoints).
-_ANTHROPIC_THINKING_MODES = {"adaptive": "adaptive", "off": "disabled", "none": "disabled", "disabled": "disabled"}
+_ANTHROPIC_THINKING_MODES = {
+    "adaptive": "adaptive",
+    "off": "disabled",
+    "none": "disabled",
+    "disabled": "disabled",
+}
 
 # OpenAI's reasoning_effort/effort fields have no "max" level.
 _OPENAI_EFFORT_ALIASES = {"max": "high"}

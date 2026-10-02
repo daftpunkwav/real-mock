@@ -26,7 +26,6 @@ from realmock.platform.core.security import (
     sniff_extension,
 )
 
-
 # ---------------------------------------------------------------------------
 # redact_api_key
 # ---------------------------------------------------------------------------
@@ -226,19 +225,23 @@ class TestIsSafeHttpUrl:
 
     def test_port_whitelist_override(self, public_dns) -> None:
         allowed = frozenset({80, 443, 8443})
-        assert is_safe_http_url(
-            "https://api.example.com:8443", allow_local=False, allowed_ports=allowed
-        ) is True
+        assert (
+            is_safe_http_url(
+                "https://api.example.com:8443", allow_local=False, allowed_ports=allowed
+            )
+            is True
+        )
 
     def test_explicit_port_whitelist_applies_to_loopback(self) -> None:
         """An explicit whitelist is enforced even when loopback is allowed."""
         allowed = frozenset({80, 443})
-        assert is_safe_http_url(
-            "http://127.0.0.1:11434/x", allow_local=True, allowed_ports=allowed
-        ) is False
-        assert is_safe_http_url(
-            "http://127.0.0.1/x", allow_local=True, allowed_ports=allowed
-        ) is True
+        assert (
+            is_safe_http_url("http://127.0.0.1:11434/x", allow_local=True, allowed_ports=allowed)
+            is False
+        )
+        assert (
+            is_safe_http_url("http://127.0.0.1/x", allow_local=True, allowed_ports=allowed) is True
+        )
         # Without an explicit whitelist the dev behaviour is unchanged.
         assert is_safe_http_url("http://127.0.0.1:11434/x", allow_local=True) is True
 

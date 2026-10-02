@@ -20,7 +20,6 @@ from realmock.platform.app_factory import (
 )
 
 
-
 def _router() -> APIRouter:
     r = APIRouter()
 
@@ -51,7 +50,10 @@ def test_lifespan_test_mode_skips_startup(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("TEST_MODE", "1")
     started: list[str] = []
     app = create_service_app(
-        service_routers=_router(), title="t", description="d", service_name="s",
+        service_routers=_router(),
+        title="t",
+        description="d",
+        service_name="s",
         lifespan_startup=lambda: started.append("x"),
     )
     with TestClient(app):
@@ -64,7 +66,10 @@ async def test_lifespan_runs_sync_and_async_startup(monkeypatch: pytest.MonkeyPa
     monkeypatch.delenv("TEST_MODE", raising=False)
     called: list[str] = []
     app = create_service_app(
-        service_routers=_router(), title="t", description="d", service_name="s",
+        service_routers=_router(),
+        title="t",
+        description="d",
+        service_name="s",
         lifespan_startup=lambda: called.append("sync"),
     )
     async with app.router.lifespan_context(app):
@@ -77,7 +82,10 @@ async def test_lifespan_runs_sync_and_async_startup(monkeypatch: pytest.MonkeyPa
         done.append("async")
 
     app2 = create_service_app(
-        service_routers=_router(), title="t", description="d", service_name="s",
+        service_routers=_router(),
+        title="t",
+        description="d",
+        service_name="s",
         lifespan_startup=_async_startup,
     )
     async with app2.router.lifespan_context(app2):
@@ -92,7 +100,10 @@ def test_trace_middleware_exception_path_still_tags_response(
     # No core handlers: the route error propagates through the trace middleware
     # (covers its log-and-reraise path) up to ServerErrorMiddleware.
     app = create_service_app(
-        service_routers=_router(), title="t", description="d", service_name="s",
+        service_routers=_router(),
+        title="t",
+        description="d",
+        service_name="s",
         register_error_handlers=False,
     )
 

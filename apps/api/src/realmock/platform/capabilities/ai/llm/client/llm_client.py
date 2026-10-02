@@ -22,17 +22,17 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
-from realmock.platform.core.security import (
-    UnsafeURLError,
-    is_safe_http_url,
-)
 from realmock.platform.capabilities.ai.llm.defaults import (
     DEFAULT_MAX_OUTPUT_TOKENS,
     LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
     LLM_CHAT_TIMEOUT_SECONDS,
 )
 from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
+from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
+from realmock.platform.core.security import (
+    UnsafeURLError,
+    is_safe_http_url,
+)
 
 from .base import LLMUpstreamError, _extract_message_text, _is_local_allowed, _require_https
 from .from_db import build_from_db, build_from_stage_config
@@ -72,7 +72,9 @@ class LLMClient:
         self.protocol = protocol
         self.reasoning_effort = reasoning_effort
         # Model-declared custom thinking levels; passed through to requests verbatim.
-        self.reasoning_variants = [str(v) for v in (reasoning_variants or []) if str(v).strip()] or None
+        self.reasoning_variants = [
+            str(v) for v in (reasoning_variants or []) if str(v).strip()
+        ] or None
         # Full-URL providers: api_base is the verbatim endpoint, protocol path appending is skipped.
         self.full_url = bool(full_url)
         # Vendor-specific request customization from model-entry extras (any standard key wins replacement).
@@ -238,7 +240,11 @@ class LLMClient:
         """Send Chat Completions and return the complete message object (including tool_calls)."""
         if self.protocol != DEFAULT_LLM_PROTOCOL:
             message = await self._delegate().chat_message(
-                messages, temperature=temperature, response_format=response_format, tools=tools, tool_choice=tool_choice
+                messages,
+                temperature=temperature,
+                response_format=response_format,
+                tools=tools,
+                tool_choice=tool_choice,
             )
             if not message.get("tool_calls"):
                 message.pop("tool_calls", None)
@@ -327,9 +333,7 @@ class LLMClient:
     ) -> AsyncIterator[str]:
         """Streaming returns token."""
         if self.protocol != DEFAULT_LLM_PROTOCOL:
-            async for token in self._delegate().chat_stream(
-                messages, tools=tools
-            ):
+            async for token in self._delegate().chat_stream(messages, tools=tools):
                 yield token
             return
         await self._safe_check()
@@ -373,4 +377,10 @@ class LLMClient:
         return build_from_stage_config(cls, config)
 
 
-from . import llm_client_ext as _llm_ext  # noqa: E402 — Import after class definition, one-way dependency on ext during runtime
+# Import after the class definition on purpose: a one-way runtime dependency on
+# ext, so llm_ext never has to import back. E402 applies to the statement, and
+# ruff attributes it to the first line, hence the noqa there rather than on the
+# member line below.
+from . import (  # noqa: E402
+    llm_client_ext as _llm_ext,
+)

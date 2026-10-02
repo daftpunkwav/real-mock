@@ -68,11 +68,11 @@ def test_sessions_from_process_follow_the_chain(db) -> None:
 
 def test_create_process_response_exposes_round_plan(db) -> None:
     """The process response carries the full planned chain for the frontend."""
+    from realmock.domains.interview.process.process_service import _to_response
     from realmock.domains.interview.schemas.process import (
         ProcessCreateRequest,
         ProcessRoundPlanItem,
     )
-    from realmock.domains.interview.process.process_service import _to_response
 
     req = ProcessCreateRequest(role="r", level="l", company="bytedance", max_rounds=4)
     process, session = create_process_with_first_round(db, req)

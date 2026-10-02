@@ -11,8 +11,8 @@ from __future__ import annotations
 import time
 
 import pytest
-from realmock.platform.core.ratelimit import reset_rate_limit
 
+from realmock.platform.core.ratelimit import reset_rate_limit
 
 
 @pytest.fixture(autouse=True)
@@ -42,15 +42,15 @@ def test_github_quota_reset_in_computed() -> None:
     from realmock.platform.capabilities.integrations.github import github_http as mod
 
     reset = int(time.time()) + 30
-    quota = mod._quota_from_headers(
-        {"x-ratelimit-remaining": "5", "x-ratelimit-reset": str(reset)}
-    )
+    quota = mod._quota_from_headers({"x-ratelimit-remaining": "5", "x-ratelimit-reset": str(reset)})
     assert quota["remaining"] == 5
     assert 0 <= quota["reset_in"] <= 30
 
 
 class _FakeGHResp:
-    def __init__(self, status, *, headers=None, content=b"", text="", payload=None, fail_json=False):
+    def __init__(
+        self, status, *, headers=None, content=b"", text="", payload=None, fail_json=False
+    ):
         self.status_code = status
         self.headers = headers or {}
         self.content = content

@@ -102,12 +102,8 @@ async def analyze_resume_stream(
         try:
             await analyze_slots.acquire_slot()
             acquired = True
-            analysis = await analyze_resume_with_llm(
-                row, db, locale=body.locale, on_event=put
-            )
-            await put(
-                {"type": "done", "analysis": analysis.model_dump(mode="json")}
-            )
+            analysis = await analyze_resume_with_llm(row, db, locale=body.locale, on_event=put)
+            await put({"type": "done", "analysis": analysis.model_dump(mode="json")})
         except Exception as exc:
             if not isinstance(exc, ApiBusinessError):
                 logger.exception(

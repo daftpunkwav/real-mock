@@ -55,8 +55,9 @@ async def test_hint_answer_timeout_and_no_tools_and_note_trim():
 
 @pytest.mark.asyncio
 async def test_hint_answer_tool_trace_trim_and_on_tool(monkeypatch):
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     monkeypatch.setattr(mod, "github_tool_specs", lambda: [object()])
     monkeypatch.setattr(mod, "openai_tool", lambda spec: spec)
@@ -96,8 +97,9 @@ async def test_hint_answer_tool_trace_trim_and_on_tool(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_hint_answer_execute_path():
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     async def fake_loop(llm, messages, **kwargs):
         execute = kwargs.get("execute")

@@ -46,7 +46,9 @@ class InterviewSession(SessionsBase):
     # realmock.domains.interview.ledger.migration); it is intentionally NOT
     # mapped here, and any pre-migration database is backfilled via raw SQL
     # before the column is dropped on boot.
-    ledger_frozen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    ledger_frozen: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
     report: Mapped[str] = mapped_column(Text, default="{}")
     overall_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     token_usage: Mapped[int] = mapped_column(Integer, default=0)

@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.agents.session_state import (
     InterviewSessionState,
     _is_summary_phase,
@@ -382,25 +383,7 @@ def test_phase_entry_reverse_qa_and_summary(db) -> None:
 # ---- session_overrides ----
 
 
-
-
-
-
-
-
 # ---- compaction thresholds ----
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- round planner background (tests live in test_round_planner_extra.py / test_round_plan_schema.py) ----

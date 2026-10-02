@@ -55,12 +55,17 @@ def test_normalize_clamps_fields() -> None:
 def test_normalize_bad_stage_falls_to_insufficient() -> None:
     from realmock.domains.growth.agents.insight import normalize_growth_insight
 
-    out = normalize_growth_insight({"trajectory_stage": "unknown", "headline": "x", "trajectory": "y"})
+    out = normalize_growth_insight(
+        {"trajectory_stage": "unknown", "headline": "x", "trajectory": "y"}
+    )
     assert out["trajectory_stage"] == "insufficient"
 
 
 def test_insight_substantive_gate() -> None:
-    from realmock.domains.growth.agents.insight import _insight_is_substantive, normalize_growth_insight
+    from realmock.domains.growth.agents.insight import (
+        _insight_is_substantive,
+        normalize_growth_insight,
+    )
 
     empty = normalize_growth_insight({"headline": "", "trajectory": ""})
     assert not _insight_is_substantive(empty)
@@ -76,14 +81,26 @@ def test_insight_substantive_gate() -> None:
 @pytest.fixture
 def _index():
     idx = [
-        {"session_id": 2, "date": "2026-09-01", "role": "后端", "company": "ACME",
-         "level": "mid", "overall_score": 72, "verdict": "passed"},
-        {"session_id": 1, "date": "2026-08-01", "role": "后端", "company": "ACME",
-         "level": "mid", "overall_score": 60, "verdict": "failed"},
+        {
+            "session_id": 2,
+            "date": "2026-09-01",
+            "role": "后端",
+            "company": "ACME",
+            "level": "mid",
+            "overall_score": 72,
+            "verdict": "passed",
+        },
+        {
+            "session_id": 1,
+            "date": "2026-08-01",
+            "role": "后端",
+            "company": "ACME",
+            "level": "mid",
+            "overall_score": 60,
+            "verdict": "failed",
+        },
     ]
-    with patch(
-        "realmock.domains.growth.agents.insight._build_session_index", return_value=idx
-    ):
+    with patch("realmock.domains.growth.agents.insight._build_session_index", return_value=idx):
         yield idx
 
 
@@ -113,7 +130,9 @@ def _analysis_json() -> str:
             "headline": "稳步上升",
             "trajectory": "sid 2 分数高于 sid 1",
             "trajectory_stage": "rising",
-            "recurring_weaknesses": [{"skill": "sql", "count": 2, "trend": "improving", "advice": "练习"}],
+            "recurring_weaknesses": [
+                {"skill": "sql", "count": 2, "trend": "improving", "advice": "练习"}
+            ],
             "improving_areas": [],
             "resume_gap_insights": [],
             "training_plan": [{"area": "SQL", "based_on": "sid 1/2", "actions": ["刷题"]}],
@@ -142,7 +161,9 @@ def test_generate_parses_loop_json(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
     ):
         result = _run(_generate())
 
@@ -159,9 +180,7 @@ def test_generate_parses_loop_json(_index, _no_side_tools) -> None:
 
 def test_generate_skips_without_sessions() -> None:
 
-    with patch(
-        "realmock.domains.growth.agents.insight._build_session_index", return_value=[]
-    ):
+    with patch("realmock.domains.growth.agents.insight._build_session_index", return_value=[]):
         result = _run(_generate())
     assert result is None
 
@@ -185,7 +204,9 @@ def test_generate_none_on_unparsable_final(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
     ):
         result = _run(_generate())
     assert result is None
@@ -197,7 +218,9 @@ def test_generate_none_on_empty_shell(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
     ):
         result = _run(_generate())
     assert result is None
@@ -213,7 +236,9 @@ def test_generate_salvages_truncated_json(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
     ):
         result = _run(_generate())
     assert result is not None
@@ -237,8 +262,12 @@ def test_execute_tool_call_circuit_breaker(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
-        patch("realmock.domains.growth.agents.insight.invoke_with_timeout", side_effect=fail_invoke),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
+        patch(
+            "realmock.domains.growth.agents.insight.invoke_with_timeout", side_effect=fail_invoke
+        ),
     ):
         _run(_generate())
         execute = captured["execute"]
@@ -267,7 +296,9 @@ def test_execute_tool_call_budget_refusal(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
         patch("realmock.domains.growth.agents.insight.invoke_with_timeout", side_effect=ok_invoke),
     ):
         _run(_generate())
@@ -308,7 +339,9 @@ def test_generate_none_on_llm_upstream_error(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
     ):
         assert _run(_generate()) is None
 
@@ -319,6 +352,8 @@ def test_generate_none_on_unexpected_error(_index, _no_side_tools) -> None:
 
     with (
         patch("realmock.domains.growth.agents.insight.LLMClient.from_db", return_value=MagicMock()),
-        patch("realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop),
+        patch(
+            "realmock.domains.growth.agents.insight.run_agent_loop", side_effect=fake_run_agent_loop
+        ),
     ):
         assert _run(_generate()) is None

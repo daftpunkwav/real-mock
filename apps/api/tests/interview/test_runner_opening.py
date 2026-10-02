@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.agents.tool_round_runner import (
     ToolRoundResult,
@@ -48,18 +49,6 @@ def _empty_llm() -> MagicMock:
 # ---- process orchestrator ----
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 # ---- tool round runner: rag + tools ----
 
 
@@ -71,38 +60,6 @@ def _runner(rag=None, llm=None) -> ToolRoundRunner:
             self.agent_state = {}
 
     return ToolRoundRunner(session, llm or _empty_llm(), _Agent(), rag)  # type: ignore[arg-type]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- runner opening ----

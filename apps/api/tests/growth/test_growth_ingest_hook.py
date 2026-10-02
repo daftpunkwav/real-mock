@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-
 from unittest.mock import MagicMock, patch
 
 
@@ -46,6 +45,4 @@ def test_ingest_regen_schedule_failure_swallowed(caplog) -> None:
         caplog.at_level(logging.ERROR, logger="realmock.domains.growth.services.ingest"),
     ):
         mod.handle_report_summary(_payload(9203))  # must not raise
-    assert any(
-        "growth insight regen scheduling failed" in r.message for r in caplog.records
-    )
+    assert any("growth insight regen scheduling failed" in r.message for r in caplog.records)

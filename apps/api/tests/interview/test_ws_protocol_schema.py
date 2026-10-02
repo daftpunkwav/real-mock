@@ -8,7 +8,9 @@ from pathlib import Path
 
 from realmock.domains.interview.constants import WSClientEvent, WSServerEvent
 
-ROOT = Path(__file__).resolve().parents[4]  # repo root (tests/interview/ -> apps/api -> apps -> repo)
+ROOT = (
+    Path(__file__).resolve().parents[4]
+)  # repo root (tests/interview/ -> apps/api -> apps -> repo)
 SCHEMA_PATH = ROOT / "protocol" / "interview_ws.schema.json"
 FRONTEND_WS_TS = ROOT / "apps" / "web" / "src" / "types" / "domains" / "interview_ws.ts"
 

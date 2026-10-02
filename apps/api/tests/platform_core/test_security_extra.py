@@ -14,7 +14,6 @@ from realmock.platform.core.security import (
     redact_api_key,
 )
 
-
 # ---------------------------------------------------------------------------
 # Port / URL parsing
 # ---------------------------------------------------------------------------
@@ -23,10 +22,13 @@ from realmock.platform.core.security import (
 class TestPortAndUrl:
     def test_query_string_with_safe_path(self, public_dns) -> None:
         """A URL with a query string should not fail validation."""
-        assert is_safe_http_url(
-            "https://api.example.com/v1/models?api_key=xxx",
-            allow_local=False,
-        ) is True
+        assert (
+            is_safe_http_url(
+                "https://api.example.com/v1/models?api_key=xxx",
+                allow_local=False,
+            )
+            is True
+        )
 
     def test_unicode_domain_punycode(self) -> None:
         """Punycode / unicode domains should be allowed (public network)."""
@@ -34,7 +36,10 @@ class TestPortAndUrl:
         # Chinese domain in Punycode form xn--
         ok, _ = (True, False)
         assert ok
-        assert is_safe_http_url("https://xn--fiqs8s.xn--0zwm56d", allow_local=False) in (True, False)
+        assert is_safe_http_url("https://xn--fiqs8s.xn--0zwm56d", allow_local=False) in (
+            True,
+            False,
+        )
         # Return False when the network does not exist, without raising an exception
         try:
             is_safe_http_url("https://this-domain-does-not-exist-12345.invalid", allow_local=False)
@@ -88,8 +93,10 @@ class TestDnsRebindingMultiARecords:
 
         def fake_resolve(hostname: str):
             return [
-                ipaddress.ip_address("8.8.8.8"),     # Public network OK
-                ipaddress.ip_address("127.0.0.1"),   # A loopback address matches the blacklist → reject the entire request
+                ipaddress.ip_address("8.8.8.8"),  # Public network OK
+                ipaddress.ip_address(
+                    "127.0.0.1"
+                ),  # A loopback address matches the blacklist → reject the entire request
             ]
 
         monkeypatch.setattr(security_url, "_resolve_all", fake_resolve)
@@ -127,10 +134,10 @@ class TestRedactEdgeCases:
     @pytest.mark.parametrize(
         "raw",
         [
-            "sk-",        # Length 3 is not redacted
-            "sk-a",       # Length 4 is not redacted
-            "abcdefgh",   # At the length-8 boundary with no spaces but has_digit=False, the value is not redacted.
-            "sk-12",      # Length 5, <= 8, is not redacted
+            "sk-",  # Length 3 is not redacted
+            "sk-a",  # Length 4 is not redacted
+            "abcdefgh",  # At the length-8 boundary with no spaces but has_digit=False, the value is not redacted.
+            "sk-12",  # Length 5, <= 8, is not redacted
         ],
     )
     def test_short_strings_pass_through(self, raw: str) -> None:

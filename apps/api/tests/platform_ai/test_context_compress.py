@@ -64,13 +64,17 @@ def test_estimate_messages_tokens_sums_contents() -> None:
     # Latin 3/4 -> 1 and 4/4 -> 1, plus per-message framing overhead each.
     from realmock.platform.capabilities.ai.context.estimation import MESSAGE_OVERHEAD_TOKENS
 
-    assert estimate_messages_tokens(msgs) == 1 + MESSAGE_OVERHEAD_TOKENS + 1 + MESSAGE_OVERHEAD_TOKENS
+    assert (
+        estimate_messages_tokens(msgs) == 1 + MESSAGE_OVERHEAD_TOKENS + 1 + MESSAGE_OVERHEAD_TOKENS
+    )
 
 
 def test_compress_triggers_at_30_percent_threshold() -> None:
     """The trigger threshold has been lowered from 60% to 30%, so compression occurs even when total message tokens < max_tokens*0.6."""
     # Construct five user messages of about 187 tokens each → ~935 tokens total.
-    big = "contentcontentcontentcontentcontentcontentcontentcontent" * 5  # "content" x8=56 chars x5=280 chars ~=186 tokens
+    big = (
+        "contentcontentcontentcontentcontentcontentcontentcontent" * 5
+    )  # "content" x8=56 chars x5=280 chars ~=186 tokens
     msgs = [{"role": "user", "content": big + str(i)} for i in range(5)]
     total = sum(estimate_messages_tokens([m]) for m in msgs)
     # Set max_tokens so the ratio falls within the (30%, 60%) range:
@@ -78,7 +82,9 @@ def test_compress_triggers_at_30_percent_threshold() -> None:
     max_tokens = int(total / 0.45)  # ~exactly a 45% share
     out = compress_messages(msgs, max_tokens=max_tokens)
     # Starting with five user messages, compression should leave fewer than five and add a system summary.
-    system_marker = [m for m in out if m["role"] == "system" and "Context compression" in m["content"]]
+    system_marker = [
+        m for m in out if m["role"] == "system" and "Context compression" in m["content"]
+    ]
     assert system_marker, "Compression should also trigger at the 30% threshold"
 
 
@@ -101,6 +107,7 @@ def test_estimate_messages_tokens_skips_empty_content() -> None:
     total = estimate_messages_tokens(msgs)
     assert total >= 0
 
+
 # ── Folding old tool pairs ────────────────────────────────────────────────
 
 
@@ -112,7 +119,11 @@ def _turn_with_tools(user_text: str, tool_result: str, answer: str) -> list[dict
             "role": "assistant",
             "content": None,
             "tool_calls": [
-                {"id": "c1", "type": "function", "function": {"name": "web_search", "arguments": "{}"}}
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": "{}"},
+                }
             ],
         },
         {"role": "tool", "tool_call_id": "c1", "content": tool_result},
@@ -131,8 +142,12 @@ def test_compress_prunes_stale_tool_pairs() -> None:
     out = compress_messages(msgs, max_tokens=10000)  # Threshold reached without omission
     roles = [m["role"] for m in out]
     assert "tool" not in roles, "Old tool results should be collapsed"
-    assert not any(m.get("tool_calls") for m in out), "The old tool_calls structure should be removed"
-    assert any(m["role"] == "assistant" and m.get("content", "").startswith("Previous answer") for m in out)
+    assert not any(m.get("tool_calls") for m in out), (
+        "The old tool_calls structure should be removed"
+    )
+    assert any(
+        m["role"] == "assistant" and m.get("content", "").startswith("Previous answer") for m in out
+    )
     # If present, the latest round (the current tool pair) must be preserved verbatim—the last message here is user, so this does not apply.
 
 
@@ -148,8 +163,12 @@ def test_compress_keeps_current_turn_tool_pairs() -> None:
     out = compress_messages(msgs, max_tokens=500, keep_recent=20)
     tail_user = max(i for i, m in enumerate(out) if m["role"] == "user")
     current = out[tail_user:]
-    assert any(m.get("role") == "tool" for m in current), "The current turn's tool result must be retained"
-    assert any(m.get("tool_calls") for m in current), "The current turn's tool_calls must be retained"
+    assert any(m.get("role") == "tool" for m in current), (
+        "The current turn's tool result must be retained"
+    )
+    assert any(m.get("tool_calls") for m in current), (
+        "The current turn's tool_calls must be retained"
+    )
 
 
 # ── LLM summary compression ──────────────────────────────────────────────
@@ -190,20 +209,32 @@ async def test_compact_with_summary_under_threshold_skips_llm() -> None:
 
 @pytest.mark.asyncio
 async def test_compact_with_summary_generates_structured_summary() -> None:
-    llm = _SummarizerLLM(reply="Session goal: analyze the resume\nTo do: simulate follow-up questions")
+    llm = _SummarizerLLM(
+        reply="Session goal: analyze the resume\nTo do: simulate follow-up questions"
+    )
     mem = WorkingMemory()
     out = await compact_with_summary(_big_history(), 500, memory=mem, llm=llm, keep_recent=4)
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
     assert "Session goal" in summaries[0]["content"]
     # Omitted earlier conversation messages should no longer exist verbatim; retain the recent window
-    assert not any(m["role"] == "user" and str(m.get("content", "")).startswith("Question0") for m in out)
-    assert any(m["role"] == "user" and str(m.get("content", "")).startswith("Question11") for m in out)
-    assert mem.notes, "Omitted conversation messages should also be incorporated into working memory"
-    assert llm.chat_calls, "The LLM must be called to generate a summary when the threshold is exceeded"
+    assert not any(
+        m["role"] == "user" and str(m.get("content", "")).startswith("Question0") for m in out
+    )
+    assert any(
+        m["role"] == "user" and str(m.get("content", "")).startswith("Question11") for m in out
+    )
+    assert mem.notes, (
+        "Omitted conversation messages should also be incorporated into working memory"
+    )
+    assert llm.chat_calls, (
+        "The LLM must be called to generate a summary when the threshold is exceeded"
+    )
+
 
 @pytest.mark.asyncio
 async def test_compact_bailout_does_not_absorb_into_memory() -> None:
@@ -227,7 +258,8 @@ async def test_compact_with_summary_falls_back_to_digest_on_llm_failure() -> Non
     mem = WorkingMemory()
     out = await compact_with_summary(_big_history(), 500, llm=llm, keep_recent=4, memory=mem)
     digests = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Context compression]")
     ]
     assert digests, "LLM failure must fall back to a rule-based summary"
@@ -241,7 +273,8 @@ async def test_compact_with_summary_supersedes_previous_summary() -> None:
     llm = _SummarizerLLM(reply="New notes")
     out = await compact_with_summary(old, 500, llm=llm, keep_recent=4)
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
@@ -279,7 +312,10 @@ async def test_compact_default_threshold_is_late_not_eager() -> None:
     total = sum(estimate_messages_tokens([m]) for m in msgs)
     llm = _SummarizerLLM(reply="Notes")
     out = await compact_with_summary(
-        msgs, int(total / 0.45), llm=llm, keep_recent=2,
+        msgs,
+        int(total / 0.45),
+        llm=llm,
+        keep_recent=2,
         threshold=DEFAULT_AUTO_COMPACT_THRESHOLD,
     )
     assert llm.chat_calls == [], "45% occupancy must not compact at the auto default"
@@ -331,7 +367,8 @@ async def test_compact_cooldown_releases_with_new_material() -> None:
     max_tokens = int(estimate_messages_tokens(grown) / 0.5)
     out = await compact_with_summary(grown, max_tokens, llm=llm, keep_recent=2)
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
@@ -354,7 +391,10 @@ async def test_compact_cooldown_yields_to_urgency_and_force() -> None:
 
     urgent_max = int(estimate_messages_tokens(grown) / 0.97)
     urgent = await compact_with_summary(
-        grown, urgent_max, llm=llm, keep_recent=2,
+        grown,
+        urgent_max,
+        llm=llm,
+        keep_recent=2,
         options=CompactionOptions(intensity="aggressive", retain=0),
     )
     assert len(llm.chat_calls) > calls, "near-full window must call the summarizer despite cooldown"
@@ -364,7 +404,8 @@ async def test_compact_cooldown_yields_to_urgency_and_force() -> None:
     )
     forced = await compact_with_summary(grown, 100000, llm=llm, keep_recent=2, force=True)
     summaries = [
-        m for m in forced
+        m
+        for m in forced
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1, "manual force must always attempt the summary"
@@ -428,7 +469,8 @@ async def test_compact_trailer_records_measured_delta() -> None:
     before = estimate_messages_tokens(msgs)
     out = await compact_with_summary(msgs, 100000, llm=llm, keep_recent=2, force=True)
     block = next(
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     )
     parsed = parse_provenance(str(block["content"]))
@@ -446,7 +488,11 @@ async def test_compact_default_focus_anchors_summary_without_directive() -> None
     """No directive: the session objective still steers the summary."""
     llm = _SummarizerLLM(reply="Notes")
     await compact_with_summary(
-        _small_history(turns=4), 100000, llm=llm, keep_recent=2, force=True,
+        _small_history(turns=4),
+        100000,
+        llm=llm,
+        keep_recent=2,
+        force=True,
         default_focus="Session objective: interview prep for Backend Engineer.",
     )
     assert llm.chat_calls
@@ -461,16 +507,15 @@ async def test_compact_keep_from_pins_current_round() -> None:
     out = await compact_with_summary(msgs, 100000, llm=llm, force=True, keep_from=6)
     assert llm.chat_calls
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
     tail = [m for m in out if m.get("role") != "system"]
     # Pin guarantee: everything from keep_from on stays; the retain window may keep more.
     assert [m.get("content") for m in tail[-2:]] == ["Question3", "Answer3"]
-    assert not any(
-        m.get("role") == "user" and m.get("content") == "Question0" for m in out
-    )
+    assert not any(m.get("role") == "user" and m.get("content") == "Question0" for m in out)
 
 
 @pytest.mark.asyncio
@@ -493,7 +538,8 @@ async def test_summarize_chunks_long_histories_with_visible_marker() -> None:
     out = await compact_with_summary(msgs, 500, llm=llm, keep_recent=4, force=True)
     assert len(llm.chat_calls) > 1, "long history must take multiple chained summary calls"
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
@@ -527,12 +573,11 @@ def _small_history(turns: int = 4) -> list[dict]:
 async def test_compact_force_summarizes_below_threshold() -> None:
     """Manual /compact must call the LLM even when usage is far below threshold."""
     llm = _SummarizerLLM(reply="Session goal: plan the interview")
-    out = await compact_with_summary(
-        _small_history(), 100000, llm=llm, keep_recent=2, force=True
-    )
+    out = await compact_with_summary(_small_history(), 100000, llm=llm, keep_recent=2, force=True)
     assert llm.chat_calls, "forced compaction must always attempt an LLM summary"
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
@@ -552,15 +597,14 @@ async def test_compact_force_folds_short_session_to_latest_turn() -> None:
     out = await compact_with_summary(msgs, 100000, llm=llm, force=True)
     assert llm.chat_calls, "forced compaction must summarize even below threshold"
     summaries = [
-        m for m in out
+        m
+        for m in out
         if m["role"] == "system" and str(m.get("content", "")).startswith("[Conversation Minutes]")
     ]
     assert len(summaries) == 1
     # Latest turn stays verbatim; older turns are folded into the summary.
     assert out[-2:] == msgs[-2:]
-    assert not any(
-        m.get("content") == "Question0" for m in out if m.get("role") == "user"
-    )
+    assert not any(m.get("content") == "Question0" for m in out if m.get("role") == "user")
     assert estimate_messages_tokens(out) < before
 
 
@@ -642,16 +686,24 @@ def test_compress_messages_never_severs_tool_pairs() -> None:
         {"role": "user", "content": "OVERVIEW " + "x" * 400},
     ]
     for i in range(16):
-        msgs.append({
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {"id": f"c{i}a", "type": "function",
-                 "function": {"name": "web_search", "arguments": "{}"}},
-                {"id": f"c{i}b", "type": "function",
-                 "function": {"name": "github_get_repo", "arguments": "{}"}},
-            ],
-        })
+        msgs.append(
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"c{i}a",
+                        "type": "function",
+                        "function": {"name": "web_search", "arguments": "{}"},
+                    },
+                    {
+                        "id": f"c{i}b",
+                        "type": "function",
+                        "function": {"name": "github_get_repo", "arguments": "{}"},
+                    },
+                ],
+            }
+        )
         msgs.append({"role": "tool", "tool_call_id": f"c{i}a", "content": "A" * 300})
         msgs.append({"role": "tool", "tool_call_id": f"c{i}b", "content": "B" * 300})
     out = compress_messages(msgs, max_tokens=100, keep_recent=32)

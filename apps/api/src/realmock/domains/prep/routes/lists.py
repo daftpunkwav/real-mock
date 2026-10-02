@@ -49,9 +49,7 @@ def _cached_summary_and_count(session: PrepSession) -> tuple[str, int] | None:
         summary = str(raw_summary or "")[:SESSION_SUMMARY_SNIPPET_MAX_CHARS]
         count = int(raw_count or 0)
     except (TypeError, ValueError):
-        logger.warning(
-            "Prep list ignoring corrupt cache sid=%s", getattr(session, "id", "")
-        )
+        logger.warning("Prep list ignoring corrupt cache sid=%s", getattr(session, "id", ""))
         return None
     if count < 0:
         return None
@@ -106,6 +104,7 @@ def list_prep_sessions(
             )
         )
     return items
+
 
 __all__ = [
     "SESSION_LIST_LIMIT",

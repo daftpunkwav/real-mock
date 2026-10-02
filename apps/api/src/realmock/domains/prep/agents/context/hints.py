@@ -54,16 +54,15 @@ def build_lang_hint(ui_locale: str | None) -> str:
     )
 
 
-def upsert_lang_hint(
-    messages: list[dict[str, Any]], ui_locale: str | None
-) -> list[dict[str, Any]]:
+def upsert_lang_hint(messages: list[dict[str, Any]], ui_locale: str | None) -> list[dict[str, Any]]:
     """Refresh the trailing reply-language suffix: strip older copies, append one.
 
     Idempotent across turns (no accumulation in persisted history) and position
     stable (always the last message), so only the suffix itself re-caches.
     """
     out = [
-        m for m in messages
+        m
+        for m in messages
         if not (
             isinstance(m, dict)
             and m.get("role") == "system"
@@ -92,16 +91,15 @@ def build_usage_hint(messages: list[dict[str, Any]], context_window: int) -> str
     )
 
 
-def upsert_usage_hint(
-    messages: list[dict[str, Any]], context_window: int
-) -> list[dict[str, Any]]:
+def upsert_usage_hint(messages: list[dict[str, Any]], context_window: int) -> list[dict[str, Any]]:
     """Refresh the trailing context-usage suffix: strip older copies, append one.
 
     Idempotent across turns (no accumulation in persisted history) and always
     last, so only the suffix itself re-caches.
     """
     out = [
-        m for m in messages
+        m
+        for m in messages
         if not (
             isinstance(m, dict)
             and m.get("role") == "system"

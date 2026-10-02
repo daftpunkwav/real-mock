@@ -95,7 +95,12 @@ def test_put_over_limit_returns_422(field: str, limit: int) -> None:
 def test_put_domain_constraints() -> None:
     """Domain list count/item max from field_meta; boundary values pass (distinct items so dedupe cannot hide count checks)."""
     with TestClient(app) as client:
-        assert _put(client, tech_domains=[f"d{i}" for i in range(TECH_DOMAINS_MAX_COUNT + 1)]).status_code == 422
+        assert (
+            _put(
+                client, tech_domains=[f"d{i}" for i in range(TECH_DOMAINS_MAX_COUNT + 1)]
+            ).status_code
+            == 422
+        )
         assert _put(client, tech_domains=["x" * (TECH_DOMAIN_ITEM_MAX + 1)]).status_code == 422
         item_prefix = TECH_DOMAIN_ITEM_MAX - 2
         resp = _put(
@@ -236,6 +241,7 @@ def test_get_coerces_corrupt_tech_domains_to_empty_list(api_engine) -> None:
 
 
 # --- tech_domains coercion through the HTTP layer ---
+
 
 @pytest.mark.parametrize(
     "raw",

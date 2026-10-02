@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -23,16 +24,10 @@ def _clean_limits():
 # ---- plan_prompts (61, 68, 78-89, 96) ----
 
 
-
-
 # ---- process_service (165, 278-279, 308-310) ----
 
 
-
-
-    # No crash, warning path (278-279).
-
-
+# No crash, warning path (278-279).
 
 
 # ---- turns (115, 118, 122, 155, 166-168) ----

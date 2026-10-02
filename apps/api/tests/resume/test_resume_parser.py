@@ -8,14 +8,14 @@ Conventions: no real network/model downloads (all clients mocked); LLM faked.
 
 from __future__ import annotations
 
-import pytest
-
 from pathlib import Path
+
+import pytest
 
 from realmock.domains.resume.schemas.limits import MAX_EXTRACTED_CHARS
 from realmock.domains.resume.services.parser import parse_resume_with_llm
-from realmock.domains.resume.services.text_extract import extract_text_from_file
 from realmock.domains.resume.services.repo_evidence import _pick_key_files, extract_github_repos
+from realmock.domains.resume.services.text_extract import extract_text_from_file
 
 
 def test_extract_text_from_txt_and_md(tmp_path: Path) -> None:

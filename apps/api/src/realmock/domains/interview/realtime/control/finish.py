@@ -5,18 +5,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from realmock.domains.interview.agents.events import EventKind
+from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
-from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.domains.interview.agents.events import EventKind
 
 if TYPE_CHECKING:
     import asyncio
     from collections.abc import Callable, Coroutine
 
-
-    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.agents.events import StreamEvent
+    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)
@@ -48,9 +47,7 @@ class FinishControlMixin:
             # Only the COMPLETED state needs to stay visible here: that branch
             # below is the idempotent wrap-up for a repeated finish request.
             # Other terminal states keep the normal not-found handling.
-            session = self._load_session(
-                db, include_status=SessionStatus.COMPLETED.value
-            )
+            session = self._load_session(db, include_status=SessionStatus.COMPLETED.value)
             if not session:
                 await self.send(
                     "error",

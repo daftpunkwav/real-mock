@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.agent.loop import AgentHalt
@@ -111,7 +111,9 @@ async def test_agent_loop_falls_back_when_stream_unsupported() -> None:
             raise NotImplementedError("responses protocol does not support streaming toolwheel")
             yield  # pragma: no cover
 
-    llm = _NoStreamLLM([{"role": "assistant", "content": "Direct answer." * 60, "tool_calls": None}])
+    llm = _NoStreamLLM(
+        [{"role": "assistant", "content": "Direct answer." * 60, "tool_calls": None}]
+    )
 
     async def execute(name: str, args: dict) -> str:
         return "ok"
@@ -180,9 +182,7 @@ async def test_agent_loop_drift_retry_nudges_short_preamble_once() -> None:
         and "Current local date and time" in llm.seen_messages[0][-1]["content"]
     )
     assert llm.seen_messages[0][-2].get("content") == "Search recent interview notes"
-    assert not any(
-        "called no tool" in str(m.get("content")) for m in result.messages
-    )
+    assert not any("called no tool" in str(m.get("content")) for m in result.messages)
 
 
 @pytest.mark.asyncio
@@ -193,9 +193,7 @@ async def test_agent_loop_drift_retry_skips_after_tools_used() -> None:
             {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [
-                    {"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}
-                ],
+                "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}],
             },
             {"role": "assistant", "content": "Combined result", "tool_calls": None},
         ]
@@ -243,9 +241,7 @@ async def test_agent_loop_forwards_reasoning_to_callback() -> None:
                 "role": "assistant",
                 "content": None,
                 "reasoning": "First decide what to look up",
-                "tool_calls": [
-                    {"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}
-                ],
+                "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}],
             },
             {
                 "role": "assistant",
@@ -336,9 +332,7 @@ async def test_agent_halt_appends_observation_and_stops() -> None:
             {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [
-                    {"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}
-                ],
+                "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
             },
             {"role": "assistant", "content": "Should not be reached", "tool_calls": None},
         ]
@@ -410,9 +404,7 @@ async def test_agent_loop_last_round_injects_wrap_up_hint() -> None:
             {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [
-                    {"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}
-                ],
+                "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}],
             },
             {"role": "assistant", "content": "Closing answer", "tool_calls": None},
         ]
@@ -516,13 +508,14 @@ async def test_agent_loop_budget_overflow_gets_synthetic_results() -> None:
     """Calls beyond ``max_tools_per_round`` are declared, then answered with an explicit
     budget observation so protocol pairing holds and the model knows they never ran."""
     calls = [
-        {"id": f"c{i}", "function": {"name": "lookup", "arguments": "{}"}}
-        for i in range(1, 6)
+        {"id": f"c{i}", "function": {"name": "lookup", "arguments": "{}"}} for i in range(1, 6)
     ]
-    llm = _FakeLLM([
-        {"role": "assistant", "content": None, "tool_calls": calls},
-        {"role": "assistant", "content": "done", "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            {"role": "assistant", "content": None, "tool_calls": calls},
+            {"role": "assistant", "content": "done", "tool_calls": None},
+        ]
+    )
     executed: list[str] = []
 
     async def execute(name: str, args: dict) -> str:
@@ -574,18 +567,22 @@ async def test_agent_loop_drift_hint_quotes_narration() -> None:
 @pytest.mark.asyncio
 async def test_already_logged_tool_error_is_not_logged_again(monkeypatch) -> None:
     """A guard that persisted its own failure must not be double-counted here."""
-    llm = _FakeLLM([
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [{
-                "id": "c1",
-                "type": "function",
-                "function": {"name": "lookup", "arguments": "{}"},
-            }],
-        },
-        {"role": "assistant", "content": "Recovered." * 60, "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "lookup", "arguments": "{}"},
+                    }
+                ],
+            },
+            {"role": "assistant", "content": "Recovered." * 60, "tool_calls": None},
+        ]
+    )
     logged: list[dict] = []
     monkeypatch.setattr(
         "realmock.platform.capabilities.ai.agent.loop.log_agent_error",
@@ -616,18 +613,22 @@ async def test_already_logged_tool_error_is_not_logged_again(monkeypatch) -> Non
 @pytest.mark.asyncio
 async def test_plain_tool_error_is_logged_once(monkeypatch) -> None:
     """An unmarked tool exception produces exactly one error record."""
-    llm = _FakeLLM([
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [{
-                "id": "c1",
-                "type": "function",
-                "function": {"name": "lookup", "arguments": "{}"},
-            }],
-        },
-        {"role": "assistant", "content": "Recovered." * 60, "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "lookup", "arguments": "{}"},
+                    }
+                ],
+            },
+            {"role": "assistant", "content": "Recovered." * 60, "tool_calls": None},
+        ]
+    )
     logged: list[dict] = []
     monkeypatch.setattr(
         "realmock.platform.capabilities.ai.agent.loop.log_agent_error",
@@ -710,7 +711,9 @@ async def test_agent_loop_round_retry_recovers_transient_failure() -> None:
     async def execute(name: str, args: dict) -> str:
         return "ok"
 
-    with patch("realmock.platform.capabilities.ai.agent.loop.asyncio.sleep", new=AsyncMock()) as nap:
+    with patch(
+        "realmock.platform.capabilities.ai.agent.loop.asyncio.sleep", new=AsyncMock()
+    ) as nap:
         result = await run_agent_loop(
             llm,
             [{"role": "user", "content": "hi"}],
@@ -857,10 +860,12 @@ async def test_agent_loop_wrap_up_hint_lands_after_prepare() -> None:
     a closing prompt flowing through it would leave the strongest attention
     position exactly when the tool-free final answer matters most.
     """
-    llm = _FakeLLM([
-        _tool_call_reply(),
-        {"role": "assistant", "content": "Closing answer", "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            _tool_call_reply(),
+            {"role": "assistant", "content": "Closing answer", "tool_calls": None},
+        ]
+    )
 
     async def execute(name: str, args: dict) -> str:
         return "ok"
@@ -901,9 +906,20 @@ async def test_agent_loop_reports_last_round_usage() -> None:
     llm = _FakeStreamLLM(
         rounds=[
             [
-                {"type": "message", "message": {"role": "assistant", "content": None,
-                 "tool_calls": [{"id": "c1", "type": "function",
-                                 "function": {"name": "lookup", "arguments": "{}"}}]}},
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "c1",
+                                "type": "function",
+                                "function": {"name": "lookup", "arguments": "{}"},
+                            }
+                        ],
+                    },
+                },
             ],
             [
                 {"type": "message", "message": {"role": "assistant", "content": "Final answer."}},
@@ -918,9 +934,17 @@ async def test_agent_loop_reports_last_round_usage() -> None:
         idx = self.calls
         self.calls += 1
         if idx == 0:
-            self.usage.prompt_tokens, self.usage.completion_tokens, self.usage.cached_tokens = 100, 10, 80
+            self.usage.prompt_tokens, self.usage.completion_tokens, self.usage.cached_tokens = (
+                100,
+                10,
+                80,
+            )
         else:
-            self.usage.prompt_tokens, self.usage.completion_tokens, self.usage.cached_tokens = 250, 20, 200
+            self.usage.prompt_tokens, self.usage.completion_tokens, self.usage.cached_tokens = (
+                250,
+                20,
+                200,
+            )
         for event in self.rounds[min(idx, len(self.rounds) - 1)]:
             yield event
 
@@ -958,11 +982,13 @@ async def test_agent_loop_budget_hint_transient_per_round() -> None:
     The hint must never persist into the returned message sequence, and the
     tool-call counter must reflect executed calls only.
     """
-    llm = _FakeLLM([
-        _tool_call_reply(),
-        _tool_call_reply(),
-        {"role": "assistant", "content": "done", "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            _tool_call_reply(),
+            _tool_call_reply(),
+            {"role": "assistant", "content": "done", "tool_calls": None},
+        ]
+    )
 
     async def execute(name: str, args: dict) -> str:
         return "ok"
@@ -993,10 +1019,12 @@ async def test_agent_loop_budget_hint_transient_per_round() -> None:
 
 @pytest.mark.asyncio
 async def test_agent_loop_budget_hint_can_be_disabled() -> None:
-    llm = _FakeLLM([
-        _tool_call_reply(),
-        {"role": "assistant", "content": "done", "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            _tool_call_reply(),
+            {"role": "assistant", "content": "done", "tool_calls": None},
+        ]
+    )
 
     async def execute(name: str, args: dict) -> str:
         return "ok"
@@ -1009,21 +1037,19 @@ async def test_agent_loop_budget_hint_can_be_disabled() -> None:
         max_rounds=2,
         budget_hint_enabled=False,
     )
-    assert all(
-        "[Budget]" not in str(m.get("content"))
-        for call in llm.seen_messages
-        for m in call
-    )
+    assert all("[Budget]" not in str(m.get("content")) for call in llm.seen_messages for m in call)
 
 
 @pytest.mark.asyncio
 async def test_agent_loop_continues_once_after_truncated_answer() -> None:
     """finish_reason=length: the partial answer is kept, the loop resumes once,
     and the parts are stitched into one seamless final answer."""
-    llm = _FakeLLM([
-        {"role": "assistant", "content": "part one", "finish_reason": "length"},
-        {"role": "assistant", "content": " part two", "finish_reason": "stop"},
-    ])
+    llm = _FakeLLM(
+        [
+            {"role": "assistant", "content": "part one", "finish_reason": "length"},
+            {"role": "assistant", "content": " part two", "finish_reason": "stop"},
+        ]
+    )
 
     async def execute(name: str, args: dict) -> str:
         return "ok"
@@ -1039,13 +1065,11 @@ async def test_agent_loop_continues_once_after_truncated_answer() -> None:
     # The continuation hint rode only the second call, as a transient suffix.
     assert "cut off by the output token limit" in str(llm.seen_messages[1][-1]["content"])
     assert not any(
-        "cut off by the output token limit" in str(m.get("content"))
-        for m in result.messages
+        "cut off by the output token limit" in str(m.get("content")) for m in result.messages
     )
     # The partial answer persisted into working memory as an assistant turn.
     assert any(
-        m.get("role") == "assistant" and m.get("content") == "part one"
-        for m in result.messages
+        m.get("role") == "assistant" and m.get("content") == "part one" for m in result.messages
     )
     # A clean continuation carries no truncation marker.
     assert "[Note:" not in (result.final_content or "")
@@ -1055,10 +1079,12 @@ async def test_agent_loop_continues_once_after_truncated_answer() -> None:
 async def test_agent_loop_marks_answer_when_continuation_is_spent() -> None:
     """A second truncation cannot loop forever: the answer ships with an
     explicit incompleteness marker instead of another silent amputation."""
-    llm = _FakeLLM([
-        {"role": "assistant", "content": "part one", "finish_reason": "length"},
-        {"role": "assistant", "content": " part two", "finish_reason": "length"},
-    ])
+    llm = _FakeLLM(
+        [
+            {"role": "assistant", "content": "part one", "finish_reason": "length"},
+            {"role": "assistant", "content": " part two", "finish_reason": "length"},
+        ]
+    )
 
     async def execute(name: str, args: dict) -> str:
         return "ok"
@@ -1078,10 +1104,16 @@ async def test_agent_loop_marks_answer_when_continuation_is_spent() -> None:
 async def test_agent_loop_environment_hint_carries_model_and_clock() -> None:
     """The transient environment line names the serving model and the local
     clock, and never persists into the working history."""
-    llm = _FakeLLM([
-        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}]},
-        {"role": "assistant", "content": "done", "tool_calls": None},
-    ])
+    llm = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}],
+            },
+            {"role": "assistant", "content": "done", "tool_calls": None},
+        ]
+    )
     llm.model = "glm-5.3-flash"
 
     async def execute(name: str, args: dict) -> str:
@@ -1099,10 +1131,16 @@ async def test_agent_loop_environment_hint_carries_model_and_clock() -> None:
     assert "[Context] Model in use: glm-5.3-flash." in hint["content"]
     assert "Current local date and time" in hint["content"]
     # A client without a model attribute degrades to "unknown" instead of crashing.
-    bare = _FakeLLM([
-        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}]},
-        {"role": "assistant", "content": "done", "tool_calls": None},
-    ])
+    bare = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{"id": "c1", "function": {"name": "lookup", "arguments": "{}"}}],
+            },
+            {"role": "assistant", "content": "done", "tool_calls": None},
+        ]
+    )
     await run_agent_loop(
         bare,
         [{"role": "user", "content": "hi"}],
@@ -1111,6 +1149,4 @@ async def test_agent_loop_environment_hint_carries_model_and_clock() -> None:
         max_rounds=2,
     )
     assert "Model in use: unknown." in bare.seen_messages[0][-1]["content"]
-    assert not any(
-        "Model in use" in str(m.get("content")) for m in result.messages
-    )
+    assert not any("Model in use" in str(m.get("content")) for m in result.messages)

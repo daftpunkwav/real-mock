@@ -13,6 +13,21 @@ from fastapi import BackgroundTasks, Depends, Request, Response
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session, defer
 
+from realmock.domains.interview.agents import (
+    generate_plan_for_session,
+    seed_session_github_evidence,
+)
+from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.protocols.plan_schema import (
+    parse_plan,
+    plan_step_views,
+)
+from realmock.domains.interview.schemas import (
+    ChatMessage,
+    InterviewConfig,
+    InterviewSessionResponse,
+)
+from realmock.domains.interview.schemas.session import PlanStepView
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
@@ -24,23 +39,7 @@ from realmock.platform.core.session_auth import (
     set_session_cookie,
 )
 from realmock.platform.database import get_api_db, get_sessions_db
-from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.schemas import (
-    ChatMessage,
-    InterviewConfig,
-    InterviewSessionResponse,
-)
-from realmock.domains.interview.schemas.session import PlanStepView
-from realmock.domains.interview.agents import (
-    generate_plan_for_session,
-    seed_session_github_evidence,
-)
-from realmock.domains.interview.protocols.plan_schema import (
-    parse_plan,
-    plan_step_views,
-)
 from realmock.platform.services.resume_picker import list_resume_picker_items
-
 
 # Strongly typed ChatMessage list verification (defense storage layer historical dirty data)
 _CHAT_MSG_ADAPTER: TypeAdapter[list[ChatMessage]] = TypeAdapter(list[ChatMessage])

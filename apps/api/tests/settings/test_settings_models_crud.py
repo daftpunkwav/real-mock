@@ -25,7 +25,6 @@ from realmock.platform.core.ratelimit import reset_rate_limit
 @pytest.fixture(autouse=True)
 def _clean_api_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -42,7 +41,16 @@ def _wipe(api_db) -> None:
     api_db.commit()
 
 
-def _provider(api_db, name="p1", *, kind="chat", api_base="http://x/v1", protocol="openai_chat", api_key="", enabled=True):
+def _provider(
+    api_db,
+    name="p1",
+    *,
+    kind="chat",
+    api_base="http://x/v1",
+    protocol="openai_chat",
+    api_key="",
+    enabled=True,
+):
     """Provider + one channel (defaults to the chat kind)."""
     from realmock.platform.models import LlmProvider, LlmProviderChannel
 
@@ -111,11 +119,44 @@ class TestSafeBase:
 class TestListModelOptions:
     def test_filters_disabled(self) -> None:
         p = SimpleNamespace(name="pp")
-        on = SimpleNamespace(id=1, provider_id=1, kind="chat", model="a", display_name="", context_window=1, max_output=1, cap_chat=True, cap_vision=False, cap_audio_in=False, cap_audio_out=False, cap_reasoning=False, extras="{}", enabled=True)
-        off = SimpleNamespace(id=2, provider_id=1, kind="chat", model="b", display_name="", context_window=1, max_output=1, cap_chat=True, cap_vision=False, cap_audio_in=False, cap_audio_out=False, cap_reasoning=False, extras="{}", enabled=False)
+        on = SimpleNamespace(
+            id=1,
+            provider_id=1,
+            kind="chat",
+            model="a",
+            display_name="",
+            context_window=1,
+            max_output=1,
+            cap_chat=True,
+            cap_vision=False,
+            cap_audio_in=False,
+            cap_audio_out=False,
+            cap_reasoning=False,
+            extras="{}",
+            enabled=True,
+        )
+        off = SimpleNamespace(
+            id=2,
+            provider_id=1,
+            kind="chat",
+            model="b",
+            display_name="",
+            context_window=1,
+            max_output=1,
+            cap_chat=True,
+            cap_vision=False,
+            cap_audio_in=False,
+            cap_audio_out=False,
+            cap_reasoning=False,
+            extras="{}",
+            enabled=False,
+        )
         db = MagicMock()
         with pytest.MonkeyPatch().context() as mp:
-            mp.setattr("realmock.domains.settings.routes.models.get_provider_model_rows", lambda db: [(on, p), (off, p)])
+            mp.setattr(
+                "realmock.domains.settings.routes.models.get_provider_model_rows",
+                lambda db: [(on, p), (off, p)],
+            )
             out = models_routes.list_model_options(db)
         assert len(out["models"]) == 1
         assert out["models"][0]["model"] == "a"
@@ -156,7 +197,11 @@ class TestProviderCrud:
         assert out["name"] == "np"
         from realmock.platform.models import LlmProviderChannel
 
-        channel = api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == out["id"]).first()
+        channel = (
+            api_db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == out["id"])
+            .first()
+        )
         assert channel is not None
         assert channel.api_key != "sk-1"
         assert channel.api_key.startswith("enc:")
@@ -170,7 +215,9 @@ class TestProviderCrud:
         with pytest.raises(ApiBusinessError, match="already exists") as dup:
             models_routes.update_provider(p1.id, reg.ProviderUpdate(name="u2"), api_db)
         assert dup.value.error_code == "A0001"
-        out = models_routes.update_provider(p1.id, reg.ProviderUpdate(name="u1b", enabled=False), api_db)
+        out = models_routes.update_provider(
+            p1.id, reg.ProviderUpdate(name="u1b", enabled=False), api_db
+        )
         assert out["name"] == "u1b"
 
     def test_website_and_notes_roundtrip(self, api_db) -> None:
@@ -178,7 +225,9 @@ class TestProviderCrud:
         body = reg.ProviderCreate(name="meta", website_url="https://example.com", notes="k8s 内网")
         out = models_routes.create_provider(body, api_db)
         with pytest.raises(ApiBusinessError):
-            models_routes.update_provider(out["id"], reg.ProviderUpdate(website_url="not a url"), api_db)
+            models_routes.update_provider(
+                out["id"], reg.ProviderUpdate(website_url="not a url"), api_db
+            )
         models_routes.update_provider(
             out["id"], reg.ProviderUpdate(website_url="https://x.io", notes="n2"), api_db
         )
@@ -212,7 +261,10 @@ class TestProviderCrud:
         assert out["deleted"] == p.id
         from realmock.platform.models import LlmProviderChannel
 
-        assert api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == p.id).count() == 0
+        assert (
+            api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == p.id).count()
+            == 0
+        )
 
     def test_list_providers_payload(self, api_db) -> None:
         _wipe(api_db)
@@ -232,7 +284,9 @@ class TestChannelUpsert:
         _wipe(api_db)
         p = _provider(api_db, name="ck")
         with pytest.raises(ApiBusinessError, match="Unknown channel kind"):
-            models_routes.update_provider_channel(p.id, "voice", reg.ChannelUpdate(api_base="http://x"), api_db)
+            models_routes.update_provider_channel(
+                p.id, "voice", reg.ChannelUpdate(api_base="http://x"), api_db
+            )
 
     def test_upsert_creates_then_updates(self, api_db) -> None:
         _wipe(api_db)
@@ -249,7 +303,11 @@ class TestChannelUpsert:
         assert out2["api_base"] == "http://asr2/v1"
         from realmock.platform.models import LlmProviderChannel
 
-        rows = api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == p.id, LlmProviderChannel.kind == "stt").all()
+        rows = (
+            api_db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == p.id, LlmProviderChannel.kind == "stt")
+            .all()
+        )
         assert len(rows) == 1
 
 
@@ -266,10 +324,14 @@ class TestModelCrud:
     def test_create_with_kind(self, api_db) -> None:
         _wipe(api_db)
         p = _provider(api_db, name="mp2")
-        out = models_routes.create_model(p.id, reg.ModelProfileCreate(model="asr-x", kind="stt"), api_db)
+        out = models_routes.create_model(
+            p.id, reg.ModelProfileCreate(model="asr-x", kind="stt"), api_db
+        )
         assert out["kind"] == "stt"
         with pytest.raises(ApiBusinessError, match="Unknown model type"):
-            models_routes.create_model(p.id, reg.ModelProfileCreate(model="bad", kind="voice"), api_db)
+            models_routes.create_model(
+                p.id, reg.ModelProfileCreate(model="bad", kind="voice"), api_db
+            )
 
     def test_create_happy_extras(self, api_db) -> None:
         _wipe(api_db)
@@ -297,7 +359,9 @@ class TestModelCrud:
                 display_name=" D ",
                 context_window=7,
                 max_output=8,
-                capabilities=reg.ModelCapabilitiesIn(chat=True, vision=True, audio_input=True, audio_output=True, reasoning=True),
+                capabilities=reg.ModelCapabilitiesIn(
+                    chat=True, vision=True, audio_input=True, audio_output=True, reasoning=True
+                ),
                 extras={"k2": "v2"},
                 enabled=False,
             ),
@@ -333,7 +397,9 @@ class TestBindings:
     def test_capability_mismatch(self, api_db) -> None:
         _wipe(api_db)
         p = _provider(api_db, name="bp")
-        m = _profile(api_db, p.id, model="chat-only", cap_chat=True, cap_audio_in=False, cap_audio_out=False)
+        m = _profile(
+            api_db, p.id, model="chat-only", cap_chat=True, cap_audio_in=False, cap_audio_out=False
+        )
         with pytest.raises(ApiBusinessError, match="capability"):
             models_routes.update_binding("stt", reg.BindingUpdate(profile_id=m.id), api_db)
 
@@ -341,7 +407,11 @@ class TestBindings:
         _wipe(api_db)
         p = _provider(api_db, name="bp2")
         m = _profile(api_db, p.id, model="chat2", cap_chat=True)
-        out = models_routes.update_binding("chat", reg.BindingUpdate(profile_id=m.id, fallback_handler="h", fallback_mode="mm"), api_db)
+        out = models_routes.update_binding(
+            "chat",
+            reg.BindingUpdate(profile_id=m.id, fallback_handler="h", fallback_mode="mm"),
+            api_db,
+        )
         assert out["chat"]["profile"]["model"] == "chat2"
         listed = models_routes.get_bindings(api_db)
         assert listed["chat"]["fallback"]["handler"] == "h"
@@ -386,9 +456,7 @@ def test_vendor_apply_and_channel_catalog_http_smoke(api_db) -> None:
             assert body["name"] == "MiniMax"
             assert set(body["configured_kinds"]) == {"chat", "stt", "tts"}
             provider_id = body["provider_id"]
-            catalog = client.get(
-                f"/api/v1/settings/providers/{provider_id}/channels/chat/catalog"
-            )
+            catalog = client.get(f"/api/v1/settings/providers/{provider_id}/channels/chat/catalog")
             assert catalog.status_code == 200
             cat = catalog.json()
             assert cat["source"] == "vendor"

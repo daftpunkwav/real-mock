@@ -26,19 +26,30 @@ from realmock.domains.interview.ledger.migration import (
 from realmock.domains.interview.ledger.store import load_ledger
 from realmock.domains.interview.models import InterviewSession, InterviewTurn
 
-
 LEGACY_TURNS = [
-    {"turn_id": "t-0001", "phase": "intro", "assistant": {"text": "hi", "visible": True},
-     "tools": [], "user": {"text": "hello", "source": "text"}, "flags": {}},
-    {"turn_id": "t-0002", "phase": "summary", "assistant": {"text": "bye", "visible": True},
-     "tools": []},
+    {
+        "turn_id": "t-0001",
+        "phase": "intro",
+        "assistant": {"text": "hi", "visible": True},
+        "tools": [],
+        "user": {"text": "hello", "source": "text"},
+        "flags": {},
+    },
+    {
+        "turn_id": "t-0002",
+        "phase": "summary",
+        "assistant": {"text": "bye", "visible": True},
+        "tools": [],
+    },
 ]
 
 
 @pytest.fixture
 def legacy_db(db):
     """Sessions DB with the legacy ``ledger`` column re-added; dropped after."""
-    if "ledger" not in {c["name"] for c in inspect(db.get_bind()).get_columns("interview_sessions")}:
+    if "ledger" not in {
+        c["name"] for c in inspect(db.get_bind()).get_columns("interview_sessions")
+    }:
         db.execute(text("ALTER TABLE interview_sessions ADD COLUMN ledger TEXT DEFAULT '{}'"))
         db.commit()
     yield db
@@ -51,9 +62,15 @@ def legacy_db(db):
 def _insert_legacy_row(db, blob: str) -> InterviewSession:
     """Insert one session row and write the legacy blob onto its column."""
     row = InterviewSession(
-        profile_id=1, role="Backend", level="junior", company="acme",
-        workflow_type="technical", status="completed", current_phase="summary",
-        messages="[]", agent_state="{}",
+        profile_id=1,
+        role="Backend",
+        level="junior",
+        company="acme",
+        workflow_type="technical",
+        status="completed",
+        current_phase="summary",
+        messages="[]",
+        agent_state="{}",
     )
     db.add(row)
     db.commit()
@@ -68,10 +85,15 @@ def _insert_legacy_row(db, blob: str) -> InterviewSession:
 
 
 def test_backfill_copies_turns_and_freeze_flag(legacy_db) -> None:
-    blob = json.dumps({
-        "schema": "realmock.ledger.v1", "session_id": 0, "frozen": True,
-        "turns": LEGACY_TURNS,
-    }, ensure_ascii=False)
+    blob = json.dumps(
+        {
+            "schema": "realmock.ledger.v1",
+            "session_id": 0,
+            "frozen": True,
+            "turns": LEGACY_TURNS,
+        },
+        ensure_ascii=False,
+    )
     row = _insert_legacy_row(legacy_db, blob)
 
     assert backfill_ledger_rows(legacy_db) == 2
@@ -153,14 +175,17 @@ def test_backfill_survives_duplicate_and_non_dict_turns(legacy_db) -> None:
     """Duplicate legacy turn_ids fall back to seq ids and non-dict elements
     are normalised to JSON — neither may crash the boot-time migration or
     leave load_ledger permanently broken."""
-    blob = json.dumps({
-        "frozen": False,
-        "turns": [
-            {"turn_id": "t-0001", "phase": "p", "assistant": {"text": "a"}},
-            {"turn_id": "t-0001", "phase": "p", "assistant": {"text": "b"}},
-            "raw string turn",
-        ],
-    }, ensure_ascii=False)
+    blob = json.dumps(
+        {
+            "frozen": False,
+            "turns": [
+                {"turn_id": "t-0001", "phase": "p", "assistant": {"text": "a"}},
+                {"turn_id": "t-0001", "phase": "p", "assistant": {"text": "b"}},
+                "raw string turn",
+            ],
+        },
+        ensure_ascii=False,
+    )
     row = _insert_legacy_row(legacy_db, blob)
 
     assert backfill_ledger_rows(legacy_db) == 3
@@ -177,14 +202,17 @@ def test_backfill_derived_fallback_colliding_with_earlier_id(legacy_db) -> None:
     (t-0002 dup at seq 2 derives t-0002 again) must be disambiguated instead
     of tripping the UNIQUE(session_id, turn_id) constraint at commit — that
     would turn the boot-time migration into a crash loop."""
-    blob = json.dumps({
-        "frozen": False,
-        "turns": [
-            {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "a"}},
-            {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "b"}},
-            {"turn_id": "t-0003", "phase": "p", "assistant": {"text": "c"}},
-        ],
-    }, ensure_ascii=False)
+    blob = json.dumps(
+        {
+            "frozen": False,
+            "turns": [
+                {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "a"}},
+                {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "b"}},
+                {"turn_id": "t-0003", "phase": "p", "assistant": {"text": "c"}},
+            ],
+        },
+        ensure_ascii=False,
+    )
     row = _insert_legacy_row(legacy_db, blob)
 
     assert backfill_ledger_rows(legacy_db) == 3
@@ -205,13 +233,16 @@ def test_backfill_derived_fallback_colliding_with_earlier_id(legacy_db) -> None:
 def test_backfill_non_dict_fallback_colliding_with_earlier_id(legacy_db) -> None:
     """The seq-derived id for a non-dict element can also equal an earlier
     original id; the same disambiguation applies."""
-    blob = json.dumps({
-        "frozen": False,
-        "turns": [
-            {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "a"}},
-            "raw string turn",
-        ],
-    }, ensure_ascii=False)
+    blob = json.dumps(
+        {
+            "frozen": False,
+            "turns": [
+                {"turn_id": "t-0002", "phase": "p", "assistant": {"text": "a"}},
+                "raw string turn",
+            ],
+        },
+        ensure_ascii=False,
+    )
     row = _insert_legacy_row(legacy_db, blob)
 
     assert backfill_ledger_rows(legacy_db) == 2
@@ -238,8 +269,7 @@ def test_drop_skips_on_old_sqlite(legacy_db, monkeypatch) -> None:
     del _OldVersion
     assert drop_legacy_ledger_column(legacy_db) is False
     assert "ledger" in {
-        c["name"]
-        for c in inspect(legacy_db.get_bind()).get_columns("interview_sessions")
+        c["name"] for c in inspect(legacy_db.get_bind()).get_columns("interview_sessions")
     }
 
 

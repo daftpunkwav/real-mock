@@ -15,11 +15,11 @@ import logging
 
 import httpx
 
-from realmock.platform.config import get_settings
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.cloud import is_local_stt_model
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.config import get_settings
+from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.vendors import vendor_def
 from realmock.platform.vendors.templates import deep_merge, get_dotted
 
@@ -68,9 +68,7 @@ def build_stt_request(creds: SttCredentials) -> tuple[dict, dict]:
 class MiniMaxSttProvider:
     """MiniMax ASR: multipart upload of a wav file; the response carries the transcript in ``text``."""
 
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         key = (creds.api_key or "").strip()
         base = (creds.api_base or "").strip().rstrip("/")
         if not key or not base:

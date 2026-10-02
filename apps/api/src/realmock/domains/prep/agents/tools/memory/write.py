@@ -35,7 +35,7 @@ def _find_key_note_id(memory: WorkingMemory, key: str) -> int | None:
         if idx < 0:
             continue
         try:
-            return int(str(note)[idx + len(prefix):].split()[0])
+            return int(str(note)[idx + len(prefix) :].split()[0])
         except (TypeError, ValueError, IndexError):
             continue
     return None

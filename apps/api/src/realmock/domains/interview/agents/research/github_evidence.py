@@ -38,9 +38,7 @@ _README_CHARS = 700
 async def _call(name: str, args: dict[str, Any]) -> Any:
     """One GitHub REST call with an outer timeout; None on any failure."""
     try:
-        raw = await asyncio.wait_for(
-            execute_github_tool(name, args), timeout=_CALL_TIMEOUT_SECONDS
-        )
+        raw = await asyncio.wait_for(execute_github_tool(name, args), timeout=_CALL_TIMEOUT_SECONDS)
         data = json.loads(raw)
     except Exception:
         logger.debug("github evidence call failed name=%s", name, exc_info=True)
@@ -98,9 +96,7 @@ async def gather_evidence(username: str) -> str:
     parts.append("Top repos:")
     parts.extend(line for line in (_repo_line(r) for r in top) if line)
 
-    readme = await _call(
-        "github_get_readme", {"owner": username, "repo": str(top[0].get("name"))}
-    )
+    readme = await _call("github_get_readme", {"owner": username, "repo": str(top[0].get("name"))})
     if isinstance(readme, dict):
         # Verified contract (rest_ops_repo._get_readme): the decoded text is
         # under "content"; errors carry an "error" key (filtered by _call).
@@ -143,9 +139,7 @@ async def seed_session_github_evidence(session_id: int) -> None:
             if evidence.strip():
                 session.github_evidence = evidence
                 db.commit()
-                logger.info(
-                    "github evidence seeded sid=%s chars=%d", session_id, len(evidence)
-                )
+                logger.info("github evidence seeded sid=%s chars=%d", session_id, len(evidence))
     except Exception:
         logger.debug("github evidence seed failed sid=%s", session_id, exc_info=True)
     finally:

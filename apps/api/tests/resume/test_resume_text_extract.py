@@ -25,8 +25,8 @@ def _reset_rate_limit():
 
 
 def test_truncate_helpers() -> None:
-    from realmock.domains.resume.services import text_extract as te
     from realmock.domains.resume.schemas.limits import MAX_EXTRACTED_CHARS
+    from realmock.domains.resume.services import text_extract as te
 
     assert te.truncate_text("abc") == "abc"
     long_text = "x" * (MAX_EXTRACTED_CHARS + 10)
@@ -46,8 +46,8 @@ def test_heading_prefix_variants() -> None:
 
 
 def test_assert_docx_zip_safe_guards(tmp_path: Path, monkeypatch) -> None:
-    from realmock.domains.resume.services import text_extract as te
     from realmock.domains.resume.schemas.limits import MAX_DOCX_ZIP_ENTRIES
+    from realmock.domains.resume.services import text_extract as te
 
     real_zip = tmp_path / "ok.docx"
     with zipfile.ZipFile(real_zip, "w") as zf:

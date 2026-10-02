@@ -10,17 +10,19 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 
+
 def _make_handler(sid=301):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     h = InterviewWSHandler(ws, session_id=sid)
     # Persona / ledger workers hit the DB in a thread; stubbed here.
-    h._read_persona = (
-        lambda: asyncio.sleep(0, result=("professional", 3, "tech"))
-    )  # type: ignore[method-assign]
+    h._read_persona = lambda: asyncio.sleep(0, result=("professional", 3, "tech"))  # type: ignore[method-assign]
     h._persist_probe_flag = lambda payload: asyncio.sleep(0)  # type: ignore[method-assign]
     return h
 
@@ -39,6 +41,7 @@ def _wire_runner(h, history: list) -> None:
     h.ctx.runner = MagicMock()
     h.ctx.runner.message_history.return_value = history
     h.ctx.runner.agent_state_snapshot.return_value = {}
+
 
 @pytest.mark.asyncio
 async def test_nudge_guards_and_helpers():
@@ -125,8 +128,14 @@ async def test_nudge_full_probe_and_capped_and_closing():
         h._open_mic_after_playback = AsyncMock()  # type: ignore[method-assign]
         h._begin_playback_wait = MagicMock()  # type: ignore[method-assign]
         with (
-            patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag", return_value=None),
+            patch(
+                "realmock.domains.interview.realtime.control.silence_nudge.SessionLocal",
+                return_value=db,
+            ),
+            patch(
+                "realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag",
+                return_value=None,
+            ),
         ):
             await h._on_silence_nudge()
         assert h.ctx.silence_probe_seq == 1
@@ -136,7 +145,10 @@ async def test_nudge_full_probe_and_capped_and_closing():
         # capped -> updates last_nudge_at and returns
         h.ctx.silence_capped = True
         h.ctx.ws.send_json.reset_mock()
-        with patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db):
+        with patch(
+            "realmock.domains.interview.realtime.control.silence_nudge.SessionLocal",
+            return_value=db,
+        ):
             await h._on_silence_nudge()
         # seq >= cap -> closing nudge
         h2 = _make_handler()
@@ -162,8 +174,14 @@ async def test_nudge_full_probe_and_capped_and_closing():
             db2 = MagicMock()
             db2.close = MagicMock()
             with (
-                patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db2),
-                patch("realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag", return_value=None),
+                patch(
+                    "realmock.domains.interview.realtime.control.silence_nudge.SessionLocal",
+                    return_value=db2,
+                ),
+                patch(
+                    "realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag",
+                    return_value=None,
+                ),
             ):
                 await h2._on_silence_nudge()
             assert h2.ctx.silence_capped is True
@@ -200,9 +218,7 @@ async def test_nudge_session_missing_and_fallback_and_ledger_fail():
         # fallback to orchestrator when probe empty/duplicate + ledger failure
         h.ctx.last_nudge_at = 0.0
         h.ctx.silence_probe_seq = 0
-        h._read_persona = (
-            lambda: asyncio.sleep(0, result=("professional", 3, "tech"))
-        )  # type: ignore[method-assign]
+        h._read_persona = lambda: asyncio.sleep(0, result=("professional", 3, "tech"))  # type: ignore[method-assign]
         sess = MagicMock(personality="professional", strictness=3, current_phase="tech")
         h._load_session = MagicMock(return_value=sess)  # type: ignore[method-assign]
         h._generate_silence_probe = AsyncMock(return_value="same?")  # type: ignore[method-assign]
@@ -213,8 +229,14 @@ async def test_nudge_session_missing_and_fallback_and_ledger_fail():
         db2 = MagicMock()
         db2.close = MagicMock()
         with (
-            patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db2),
-            patch("realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag", side_effect=RuntimeError("ledger boom")),
+            patch(
+                "realmock.domains.interview.realtime.control.silence_nudge.SessionLocal",
+                return_value=db2,
+            ),
+            patch(
+                "realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag",
+                side_effect=RuntimeError("ledger boom"),
+            ),
         ):
             await h._on_silence_nudge()
         assert h.ctx.last_silence_probe == "模板追问"
@@ -236,8 +258,14 @@ async def test_speak_closing_nudge_variants():
         db = MagicMock()
         db.close = MagicMock()
         with (
-            patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag", side_effect=RuntimeError("boom")),
+            patch(
+                "realmock.domains.interview.realtime.control.silence_nudge.SessionLocal",
+                return_value=db,
+            ),
+            patch(
+                "realmock.domains.interview.realtime.control.silence_nudge.append_last_turn_flag",
+                side_effect=RuntimeError("boom"),
+            ),
         ):
             await h._speak_closing_nudge()
         assert "can't hear" in h.ctx.last_silence_probe
@@ -245,7 +273,10 @@ async def test_speak_closing_nudge_variants():
         h._load_session = MagicMock(return_value=None)  # type: ignore[method-assign]
         db2 = MagicMock()
         db2.close = MagicMock(side_effect=RuntimeError("close boom"))
-        with patch("realmock.domains.interview.realtime.control.silence_nudge.SessionLocal", return_value=db2):
+        with patch(
+            "realmock.domains.interview.realtime.control.silence_nudge.SessionLocal",
+            return_value=db2,
+        ):
             await h._speak_closing_nudge()
     finally:
         await h._cancel_bg_tasks()

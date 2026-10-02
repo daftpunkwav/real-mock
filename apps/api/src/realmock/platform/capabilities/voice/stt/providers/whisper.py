@@ -39,6 +39,7 @@ def _get_model(model_size: str = "base"):
         return None
     try:
         from faster_whisper import WhisperModel
+
         model = WhisperModel(model_size, device="cpu", compute_type="int8")
     except Exception as e:
         _FAILURES[model_size] = (now, str(e))
@@ -114,7 +115,9 @@ def transcribe_pcm_base64(pcm_b64: str, sample_rate: int = 16000, model_size: st
             if lang_prob is not None and lang_prob < 0.25:
                 return ""
         except Exception:
-            logger.debug("Failed to read language confidence, skip low confidence filtering", exc_info=True)
+            logger.debug(
+                "Failed to read language confidence, skip low confidence filtering", exc_info=True
+            )
         text = "".join(seg.text for seg in segments).strip()
         # Very short-term results are mostly hallucinations
         if len(text) < 2:
@@ -142,4 +145,5 @@ async def transcribe_pcm_base64_async(
     pcm_b64: str, sample_rate: int = 16000, model_size: str = "base"
 ) -> str:
     import asyncio
+
     return await asyncio.to_thread(transcribe_pcm_base64, pcm_b64, sample_rate, model_size)

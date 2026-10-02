@@ -113,9 +113,17 @@ async def build_turn_context(
     collects compaction cost without raising.
     """
     return await build_working_context(
-        messages, context_window, memory=memory, llm=llm,
-        reply_locale=reply_locale, threshold=threshold, force=force,
-        options=options, keep_from=keep_from, provenance=provenance, report=report,
+        messages,
+        context_window,
+        memory=memory,
+        llm=llm,
+        reply_locale=reply_locale,
+        threshold=threshold,
+        force=force,
+        options=options,
+        keep_from=keep_from,
+        provenance=provenance,
+        report=report,
         default_focus=default_focus,
     )
 
@@ -188,9 +196,14 @@ async def compact_current_round(
         # always includes the live user turn (history ends at it when the tool
         # loop calls this — in-flight rounds run on the loop's working copy).
         compacted = await build_turn_context(
-            messages=messages, context_window=context_window, memory=memory,
-            llm=llm, reply_locale=reply_locale,
-            force=True, options=policy, report=report,
+            messages=messages,
+            context_window=context_window,
+            memory=memory,
+            llm=llm,
+            reply_locale=reply_locale,
+            force=True,
+            options=policy,
+            report=report,
             default_focus=objective_line or None,
         )
     except Exception as e:
@@ -217,7 +230,9 @@ async def compact_current_round(
         turn_state.tools
         if turn_state.tools is not None
         else freeze_turn_tools(
-            resume_id=resume_id, user_text=latest_user_text(messages), turn_state=turn_state,
+            resume_id=resume_id,
+            user_text=latest_user_text(messages),
+            turn_state=turn_state,
         )
     )
     fingerprint = prefix_fingerprint(compacted, live_tools)

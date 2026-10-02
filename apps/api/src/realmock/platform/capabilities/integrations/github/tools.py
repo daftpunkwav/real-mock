@@ -57,8 +57,7 @@ GITHUB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "github_get_repo",
             "description": (
-                "Fetch one repository's metadata (stars, primary language, "
-                "last update, topics)."
+                "Fetch one repository's metadata (stars, primary language, last update, topics)."
             ),
             "parameters": {
                 "type": "object",

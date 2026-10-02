@@ -1,7 +1,7 @@
 """Turn layer mixin aggregation (coordinator + streaming + control)."""
 
-from realmock.domains.interview.realtime.turn.coordinator import TurnCoordinatorMixin
 from realmock.domains.interview.realtime.turn.control import TurnControlMixin
+from realmock.domains.interview.realtime.turn.coordinator import TurnCoordinatorMixin
 from realmock.domains.interview.realtime.turn.streaming import TurnStreamingMixin
 
 

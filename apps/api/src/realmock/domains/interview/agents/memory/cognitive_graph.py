@@ -27,6 +27,7 @@ MAX_NODES = 30
 
 class CompetencyStatus(str, Enum):
     """Assessment status of a candidate competency area."""
+
     UNTESTED = "untested"
     VERIFIED = "verified"
     SUSPICIOUS = "suspicious"
@@ -36,6 +37,7 @@ class CompetencyStatus(str, Enum):
 @dataclass
 class CompetencyEvidence:
     """Individual proof point or finding recorded during interview dialogue."""
+
     turn_index: int
     claim: str
     finding: str
@@ -71,6 +73,7 @@ class CompetencyEvidence:
 @dataclass
 class CompetencyNode:
     """A specific skill or technical domain under evaluation."""
+
     topic: str
     category: str = "general"
     status: CompetencyStatus = CompetencyStatus.UNTESTED
@@ -124,9 +127,7 @@ class CompetencyNode:
             confidence = 0.0
 
         evidence = [
-            CompetencyEvidence.from_dict(e)
-            for e in data.get("evidence", [])
-            if isinstance(e, dict)
+            CompetencyEvidence.from_dict(e) for e in data.get("evidence", []) if isinstance(e, dict)
         ]
 
         return cls(
@@ -142,6 +143,7 @@ class CompetencyNode:
 @dataclass
 class WorkingMemory:
     """Transient working memory for active turn reasoning."""
+
     current_topic: str = ""
     active_question: str = ""
     pending_probes: list[str] = field(default_factory=list)
@@ -221,10 +223,14 @@ class CognitiveMemoryGraph:
             items = ", ".join(f"{n.topic} (conf={n.confidence:.1f})" for n in verified[:6])
             lines.append(f"- Verified Strengths: {items}")
         if suspicious:
-            items = "; ".join(f"{n.topic}: {n.evidence[-1].finding}" for n in suspicious[-4:] if n.evidence)
+            items = "; ".join(
+                f"{n.topic}: {n.evidence[-1].finding}" for n in suspicious[-4:] if n.evidence
+            )
             lines.append(f"- Suspicious / Ambiguous Areas (probe these): {items}")
         if failed:
-            items = "; ".join(f"{n.topic}: {n.evidence[-1].finding}" for n in failed[-4:] if n.evidence)
+            items = "; ".join(
+                f"{n.topic}: {n.evidence[-1].finding}" for n in failed[-4:] if n.evidence
+            )
             lines.append(f"- Confirmed Weaknesses / Blindspots: {items}")
 
         if self.working_memory.pending_probes:

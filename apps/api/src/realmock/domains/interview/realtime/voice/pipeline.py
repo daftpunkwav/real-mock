@@ -105,9 +105,7 @@ class VoicePipelineMixin:
         emo = extract_emotion(sentence)
         p = with_emotion(base, emo)
         try:
-            tts_creds = self.ctx.tts_creds or TtsCredentials(
-                handler="edge", voice=p.voice
-            )
+            tts_creds = self.ctx.tts_creds or TtsCredentials(handler="edge", voice=p.voice)
             synth_t0 = time.perf_counter()
             # replace() keeps full_url/protocol/extra overrides; only the emotion voice moves.
             audio_b64 = await synthesize_speech(

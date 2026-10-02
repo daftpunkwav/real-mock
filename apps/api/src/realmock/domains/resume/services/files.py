@@ -15,9 +15,9 @@ import logging
 import re
 from pathlib import Path
 
-from realmock.platform.models import Resume
 from realmock.platform.config import get_settings
 from realmock.platform.core.security import assert_within_dir, sanitize_filename
+from realmock.platform.models import Resume
 
 logger = logging.getLogger(__name__)
 

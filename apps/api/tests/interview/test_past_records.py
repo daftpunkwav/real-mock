@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
-from unittest.mock import MagicMock
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -24,14 +25,6 @@ def _clean_limits():
 # ---- prompt_assembler (57, 81-82, 109-110, 117, 133, 144) ----
 
 
-
-
-
-
-
-
-
-
 # ---- history_compaction (118-119, 138-139, 152-153) ----
 
 
@@ -41,12 +34,6 @@ def _fold_agent(n=12):
         messages.append({"role": "assistant", "content": f"Q{i} " + "x" * 200})
         messages.append({"role": "user", "content": f"A{i} " + "y" * 200})
     return SimpleNamespace(messages=messages, agent_state={})
-
-
-
-
-
-
 
 
 # ---- past_records (29-31, 68-69) ----
@@ -90,12 +77,6 @@ def _sp_mixin(**overrides):
     for k, v in overrides.items():
         setattr(m, k, v)
     return m
-
-
-
-
-
-
 
 
 # ---- tool_guard (74, 109-110, 116, 127) ----

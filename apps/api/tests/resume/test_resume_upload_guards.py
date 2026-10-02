@@ -8,7 +8,6 @@ from realmock.asgi import app
 from realmock.platform.models import Resume
 
 
-
 def test_upload_rejects_overlong_filename_as_a0003(api_db) -> None:
     """A 300-char name must map to A0003 (ORM VARCHAR(255)), never a DB 500."""
     before = api_db.query(Resume).count()

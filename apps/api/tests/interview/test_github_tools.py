@@ -7,11 +7,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from realmock.platform.capabilities.integrations.github.client import GitHubClient
-from realmock.platform.capabilities.integrations.github.tools import GITHUB_TOOL_DEFINITIONS, execute_github_tool
-from realmock.platform.capabilities.ai.llm.tool_args import parse_tool_arguments
 from realmock.domains.interview.agents.tools import (
     get_interview_tool_definitions,
+)
+from realmock.platform.capabilities.ai.llm.tool_args import parse_tool_arguments
+from realmock.platform.capabilities.integrations.github.client import GitHubClient
+from realmock.platform.capabilities.integrations.github.tools import (
+    GITHUB_TOOL_DEFINITIONS,
+    execute_github_tool,
 )
 
 
@@ -74,6 +77,7 @@ async def test_execute_unknown_tool():
 @pytest.mark.asyncio
 async def test_github_client_get_user_http(monkeypatch):
     """Mock httpx response."""
+
     class FakeResp:
         status_code = 200
         content = b'{"login":"u","name":"U","bio":null,"public_repos":1,"followers":0,"following":0,"company":null,"blog":"","location":null,"created_at":"2020","html_url":"https://github.com/u"}'
@@ -95,7 +99,10 @@ async def test_github_client_get_user_http(monkeypatch):
         async def get(self, url, headers=None, params=None):
             return FakeResp()
 
-    with patch("realmock.platform.capabilities.integrations.github.client.httpx.AsyncClient", return_value=FakeClient()):
+    with patch(
+        "realmock.platform.capabilities.integrations.github.client.httpx.AsyncClient",
+        return_value=FakeClient(),
+    ):
         client = GitHubClient(token="t")
         data = await client.get_user("u")
     assert data["login"] == "u"
@@ -140,7 +147,10 @@ async def test_github_client_get_tree_http():
             captured["params"] = params
             return FakeResp()
 
-    with patch("realmock.platform.capabilities.integrations.github.client.httpx.AsyncClient", return_value=FakeClient()):
+    with patch(
+        "realmock.platform.capabilities.integrations.github.client.httpx.AsyncClient",
+        return_value=FakeClient(),
+    ):
         client = GitHubClient(token="t")
         data = await client.get_tree("owner", "repo", branch="main")
     assert captured["url"].endswith("/repos/owner/repo/git/trees/main")
@@ -175,7 +185,10 @@ async def test_github_client_get_tree_error_passthrough():
         async def get(self, url, headers=None, params=None):
             return FakeResp()
 
-    with patch("realmock.platform.capabilities.integrations.github.client.httpx.AsyncClient", return_value=FakeClient()):
+    with patch(
+        "realmock.platform.capabilities.integrations.github.client.httpx.AsyncClient",
+        return_value=FakeClient(),
+    ):
         client = GitHubClient(token="t")
         data = await client.get_tree("owner", "repo", branch="dev")
     assert "error" in data

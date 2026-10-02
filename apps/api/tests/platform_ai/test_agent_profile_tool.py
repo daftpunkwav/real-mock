@@ -12,8 +12,8 @@ import asyncio
 import json
 
 import pytest
-from realmock.platform.core.ratelimit import reset_rate_limit
 
+from realmock.platform.core.ratelimit import reset_rate_limit
 
 
 @pytest.fixture(autouse=True)
@@ -56,20 +56,13 @@ async def test_profile_gaps() -> None:
     listed = json.loads(await empty_specs["profile_list_sections"].handler({}))
     assert listed["available"] is False
 
-    unknown = json.loads(
-        await empty_specs["profile_get_section"].handler({"section": "nope"})
-    )
+    unknown = json.loads(await empty_specs["profile_get_section"].handler({"section": "nope"}))
     assert unknown["error"] == "unknown_section"
 
-    noprof = json.loads(
-        await empty_specs["profile_get_section"].handler({"section": "basics"})
-    )
+    noprof = json.loads(await empty_specs["profile_get_section"].handler({"section": "basics"}))
     assert noprof["error"] == "no_profile_on_file"
 
-    ok_specs = {
-        s.name: s
-        for s in profile_tool_specs(ProfileSnapshot(fields={"name": "Ada"}))
-    }
+    ok_specs = {s.name: s for s in profile_tool_specs(ProfileSnapshot(fields={"name": "Ada"}))}
     listed2 = json.loads(await ok_specs["profile_list_sections"].handler({}))
     assert listed2["available"] is True
     await asyncio.sleep(0)

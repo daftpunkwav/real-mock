@@ -3,8 +3,11 @@
 Covers: app export and _bootstrap delegation
 Conventions: bootstrap_databases_and_seed faked; no real DB; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import pytest
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -13,6 +16,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 def test_prep_main_entry(monkeypatch) -> None:
     import asyncio

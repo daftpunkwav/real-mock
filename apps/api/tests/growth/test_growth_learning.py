@@ -19,11 +19,13 @@ def test_record_and_insights(tmp_path, monkeypatch):
         role="Backend engineer",
         company="bytedance",
         overall_score=85,
-        agent_state=json.dumps({
-            "tool_trace": [{"tool": "github_get_readme"}],
-            "weak_points": ["Cache consistency"],
-            "followup_clues": ["vague", "missing_data", "vague"],
-        }),
+        agent_state=json.dumps(
+            {
+                "tool_trace": [{"tool": "github_get_readme"}],
+                "weak_points": ["Cache consistency"],
+                "followup_clues": ["vague", "missing_data", "vague"],
+            }
+        ),
     )
 
     record_interview_learning(session, report={"weaknesses": ["System design"]})
@@ -64,12 +66,14 @@ def test_learning_wrong_shape_file_normalized(tmp_path, monkeypatch):
     poisoning later reads/writes with AttributeErrors."""
     monkeypatch.setattr(learning_mod, "_memory_path", lambda: tmp_path / "sys.json")
     (tmp_path / "sys.json").write_text(
-        json.dumps({
-            "company_session_counts": "nope",
-            "avg_scores_by_company": {"acme": {"sum": "x", "n": 0}},
-            "effective_probes": [1, "two", {"point": "kept"}],
-            "updated_at": 123,
-        }),
+        json.dumps(
+            {
+                "company_session_counts": "nope",
+                "avg_scores_by_company": {"acme": {"sum": "x", "n": 0}},
+                "effective_probes": [1, "two", {"point": "kept"}],
+                "updated_at": 123,
+            }
+        ),
         encoding="utf-8",
     )
 

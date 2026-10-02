@@ -48,7 +48,9 @@ def to_response(row: Resume, profile: CandidateProfile | None = None) -> ResumeR
         id=row.id,
         filename=row.filename,
         file_type=row.file_type,
-        parsed_profile=profile if profile is not None else load_parsed_profile(row.parsed_profile, row.id),
+        parsed_profile=profile
+        if profile is not None
+        else load_parsed_profile(row.parsed_profile, row.id),
         parse_status=getattr(row, "parse_status", None) or "done",
         parse_error=getattr(row, "parse_error", None) or "",
         is_active=bool(row.is_active),

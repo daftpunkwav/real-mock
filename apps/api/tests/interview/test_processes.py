@@ -8,6 +8,13 @@ from fastapi.testclient import TestClient
 from realmock.asgi import app
 from realmock.domains.interview.constants import ProcessStatus
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
+from realmock.domains.interview.process.process_service import (
+    create_next_round,
+    create_process_with_first_round,
+    is_next_round_eligible,
+    record_round_finished,
+)
+from realmock.domains.interview.process.round_digest import build_round_digest
 from realmock.domains.interview.protocols.process_memory import (
     append_round,
     dump_memory,
@@ -16,15 +23,7 @@ from realmock.domains.interview.protocols.process_memory import (
     mark_final,
     render_for_prompt,
 )
-from realmock.domains.interview.process.process_service import (
-    create_next_round,
-    create_process_with_first_round,
-    is_next_round_eligible,
-    record_round_finished,
-)
-from realmock.domains.interview.process.round_digest import build_round_digest
 from realmock.domains.interview.schemas.process import ProcessCreateRequest
-
 
 # ---- process memory document --------------------------------------------------
 
@@ -89,7 +88,13 @@ def test_round_digest_from_session_state(db):
     db.commit()
     digest = build_round_digest(
         session,
-        {"turns": [{"phase": "self_intro"}, {"phase": "project_deep_dive"}, {"phase": "self_intro"}]},
+        {
+            "turns": [
+                {"phase": "self_intro"},
+                {"phase": "project_deep_dive"},
+                {"phase": "self_intro"},
+            ]
+        },
     )
     assert "passed" in digest["summary"]
     assert digest["topics_covered"] == ["讲讲 Redis 持久化"]

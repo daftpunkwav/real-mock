@@ -13,14 +13,14 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL, LLMProtocol
 from realmock.platform.capabilities.ai.llm.defaults import DEFAULT_MAX_OUTPUT_TOKENS
+from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
+from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL, LLMProtocol
+from realmock.platform.core.secrets import LegacySecretFormatError, decrypt_secret
 from realmock.platform.core.security import (
     UnsafeURLError,
     is_safe_http_url,
 )
-from realmock.platform.core.secrets import LegacySecretFormatError, decrypt_secret
-from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
 
 from .base import _is_local_allowed, _require_https
 from .chat_endpoints import chat as _chat
@@ -57,7 +57,9 @@ class UnifiedLLMClient:
         self.reasoning_effort = reasoning_effort or None
         # Model-declared custom thinking levels (order-significant); labels outside
         # the default scale are passed verbatim into requests.
-        self.reasoning_variants = [str(v) for v in (reasoning_variants or []) if str(v).strip()] or None
+        self.reasoning_variants = [
+            str(v) for v in (reasoning_variants or []) if str(v).strip()
+        ] or None
         # Full-URL providers: api_base is the verbatim endpoint, protocol path appending is skipped.
         self.full_url = bool(full_url)
         # Vendor-specific request-body customization from model-entry extras; merged after
@@ -223,7 +225,8 @@ class UnifiedLLMClient:
         except _StreamOptionsUnsupported:
             self._stream_usage_disabled = True
             logger.info(
-                "LLM streaming endpoint rejects stream_options and will no longer carry them: model=%s", self.model
+                "LLM streaming endpoint rejects stream_options and will no longer carry them: model=%s",
+                self.model,
             )
             payload.pop("stream_options", None)
             async for event in stream_message_round(
@@ -263,7 +266,8 @@ class UnifiedLLMClient:
         except _StreamOptionsUnsupported:
             self._stream_usage_disabled = True
             logger.info(
-                "LLM streaming endpoint rejects stream_options and will no longer carry them: model=%s", self.model
+                "LLM streaming endpoint rejects stream_options and will no longer carry them: model=%s",
+                self.model,
             )
             payload.pop("stream_options", None)
             async for piece in stream_text_payload(

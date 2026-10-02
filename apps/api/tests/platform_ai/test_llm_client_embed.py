@@ -124,13 +124,13 @@ def test_llm_client_embed_decrypt_failure_fails_closed(monkeypatch, tmp_path) ->
     """An Embeddings key decryption failure must raise and abort; it must not fall back to sending a plaintext key."""
     import asyncio
 
+    # Use a fixed master plus an isolated keyfile (following the test_secrets.py precedent) to prevent tests from writing into the source tree.
+    import base64 as _b64
+
     import realmock.platform.capabilities.ai.llm.client.llm_client_ext as llm_mod
     import realmock.platform.capabilities.ai.llm.client.openai_transport as ot_mod
     from realmock.platform.core import secrets as secrets_mod
     from realmock.platform.core.secrets import encrypt_secret
-
-    # Use a fixed master plus an isolated keyfile (following the test_secrets.py precedent) to prevent tests from writing into the source tree.
-    import base64 as _b64
 
     monkeypatch.setenv("SECRET_KEY", _b64.b64encode(b"a" * 32).decode())
     monkeypatch.setattr(secrets_mod, "_SHARED_DATA", tmp_path)
@@ -164,6 +164,8 @@ def test_llm_client_embed_decrypt_failure_fails_closed(monkeypatch, tmp_path) ->
         llm = LLMClient(api_base="https://api.openai.com/v1", api_key="sk-chat", model="gpt-4o")
         with pytest.raises(ValueError):
             asyncio.run(llm.embed(["hello"], model="BAAI/bge-m3"))
-        assert requested == [], "After decryption fails, do not fall back to sending a request with the plaintext key"
+        assert requested == [], (
+            "After decryption fails, do not fall back to sending a request with the plaintext key"
+        )
     finally:
         secrets_mod._reset_cache()

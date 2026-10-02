@@ -85,7 +85,7 @@ def test_stream_sanitizer_reasoning_only() -> None:
 def test_bracket_form_separator_leak_stripped() -> None:
     # MiniMax reversed variant: ]<]minimax[>[ separates units (an observed leakage form).
     text = (
-        "Harder to answer:]<]minimax[>[<tool_call>\n]<]minimax[>[<invoke name=\"quiz\">"
+        'Harder to answer:]<]minimax[>[<tool_call>\n]<]minimax[>[<invoke name="quiz">'
         "]<]minimax[>[<question>Explain the Function Calling workflow.</question>"
         "]<]minimax[>[</question>]<]minimax[>[<type>open]<]minimax[>[</type>"
         "]<]minimax[>[</invoke>\n]<]minimax[>[</tool_call>"
@@ -102,7 +102,11 @@ def test_bracket_form_separator_leak_stripped() -> None:
 
 def test_inline_tool_call_block_cross_chunk() -> None:
     s = StreamSanitizer()
-    chunks = ["Earlier text<tool_call><invoke name=", "\"quiz\"><question>question text", "</question></invoke></tool_call>trailing text"]
+    chunks = [
+        "Earlier text<tool_call><invoke name=",
+        '"quiz"><question>question text',
+        "</question></invoke></tool_call>trailing text",
+    ]
     r = "".join(s.feed_content(c) for c in chunks) + s.flush()
     assert "<tool_call>" not in r and "<invoke" not in r
     # Surrounding body text passes through unchanged; the neutral default
@@ -113,7 +117,10 @@ def test_inline_tool_call_block_cross_chunk() -> None:
 
 def test_inline_xml_without_question_dropped() -> None:
     s = StreamSanitizer()
-    r = s.feed_content("Body<tool_call><invoke name=\"x\"><arg>1</arg></invoke></tool_call>continues") + s.flush()
+    r = (
+        s.feed_content('Body<tool_call><invoke name="x"><arg>1</arg></invoke></tool_call>continues')
+        + s.flush()
+    )
     # Tool block removed; surrounding parts concatenate without added space.
     assert r == "Bodycontinues"
 
@@ -138,7 +145,7 @@ def test_tool_call_mention_then_real_block() -> None:
     # The same segment first mentions <tool_call> (without invoke), followed later by the real tool block.
     text = (
         "First inspect the <tool_call> syntax, then the system will parse it automatically."
-        "<tool_call><invoke name=\"quiz\"><question>Question A</question></invoke></tool_call>"
+        '<tool_call><invoke name="quiz"><question>Question A</question></invoke></tool_call>'
     )
     s = StreamSanitizer()
     r = s.feed_content(text) + s.flush()

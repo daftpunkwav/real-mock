@@ -7,7 +7,11 @@ interview-domain options module.
 from __future__ import annotations
 
 AVATARS = [
-    {"id": "professional_male", "name": "Professional Male Interviewer", "voice": "zh-CN-YunyangNeural"},
+    {
+        "id": "professional_male",
+        "name": "Professional Male Interviewer",
+        "voice": "zh-CN-YunyangNeural",
+    },
     {"id": "senior_male", "name": "Senior Male Interviewer", "voice": "zh-CN-YunjianNeural"},
     {"id": "strict_expert", "name": "Strict Technical Expert", "voice": "zh-CN-YunjianNeural"},
     {"id": "gentle_female", "name": "Gentle Female Interviewer", "voice": "zh-CN-XiaoxiaoNeural"},
@@ -33,6 +37,7 @@ def avatar_gender(avatar_id: str) -> str:
     mapping.
     """
     return _AVATAR_GENDER.get((avatar_id or "").strip(), "")
+
 
 TTS_VOICES = [
     {"id": "zh-CN-XiaoxiaoNeural", "name": "Xiaoxiao (female)"},

@@ -3,15 +3,19 @@
 Covers: _build_prep_llm, _turn_policy, prep_message, prep_message_stream, get_prep_messages, get_prep_context and their HTTP wrappers
 Conventions: No real LLM/network; LLM and PrepAgent faked via monkeypatch; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import json
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+
 from realmock.asgi import app
 from realmock.domains.prep.models import PrepSession
 from realmock.platform.core.session_auth import new_access_token
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -20,6 +24,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 def _session(db, **kwargs) -> PrepSession:
     kwargs.setdefault("status", "active")
@@ -31,10 +36,12 @@ def _session(db, **kwargs) -> PrepSession:
     db.refresh(row)
     return row
 
+
 class _FakeLLM:
     def __init__(self) -> None:
         self.model = "test-model"
         self.context_window = 8000
+
 
 def _patch_llm(monkeypatch, fake=None):
     import realmock.domains.prep.routes.chat as chat_route
@@ -48,6 +55,7 @@ def _patch_llm(monkeypatch, fake=None):
     _fake_from_db.captured = {}  # type: ignore[attr-defined]
     monkeypatch.setattr(chat_route.LLMClient, "from_db", staticmethod(_fake_from_db))
     return fake, _fake_from_db
+
 
 class _FakeAgent:
     def __init__(self, reply="hello-reply", ask_event=None) -> None:
@@ -67,12 +75,14 @@ class _FakeAgent:
     async def chat_stream(self, *args, **kwargs):  # pragma: no cover - replaced per-test
         yield "x"
 
+
 def _patch_agent(monkeypatch, agent=None):
     import realmock.domains.prep.routes.chat as chat_route
 
     agent = agent or _FakeAgent()
     monkeypatch.setattr(chat_route, "PrepAgent", lambda session, llm: agent)
     return agent
+
 
 def test_build_prep_llm_forwards_overrides(monkeypatch) -> None:
     import realmock.domains.prep.routes.chat as chat_route
@@ -82,6 +92,7 @@ def test_build_prep_llm_forwards_overrides(monkeypatch) -> None:
     body = PrepMessageRequest(content="hi", model_profile_id=7, reasoning_effort="high")
     chat_route._build_prep_llm(object(), body)  # type: ignore[arg-type]
     assert factory.captured == {"profile_id": 7, "reasoning_effort": "high"}
+
 
 def test_turn_policy_resolves() -> None:
     import realmock.domains.prep.routes.chat as chat_route
@@ -95,6 +106,7 @@ def test_turn_policy_resolves() -> None:
     assert opts2.intensity == "light"
     assert opts2.retain == 3
 
+
 @pytest.mark.asyncio
 async def test_prep_message_missing_is_a3001(db) -> None:
     import realmock.domains.prep.routes.chat as chat_route
@@ -104,6 +116,7 @@ async def test_prep_message_missing_is_a3001(db) -> None:
     with pytest.raises(ApiBusinessError) as exc:
         await chat_route.prep_message(999999, PrepMessageRequest(content="hi"), db, db, "tok")
     assert exc.value.error_code == "A3001"
+
 
 @pytest.mark.asyncio
 async def test_prep_message_forbidden_and_completed(db, monkeypatch) -> None:
@@ -119,17 +132,18 @@ async def test_prep_message_forbidden_and_completed(db, monkeypatch) -> None:
     row.status = "completed"
     db.commit()
     with pytest.raises(ApiBusinessError) as exc2:
-        await chat_route.prep_message(row.id, PrepMessageRequest(content="hi"), db, db, row.access_token)
+        await chat_route.prep_message(
+            row.id, PrepMessageRequest(content="hi"), db, db, row.access_token
+        )
     assert exc2.value.error_code == "A3002"
+
 
 @pytest.mark.asyncio
 async def test_prep_message_success_returns_totals(db, monkeypatch) -> None:
     import realmock.domains.prep.routes.chat as chat_route
     from realmock.domains.prep.schemas import PrepMessageRequest
 
-    row = _session(
-        db, token_usage=5, prompt_tokens=10, completion_tokens=20, cached_tokens=1
-    )
+    row = _session(db, token_usage=5, prompt_tokens=10, completion_tokens=20, cached_tokens=1)
     _patch_llm(monkeypatch)
     agent = _patch_agent(monkeypatch, _FakeAgent(reply="done-reply"))
     out = await chat_route.prep_message(
@@ -147,6 +161,7 @@ async def test_prep_message_success_returns_totals(db, monkeypatch) -> None:
     assert agent.chat_kwargs is not None
     assert agent.chat_kwargs["drop_last_assistant"] is True
 
+
 @pytest.mark.asyncio
 async def test_prep_message_stream_guards(db) -> None:
     import realmock.domains.prep.routes.chat as chat_route
@@ -158,19 +173,26 @@ async def test_prep_message_stream_guards(db) -> None:
             return False
 
     with pytest.raises(ApiBusinessError) as exc:
-        await chat_route.prep_message_stream(999999, PrepMessageRequest(content="hi"), _Req(), db, db, "t")  # type: ignore[arg-type]
+        await chat_route.prep_message_stream(
+            999999, PrepMessageRequest(content="hi"), _Req(), db, db, "t"
+        )  # type: ignore[arg-type]
     assert exc.value.error_code == "A3001"
 
     row = _session(db)
     with pytest.raises(ApiBusinessError) as exc2:
-        await chat_route.prep_message_stream(row.id, PrepMessageRequest(content="hi"), _Req(), db, db, "bad")  # type: ignore[arg-type]
+        await chat_route.prep_message_stream(
+            row.id, PrepMessageRequest(content="hi"), _Req(), db, db, "bad"
+        )  # type: ignore[arg-type]
     assert exc2.value.error_code == "A0401"
 
     row.status = "completed"
     db.commit()
     with pytest.raises(ApiBusinessError) as exc3:
-        await chat_route.prep_message_stream(row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token)  # type: ignore[arg-type]
+        await chat_route.prep_message_stream(
+            row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token
+        )  # type: ignore[arg-type]
     assert exc3.value.error_code == "A3002"
+
 
 @pytest.mark.asyncio
 async def test_prep_message_stream_dict_str_and_done(db, monkeypatch) -> None:
@@ -194,7 +216,12 @@ async def test_prep_message_stream_dict_str_and_done(db, monkeypatch) -> None:
             return False
 
     resp = await chat_route.prep_message_stream(
-        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
     )
     body = b""
     async for chunk in resp.body_iterator:
@@ -206,6 +233,7 @@ async def test_prep_message_stream_dict_str_and_done(db, monkeypatch) -> None:
     assert "plain-token" in text
     assert '"type": "done"' in text
     assert '"token_usage": 9' in text
+
 
 @pytest.mark.asyncio
 async def test_prep_message_stream_disconnect_breaks(db, monkeypatch) -> None:
@@ -234,13 +262,19 @@ async def test_prep_message_stream_disconnect_breaks(db, monkeypatch) -> None:
 
     _Req.calls = 0
     resp = await chat_route.prep_message_stream(
-        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
     )
     body = b""
     async for chunk in resp.body_iterator:
         body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
     assert "tok1" in body.decode()
     assert "tok2-never" not in body.decode()
+
 
 class _UpstreamError(RuntimeError):
     """Provider-shaped error: optional HTTP status like httpx SDK exceptions."""
@@ -276,7 +310,12 @@ async def test_prep_message_stream_quota_error_is_redacted(db, monkeypatch) -> N
             return False
 
     resp = await chat_route.prep_message_stream(
-        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
     )
     body = b""
     async for chunk in resp.body_iterator:
@@ -311,7 +350,12 @@ async def test_prep_message_stream_overflow_error_verbatim(db, monkeypatch) -> N
             return False
 
     resp = await chat_route.prep_message_stream(
-        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
     )
     body = b""
     async for chunk in resp.body_iterator:
@@ -341,7 +385,12 @@ async def test_prep_message_stream_opaque_error_is_generic(db, monkeypatch) -> N
             return False
 
     resp = await chat_route.prep_message_stream(
-        row.id, PrepMessageRequest(content="hi"), _Req(), db, db, row.access_token  # type: ignore[arg-type]
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
     )
     body = b""
     async for chunk in resp.body_iterator:
@@ -349,6 +398,7 @@ async def test_prep_message_stream_opaque_error_is_generic(db, monkeypatch) -> N
     text = body.decode()
     assert "upstream-secret" not in text
     assert chat_route._SSE_ERR_GENERIC in text
+
 
 @pytest.mark.asyncio
 async def test_get_prep_messages_edges(db) -> None:
@@ -378,6 +428,7 @@ async def test_get_prep_messages_edges(db) -> None:
     assert out[1].content == ""
     assert out[2].content == "hello"
 
+
 @pytest.mark.asyncio
 async def test_get_prep_context_edges(db) -> None:
     import realmock.domains.prep.routes.chat as chat_route
@@ -403,6 +454,7 @@ async def test_get_prep_context_edges(db) -> None:
     assert out.completion_tokens == 5
     assert out.cached_tokens == 6
 
+
 def test_prep_message_http_success(db, monkeypatch) -> None:
     row = _session(db)
     _patch_llm(monkeypatch)
@@ -418,6 +470,7 @@ def test_prep_message_http_success(db, monkeypatch) -> None:
     assert resp.status_code == 200, resp.text
     assert resp.json()["reply"] == "http-ok"
     assert resp.json()["ask_user"] is None
+
 
 def test_prep_message_http_surfaces_ask_dialog(db, monkeypatch) -> None:
     """A turn that ended on ask_user carries the dialog in the response body."""
@@ -443,6 +496,7 @@ def test_prep_message_http_surfaces_ask_dialog(db, monkeypatch) -> None:
     body = resp.json()
     assert body["ask_user"]["question"] == "Which direction?"
     assert body["ask_user"]["options"] == ["backend", "frontend"]
+
 
 def test_prep_stream_http_error_generic_fallback(db, monkeypatch) -> None:
     row = _session(db)
@@ -559,7 +613,9 @@ async def test_suggestions_edges(db, monkeypatch) -> None:
         },
     )
     out = await chat_route.suggest_prep_followups(
-        row.id, db=db, access=row.access_token,
+        row.id,
+        db=db,
+        access=row.access_token,
         body=chat_route.PrepSuggestionsRequest(ui_locale="zh-CN"),
     )
     assert out.suggestions == [

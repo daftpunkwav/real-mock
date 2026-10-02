@@ -5,10 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from realmock.platform.core.background import spawn_background
-
 from realmock.domains.growth.agents.insight import generate_growth_insight
 from realmock.domains.growth.services.insight_store import upsert_insight
+from realmock.platform.core.background import spawn_background
 from realmock.platform.database import api_db_session, sessions_db_session
 
 logger = logging.getLogger(__name__)
@@ -66,8 +65,7 @@ def schedule_growth_insight_regen(*, locale: str = "zh-CN") -> bool:
     except RuntimeError:
         logger.warning("growth insight regen skipped: no running event loop")
         return False
-    spawn_background(regenerate_growth_insight(locale=locale),
-                    label="growth-insight-regen")
+    spawn_background(regenerate_growth_insight(locale=locale), label="growth-insight-regen")
     return True
 
 

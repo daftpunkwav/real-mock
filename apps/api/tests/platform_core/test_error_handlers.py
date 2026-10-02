@@ -14,22 +14,24 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from realmock.platform.core.errors import ApiBusinessError, CATALOG
 from realmock.platform.core.error_handlers import (
     on_http_exception,
     on_request_validation,
     on_starlette_http_exception,
     on_unhandled_exception,
 )
+from realmock.platform.core.errors import CATALOG, ApiBusinessError
 
 
 def _body(resp) -> dict:
     """helper: parse the JSONResponse body."""
     return json.loads(resp.body)
 
+
 def _mock_request() -> Request:
     """Construct a minimal Request for testing direct handler calls."""
     from starlette.requests import Request as StarletteRequest
+
     scope = {"type": "http", "method": "GET", "path": "/x", "headers": []}
     return StarletteRequest(scope)
 

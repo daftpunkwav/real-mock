@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 
-
 from realmock.domains.interview.models import InterviewSession, InterviewTurn
 from realmock.domains.interview.realtime.control.interrupt import (
     InterruptControlMixin,
@@ -128,6 +127,8 @@ def test_persist_interrupt_stats_sync_writes_state(db) -> None:
     assert json.loads(fresh.agent_state)["candidate_interrupts"] == 2
     # A missing row reports failure instead of raising.
     assert worker(None, row.id + 999, "{}") is False  # type: ignore[arg-type]
+
+
 def test_persist_interrupt_stats_sync_rolls_back_on_failure(monkeypatch) -> None:
     """A failing commit rolls back (rollback errors swallowed) and returns False."""
     from unittest.mock import MagicMock

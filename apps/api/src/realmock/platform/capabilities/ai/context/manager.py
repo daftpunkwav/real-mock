@@ -80,7 +80,10 @@ def prepare_llm_context(
         compacted = list(messages)
     else:
         compacted = compress_messages(
-            messages, max_tokens, keep_recent=keep_recent, memory=memory,
+            messages,
+            max_tokens,
+            keep_recent=keep_recent,
+            memory=memory,
             threshold=threshold,
         )
     return upsert_memory_block(compacted, memory)

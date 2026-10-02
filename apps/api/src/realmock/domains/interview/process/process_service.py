@@ -16,12 +16,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.constants import InterviewResult, ProcessStatus
 from realmock.domains.interview.ledger.store import is_frozen, load_ledger
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
-from realmock.domains.interview.schemas.process import (
-    InterviewProcessResponse,
-    ProcessCreateRequest,
-    ProcessRoundItem,
-    ProcessRoundPlanItem,
-)
+from realmock.domains.interview.process.round_digest import build_round_digest
 from realmock.domains.interview.protocols.process_memory import (
     append_round,
     dump_memory,
@@ -29,8 +24,13 @@ from realmock.domains.interview.protocols.process_memory import (
     mark_final,
 )
 from realmock.domains.interview.protocols.round_chain import RoundStep, round_chain, step_for
-from realmock.domains.interview.process.round_digest import build_round_digest
 from realmock.domains.interview.protocols.round_plan_schema import load_round_plan
+from realmock.domains.interview.schemas.process import (
+    InterviewProcessResponse,
+    ProcessCreateRequest,
+    ProcessRoundItem,
+    ProcessRoundPlanItem,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,9 @@ def _planned_round_plan(process: InterviewProcess) -> list[ProcessRoundPlanItem]
     ]
 
 
-def _to_response(process: InterviewProcess, rounds: list[InterviewSession]) -> InterviewProcessResponse:
+def _to_response(
+    process: InterviewProcess, rounds: list[InterviewSession]
+) -> InterviewProcessResponse:
     eligible, next_no = is_next_round_eligible(process, rounds)
     return InterviewProcessResponse(
         id=process.id,
@@ -275,9 +277,7 @@ def record_round_finished(db: Session, session: InterviewSession) -> None:
     if not process_id:
         return
     try:
-        process = (
-            db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
-        )
+        process = db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
         if process is None:
             logger.warning("record_round_finished: process missing pid=%s", process_id)
             return

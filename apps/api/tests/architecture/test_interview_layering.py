@@ -38,9 +38,11 @@ AGENTS_LEAF_ALLOWLIST = frozenset({"events", "agent_text"})
 #: Any NEW agents→process edge fails this test and forces the discussion.
 #: The reverse direction is banned outright by
 #: :func:`test_interview_process_never_imports_agents`.
-AGENTS_PROCESS_ALLOWLIST = frozenset({
-    "realmock.domains.interview.process.process_service",
-})
+AGENTS_PROCESS_ALLOWLIST = frozenset(
+    {
+        "realmock.domains.interview.process.process_service",
+    }
+)
 
 
 def _api_root() -> Path:
@@ -153,8 +155,7 @@ def test_interview_agents_process_seam_frozen() -> None:
                     f"'{module}' — extend AGENTS_PROCESS_ALLOWLIST deliberately or move the module"
                 )
     assert not violations, (
-        "agents→process seam is frozen to the shared-kernel allowlist:\n"
-        + "\n".join(violations)
+        "agents→process seam is frozen to the shared-kernel allowlist:\n" + "\n".join(violations)
     )
 
 
@@ -195,10 +196,7 @@ def test_interview_routes_realtime_single_wire() -> None:
                 parts = module.split(".")
                 if parts[:4] != ["realmock", "domains", "interview", "realtime"]:
                     continue
-                allowed = (
-                    in_ws_entry
-                    and module == "realmock.domains.interview.realtime.ws_handler"
-                )
+                allowed = in_ws_entry and module == "realmock.domains.interview.realtime.ws_handler"
                 if not allowed:
                     violations.append(
                         f"{path.relative_to(api_root)}:{lineno}: routes→realtime edge "
@@ -229,13 +227,9 @@ def test_interview_agents_facade_in_sync() -> None:
         if value is None:
             continue
         if "__all__" in targets and isinstance(value, (ast.List, ast.Tuple)):
-            all_names = {
-                e.value for e in value.elts if isinstance(e, ast.Constant)
-            }
+            all_names = {e.value for e in value.elts if isinstance(e, ast.Constant)}
         if "_LAZY_EXPORTS" in targets and isinstance(value, ast.Dict):
-            lazy_keys = {
-                k.value for k in value.keys if isinstance(k, ast.Constant)
-            }
+            lazy_keys = {k.value for k in value.keys if isinstance(k, ast.Constant)}
     assert all_names, "agents/__init__.py must define __all__"
     assert all_names == lazy_keys, (
         f"facade __all__ out of sync with _LAZY_EXPORTS: "
@@ -249,10 +243,12 @@ def test_interview_agents_facade_in_sync() -> None:
 #: (agent_state_snapshot / record_interrupt_counts / message_history).
 #: ``.agent.session`` is deliberately NOT banned — rebinding the ORM row is
 #: the binding seam itself (rebind_runtime_session).
-_BANNED_AGENT_ATTR_CHAINS = frozenset({
-    ("agent", "agent_state"),
-    ("agent", "messages"),
-})
+_BANNED_AGENT_ATTR_CHAINS = frozenset(
+    {
+        ("agent", "agent_state"),
+        ("agent", "messages"),
+    }
+)
 
 
 def _attr_chain(node: ast.AST) -> list[str] | None:
@@ -292,8 +288,8 @@ def test_realtime_never_touches_agent_internals() -> None:
                         + ".".join(chain)
                         + " — use the InterviewRunner facade instead",
                     )
-    assert not violations, (
-        "realtime must not touch agent internals directly:\n" + "\n".join(violations)
+    assert not violations, "realtime must not touch agent internals directly:\n" + "\n".join(
+        violations
     )
 
 
@@ -301,8 +297,7 @@ def test_realtime_agent_internals_guard_self_check(tmp_path: Path) -> None:
     """The attribute guard actually fires on a constructed violation."""
     probe = tmp_path / "violation.py"
     probe.write_text(
-        "def f(ctx):\n"
-        "    return dict(ctx.agent.agent_state)\n",
+        "def f(ctx):\n    return dict(ctx.agent.agent_state)\n",
         encoding="utf-8",
     )
     tree = ast.parse(probe.read_text(encoding="utf-8"))

@@ -16,7 +16,6 @@ import pytest
 import realmock.platform.capabilities.integrations.github.tools as tools_mod
 
 
-
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
     from realmock.platform.core.ratelimit import reset_rate_limit
@@ -47,9 +46,14 @@ async def test_execute_get_user_and_list_repos() -> None:
     assert json.loads(
         await tools_mod.execute_github_tool("github_get_user", {"username": "o"}, client=_GH())  # type: ignore[arg-type]
     ) == {"login": "o"}
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_list_repos", {"username": "o"}, client=_GH())  # type: ignore[arg-type]
-    )["username"] == "o"
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_list_repos", {"username": "o"}, client=_GH()
+            )  # type: ignore[arg-type]
+        )["username"]
+        == "o"
+    )
 
 
 @pytest.mark.asyncio
@@ -77,28 +81,60 @@ async def test_execute_repo_readme_commits_pulls_issues_file_langs() -> None:
             return {"Python": 10}
 
     gh = _GH()
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_get_repo", {"owner": "o", "repo": "r"}, client=gh)  # type: ignore[arg-type]
-    )["full_name"] == "o/r"
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_get_readme", {"owner": "o", "repo": "r"}, client=gh)  # type: ignore[arg-type]
-    )["content"] == "readme"
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_get_repo", {"owner": "o", "repo": "r"}, client=gh
+            )  # type: ignore[arg-type]
+        )["full_name"]
+        == "o/r"
+    )
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_get_readme", {"owner": "o", "repo": "r"}, client=gh
+            )  # type: ignore[arg-type]
+        )["content"]
+        == "readme"
+    )
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_list_commits",
+                {"owner": "o", "repo": "r", "author": "bob"},
+                client=gh,  # type: ignore[arg-type]
+            )
+        )["author"]
+        == "bob"
+    )
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_list_pulls", {"owner": "o", "repo": "r"}, client=gh
+            )  # type: ignore[arg-type]
+        )["state"]
+        == "all"
+    )
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_list_issues", {"owner": "o", "repo": "r"}, client=gh
+            )  # type: ignore[arg-type]
+        )["state"]
+        == "all"
+    )
+    assert (
+        json.loads(
+            await tools_mod.execute_github_tool(
+                "github_get_file", {"owner": "o", "repo": "r", "path": "a.py"}, client=gh
+            )  # type: ignore[arg-type]
+        )["path"]
+        == "a.py"
+    )
     assert json.loads(
         await tools_mod.execute_github_tool(
-            "github_list_commits", {"owner": "o", "repo": "r", "author": "bob"}, client=gh  # type: ignore[arg-type]
-        )
-    )["author"] == "bob"
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_list_pulls", {"owner": "o", "repo": "r"}, client=gh)  # type: ignore[arg-type]
-    )["state"] == "all"
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_list_issues", {"owner": "o", "repo": "r"}, client=gh)  # type: ignore[arg-type]
-    )["state"] == "all"
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_get_file", {"owner": "o", "repo": "r", "path": "a.py"}, client=gh)  # type: ignore[arg-type]
-    )["path"] == "a.py"
-    assert json.loads(
-        await tools_mod.execute_github_tool("github_get_languages", {"owner": "o", "repo": "r"}, client=gh)  # type: ignore[arg-type]
+            "github_get_languages", {"owner": "o", "repo": "r"}, client=gh
+        )  # type: ignore[arg-type]
     ) == {"Python": 10}
 
 

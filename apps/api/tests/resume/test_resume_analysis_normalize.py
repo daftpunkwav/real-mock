@@ -8,10 +8,10 @@ Conventions: no real network/model downloads (all clients mocked); pure logic.
 
 from types import SimpleNamespace
 
+from realmock.domains.resume.schemas.resume import ResumeAnalysis
 from realmock.domains.resume.services.analysis_normalize import (
     normalize_resume_analysis_payload,
 )
-from realmock.domains.resume.schemas.resume import ResumeAnalysis
 
 
 def test_normalize_basic():
@@ -51,9 +51,7 @@ def test_normalize_decimal_string_score_and_percentile():
         benchmark_percentile_from_score,
     )
 
-    data = normalize_resume_analysis_payload(
-        {"score": "88.7", "benchmark_percentile": "72.5"}
-    )
+    data = normalize_resume_analysis_payload({"score": "88.7", "benchmark_percentile": "72.5"})
     assert data["score"] == 88
     assert data["benchmark_percentile"] == benchmark_percentile_from_score(88)
 
@@ -64,9 +62,7 @@ def test_normalize_invalid_inputs_keep_semantics():
         benchmark_percentile_from_score,
     )
 
-    data = normalize_resume_analysis_payload(
-        {"score": "abc", "benchmark_percentile": "abc"}
-    )
+    data = normalize_resume_analysis_payload({"score": "abc", "benchmark_percentile": "abc"})
     assert data["score"] == 0
     assert data["benchmark_percentile"] == benchmark_percentile_from_score(0)
     data = normalize_resume_analysis_payload({"benchmark_percentile": None})
@@ -216,9 +212,7 @@ def test_normalize_rewrite_arrow_keeps_latin_before_text():
 
 
 def test_normalize_rewrite_strips_before_label_on_arrow():
-    data = normalize_resume_analysis_payload(
-        {"rewrite_examples": ["before: old -> new"]}
-    )
+    data = normalize_resume_analysis_payload({"rewrite_examples": ["before: old -> new"]})
     assert data["rewrite_examples"] == [{"before": "old", "after": "new"}]
 
 
@@ -277,30 +271,22 @@ def test_normalize_rewrite_keyed_fallback_on_trailing_junk():
 
 
 def test_normalize_rewrite_labeled_markers():
-    data = normalize_resume_analysis_payload(
-        {"rewrite_examples": ["改前：做了X after: did Y"]}
-    )
+    data = normalize_resume_analysis_payload({"rewrite_examples": ["改前：做了X after: did Y"]})
     assert data["rewrite_examples"] == [{"before": "做了X", "after": "did Y"}]
 
 
 def test_normalize_rewrite_strips_heading_markers():
-    data = normalize_resume_analysis_payload(
-        {"rewrite_examples": ["### Old -> New"]}
-    )
+    data = normalize_resume_analysis_payload({"rewrite_examples": ["### Old -> New"]})
     assert data["rewrite_examples"] == [{"before": "Old", "after": "New"}]
 
 
 def test_normalize_rewrite_drops_unmatched_text():
-    data = normalize_resume_analysis_payload(
-        {"rewrite_examples": ["just some text"]}
-    )
+    data = normalize_resume_analysis_payload({"rewrite_examples": ["just some text"]})
     assert data["rewrite_examples"] == []
 
 
 def test_normalize_interviewer_comments_even_count():
-    data = normalize_resume_analysis_payload(
-        {"interviewer_comments": ["a", "b", "c", "d", "e"]}
-    )
+    data = normalize_resume_analysis_payload({"interviewer_comments": ["a", "b", "c", "d", "e"]})
     assert data["interviewer_comments"] == ["a", "b", "c", "d"]
     data = normalize_resume_analysis_payload(
         {"interviewer_comments": ["a", "", "b", "c", "d", "e", "f", "g", "h", "i"]}
@@ -338,9 +324,12 @@ def test_normalize_improvement_suggestions_dict_shapes():
 
 
 def test_normalize_improvement_suggestions_non_list():
-    assert normalize_resume_analysis_payload({"improvement_suggestions": "nope"})[
-        "improvement_suggestions"
-    ] == []
+    assert (
+        normalize_resume_analysis_payload({"improvement_suggestions": "nope"})[
+            "improvement_suggestions"
+        ]
+        == []
+    )
 
 
 def test_normalize_dimension_weights_clamped_to_range():
@@ -435,30 +424,32 @@ def test_normalize_rewrite_variants() -> None:
 
     out = _normalize_rewrite_examples("not-a-list")
     assert out == []
-    out2 = _normalize_rewrite_examples([
-        {"before": "### a", "after": "b"},
-        '{"before": "x", "after": "y"}',
-        "{'before': 'p', 'after': 'q'}",
-        "before: m after: n",
-        "m -> n",
-        {"before": "", "after": ""},
-        "dangling",
-    ])
+    out2 = _normalize_rewrite_examples(
+        [
+            {"before": "### a", "after": "b"},
+            '{"before": "x", "after": "y"}',
+            "{'before': 'p', 'after': 'q'}",
+            "before: m after: n",
+            "m -> n",
+            {"before": "", "after": ""},
+            "dangling",
+        ]
+    )
     assert {"before": "a", "after": "b"} in out2
     assert len(out2) >= 4
 
 
 def test_normalize_scores_dims_and_weights() -> None:
+    from realmock.domains.resume.schemas.limits import DIMENSION_WEIGHTS
     from realmock.domains.resume.services.analysis_normalize import (
         _coerce_dimension_map,
         _coerce_int_score,
-        _normalize_dimension_weights,
         _norm_score,
+        _normalize_dimension_weights,
         _pick_overall_score,
         benchmark_percentile_from_score,
         compute_score_from_dims,
     )
-    from realmock.domains.resume.schemas.limits import DIMENSION_WEIGHTS
 
     assert _coerce_int_score("88.7") == 88
     assert _coerce_int_score("abc") is None
@@ -468,7 +459,9 @@ def test_normalize_scores_dims_and_weights() -> None:
     assert _pick_overall_score({}) == 0
     assert _pick_overall_score({"score": 150}) == 100
     assert _coerce_dimension_map({"a": 1}) == {"a": 1}
-    assert _coerce_dimension_map([{"key": "k", "score": 1}, "bad", {}]) == {"k": {"key": "k", "score": 1}}
+    assert _coerce_dimension_map([{"key": "k", "score": 1}, "bad", {}]) == {
+        "k": {"key": "k", "score": 1}
+    }
     assert _coerce_dimension_map("bad") == {}
     w = _normalize_dimension_weights({"unknown_dim": 9, "tech_depth": "bad", "tech_depth2": 1})
     assert w == DIMENSION_WEIGHTS
@@ -481,11 +474,16 @@ def test_normalize_scores_dims_and_weights() -> None:
     assert compute_score_from_dims({}) is None
     assert compute_score_from_dims({"a": SimpleNamespace(score=None)}) is None
     assert compute_score_from_dims({"a": SimpleNamespace(score=80)}, weights={"a": 0}) is None
-    assert compute_score_from_dims({"a": SimpleNamespace(score=80), "b": SimpleNamespace(score=60)}) == 70
+    assert (
+        compute_score_from_dims({"a": SimpleNamespace(score=80), "b": SimpleNamespace(score=60)})
+        == 70
+    )
 
 
 def test_normalize_nested_blobs() -> None:
-    from realmock.domains.resume.services.analysis_normalize import normalize_resume_analysis_payload
+    from realmock.domains.resume.services.analysis_normalize import (
+        normalize_resume_analysis_payload,
+    )
 
     data = normalize_resume_analysis_payload(
         {
@@ -496,15 +494,33 @@ def test_normalize_nested_blobs() -> None:
                 "k2": {"score": 90, "comment": "ok"},
                 "k3": 70,
             },
-            "section_reviews": [{"section": "exp", "score": "90", "verdict": "v", "detail": "d"}, "bad"],
+            "section_reviews": [
+                {"section": "exp", "score": "90", "verdict": "v", "detail": "d"},
+                "bad",
+            ],
             "project_cards": [{"name": "p", "score": 80, "deep_questions": ["why?"]}, "bad"],
             "skill_trust": {"solid": ["Python"], "claimed": [], "missing": []},
-            "career_analysis": {"trajectory": "up", "stability_score": 80, "gaps": ["g"], "notes": "n"},
+            "career_analysis": {
+                "trajectory": "up",
+                "stability_score": 80,
+                "gaps": ["g"],
+                "notes": "n",
+            },
             "company_fit": [{"tier": "t", "fit_score": 80, "reason": "r"}, "bad"],
             "repo_evidence": [{"repo": "o/r", "stars": "10", "forks": "x"}],
             "repo_verification": [{"repo": "o/r", "verdict": "ok", "details": "d"}, "bad"],
-            "interview_qa": [{"question": "q?", "intent": "i", "answer_points": ["a"], "follow_ups": ["f"]}, {"no": "q"}, "bad"],
-            "improvement_suggestions": [{"location": "exp", "current": "a", "suggested": "b", "effect": "e"}, "{'location': 'x', 'current': 'a', 'suggested': 'b', 'effect': 'e'}", "plain", {}, ""],
+            "interview_qa": [
+                {"question": "q?", "intent": "i", "answer_points": ["a"], "follow_ups": ["f"]},
+                {"no": "q"},
+                "bad",
+            ],
+            "improvement_suggestions": [
+                {"location": "exp", "current": "a", "suggested": "b", "effect": "e"},
+                "{'location': 'x', 'current': 'a', 'suggested': 'b', 'effect': 'e'}",
+                "plain",
+                {},
+                "",
+            ],
             "interviewer_comments": ["a", "b", "c", "d", "e"],
             "dimension_weights": {"tech_depth": 1.5},
         },
@@ -521,9 +537,18 @@ def test_normalize_nested_blobs() -> None:
     assert normalize_resume_analysis_payload("bad") == {}
     zh = normalize_resume_analysis_payload({"score": 10, "headline": "，hello"}, locale="zh-CN")
     assert zh["score"] == 10
-    empty_trust = normalize_resume_analysis_payload({"score": 1, "skill_trust": {"solid": [], "claimed": [], "missing": []}})
+    empty_trust = normalize_resume_analysis_payload(
+        {"score": 1, "skill_trust": {"solid": [], "claimed": [], "missing": []}}
+    )
     assert empty_trust["skill_trust"] is None
-    empty_career = normalize_resume_analysis_payload({"score": 1, "career_analysis": {"trajectory": "", "gaps": []}})
+    empty_career = normalize_resume_analysis_payload(
+        {"score": 1, "career_analysis": {"trajectory": "", "gaps": []}}
+    )
     assert empty_career["career_analysis"] is None
-    assert normalize_resume_analysis_payload({"score": 1, "skill_trust": "bad"})["skill_trust"] is None
-    assert normalize_resume_analysis_payload({"score": 1, "career_analysis": "bad"})["career_analysis"] is None
+    assert (
+        normalize_resume_analysis_payload({"score": 1, "skill_trust": "bad"})["skill_trust"] is None
+    )
+    assert (
+        normalize_resume_analysis_payload({"score": 1, "career_analysis": "bad"})["career_analysis"]
+        is None
+    )

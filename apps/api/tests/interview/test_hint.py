@@ -132,8 +132,9 @@ def test_reference_detail_defaults_to_outline():
 
 def test_full_hint_reuses_loop_answer_without_writer_call(monkeypatch):
     """When the tool loop already produced the answer, skip the second LLM call."""
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     calls = {"chat": 0}
 
@@ -167,8 +168,9 @@ def test_full_hint_reuses_loop_answer_without_writer_call(monkeypatch):
 
 
 def test_full_hint_falls_back_to_writer_without_loop_content(monkeypatch):
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     class WriterLLM:
         async def chat(self, *args, **kwargs):
@@ -201,8 +203,9 @@ def test_full_hint_falls_back_to_writer_without_loop_content(monkeypatch):
 
 
 def test_full_hint_enables_tool_free_final_round(monkeypatch):
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     captured: dict = {}
 
@@ -255,8 +258,9 @@ def test_writer_view_folds_tool_evidence_and_strips_tool_fields():
 
 
 def test_full_hint_writer_receives_sanitized_messages(monkeypatch):
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     captured: dict = {}
 
@@ -306,8 +310,9 @@ def test_full_hint_writer_receives_sanitized_messages(monkeypatch):
 
 
 def test_full_hint_zero_tool_path_uses_single_writer_call(monkeypatch):
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     calls = {"loop": 0, "chat": 0}
 
@@ -341,8 +346,9 @@ def test_full_hint_zero_tool_path_ignores_word_contains_signals(monkeypatch):
     """Word-boundary contract: words that merely CONTAIN repo-ish substrings
     ("started", "restarted") are not a repository signal and must not buy the
     tool loop."""
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     calls = {"loop": 0}
 
@@ -371,8 +377,9 @@ def test_full_hint_zero_tool_path_ignores_word_contains_signals(monkeypatch):
 
 
 def test_full_hint_repo_signal_runs_github_only_loop(monkeypatch):
-    import realmock.domains.interview.agents.hint.hint_answer as mod
     from types import SimpleNamespace as NS
+
+    import realmock.domains.interview.agents.hint.hint_answer as mod
 
     captured: dict = {}
 

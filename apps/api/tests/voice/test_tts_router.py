@@ -6,15 +6,15 @@ none/edge/minimax/custom branches, _synthesize_fallback guardrails, _synthesize_
 protocol/creds/payload/audio/error branches, synthesize_custom_speech.
 Conventions: no real network/model downloads (all clients mocked).
 """
+
 from __future__ import annotations
 
+import importlib
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-
-import importlib
 
 from realmock.platform.capabilities.voice.tts import (
     TtsCredentials,
@@ -332,9 +332,7 @@ async def test_openai_compat_full_url_posts_verbatim(monkeypatch):
     monkeypatch.setattr(tts_mod, "make_pinned_async_client", lambda *a, **k: client)
     out = await tts_mod._synthesize_openai_compat(
         "hi",
-        TtsCredentials(
-            api_base="https://x/v1/complete-endpoint", api_key="k", full_url=True
-        ),
+        TtsCredentials(api_base="https://x/v1/complete-endpoint", api_key="k", full_url=True),
     )
     assert out == "A"
     assert client.calls[0]["url"] == "https://x/v1/complete-endpoint"

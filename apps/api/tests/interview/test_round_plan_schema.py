@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.agents.session_state import (
     InterviewSessionState,
 )
@@ -64,87 +65,25 @@ def _state(db, **overrides) -> InterviewSessionState:
 # ---- _is_summary_phase ----
 
 
-
-
 # ---- load / clamp ----
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- notes ----
 
 
-
-
-
-
-
-
-
-
-
-
 # ---- pace ----
-
-
-
-
-
-
-
-
 
 
 # ---- phase queries ----
 
 
-
-
-
-
-
-
 # ---- progression ----
-
-
-
-
-
-
-
-
 
 
 # ---- session_overrides ----
 
 
-
-
-
-
-
-
 # ---- compaction thresholds ----
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- round plan schema extras ----

@@ -47,7 +47,9 @@ def test_to_dict_and_merge() -> None:
         "cached_tokens": 3,
         "reasoning_tokens": 0,
     }
-    other = UsageAccumulator(prompt_tokens=10, completion_tokens=20, cached_tokens=30, billed_responses=2)
+    other = UsageAccumulator(
+        prompt_tokens=10, completion_tokens=20, cached_tokens=30, billed_responses=2
+    )
     acc.merge(other)
     assert acc.prompt_tokens == 11
     assert acc.billed_responses == 2
@@ -65,7 +67,13 @@ def test_record_response_openai() -> None:
 
 def test_record_response_openai_cached_details() -> None:
     acc = UsageAccumulator()
-    data = {"usage": {"prompt_tokens": 10, "completion_tokens": 5, "prompt_tokens_details": {"cached_tokens": 4}}}
+    data = {
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "prompt_tokens_details": {"cached_tokens": 4},
+        }
+    }
     assert acc.record_response(data, CHAT) is True
     assert acc.cached_tokens == 4
 
@@ -103,7 +111,13 @@ def test_record_response_anthropic() -> None:
 
 def test_record_response_responses() -> None:
     acc = UsageAccumulator()
-    data = {"usage": {"input_tokens": 6, "output_tokens": 2, "input_tokens_details": {"cached_tokens": 1}}}
+    data = {
+        "usage": {
+            "input_tokens": 6,
+            "output_tokens": 2,
+            "input_tokens_details": {"cached_tokens": 1},
+        }
+    }
     assert acc.record_response(data, RESP) is True
     assert acc.cached_tokens == 1
 
@@ -125,10 +139,16 @@ def test_record_stream_anthropic_message_delta_folds_cumulative() -> None:
     acc = UsageAccumulator()
     start = {"type": "message_start", "message": {"usage": {"input_tokens": 5, "output_tokens": 1}}}
     assert acc.record_stream_event(start, ANTH) is True
-    assert acc.record_stream_event({"type": "message_delta", "usage": {"output_tokens": 10}}, ANTH) is True
+    assert (
+        acc.record_stream_event({"type": "message_delta", "usage": {"output_tokens": 10}}, ANTH)
+        is True
+    )
     assert acc.completion_tokens == 10
     # Smaller cumulative value does not move backwards.
-    assert acc.record_stream_event({"type": "message_delta", "usage": {"output_tokens": 3}}, ANTH) is True
+    assert (
+        acc.record_stream_event({"type": "message_delta", "usage": {"output_tokens": 3}}, ANTH)
+        is True
+    )
     assert acc.completion_tokens == 10
     # No output_tokens key still returns True.
     assert acc.record_stream_event({"type": "message_delta", "usage": {}}, ANTH) is True
@@ -168,7 +188,10 @@ def test_record_stream_anthropic_other_returns_false() -> None:
 
 def test_record_stream_responses_completed() -> None:
     acc = UsageAccumulator()
-    ev = {"type": "response.completed", "response": {"usage": {"input_tokens": 4, "output_tokens": 4}}}
+    ev = {
+        "type": "response.completed",
+        "response": {"usage": {"input_tokens": 4, "output_tokens": 4}},
+    }
     assert acc.record_stream_event(ev, RESP) is True
     assert acc.prompt_tokens == 4
     assert acc.record_stream_event({"type": "other"}, RESP) is False
@@ -255,7 +278,9 @@ def test_note_request_error_opaque_keeps_type_only() -> None:
     acc = UsageAccumulator()
     # Non-actionable internals (gateway URL, SDK trace) must never reach the
     # client: only the exception type name is exposed.
-    acc.note_request_error(RuntimeError("connect timeout to http://10.0.0.3:8080/v1 upstream-secret"))
+    acc.note_request_error(
+        RuntimeError("connect timeout to http://10.0.0.3:8080/v1 upstream-secret")
+    )
     assert acc.last_error == "RuntimeError"
 
 

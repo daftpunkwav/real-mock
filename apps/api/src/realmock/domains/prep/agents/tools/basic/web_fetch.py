@@ -60,7 +60,14 @@ WEB_FETCH_SPEC = ToolSpec(
     handler=run_web_fetch,
     tier=TOOL_TIER_SECONDARY,
     keywords=(
-        "web", "fetch", "url", "网页", "链接", "正文", "原文", "读取网页",
+        "web",
+        "fetch",
+        "url",
+        "网页",
+        "链接",
+        "正文",
+        "原文",
+        "读取网页",
     ),
     timeout_seconds=40.0,
 )

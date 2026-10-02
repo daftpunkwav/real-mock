@@ -31,13 +31,19 @@ class TestSafeBase:
             safe_base("ftp://x/y", label="Base URL")
 
     def test_prod_requires_https(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.domains.settings.services.validation.get_settings", lambda: SimpleNamespace(is_prod=True))
+        monkeypatch.setattr(
+            "realmock.domains.settings.services.validation.get_settings",
+            lambda: SimpleNamespace(is_prod=True),
+        )
         with pytest.raises(ApiBusinessError, match="production requires https"):
             safe_base("http://example.com/v1", label="Base URL")
         safe_base("https://example.com/v1", label="Base URL")
 
     def test_nonprod_allows_http(self, monkeypatch) -> None:
-        monkeypatch.setattr("realmock.domains.settings.services.validation.get_settings", lambda: SimpleNamespace(is_prod=False))
+        monkeypatch.setattr(
+            "realmock.domains.settings.services.validation.get_settings",
+            lambda: SimpleNamespace(is_prod=False),
+        )
         safe_base("http://example.com/v1", label="Base URL")
 
 
@@ -65,7 +71,11 @@ class TestValidateStageConfig:
         import realmock.domains.settings.services.validation as v
 
         monkeypatch.setattr(v, "non_reasoning_provider_ids", lambda: frozenset())
-        monkeypatch.setattr(v, "find_provider", lambda stage, pid: {"can_interview_reason": False, "status": "active"})
+        monkeypatch.setattr(
+            v,
+            "find_provider",
+            lambda stage, pid: {"can_interview_reason": False, "status": "active"},
+        )
         with pytest.raises(ApiBusinessError):
             validate_stage_config("reason", self._update("whatever"))
 
@@ -73,7 +83,11 @@ class TestValidateStageConfig:
         import realmock.domains.settings.services.validation as v
 
         monkeypatch.setattr(v, "non_reasoning_provider_ids", lambda: frozenset())
-        monkeypatch.setattr(v, "find_provider", lambda stage, pid: {"can_interview_reason": False, "status": "coming_soon"})
+        monkeypatch.setattr(
+            v,
+            "find_provider",
+            lambda stage, pid: {"can_interview_reason": False, "status": "coming_soon"},
+        )
         validate_stage_config("reason", self._update("whatever"))
 
     def test_speak_coming_soon_raises(self) -> None:

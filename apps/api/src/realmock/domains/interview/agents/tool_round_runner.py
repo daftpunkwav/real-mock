@@ -21,8 +21,23 @@ from typing import Any, Awaitable, Callable
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.agents.agent_policies import INTERVIEWER_LOOP
+from realmock.domains.interview.agents.agent_prompts import TOOL_FREE_WRAP_UP_HINT
+from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
+from realmock.domains.interview.agents.events import StreamEvent
+from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.agents.tool_guard import ToolGuard
+from realmock.domains.interview.agents.tools import (
+    MAX_TOOL_ROUNDS,
+    _compact_observation,
+    execute_interview_tool,
+    get_interview_tool_definitions,
+)
+from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 from realmock.domains.interview.capabilities.rag.company_rag import (
     CompanyKnowledgeRAG,
+)
+from realmock.domains.interview.capabilities.rag.company_rag import (
     format_context as format_rag_context,
 )
 from realmock.domains.interview.ledger.store import (
@@ -30,19 +45,6 @@ from realmock.domains.interview.ledger.store import (
     begin_pending_tools,
     build_tool_preview,
 )
-from realmock.domains.interview.agents.agent_prompts import TOOL_FREE_WRAP_UP_HINT
-from realmock.domains.interview.agents.agent_policies import INTERVIEWER_LOOP
-from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
-from realmock.domains.interview.agents.events import StreamEvent
-from realmock.domains.interview.agents.session_state import InterviewSessionState
-from realmock.domains.interview.agents.tools import (
-    MAX_TOOL_ROUNDS,
-    _compact_observation,
-    execute_interview_tool,
-    get_interview_tool_definitions,
-)
-from realmock.domains.interview.agents.tool_guard import ToolGuard
-from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser

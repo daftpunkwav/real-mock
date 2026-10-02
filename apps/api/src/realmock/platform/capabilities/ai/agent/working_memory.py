@@ -167,17 +167,10 @@ class WorkingMemory:
             if not isinstance(content, str):
                 continue
             # Accept the legacy marker during upgrades
-            if not (
-                content.startswith(MEMORY_MARKER)
-                or content.startswith(LEGACY_MEMORY_MARKER)
-            ):
+            if not (content.startswith(MEMORY_MARKER) or content.startswith(LEGACY_MEMORY_MARKER)):
                 continue
-            marker = (
-                MEMORY_MARKER
-                if content.startswith(MEMORY_MARKER)
-                else LEGACY_MEMORY_MARKER
-            )
-            rest = content[len(marker):].lstrip("\n")
+            marker = MEMORY_MARKER if content.startswith(MEMORY_MARKER) else LEGACY_MEMORY_MARKER
+            rest = content[len(marker) :].lstrip("\n")
             first, _, _tail = rest.partition("\n")
             try:
                 return cls.from_state(json.loads(first))

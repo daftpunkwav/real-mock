@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 # Wrap-up nudge, aligned with terminal-Agent closing semantics: injected only
 # for the last round's call and never persisted to working memory, so the
 # model gets a chance to finish before the rounds run out instead of being
@@ -15,6 +14,7 @@ _WRAP_UP_HINT = {
         "If something critical is still missing, call only the single most necessary tool."
     ),
 }
+
 
 def countdown_hint(remaining_rounds: int, *, urgent: bool = False) -> dict[str, str]:
     """Per-call nudge for the final stretch before the round cap (not persisted).

@@ -13,7 +13,6 @@ from realmock.domains.interview.schemas.session import AiOverrides
 
 # Start a multi-round process; round-1 session is created together.
 class ProcessCreateRequest(BaseModel):
-
     role: str = Field(..., max_length=100)
     level: str = Field(..., max_length=50)
     company: str = Field(..., max_length=100)
@@ -34,7 +33,6 @@ class ProcessCreateRequest(BaseModel):
 
 # One round inside a process (session projection).
 class ProcessRoundItem(BaseModel):
-
     session_id: int
     round_no: int
     status: str
@@ -45,7 +43,6 @@ class ProcessRoundItem(BaseModel):
 
 # One planned round of the realistic chain (kind drives i18n labels).
 class ProcessRoundPlanItem(BaseModel):
-
     round_no: int
     kind: str
     workflow_type: str
@@ -57,7 +54,6 @@ class ProcessRoundPlanItem(BaseModel):
 
 # Process view with round lineage and next-round eligibility.
 class InterviewProcessResponse(BaseModel):
-
     id: int
     role: str
     level: str
@@ -75,6 +71,5 @@ class InterviewProcessResponse(BaseModel):
 
 # Process + first session created together.
 class ProcessCreatedResponse(BaseModel):
-
     process: InterviewProcessResponse
     session_id: int

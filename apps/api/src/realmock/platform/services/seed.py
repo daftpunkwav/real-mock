@@ -31,4 +31,6 @@ def seed_llm_settings(db: Session) -> None:
     reason.provider = ""
     reason.extras = json.dumps({"source": "environment"}, ensure_ascii=False)
     db.commit()
-    logger.info("Processor configuration has been initialized from environment variables (api_key has been encrypted and stored in the database)")
+    logger.info(
+        "Processor configuration has been initialized from environment variables (api_key has been encrypted and stored in the database)"
+    )

@@ -10,13 +10,17 @@ import base64
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 from realmock.platform.core.ratelimit import reset_rate_limit
 
+
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -24,6 +28,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_llm_rate_limited_flips():

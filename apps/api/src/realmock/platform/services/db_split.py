@@ -37,10 +37,7 @@ SESSIONS_TABLES = frozenset(
 
 def _copy_table(src: sqlite3.Connection, dst: sqlite3.Connection, table: str) -> None:
     existing = {
-        r[0]
-        for r in dst.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        r[0] for r in dst.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     }
     if table in existing:
         return
@@ -75,9 +72,7 @@ def split_app_db(
     try:
         src_tables = {
             r[0]
-            for r in src.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         for table in sorted(src_tables):
             if table.startswith("sqlite_"):
@@ -114,4 +109,6 @@ def maybe_migrate_legacy_app_db() -> None:
     try:
         split_app_db(legacy, api_path, sessions_path)
     except Exception:
-        logger.exception("Legacy app.db failed to dismantle the library and will be initialized as an empty library.")
+        logger.exception(
+            "Legacy app.db failed to dismantle the library and will be initialized as an empty library."
+        )

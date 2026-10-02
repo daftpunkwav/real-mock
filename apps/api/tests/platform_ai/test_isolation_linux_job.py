@@ -122,7 +122,17 @@ def test_user_switch_setpriv_and_runuser(monkeypatch: pytest.MonkeyPatch) -> Non
     out2 = lj._user_switch_argv("nobody", 65534, 65534, probe=False)
     assert out2[0].endswith("setpriv")
     # setpriv probe fails -> runuser fallback.
-    monkeypatch.setattr(lj, "_tool_path", lambda n: "/usr/sbin/runuser" if n == "runuser" else "/usr/bin/setpriv" if n == "setpriv" else None)
+    monkeypatch.setattr(
+        lj,
+        "_tool_path",
+        lambda n: (
+            "/usr/sbin/runuser"
+            if n == "runuser"
+            else "/usr/bin/setpriv"
+            if n == "setpriv"
+            else None
+        ),
+    )
     monkeypatch.setattr(lj, "_probe", lambda argv: "runuser" in argv[0])
     out3 = lj._user_switch_argv("nobody", 65534, 65534, probe=True)
     assert "runuser" in out3[0]
@@ -134,60 +144,124 @@ def test_user_switch_setpriv_and_runuser(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_build_plan_all_kinds() -> None:
     # Plain without unshare, network blocked vs allowed.
     p = lj.build_plan(
-        is_root=False, username="nobody", uid=1, gid=1, allow_network=False,
-        unshare=None, user_switch=(), map_users_ok=False, netns_ok=False,
-        mountns_netns_ok=False, userns_mountns_netns_ok=False,
+        is_root=False,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=False,
+        unshare=None,
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=False,
     )
     assert p.kind == "plain"
     assert any(n.startswith("network=unavailable") for n in p.notes)
     p2 = lj.build_plan(
-        is_root=False, username="nobody", uid=1, gid=1, allow_network=True,
-        unshare=None, user_switch=(), map_users_ok=False, netns_ok=False,
-        mountns_netns_ok=False, userns_mountns_netns_ok=False,
+        is_root=False,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=True,
+        unshare=None,
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=False,
     )
     assert "network=allowed (explicit opt-in)" in p2.notes
     # Contained.
     c = lj.build_plan(
-        is_root=True, username="nobody", uid=1, gid=1, allow_network=False,
-        unshare="/usr/bin/unshare", user_switch=("setpriv",), map_users_ok=True,
-        netns_ok=True, mountns_netns_ok=True, userns_mountns_netns_ok=True,
+        is_root=True,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=("setpriv",),
+        map_users_ok=True,
+        netns_ok=True,
+        mountns_netns_ok=True,
+        userns_mountns_netns_ok=True,
     )
     assert c.kind == "contained"
     # userns-mapped (root, map ok, but not contained).
     m = lj.build_plan(
-        is_root=True, username="nobody", uid=1, gid=1, allow_network=False,
-        unshare="/usr/bin/unshare", user_switch=(), map_users_ok=True,
-        netns_ok=True, mountns_netns_ok=False, userns_mountns_netns_ok=True,
+        is_root=True,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=(),
+        map_users_ok=True,
+        netns_ok=True,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=True,
     )
     assert m.kind == "userns-mapped"
     # netonly (root, netns ok only).
     n = lj.build_plan(
-        is_root=True, username="nobody", uid=1, gid=1, allow_network=False,
-        unshare="/usr/bin/unshare", user_switch=(), map_users_ok=False,
-        netns_ok=True, mountns_netns_ok=False, userns_mountns_netns_ok=False,
+        is_root=True,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=True,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=False,
     )
     assert n.kind == "netonly"
     # userns-netonly (non-root).
     u = lj.build_plan(
-        is_root=False, username="nobody", uid=1, gid=1, allow_network=False,
-        unshare="/usr/bin/unshare", user_switch=(), map_users_ok=False,
-        netns_ok=False, mountns_netns_ok=False, userns_mountns_netns_ok=True,
+        is_root=False,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=True,
     )
     assert u.kind == "userns-netonly"
     # Plain fallback with root marker and network allowed.
     f = lj.build_plan(
-        is_root=True, username="nobody", uid=1, gid=1, allow_network=True,
-        unshare="/usr/bin/unshare", user_switch=(), map_users_ok=False,
-        netns_ok=False, mountns_netns_ok=False, userns_mountns_netns_ok=False,
+        is_root=True,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=True,
+        unshare="/usr/bin/unshare",
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=False,
     )
     assert f.kind == "plain"
     assert "user_switch=unavailable (no setpriv/runuser found)" in f.notes
     assert "network=allowed (explicit opt-in)" in f.notes
     # Plain fallback non-root, network blocked.
     f2 = lj.build_plan(
-        is_root=False, username="nobody", uid=1, gid=1, allow_network=False,
-        unshare="/usr/bin/unshare", user_switch=(), map_users_ok=False,
-        netns_ok=False, mountns_netns_ok=False, userns_mountns_netns_ok=False,
+        is_root=False,
+        username="nobody",
+        uid=1,
+        gid=1,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=False,
     )
     assert f2.kind == "plain"
     assert any("network=unavailable" in x for x in f2.notes)
@@ -217,8 +291,11 @@ def test_linux_constructor_and_describe(monkeypatch: pytest.MonkeyPatch) -> None
     assert "nobody" in b.describe()
     assert "blocked(netns)" in b.describe()
     b2 = lj.LinuxJobIsolation(
-        run_as_user="nobody", allow_network=True, memory_max_bytes=1024,
-        cpu_max="max", cgroup_parent="/tmp/cg",
+        run_as_user="nobody",
+        allow_network=True,
+        memory_max_bytes=1024,
+        cpu_max="max",
+        cgroup_parent="/tmp/cg",
     )
     assert "allowed" in b2.describe()
     b3 = lj.LinuxJobIsolation(memory_max_bytes=None, cpu_max=None, cgroup_parent="/tmp/cg")
@@ -256,7 +333,9 @@ def test_select_plan_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     plan = b._select_plan()
     assert plan.kind == "plain"
     # With unshare, root, tools -> contained or mapped.
-    monkeypatch.setattr(lj, "_tool_path", lambda n: "/usr/bin/unshare" if n == "unshare" else "/usr/bin/setpriv")
+    monkeypatch.setattr(
+        lj, "_tool_path", lambda n: "/usr/bin/unshare" if n == "unshare" else "/usr/bin/setpriv"
+    )
     monkeypatch.setattr(lj, "_user_switch_argv", lambda *a, **k: ("setpriv",))
     monkeypatch.setattr(lj, "_probe", lambda argv: True)
     monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)
@@ -271,7 +350,9 @@ def test_select_plan_paths(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cgroup_leaf_and_attach(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # noqa: ANN001
     _fake_linux(monkeypatch)
     parent = str(tmp_path / "cg")
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent)
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent
+    )
     notes: list[str] = []
     leaf = b._prepare_cgroup_leaf(notes)
     assert leaf is not None
@@ -283,7 +364,9 @@ def test_cgroup_leaf_and_attach(monkeypatch: pytest.MonkeyPatch, tmp_path) -> No
     b._drop_cgroup_leaf(leaf)
     b._drop_cgroup_leaf("/nonexistent-leaf-xyz")
     # Uncapped -> None.
-    b2 = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes="", cpu_max="", cgroup_parent=parent)
+    b2 = lj.LinuxJobIsolation(
+        run_as_user="nobody", memory_max_bytes="", cpu_max="", cgroup_parent=parent
+    )
     # Empty string disables cap; both None -> None leaf.
     b2.memory_max_bytes = None
     b2.cpu_max = None
@@ -298,7 +381,9 @@ def test_cgroup_leaf_and_attach(monkeypatch: pytest.MonkeyPatch, tmp_path) -> No
 def test_cgroup_leaf_knob_degraded(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # noqa: ANN001
     _fake_linux(monkeypatch)
     parent = str(tmp_path / "cg2")
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent)
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent
+    )
     real_open = open
 
     def _fail_knob(path: str, *a: object, **k: object):  # noqa: ANN001
@@ -316,7 +401,9 @@ def test_cgroup_leaf_knob_degraded(monkeypatch: pytest.MonkeyPatch, tmp_path) ->
 def test_cgroup_subtree_control_failure_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # noqa: ANN001
     _fake_linux(monkeypatch)
     parent = str(tmp_path / "cg3")
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent)
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent
+    )
     real_open = open
 
     def _fail_subtree(path: str, *a: object, **k: object):  # noqa: ANN001
@@ -331,7 +418,9 @@ def test_cgroup_subtree_control_failure_ignored(monkeypatch: pytest.MonkeyPatch,
 def test_cgroup_leaf_exists_retries_with_suffix(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # noqa: ANN001
     _fake_linux(monkeypatch)
     parent = str(tmp_path / "cg4")
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent)
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=parent
+    )
     real_mkdir = lj.os.mkdir
     calls = {"n": 0}
 
@@ -352,14 +441,29 @@ def test_spawn_with_leaf_and_status_variants(monkeypatch: pytest.MonkeyPatch, tm
     _fake_linux(monkeypatch)
     work = tmp_path / "work2"
     work.mkdir()
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=str(tmp_path / "cg"))
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody",
+        memory_max_bytes=1024,
+        cpu_max="max",
+        cgroup_parent=str(tmp_path / "cg"),
+    )
     for status_text, marker in [
         ("ro-unavailable", "bind_ro=unavailable"),
         ("weird", "bind_ro=unknown"),
     ]:
-        plan = lj.LaunchPlan(kind="plain", prefix=(), user_switch=(), drops_to="unchanged", net_blocked=False, mount_prelude=True, notes=())
+        plan = lj.LaunchPlan(
+            kind="plain",
+            prefix=(),
+            user_switch=(),
+            drops_to="unchanged",
+            net_blocked=False,
+            mount_prelude=True,
+            notes=(),
+        )
 
-        def _fake_run(argv: object, *, cwd: str, env: object, timeout_s: float, on_start=None) -> tuple:  # noqa: ANN001
+        def _fake_run(
+            argv: object, *, cwd: str, env: object, timeout_s: float, on_start=None
+        ) -> tuple:  # noqa: ANN001
             args = list(argv)  # type: ignore[arg-type]
             idx = args.index("/bin/sh")
             status_path = args[idx + 4]
@@ -378,7 +482,15 @@ def test_spawn_with_leaf_and_status_variants(monkeypatch: pytest.MonkeyPatch, tm
         assert any(marker in n for n in out.notes)
 
     # Missing status file -> bind_ro=unknown.
-    plan = lj.LaunchPlan(kind="plain", prefix=(), user_switch=(), drops_to="unchanged", net_blocked=False, mount_prelude=True, notes=())
+    plan = lj.LaunchPlan(
+        kind="plain",
+        prefix=(),
+        user_switch=(),
+        drops_to="unchanged",
+        net_blocked=False,
+        mount_prelude=True,
+        notes=(),
+    )
     monkeypatch.setattr(b, "_select_plan", lambda: plan)
     monkeypatch.setattr(lj, "run_child", lambda *a, **k: (0, b"ok", b"", False))
     monkeypatch.setattr(b, "_prepare_cgroup_leaf", lambda notes: str(tmp_path / "leaf"))
@@ -388,7 +500,9 @@ def test_spawn_with_leaf_and_status_variants(monkeypatch: pytest.MonkeyPatch, tm
     work3 = tmp_path / "work3"
     work3.mkdir()
 
-    def _fake_run_unlink_fail(argv: object, *, cwd: str, env: object, timeout_s: float, on_start=None) -> tuple:  # noqa: ANN001
+    def _fake_run_unlink_fail(
+        argv: object, *, cwd: str, env: object, timeout_s: float, on_start=None
+    ) -> tuple:  # noqa: ANN001
         args = list(argv)  # type: ignore[arg-type]
         idx = args.index("/bin/sh")
         status_path = args[idx + 4]
@@ -405,10 +519,20 @@ def test_spawn_with_leaf_and_status_variants(monkeypatch: pytest.MonkeyPatch, tm
 
 def test_spawn_paths(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # noqa: ANN001
     _fake_linux(monkeypatch)
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes="", cpu_max="", cgroup_parent=str(tmp_path))
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody", memory_max_bytes="", cpu_max="", cgroup_parent=str(tmp_path)
+    )
     b.memory_max_bytes = None
     b.cpu_max = None
-    plan = lj.LaunchPlan(kind="plain", prefix=(), user_switch=(), drops_to="unchanged", net_blocked=False, mount_prelude=False, notes=())
+    plan = lj.LaunchPlan(
+        kind="plain",
+        prefix=(),
+        user_switch=(),
+        drops_to="unchanged",
+        net_blocked=False,
+        mount_prelude=False,
+        notes=(),
+    )
     monkeypatch.setattr(b, "_select_plan", lambda: plan)
     monkeypatch.setattr(lj, "run_child", lambda *a, **k: (0, b"out", b"err", False))
     out = b.spawn(["echo", "hi"], cwd=str(tmp_path), env={}, timeout_s=5)
@@ -421,8 +545,21 @@ def test_spawn_with_cgroup_and_mount(monkeypatch: pytest.MonkeyPatch, tmp_path) 
     _fake_linux(monkeypatch)
     work = tmp_path / "work"
     work.mkdir()
-    b = lj.LinuxJobIsolation(run_as_user="nobody", memory_max_bytes=1024, cpu_max="max", cgroup_parent=str(tmp_path / "cg"))
-    plan = lj.LaunchPlan(kind="contained", prefix=("unshare",), user_switch=(), drops_to="nobody(1:1)", net_blocked=True, mount_prelude=True, notes=())
+    b = lj.LinuxJobIsolation(
+        run_as_user="nobody",
+        memory_max_bytes=1024,
+        cpu_max="max",
+        cgroup_parent=str(tmp_path / "cg"),
+    )
+    plan = lj.LaunchPlan(
+        kind="contained",
+        prefix=("unshare",),
+        user_switch=(),
+        drops_to="nobody(1:1)",
+        net_blocked=True,
+        mount_prelude=True,
+        notes=(),
+    )
 
     def _fake_run(argv: object, *, cwd: str, env: object, timeout_s: float, on_start=None) -> tuple:  # noqa: ANN001
         # Simulate mount prelude writing ro-ok status.

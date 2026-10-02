@@ -12,10 +12,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from realmock.domains.interview.models import InterviewTurn, InterviewSession
+
+from realmock.domains.interview.models import InterviewSession, InterviewTurn
 from realmock.domains.records.schemas.report import DebriefReport
 from realmock.domains.records.services import debrief_runner as drmod
-from realmock.domains.records.services import report_events, report_store as store
+from realmock.domains.records.services import report_events
+from realmock.domains.records.services import report_store as store
 from realmock.platform.contracts.session_catalog import SessionSnapshot
 from realmock.platform.core.ratelimit import reset_rate_limit
 from tests.fakes import FakeLLMClient
@@ -31,7 +33,6 @@ def _clean_limits():
             report_events.unsubscribe(int(key.split(":")[1]), queue)
 
 
-
 def _seed_turns(db, session_id: int, doc: dict) -> None:
     """Land a legacy ledger document as interview_turns rows (restructure)."""
     for seq, turn in enumerate(doc.get("turns") or [], start=1):
@@ -44,9 +45,7 @@ def _seed_turns(db, session_id: int, doc: dict) -> None:
                     else f"t-{seq:04d}"
                 ),
                 seq=seq,
-                turn=(
-                    turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)
-                ),
+                turn=(turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)),
             )
         )
     if doc.get("corrupt"):
@@ -103,7 +102,7 @@ def _completed_session(db, token="cov-rep2-token-abc123") -> int:
         current_phase="summary",
         access_token=token,
         messages=json.dumps([{"role": "user", "content": "a"}]),
-        )
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -129,18 +128,6 @@ def _snap_dict(**overrides) -> dict:
 
 
 # ---- legacy fallback ----
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- debrief runner ----

@@ -8,22 +8,32 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from realmock.platform.config import get_settings
-from realmock.platform.core.security import make_pinned_async_client
-from realmock.platform.capabilities.voice.tts.providers.edge import synthesize_to_base64 as edge_synthesize
-from realmock.platform.capabilities.voice.tts.providers.edge import DEFAULT_VOICE as EDGE_DEFAULT_VOICE
+from realmock.platform.capabilities.voice.config.catalog import find_provider
+from realmock.platform.capabilities.voice.endpoint_vendors import TTS_PATHS, match_vendor
+from realmock.platform.capabilities.voice.tts.providers.edge import (
+    DEFAULT_VOICE as EDGE_DEFAULT_VOICE,
+)
+from realmock.platform.capabilities.voice.tts.providers.edge import (
+    synthesize_to_base64 as edge_synthesize,
+)
 from realmock.platform.capabilities.voice.tts.providers.json_template import (
     resolve_tts_adapter,
     synthesize_json_template_to_base64,
 )
 from realmock.platform.capabilities.voice.tts.providers.minimax import (
     DEFAULT_BASE as MINIMAX_DEFAULT_BASE,
+)
+from realmock.platform.capabilities.voice.tts.providers.minimax import (
     DEFAULT_MODEL as MINIMAX_DEFAULT_MODEL,
+)
+from realmock.platform.capabilities.voice.tts.providers.minimax import (
     DEFAULT_VOICE as MINIMAX_DEFAULT_VOICE,
+)
+from realmock.platform.capabilities.voice.tts.providers.minimax import (
     synthesize_minimax_to_base64,
 )
-from realmock.platform.capabilities.voice.config.catalog import find_provider
-from realmock.platform.capabilities.voice.endpoint_vendors import TTS_PATHS, match_vendor
+from realmock.platform.config import get_settings
+from realmock.platform.core.security import make_pinned_async_client
 
 logger = logging.getLogger(__name__)
 
@@ -67,21 +77,31 @@ async def synthesize_speech(
 
     meta = find_provider("speak", handler)
     if meta and meta.get("status") == "coming_soon":
-        logger.info("The broadcast processor %s has not yet been connected and performs the configured downgrade processing.", handler)
+        logger.info(
+            "The broadcast processor %s has not yet been connected and performs the configured downgrade processing.",
+            handler,
+        )
         return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch, emotion=emotion)
 
     if mode == "native_audio":
-        logger.info("native_audio reports that the broadcast is not connected and performs the configured downgrade processing.")
+        logger.info(
+            "native_audio reports that the broadcast is not connected and performs the configured downgrade processing."
+        )
         return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch, emotion=emotion)
 
     try:
-        audio = await _synthesize_handler(text, creds, handler, rate=rate, pitch=pitch, emotion=emotion)
+        audio = await _synthesize_handler(
+            text, creds, handler, rate=rate, pitch=pitch, emotion=emotion
+        )
     except Exception as e:
         logger.error("Report handler %s Exception: %s", handler, e)
         audio = ""
     if audio:
         return audio
-    logger.info("The broadcast processor %s failed and performed the configured downgrade processing.", handler)
+    logger.info(
+        "The broadcast processor %s failed and performed the configured downgrade processing.",
+        handler,
+    )
     return await _synthesize_fallback(text, creds, rate=rate, pitch=pitch, emotion=emotion)
 
 
@@ -143,7 +163,9 @@ async def _synthesize_handler(
             pitch=pitch,
         )
     if _is_minimax_full_url(creds):
-        return await _synthesize_minimax_full_url(text, creds, emotion=emotion, rate=rate, pitch=pitch)
+        return await _synthesize_minimax_full_url(
+            text, creds, emotion=emotion, rate=rate, pitch=pitch
+        )
     if resolve_tts_adapter(creds) is not None:
         return await synthesize_json_template_to_base64(text, creds=creds)
     return await _synthesize_openai_compat(text, creds)
@@ -207,12 +229,19 @@ async def _synthesize_openai_compat(text: str, creds: TtsCredentials) -> str:
     payload = {
         "model": model,
         "messages": [
-            {"role": "user", "content": "Use a natural Chinese female voice, speak at a normal speed, and broadcast smoothly."},
+            {
+                "role": "user",
+                "content": "Use a natural Chinese female voice, speak at a normal speed, and broadcast smoothly.",
+            },
             {"role": "assistant", "content": text},
         ],
         "audio": {"format": "wav", "voice": voice},
     }
-    headers = {"api-key": api_key, "Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {
+        "api-key": api_key,
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
 
     settings = get_settings()
     try:
@@ -229,7 +258,9 @@ async def _synthesize_openai_compat(text: str, creds: TtsCredentials) -> str:
             resp.raise_for_status()
             data = resp.json()
     except httpx.HTTPStatusError as e:
-        logger.error("OpenAI compatible with TTS HTTP %s: %s", e.response.status_code, e.response.text[:200])
+        logger.error(
+            "OpenAI compatible with TTS HTTP %s: %s", e.response.status_code, e.response.text[:200]
+        )
         return ""
     except Exception as e:
         logger.error("OpenAI compatible TTS failed: %s", e)
@@ -270,7 +301,9 @@ async def synthesize_primary_speech(
     if mode == "native_audio":
         return ""
     try:
-        return await _synthesize_handler(text, creds, handler, rate=rate, pitch=pitch, emotion=emotion)
+        return await _synthesize_handler(
+            text, creds, handler, rate=rate, pitch=pitch, emotion=emotion
+        )
     except Exception as e:
         logger.error("The anchor reported that the processor %s failed the test: %s", handler, e)
         return ""

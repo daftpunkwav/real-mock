@@ -41,8 +41,11 @@ async def test_claim_kicks_old_connection() -> None:
 @pytest.mark.asyncio
 async def test_image_base64_oversize_dropped() -> None:
     """Oversized image_base64 is discarded at the WS turn entry point (aligned with the HTTP max_length)."""
-    from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler, _IMAGE_BASE64_MAX_LEN
     from realmock.domains.interview.agents.events import EventKind, StreamEvent
+    from realmock.domains.interview.realtime.ws_handler import (
+        _IMAGE_BASE64_MAX_LEN,
+        InterviewWSHandler,
+    )
 
     handler = InterviewWSHandler(_mock_ws(), session_id=1)
     captured: dict = {}
@@ -65,9 +68,7 @@ async def test_image_base64_oversize_dropped() -> None:
 
     huge = "A" * (_IMAGE_BASE64_MAX_LEN + 10)
     events = []
-    async for ev in handler._consume_runner_turn(
-        "hello", {"image_base64": huge}, db=MagicMock()
-    ):
+    async for ev in handler._consume_runner_turn("hello", {"image_base64": huge}, db=MagicMock()):
         events.append(ev)
 
     assert captured["image_b64"] is None

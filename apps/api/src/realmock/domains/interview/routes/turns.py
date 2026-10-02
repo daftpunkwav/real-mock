@@ -15,13 +15,6 @@ from datetime import datetime, timezone
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.schemas import (
-    ChatMessage,
-    FinishInterviewResponse,
-    InterviewMessageRequest,
-    InterviewMessageResponse,
-)
 from realmock.domains.interview.agents import (
     InterviewRunner,
     InterviewSessionState,
@@ -29,6 +22,13 @@ from realmock.domains.interview.agents import (
     session_llm,
 )
 from realmock.domains.interview.agents.events import EventKind
+from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.schemas import (
+    ChatMessage,
+    FinishInterviewResponse,
+    InterviewMessageRequest,
+    InterviewMessageResponse,
+)
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
 from realmock.platform.core.session_auth import assert_session_token, extract_token
@@ -94,7 +94,9 @@ async def start_interview(
 
     return {
         "session_id": session_id,
-        "message": ChatMessage(role="assistant", content=opening, timestamp=datetime.now(timezone.utc)),
+        "message": ChatMessage(
+            role="assistant", content=opening, timestamp=datetime.now(timezone.utc)
+        ),
         "current_phase": session.current_phase,
     }
 

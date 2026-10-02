@@ -83,7 +83,9 @@ class CompactionOptions:
 
     def keep_window(self) -> int:
         """Verbatim tail size: user retain guarantee raised by the intensity floor."""
-        return max(self.retain, INTENSITY_FLOORS.get(self.intensity, INTENSITY_FLOORS[DEFAULT_INTENSITY]))
+        return max(
+            self.retain, INTENSITY_FLOORS.get(self.intensity, INTENSITY_FLOORS[DEFAULT_INTENSITY])
+        )
 
     def detail_hint(self) -> str:
         """Verbosity guidance for the summarizer prompt."""

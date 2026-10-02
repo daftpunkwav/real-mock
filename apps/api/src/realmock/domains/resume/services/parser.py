@@ -18,17 +18,18 @@ from realmock.domains.resume.prompts import (
     PARSE_SYSTEM_PROMPT,
     TRANSCRIBE_SYSTEM_PROMPT,
 )
-from realmock.domains.resume.services.text_extract import truncate_text
-from realmock.platform.schemas import CandidateProfile
-from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.domains.resume.schemas.limits import (
     PARSE_FALLBACK_SUMMARY_CHARS,
     PARSE_LLM_CHARS,
     TRANSCRIBE_CONCURRENCY,
 )
+from realmock.domains.resume.services.text_extract import truncate_text
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
+from realmock.platform.capabilities.ai.llm.client import LLMClient
+from realmock.platform.schemas import CandidateProfile
 
 logger = logging.getLogger(__name__)
+
 
 async def transcribe_pages_with_vision(
     page_images: list[str],
@@ -61,9 +62,7 @@ async def transcribe_pages_with_vision(
             )
         return f"<!-- page {idx + 1} -->\n{text.strip()}"
 
-    pages = await asyncio.gather(
-        *(one(i, url) for i, url in enumerate(page_images))
-    )
+    pages = await asyncio.gather(*(one(i, url) for i, url in enumerate(page_images)))
     return truncate_text("\n\n".join(pages))
 
 

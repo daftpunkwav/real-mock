@@ -21,9 +21,9 @@ from typing import Any, cast
 
 from sqlalchemy import String
 
-from realmock.platform.models import UserProfile
 from realmock.domains.profile.schemas import UserProfileResponse, UserProfileUpdate
 from realmock.domains.profile.schemas.field_meta import FIELD_MAX_LENGTH, TECH_DOMAINS_MAX_COUNT
+from realmock.platform.models import UserProfile
 
 
 def _contract_max_length(field: Any) -> int | None:
@@ -70,13 +70,9 @@ def assert_profile_contract_aligned() -> None:
             meta_length_drift.append(f"{name}: schema={schema_max} meta={meta_max}")
     tech_max = _contract_max_length(UserProfileUpdate.model_fields["tech_domains"])
     if tech_max != TECH_DOMAINS_MAX_COUNT:
-        meta_length_drift.append(
-            f"tech_domains: schema={tech_max} meta={TECH_DOMAINS_MAX_COUNT}"
-        )
+        meta_length_drift.append(f"tech_domains: schema={tech_max} meta={TECH_DOMAINS_MAX_COUNT}")
     if meta_length_drift:
-        raise RuntimeError(
-            f"field_meta max_length drift vs UserProfileUpdate: {meta_length_drift}"
-        )
+        raise RuntimeError(f"field_meta max_length drift vs UserProfileUpdate: {meta_length_drift}")
 
     response_only = {"id", "updated_at"}
     update_keys = set(UserProfileUpdate.model_fields)

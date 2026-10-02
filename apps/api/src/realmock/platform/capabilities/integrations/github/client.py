@@ -17,7 +17,6 @@ import httpx  # noqa: F401 - keep the module-level reference: tests patch client
 from realmock.platform.config import get_settings
 
 from .github_http import async_get
-from .token_store import read_stored_token
 from .rest_ops import (
     _get_file_content,
     _get_languages,
@@ -30,6 +29,7 @@ from .rest_ops import (
     _list_pull_requests,
     _list_repos,
 )
+from .token_store import read_stored_token
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,9 @@ class GitHubClient:
         # Explicit argument wins (tests, one-off probes); otherwise the stored
         # Settings credential; otherwise the process env fallback. The client
         # never distinguishes sources — callers see one authenticated quota.
-        self.token = (token if token is not None else read_stored_token() or settings.github_token) or ""
+        self.token = (
+            token if token is not None else read_stored_token() or settings.github_token
+        ) or ""
         self._headers: dict[str, str] = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",

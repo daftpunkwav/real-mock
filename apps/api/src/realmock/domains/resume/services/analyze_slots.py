@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import asyncio
 
-from realmock.platform.core.errors import raise_error
 from realmock.domains.resume.schemas.limits import MAX_PARALLEL_ANALYZE
+from realmock.platform.core.errors import raise_error
 
 _active_analyses = 0
 _slot_lock = asyncio.Lock()

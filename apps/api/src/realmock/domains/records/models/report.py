@@ -26,6 +26,4 @@ class InterviewReportRow(SessionsBase):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_meta: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=_utcnow, onupdate=_utcnow
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)

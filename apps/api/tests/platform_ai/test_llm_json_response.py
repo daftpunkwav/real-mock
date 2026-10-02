@@ -14,8 +14,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from realmock.platform.capabilities.ai.llm.client import json_response as jr_mod
-from realmock.platform.capabilities.ai.llm.client.json_response import auto_close_brackets, parse_chat_json
-
+from realmock.platform.capabilities.ai.llm.client.json_response import (
+    auto_close_brackets,
+    parse_chat_json,
+)
 
 
 @pytest.mark.asyncio
@@ -47,9 +49,9 @@ async def test_parse_chat_json_still_empty_raises() -> None:
 
 @pytest.mark.asyncio
 async def test_parse_chat_json_strips_think_tags() -> None:
-    chat = AsyncMock(return_value="<think>hmm</think> <thinking>x</thinking> {\"a\": 1}")
+    chat = AsyncMock(return_value='<think>hmm</think> <thinking>x</thinking> {"a": 1}')
     assert await parse_chat_json(chat, [], 0.5, 64) == {"a": 1}
-    chat2 = AsyncMock(return_value="<think>unclosed {\"a\": 2}")
+    chat2 = AsyncMock(return_value='<think>unclosed {"a": 2}')
     assert await parse_chat_json(chat2, [], 0.5, 64) == {"a": 2}
 
 

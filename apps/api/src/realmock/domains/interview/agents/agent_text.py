@@ -7,6 +7,7 @@ import re
 PHASE_COMPLETE_MARKER = "[PHASE_COMPLETE]"
 INTERVIEW_COMPLETE_MARKER = "[INTERVIEW_COMPLETE]"
 
+
 def has_marker(content: str, marker: str) -> bool:
     """Determines whether the LLM output contains the specified tag."""
     return marker in content
@@ -41,11 +42,7 @@ def strip_markers(content: str) -> str:
     """Removes all control tags and thought blocks, returning plain text responses."""
     s = strip_think_blocks(content)
     s = re.sub(r"\[emotion:\w+\]", "", s)
-    return (
-        s.replace(INTERVIEW_COMPLETE_MARKER, "")
-        .replace(PHASE_COMPLETE_MARKER, "")
-        .strip()
-    )
+    return s.replace(INTERVIEW_COMPLETE_MARKER, "").replace(PHASE_COMPLETE_MARKER, "").strip()
 
 
 class ThinkStreamFilter:

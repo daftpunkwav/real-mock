@@ -7,9 +7,9 @@ import json
 from typing import Any
 
 from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
+from realmock.domains.prep.services import memory_tags
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.database import sessions_db_session
-from realmock.domains.prep.services import memory_tags
 
 
 def _list_tags_sync() -> str:
@@ -19,7 +19,9 @@ def _list_tags_sync() -> str:
     return json.dumps({"tags": tags}, ensure_ascii=False)
 
 
-async def run_memory_list_tags(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
+async def run_memory_list_tags(
+    args: dict[str, Any], memory: WorkingMemory
+) -> tuple[str, SearchHits]:
     """List distinct memory tags (most-recently-used first).
 
     Args:

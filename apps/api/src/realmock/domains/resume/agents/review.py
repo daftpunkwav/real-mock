@@ -26,6 +26,7 @@ from realmock.domains.resume.agents.process import (
     plan_titles_from_tool_names,
     process_tool_specs,
 )
+
 # The JSON finalize chain and review copy blocks live in sibling modules
 # (review_json.py / review_prompts.py); these imports keep the established
 # ``review`` import path working for callers and tests.
@@ -41,6 +42,12 @@ from realmock.domains.resume.agents.review_prompts import (
     _emit_finalize_notice,
     _vision_notice_message,
 )
+from realmock.domains.resume.prompts import (
+    REVIEW_PLAN_COMPLETE_MESSAGE,
+    REVIEW_WRAP_UP_TOOL_FREE_MESSAGE,
+    get_review_agent_prompt,
+    review_plan_reminder_text,
+)
 from realmock.domains.resume.schemas.limits import (
     REVIEW_AGENT_TEMPERATURE,
     REVIEW_COUNTDOWN_ROUNDS,
@@ -52,12 +59,6 @@ from realmock.domains.resume.schemas.limits import (
     REVIEW_MAX_TOTAL_TOOL_CALLS,
     REVIEW_OBSERVATION_MAX_CHARS,
     REVIEW_SEARCH_MAX_RESULTS,
-)
-from realmock.domains.resume.prompts import (
-    REVIEW_PLAN_COMPLETE_MESSAGE,
-    REVIEW_WRAP_UP_TOOL_FREE_MESSAGE,
-    get_review_agent_prompt,
-    review_plan_reminder_text,
 )
 from realmock.domains.resume.services.review_context import (
     build_review_calibration as _calibration_for_review,
@@ -74,6 +75,7 @@ from realmock.platform.capabilities.ai.agent import (
 from realmock.platform.capabilities.ai.agent.tools import (
     ResumeSnapshot,
     ToolBundle,
+    ToolRunGuard,
     github_tool_specs,
     invoke_with_timeout,
     profile_from_orm,
@@ -82,11 +84,16 @@ from realmock.platform.capabilities.ai.agent.tools import (
     search_tool_spec,
     snapshot_from_payload,
     web_fetch_tool_spec,
-
-    ToolRunGuard,)
-from realmock.platform.capabilities.ai.context.manager import compact_with_summary, upsert_memory_block
+)
+from realmock.platform.capabilities.ai.context.manager import (
+    compact_with_summary,
+    upsert_memory_block,
+)
 from realmock.platform.capabilities.ai.llm.client import LLMClient
-from realmock.platform.capabilities.ai.llm.defaults import resolve_context_window, resolve_max_output_tokens
+from realmock.platform.capabilities.ai.llm.defaults import (
+    resolve_context_window,
+    resolve_max_output_tokens,
+)
 from realmock.platform.capabilities.ai.llm.json_extract import (
     # Imported under its established private alias so tests can keep
     # importing it from ``review``; the finalize chain uses review_json.py.
@@ -136,9 +143,7 @@ async def _truncate_observation(text: str) -> str:
 # concluded, its findings live in the step notes and the images stop earning
 # their cost — later rounds continue text-only. If no step clearly owns the
 # layout review, retire the images after a bounded share of rounds anyway.
-_LAYOUT_STEP_RE = re.compile(
-    r"版面|版式|排版|页面图|图像|layout|visual|image|typograph", re.I
-)
+_LAYOUT_STEP_RE = re.compile(r"版面|版式|排版|页面图|图像|layout|visual|image|typograph", re.I)
 _IMAGE_RETIRE_ROUND_RATIO = 2 / 3
 _IMAGE_RETIRE_MIN_ROUND = 8
 _RETIRED_IMAGE_MARKER = (
@@ -160,9 +165,7 @@ def _retire_page_images(message: dict[str, Any]) -> dict[str, Any]:
     content = message.get("content")
     if not isinstance(content, list):
         return message
-    if not any(
-        isinstance(item, dict) and item.get("type") == "image_url" for item in content
-    ):
+    if not any(isinstance(item, dict) and item.get("type") == "image_url" for item in content):
         return message
     replaced: list[dict[str, Any]] = []
     for item in content:
@@ -290,7 +293,9 @@ def _restore_max_tokens(llm: LLMClient, value: Any) -> None:
 
 def _merge_search_queries_used(existing: Any, tracked: list[str]) -> list[str]:
     """Merge model-emitted queries with tool-observed ones, preserving order."""
-    merged = [str(q) for q in existing] if isinstance(existing, list) and existing else list(tracked)
+    merged = (
+        [str(q) for q in existing] if isinstance(existing, list) and existing else list(tracked)
+    )
     for query in tracked:
         if query not in merged:
             merged.append(query)
@@ -483,9 +488,7 @@ async def run_resume_review(
             )
         )
         if images_retired:
-            base = [
-                _retire_page_images(m) if m.get("role") == "user" else m for m in base
-            ]
+            base = [_retire_page_images(m) if m.get("role") == "user" else m for m in base]
         # Transient suffix only: appending at the end keeps the stable prefix
         # (system / overview / working history) byte-identical for provider
         # prefix caches, and the end position carries the most attention.
@@ -497,9 +500,7 @@ async def run_resume_review(
         ):
             plan_reminders += 1
             suffix.append({"role": "system", "content": review_plan_reminder_text()})
-        if process.steps and all(
-            step.status in ("done", "skipped") for step in process.steps
-        ):
+        if process.steps and all(step.status in ("done", "skipped") for step in process.steps):
             # The plan is finished but the model is still calling tools: pin a
             # strong finalize instruction until it produces the answer.
             suffix.append(REVIEW_PLAN_COMPLETE_MESSAGE)

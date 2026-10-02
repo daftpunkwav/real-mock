@@ -58,13 +58,29 @@ MAX_OUTPUT_CHARS = 6_000
 
 # Minimal environment for the child: keeps PATH/TZ-style basics, drops
 # secrets, tokens, API keys and proxies inherited from the server process.
-_SAFE_ENV_KEYS = frozenset({
-    "PATH", "PATHEXT", "SYSTEMROOT", "SYSTEMDRIVE", "TEMP", "TMP",
-    "LANG", "LC_ALL", "LANGUAGE", "TZ", "HOME", "USER", "LOGNAME",
-})
+_SAFE_ENV_KEYS = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "TEMP",
+        "TMP",
+        "LANG",
+        "LC_ALL",
+        "LANGUAGE",
+        "TZ",
+        "HOME",
+        "USER",
+        "LOGNAME",
+    }
+)
 
 # Heuristic: ESM file suffix when the snippet uses import/export statements.
-_ESM_RE = re.compile(r"^\s*(import\s.+?\sfrom\s+['\"]|export\s+(default\s|const\s|function\s|class\s|\{))", re.MULTILINE)
+_ESM_RE = re.compile(
+    r"^\s*(import\s.+?\sfrom\s+['\"]|export\s+(default\s|const\s|function\s|class\s|\{))",
+    re.MULTILINE,
+)
 
 
 @dataclass(frozen=True)
@@ -110,7 +126,9 @@ def run_code_snippet(
     result, never an exception.
     """
     normalized = str(language or "").strip().lower()
-    lang = normalized if normalized in _SUPPORTED_LANGUAGES else _LANGUAGE_ALIASES.get(normalized, "")
+    lang = (
+        normalized if normalized in _SUPPORTED_LANGUAGES else _LANGUAGE_ALIASES.get(normalized, "")
+    )
     if lang not in _SUPPORTED_LANGUAGES:
         return CodeResult(
             language=str(language or ""),
@@ -122,12 +140,19 @@ def run_code_snippet(
         )
     if not isinstance(code, str) or not code.strip():
         return CodeResult(
-            language=lang, exit_code=-1, stdout="", stderr="",
-            duration_ms=0, error="empty code; provide a complete runnable snippet",
+            language=lang,
+            exit_code=-1,
+            stdout="",
+            stderr="",
+            duration_ms=0,
+            error="empty code; provide a complete runnable snippet",
         )
     if len(code) > MAX_CODE_CHARS:
         return CodeResult(
-            language=lang, exit_code=-1, stdout="", stderr="",
+            language=lang,
+            exit_code=-1,
+            stdout="",
+            stderr="",
             duration_ms=0,
             error=f"code too long ({len(code)} chars > {MAX_CODE_CHARS}); shrink the snippet",
         )
@@ -147,8 +172,12 @@ def run_code_snippet(
         node = shutil.which("node")
         if not node:
             return CodeResult(
-                language=lang, exit_code=-1, stdout="", stderr="",
-                duration_ms=0, error="node runtime unavailable in this deployment",
+                language=lang,
+                exit_code=-1,
+                stdout="",
+                stderr="",
+                duration_ms=0,
+                error="node runtime unavailable in this deployment",
             )
         filename = "snippet.mjs" if _ESM_RE.search(code) else "snippet.cjs"
         argv = [node, filename]
@@ -158,7 +187,10 @@ def run_code_snippet(
         backend = resolve_backend(isolation)
     except (TypeError, ValueError, RuntimeError, OSError) as exc:
         return CodeResult(
-            language=lang, exit_code=-1, stdout="", stderr="",
+            language=lang,
+            exit_code=-1,
+            stdout="",
+            stderr="",
             duration_ms=int((time.monotonic() - start) * 1000),
             error=f"isolation misconfigured: {exc}",
         )
@@ -178,7 +210,10 @@ def run_code_snippet(
             notes = completed.notes
     except OSError as exc:
         return CodeResult(
-            language=lang, exit_code=-1, stdout="", stderr="",
+            language=lang,
+            exit_code=-1,
+            stdout="",
+            stderr="",
             duration_ms=int((time.monotonic() - start) * 1000),
             error=f"failed to launch runtime: {exc}",
         )
@@ -211,9 +246,7 @@ def _isolation_suffix(result: CodeResult) -> str:
 def format_observation(result: CodeResult) -> str:
     """Render a :class:`CodeResult` as model-facing observation text."""
     if result.error:
-        return (
-            f"[code_exec {result.language or 'unknown'}] error: {result.error}"
-        )
+        return f"[code_exec {result.language or 'unknown'}] error: {result.error}"
     if result.timed_out:
         return (
             f"[code_exec {result.language} timeout after {result.duration_ms}ms] "

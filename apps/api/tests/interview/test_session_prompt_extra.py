@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -24,14 +25,6 @@ def _clean_limits():
 # ---- prompt_assembler (57, 81-82, 109-110, 117, 133, 144) ----
 
 
-
-
-
-
-
-
-
-
 # ---- history_compaction (118-119, 138-139, 152-153) ----
 
 
@@ -43,15 +36,7 @@ def _fold_agent(n=12):
     return SimpleNamespace(messages=messages, agent_state={})
 
 
-
-
-
-
-
-
 # ---- past_records (29-31, 68-69) ----
-
-
 
 
 # ---- session_prompt (237, 315-316, 397-398) ----
@@ -152,7 +137,9 @@ def test_session_prompt_refresh_head_loads_profile(monkeypatch) -> None:
             "content": "head ## Candidate profile FULL\nbody\n## Current phase\nold\n## Full flow\nflow",
         }
     ]
-    phase = SimpleNamespace(id="p1", name="Coding", description="code", min_questions=1, max_questions=3)
+    phase = SimpleNamespace(
+        id="p1", name="Coding", description="code", min_questions=1, max_questions=3
+    )
     monkeypatch.setattr(mod, "needs_compact_candidate", lambda phase: True)
     monkeypatch.setattr(mod, "compact_candidate_block", lambda prof, cand: "COMPACT")
 
@@ -161,9 +148,7 @@ def test_session_prompt_refresh_head_loads_profile(monkeypatch) -> None:
         yield SimpleNamespace()
 
     monkeypatch.setattr(mod, "api_db_session", _fake_api)
-    monkeypatch.setattr(
-        mod, "get_user_profile", lambda db, pid: SimpleNamespace(name="Ada")
-    )
+    monkeypatch.setattr(mod, "get_user_profile", lambda db, pid: SimpleNamespace(name="Ada"))
     m.refresh_system_head(phase, profile=None, candidate={"x": 1})
     assert "COMPACT" in m.messages[0]["content"]
 

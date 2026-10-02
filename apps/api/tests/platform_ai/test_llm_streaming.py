@@ -242,9 +242,7 @@ async def test_stream_text_payload_flush_tail(monkeypatch: pytest.MonkeyPatch) -
     client = _client()
     resp = _sse_resp(["data: [DONE]"])
     with patch.object(st_mod, "make_pinned_async_client", return_value=_pinned_with_stream(resp)):
-        with patch.object(
-            st_mod, "StreamSanitizer"
-        ) as mock_san:
+        with patch.object(st_mod, "StreamSanitizer") as mock_san:
             inst = mock_san.return_value
             inst.feed_reasoning.return_value = ""
             inst.feed_content.return_value = ""

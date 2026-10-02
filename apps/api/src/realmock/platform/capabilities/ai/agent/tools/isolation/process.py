@@ -36,9 +36,5 @@ class ProcessIsolation:
         timeout_s: float,
     ) -> CompletedSnippet:
         """Run ``argv`` as a plain child process with timeout kill-tree."""
-        exit_code, out, err, timed_out = run_child(
-            argv, cwd=cwd, env=env, timeout_s=timeout_s
-        )
-        return CompletedSnippet(
-            exit_code=exit_code, stdout=out, stderr=err, timed_out=timed_out
-        )
+        exit_code, out, err, timed_out = run_child(argv, cwd=cwd, env=env, timeout_s=timeout_s)
+        return CompletedSnippet(exit_code=exit_code, stdout=out, stderr=err, timed_out=timed_out)

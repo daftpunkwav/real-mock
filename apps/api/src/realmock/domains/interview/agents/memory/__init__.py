@@ -7,6 +7,7 @@ from realmock.domains.interview.agents.memory.cognitive_graph import (
     CompetencyStatus,
     WorkingMemory,
 )
+
 __all__ = [
     "CognitiveMemoryGraph",
     "CompetencyEvidence",

@@ -6,8 +6,8 @@ import json
 
 from fastapi.testclient import TestClient
 
-from realmock.domains.prep.models import PrepSession
 from realmock.asgi import app
+from realmock.domains.prep.models import PrepSession
 from realmock.platform.models import Resume
 
 

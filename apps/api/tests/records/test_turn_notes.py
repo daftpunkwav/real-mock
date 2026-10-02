@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.records.agents.report.turn_notes_agent import (
     _extract_notes,
     _invoke_tool,
@@ -36,29 +37,7 @@ def _llm_empty() -> MagicMock:
 # ---- finalize ----
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ---- synthesis ----
-
-
-
-
-
-
-
-
 
 
 # ---- turn notes ----

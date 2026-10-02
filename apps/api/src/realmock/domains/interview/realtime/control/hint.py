@@ -89,11 +89,7 @@ class ReferenceHintMixin:
         """
         # Message history comes through the runner facade, like every
         # other realtime reader of the agent's state.
-        messages = (
-            self.ctx.runner.message_history()
-            if self.ctx.runner is not None
-            else []
-        )
+        messages = self.ctx.runner.message_history() if self.ctx.runner is not None else []
         for m in messages:
             if isinstance(m, dict) and m.get("role") == "system":
                 content = str(m.get("content", ""))
@@ -136,15 +132,11 @@ class ReferenceHintMixin:
         if self.ctx.hint_inflight == key:
             # Same question already generating: re-announce loading so the UI
             # stays truthful; the in-flight run still delivers the terminal event.
-            await self.send(
-                "reference_hint_loading", question=question, detailed=detailed
-            )
+            await self.send("reference_hint_loading", question=question, detailed=detailed)
             return
         self.ctx.hint_inflight = key
         try:
-            await self.send(
-                "reference_hint_loading", question=question, detailed=detailed
-            )
+            await self.send("reference_hint_loading", question=question, detailed=detailed)
             try:
                 if detailed:
                     hint = await asyncio.wait_for(
@@ -180,9 +172,7 @@ class ReferenceHintMixin:
     def _hint_rate_limited(self, data: dict[str, Any]) -> Any:
         """Terminal error event for hint rate-limiting (never leave the UI loading)."""
         lang = self._hint_language()
-        question = strip_markers(
-            strip_think_blocks((data.get("question") or "").strip())
-        )
+        question = strip_markers(strip_think_blocks((data.get("question") or "").strip()))
         return self.send(
             "reference_hint_error",
             question=self._extract_hint_question(question),
@@ -264,6 +254,4 @@ class ReferenceHintMixin:
             try:
                 db.close()
             except Exception:
-                logger.debug(
-                    "hint DB close failed sid=%s", self.ctx.session_id, exc_info=True
-                )
+                logger.debug("hint DB close failed sid=%s", self.ctx.session_id, exc_info=True)

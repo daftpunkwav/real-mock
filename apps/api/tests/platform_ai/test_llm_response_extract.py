@@ -180,7 +180,10 @@ def test_parse_sse_anthropic_other() -> None:
 
 
 def test_parse_sse_responses() -> None:
-    assert parse_sse_event({"type": "response.output_text.delta", "delta": "tok"}, RESP) == ("tok", "")
+    assert parse_sse_event({"type": "response.output_text.delta", "delta": "tok"}, RESP) == (
+        "tok",
+        "",
+    )
     assert parse_sse_event({"type": "other"}, RESP) == ("", "")
 
 

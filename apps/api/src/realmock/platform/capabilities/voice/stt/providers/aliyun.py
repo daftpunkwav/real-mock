@@ -6,17 +6,15 @@ import asyncio
 import json
 import logging
 
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.core.security import make_pinned_async_client
 
 logger = logging.getLogger(__name__)
 
 
 class AliyunProvider:
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         app_key = (creds.app_key or creds.app_id or "").strip()
         # api_key is treated primarily as the NLS Token; api_secret is the AccessKeySecret (optional)
         token = (creds.api_key or "").strip()
@@ -54,6 +52,8 @@ class AliyunProvider:
         if payload.get("status") not in (0, 20000000, None):
             # Success common status=20000000
             if payload.get("status") != 20000000 and "result" not in payload:
-                logger.error("Alibaba Cloud ASR error: %s", json.dumps(payload, ensure_ascii=False)[:200])
+                logger.error(
+                    "Alibaba Cloud ASR error: %s", json.dumps(payload, ensure_ascii=False)[:200]
+                )
                 return ""
         return str(payload.get("result") or "").strip()

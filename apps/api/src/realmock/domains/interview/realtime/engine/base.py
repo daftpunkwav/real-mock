@@ -16,12 +16,14 @@ from typing import Any, Callable, Coroutine
 
 class AudioEngineMode(str, Enum):
     """Audio execution mode."""
+
     CASCADED = "cascaded"  # WebSpeech/Whisper -> LLM text -> Sentence TTS
-    NATIVE = "native"      # End-to-end full duplex audio model (e.g. OpenAI Realtime / Gemini Live)
+    NATIVE = "native"  # End-to-end full duplex audio model (e.g. OpenAI Realtime / Gemini Live)
 
 
 class AudioEventKind(str, Enum):
     """Event kinds emitted by the realtime audio engine."""
+
     TRANSCRIPTION_PARTIAL = "transcription_partial"
     TRANSCRIPTION_FINAL = "transcription_final"
     AUDIO_DELTA = "audio_delta"
@@ -34,6 +36,7 @@ class AudioEventKind(str, Enum):
 @dataclass(frozen=True)
 class AudioEngineEvent:
     """Standardized event emitted by RealtimeAudioEngine to the connection handler."""
+
     kind: AudioEventKind
     text: str = ""
     audio_bytes: bytes = b""

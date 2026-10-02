@@ -53,15 +53,27 @@ class TestCookies:
     def test_secure_auto(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import cookies as ck
 
-        monkeypatch.setattr(ck, "get_settings", lambda: SimpleNamespace(cookie_secure=None, trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            ck,
+            "get_settings",
+            lambda: SimpleNamespace(cookie_secure=None, trusted_proxy_cidr_list=[]),
+        )
 
         def _https_req():
             from starlette.requests import Request
 
             scope = {
-                "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET",
-                "scheme": "https", "path": "/", "raw_path": b"/", "query_string": b"",
-                "headers": [], "client": ("127.0.0.1", 1), "server": ("t", 80),
+                "type": "http",
+                "asgi": {"version": "3.0"},
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "https",
+                "path": "/",
+                "raw_path": b"/",
+                "query_string": b"",
+                "headers": [],
+                "client": ("127.0.0.1", 1),
+                "server": ("t", 80),
             }
             return Request(scope)
 
@@ -69,14 +81,23 @@ class TestCookies:
         # trusted proxy + forwarded proto
         assert ck.cookie_should_be_secure(_http_req(headers={"x-forwarded-proto": "https"})) is True
         assert ck.cookie_should_be_secure(_http_req()) is False
+
         # untrusted peer ignores header
         def _untrusted():
             from starlette.requests import Request
 
             scope = {
-                "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET",
-                "scheme": "http", "path": "/", "raw_path": b"/", "query_string": b"",
-                "headers": [(b"x-forwarded-proto", b"https")], "client": ("8.8.8.8", 1), "server": ("t", 80),
+                "type": "http",
+                "asgi": {"version": "3.0"},
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/",
+                "raw_path": b"/",
+                "query_string": b"",
+                "headers": [(b"x-forwarded-proto", b"https")],
+                "client": ("8.8.8.8", 1),
+                "server": ("t", 80),
             }
             return Request(scope)
 
@@ -85,13 +106,20 @@ class TestCookies:
     def test_peer_trusted_delegates(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import cookies as ck
 
-        monkeypatch.setattr("realmock.platform.core.ratelimit.get_settings", lambda: SimpleNamespace(trusted_proxy_cidr_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.ratelimit.get_settings",
+            lambda: SimpleNamespace(trusted_proxy_cidr_list=[]),
+        )
         assert ck._peer_is_trusted_proxy("127.0.0.1") is True
 
     def test_set_and_clear_cookie(self) -> None:
         from fastapi import Response
 
-        from realmock.platform.core.session_auth.cookies import COOKIE_MAX_AGE, clear_session_cookie, set_session_cookie
+        from realmock.platform.core.session_auth.cookies import (
+            COOKIE_MAX_AGE,
+            clear_session_cookie,
+            set_session_cookie,
+        )
 
         resp = Response()
         set_session_cookie(resp, scope="iv", session_id=5, token="tok", secure=False)

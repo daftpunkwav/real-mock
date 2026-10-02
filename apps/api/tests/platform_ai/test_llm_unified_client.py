@@ -131,7 +131,9 @@ async def test_chat_message_stream_responses_delegates() -> None:
     c._safe_check = AsyncMock()  # type: ignore[method-assign]
     seen: dict[str, Any] = {}
 
-    async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+    async def _fake(
+        client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any
+    ) -> Any:
         seen["protocol"] = protocol
         yield {"type": "message", "message": {"role": "assistant", "content": "hi"}}
         return
@@ -156,7 +158,9 @@ async def test_chat_message_stream_success_adds_stream_options() -> None:
     c._safe_check = AsyncMock()  # type: ignore[method-assign]
     seen: dict[str, Any] = {}
 
-    async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+    async def _fake(
+        client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any
+    ) -> Any:
         seen.update(payload)
         yield {"type": "message", "message": {"role": "assistant", "content": "hi"}}
         return
@@ -177,7 +181,9 @@ async def test_chat_message_stream_fallback_on_unsupported() -> None:
     c._safe_check = AsyncMock()  # type: ignore[method-assign]
     calls = {"n": 0}
 
-    async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+    async def _fake(
+        client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any
+    ) -> Any:
         calls["n"] += 1
         if calls["n"] == 1:
             raise _StreamOptionsUnsupported("stream_options rejected")
@@ -201,7 +207,9 @@ async def test_chat_message_stream_anthropic_no_stream_options() -> None:
     c._safe_check = AsyncMock()  # type: ignore[method-assign]
     seen: dict[str, Any] = {}
 
-    async def _fake(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+    async def _fake(
+        client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any
+    ) -> Any:
         seen.update(payload)
         yield {"type": "message", "message": {"role": "assistant", "content": "a"}}
         return
@@ -220,7 +228,9 @@ async def test_chat_stream_success_and_fallback() -> None:
     c = _client()
     c._safe_check = AsyncMock()  # type: ignore[method-assign]
 
-    async def _ok(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+    async def _ok(
+        client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any
+    ) -> Any:
         yield "hi"
         return
         yield
@@ -236,7 +246,9 @@ async def test_chat_stream_success_and_fallback() -> None:
     c2._safe_check = AsyncMock()  # type: ignore[method-assign]
     calls = {"n": 0}
 
-    async def _flaky(client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any) -> Any:
+    async def _flaky(
+        client: Any, api_base: str, protocol: str, api_key: str, url: str, payload: Any
+    ) -> Any:
         calls["n"] += 1
         if calls["n"] == 1:
             raise _StreamOptionsUnsupported("no stream_options")

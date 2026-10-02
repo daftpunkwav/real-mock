@@ -31,8 +31,8 @@ from realmock.platform.capabilities.ai.llm.provider_errors import is_context_ove
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
 from .ask_user import extract_inline_ask_user
-from .memory_precipitate import schedule_turn_memory_precipitation
 from .context import format_linked_sessions
+from .memory_precipitate import schedule_turn_memory_precipitation
 from .persist import (
     compaction_event,
     finalize,
@@ -113,7 +113,9 @@ async def _inject_refs(
     if not context_session_ids:
         return working
     block = await asyncio.to_thread(
-        format_linked_sessions, db, context_session_ids,
+        format_linked_sessions,
+        db,
+        context_session_ids,
         exclude_id=getattr(agent.session, "id", None),
     )
     if not block:
@@ -218,7 +220,9 @@ async def _prepare_turn(
     pre_build = list(agent.messages)
     build_report: dict[str, Any] = {}
     working = await agent._build_context(
-        threshold=compact_threshold, options=policy, report=build_report,
+        threshold=compact_threshold,
+        options=policy,
+        report=build_report,
     )
     working = await _inject_refs(agent, working, db, context_session_ids)
     agent._turn_state.pre_loop_len = len(working)
@@ -226,8 +230,12 @@ async def _prepare_turn(
 
 
 async def run_chat(
-    agent: "PrepAgent", user_text: str, db: Session, *,
-    drop_last_assistant: bool = False, ui_locale: str | None = None,
+    agent: "PrepAgent",
+    user_text: str,
+    db: Session,
+    *,
+    drop_last_assistant: bool = False,
+    ui_locale: str | None = None,
     context_session_ids: list[int] | None = None,
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
@@ -253,8 +261,11 @@ async def run_chat(
     """
     try:
         policy, turn_id, working, _, _ = await _prepare_turn(
-            agent, user_text, db,
-            drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+            agent,
+            user_text,
+            db,
+            drop_last_assistant=drop_last_assistant,
+            ui_locale=ui_locale,
             context_session_ids=context_session_ids,
             compact_threshold=compact_threshold,
             compact_options=compact_options,
@@ -291,13 +302,21 @@ async def run_chat(
                 # Nothing user-visible exists: generate a closing answer, same as
                 # the stream channel (never fall back to the waiting line without
                 # a dialog — that copy would be misleading).
-                final = await _final_answer_with_overflow_retry(agent, working, policy, db, context_session_ids)
+                final = await _final_answer_with_overflow_retry(
+                    agent, working, policy, db, context_session_ids
+                )
         agent.last_ask_event = ask_event
 
         finalize(
             # The history contract requires string content (None coerces to an
             # empty, hidden reply — finalize applies the same rule).
-            agent, working, final or "", db, tool_steps=steps, search_groups=groups, thinking=thinking,
+            agent,
+            working,
+            final or "",
+            db,
+            tool_steps=steps,
+            search_groups=groups,
+            thinking=thinking,
             compact_threshold=compact_threshold,
             compact_options=policy,
             turn_id=turn_id,
@@ -345,8 +364,12 @@ def _take_mid_turn_compaction_report(agent: "PrepAgent") -> dict[str, Any] | Non
 
 
 async def run_chat_stream(
-    agent: "PrepAgent", user_text: str, db: Session, *,
-    drop_last_assistant: bool = False, ui_locale: str | None = None,
+    agent: "PrepAgent",
+    user_text: str,
+    db: Session,
+    *,
+    drop_last_assistant: bool = False,
+    ui_locale: str | None = None,
     context_session_ids: list[int] | None = None,
     compact_threshold: float | None = None,
     compact_options: CompactionOptions | None = None,
@@ -373,8 +396,11 @@ async def run_chat_stream(
     """
     try:
         policy, turn_id, working, pre_build, build_report = await _prepare_turn(
-            agent, user_text, db,
-            drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+            agent,
+            user_text,
+            db,
+            drop_last_assistant=drop_last_assistant,
+            ui_locale=ui_locale,
             context_session_ids=context_session_ids,
             compact_threshold=compact_threshold,
             compact_options=compact_options,
@@ -387,7 +413,9 @@ async def run_chat_stream(
         raise
 
     start_event = compaction_event(
-        pre_build, working, build_report,
+        pre_build,
+        working,
+        build_report,
         context_window=agent.context_window,
         threshold=(
             compact_threshold
@@ -397,7 +425,10 @@ async def run_chat_stream(
     )
     if start_event is not None:
         yield start_event
-    yield {"type": "status", "text": _THINKING_STATUS.get(ui_locale or "", _THINKING_STATUS_DEFAULT)}
+    yield {
+        "type": "status",
+        "text": _THINKING_STATUS.get(ui_locale or "", _THINKING_STATUS_DEFAULT),
+    }
     await asyncio.sleep(0)
 
     # Bounded queue: backpressure when the SSE consumer lags instead of
@@ -423,8 +454,13 @@ async def run_chat_stream(
     finalized = False
     try:
         async for item in stream_background_events(
-            agent._run_tool_rounds, outcome, events, working, db,
-            asked_user=asked_user, content_state=content_state,
+            agent._run_tool_rounds,
+            outcome,
+            events,
+            working,
+            db,
+            asked_user=asked_user,
+            content_state=content_state,
         ):
             if isinstance(item, dict):
                 kind = item.get("type")
@@ -468,8 +504,14 @@ async def run_chat_stream(
                 yield piece
             gate_event = asked_user.get("event")
             delta = finalize_with_delta(
-                agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
-                thinking=thinking, compact_threshold=compact_threshold,
+                agent,
+                working,
+                final,
+                db,
+                tool_steps=tool_steps,
+                search_groups=search_groups,
+                thinking=thinking,
+                compact_threshold=compact_threshold,
                 compact_options=policy,
                 turn_id=turn_id,
                 ask=gate_event if isinstance(gate_event, dict) else None,
@@ -521,7 +563,9 @@ async def run_chat_stream(
                         raise
                     # Overflow before any token: force-compact and retry the final
                     # answer once instead of failing the turn.
-                    logger.warning("Prep stream final overflowed; force-compacting and retrying once")
+                    logger.warning(
+                        "Prep stream final overflowed; force-compacting and retrying once"
+                    )
                     working = await _force_compact_context(agent, policy, db, context_session_ids)
                     usage_before = agent.usage_snapshot()
                     async for token in agent.llm.chat_stream(working, temperature=0.7):
@@ -535,9 +579,16 @@ async def run_chat_stream(
                 yield piece
 
         delta = finalize_with_delta(
-            agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
-            thinking=thinking, compact_threshold=compact_threshold,
-            compact_options=policy, turn_id=turn_id,
+            agent,
+            working,
+            final,
+            db,
+            tool_steps=tool_steps,
+            search_groups=search_groups,
+            thinking=thinking,
+            compact_threshold=compact_threshold,
+            compact_options=policy,
+            turn_id=turn_id,
         )
         finalized = True
         if delta:
@@ -555,12 +606,17 @@ async def run_chat_stream(
         if not finalized:
             gate_event = asked_user.get("event")
             persist_cancel(
-                agent, working, final, content_state, db,
+                agent,
+                working,
+                final,
+                content_state,
+                db,
                 tool_steps=tool_steps or streamed_steps,
                 search_groups=search_groups,
                 thinking=thinking or "".join(streamed_thinking),
                 compact_threshold=compact_threshold,
-                compact_options=policy, turn_id=turn_id,
+                compact_options=policy,
+                turn_id=turn_id,
                 ask=gate_event if isinstance(gate_event, dict) else None,
             )
         raise

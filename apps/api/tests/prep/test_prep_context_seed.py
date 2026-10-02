@@ -3,10 +3,14 @@
 Covers: format_memory_index failures/truncation, system-message fallback/join and linked-session blocks
 Conventions: list_memories and sessions faked where needed; temp DB otherwise; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import json
 from types import SimpleNamespace
+
 import pytest
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -16,11 +20,13 @@ def _reset_rate_limit():
     yield
     reset_rate_limit()
 
+
 def test_format_memory_index_owned_session_failure(monkeypatch) -> None:
     import realmock.domains.prep.agents.context.seed as seed_mod
 
     monkeypatch.setattr(seed_mod, "sessions_db_session", lambda: 1 / 0)
     assert seed_mod.format_memory_index(None) == ""
+
 
 def test_format_memory_index_list_failure_and_empty(monkeypatch, db) -> None:
     import realmock.domains.prep.agents.context.seed as seed_mod
@@ -30,6 +36,7 @@ def test_format_memory_index_list_failure_and_empty(monkeypatch, db) -> None:
 
     monkeypatch.setattr(seed_mod, "list_memories", lambda *a, **k: [])
     assert seed_mod.format_memory_index(db) == ""
+
 
 def test_format_memory_index_bad_tags_and_truncation(monkeypatch, db) -> None:
     import realmock.domains.prep.agents.context.seed as seed_mod
@@ -43,6 +50,7 @@ def test_format_memory_index_bad_tags_and_truncation(monkeypatch, db) -> None:
     assert "memory #2" in out
     assert "[a,b]" in out or "[a" in out
 
+
 def test_build_system_messages_fallback_when_empty(monkeypatch, db) -> None:
     import realmock.domains.prep.agents.context.seed as seed_mod
 
@@ -54,6 +62,7 @@ def test_build_system_messages_fallback_when_empty(monkeypatch, db) -> None:
     assert out[0]["role"] == "system"
     assert "interview-prep coach" in out[0]["content"]
 
+
 def test_build_system_message_joins_blocks(monkeypatch, db) -> None:
     import realmock.domains.prep.agents.context.seed as seed_mod
 
@@ -64,13 +73,15 @@ def test_build_system_message_joins_blocks(monkeypatch, db) -> None:
     assert "interview-prep coach" in out
     assert "tail" in out
 
+
 def test_seed_blocks_cover_company_and_linked(db) -> None:
     import realmock.domains.prep.agents.context.seed as seed_mod
     from realmock.domains.prep.models import PrepSession
     from realmock.platform.core.session_auth import new_access_token
 
     linked = PrepSession(
-        access_token=new_access_token(), status="active",
+        access_token=new_access_token(),
+        status="active",
         messages=json.dumps([{"role": "user", "content": "linked turn"}]),
     )
     db.add(linked)

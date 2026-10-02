@@ -6,9 +6,8 @@ Content-Type does not 422. Invalid JSON and non-objects are A0001.
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-
 import pytest
+from fastapi.testclient import TestClient
 
 from realmock.asgi import app
 from realmock.platform.models import Resume

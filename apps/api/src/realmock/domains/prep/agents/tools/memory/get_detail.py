@@ -6,10 +6,10 @@ import asyncio
 import json
 from typing import Any
 
-from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec, TOOL_TIER_SECONDARY
+from realmock.domains.prep.agents.tools.spec import TOOL_TIER_SECONDARY, SearchHits, ToolSpec
+from realmock.domains.prep.services import get_memory, memory_to_detail
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.database import sessions_db_session
-from realmock.domains.prep.services import get_memory, memory_to_detail
 
 
 def _get_detail_sync(memory_id: int) -> str:
@@ -26,7 +26,9 @@ def _get_detail_sync(memory_id: int) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
-async def run_memory_get_detail(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
+async def run_memory_get_detail(
+    args: dict[str, Any], memory: WorkingMemory
+) -> tuple[str, SearchHits]:
     """Load one memory by id; invalid ids yield a JSON error, never raise.
 
     Args:

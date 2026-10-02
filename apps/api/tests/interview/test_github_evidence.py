@@ -248,9 +248,7 @@ async def test_authenticate_reseeds_only_when_evidence_empty(
     from realmock.domains.interview.realtime.connection import auth as ws_auth
     from realmock.domains.interview.realtime.connection.auth import ConnectionAuthMixin
 
-    session = SimpleNamespace(
-        id=7, access_token="tok", status="pending", github_evidence=evidence
-    )
+    session = SimpleNamespace(id=7, access_token="tok", status="pending", github_evidence=evidence)
     handler, db = _fake_auth_handler(session, spawned := [])
 
     async def _claim(h) -> None:

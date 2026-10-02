@@ -52,7 +52,10 @@ async def stream_tool_rounds(
     async def produce() -> None:
         try:
             outcome["value"] = await runner.tools.run_tool_rounds(
-                api_messages, db, temperature=temperature, content_sink=sink,
+                api_messages,
+                db,
+                temperature=temperature,
+                content_sink=sink,
             )
         except Exception as e:
             outcome["error"] = e

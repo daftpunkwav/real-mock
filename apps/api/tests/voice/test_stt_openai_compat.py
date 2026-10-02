@@ -15,9 +15,9 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
+from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers import cloud as cloud_mod
 from realmock.platform.capabilities.voice.stt.providers import openai_compat as compat_mod
-from realmock.platform.capabilities.voice.stt.base import SttCredentials
 
 LONG_PCM = base64.b64encode(b"\x00\x01" * 6000).decode("ascii")
 SHORT_PCM = base64.b64encode(b"\x00\x01" * 100).decode("ascii")
@@ -231,9 +231,7 @@ async def test_mimo_full_url_mode_posts_verbatim(monkeypatch, full_url, expected
         sample_rate=16000,
         creds=SttCredentials(
             api_key="k",
-            api_base=(
-                "https://x/v1/complete-endpoint" if full_url else "https://x"
-            ),
+            api_base=("https://x/v1/complete-endpoint" if full_url else "https://x"),
             full_url=full_url,
         ),
     )

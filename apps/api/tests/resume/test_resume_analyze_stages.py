@@ -10,18 +10,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-
 from unittest.mock import AsyncMock
 
 import pytest
 
+from realmock.domains.resume.prompts import get_review_agent_prompt
 from realmock.domains.resume.services import analysis as analysis_module
 from realmock.domains.resume.services import analyze_slots
 from realmock.domains.resume.services.analysis import analyze_resume_with_llm
-from realmock.domains.resume.prompts import get_review_agent_prompt
 from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.models import Resume
-
 
 
 @pytest.fixture(autouse=True)
@@ -78,7 +76,9 @@ def test_analyze_runs_agent_and_persists(api_db, monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
 
-    row = Resume(filename="a.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="a.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -138,7 +138,9 @@ def test_score_is_deterministic_mean_of_dims(api_db, monkeypatch: pytest.MonkeyP
         return _payload(score=99, dimension_scores=dims, headline="h")
 
     monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
-    row = Resume(filename="dims.pdf", file_type="pdf", raw_text="Dimension main text", parsed_profile="{}")
+    row = Resume(
+        filename="dims.pdf", file_type="pdf", raw_text="Dimension main text", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -189,7 +191,9 @@ def test_zero_score_without_dims_raises_c0002(api_db, monkeypatch: pytest.Monkey
         )
 
     monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
-    row = Resume(filename="zero.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="zero.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -231,7 +235,9 @@ def test_zero_score_recovers_from_chat_json(api_db, monkeypatch: pytest.MonkeyPa
         )
 
     monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
-    row = Resume(filename="recover.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="recover.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -276,7 +282,9 @@ def test_analyze_passes_recovery_deadline_to_score_recovery(
     )
     monkeypatch.setattr(analysis_module, "_request_score_recovery", recovery)
 
-    row = Resume(filename="deadline.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="deadline.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -288,7 +296,9 @@ def test_analyze_passes_recovery_deadline_to_score_recovery(
     ), "the score-recovery call must run under the production timeout"
 
 
-def test_analyze_locked_commit_retries_and_persists(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_analyze_locked_commit_retries_and_persists(
+    api_db, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A SQLite lock during the analysis write retries the real write, not an
     empty transaction: without the reapply hook the rollback discards the
     score/analysis columns and the review is lost while the caller sees success."""
@@ -307,7 +317,9 @@ def test_analyze_locked_commit_retries_and_persists(api_db, monkeypatch: pytest.
 
     monkeypatch.setattr(analysis_module.asyncio, "sleep", _no_sleep)
 
-    row = Resume(filename="locked.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="locked.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -361,7 +373,12 @@ def test_score_only_recovery_raises_c0002(api_db, monkeypatch: pytest.MonkeyPatc
         )
 
     monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
-    row = Resume(filename="score-only.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="score-only.pdf",
+        file_type="pdf",
+        raw_text="Main text content",
+        parsed_profile="{}",
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -405,7 +422,9 @@ def test_agent_loop_failure_raises_c0001(api_db, monkeypatch: pytest.MonkeyPatch
     assert exc_info.value.error_code == "C0001"
 
 
-def test_analyze_uses_resume_language_not_ui_locale(api_db, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_analyze_uses_resume_language_not_ui_locale(
+    api_db, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Plan / evaluation language follows the resume body, not the request locale."""
     _stub_llm(monkeypatch)
     seen: list[str] = []
@@ -458,7 +477,9 @@ def test_zero_overall_without_dims_raises_c0002(api_db, monkeypatch: pytest.Monk
         )
 
     monkeypatch.setattr(analysis_module, "run_resume_review", fake_review)
-    row = Resume(filename="sections.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}")
+    row = Resume(
+        filename="sections.pdf", file_type="pdf", raw_text="Main text content", parsed_profile="{}"
+    )
     api_db.add(row)
     api_db.commit()
     api_db.refresh(row)
@@ -510,9 +531,7 @@ def test_commit_retry_yields_event_loop_during_backoff(
         def commit(self) -> None:
             self.n += 1
             if self.n < 3:
-                raise sqlalchemy.exc.OperationalError(
-                    "stmt", {}, Exception("database is locked")
-                )
+                raise sqlalchemy.exc.OperationalError("stmt", {}, Exception("database is locked"))
 
         def rollback(self) -> None:
             pass

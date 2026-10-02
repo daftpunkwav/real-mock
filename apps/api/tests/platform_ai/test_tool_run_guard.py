@@ -66,7 +66,6 @@ def test_args_key_normalizes_dict_order() -> None:
 
 def test_custom_args_key_is_honored() -> None:
     class FixedKeyGuard(ToolRunGuard):
-
         @staticmethod
         def default_args_key(args: dict) -> str:
             return "fixed"

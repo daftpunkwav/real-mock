@@ -50,9 +50,7 @@ _SCRIPT_SHADOW = re.compile(r"<(script|style|noscript)\b", re.IGNORECASE)
 _TITLE = re.compile(r"<title[^>]*>([\s\S]*?)</title>", re.IGNORECASE)
 #: Charset declaration in a meta tag; the value is restricted to codec-name
 #: characters, and _detect_charset still validates it via codecs.lookup.
-_META_CHARSET = re.compile(
-    r"<meta[^>]+charset\s*=\s*['\"]?([A-Za-z0-9._-]+)", re.IGNORECASE
-)
+_META_CHARSET = re.compile(r"<meta[^>]+charset\s*=\s*['\"]?([A-Za-z0-9._-]+)", re.IGNORECASE)
 
 
 def _meta_charset(html_bytes: bytes) -> str | None:
@@ -156,8 +154,7 @@ async def _fetch_page(url: str, max_chars: int) -> str:
                     location = response.headers.get("location")
                     if not location:
                         return _unavailable(
-                            "redirect without a Location header "
-                            f"(status {response.status_code})"
+                            f"redirect without a Location header (status {response.status_code})"
                         )
                     current = urljoin(current, location)
                     hops += 1

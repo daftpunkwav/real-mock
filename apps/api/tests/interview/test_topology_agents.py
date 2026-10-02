@@ -1,6 +1,7 @@
 """Unit tests for 4-Agent topology components."""
 
 import pytest
+
 from realmock.domains.interview.agents.memory import CognitiveMemoryGraph
 from realmock.domains.interview.agents.topology import ShadowEvaluatorAgent
 from realmock.platform.capabilities.ai.llm.client import LLMClient
@@ -9,7 +10,9 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 @pytest.mark.asyncio
 async def test_shadow_evaluator_agent():
     graph = CognitiveMemoryGraph()
-    llm = LLMClient(api_base="https://api.example.com", api_key="", model="gpt-4")  # Empty key triggers graceful fallback
+    llm = LLMClient(
+        api_base="https://api.example.com", api_key="", model="gpt-4"
+    )  # Empty key triggers graceful fallback
     agent = ShadowEvaluatorAgent(llm, graph)
 
     evaluation = await agent.evaluate_turn(
@@ -24,9 +27,6 @@ async def test_shadow_evaluator_agent():
     assert evaluation.error is False
     assert evaluation.substance_score == 5
     assert evaluation.assessed_topic == ""
-
-
-
 
 
 @pytest.mark.asyncio
@@ -63,7 +63,11 @@ async def test_shadow_three_phase_pipeline():
                     "topic_status": "suspicious",
                     "suggested_probe": "",
                 }
-            return {"substance_score": 7, "assessed_topic": "caching", "suggested_probe": "why LRU?"}
+            return {
+                "substance_score": 7,
+                "assessed_topic": "caching",
+                "suggested_probe": "why LRU?",
+            }
 
     agent = ShadowEvaluatorAgent(_PipelineLLM(), CognitiveMemoryGraph())
     res = await agent.evaluate_turn(

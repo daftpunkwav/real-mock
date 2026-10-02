@@ -131,9 +131,7 @@ async def test_429_long_wait_degrades_without_sleeping(monkeypatch) -> None:
         sleeps.append(delay)
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
-    limited = _FakeResp(
-        status=429, text="slow down", headers={"retry-after": "120"}
-    )
+    limited = _FakeResp(status=429, text="slow down", headers={"retry-after": "120"})
     _patch_http(monkeypatch, [limited])
     data = await GitHubClient(token="t").get_user("octocat")
     assert data["error"] == "rate_limited"

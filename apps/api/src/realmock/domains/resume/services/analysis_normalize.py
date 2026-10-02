@@ -108,8 +108,12 @@ def _normalize_rewrite_examples(raw: object) -> list[dict[str, str]]:
             if text.startswith("{") and ("before" in text or "Before the change" in text):
                 parsed = _loads_rewrite_dict(text)
                 if isinstance(parsed, dict):
-                    before = str(parsed.get("before") or parsed.get("Before the change") or "").strip()
-                    after = str(parsed.get("after") or parsed.get("After modification") or "").strip()
+                    before = str(
+                        parsed.get("before") or parsed.get("Before the change") or ""
+                    ).strip()
+                    after = str(
+                        parsed.get("after") or parsed.get("After modification") or ""
+                    ).strip()
                 else:
                     before, after = _keyed_rewrite_pair(text)
             if not before and not after:
@@ -198,12 +202,14 @@ def _normalize_section_reviews(raw: object) -> list[dict]:
     for item in raw[:8]:
         if not isinstance(item, dict):
             continue
-        out.append({
-            "section": str(item.get("section") or "").strip()[:40],
-            "score": _norm_score(item.get("score")),
-            "verdict": str(item.get("verdict") or "").strip()[:80],
-            "detail": str(item.get("detail") or "").strip()[:1200],
-        })
+        out.append(
+            {
+                "section": str(item.get("section") or "").strip()[:40],
+                "score": _norm_score(item.get("score")),
+                "verdict": str(item.get("verdict") or "").strip()[:80],
+                "detail": str(item.get("detail") or "").strip()[:1200],
+            }
+        )
     return out
 
 
@@ -247,14 +253,16 @@ def _normalize_project_cards(raw: object) -> list[dict]:
     for item in raw[:6]:
         if not isinstance(item, dict):
             continue
-        out.append({
-            "name": str(item.get("name") or "").strip()[:80],
-            "score": _norm_score(item.get("score")),
-            "one_line": str(item.get("one_line") or "").strip()[:120],
-            "highlights": _clip_list_str(item.get("highlights"), 6, 300),
-            "risks": _clip_list_str(item.get("risks"), 5, 300),
-            "deep_questions": _normalize_deep_questions(item.get("deep_questions")),
-        })
+        out.append(
+            {
+                "name": str(item.get("name") or "").strip()[:80],
+                "score": _norm_score(item.get("score")),
+                "one_line": str(item.get("one_line") or "").strip()[:120],
+                "highlights": _clip_list_str(item.get("highlights"), 6, 300),
+                "risks": _clip_list_str(item.get("risks"), 5, 300),
+                "deep_questions": _normalize_deep_questions(item.get("deep_questions")),
+            }
+        )
     return out
 
 
@@ -292,11 +300,13 @@ def _normalize_company_fit(raw: object) -> list[dict]:
     for item in raw[:6]:
         if not isinstance(item, dict):
             continue
-        out.append({
-            "tier": str(item.get("tier") or "").strip()[:40],
-            "fit_score": _norm_score(item.get("fit_score")),
-            "reason": str(item.get("reason") or "").strip()[:300],
-        })
+        out.append(
+            {
+                "tier": str(item.get("tier") or "").strip()[:40],
+                "fit_score": _norm_score(item.get("fit_score")),
+                "reason": str(item.get("reason") or "").strip()[:300],
+            }
+        )
     return out
 
 
@@ -470,9 +480,7 @@ def _normalize_dimension_weights(raw: object) -> dict[str, float]:
     return out
 
 
-def normalize_resume_analysis_payload(
-    data: dict, *, locale: str = "zh-CN"
-) -> dict:
+def normalize_resume_analysis_payload(data: dict, *, locale: str = "zh-CN") -> dict:
     """Tolerant normalize of LLM payload so ``ResumeAnalysis`` validation can pass.
 
     When ``locale`` is ``zh-CN``, apply Chinese full-width punctuation
@@ -483,9 +491,16 @@ def normalize_resume_analysis_payload(
     out = dict(data)
     out["score"] = _pick_overall_score(out)
     for key in (
-        "strengths", "weaknesses", "predicted_questions",
-        "ats_keywords", "missing_keywords", "project_deep_dive", "red_flags",
-        "interview_risk_areas", "market_insights", "search_queries_used",
+        "strengths",
+        "weaknesses",
+        "predicted_questions",
+        "ats_keywords",
+        "missing_keywords",
+        "project_deep_dive",
+        "red_flags",
+        "interview_risk_areas",
+        "market_insights",
+        "search_queries_used",
     ):
         val = out.get(key)
         if not isinstance(val, list):
@@ -496,9 +511,7 @@ def normalize_resume_analysis_payload(
     out["improvement_suggestions"] = _normalize_improvement_suggestions(
         out.get("improvement_suggestions")
     )
-    out["interviewer_comments"] = _normalize_interviewer_comments(
-        out.get("interviewer_comments")
-    )
+    out["interviewer_comments"] = _normalize_interviewer_comments(out.get("interviewer_comments"))
     dims = _coerce_dimension_map(out.get("dimension_scores"))
     normalized_dims: dict = {}
     for k, v in dims.items():

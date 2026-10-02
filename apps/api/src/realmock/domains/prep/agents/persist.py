@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _summary_markers(messages: list[dict[str, Any]]) -> set[str]:
     """Fingerprints of compaction record blocks — LLM minutes and rule digests (turn-start vs post-build diffing)."""
     marks: set[str] = set()
@@ -136,7 +137,10 @@ def _build_assistant_message(
     """
     # Guard against null finals (a provider may return an empty body): the
     # history contract requires string content; empty replies stay hidden.
-    assistant_msg: dict[str, Any] = {"role": "assistant", "content": final if isinstance(final, str) else ""}
+    assistant_msg: dict[str, Any] = {
+        "role": "assistant",
+        "content": final if isinstance(final, str) else "",
+    }
     if stopped:
         assistant_msg["stopped"] = True
     if turn_id:
@@ -161,18 +165,21 @@ def _accumulate_usage(agent: "PrepAgent") -> None:
     # Session ring estimate: text-content estimate only (tool-call argument
     # payloads excluded by design; provider-reported columns are authoritative).
     agent.session.token_usage = sum(
-        estimate_tokens(str(m.get("content") or "")) for m in agent.messages
-        if isinstance(m, dict)
+        estimate_tokens(str(m.get("content") or "")) for m in agent.messages if isinstance(m, dict)
     )
     # Accumulated actual usage (present only when the supplier reports it;
     # the text estimate above only feeds the ring proportion)
     usage = getattr(agent.llm, "usage", None)
     if usage is not None:
-        agent.session.prompt_tokens = (agent.session.prompt_tokens or 0) + (usage.prompt_tokens or 0)
-        agent.session.completion_tokens = (
-            agent.session.completion_tokens or 0
-        ) + (usage.completion_tokens or 0)
-        agent.session.cached_tokens = (agent.session.cached_tokens or 0) + (usage.cached_tokens or 0)
+        agent.session.prompt_tokens = (agent.session.prompt_tokens or 0) + (
+            usage.prompt_tokens or 0
+        )
+        agent.session.completion_tokens = (agent.session.completion_tokens or 0) + (
+            usage.completion_tokens or 0
+        )
+        agent.session.cached_tokens = (agent.session.cached_tokens or 0) + (
+            usage.cached_tokens or 0
+        )
     # Last LLM call of the turn (per-call provider truth; the ring's context
     # occupancy comes from here, not from the text estimate).
     last_round = getattr(agent, "last_round_usage", None)
@@ -234,7 +241,9 @@ def finalize(
     if final:
         agent.memory.remember("asked", final)
     agent.messages = prepare_llm_context(
-        agent.messages, agent.context_window, memory=agent.memory,
+        agent.messages,
+        agent.context_window,
+        memory=agent.memory,
         # Persist-path bound follows the same auto-compact setting as the
         # turn-start LLM compaction, so a user threshold is honored, not
         # silently undercut by the default. The verbatim tail matches the
@@ -317,8 +326,14 @@ def finalize_with_delta(
     """
     delta = usage_event(agent)
     finalize(
-        agent, working, final, db, tool_steps=tool_steps, search_groups=search_groups,
-        thinking=thinking, compact_threshold=compact_threshold,
+        agent,
+        working,
+        final,
+        db,
+        tool_steps=tool_steps,
+        search_groups=search_groups,
+        thinking=thinking,
+        compact_threshold=compact_threshold,
         compact_options=compact_options,
         turn_id=turn_id,
         ask=ask,
@@ -344,10 +359,16 @@ def persist_cancel(
     """Best-effort cancel-time persist (never raises; never yields)."""
     try:
         finalize(
-            agent, working, final or str(content_state.get("filtered_text") or ""), db,
-            tool_steps=tool_steps, search_groups=search_groups,
-            thinking=thinking, stopped=True,
-            compact_threshold=compact_threshold, compact_options=compact_options,
+            agent,
+            working,
+            final or str(content_state.get("filtered_text") or ""),
+            db,
+            tool_steps=tool_steps,
+            search_groups=search_groups,
+            thinking=thinking,
+            stopped=True,
+            compact_threshold=compact_threshold,
+            compact_options=compact_options,
             turn_id=turn_id,
             ask=ask,
         )

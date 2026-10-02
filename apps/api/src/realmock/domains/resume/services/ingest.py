@@ -18,7 +18,6 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.background import spawn_background
 from realmock.domains.resume.schemas.limits import (
     PARSE_FALLBACK_SUMMARY_CHARS,
     RAW_TEXT_STORE_CHARS,
@@ -30,6 +29,7 @@ from realmock.domains.resume.services.files import find_resume_file
 from realmock.domains.resume.services.parser import parse_resume_with_llm
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.config import get_settings
+from realmock.platform.core.background import spawn_background
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.security import assert_within_dir, sanitize_filename
 from realmock.platform.database import api_db_session
@@ -64,11 +64,7 @@ def sweep_stale_pending_parses() -> int:
     frontend offers an explicit retry instead.
     """
     with api_db_session() as db:
-        rows = (
-            db.query(Resume)
-            .filter(Resume.parse_status == PARSE_STATUS_PENDING)
-            .all()
-        )
+        rows = db.query(Resume).filter(Resume.parse_status == PARSE_STATUS_PENDING).all()
         if not rows:
             return 0
         for row in rows:

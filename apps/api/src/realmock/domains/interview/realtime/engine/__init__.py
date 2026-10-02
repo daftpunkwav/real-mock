@@ -7,8 +7,8 @@ from realmock.domains.interview.realtime.engine.base import (
     RealtimeAudioEngine,
 )
 from realmock.domains.interview.realtime.engine.cascaded import CascadedAudioEngine
-from realmock.domains.interview.realtime.engine.native import NativeRealtimeAudioEngine
 from realmock.domains.interview.realtime.engine.factory import create_audio_engine
+from realmock.domains.interview.realtime.engine.native import NativeRealtimeAudioEngine
 
 __all__ = [
     "AudioEngineEvent",

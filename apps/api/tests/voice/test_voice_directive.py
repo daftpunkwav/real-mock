@@ -44,18 +44,13 @@ def test_minimax_unknown_model_gets_forbid_directive():
 
 
 def test_minimax_voice_resolves_via_avatar_map():
-    prosody = resolve_prosody(
-        avatar_id="hr_female", personality="hr", handler="minimax_speech"
-    )
+    prosody = resolve_prosody(avatar_id="hr_female", personality="hr", handler="minimax_speech")
     assert prosody.voice == "female-chengshu"
 
 
 def test_minimax_voice_passthrough_only_for_vendor_voice_ids():
     # A vendor-native settings voice is kept as-is.
-    assert (
-        resolve_session_voice(None, "female-yujie", handler="minimax_speech")
-        == "female-yujie"
-    )
+    assert resolve_session_voice(None, "female-yujie", handler="minimax_speech") == "female-yujie"
     # An Edge neural id is ignored so the avatar/default mapping stays in charge.
     assert (
         resolve_session_voice(None, "zh-CN-XiaoxiaoNeural", handler="minimax_speech")

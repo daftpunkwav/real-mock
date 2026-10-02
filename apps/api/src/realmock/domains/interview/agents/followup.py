@@ -16,11 +16,33 @@ from realmock.domains.interview.constants import FollowupCategory
 # Vague fillers (Chinese colloquial + common English hedges) for bilingual answers
 VAGUE_TERMS: tuple[str, ...] = (
     # zh-CN
-    "大概", "可能", "或许", "也许", "差不多", "一般般", "还行", "还可以",
-    "还行吧", "基本上", "大致", "印象中", "感觉", "好像", "大概吧",
+    "大概",
+    "可能",
+    "或许",
+    "也许",
+    "差不多",
+    "一般般",
+    "还行",
+    "还可以",
+    "还行吧",
+    "基本上",
+    "大致",
+    "印象中",
+    "感觉",
+    "好像",
+    "大概吧",
     # en
-    "maybe", "perhaps", "probably", "roughly", "basically", "kinda", "sort of",
-    "I guess", "not sure", "about it", "more or less",
+    "maybe",
+    "perhaps",
+    "probably",
+    "roughly",
+    "basically",
+    "kinda",
+    "sort of",
+    "I guess",
+    "not sure",
+    "about it",
+    "more or less",
 )
 
 # Quantitative cues: digits/percents, metric acronyms, and Chinese duration units.
@@ -34,9 +56,14 @@ HAS_QUANT_PATTERN = re.compile(
 
 # Non-investigation phases: in these phases the missing_data / tech_hole rules do not apply.
 # reverse_qa is candidate-asks + summary is wrap-up; no quantitative data is required there.
-_NON_TECHNICAL_PHASES: frozenset[str] = frozenset({
-    "identity_check", "self_intro", "reverse_qa", "summary",
-})
+_NON_TECHNICAL_PHASES: frozenset[str] = frozenset(
+    {
+        "identity_check",
+        "self_intro",
+        "reverse_qa",
+        "summary",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -73,7 +100,9 @@ def analyze(
     text = (answer or "").strip()
     if not text:
         return FollowupSignal(
-            True, FollowupCategory.MISSING_DATA, "The candidate gave no substance; guide them to elaborate."
+            True,
+            FollowupCategory.MISSING_DATA,
+            "The candidate gave no substance; guide them to elaborate.",
         )
 
     # Tech rules only in assessment phases; skip reverse_qa / summary / chill
@@ -155,7 +184,7 @@ def _question_keywords(question: str) -> list[str]:
     )
     if len(chinese) >= 2:
         for i in range(len(chinese) - 1):
-            keywords.append(chinese[i:i + 2])
+            keywords.append(chinese[i : i + 2])
     return keywords
 
 

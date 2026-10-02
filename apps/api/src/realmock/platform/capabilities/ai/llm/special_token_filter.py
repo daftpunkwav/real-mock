@@ -77,7 +77,7 @@ class SpecialTokenFilter:
             lead = 1 if i > 0 and self._buf[i - 1] in "|]" else 0
             if i - lead > 0:
                 self._emit(out, self._buf[: i - lead])
-            self._buf = self._buf[i - lead:]
+            self._buf = self._buf[i - lead :]
 
             close_tag = self._OPEN_FORMS[start]
             j = self._buf.find(close_tag, 2)

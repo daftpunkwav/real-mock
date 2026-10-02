@@ -7,6 +7,7 @@ locale literal/locales, and limits payload.
 Conventions: no real network/model downloads (all clients mocked); no DB; rate
 limits reset per test.
 """
+
 from __future__ import annotations
 
 import pytest

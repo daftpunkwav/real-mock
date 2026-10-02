@@ -5,14 +5,19 @@ not-ready A0006, success closing, error reopen, exception propagation.
 Conventions: no real network/LLM (all external calls mocked); uses _make_handler for handler construction.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 
+
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -20,6 +25,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_finish_closing_and_missing_and_completed():
@@ -61,7 +67,9 @@ async def test_finish_not_ready_and_success():
     h2.ctx.runner = MagicMock()
     h2.ctx.llm = MagicMock(api_key="sk")
     h2.set_turn = AsyncMock()  # type: ignore[method-assign]
-    done = StreamEvent.make_turn_done(content="bye", phase_id="p", is_complete=False, phase_changed=False)
+    done = StreamEvent.make_turn_done(
+        content="bye", phase_id="p", is_complete=False, phase_changed=False
+    )
     h2._stream_events_with_tts = AsyncMock(return_value=done)  # type: ignore[method-assign]
     h2._schedule_report_generation = MagicMock()  # type: ignore[method-assign]
     h2._spawn = MagicMock(side_effect=lambda c: (c.close(), MagicMock())[1])  # type: ignore[method-assign]
@@ -95,7 +103,20 @@ async def test_finish_error_and_exception():
     h2.ctx.llm = MagicMock(api_key="sk")
     h2.set_turn = AsyncMock()  # type: ignore[method-assign]
     h2._stream_events_with_tts = AsyncMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
-    with patch("realmock.domains.interview.realtime.control.finish.SessionLocal", return_value=MagicMock(query=MagicMock(return_value=MagicMock(filter=MagicMock(return_value=MagicMock(first=MagicMock(return_value=MagicMock(status="active")))))))):
+    with patch(
+        "realmock.domains.interview.realtime.control.finish.SessionLocal",
+        return_value=MagicMock(
+            query=MagicMock(
+                return_value=MagicMock(
+                    filter=MagicMock(
+                        return_value=MagicMock(
+                            first=MagicMock(return_value=MagicMock(status="active"))
+                        )
+                    )
+                )
+            )
+        ),
+    ):
         try:
             await h2._on_request_finish()
             assert False

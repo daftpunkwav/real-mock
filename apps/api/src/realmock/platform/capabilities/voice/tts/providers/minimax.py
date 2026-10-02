@@ -70,20 +70,18 @@ def _resolve_voice(voice: str) -> str:
 
 def supports_interjections(model: str) -> bool:
     """Whether the TTS model renders interjection tags instead of reading them aloud."""
-    supported = (
-        (_capability_def().get("text_markup", {}).get("interjections", {}) or {}).get("models")
-        or ["speech-2.8-hd", "speech-2.8-turbo"]
-    )
+    supported = (_capability_def().get("text_markup", {}).get("interjections", {}) or {}).get(
+        "models"
+    ) or ["speech-2.8-hd", "speech-2.8-turbo"]
     m = (model or "").strip().lower()
     return any(m == str(s).lower() for s in supported)
 
 
 def interjection_tags() -> list[str]:
     """Interjection tags the supported models accept (descriptor-driven)."""
-    tags = (
-        (_capability_def().get("text_markup", {}).get("interjections", {}) or {}).get("tags")
-        or []
-    )
+    tags = (_capability_def().get("text_markup", {}).get("interjections", {}) or {}).get(
+        "tags"
+    ) or []
     return [str(t) for t in tags]
 
 
@@ -286,9 +284,7 @@ async def _synthesize_chunk(body: dict, url: str, api_key: str) -> str:
     audio_path = str(response_def.get("audio_path") or "data.audio")
     audio = get_dotted(payload, audio_path) or payload.get("audio") or ""
     if not (isinstance(audio, str) and audio):
-        logger.warning(
-            "MiniMax TTS response has no audio field keys=%s", list(payload.keys())[:8]
-        )
+        logger.warning("MiniMax TTS response has no audio field keys=%s", list(payload.keys())[:8])
         return ""
     if str(response_def.get("encoding") or "hex") == "hex":
         try:
@@ -339,7 +335,8 @@ async def synthesize_minimax_to_base64(
     chunks = split_text_chunks(clean, limit)
     if len(chunks) > 1 and fmt not in _CONCATENATABLE_FORMATS:
         logger.warning(
-            "MiniMax TTS format %s cannot be chunk-concatenated; synthesizing only the first chunk", fmt
+            "MiniMax TTS format %s cannot be chunk-concatenated; synthesizing only the first chunk",
+            fmt,
         )
         chunks = chunks[:1]
 

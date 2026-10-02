@@ -14,8 +14,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.followup import analyze as analyze_followup
+from realmock.domains.interview.agents.session_state import InterviewSessionState
 
 logger = logging.getLogger(__name__)
 

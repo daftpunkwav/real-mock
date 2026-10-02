@@ -16,11 +16,14 @@ from __future__ import annotations
 from realmock.domains.interview.realtime.turn.control import TurnControlMixin
 from realmock.domains.interview.realtime.turn.lock import TurnLockMixin
 from realmock.domains.interview.realtime.turn.playback import TurnPlaybackMixin
-from realmock.domains.interview.realtime.turn.stt_finish import (
-    TurnSttFinishMixin,
-    _AUDIO_BUFFER_MAX_BYTES,
+from realmock.domains.interview.realtime.turn.streaming import (
+    _IMAGE_BASE64_MAX_LEN,
+    TurnStreamingMixin,
 )
-from realmock.domains.interview.realtime.turn.streaming import TurnStreamingMixin, _IMAGE_BASE64_MAX_LEN
+from realmock.domains.interview.realtime.turn.stt_finish import (
+    _AUDIO_BUFFER_MAX_BYTES,
+    TurnSttFinishMixin,
+)
 from realmock.domains.interview.realtime.turn.text_entry import TurnTextEntryMixin
 
 

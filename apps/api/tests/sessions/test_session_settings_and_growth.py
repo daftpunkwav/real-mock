@@ -6,13 +6,15 @@ import inspect
 
 from fastapi.testclient import TestClient
 
+from realmock.asgi import app
 from realmock.domains.growth.models import GrowthRecord
 from realmock.domains.growth.routes.router import _safe_json_list
 from realmock.domains.settings.routes.stages import (
     test_pipeline_stage as stage_test_endpoint,
+)
+from realmock.domains.settings.routes.stages import (
     update_stage,
 )
-from realmock.asgi import app
 
 
 def test_update_stage_uses_safe_base_not_env_flag() -> None:

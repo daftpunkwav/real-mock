@@ -17,7 +17,11 @@ if TYPE_CHECKING:
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.models import InterviewProcess, InterviewSession
+from realmock.domains.interview.agents import session_llm
+from realmock.domains.interview.agents.planning.plan_prompts import (
+    build_plan_user_message,
+    planner_system_prompt,
+)
 from realmock.domains.interview.agents.research.company_research import (
     STANDALONE_FETCH_BUDGET,
     STANDALONE_MAX_SECONDS,
@@ -28,21 +32,17 @@ from realmock.domains.interview.agents.research.company_research import (
     research_company_context_cached,
     schedule_research_retry,
 )
-from realmock.domains.interview.agents.planning.plan_prompts import (
-    build_plan_user_message,
-    planner_system_prompt,
-)
+from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from realmock.domains.interview.protocols.plan_schema import (
     InterviewPlan,
     parse_plan,
     plan_from_workflow,
 )
-from realmock.domains.interview.protocols.round_plan_schema import load_round_plan
 from realmock.domains.interview.protocols.process_memory import (
     load_memory,
     render_for_prompt,
 )
-from realmock.domains.interview.agents import session_llm
+from realmock.domains.interview.protocols.round_plan_schema import load_round_plan
 from realmock.domains.interview.workflows import get_workflow
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session, sessions_db_session
@@ -156,9 +156,7 @@ async def _company_context(db: Session, session: InterviewSession, llm: Any) -> 
                 search_budget=STANDALONE_SEARCH_BUDGET,
                 fetch_budget=STANDALONE_FETCH_BUDGET,
                 max_seconds=STANDALONE_MAX_SECONDS,
-                persist=deferred_digest_persist(
-                    InterviewSession, session.id, id_label="sid"
-                ),
+                persist=deferred_digest_persist(InterviewSession, session.id, id_label="sid"),
             )
     return blend_company_context(get_company_context(company), digest)
 

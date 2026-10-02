@@ -10,13 +10,14 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+
 from realmock.domains.growth.models.growth import GrowthRecord
 from realmock.domains.growth.services.persist_from_summary import (
     persist_growth_from_summary,
 )
 from realmock.platform.contracts.report_summary import ReportSummaryPayload
 from realmock.platform.core.ratelimit import reset_rate_limit
-from sqlalchemy.exc import IntegrityError
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +29,8 @@ def _clean_limits():
 
 @pytest.fixture(autouse=True)
 def _growth_table(engine):
-    from realmock.platform.database import SessionsBase
     import realmock.domains.growth.models.growth  # noqa: F401
+    from realmock.platform.database import SessionsBase
 
     SessionsBase.metadata.create_all(bind=engine)
     yield

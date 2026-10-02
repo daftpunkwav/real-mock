@@ -28,10 +28,10 @@ from realmock.platform.capabilities.voice.stt.providers.whisper import (
     warmup_whisper,
 )
 
-
 PCM = base64.b64encode(b"\x00\x01" * 500).decode("ascii")
 LONG_PCM = base64.b64encode(b"\x00\x01" * 6000).decode("ascii")
 SHORT_PCM = base64.b64encode(b"\x00\x01" * 100).decode("ascii")
+
 
 def _fake_model(texts=("hello world",), lang_prob=0.9, exc=None):
     m = MagicMock()

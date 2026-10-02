@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from .agent import (
-    DeepReportAgent,
     MAX_PARALLEL_BATCHES,
     REPORT_TIME_BUDGET_SECONDS,
     TURNS_PER_BATCH,
+    DeepReportAgent,
     build_context_specs,
     split_turn_ids,
 )

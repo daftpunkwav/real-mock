@@ -3,9 +3,13 @@
 Covers: make_display_filter, event_loopbacks on_content, _public_args, _display_result and stream_background_events success/error/cancel paths
 Conventions: No real LLM; background tasks faked where needed; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import asyncio
+
 import pytest
+
 from realmock.domains.prep.agents.streaming import (
     _display_result,
     _public_args,
@@ -13,6 +17,7 @@ from realmock.domains.prep.agents.streaming import (
     make_display_filter,
     stream_background_events,
 )
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -22,9 +27,11 @@ def _reset_rate_limit():
     yield
     reset_rate_limit()
 
+
 def test_feed_empty_returns_empty() -> None:
     filt = make_display_filter()
     assert filt.feed("") == ""
+
 
 def test_oversized_unclosed_block_released_as_text() -> None:
     filt = make_display_filter()
@@ -32,6 +39,7 @@ def test_oversized_unclosed_block_released_as_text() -> None:
     assert "x" * 100 in out
     # Filter is reusable after release.
     assert filt.flush() == ""
+
 
 @pytest.mark.asyncio
 async def test_on_content_noop_without_events_or_state() -> None:
@@ -46,6 +54,7 @@ async def test_on_content_noop_without_events_or_state() -> None:
     _, _, on_content3 = event_loopbacks(events, content_state={"filter": make_display_filter()})
     await on_content3("")
     assert events.empty()
+
 
 @pytest.mark.asyncio
 async def test_on_content_clears_status_once() -> None:
@@ -63,6 +72,7 @@ async def test_on_content_clears_status_once() -> None:
     third = await events.get()
     assert third["type"] == "token"
 
+
 def test_public_args_non_dict_and_private_skipped() -> None:
     assert _public_args("not-a-dict") == {}  # type: ignore[arg-type]
     assert _public_args(None) == {}  # type: ignore[arg-type]
@@ -73,6 +83,7 @@ def test_public_args_non_dict_and_private_skipped() -> None:
     long_val = _public_args({"q": "y" * 900})
     assert len(long_val["q"]) == 500
 
+
 def test_display_result_truncates_with_marker() -> None:
     assert _display_result("short") == "short"
     assert _display_result(None) == ""
@@ -81,6 +92,7 @@ def test_display_result_truncates_with_marker() -> None:
     assert "display truncated" in out
     assert str(len(big)) in out
     assert len(out) < len(big)
+
 
 @pytest.mark.asyncio
 async def test_stream_background_events_success_relays() -> None:
@@ -95,6 +107,7 @@ async def test_stream_background_events_success_relays() -> None:
     assert collected == []
     assert outcome["value"] == ("ok-value",)
 
+
 @pytest.mark.asyncio
 async def test_stream_background_events_failure_records_error() -> None:
     events: asyncio.Queue = asyncio.Queue()
@@ -106,6 +119,7 @@ async def test_stream_background_events_failure_records_error() -> None:
     collected = [i async for i in stream_background_events(_boom, outcome, events)]
     assert collected == []
     assert isinstance(outcome.get("error"), RuntimeError)
+
 
 @pytest.mark.asyncio
 async def test_stream_background_events_cancel_while_running() -> None:
@@ -127,6 +141,7 @@ async def test_stream_background_events_cancel_while_running() -> None:
     # Put one event then let the consumer break early; finally must cancel the task.
     await events.put({"type": "thinking", "content": "hi"})
     assert await asyncio.wait_for(_consume(), timeout=5) == 1
+
 
 @pytest.mark.asyncio
 async def test_stream_background_events_cancel_logs_generic(monkeypatch) -> None:
@@ -159,9 +174,7 @@ async def test_stream_background_events_cancel_logs_generic(monkeypatch) -> None
     monkeypatch.setattr(streaming_mod.asyncio, "create_task", _fake_create)
     # Coro is never awaited in this path; close it to avoid warnings.
     warnings: list[str] = []
-    monkeypatch.setattr(
-        streaming_mod.logger, "warning", lambda *a, **k: warnings.append(str(a[0]))
-    )
+    monkeypatch.setattr(streaming_mod.logger, "warning", lambda *a, **k: warnings.append(str(a[0])))
 
     async def _run(*args, **kwargs):
         return "x"

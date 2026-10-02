@@ -5,6 +5,7 @@ calibration_text empty/versioned branches.
 Conventions: no real network/model downloads (all clients mocked); pure logic.
 """
 
+
 def test_compact_anchor_and_calibration() -> None:
     from realmock.domains.resume.services import score_anchor as sa
 

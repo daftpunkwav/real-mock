@@ -7,14 +7,14 @@ import json
 from typing import Any
 
 from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
-from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.platform.database import sessions_db_session
 from realmock.domains.prep.services import (
     MEMORY_LIST_DEFAULT_LIMIT,
     MEMORY_LIST_MAX_LIMIT,
     list_memories,
     memory_to_summary,
 )
+from realmock.platform.capabilities.ai.agent import WorkingMemory
+from realmock.platform.database import sessions_db_session
 
 
 def _list_summaries_sync(tag: str | None, limit: int) -> str:
@@ -27,7 +27,9 @@ def _list_summaries_sync(tag: str | None, limit: int) -> str:
     return json.dumps({"memories": items}, ensure_ascii=False)
 
 
-async def run_memory_list_summaries(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
+async def run_memory_list_summaries(
+    args: dict[str, Any], memory: WorkingMemory
+) -> tuple[str, SearchHits]:
     """List memory index entries (id/summary/tags, newest first).
 
     Args:

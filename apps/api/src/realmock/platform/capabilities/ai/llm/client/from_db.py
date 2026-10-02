@@ -14,11 +14,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.config import get_settings
 from realmock.platform.capabilities.ai.llm.defaults import (
     resolve_context_window,
     resolve_max_output_tokens,
 )
+from realmock.platform.config import get_settings
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.core.secrets import LegacySecretFormatError, decrypt_secret
 
@@ -104,9 +104,7 @@ def build_from_db(
         api_base = cfg["api_base"]
         api_key = cfg_api_key
         model = cfg.get("model") or ""
-        max_tokens = resolve_max_output_tokens(
-            cfg.get("max_tokens") or settings.llm_max_tokens
-        )
+        max_tokens = resolve_max_output_tokens(cfg.get("max_tokens") or settings.llm_max_tokens)
         protocol = cfg.get("protocol") or DEFAULT_LLM_PROTOCOL
         reasoning = None
         if enable_thinking:
@@ -147,9 +145,7 @@ def build_from_db(
             logger.error("API Key decryption failed: %s", e)
             api_key = ""
         model = cfg.get("model") or settings.llm_model
-        max_tokens = resolve_max_output_tokens(
-            cfg.get("max_tokens") or settings.llm_max_tokens
-        )
+        max_tokens = resolve_max_output_tokens(cfg.get("max_tokens") or settings.llm_max_tokens)
         protocol = cfg.get("protocol") or DEFAULT_LLM_PROTOCOL
         reasoning = None
         extra_body, extra_headers = _extras_body_headers(cfg)

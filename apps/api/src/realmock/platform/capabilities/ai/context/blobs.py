@@ -86,7 +86,9 @@ async def compress_text_blob(
                 len(compact),
             )
         else:
-            logger.warning("Blob compression returned empty purpose=%s chars=%s", purpose, len(blob))
+            logger.warning(
+                "Blob compression returned empty purpose=%s chars=%s", purpose, len(blob)
+            )
     except Exception as exc:
         logger.warning("Blob compression failed purpose=%s: %s", purpose, exc)
     return _head_tail(blob, target_chars, marker="COMPRESSION_FAILED")

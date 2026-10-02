@@ -89,7 +89,9 @@ def _cfg(**over):
 async def test_recognize_coming_soon() -> None:
     db = MagicMock()
     with (
-        patch.object(st, "get_stage_config_for_runtime", return_value=_cfg(provider="zhipu_glm4_voice")),
+        patch.object(
+            st, "get_stage_config_for_runtime", return_value=_cfg(provider="zhipu_glm4_voice")
+        ),
         patch.object(st, "find_provider", return_value={"status": "coming_soon"}),
     ):
         out = await st.test_recognize(db)
@@ -104,7 +106,9 @@ async def test_recognize_missing_audio() -> None:
     with (
         patch.object(st, "get_stage_config_for_runtime", return_value=_cfg()),
         patch.object(st, "find_provider", return_value=None),
-        patch.object(st, "load_fixture", side_effect=FileNotFoundError("Missing standard test audio: x")),
+        patch.object(
+            st, "load_fixture", side_effect=FileNotFoundError("Missing standard test audio: x")
+        ),
     ):
         out = await st.test_recognize(db)
     assert out["success"] is False
@@ -242,7 +246,11 @@ async def test_speak_coming_soon_and_text_only() -> None:
     assert "fall back" in out["message"]
 
     with (
-        patch.object(st, "get_stage_config_for_runtime", return_value=_cfg(provider="edge", extras={"speech_speak_mode": "text_only"})),
+        patch.object(
+            st,
+            "get_stage_config_for_runtime",
+            return_value=_cfg(provider="edge", extras={"speech_speak_mode": "text_only"}),
+        ),
         patch.object(st, "find_provider", return_value=None),
     ):
         out2 = await st.test_speak(db)
@@ -261,7 +269,9 @@ async def test_speak_coming_soon_and_text_only() -> None:
 async def test_speak_edge_ok_and_fail_and_custom() -> None:
     db = MagicMock()
     with (
-        patch.object(st, "get_stage_config_for_runtime", return_value=_cfg(provider="edge", model="")),
+        patch.object(
+            st, "get_stage_config_for_runtime", return_value=_cfg(provider="edge", model="")
+        ),
         patch.object(st, "find_provider", return_value=None),
         patch.object(st, "synthesize_speech", new=AsyncMock(return_value="QUJD")),
     ):
@@ -279,7 +289,11 @@ async def test_speak_edge_ok_and_fail_and_custom() -> None:
     assert out2["fallback"] == "local"
 
     with (
-        patch.object(st, "get_stage_config_for_runtime", return_value=_cfg(provider="custom", model="mimo-v2.5-tts")),
+        patch.object(
+            st,
+            "get_stage_config_for_runtime",
+            return_value=_cfg(provider="custom", model="mimo-v2.5-tts"),
+        ),
         patch.object(st, "find_provider", return_value=None),
         patch.object(st, "synthesize_custom_speech", new=AsyncMock(return_value="QQ==")),
     ):

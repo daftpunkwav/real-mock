@@ -12,10 +12,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from realmock.domains.interview.agents.research import company_research as cr
+from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from tests.fakes import FakeLLMClient
-
 
 # ---- needs_company_research / blend_company_context -------------------------
 

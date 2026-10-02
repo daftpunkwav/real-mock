@@ -16,7 +16,6 @@ import pytest
 import realmock.platform.core.security.url as url_mod
 
 
-
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
     from realmock.platform.core.ratelimit import reset_rate_limit
@@ -51,11 +50,17 @@ def test_ip_safe_exception_path(monkeypatch) -> None:
     # Empty the network lists so the try-block is reached with fake IPs.
     monkeypatch.setattr(url_mod, "_PROVIDER_NETWORKS", ())
     monkeypatch.setattr(url_mod, "_DEFAULT_BLOCKED_NETS", [])
-    public = SimpleNamespace(is_private=False, is_multicast=False, is_reserved=False, is_unspecified=False)
+    public = SimpleNamespace(
+        is_private=False, is_multicast=False, is_reserved=False, is_unspecified=False
+    )
     assert url_mod._ip_is_safe(public, allow_local=False) is True  # type: ignore[arg-type]
-    multi = SimpleNamespace(is_private=False, is_multicast=True, is_reserved=False, is_unspecified=False)
+    multi = SimpleNamespace(
+        is_private=False, is_multicast=True, is_reserved=False, is_unspecified=False
+    )
     assert url_mod._ip_is_safe(multi, allow_local=False) is False  # type: ignore[arg-type]
-    unspec = SimpleNamespace(is_private=False, is_multicast=False, is_reserved=False, is_unspecified=True)
+    unspec = SimpleNamespace(
+        is_private=False, is_multicast=False, is_reserved=False, is_unspecified=True
+    )
     assert url_mod._ip_is_safe(unspec, allow_local=False) is False  # type: ignore[arg-type]
 
     class _Boom:
@@ -94,8 +99,11 @@ def test_pin_empty_and_bad_scheme(monkeypatch) -> None:
 async def test_pinned_client_uses_pin(monkeypatch) -> None:
     # Patch pin to avoid DNS, patch httpx.AsyncClient to avoid network.
     target = url_mod.PinnedHttpTarget(
-        original_url="http://example.com/x", hostname="example.com",
-        pinned_ip="93.184.216.34", scheme="http", port=None,
+        original_url="http://example.com/x",
+        hostname="example.com",
+        pinned_ip="93.184.216.34",
+        scheme="http",
+        port=None,
     )
     monkeypatch.setattr(url_mod, "pin_safe_http_url", lambda *a, **k: target)
     seen: dict = {}

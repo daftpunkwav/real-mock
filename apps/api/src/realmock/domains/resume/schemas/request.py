@@ -19,7 +19,6 @@ from realmock.domains.resume.schemas.limits import DEFAULT_ANALYSIS_LOCALE
 #
 # Missing or empty body defaults to ``zh-CN`` for backward compatibility.
 class ResumeAnalyzeRequest(BaseModel):
-
     locale: Literal["zh-CN", "en"] = DEFAULT_ANALYSIS_LOCALE
 
     @field_validator("locale", mode="before")

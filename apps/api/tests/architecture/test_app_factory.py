@@ -9,7 +9,6 @@ Coverage:
 
 from __future__ import annotations
 
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -66,24 +65,24 @@ class TestTraceMiddleware:
 class TestCORSStrictness:
     def test_prod_wildcard_origins_fails_to_start(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Production mode (env=prod) with wildcard origins must fail at startup."""
-        from realmock.platform.config import Settings
         from realmock import asgi as app_main
+        from realmock.platform.config import Settings
 
         s = Settings(env="prod", cors_origins="*")
         with pytest.raises(RuntimeError, match="does not allow allow_origins"):
             app_main._check_cors_policy(s)
 
     def test_prod_explicit_origins_ok(self) -> None:
-        from realmock.platform.config import Settings
         from realmock import asgi as app_main
+        from realmock.platform.config import Settings
 
         s = Settings(env="prod", cors_origins="https://app.example.com")
         # Should not throw
         assert app_main._check_cors_policy(s) is None
 
     def test_dev_wildcard_only_warns(self) -> None:
-        from realmock.platform.config import Settings
         from realmock import asgi as app_main
+        from realmock.platform.config import Settings
 
         s = Settings(env="dev", cors_origins="*")
         # Should not throw

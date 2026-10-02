@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+from realmock.domains.prep.services.linking import (
+    LINKED_BLOCK_MARKER,
+    REF_BLOCK_MARKER,
+    format_linked_session,
+    format_linked_sessions,
+    refresh_linked_block,
+    strip_ref_blocks,
+)
+from realmock.domains.prep.services.maintenance import purge_empty_sessions
 from realmock.domains.prep.services.memories import (
     MEMORY_BODY_MAX_CHARS,
     MEMORY_LIST_DEFAULT_LIMIT,
     MEMORY_LIST_MAX_LIMIT,
     MEMORY_SCAN_LIMIT,
     MEMORY_SUMMARY_MAX_CHARS,
-    MEMORY_TAGS_MAX_COUNT,
     MEMORY_TAG_MAX_CHARS,
+    MEMORY_TAGS_MAX_COUNT,
     clean_reasons,
     clean_tags,
     create_memory,
@@ -21,15 +30,6 @@ from realmock.domains.prep.services.memories import (
     memory_to_summary,
     touch_memory,
 )
-from realmock.domains.prep.services.linking import (
-    LINKED_BLOCK_MARKER,
-    REF_BLOCK_MARKER,
-    format_linked_session,
-    format_linked_sessions,
-    refresh_linked_block,
-    strip_ref_blocks,
-)
-from realmock.domains.prep.services.maintenance import purge_empty_sessions
 from realmock.domains.prep.services.session_notes import note_rating_into_session
 from realmock.domains.prep.services.session_stats import (
     SESSION_SUMMARY_SNIPPET_MAX_CHARS,

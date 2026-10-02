@@ -29,8 +29,8 @@ from realmock.platform.database import (
     sessions_db_session,
 )
 from realmock.platform.services.db_split import maybe_migrate_legacy_app_db
-from realmock.platform.services.seed import seed_llm_settings
 from realmock.platform.services.pipeline.config import ensure_pipeline_migrated
+from realmock.platform.services.seed import seed_llm_settings
 
 logger = logging.getLogger(__name__)
 

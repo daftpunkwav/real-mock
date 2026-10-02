@@ -17,6 +17,7 @@ SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "realmock"
 # prompt (the transport self-test line in llm_client_ext stays under this).
 MIN_PROMPT_CHARS = 80
 
+
 # Files allowed to carry inline prompt text: dedicated prompt modules and the
 # platform AI capability layer (the engine's own generic fragments).
 def _is_allowed(path: Path) -> bool:
@@ -42,9 +43,7 @@ def _literal_text_length(node: ast.AST) -> int:
     if isinstance(node, ast.BinOp):
         if isinstance(node.op, (ast.Add, ast.Mod, ast.Mult)):
             return _literal_text_length(node.left) + (
-                _literal_text_length(node.right)
-                if isinstance(node.op, ast.Add)
-                else 0
+                _literal_text_length(node.right) if isinstance(node.op, ast.Add) else 0
             )
         return 0
     if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
@@ -88,7 +87,9 @@ def _system_message_violations(tree: ast.AST) -> list[tuple[int, str]]:
             continue
         length = _literal_text_length(content)
         if length >= MIN_PROMPT_CHARS:
-            sample = ast.literal_eval(content) if isinstance(content, ast.Constant) else "<composed>"
+            sample = (
+                ast.literal_eval(content) if isinstance(content, ast.Constant) else "<composed>"
+            )
             found.append((node.lineno, str(sample)[:60]))
     return found
 
@@ -101,7 +102,9 @@ def test_no_inline_system_prompts_outside_prompt_modules() -> None:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for lineno, sample in _system_message_violations(tree):
             rel = path.relative_to(SRC_ROOT).as_posix()
-            violations.append(f"{rel}:{lineno} {MIN_PROMPT_CHARS}+ char inline system prompt: {sample}")
+            violations.append(
+                f"{rel}:{lineno} {MIN_PROMPT_CHARS}+ char inline system prompt: {sample}"
+            )
     assert not violations, (
         "Prompt text must live in a prompts module, not inline in business files:\n"
         + "\n".join(violations)

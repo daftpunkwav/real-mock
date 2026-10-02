@@ -6,12 +6,14 @@ Conventions: no real network/LLM (all external calls mocked); uses _make_handler
 """
 
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 from realmock.platform.core.ratelimit import reset_rate_limit
+
 
 @pytest.fixture(autouse=True)
 def _clean_limits():
@@ -23,7 +25,9 @@ def _clean_limits():
 
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -32,22 +36,29 @@ async def _agen(items):
     for i in items:
         yield i
 
+
 @pytest.mark.asyncio
 async def test_consume_opening_and_turn():
     h = _make_handler()
     ev = StreamEvent.make_token("hi")
     h.ctx.runner = MagicMock()
+
     async def _op(db):
         yield ev
+
     h.ctx.runner.stream_opening = _op
     out = [e async for e in h._consume_runner_opening(MagicMock())]
     assert out == [ev]
     h.ctx.runner.stream_turn = AsyncMock(return_value=_agen([ev]))  # placeholder
+
     async def _tu(text, db, face=None, image_b64=None):
         yield ev
+
     h.ctx.runner.stream_turn = _tu
     h.ctx.orchestrator.snapshot.face_analysis = {}
-    out2 = [e async for e in h._consume_runner_turn("hi", {"image_base64": "x" * 300001}, MagicMock())]
+    out2 = [
+        e async for e in h._consume_runner_turn("hi", {"image_base64": "x" * 300001}, MagicMock())
+    ]
     assert out2 == [ev]
     assert h.ctx.orchestrator.snapshot.last_user_text == "hi"
 
@@ -58,7 +69,20 @@ async def test_stream_tokens_complete_error():
     h.ctx.tts_queue.enqueue = AsyncMock()
     h.ctx.tts_queue.flush_remainder = AsyncMock()
     h._spawn = MagicMock(side_effect=lambda c: (c.close(), MagicMock())[1])  # type: ignore[method-assign]
-    evs = [StreamEvent.make_token("Hello."), StreamEvent.make_turn_done(content="Hello.", phase_id="p", is_complete=False, phase_changed=False, emotion="happy", wait_seconds=5, answer_wait_seconds=180, sources=(), phase_title="T")]
+    evs = [
+        StreamEvent.make_token("Hello."),
+        StreamEvent.make_turn_done(
+            content="Hello.",
+            phase_id="p",
+            is_complete=False,
+            phase_changed=False,
+            emotion="happy",
+            wait_seconds=5,
+            answer_wait_seconds=180,
+            sources=(),
+            phase_title="T",
+        ),
+    ]
     last = await h._stream_events_with_tts(_agen(evs), db=MagicMock(), session=MagicMock())
     assert last is not None and last.phase_id == "p"
     assert h.ctx.last_wait_seconds == 5.0
@@ -80,9 +104,11 @@ async def test_stream_epoch_abort_returns_none():
     h = _make_handler()
     h.ctx.tts_queue.enqueue = AsyncMock()
     h.ctx.tts_queue.flush_remainder = AsyncMock()
+
     async def _gen():
         h.ctx.stream_epoch += 1
         yield StreamEvent.make_token("x")
+
     assert await h._stream_events_with_tts(_gen()) is None
 
 
@@ -131,7 +157,9 @@ async def test_streaming_epoch_branches() -> None:
 
     async def _gen_stale():
         h2.ctx.stream_epoch += 1
-        yield StreamEvent.make_turn_done(content="done", phase_id="", is_complete=False, phase_changed=False)
+        yield StreamEvent.make_turn_done(
+            content="done", phase_id="", is_complete=False, phase_changed=False
+        )
 
     # First event path: epoch captured before gen mutates, so TURN_COMPLETE hits 105.
     # Use a token first to advance? Directly test 105 via stale complete.
@@ -140,12 +168,15 @@ async def test_streaming_epoch_branches() -> None:
 
     async def _gen2():
         # Mutate after capture: _stream captures epoch at entry, then we change.
-        yield StreamEvent.make_turn_done(content="done", phase_id="", is_complete=False, phase_changed=False)
+        yield StreamEvent.make_turn_done(
+            content="done", phase_id="", is_complete=False, phase_changed=False
+        )
 
     # Manually bump after capture by patching send? Simpler: call with pre-bumped epoch
     # by capturing then bumping before iteration.
     async def _run():
         gen = _gen2()
+
         # Capture happens inside; bump right after start via task? Use send bump.
         async def _bump2(msg_type, **p):
             h2.ctx.stream_epoch += 1
@@ -217,7 +248,13 @@ async def test_streaming_epoch_branches() -> None:
 
     h5._spawn = _spawn_bump  # type: ignore[method-assign]
     out5 = await h5._stream_events_with_tts(
-        _agen([StreamEvent.make_turn_done(content="done", phase_id="", is_complete=False, phase_changed=False)])
+        _agen(
+            [
+                StreamEvent.make_turn_done(
+                    content="done", phase_id="", is_complete=False, phase_changed=False
+                )
+            ]
+        )
     )
     assert out5 is None
     await asyncio.sleep(0)

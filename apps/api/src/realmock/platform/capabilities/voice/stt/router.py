@@ -5,21 +5,24 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 
+from realmock.platform.capabilities.voice.config.catalog import find_provider
+from realmock.platform.capabilities.voice.endpoint_vendors import STT_PATHS, match_vendor
+from realmock.platform.capabilities.voice.stt.base import SttCredentials, SttProvider
 from realmock.platform.capabilities.voice.stt.providers.aliyun import AliyunProvider
 from realmock.platform.capabilities.voice.stt.providers.baidu import BaiduProvider
-from realmock.platform.capabilities.voice.stt.base import SttCredentials, SttProvider
 from realmock.platform.capabilities.voice.stt.providers.json_template import (
     JsonTemplateSttProvider,
     resolve_stt_adapter,
 )
 from realmock.platform.capabilities.voice.stt.providers.local import LocalWhisperProvider
 from realmock.platform.capabilities.voice.stt.providers.minimax import MiniMaxSttProvider
-from realmock.platform.capabilities.voice.stt.providers.openai_compat import MimoAudioProvider, OpenAICompatProvider
+from realmock.platform.capabilities.voice.stt.providers.openai_compat import (
+    MimoAudioProvider,
+    OpenAICompatProvider,
+)
 from realmock.platform.capabilities.voice.stt.providers.tencent import TencentProvider
 from realmock.platform.capabilities.voice.stt.providers.volcengine import VolcengineProvider
 from realmock.platform.capabilities.voice.stt.providers.xfyun import XfyunProvider
-from realmock.platform.capabilities.voice.config.catalog import find_provider
-from realmock.platform.capabilities.voice.endpoint_vendors import STT_PATHS, match_vendor
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +67,10 @@ async def transcribe_with_handler(
     meta = find_provider("recognize", provider_id)
     forced_fallback = False
     if meta and meta.get("status") == "coming_soon":
-        logger.info("Identification processor %s has not been connected yet, fall back to local Whisper", provider_id)
+        logger.info(
+            "Identification processor %s has not been connected yet, fall back to local Whisper",
+            provider_id,
+        )
         provider_id = "local"
         forced_fallback = True
 
@@ -157,8 +163,16 @@ async def transcribe_with_handler(
                 fallback=True,
                 requested_provider=requested,
             )
-    if fallback_local and fallback_handler not in ("", "none", "text_only") and provider_id != "local":
-        logger.info("ASR provider=%s The configured downgrade handler %s is not available", provider_id, fallback_handler)
+    if (
+        fallback_local
+        and fallback_handler not in ("", "none", "text_only")
+        and provider_id != "local"
+    ):
+        logger.info(
+            "ASR provider=%s The configured downgrade handler %s is not available",
+            provider_id,
+            fallback_handler,
+        )
         return SttResult(
             text="",
             provider=provider_id,

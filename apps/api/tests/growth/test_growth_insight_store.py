@@ -24,8 +24,9 @@ def test_store_upsert_and_get(insight_table) -> None:
 
 def test_store_upsert_retries_as_update_after_integrity_race() -> None:
     """A unique-constraint race retries as an update on the winner's row."""
-    from realmock.domains.growth.services.insight_store import upsert_insight
     from sqlalchemy.exc import IntegrityError
+
+    from realmock.domains.growth.services.insight_store import upsert_insight
 
     db = MagicMock()
     raced_row = MagicMock()
@@ -49,8 +50,9 @@ def test_store_upsert_retries_as_update_after_integrity_race() -> None:
 
 def test_store_upsert_race_raises_when_winner_row_vanishes() -> None:
     """If the retry read still finds no row, the race error must surface."""
-    from realmock.domains.growth.services.insight_store import upsert_insight
     from sqlalchemy.exc import IntegrityError
+
+    from realmock.domains.growth.services.insight_store import upsert_insight
 
     db = MagicMock()
     db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None

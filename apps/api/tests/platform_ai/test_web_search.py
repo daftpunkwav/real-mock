@@ -1,6 +1,10 @@
 """Unit test for structured web_search results (does not make a real network request)."""
 
-from realmock.platform.capabilities.knowledge.search.web import _format_hits, _normalize_hit, build_site_scoped_query
+from realmock.platform.capabilities.knowledge.search.web import (
+    _format_hits,
+    _normalize_hit,
+    build_site_scoped_query,
+)
 
 
 def test_normalize_hit_prefers_href_and_body():
@@ -15,9 +19,7 @@ def test_normalize_hit_prefers_href_and_body():
 
 
 def test_normalize_hit_falls_back_link_snippet():
-    hit = _normalize_hit(
-        {"title": "", "link": "https://example.com/b", "snippet": "x" * 300}
-    )
+    hit = _normalize_hit({"title": "", "link": "https://example.com/b", "snippet": "x" * 300})
     assert hit is not None
     assert hit["title"] == "https://example.com/b"
     assert hit["url"] == "https://example.com/b"
@@ -33,9 +35,7 @@ def test_format_hits_empty():
 
 
 def test_format_hits_list():
-    text = _format_hits(
-        [{"title": "T", "url": "https://x.test", "snippet": "S"}]
-    )
+    text = _format_hits([{"title": "T", "url": "https://x.test", "snippet": "S"}])
     assert "[1] T" in text
     assert "URL: https://x.test" in text
     assert "Snippet: S" in text

@@ -53,20 +53,39 @@ def _ensure_llm(api_db) -> None:
     api_db.commit()
 
 
-def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN, seed_ledger_turns=None) -> int:
+def _completed_session(
+    db, *, status="completed", frozen=True, token=_TOKEN, seed_ledger_turns=None
+) -> int:
     ledger = {
-        "schema": "realmock.ledger.v1", "session_id": 0, "frozen": frozen,
-        "turns": [{"turn_id": "t-0001", "phase": "intro",
-                   "assistant": {"text": "hi", "visible": True}, "tools": [],
-                   "user": {"text": "hello", "source": "text"}, "flags": {}}],
+        "schema": "realmock.ledger.v1",
+        "session_id": 0,
+        "frozen": frozen,
+        "turns": [
+            {
+                "turn_id": "t-0001",
+                "phase": "intro",
+                "assistant": {"text": "hi", "visible": True},
+                "tools": [],
+                "user": {"text": "hello", "source": "text"},
+                "flags": {},
+            }
+        ],
     }
     s = InterviewSession(
-        profile_id=1, role="Backend", level="Senior", company="bytedance",
-        workflow_type="technical", status=status, current_phase="summary",
+        profile_id=1,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        status=status,
+        current_phase="summary",
         access_token=token,
-        messages=json.dumps([
-            {"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
-        ]),
+        messages=json.dumps(
+            [
+                {"role": "user", "content": "a"},
+                {"role": "assistant", "content": "b"},
+            ]
+        ),
     )
     db.add(s)
     db.commit()
@@ -85,43 +104,16 @@ def _clean_limits():
 
 def _snap(**overrides) -> SessionSnapshot:
     base = {
-        "id": 1, "role": "Backend", "level": "Senior", "company": "bytedance",
-        "status": "completed", "messages": "[]", "ledger_frozen": True,
+        "id": 1,
+        "role": "Backend",
+        "level": "Senior",
+        "company": "bytedance",
+        "status": "completed",
+        "messages": "[]",
+        "ledger_frozen": True,
     }
     base.update(overrides)
     return SessionSnapshot.model_validate(base)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @pytest.mark.asyncio
@@ -161,8 +153,7 @@ async def test_report_stream_ready_pseudo_streams(db, api_db, seed_ledger_turns)
             with client.stream("GET", f"/api/reports/{sid}/stream", headers=_headers()) as resp:
                 assert resp.status_code == 200
                 chunks = [
-                    json.loads(line[6:]) for line in resp.iter_lines()
-                    if line.startswith("data: ")
+                    json.loads(line[6:]) for line in resp.iter_lines() if line.startswith("data: ")
                 ]
     assert "token" in [c["type"] for c in chunks]
     assert "done" in [c["type"] for c in chunks]
@@ -181,12 +172,11 @@ async def test_report_stream_generates_when_pending(db, api_db, seed_ledger_turn
     with patch.object(rmod, "run_debrief_for_session", side_effect=fake_run):
         with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
             with TestClient(app) as client:
-                with client.stream(
-                    "GET", f"/api/reports/{sid}/stream", headers=_headers()
-                ) as resp:
+                with client.stream("GET", f"/api/reports/{sid}/stream", headers=_headers()) as resp:
                     assert resp.status_code == 200
                     chunks = [
-                        json.loads(line[6:]) for line in resp.iter_lines()
+                        json.loads(line[6:])
+                        for line in resp.iter_lines()
                         if line.startswith("data: ")
                     ]
     assert any(c["type"] == "done" for c in chunks)
@@ -213,7 +203,8 @@ async def test_report_stream_none_reports_error_event(db, api_db, seed_ledger_tu
                     ) as resp:
                         assert resp.status_code == 200
                         chunks = [
-                            json.loads(line[6:]) for line in resp.iter_lines()
+                            json.loads(line[6:])
+                            for line in resp.iter_lines()
                             if line.startswith("data: ")
                         ]
     assert any(c["type"] == "error" for c in chunks)
@@ -226,21 +217,14 @@ async def test_report_stream_exception_yields_sse_error(db, api_db, seed_ledger_
     with patch.object(rmod, "get_report_row", side_effect=RuntimeError("db down")):
         with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
             with TestClient(app) as client:
-                with client.stream(
-                    "GET", f"/api/reports/{sid}/stream", headers=_headers()
-                ) as resp:
+                with client.stream("GET", f"/api/reports/{sid}/stream", headers=_headers()) as resp:
                     assert resp.status_code == 200
                     chunks = [
-                        json.loads(line[6:]) for line in resp.iter_lines()
+                        json.loads(line[6:])
+                        for line in resp.iter_lines()
                         if line.startswith("data: ")
                     ]
     assert any(c["type"] == "error" for c in chunks)
-
-
-
-
-
-
 
 
 @pytest.mark.asyncio
@@ -254,12 +238,11 @@ async def test_report_stream_legacy_path(db, api_db, seed_ledger_turns) -> None:
     with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
         with patch.object(rmod, "run_debrief_for_session") as mock_run:
             with TestClient(app) as client:
-                with client.stream(
-                    "GET", f"/api/reports/{sid}/stream", headers=_headers()
-                ) as resp:
+                with client.stream("GET", f"/api/reports/{sid}/stream", headers=_headers()) as resp:
                     assert resp.status_code == 200
                     chunks = [
-                        json.loads(line[6:]) for line in resp.iter_lines()
+                        json.loads(line[6:])
+                        for line in resp.iter_lines()
                         if line.startswith("data: ")
                     ]
     assert any(c["type"] == "done" for c in chunks)

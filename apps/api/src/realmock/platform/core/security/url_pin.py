@@ -6,9 +6,11 @@ validation functions remain in ``url.py``, so tests patching ``url._resolve_all`
 
 from __future__ import annotations
 
-import httpx
 from dataclasses import dataclass
 from typing import Any
+
+import httpx
+
 # Do not import url.py at the top level of the module: this module will be imported at the end of url.py.
 # Resolve pin_safe_http_url lazily inside make_pinned_async_client to avoid a circular import.
 

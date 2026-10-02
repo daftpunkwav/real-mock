@@ -31,12 +31,8 @@ def _fresh_engine():
 
 def test_column_name_extraction() -> None:
     """``_column_name_from_stmt`` extracts the bare column name (including quoted forms)."""
-    assert _column_name_from_stmt(
-        "ALTER TABLE x ADD COLUMN foo VARCHAR(20) DEFAULT ''"
-    ) == "foo"
-    assert _column_name_from_stmt(
-        "ALTER TABLE x ADD COLUMN `bar` VARCHAR(20) DEFAULT 0"
-    ) == "bar"
+    assert _column_name_from_stmt("ALTER TABLE x ADD COLUMN foo VARCHAR(20) DEFAULT ''") == "foo"
+    assert _column_name_from_stmt("ALTER TABLE x ADD COLUMN `bar` VARCHAR(20) DEFAULT 0") == "bar"
     assert _column_name_from_stmt("ALTER TABLE x DROP COLUMN z") is None
     assert _column_name_from_stmt("") is None
 
@@ -141,7 +137,6 @@ def test_run_migrations_stamps_alembic_version() -> None:
     assert row[0] == ALEMBIC_HEAD_REVISION
 
 
-
 def test_session_ddl_ownership_by_domain() -> None:
     """Session-business DDL belongs to business packages and is not owned by the shared platform layer (changing or deleting a business does not change the platform).
 
@@ -202,7 +197,11 @@ def test_stamp_alembic_head_keeps_mismatched_version() -> None:
 
     eng = _fresh_engine()
     with eng.begin() as conn:
-        conn.execute(text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+            )
+        )
         conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('legacy_0000')"))
 
     stamp_alembic_head(eng)

@@ -61,8 +61,13 @@ def test_parse_round_plan_repairs_vocabularies():
     plan = parse_round_plan(
         _plan_dict(
             _round("bogus-kind", focus="x"),
-            _round("hr_1", workflow_type="nope", personality="nope",
-                   interview_style="nope", strictness=99),
+            _round(
+                "hr_1",
+                workflow_type="nope",
+                personality="nope",
+                interview_style="nope",
+                strictness=99,
+            ),
         )
     )
     assert plan is not None
@@ -93,7 +98,9 @@ def test_parse_round_plan_caps_and_renumbers():
 
 def test_load_round_plan_ready_only():
     process = InterviewProcess(
-        role="r", level="l", company="c",
+        role="r",
+        level="l",
+        company="c",
         round_plan=json.dumps(_plan_dict(_round()), ensure_ascii=False),
         round_plan_status="ready",
     )
@@ -119,8 +126,9 @@ def _ready_process(db, **overrides):
         round_plan=json.dumps(
             _plan_dict(
                 _round("tech_1", personality="expert", strictness=3),
-                _round("hr_1", workflow_type="hr", personality="hr",
-                       pass_criteria="show motivation"),
+                _round(
+                    "hr_1", workflow_type="hr", personality="hr", pass_criteria="show motivation"
+                ),
             ),
             ensure_ascii=False,
         ),
@@ -166,8 +174,7 @@ def test_to_response_carries_pass_criteria(db):
     process.round_plan = json.dumps(
         _plan_dict(
             _round("tech_1", personality="expert", strictness=3),
-            _round("hr_1", workflow_type="hr", personality="hr",
-                   pass_criteria="show motivation"),
+            _round("hr_1", workflow_type="hr", personality="hr", pass_criteria="show motivation"),
         ),
         ensure_ascii=False,
     )
@@ -202,7 +209,9 @@ def test_generate_round_plan_success_marks_ready(db, monkeypatch):
     process, _ = create_process_with_first_round(db, req)
 
     payload = _payload(
-        _round("tech_1"), _round("tech_2"), _round("hr_1", workflow_type="hr"),
+        _round("tech_1"),
+        _round("tech_2"),
+        _round("hr_1", workflow_type="hr"),
     )
 
     class FakeHRPlanner(FakeLLMClient):
@@ -246,7 +255,9 @@ def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
 
 
 def test_generate_round_plan_custom_company_researches(db, monkeypatch):
-    req = ProcessCreateRequest(role="Backend", level="junior", company="Acme Robotics", max_rounds=3)
+    req = ProcessCreateRequest(
+        role="Backend", level="junior", company="Acme Robotics", max_rounds=3
+    )
     process, _ = create_process_with_first_round(db, req)
 
     seen: dict = {}
@@ -297,7 +308,9 @@ def test_generate_round_plan_catalog_company_skips_research(db, monkeypatch):
 
 
 def test_generate_round_plan_research_failure_still_plans(db, monkeypatch):
-    req = ProcessCreateRequest(role="Backend", level="junior", company="Acme Robotics", max_rounds=3)
+    req = ProcessCreateRequest(
+        role="Backend", level="junior", company="Acme Robotics", max_rounds=3
+    )
     process, _ = create_process_with_first_round(db, req)
 
     async def failed_research(llm, **kwargs):

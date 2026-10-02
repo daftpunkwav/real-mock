@@ -28,9 +28,7 @@ def test_review_set_plan_rejects_fewer_than_min_steps() -> None:
     specs = {spec.name: spec for spec in process_tool_specs(process)}
 
     async def run() -> str:
-        return await specs["review_set_plan"].handler(
-            {"steps": _steps(REVIEW_MIN_PLAN_STEPS - 1)}
-        )
+        return await specs["review_set_plan"].handler({"steps": _steps(REVIEW_MIN_PLAN_STEPS - 1)})
 
     payload = json.loads(asyncio.run(run()))
     assert payload["error"] == "invalid_plan"
@@ -56,9 +54,7 @@ def test_review_set_plan_rejects_more_than_max_steps() -> None:
     specs = {spec.name: spec for spec in process_tool_specs(process)}
 
     async def run() -> str:
-        return await specs["review_set_plan"].handler(
-            {"steps": _steps(REVIEW_MAX_PLAN_STEPS + 1)}
-        )
+        return await specs["review_set_plan"].handler({"steps": _steps(REVIEW_MAX_PLAN_STEPS + 1)})
 
     payload = json.loads(asyncio.run(run()))
     assert payload["error"] == "invalid_plan"
@@ -108,9 +104,7 @@ def test_review_update_step_rejects_bad_mode() -> None:
     async def run() -> dict:
         await specs["review_set_plan"].handler({"steps": _steps(REVIEW_MIN_PLAN_STEPS)})
         return json.loads(
-            await specs["review_update_step"].handler(
-                {"id": "1", "status": "done", "mode": "warp"}
-            )
+            await specs["review_update_step"].handler({"id": "1", "status": "done", "mode": "warp"})
         )
 
     payload = asyncio.run(run())
@@ -208,9 +202,7 @@ def test_profile_two_level_disclosure() -> None:
 
     async def run() -> tuple[dict, dict]:
         listed = json.loads(await specs["profile_list_sections"].handler({}))
-        education = json.loads(
-            await specs["profile_get_section"].handler({"section": "education"})
-        )
+        education = json.loads(await specs["profile_get_section"].handler({"section": "education"}))
         return listed, education
 
     listed, education = asyncio.run(run())
@@ -304,9 +296,7 @@ def test_plan_reminder_bounded_until_plan_exists() -> None:
     assert _needs_plan_reminder(has_plan=False, round_index=1, reminders_used=0) is True
     assert _needs_plan_reminder(has_plan=True, round_index=1, reminders_used=0) is False
     assert (
-        _needs_plan_reminder(
-            has_plan=False, round_index=9, reminders_used=_PLAN_REMINDER_MAX
-        )
+        _needs_plan_reminder(has_plan=False, round_index=9, reminders_used=_PLAN_REMINDER_MAX)
         is False
     )
     text = review_plan_reminder_text()
@@ -319,8 +309,13 @@ def test_review_primer_orders_plan_first() -> None:
     from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot
 
     snapshot = ResumeSnapshot(
-        resume_id=1, filename="r.pdf", file_type="pdf", raw_text="",
-        parsed={}, layout_notes="", has_visual_pages=False,
+        resume_id=1,
+        filename="r.pdf",
+        file_type="pdf",
+        raw_text="",
+        parsed={},
+        layout_notes="",
+        has_visual_pages=False,
     )
     intro = _overview_text(snapshot)
     assert "review_set_plan" in intro

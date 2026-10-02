@@ -179,9 +179,7 @@ async def _run_with_owned_sessions(
             process_id = snap.process_id
             if ledger is None and snap.ledger is not None:
                 ledger = snap.ledger
-        process_context = (
-            catalog.get_process_context(db, process_id) if process_id else ""
-        )
+        process_context = catalog.get_process_context(db, process_id) if process_id else ""
 
     try:
         if llm is not None:

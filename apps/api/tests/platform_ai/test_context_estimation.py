@@ -20,7 +20,6 @@ from realmock.platform.capabilities.ai.context.estimation import (
 )
 
 
-
 def test_estimate_tokens_and_messages() -> None:
     assert estimate_tokens("") == 0
     assert estimate_tokens("hello world") >= 1

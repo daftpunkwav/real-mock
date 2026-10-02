@@ -12,7 +12,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 ReportStatus = Literal["pending", "ready", "failed", "generating"]
 
 #: Agent-announced round verdict carried on the report for alignment.
@@ -42,7 +41,6 @@ class TurnNoteInterviewerReview(BaseModel):
 
 # Deep analysis of one dialogue round (interviewer question + candidate answer).
 class TurnNote(BaseModel):
-
     turn_id: str
     phase: str = ""
     question: str = ""
@@ -60,14 +58,11 @@ class TurnNote(BaseModel):
     followup_quality: str = ""
     # Legacy review blocks (pre-ReAct payloads); new agents leave them empty.
     user_review: TurnNoteUserReview = Field(default_factory=TurnNoteUserReview)
-    interviewer_review: TurnNoteInterviewerReview = Field(
-        default_factory=TurnNoteInterviewerReview
-    )
+    interviewer_review: TurnNoteInterviewerReview = Field(default_factory=TurnNoteInterviewerReview)
 
 
 # Full debrief payload stored in ``interview_reports.payload`` when ready.
 class DebriefReport(BaseModel):
-
     overall_score: int = 0
     score_breakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
     verdict: str | None = None  # passed / failed; None = not judged
@@ -92,7 +87,6 @@ class DebriefReport(BaseModel):
 
 # GET /reports/{session_id} response shape for the frontend.
 class ReportResponse(BaseModel):
-
     session_id: int
     report: DebriefReport
     messages_count: int = 0

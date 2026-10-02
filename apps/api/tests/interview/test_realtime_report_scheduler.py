@@ -8,12 +8,18 @@ Conventions: no real network/LLM (all external calls mocked); uses _make_handler
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from realmock.domains.interview.realtime.core.session_registry import reset_session_registry_for_tests
+
+from realmock.domains.interview.realtime.core.session_registry import (
+    reset_session_registry_for_tests,
+)
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
+
 
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -21,6 +27,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_schedule_report_generation_guards():
@@ -65,7 +72,9 @@ async def test_generate_report_bg_missing_session():
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = None
         db.close = MagicMock()
-        with patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db):
+        with patch(
+            "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db
+        ):
             await h._generate_report_bg()
             db.close.assert_called_once()
         h.ctx.ws.send_json.assert_not_called()
@@ -82,8 +91,12 @@ async def test_generate_report_bg_frozen_completed_and_send_failure():
         db.query.return_value.filter.return_value.first.return_value = sess
         db.close = MagicMock()
         with (
-            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=True),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=True
+            ),
         ):
             await h._generate_report_bg()
         payload = h.ctx.ws.send_json.await_args[0][0]
@@ -95,8 +108,12 @@ async def test_generate_report_bg_frozen_completed_and_send_failure():
         h.ctx.ws = h.ctx.ws  # keep ref
         # need to rebind handler ws? ctx.ws is the mock
         with (
-            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=True),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=True
+            ),
         ):
             await h._generate_report_bg()
     finally:
@@ -112,9 +129,16 @@ async def test_generate_report_bg_run_lifecycle_and_error_and_close_fail():
         db.query.return_value.filter.return_value.first.return_value = sess
         db.close = MagicMock()
         with (
-            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False),
-            patch("realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle", return_value=None) as fl,
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle",
+                return_value=None,
+            ) as fl,
         ):
             await h._generate_report_bg()
             fl.assert_called_once()
@@ -124,16 +148,26 @@ async def test_generate_report_bg_run_lifecycle_and_error_and_close_fail():
         db2.query.return_value.filter.return_value.first.return_value = MagicMock(status="active")
         db2.close = MagicMock()
         with (
-            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db2),
-            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False),
-            patch("realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle", side_effect=RuntimeError("boom")),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.SessionLocal",
+                return_value=db2,
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle",
+                side_effect=RuntimeError("boom"),
+            ),
         ):
             await h._generate_report_bg()
         # db.close raises -> swallowed
         db3 = MagicMock()
         db3.query.return_value.filter.return_value.first.return_value = None
         db3.close = MagicMock(side_effect=RuntimeError("close boom"))
-        with patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db3):
+        with patch(
+            "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db3
+        ):
             await h._generate_report_bg()
     finally:
         await h._cancel_bg_tasks()
@@ -149,13 +183,21 @@ async def test_report_scheduler_send_fail_after_lifecycle():
         db.close = MagicMock()
         h.ctx.ws.send_json = AsyncMock(side_effect=RuntimeError("send boom"))
         with (
-            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False),
-            patch("realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle", return_value={}),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle",
+                return_value={},
+            ),
         ):
             await h._generate_report_bg()  # covers report_scheduler.py 75-76
     finally:
         await h._cancel_bg_tasks()
+
 
 @pytest.mark.asyncio
 async def test_first_finish_emits_interview_complete_despite_none_score():
@@ -169,9 +211,15 @@ async def test_first_finish_emits_interview_complete_despite_none_score():
         sess.result = None
         db.query.return_value.filter.return_value.first.return_value = sess
         with (
-            patch("realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db),
-            patch("realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle") as lifecycle,
-            patch("realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.SessionLocal", return_value=db
+            ),
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.run_finish_lifecycle"
+            ) as lifecycle,
+            patch(
+                "realmock.domains.interview.realtime.report_scheduler.is_frozen", return_value=False
+            ),
         ):
             with patch.object(h, "_wait_client_playback", new=AsyncMock()):
                 await h._generate_report_bg()

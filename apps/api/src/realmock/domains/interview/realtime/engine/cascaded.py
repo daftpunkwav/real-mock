@@ -59,9 +59,14 @@ class CascadedAudioEngine(RealtimeAudioEngine):
                     await self._event_handler(
                         AudioEngineEvent(
                             kind=AudioEventKind.AUDIO_DELTA,
-                            audio_bytes=kwargs.get("data", "").encode("utf-8") if isinstance(kwargs.get("data"), str) else kwargs.get("data", b""),
+                            audio_bytes=kwargs.get("data", "").encode("utf-8")
+                            if isinstance(kwargs.get("data"), str)
+                            else kwargs.get("data", b""),
                             generation=kwargs.get("playback_generation", self._generation),
-                            metadata={"sentence": kwargs.get("sentence", ""), "mime": kwargs.get("mime", "audio/mpeg")},
+                            metadata={
+                                "sentence": kwargs.get("sentence", ""),
+                                "mime": kwargs.get("mime", "audio/mpeg"),
+                            },
                         )
                     )
                 except Exception as exc:
@@ -73,7 +78,10 @@ class CascadedAudioEngine(RealtimeAudioEngine):
         if len(self._audio_buffer) < _MAX_AUDIO_BUFFER_BYTES:
             self._audio_buffer.extend(pcm_bytes)
         else:
-            logger.warning("Cascaded audio buffer exceeded %d bytes; dropping incoming chunk", _MAX_AUDIO_BUFFER_BYTES)
+            logger.warning(
+                "Cascaded audio buffer exceeded %d bytes; dropping incoming chunk",
+                _MAX_AUDIO_BUFFER_BYTES,
+            )
 
     async def finish_user_speech(self) -> str:
         # Buffer reset upon speech completion; final transcription handled by caller/ASR service

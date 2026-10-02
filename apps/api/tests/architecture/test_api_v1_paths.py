@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 def _client(monkeypatch):
     from realmock.asgi import app
+
     monkeypatch.setenv("TEST_MODE", "1")
     return TestClient(app)
 
@@ -65,6 +66,8 @@ def test_interview_style_options_match_schema(monkeypatch) -> None:
     # Every option ID should successfully construct InterviewConfig (without raising ValidationError).
     for style_id in option_ids:
         InterviewConfig(
-            role="Backend engineer", level="intermediate", company="bytedance",
+            role="Backend engineer",
+            level="intermediate",
+            company="bytedance",
             interview_style=style_id,
         )

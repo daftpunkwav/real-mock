@@ -16,17 +16,16 @@ from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from realmock.platform.database import ApiBase
-from realmock.platform.models.rate_limit_bucket import RateLimitBucket
 from realmock.platform.models.config_models import (  # noqa: F401  # re-export
     IntegrationCredential,
-    LLMSettings,
     LlmProvider,
     LlmProviderChannel,
+    LLMSettings,
     ModelProfile,
     StageConfig,
     TaskBinding,
 )
-
+from realmock.platform.models.rate_limit_bucket import RateLimitBucket
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +85,16 @@ class UserProfile(ApiBase):
     portfolio_url: Mapped[str] = mapped_column(String(500), default="")
     linkedin_url: Mapped[str] = mapped_column(String(500), default="")
     city: Mapped[str] = mapped_column(String(100), default="")
-    preferred_languages: Mapped[str] = mapped_column(String(200), default="")  # Such as Chinese,English
+    preferred_languages: Mapped[str] = mapped_column(
+        String(200), default=""
+    )  # Such as Chinese,English
     career_highlights: Mapped[str] = mapped_column(Text, default="")
     open_to_remote: Mapped[str] = mapped_column(String(20), default="")  # yes/no/hybrid
     notice_period: Mapped[str] = mapped_column(String(50), default="")
     # Commonly used extension fields for interviews
-    education_level: Mapped[str] = mapped_column(String(50), default="")  # Undergraduate/Master/PhD, etc.
+    education_level: Mapped[str] = mapped_column(
+        String(50), default=""
+    )  # Undergraduate/Master/PhD, etc.
     expected_city: Mapped[str] = mapped_column(String(100), default="")
     email: Mapped[str] = mapped_column(String(200), default="")
     phone: Mapped[str] = mapped_column(String(100), default="")  # Phone or WeChat

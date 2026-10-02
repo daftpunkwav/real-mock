@@ -23,13 +23,23 @@ class TestMigrateExtras:
 
         eng = MagicMock()
         eng.url.get_backend_name.return_value = "postgresql"
-        assert apply_column_migrations(eng, migrations={"t": ["ALTER TABLE t ADD COLUMN x TEXT"]}) == {}
+        assert (
+            apply_column_migrations(eng, migrations={"t": ["ALTER TABLE t ADD COLUMN x TEXT"]})
+            == {}
+        )
 
     def test_create_table_path(self) -> None:
         from realmock.platform.core.migrate import apply_column_migrations
 
         eng = create_engine("sqlite://", connect_args={"check_same_thread": False})
-        applied = apply_column_migrations(eng, migrations={"stage_configs": ["CREATE TABLE IF NOT EXISTS stage_configs (id INTEGER PRIMARY KEY)"]})
+        applied = apply_column_migrations(
+            eng,
+            migrations={
+                "stage_configs": [
+                    "CREATE TABLE IF NOT EXISTS stage_configs (id INTEGER PRIMARY KEY)"
+                ]
+            },
+        )
         assert "stage_configs" in applied
 
     def test_generic_exception_path(self, monkeypatch) -> None:
@@ -44,7 +54,12 @@ class TestMigrateExtras:
 
         monkeypatch.setattr(mg, "text", _boom)
         # falls into generic Exception branch, returns without raising
-        assert mg.apply_column_migrations(eng, migrations={"_mg": ["ALTER TABLE _mg ADD COLUMN z TEXT"]}) == {}
+        assert (
+            mg.apply_column_migrations(
+                eng, migrations={"_mg": ["ALTER TABLE _mg ADD COLUMN z TEXT"]}
+            )
+            == {}
+        )
 
     def test_backfill_no_table_and_no_col(self) -> None:
         from realmock.platform.core.migrate import _backfill_resume_lineage
@@ -64,8 +79,14 @@ class TestMigrateExtras:
         eng = create_engine("sqlite://", connect_args={"check_same_thread": False})
         with eng.begin() as conn:
             conn.execute(text("CREATE TABLE _s (id INTEGER PRIMARY KEY)"))
-        monkeypatch.setattr(mg, "stamp_alembic_head", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("stamp fail")))
-        out = mg.run_migrations(eng, migrations={"_s": ["ALTER TABLE _s ADD COLUMN q TEXT DEFAULT ''"]})
+        monkeypatch.setattr(
+            mg,
+            "stamp_alembic_head",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("stamp fail")),
+        )
+        out = mg.run_migrations(
+            eng, migrations={"_s": ["ALTER TABLE _s ADD COLUMN q TEXT DEFAULT ''"]}
+        )
         assert "_s" in out
 
     def test_alembic_config_path(self) -> None:

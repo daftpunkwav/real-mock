@@ -10,12 +10,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from realmock.platform.core.constants import (
-    DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
-    DEFAULT_SESSION_CREATE_RATE_LIMIT_PER_MINUTE,
-)
-from realmock.platform.core.ratelimit import rate_limit_dep
-from realmock.platform.schemas import ResumePickerItem
 # Direct submodule imports to avoid clashing with routes.__init__; no cycle.
 from realmock.domains.interview.routes.processes import (
     create_process,
@@ -42,6 +36,12 @@ from realmock.domains.interview.schemas.process import (
     InterviewProcessResponse,
     ProcessCreatedResponse,
 )
+from realmock.platform.core.constants import (
+    DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
+    DEFAULT_SESSION_CREATE_RATE_LIMIT_PER_MINUTE,
+)
+from realmock.platform.core.ratelimit import rate_limit_dep
+from realmock.platform.schemas import ResumePickerItem
 
 router = APIRouter()
 

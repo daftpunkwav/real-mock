@@ -11,7 +11,6 @@ from __future__ import annotations
 from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
 
 
-
 def test_bounded_append_edges() -> None:
     m = WorkingMemory()
     m.remember("asked", "")  # empty → no-op
@@ -25,14 +24,16 @@ def test_bounded_append_edges() -> None:
 
 
 def test_from_state_findings_and_clips() -> None:
-    m = WorkingMemory.from_state({
-        "asked_questions": ["q1", None, "q2"],
-        "weak_points": ["w"],
-        "github_findings": [{"tool": "web", "preview": "abc"}, "plain"],
-        "company_findings": [{"tool": "", "preview": ""}],
-        "memory_notes": ["n"],
-        "pending_quiz": "z" * 300,
-    })
+    m = WorkingMemory.from_state(
+        {
+            "asked_questions": ["q1", None, "q2"],
+            "weak_points": ["w"],
+            "github_findings": [{"tool": "web", "preview": "abc"}, "plain"],
+            "company_findings": [{"tool": "", "preview": ""}],
+            "memory_notes": ["n"],
+            "pending_quiz": "z" * 300,
+        }
+    )
     assert m.asked == ["q1", "q2"]
     assert m.findings[0] == "web: abc"
     assert "plain" in m.findings
@@ -57,12 +58,14 @@ def test_state_patch_and_remember_kinds() -> None:
 
 def test_absorb_omitted_list_content_and_limit() -> None:
     m = WorkingMemory()
-    m.absorb_omitted([
-        {"role": "system", "content": "skip"},
-        {"role": "tool", "content": "skip"},
-        {"role": "user", "content": [{"text": "hello"}, {"image_url": {}}]},
-        {"role": "assistant", "content": ""},
-    ])
+    m.absorb_omitted(
+        [
+            {"role": "system", "content": "skip"},
+            {"role": "tool", "content": "skip"},
+            {"role": "user", "content": [{"text": "hello"}, {"image_url": {}}]},
+            {"role": "assistant", "content": ""},
+        ]
+    )
     assert "user:hello" in m.notes[0]
     m2 = WorkingMemory()
     m2.absorb_omitted([])  # nothing → no note
@@ -77,15 +80,22 @@ def test_dump_and_load_block() -> None:
     m = WorkingMemory(notes=["n1"])
     loaded = WorkingMemory.load_from_messages([{"role": "system", "content": m.dump_block()}])
     assert loaded.notes == ["n1"]
-    legacy = WorkingMemory.load_from_messages([
-        {"role": "system", "content": "[working memory]\n{\"memory_notes\": [\"old\"]}\nNotes: old"},
-        {"role": "system", "content": ["not", "str"]},
-        {"role": "user", "content": "x"},
-    ])
+    legacy = WorkingMemory.load_from_messages(
+        [
+            {
+                "role": "system",
+                "content": '[working memory]\n{"memory_notes": ["old"]}\nNotes: old',
+            },
+            {"role": "system", "content": ["not", "str"]},
+            {"role": "user", "content": "x"},
+        ]
+    )
     assert legacy.notes == ["old"]
-    broken = WorkingMemory.load_from_messages([
-        {"role": "system", "content": "[Working memory]\nnot-json{"},
-    ])
+    broken = WorkingMemory.load_from_messages(
+        [
+            {"role": "system", "content": "[Working memory]\nnot-json{"},
+        ]
+    )
     assert broken.notes == []
     assert WorkingMemory.load_from_messages([]).notes == []
 
@@ -94,9 +104,9 @@ def test_absorb_omitted_digest_survives_the_note_clip() -> None:
     """The digest note gets its own budget: several exchanges must survive,
     not just the first one and a half (regular notes clip at 160 chars)."""
     m = WorkingMemory()
-    m.absorb_omitted([
-        {"role": "user", "content": f"question number {i} about topic {i}"} for i in range(6)
-    ])
+    m.absorb_omitted(
+        [{"role": "user", "content": f"question number {i} about topic {i}"} for i in range(6)]
+    )
     note = m.notes[0]
     assert len(note) <= 560
     assert "question number 5" in note, "later collected exchanges must survive the clip"

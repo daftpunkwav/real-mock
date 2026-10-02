@@ -10,6 +10,8 @@ from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.agent.tools import (
     MAX_CODE_CHARS as _PLATFORM_MAX_CODE_CHARS,
+)
+from realmock.platform.capabilities.ai.agent.tools import (
     format_observation,
     run_code_snippet,
 )
@@ -46,7 +48,9 @@ async def run_code_exec(args: dict[str, Any], memory: WorkingMemory) -> tuple[st
             [],
         )
     try:
-        timeout = float(args.get("timeout", _CODE_EXEC_DEFAULT_TIMEOUT) or _CODE_EXEC_DEFAULT_TIMEOUT)
+        timeout = float(
+            args.get("timeout", _CODE_EXEC_DEFAULT_TIMEOUT) or _CODE_EXEC_DEFAULT_TIMEOUT
+        )
     except (TypeError, ValueError):
         timeout = _CODE_EXEC_DEFAULT_TIMEOUT
     if not math.isfinite(timeout):

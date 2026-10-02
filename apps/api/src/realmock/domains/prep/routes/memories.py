@@ -16,7 +16,6 @@ from fastapi import Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import commit_session
-from realmock.platform.core.session_auth.csrf import assert_csrf_if_cookie_only
 from realmock.domains.prep.schemas import (
     MEMORY_ORIGINS,
     PrepMemoryBatchDelete,
@@ -36,6 +35,7 @@ from realmock.domains.prep.services import (
     touch_memory,
 )
 from realmock.platform.core.errors import raise_error
+from realmock.platform.core.session_auth.csrf import assert_csrf_if_cookie_only
 from realmock.platform.database import get_sessions_db
 
 

@@ -54,7 +54,7 @@ def format_linked_session(db: Session, linked_id: int | None) -> str:
             if isinstance(m, dict)
             and m.get("role") in ("user", "assistant")
             and str(m.get("content") or "").strip()
-        ][-_LINKED_TURNS * 2:]
+        ][-_LINKED_TURNS * 2 :]
         header = (
             f"Linked session #{linked_id}"
             f" (role: {row.target_role or '-'}, company: {row.target_company or '-'})"
@@ -98,7 +98,8 @@ def format_linked_sessions(
 def strip_ref_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Drop per-turn referenced-session blocks (transient: never persisted)."""
     return [
-        m for m in messages
+        m
+        for m in messages
         if not (
             isinstance(m, dict)
             and m.get("role") == "system"
@@ -123,7 +124,8 @@ def refresh_linked_block(session: PrepSession, db: Session) -> None:
         if not isinstance(messages, list):
             return
         kept = [
-            m for m in messages
+            m
+            for m in messages
             if not (
                 isinstance(m, dict)
                 and m.get("role") == "system"
@@ -150,7 +152,8 @@ def refresh_linked_block(session: PrepSession, db: Session) -> None:
         db.rollback()
         logger.warning(
             "Linked-block refresh failed sid=%s: %s",
-            session.id, redact_api_key(str(exc)),
+            session.id,
+            redact_api_key(str(exc)),
         )
 
 

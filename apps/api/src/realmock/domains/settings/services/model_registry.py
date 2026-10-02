@@ -12,25 +12,30 @@ from typing import Any, cast
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
-from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
+from realmock.domains.settings.services.validation import safe_base
 from realmock.platform.capabilities.ai.llm.defaults import (
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_MAX_OUTPUT_TOKENS,
 )
+from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.core.errors import ApiBusinessError, get_spec, raise_error
 from realmock.platform.core.secrets import encrypt_secret
+from realmock.platform.models.config_models import (
+    LlmProvider,
+    LlmProviderChannel,
+    ModelProfile,
+    TaskBinding,
+)
 from realmock.platform.services.pipeline.config import (
     DEFAULT_FALLBACK,
     SECRET_EXTRA_KEYS,
     SECRET_KEEP,
     STAGE_BY_TASK,
     ensure_provider_channels,
-    parse_json,
     migrate_stages_to_profiles,
+    parse_json,
     profile_to_response,
 )
-from realmock.domains.settings.services.validation import safe_base
 
 #: Channel kinds mirroring the task vocabulary; every provider owns at most one channel per kind.
 CHANNEL_KINDS = ("chat", "stt", "tts")
@@ -50,7 +55,6 @@ def _valid_kind(kind: str) -> bool:
 
 # Per-kind connection settings attached to a provider (create or upsert).
 class ChannelWrite(BaseModel):
-
     kind: str = Field(..., min_length=1, max_length=10)
     vendor: str = Field(default="", max_length=50)
     api_base: str = Field(default="", max_length=500)
@@ -61,7 +65,6 @@ class ChannelWrite(BaseModel):
 
 # Partial channel update; ``None`` fields keep their current value.
 class ChannelUpdate(BaseModel):
-
     vendor: str | None = Field(default=None, max_length=50)
     api_base: str | None = Field(default=None, max_length=500)
     full_url: bool | None = None
@@ -79,7 +82,6 @@ class ProviderCreate(BaseModel):
 
 # Partial provider update; ``None`` fields keep their current value.
 class ProviderUpdate(BaseModel):
-
     name: str | None = Field(default=None, min_length=1, max_length=100)
     enabled: bool | None = None
     website_url: str | None = Field(default=None, max_length=500)
@@ -210,8 +212,12 @@ def _normalize_capability_extras(extras: dict[str, Any]) -> dict[str, Any]:
         modalities = extras.get("modalities")
         cleaned = {}
         if isinstance(modalities, dict):
-            modal_in = _norm_token_list(modalities.get("input"), allowed=_MODALITY_IN_VALUES, limit=8)
-            modal_out = _norm_token_list(modalities.get("output"), allowed=_MODALITY_OUT_VALUES, limit=4)
+            modal_in = _norm_token_list(
+                modalities.get("input"), allowed=_MODALITY_IN_VALUES, limit=8
+            )
+            modal_out = _norm_token_list(
+                modalities.get("output"), allowed=_MODALITY_OUT_VALUES, limit=4
+            )
             if modal_in:
                 cleaned["input"] = modal_in
             if modal_out:
@@ -306,7 +312,9 @@ def create_provider(db: Session, body: ProviderCreate) -> dict[str, Any]:
     for channel in body.channels:
         safe_base(channel.api_base, label="Base URL")
         if channel.kind not in CHANNEL_KINDS:
-            raise ApiBusinessError(get_spec("A0001"), message=f"Unknown channel kind: {channel.kind}")
+            raise ApiBusinessError(
+                get_spec("A0001"), message=f"Unknown channel kind: {channel.kind}"
+            )
     safe_base(body.website_url, label="Website URL")
     row = LlmProvider(
         name=name,
@@ -339,7 +347,11 @@ def update_provider(db: Session, provider_id: int, body: ProviderUpdate) -> dict
         name = body.name.strip()
         if not name:
             raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
-        exists = db.query(LlmProvider).filter(LlmProvider.name == name, LlmProvider.id != provider_id).first()
+        exists = (
+            db.query(LlmProvider)
+            .filter(LlmProvider.name == name, LlmProvider.id != provider_id)
+            .first()
+        )
         if exists:
             raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
         row.name = name
@@ -393,7 +405,9 @@ def create_model(db: Session, provider_id: int, body: ModelProfileCreate) -> dic
         .first()
     )
     if dup:
-        raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
+        raise ApiBusinessError(
+            get_spec("A0001"), message=f"Model '{model}' already exists under this provider"
+        )
     row = ModelProfile(
         provider_id=provider.id,
         kind=body.kind,
@@ -430,7 +444,9 @@ def update_model(db: Session, model_id: int, body: ModelProfileUpdate) -> dict[s
             .first()
         )
         if dup:
-            raise ApiBusinessError(get_spec("A0001"), message=f"Model '{model}' already exists under this provider")
+            raise ApiBusinessError(
+                get_spec("A0001"), message=f"Model '{model}' already exists under this provider"
+            )
         row.model = model
     if body.kind is not None:
         if body.kind not in CHANNEL_KINDS:
@@ -475,8 +491,7 @@ def list_bindings_payload(db: Session) -> dict[str, Any]:
     # One batched query per table instead of 3 queries per task, then join in
     # memory: same rows as the per-task lookups, ~3 queries total.
     bindings = {
-        b.task: b
-        for b in db.query(TaskBinding).filter(TaskBinding.task.in_(STAGE_BY_TASK)).all()
+        b.task: b for b in db.query(TaskBinding).filter(TaskBinding.task.in_(STAGE_BY_TASK)).all()
     }
     profiles: dict[int, ModelProfile] = {}
     if bindings:
@@ -500,8 +515,10 @@ def list_bindings_payload(db: Session) -> dict[str, Any]:
             "task": task,
             "profile": profile_to_response(profile, provider) if profile else None,
             "fallback": {
-                "handler": (binding.fallback_handler if binding else "") or DEFAULT_FALLBACK[task]["handler"],
-                "mode": (binding.fallback_mode if binding else "") or DEFAULT_FALLBACK[task]["mode"],
+                "handler": (binding.fallback_handler if binding else "")
+                or DEFAULT_FALLBACK[task]["handler"],
+                "mode": (binding.fallback_mode if binding else "")
+                or DEFAULT_FALLBACK[task]["mode"],
             },
         }
     return out

@@ -18,14 +18,14 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.agents.agent_policies import INTERVIEWER_LOOP
 from realmock.platform.capabilities.ai.agent.tools import (
+    execute_web_fetch,
+    execute_web_search,
     github_tool_specs,
     openai_tool,
     profile_from_orm,
     profile_tool_specs,
     resume_tool_specs,
     snapshot_from_payload,
-    execute_web_fetch,
-    execute_web_search,
 )
 from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapshot
 from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot

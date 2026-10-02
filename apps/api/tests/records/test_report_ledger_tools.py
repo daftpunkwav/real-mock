@@ -3,16 +3,22 @@
 Covers: _turns/_turn_text edges and ledger_read_turns/ledger_search handlers
 Conventions: Pure in-memory ledger; no LLM/DB; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import json
+
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
+
 
 @pytest.fixture(autouse=True)
 def _clean_limits():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 @pytest.mark.asyncio
 async def test_ledger_gaps() -> None:

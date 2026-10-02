@@ -56,9 +56,7 @@ def _responses_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         tool_calls = message.get("tool_calls") or []
         if role == "assistant" and tool_calls:
             if message.get("content"):
-                converted.append(
-                    {"role": "assistant", "content": str(message["content"])}
-                )
+                converted.append({"role": "assistant", "content": str(message["content"])})
             for call in tool_calls:
                 function = call.get("function") or {}
                 converted.append(

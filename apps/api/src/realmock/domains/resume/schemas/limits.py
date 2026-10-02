@@ -208,10 +208,16 @@ def dimension_weight_range(key: str) -> tuple[float, float]:
     high = round(base * WEIGHT_ADJUST_MAX_RATIO, 2)
     return (low, high)
 
+
 # Explicit overall-score bands: single source for the prompt rubric and UI
 # labels. Entries are (min_score, zh_label, en_label, meaning), high to low.
 SCORE_BANDS: tuple[tuple[int, str, str, str], ...] = (
-    (SCORE_BAND_STANDOUT, "突出", "standout", "quantified outcomes plus verifiable claims, rare gaps"),
+    (
+        SCORE_BAND_STANDOUT,
+        "突出",
+        "standout",
+        "quantified outcomes plus verifiable claims, rare gaps",
+    ),
     (SCORE_BAND_STRONG, "扎实", "solid", "complete coverage, minor gaps"),
     (SCORE_BAND_FAIR, "参差", "mixed", "notable gaps or thin evidence"),
     (0, "偏弱", "weak", "weak or missing evidence"),

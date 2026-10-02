@@ -11,9 +11,9 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from realmock.domains.interview.agents import run_finish_lifecycle
 from realmock.domains.interview.ledger.store import is_frozen
 from realmock.domains.interview.models import InterviewSession
-from realmock.domains.interview.agents import run_finish_lifecycle
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
 
@@ -41,18 +41,12 @@ def _finish_notify_sync(session_id: int) -> tuple[bool, bool, Any, Any]:
     """
     db = SessionLocal()
     try:
-        session = (
-            db.query(InterviewSession)
-            .filter(InterviewSession.id == session_id)
-            .first()
-        )
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if not session:
             return False, False, None, None
 
         # Already finished with a frozen ledger: client only needs interview_complete.
-        already_frozen = (
-            session.status == SessionStatus.COMPLETED.value and is_frozen(session)
-        )
+        already_frozen = session.status == SessionStatus.COMPLETED.value and is_frozen(session)
         if not already_frozen:
             run_finish_lifecycle(db, session, mark_completed=True)
         # Snapshot after the commit-triggered expiry, before close():
@@ -67,6 +61,7 @@ def _finish_notify_sync(session_id: int) -> tuple[bool, bool, Any, Any]:
                 session_id,
                 exc_info=True,
             )
+
 
 class ReportSchedulerMixin:
     """Background finish notify. Depends on ctx.session_id / report_task / send / _spawn."""
@@ -144,6 +139,4 @@ class ReportSchedulerMixin:
                     exc_info=True,
                 )
         except Exception as e:
-            logger.exception(
-                "finish notify failed sid=%s: %s", self.ctx.session_id, e
-            )
+            logger.exception("finish notify failed sid=%s: %s", self.ctx.session_id, e)

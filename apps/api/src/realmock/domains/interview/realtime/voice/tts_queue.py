@@ -12,7 +12,6 @@ import logging
 from dataclasses import replace
 from typing import Any
 
-from realmock.platform.config import get_settings
 from realmock.domains.interview.agents import strip_markers
 from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_speech
 from realmock.platform.capabilities.voice.tts.providers.edge import (
@@ -20,6 +19,7 @@ from realmock.platform.capabilities.voice.tts.providers.edge import (
     plain_text_for_tts,
 )
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody, with_emotion
+from realmock.platform.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,9 @@ class _SentenceTTSQueue:
                 except asyncio.CancelledError:
                     pass
         if self._dropped_count:
-            logger.info("TTS queue discards %d sentences (exceeds the upper limit)", self._dropped_count)
+            logger.info(
+                "TTS queue discards %d sentences (exceeds the upper limit)", self._dropped_count
+            )
 
     async def enqueue(self, sentence: str, emotion: str | None = None) -> None:
         """Queue one sentence for serial synthesis (drops oldest past 50).
@@ -141,6 +143,7 @@ class _SentenceTTSQueue:
                                 message="Speech synthesis queue is experiencing high latency; some audio segments skipped (text is preserved).",
                             )
                         )
+
                         # Fire-and-forget without losing failures: consume the
                         # result so a send-side error cannot surface as an
                         # unretrieved task exception.

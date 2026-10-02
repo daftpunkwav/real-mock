@@ -16,23 +16,23 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
 from realmock.domains.interview.agents.agent_policies import BACKGROUND
 from realmock.domains.interview.agents.events import LedgerWriteError, StreamEvent
-from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.followup_inject import build_turn_guidance
-from realmock.domains.interview.agents.step_compaction import (
-    spawn_boundary_compaction,
-)
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
 )
+from realmock.domains.interview.agents.step_compaction import (
+    spawn_boundary_compaction,
+)
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
+from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
 from realmock.platform.capabilities.ai.agent.loop import build_environment_hint
+from realmock.platform.core.agent_error_log import log_agent_error
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
@@ -132,9 +132,13 @@ async def stream_turn(
             pending_probe = runner.agent.cognitive_memory.working_memory.pending_probes.pop(0)
 
         api_messages = await _assemble_turn_messages(
-            runner, db,
-            user_text=user_text, face=face, image_b64=image_b64,
-            last_question=last_question, pending_probe=pending_probe,
+            runner,
+            db,
+            user_text=user_text,
+            face=face,
+            image_b64=image_b64,
+            last_question=last_question,
+            pending_probe=pending_probe,
         )
 
         outcome: dict[str, Any] = {}

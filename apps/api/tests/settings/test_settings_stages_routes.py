@@ -68,8 +68,13 @@ def test_update_stage_ok(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_pipeline_stage_recognize(monkeypatch) -> None:
     fake = {
-        "success": True, "message": "ok", "model": "m", "transcript": "hi",
-        "audio_base64": None, "fallback": None, "latency_ms": 5,
+        "success": True,
+        "message": "ok",
+        "model": "m",
+        "transcript": "hi",
+        "audio_base64": None,
+        "fallback": None,
+        "latency_ms": 5,
     }
 
     def _inner(db):

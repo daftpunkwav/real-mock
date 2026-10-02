@@ -10,11 +10,13 @@ from realmock.platform.capabilities.voice.stt.providers.cloud import (
     is_local_stt_model,
     resolve_cloud_stt_model,
 )
-from realmock.platform.capabilities.voice.stt.router import SttResult, transcribe_with_handler
 from realmock.platform.capabilities.voice.stt.providers.whisper import (
     transcribe_pcm_base64_async as transcribe_local_async,
+)
+from realmock.platform.capabilities.voice.stt.providers.whisper import (
     warmup_whisper,
 )
+from realmock.platform.capabilities.voice.stt.router import SttResult, transcribe_with_handler
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +93,5 @@ async def transcribe_utterance_result(
         )
 
     local_model = model if is_local_stt_model(model) else "base"
-    text = await transcribe_local_async(
-        pcm_b64, sample_rate=sample_rate, model_size=local_model
-    )
+    text = await transcribe_local_async(pcm_b64, sample_rate=sample_rate, model_size=local_model)
     return SttResult(text=text, provider="local")

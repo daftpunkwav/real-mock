@@ -155,8 +155,7 @@ class ReviewProcess:
             JSON observation with ``ok`` and the new snapshot.
         """
         self.steps = [
-            ProcessStep(id=str(index + 1), title=title)
-            for index, title in enumerate(titles)
+            ProcessStep(id=str(index + 1), title=title) for index, title in enumerate(titles)
         ]
         await self._notify()
         return json.dumps({"ok": True, "steps": self.snapshot()}, ensure_ascii=False)

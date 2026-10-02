@@ -25,7 +25,7 @@ class InterviewOrchestrator:
             return random.choice(
                 [
                     "If it's convenient, just confirm whether the information just now is true.",
-                    "You can simply say \"OK,\" or point out areas that need correction.",
+                    'You can simply say "OK," or point out areas that need correction.',
                     "It's okay, just confirm the identity information verbally first, and then we'll talk further.",
                     "If there is no problem with the environment, just reply to me to confirm and we will start the formal interview.",
                 ]

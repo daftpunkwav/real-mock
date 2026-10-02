@@ -46,18 +46,14 @@ def test_unexpected_error_uses_fallback_copy_and_catalog_flag():
 
 
 def test_unexpected_error_custom_code():
-    event = sse_error_event(
-        RuntimeError("boom"), message="report copy", code="C1001"
-    )
+    event = sse_error_event(RuntimeError("boom"), message="report copy", code="C1001")
     assert event["code"] == "C1001"
     assert event["message"] == "report copy"
     assert event["retryable"] == get_spec("C1001").retryable
 
 
 def test_unexpected_error_explicit_retryable_override():
-    event = sse_error_event(
-        RuntimeError("boom"), message="copy", code="C1001", retryable=False
-    )
+    event = sse_error_event(RuntimeError("boom"), message="copy", code="C1001", retryable=False)
     assert event["retryable"] is False
 
 
@@ -77,7 +73,7 @@ def test_format_sse_line_replaces_lone_surrogates():
     event = {"type": "plan", "steps": [{"id": "1", "note": "bad \ud800 tail"}]}
     line = format_sse_line(event)
     line.encode("utf-8")  # must not raise
-    payload = json.loads(line[len("data: "):])
+    payload = json.loads(line[len("data: ") :])
     note = payload["steps"][0]["note"]
     assert "\ud800" not in note
     assert "bad" in note and "tail" in note

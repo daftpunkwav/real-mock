@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from realmock.platform.capabilities.voice.stt import SttCredentials, SttResult
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from realmock.domains.interview.realtime import ws_handler
-from realmock.domains.interview.realtime.voice.pipeline import _pick_stt_text
 from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.platform.capabilities.voice.stt.providers.cloud import is_local_stt_model, resolve_cloud_stt_model
+from realmock.domains.interview.realtime.voice.pipeline import _pick_stt_text
+from realmock.platform.capabilities.voice.stt import SttCredentials, SttResult
+from realmock.platform.capabilities.voice.stt.providers.cloud import (
+    is_local_stt_model,
+    resolve_cloud_stt_model,
+)
 
 
 def test_resolve_cloud_model_maps_local_sizes():
@@ -67,7 +70,9 @@ class TestCloudSttPath:
         with patch(
             "realmock.domains.interview.realtime.turn.stt_finish.transcribe_utterance_result",
             new_callable=AsyncMock,
-            return_value=SttResult(text="Hello, both you and the interviewer can hear this", provider="local"),
+            return_value=SttResult(
+                text="Hello, both you and the interviewer can hear this", provider="local"
+            ),
         ) as mock_tr:
             await h._on_user_turn_end(
                 {

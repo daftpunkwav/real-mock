@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from realmock.domains.prep.agents.ask_user.normalize import normalize_ask_questions
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.agent.loop import AgentHalt
 
-from realmock.domains.prep.agents.ask_user.normalize import normalize_ask_questions
 
 async def dispatch_ask_user(
     *,
@@ -66,10 +66,12 @@ async def dispatch_ask_user(
     if events is not None:
         # Re-emit the previously generated search cards first so card events keep their order before the ask-user dialog.
         if search_groups:
-            await events.put({
-                "type": "search_results",
-                "groups": list(search_groups),
-            })
+            await events.put(
+                {
+                    "type": "search_results",
+                    "groups": list(search_groups),
+                }
+            )
         await events.put({"type": "ask_user", **event})
     raise AgentHalt(
         "Dialog shown to the user; waiting for their answer. "

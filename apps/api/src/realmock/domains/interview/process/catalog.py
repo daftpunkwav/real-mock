@@ -53,9 +53,7 @@ class InterviewSessionCatalog:
 
     def get_session(self, db: Session, session_id: int) -> SessionSnapshot | None:
         """One session snapshot; None when the id is unknown."""
-        session = (
-            db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
-        )
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if session is None:
             return None
         return self._to_snapshot(db, session)
@@ -69,9 +67,7 @@ class InterviewSessionCatalog:
 
     def get_ledger(self, db: Session, session_id: int) -> dict[str, Any] | None:
         """Raw ledger document for a session; None when the id is unknown."""
-        session = (
-            db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
-        )
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if session is None:
             return None
         return dict(load_ledger(db, session))
@@ -84,9 +80,7 @@ class InterviewSessionCatalog:
             render_for_prompt,
         )
 
-        process = (
-            db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
-        )
+        process = db.query(InterviewProcess).filter(InterviewProcess.id == process_id).first()
         if process is None:
             return ""
         return render_for_prompt(load_memory(process.memory))
@@ -175,9 +169,7 @@ class InterviewSessionScoreProjection:
     """Write overall_score onto interview_sessions after records debrief."""
 
     def apply_overall_score(self, db: Session, session_id: int, score: int) -> None:
-        session = (
-            db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
-        )
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if session is None:
             logger.warning("apply_overall_score: session missing sid=%s", session_id)
             return

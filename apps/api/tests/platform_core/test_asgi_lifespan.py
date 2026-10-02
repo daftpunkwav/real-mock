@@ -36,7 +36,9 @@ class TestAsgiPolicies:
     def test_secret_policy(self, monkeypatch) -> None:
         import realmock.asgi as asgi
 
-        monkeypatch.setattr("realmock.platform.core.secrets.validate_master_key_env", lambda: "missing")
+        monkeypatch.setattr(
+            "realmock.platform.core.secrets.validate_master_key_env", lambda: "missing"
+        )
         # prod + missing -> raise; non-prod passes
         with pytest.raises(RuntimeError, match="SECRET_KEY"):
             asgi._check_secret_key_policy(SimpleNamespace(is_prod=True))
@@ -45,7 +47,9 @@ class TestAsgiPolicies:
     def test_shutdown_engine_swallow(self, monkeypatch) -> None:
         import realmock.asgi as asgi
 
-        monkeypatch.setattr(asgi, "dispose_all_engines", lambda: (_ for _ in ()).throw(RuntimeError("x")))
+        monkeypatch.setattr(
+            asgi, "dispose_all_engines", lambda: (_ for _ in ()).throw(RuntimeError("x"))
+        )
         asgi._shutdown_engine()
 
     def test_wire_contracts_guard(self, monkeypatch) -> None:
@@ -57,10 +61,15 @@ class TestAsgiPolicies:
         # Neutralize real registrations so the empty-port guards trigger
         # (register_interview/ensure_growth are imported inside _wire -> patch
         # sources; the two ingest registers are asgi module globals -> patch there).
-        monkeypatch.setattr("realmock.domains.interview.process.catalog.register_interview_session_catalog", lambda: None)
+        monkeypatch.setattr(
+            "realmock.domains.interview.process.catalog.register_interview_session_catalog",
+            lambda: None,
+        )
         monkeypatch.setattr(asgi, "register_records_lifecycle_handlers", lambda: None)
         monkeypatch.setattr(asgi, "register_growth_lifecycle_handlers", lambda: None)
-        monkeypatch.setattr("realmock.domains.growth.column_migrations.ensure_growth_indexes", lambda e: None)
+        monkeypatch.setattr(
+            "realmock.domains.growth.column_migrations.ensure_growth_indexes", lambda e: None
+        )
         monkeypatch.setattr(sc, "_catalog", sc._EmptySessionCatalog())
         monkeypatch.setattr(ss, "_projection", ss._NoopScoreProjection())
         monkeypatch.setattr(lh, "_on_interview_finished", None)
@@ -73,11 +82,14 @@ class TestAsgiPolicies:
     @pytest.mark.asyncio
     async def test_lifespan_non_test_and_dispose(self, monkeypatch) -> None:
         import asyncio as _aio
+
         import realmock.asgi as asgi
 
         monkeypatch.setenv("TEST_MODE", "0")
         monkeypatch.setattr(asgi, "_bootstrap_db_and_seed", lambda: None)
-        monkeypatch.setattr("realmock.domains.interview.startup.ensure_rag_index", lambda: _aio.sleep(0))
+        monkeypatch.setattr(
+            "realmock.domains.interview.startup.ensure_rag_index", lambda: _aio.sleep(0)
+        )
         monkeypatch.setattr(asgi, "ensure_rag_index", lambda: _aio.sleep(0))
         monkeypatch.setattr(asgi, "_shutdown_engine", lambda: None)
         app = MagicMock()
@@ -87,6 +99,7 @@ class TestAsgiPolicies:
     @pytest.mark.asyncio
     async def test_lifespan_shutdown_dispose_branch(self, monkeypatch) -> None:
         import asyncio as _aio
+
         import realmock.asgi as asgi
 
         monkeypatch.setenv("TEST_MODE", "0")
@@ -106,10 +119,15 @@ class TestAsgiPolicies:
         import realmock.platform.contracts.session_catalog as sc
         import realmock.platform.contracts.session_score as ss
 
-        monkeypatch.setattr("realmock.domains.interview.process.catalog.register_interview_session_catalog", lambda: None)
+        monkeypatch.setattr(
+            "realmock.domains.interview.process.catalog.register_interview_session_catalog",
+            lambda: None,
+        )
         monkeypatch.setattr(asgi, "register_records_lifecycle_handlers", lambda: None)
         monkeypatch.setattr(asgi, "register_growth_lifecycle_handlers", lambda: None)
-        monkeypatch.setattr("realmock.domains.growth.column_migrations.ensure_growth_indexes", lambda e: None)
+        monkeypatch.setattr(
+            "realmock.domains.growth.column_migrations.ensure_growth_indexes", lambda e: None
+        )
 
         class _GoodCatalog(sc._EmptySessionCatalog):
             pass
@@ -128,7 +146,10 @@ class TestAsgiPolicies:
             asgi._wire_platform_contracts()
         # insights guard (neutralize the unconditional provider wiring)
         monkeypatch.setattr(ss, "_projection", _GoodProj())
-        monkeypatch.setattr("realmock.platform.contracts.lifecycle_hooks.set_system_insights_provider", lambda p: None)
+        monkeypatch.setattr(
+            "realmock.platform.contracts.lifecycle_hooks.set_system_insights_provider",
+            lambda p: None,
+        )
         monkeypatch.setattr(lh, "_system_insights_provider", None)
         with pytest.raises(RuntimeError, match="insights"):
             asgi._wire_platform_contracts()

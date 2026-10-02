@@ -15,8 +15,18 @@ from typing import TypeGuard
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL, DEFAULT_MAX_OUTPUT_TOKENS, PipelineStage
-from realmock.platform.models import LlmProvider, LlmProviderChannel, ModelProfile, StageConfig, TaskBinding
+from realmock.platform.core.constants import (
+    DEFAULT_LLM_PROTOCOL,
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    PipelineStage,
+)
+from realmock.platform.models import (
+    LlmProvider,
+    LlmProviderChannel,
+    ModelProfile,
+    StageConfig,
+    TaskBinding,
+)
 from realmock.platform.services.pipeline.stages import STAGES, get_all_stage_configs
 
 logger = logging.getLogger(__name__)
@@ -45,7 +55,10 @@ def allocate_provider_name(db: Session, desired: str, taken: set[str]) -> str:
     base = (desired or "custom supplier").strip() or "custom supplier"
     candidate = base
     n = 2
-    while candidate in taken or db.query(LlmProvider).filter(LlmProvider.name == candidate).first() is not None:
+    while (
+        candidate in taken
+        or db.query(LlmProvider).filter(LlmProvider.name == candidate).first() is not None
+    ):
         candidate = f"{base} ({n})"
         n += 1
     taken.add(candidate)
@@ -220,7 +233,9 @@ def _legacy_flat_columns(db: Session) -> dict[int, dict[str, object]]:
     return {row["id"]: dict(row) for row in rows}
 
 
-def _channel_from_legacy(legacy: dict[str, object], provider_id: int, kind: str, vendor: str = "") -> LlmProviderChannel:
+def _channel_from_legacy(
+    legacy: dict[str, object], provider_id: int, kind: str, vendor: str = ""
+) -> LlmProviderChannel:
     return LlmProviderChannel(
         provider_id=provider_id,
         kind=kind,
@@ -343,7 +358,10 @@ def ensure_provider_channels(db: Session) -> bool:
         if channel is None:
             db.add(
                 _channel_from_legacy(
-                    legacy.get(provider.id, {}), provider.id, kind, vendor=_guess_vendor(provider.name)
+                    legacy.get(provider.id, {}),
+                    provider.id,
+                    kind,
+                    vendor=_guess_vendor(provider.name),
                 )
             )
             changed = True

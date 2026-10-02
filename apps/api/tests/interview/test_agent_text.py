@@ -6,7 +6,6 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 
 from __future__ import annotations
 
-
 from realmock.domains.interview.agents.agent_text import (
     INTERVIEW_COMPLETE_MARKER,
     PHASE_COMPLETE_MARKER,

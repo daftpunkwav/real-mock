@@ -15,7 +15,6 @@ from realmock.platform.services.pipeline import legacy as plegacy
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -23,7 +22,13 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import (
+        LlmProvider,
+        LLMSettings,
+        ModelProfile,
+        StageConfig,
+        TaskBinding,
+    )
 
     for m in (TaskBinding, ModelProfile, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()
@@ -44,7 +49,9 @@ class TestLegacyMigration:
         _wipe(api_db)
         from realmock.platform.models import LLMSettings
 
-        api_db.add(LLMSettings(id=1, api_base="http://x/v1", api_key="k", model="m", provider="custom"))
+        api_db.add(
+            LLMSettings(id=1, api_base="http://x/v1", api_key="k", model="m", provider="custom")
+        )
         api_db.commit()
         out = plegacy.migrate_legacy_to_stages(api_db)
         assert out["reason"].model == "m"

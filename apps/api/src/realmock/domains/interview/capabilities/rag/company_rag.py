@@ -12,7 +12,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from realmock.domains.interview.capabilities.rag._kb_data import COLLECTION_NAME, _build_documents, _data_dir, format_context
+from realmock.domains.interview.capabilities.rag._kb_data import (
+    COLLECTION_NAME,
+    _build_documents,
+    _data_dir,
+    format_context,
+)
 from realmock.domains.interview.capabilities.rag.factory import build_rag_backend
 
 logger = logging.getLogger(__name__)

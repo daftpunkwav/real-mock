@@ -14,7 +14,6 @@ import pytest
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -22,7 +21,13 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import (
+        LlmProvider,
+        LLMSettings,
+        ModelProfile,
+        StageConfig,
+        TaskBinding,
+    )
 
     for m in (TaskBinding, ModelProfile, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()
@@ -48,10 +53,19 @@ class TestSeed:
         monkeypatch.setattr(
             sd,
             "get_settings",
-            lambda: SimpleNamespace(llm_api_key="k", llm_api_base="http://b", llm_model="m", llm_max_tokens=1, llm_context_window=2),
+            lambda: SimpleNamespace(
+                llm_api_key="k",
+                llm_api_base="http://b",
+                llm_model="m",
+                llm_max_tokens=1,
+                llm_context_window=2,
+            ),
         )
         sd.seed_llm_settings(api_db)
-        assert api_db.query(type(row)).filter(type(row).stage == "reason").first().api_key == "enc:existing"
+        assert (
+            api_db.query(type(row)).filter(type(row).stage == "reason").first().api_key
+            == "enc:existing"
+        )
 
     def test_seed_writes(self, api_db, monkeypatch) -> None:
         from realmock.platform.services import seed as sd
@@ -60,7 +74,13 @@ class TestSeed:
         monkeypatch.setattr(
             sd,
             "get_settings",
-            lambda: SimpleNamespace(llm_api_key="sk-new", llm_api_base="http://nb/v1", llm_model="nm", llm_max_tokens=11, llm_context_window=22),
+            lambda: SimpleNamespace(
+                llm_api_key="sk-new",
+                llm_api_base="http://nb/v1",
+                llm_model="nm",
+                llm_max_tokens=11,
+                llm_context_window=22,
+            ),
         )
         sd.seed_llm_settings(api_db)
         from realmock.platform.models import StageConfig

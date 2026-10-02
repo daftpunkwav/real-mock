@@ -6,6 +6,7 @@ _stream_communicate and synthesize_to_base64 prosody/default/fallback/exception/
 empty branches and safe wrapper (edge_tts module faked).
 Conventions: no real network/model downloads (all clients mocked).
 """
+
 from __future__ import annotations
 
 import base64
@@ -16,12 +17,12 @@ import pytest
 
 from realmock.platform.capabilities.voice.tts.providers import edge as edge_mod
 from realmock.platform.capabilities.voice.tts.providers.edge import (
+    _HARD_END,
     DEFAULT_VOICE,
     VOICE_PRESETS,
-    _HARD_END,
-    plain_text_for_tts,
     extract_emotion,
     next_soft_min,
+    plain_text_for_tts,
     should_flush_sentence_buffer,
     split_sentences,
 )

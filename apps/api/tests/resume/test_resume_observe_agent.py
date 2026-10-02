@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -27,9 +28,7 @@ def test_observe_gaps() -> None:
     assert mod.search_hosts_from_observation("other_tool", "{}") == []
     assert mod.search_hosts_from_observation("web_search", "not-json") == []
     assert mod.search_hosts_from_observation("web_search", json.dumps({"a": 1})) == []
-    assert mod.search_hosts_from_observation(
-        "web_search", json.dumps({"results": "bad"})
-    ) == []
+    assert mod.search_hosts_from_observation("web_search", json.dumps({"results": "bad"})) == []
     hosts = mod.search_hosts_from_observation(
         "web_search", json.dumps({"results": ["https://example.test/a"]})
     )

@@ -95,9 +95,7 @@ def notify_interview_finished(payload: InterviewFinishedPayload) -> None:
         if inspect.isawaitable(result):
             _schedule_or_run(result, label="interview-finished", sid=payload.session_id)
     except Exception:
-        logger.exception(
-            "interview-finished handler failed sid=%s", payload.session_id
-        )
+        logger.exception("interview-finished handler failed sid=%s", payload.session_id)
 
 
 async def notify_report_summary(payload: ReportSummaryPayload) -> None:

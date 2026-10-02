@@ -182,7 +182,9 @@ def _check_cors_policy(s: Settings) -> None:
                 "Invalid CORS configuration: production (env=prod) does not allow allow_origins=['*']."
                 "Please explicitly list trusted sources in the environment variable CORS_ORIGINS."
             )
-        logger.warning("CORS allows * globbing, dev environments only; production environments already mandate explicit origins")
+        logger.warning(
+            "CORS allows * globbing, dev environments only; production environments already mandate explicit origins"
+        )
 
 
 def _check_secret_key_policy(s: Settings) -> None:

@@ -14,11 +14,15 @@ from __future__ import annotations
 from typing import Any
 
 from .ask_user import ASK_USER_TOOL
-from .tools import COMPACT_TOOL_DEFINITION
+from .tools import (
+    COMPACT_TOOL_DEFINITION,
+    SECONDARY_DEFINITIONS,
+    TOOL_REGISTRY,
+    TOOL_TIER_SECONDARY,
+    preload_secondary,
+    tool_available,
+)
 from .tools import PREP_TOOL_DEFINITIONS as DOMAIN_TOOL_DEFINITIONS
-from .tools import SECONDARY_DEFINITIONS
-from .tools import TOOL_REGISTRY, TOOL_TIER_SECONDARY
-from .tools import preload_secondary, tool_available
 from .turn_state import TurnState
 
 #: Complete toolset handed to the model = ask_user + domain tool registry.
@@ -89,10 +93,7 @@ def expand_turn_tools(*, turn_state: TurnState, selected: list[str]) -> list[str
     if turn_state.tools is None:
         return added
     try:
-        present = {
-            str((item.get("function") or {}).get("name") or "")
-            for item in turn_state.tools
-        }
+        present = {str((item.get("function") or {}).get("name") or "") for item in turn_state.tools}
     except Exception:
         present = set()
     for name in selected:

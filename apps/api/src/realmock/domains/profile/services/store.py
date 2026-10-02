@@ -18,9 +18,9 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.models import UserProfile
 from realmock.domains.profile.schemas import UserProfileUpdate
 from realmock.domains.profile.schemas.field_meta import FIELD_MAX_LENGTH
+from realmock.platform.models import UserProfile
 
 
 def get_or_create_profile(db: Session) -> UserProfile:

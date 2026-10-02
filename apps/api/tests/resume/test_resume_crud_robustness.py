@@ -15,7 +15,6 @@ from realmock.platform.core.security import sanitize_filename
 from realmock.platform.models import Resume
 
 
-
 def _seed(
     api_db,
     *,
@@ -60,7 +59,7 @@ def test_get_resume_corrupt_analysis_degrades_to_empty(api_db) -> None:
     assert resp.json()["analysis"] == {}
 
 
-@pytest.mark.parametrize("bad", ['[1]', '"str"', 'null', '"[1,2]"'])
+@pytest.mark.parametrize("bad", ["[1]", '"str"', "null", '"[1,2]"'])
 def test_get_resume_non_object_analysis_degrades_to_empty(api_db, bad: str) -> None:
     """When analysis is valid JSON but its top level is not an object, likewise degrade to an empty object instead of returning 500."""
     row = _seed(api_db, filename="non-object-analysis.pdf", analysis=bad)
@@ -164,7 +163,9 @@ def test_find_resume_files_no_suffix_overlap_hit() -> None:
     row = Resume(filename="a b.pdf", file_type="pdf", raw_text="", parsed_profile="{}")
     row.id = 9
     sanitized = sanitize_filename(row.filename)  # a_b.pdf
-    longer = upload_dir / f"{uuid.uuid4().hex[:8]}_x_{sanitized}"  # Extra x_ before the sanitized name
+    longer = (
+        upload_dir / f"{uuid.uuid4().hex[:8]}_x_{sanitized}"
+    )  # Extra x_ before the sanitized name
     longer.write_bytes(b"other-row")
 
     assert find_resume_files(row) == []

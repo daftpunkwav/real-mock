@@ -42,7 +42,9 @@ class _SummaryLLM:
         self.kwargs: list[dict] = []
         self.usage = _UsageStub()
 
-    async def chat(self, messages, temperature=0.7, max_tokens=None, system=None, purpose=None, **kwargs):
+    async def chat(
+        self, messages, temperature=0.7, max_tokens=None, system=None, purpose=None, **kwargs
+    ):
         del temperature, max_tokens, kwargs
         self.chat_calls.append(messages)
         self.kwargs.append({"system": system, "purpose": purpose})
@@ -92,13 +94,19 @@ def test_compact_with_params_summarizes_and_reports(db, monkeypatch) -> None:
     fake = _SummaryLLM()
     monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, *a, **k: fake))
     # System seed first (real sessions always carry one; the summarizer replays it).
-    session = _session_with_messages(db, [{"role": "system", "content": "Coach instructions"}] + _big_turns())
+    session = _session_with_messages(
+        db, [{"role": "system", "content": "Coach instructions"}] + _big_turns()
+    )
     with TestClient(app) as client:
-        resp = _compact(client, session.id, {
-            "intensity": "aggressive",
-            "directive": "prioritize errors",
-            "retain": 2,
-        })
+        resp = _compact(
+            client,
+            session.id,
+            {
+                "intensity": "aggressive",
+                "directive": "prioritize errors",
+                "retain": 2,
+            },
+        )
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["summarized"] is True
@@ -141,7 +149,9 @@ def test_compact_rolls_backup_and_bumps_version(db, monkeypatch) -> None:
     assert second["summary_version"] == 2
     assert second["summarized"] is True
     db.expire_all()
-    assert db.get(PrepSession, first["backup_session_id"]) is None, "rolling backup replaces the previous one"
+    assert db.get(PrepSession, first["backup_session_id"]) is None, (
+        "rolling backup replaces the previous one"
+    )
     assert db.get(PrepSession, second["backup_session_id"]) is not None
 
 
@@ -195,7 +205,10 @@ def test_summary_edit_and_missing_summary(db, monkeypatch) -> None:
     assert body["fork_point"] == compacted["fork_point"]
     db.expire_all()
     stored = json.loads(db.get(PrepSession, session.id).messages)
-    assert sum(1 for m in stored if str(m.get("content") or "").startswith("[Conversation Minutes]")) == 1
+    assert (
+        sum(1 for m in stored if str(m.get("content") or "").startswith("[Conversation Minutes]"))
+        == 1
+    )
 
 
 # ── Agent-invoked compact tool ───────────────────────────────────────────────
@@ -253,10 +266,12 @@ def test_agent_compact_tool_honors_focus_and_intensity() -> None:
     agent = _agent_with_history(6)
     agent.context_window = 1000
     assert agent._turn_state.policy.intensity == "balanced"
-    text, _ = asyncio.run(agent._compact_current_round(
-        {"reason": "long exploration", "focus": "prioritize errors", "intensity": "aggressive"},
-        _FakeDB(),
-    ))  # type: ignore[arg-type]
+    text, _ = asyncio.run(
+        agent._compact_current_round(
+            {"reason": "long exploration", "focus": "prioritize errors", "intensity": "aggressive"},
+            _FakeDB(),
+        )
+    )  # type: ignore[arg-type]
     assert "aggressive" in text and "prioritize errors" in text
     # The focus reached the summarizer prompt, not just the observation.
     assert any(
@@ -274,10 +289,12 @@ def test_agent_compact_tool_ignores_invalid_intensity() -> None:
 
     agent = _agent_with_history(6)
     agent.context_window = 1000
-    text, _ = asyncio.run(agent._compact_current_round(
-        {"intensity": "turbo", "focus": 123},
-        _FakeDB(),
-    ))  # type: ignore[arg-type]
+    text, _ = asyncio.run(
+        agent._compact_current_round(
+            {"intensity": "turbo", "focus": 123},
+            _FakeDB(),
+        )
+    )  # type: ignore[arg-type]
     assert "compacted by summarizer (balanced)" in text
 
 
@@ -290,14 +307,26 @@ def test_finalize_merges_loop_tail_onto_mid_turn_base() -> None:
     # Simulate the in-flight loop: working copy kept growing after the compaction.
     working = list(agent.messages)
     agent._turn_state.pre_loop_len = len(working)
-    working.append({"role": "assistant", "content": None,
-                    "tool_calls": [{"id": "c9", "type": "function",
-                                    "function": {"name": "web_search", "arguments": "{}"}}]})
+    working.append(
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c9",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": "{}"},
+                }
+            ],
+        }
+    )
     working.append({"role": "tool", "tool_call_id": "c9", "content": "fresh observation"})
     finalize(agent, working, "final answer", _FakeDB(), turn_id="t1")  # type: ignore[arg-type]
     contents = [m.get("content") for m in agent.messages]
     assert contents.count("final answer") == 1
-    assert any(m.get("tool_call_id") == "c9" for m in agent.messages), "current-round tool pair must survive"
+    assert any(m.get("tool_call_id") == "c9" for m in agent.messages), (
+        "current-round tool pair must survive"
+    )
     # The persisted tail ends with the working-memory block (pre-existing
     # finalize shape); the assistant reply carries the turn id.
     assistants = [m for m in agent.messages if m.get("role") == "assistant"]
@@ -340,7 +369,9 @@ class _HttpError(Exception):
 
 def test_is_context_overflow() -> None:
     assert is_context_overflow(_HttpError(400, '{"code":"context_length_exceeded"}'))
-    assert is_context_overflow(_HttpError(400, "This model's maximum context length is 128000 tokens"))
+    assert is_context_overflow(
+        _HttpError(400, "This model's maximum context length is 128000 tokens")
+    )
     assert is_context_overflow(Exception("context_window_exceeded"))
     assert not is_context_overflow(_HttpError(429, "rate limit, retry later"))
     assert not is_context_overflow(_HttpError(401, "invalid api key"))

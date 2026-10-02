@@ -38,7 +38,11 @@ def is_origin_in_cors_allowlist(request: Request) -> bool:
                 return True
         except Exception:
             # If parsing fails, it will be processed as rejected (safe default), and the original value will be recorded to facilitate troubleshooting of false rejections.
-            logger.debug("Referer parsing failed and is treated as not in the whitelist: %r", referer, exc_info=True)
+            logger.debug(
+                "Referer parsing failed and is treated as not in the whitelist: %r",
+                referer,
+                exc_info=True,
+            )
     return False
 
 

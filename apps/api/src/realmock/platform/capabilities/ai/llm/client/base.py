@@ -10,14 +10,14 @@ from typing import Any
 
 import httpx
 
-from realmock.platform.config import get_settings
-from realmock.platform.core.prompts import strip_emojis
 from realmock.platform.capabilities.ai.llm.retry_policy import (
     RETRY_DELAYS,
     is_retryable_exception,
     is_retryable_status,
     sleep_retry,
 )
+from realmock.platform.config import get_settings
+from realmock.platform.core.prompts import strip_emojis
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,9 @@ async def _retry_request(
                         try:
                             await e.response.aclose()
                         except Exception:
-                            logger.debug("Failed to close streaming response before retrying", exc_info=True)
+                            logger.debug(
+                                "Failed to close streaming response before retrying", exc_info=True
+                            )
                     await sleep_retry(attempt, headers=getattr(e.response, "headers", None))
                     continue
             raise
@@ -120,7 +122,9 @@ async def _retry_request(
                     try:
                         await resp.aclose()
                     except Exception:
-                        logger.debug("Failed to close streaming response before retrying", exc_info=True)
+                        logger.debug(
+                            "Failed to close streaming response before retrying", exc_info=True
+                        )
                 await sleep_retry(attempt, headers=getattr(resp, "headers", None))
                 continue
             resp.raise_for_status()

@@ -3,8 +3,11 @@
 Covers: _parse_inline_ask_args forms and extract_inline_ask_user capping/merging rules
 Conventions: Pure parsing, no I/O; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import pytest
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -13,6 +16,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 def test_parse_inline_ask_args_forms() -> None:
     from realmock.domains.prep.agents.ask_user.inline import _parse_inline_ask_args
@@ -23,7 +27,9 @@ def test_parse_inline_ask_args_forms() -> None:
     # invalid JSON falls through to None when no params
     assert _parse_inline_ask_args("<tool_call>not json at all</tool_call>") is None
     # JSON without question falls through
-    assert _parse_inline_ask_args('<tool_call>{"name":"ask_user","arguments":{}}</tool_call>') is None
+    assert (
+        _parse_inline_ask_args('<tool_call>{"name":"ask_user","arguments":{}}</tool_call>') is None
+    )
     # parameter tags with JSON options
     param = '<tool_call><parameter name="question">Pick?</parameter><parameter name="options">["A","B"]</parameter></tool_call>'
     parsed = _parse_inline_ask_args(param)
@@ -35,6 +41,7 @@ def test_parse_inline_ask_args_forms() -> None:
     # invalid options JSON falls back to lines
     param3 = '<tool_call><parameter name="question">Pick?</parameter><parameter name="options">not-json[</parameter></tool_call>'
     assert _parse_inline_ask_args(param3) is not None
+
 
 def test_extract_inline_respects_cap_and_merges() -> None:
     from realmock.domains.prep.agents.ask_user.inline import extract_inline_ask_user
@@ -69,6 +76,7 @@ def test_extract_inline_respects_cap_and_merges() -> None:
     _, evt5 = extract_inline_ask_user(solo_one_opt)
     assert evt5 is not None and evt5["options"] == [] and evt5["allow_custom"] is True
     assert evt5["suggested"] is None
+
 
 def test_extract_inline_param_style_recovers() -> None:
     from realmock.domains.prep.agents.ask_user.inline import extract_inline_ask_user

@@ -55,9 +55,7 @@ STRING_FIELDS: dict[str, StringField] = {
     "weaknesses": StringField(2000),
 }
 
-FIELD_MAX_LENGTH: dict[str, int] = {
-    name: spec.max_length for name, spec in STRING_FIELDS.items()
-}
+FIELD_MAX_LENGTH: dict[str, int] = {name: spec.max_length for name, spec in STRING_FIELDS.items()}
 
 REQUIRED_STRING_FIELDS: tuple[str, ...] = tuple(
     name for name, spec in STRING_FIELDS.items() if spec.required

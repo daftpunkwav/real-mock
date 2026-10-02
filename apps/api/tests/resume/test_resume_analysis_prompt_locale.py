@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from realmock.domains.resume.schemas.limits import DIMENSION_KEYS
 from realmock.domains.resume.prompts import (
     get_review_agent_prompt,
     language_instruction,
 )
+from realmock.domains.resume.schemas.limits import DIMENSION_KEYS
 from realmock.platform.core.prompts import (
     AGENT_OUTPUT_RULES,
     with_agent_output_rules,

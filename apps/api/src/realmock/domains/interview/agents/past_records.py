@@ -36,9 +36,7 @@ def _load_turns(db: Session, session: InterviewSession) -> list[dict[str, Any]]:
     return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []  # type: ignore[misc]
 
 
-def prior_round_sessions(
-    db: Session, session: InterviewSession
-) -> list[InterviewSession]:
+def prior_round_sessions(db: Session, session: InterviewSession) -> list[InterviewSession]:
     """Completed earlier rounds of the same process, oldest first."""
     process_id = getattr(session, "process_id", None)
     round_no = getattr(session, "round_no", None)
@@ -88,25 +86,23 @@ def search_past_interviews(db: Session, session: InterviewSession, query: str) -
                 continue
             assistant = turn.get("assistant") or {}
             user = turn.get("user") or {}
-            hits.append({
-                "round_no": row.round_no,
-                "turn_id": turn.get("turn_id"),
-                "question": str(assistant.get("text", ""))[:_SNIPPET_CHARS],
-                "answer": str(user.get("text", ""))[:_SNIPPET_CHARS],
-                "score": score,
-            })
+            hits.append(
+                {
+                    "round_no": row.round_no,
+                    "turn_id": turn.get("turn_id"),
+                    "question": str(assistant.get("text", ""))[:_SNIPPET_CHARS],
+                    "answer": str(user.get("text", ""))[:_SNIPPET_CHARS],
+                    "score": score,
+                }
+            )
     hits.sort(key=lambda h: (-h["score"], h["round_no"]))
     return json.dumps({"matches": hits[:_SEARCH_TURN_LIMIT]}, ensure_ascii=False)
 
 
-def read_past_round(
-    db: Session, session: InterviewSession, round_no: int, offset: int = 0
-) -> str:
+def read_past_round(db: Session, session: InterviewSession, round_no: int, offset: int = 0) -> str:
     """Page through one prior round's transcript (bounded turns per page)."""
     round_no = int(round_no or 0)
-    rows = {
-        row.round_no: row for row in prior_round_sessions(db, session)
-    }
+    rows = {row.round_no: row for row in prior_round_sessions(db, session)}
     row = rows.get(round_no)
     if row is None:
         return json.dumps(
@@ -120,11 +116,13 @@ def read_past_round(
     for turn in page:
         assistant = turn.get("assistant") or {}
         user = turn.get("user") or {}
-        items.append({
-            "turn_id": turn.get("turn_id"),
-            "question": str(assistant.get("text", ""))[:_READ_TURN_CHARS],
-            "answer": str(user.get("text", ""))[:_READ_TURN_CHARS],
-        })
+        items.append(
+            {
+                "turn_id": turn.get("turn_id"),
+                "question": str(assistant.get("text", ""))[:_READ_TURN_CHARS],
+                "answer": str(user.get("text", ""))[:_READ_TURN_CHARS],
+            }
+        )
     return json.dumps(
         {
             "round_no": round_no,

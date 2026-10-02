@@ -19,11 +19,15 @@ from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator
 
 
-
 def test_provenance_roundtrip_and_clamps() -> None:
     t = sum_mod.format_provenance(
-        version=0, backup_session_id=9, fork_point=-3, focus="f" * 100,
-        before=-1, after=5, base=2,
+        version=0,
+        backup_session_id=9,
+        fork_point=-3,
+        focus="f" * 100,
+        before=-1,
+        after=5,
+        base=2,
     )
     assert t.startswith("[provenance v=1 backup_session=9 fork_point=0 focus=")
     parsed = sum_mod.parse_provenance(f"notes\n{t}")
@@ -35,6 +39,7 @@ def test_provenance_roundtrip_and_clamps() -> None:
 
     class _Boom:
         __bool__ = lambda self: True  # noqa: E731
+
         def __str__(self) -> str:
             raise RuntimeError("boom")
 
@@ -63,12 +68,14 @@ def test_previous_summary_helpers() -> None:
 
 
 def test_transcript_lines_images_and_clips() -> None:
-    lines = sum_mod._transcript_lines([
-        {"role": "user", "content": [{"image_url": {"url": "u"}}]},
-        {"role": "user", "content": [{"text": "hi"}, {"image_url": {"url": "u"}}]},
-        {"role": "user", "content": ""},
-        {"role": "user", "content": "y" * 500},
-    ])
+    lines = sum_mod._transcript_lines(
+        [
+            {"role": "user", "content": [{"image_url": {"url": "u"}}]},
+            {"role": "user", "content": [{"text": "hi"}, {"image_url": {"url": "u"}}]},
+            {"role": "user", "content": ""},
+            {"role": "user", "content": "y" * 500},
+        ]
+    )
     assert lines[0].endswith("[1 image(s) shared, content not textual]")
     assert lines[1].endswith("[+1 image(s)]")
     assert len(lines) == 3
@@ -79,11 +86,13 @@ def test_transcript_lines_images_and_clips() -> None:
 
 def test_transcript_clips_by_role() -> None:
     """Conclusions-dense messages get bigger budgets than user prose."""
-    lines = sum_mod._transcript_lines([
-        {"role": "user", "content": "u" * 400},
-        {"role": "assistant", "content": "a" * 400},
-        {"role": "tool", "content": "t" * 400},
-    ])
+    lines = sum_mod._transcript_lines(
+        [
+            {"role": "user", "content": "u" * 400},
+            {"role": "assistant", "content": "a" * 400},
+            {"role": "tool", "content": "t" * 400},
+        ]
+    )
     assert lines[0].endswith("…")
     assert len(lines[0]) == len("user: ") + 199 + 1, "user prose clips at 200"
     assert "a" * 400 in lines[1], "assistant conclusions survive at 500 chars"
@@ -94,12 +103,15 @@ def test_usage_snapshot_and_delta() -> None:
     llm = SimpleNamespace(usage=UsageAccumulator(prompt_tokens=3, completion_tokens=1))
     assert sum_mod._usage_snapshot(llm)["prompt_tokens"] == 3
     assert sum_mod._usage_snapshot(SimpleNamespace()) == {}
-    bad = SimpleNamespace(usage=SimpleNamespace(to_dict=lambda: (_ for _ in ()).throw(RuntimeError("x"))))
+    bad = SimpleNamespace(
+        usage=SimpleNamespace(to_dict=lambda: (_ for _ in ()).throw(RuntimeError("x")))
+    )
     assert sum_mod._usage_snapshot(bad) == {}
     odd = SimpleNamespace(usage=SimpleNamespace(to_dict=lambda: {"a": 1, "b": "x"}))
     assert sum_mod._usage_snapshot(odd) == {"a": 1}
     assert sum_mod._usage_delta(llm, {"prompt_tokens": 1, "gone": 5}) == {
-        "prompt_tokens": 2, "completion_tokens": 1,
+        "prompt_tokens": 2,
+        "completion_tokens": 1,
     }
 
 
@@ -132,8 +144,12 @@ async def test_summarize_transcript_overflow_folds_earliest_by_count() -> None:
     llm = _FakeLLM(["S"] * 6)
     report: dict[str, Any] = {}
     out = await sum_mod._summarize_transcript(
-        llm, "OLD", _long_messages(400, 20), CompactionOptions(),
-        prefix_blocks=["SYS"], report=report,
+        llm,
+        "OLD",
+        _long_messages(400, 20),
+        CompactionOptions(),
+        prefix_blocks=["SYS"],
+        report=report,
     )
     assert out == "S"
     assert len(llm.calls) == 6  # 7 chunks → earliest folded, max 6 calls
@@ -150,13 +166,20 @@ async def test_summarize_transcript_overflow_folds_earliest_by_count() -> None:
 async def test_summarize_transcript_empty_summary_breaks_and_focus() -> None:
     llm = _FakeLLM([""])
     out = await sum_mod._summarize_transcript(
-        llm, "PRIOR", _long_messages(3, 10), CompactionOptions(directive="FOCUS"),
+        llm,
+        "PRIOR",
+        _long_messages(3, 10),
+        CompactionOptions(directive="FOCUS"),
     )
     assert out == ""  # empty model reply clears the running summary and stops chaining
     assert "FOCUS" in llm.calls[0][0][0]["content"]
     llm2 = _FakeLLM(["S2"])
     out2 = await sum_mod._summarize_transcript(
-        llm2, "", _long_messages(3, 10), CompactionOptions(), default_focus="DF",
+        llm2,
+        "",
+        _long_messages(3, 10),
+        CompactionOptions(),
+        default_focus="DF",
     )
     assert out2 == "S2"
     assert "DF" in llm2.calls[0][0][0]["content"]
@@ -170,7 +193,11 @@ async def test_summarize_transcript_report_errors_swallowed() -> None:
 
     llm = _FakeLLM(["S"])
     out = await sum_mod._summarize_transcript(
-        llm, "", _long_messages(3, 10), CompactionOptions(), report=_GetBoom(),
+        llm,
+        "",
+        _long_messages(3, 10),
+        CompactionOptions(),
+        report=_GetBoom(),
     )
     assert out == "S"
 
@@ -188,7 +215,9 @@ async def test_compact_below_threshold_unchanged() -> None:
 async def test_compact_cooldown_skips_refold() -> None:
     sys_sum = {
         "role": "system",
-        "content": "[Conversation Minutes] old notes " + "n" * 200 + "\n"
+        "content": "[Conversation Minutes] old notes "
+        + "n" * 200
+        + "\n"
         + sum_mod.format_provenance(version=1, before=100, after=60, base=2),
     }
     msgs = [sys_sum, {"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}]
@@ -215,7 +244,12 @@ async def test_compact_keep_from_invalid_pins_to_zero() -> None:
     llm = _FakeLLM(["NOTE"])
     report: dict[str, Any] = {}
     out = await sum_mod.compact_with_summary(
-        msgs, 100, llm=llm, force=True, keep_from="oops", report=report,  # type: ignore[arg-type]
+        msgs,
+        100,
+        llm=llm,
+        force=True,
+        keep_from="oops",
+        report=report,  # type: ignore[arg-type]
     )
     # Invalid pin → pinned=0 → whole history stays verbatim, nothing to omit.
     assert out == msgs
@@ -283,7 +317,12 @@ async def test_compact_llm_success_with_memory_and_provenance() -> None:
     report: dict[str, Any] = {}
     msgs = [{"role": "system", "content": "rules"}] + _long_messages(6, 60)
     out = await sum_mod.compact_with_summary(
-        msgs, 100, memory=mem, llm=llm, force=True, report=report,
+        msgs,
+        100,
+        memory=mem,
+        llm=llm,
+        force=True,
+        report=report,
         provenance={"backup_session_id": 9, "fork_point": 2},
     )
     block = next(m for m in out if str(m.get("content")).startswith("[Conversation Minutes]"))
@@ -309,10 +348,17 @@ async def test_compact_force_failure_raises_but_auto_falls_back() -> None:
     msgs = [{"role": "system", "content": "s"}] + _long_messages(12, 150)
     with pytest.raises(RuntimeError, match="down"):
         await sum_mod.compact_with_summary(
-            msgs, 100, llm=_FakeLLM([RuntimeError("down")]), force=True, keep_recent=4,
+            msgs,
+            100,
+            llm=_FakeLLM([RuntimeError("down")]),
+            force=True,
+            keep_recent=4,
         )
     out = await sum_mod.compact_with_summary(
-        msgs, 100, llm=_FakeLLM([RuntimeError("down")]), keep_recent=4,
+        msgs,
+        100,
+        llm=_FakeLLM([RuntimeError("down")]),
+        keep_recent=4,
     )
     body = next(m for m in out if str(m.get("content")).startswith("[Context compression]"))
     assert "12" not in str(body) or "omitted" in str(body)
@@ -328,16 +374,24 @@ def _parallel_tool_round_history(rounds: int) -> list[dict[str, Any]]:
         {"role": "user", "content": "RESUME_OVERVIEW " + "x" * 400},
     ]
     for i in range(rounds):
-        msgs.append({
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {"id": f"c{i}a", "type": "function",
-                 "function": {"name": "web_search", "arguments": "{}"}},
-                {"id": f"c{i}b", "type": "function",
-                 "function": {"name": "github_get_repo", "arguments": "{}"}},
-            ],
-        })
+        msgs.append(
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"c{i}a",
+                        "type": "function",
+                        "function": {"name": "web_search", "arguments": "{}"},
+                    },
+                    {
+                        "id": f"c{i}b",
+                        "type": "function",
+                        "function": {"name": "github_get_repo", "arguments": "{}"},
+                    },
+                ],
+            }
+        )
         msgs.append({"role": "tool", "tool_call_id": f"c{i}a", "content": "A" * 300})
         msgs.append({"role": "tool", "tool_call_id": f"c{i}b", "content": "B" * 300})
     return msgs

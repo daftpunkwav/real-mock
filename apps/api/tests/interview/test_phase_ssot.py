@@ -8,8 +8,9 @@ from pathlib import Path
 from realmock.domains.interview.constants import InterviewPhaseId
 from realmock.domains.interview.workflows import WORKFLOWS, phase_label_map, technical_phase_order
 
-
-ROOT = Path(__file__).resolve().parents[4]  # repo root (tests/interview/ -> apps/api -> apps -> repo)
+ROOT = (
+    Path(__file__).resolve().parents[4]
+)  # repo root (tests/interview/ -> apps/api -> apps -> repo)
 FRONTEND_PHASES = ROOT / "apps" / "web" / "src" / "config" / "phases.ts"
 
 

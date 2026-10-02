@@ -37,9 +37,7 @@ def _evidence_text(messages: list[dict[str, Any]], draft: str) -> str:
             text = str(message.get("content") or "").strip()
             if text:
                 name = str(message.get("name") or message.get("tool_call_id") or "tool")
-                chunks.append(
-                    f"TOOL_{name}:\n{truncate_chunk(text, limit=_TOOL_EVIDENCE_CHARS)}"
-                )
+                chunks.append(f"TOOL_{name}:\n{truncate_chunk(text, limit=_TOOL_EVIDENCE_CHARS)}")
     draft_text = (draft or "").strip()
     if draft_text:
         chunks.append("DRAFT:\n" + truncate_chunk(draft_text, limit=_DRAFT_EVIDENCE_CHARS))

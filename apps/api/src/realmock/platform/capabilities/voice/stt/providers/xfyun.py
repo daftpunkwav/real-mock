@@ -13,7 +13,6 @@ from time import mktime
 from urllib.parse import urlencode
 from wsgiref.handlers import format_date_time
 
-
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 
 logger = logging.getLogger(__name__)
@@ -44,9 +43,7 @@ def _auth_url(*, api_key: str, api_secret: str) -> str:
 class XfyunProvider:
     """iFlytek Dictation: Submit the entire PCM as one frame (suitable for short sentence connectivity tests and short speeches)."""
 
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         app_id = (creds.app_id or "").strip()
         api_key = (creds.api_key or "").strip()
         api_secret = (creds.api_secret or "").strip()
@@ -90,9 +87,7 @@ class XfyunProvider:
                         "status": 2,
                         "format": "audio/L16;rate=16000",
                         "encoding": "raw",
-                        "audio": base64.b64encode(
-                            base64.b64decode(pcm_b64)
-                        ).decode("ascii"),
+                        "audio": base64.b64encode(base64.b64decode(pcm_b64)).decode("ascii"),
                     },
                 }
                 await ws.send(json.dumps(frame))

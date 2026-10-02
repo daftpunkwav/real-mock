@@ -66,10 +66,7 @@ def backfill_ledger_rows(db: Session) -> int:
     legacy_rows = db.execute(
         text("SELECT id, ledger FROM interview_sessions WHERE ledger IS NOT NULL")
     ).fetchall()
-    existing_ids = {
-        row[0]
-        for row in db.query(InterviewTurn.session_id).distinct().all()
-    }
+    existing_ids = {row[0] for row in db.query(InterviewTurn.session_id).distinct().all()}
     inserted = 0
     dirty = False  # any write (row OR frozen-flag UPDATE) must be committed
     for session_id, blob in legacy_rows:
@@ -137,9 +134,9 @@ def backfill_ledger_rows(db: Session) -> int:
 
 def _set_frozen(db: Session, session_id: int, frozen: bool) -> None:
     db.execute(
-        text(
-            "UPDATE interview_sessions SET ledger_frozen = :frozen WHERE id = :sid"
-        ).bindparams(frozen=int(frozen), sid=session_id)
+        text("UPDATE interview_sessions SET ledger_frozen = :frozen WHERE id = :sid").bindparams(
+            frozen=int(frozen), sid=session_id
+        )
     )
 
 

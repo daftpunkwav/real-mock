@@ -22,8 +22,8 @@ from realmock.domains.records.agents.report.prompts import (
 )
 from realmock.platform.capabilities.ai.agent import OnAgentEvent as OnEvent
 from realmock.platform.capabilities.ai.agent import emit_agent_event
-from realmock.platform.capabilities.ai.agent.tools.spec import ToolBundle
 from realmock.platform.capabilities.ai.agent.tools import invoke_with_timeout
+from realmock.platform.capabilities.ai.agent.tools.spec import ToolBundle
 
 SYNTHESIS_MAX_ROUNDS = 10
 _TOOL_TIMEOUT_SECONDS = 30.0
@@ -111,9 +111,7 @@ async def run_synthesis(
         exhausted = _consume_web_budget(web_budget, name)
         if exhausted is not None:
             return exhausted
-        raw, _status = await invoke_with_timeout(
-            bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS
-        )
+        raw, _status = await invoke_with_timeout(bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS)
         if cache_key is not None:
             web_cache[cache_key] = raw
             while len(web_cache) > _WEB_CACHE_MAX:
@@ -122,14 +120,17 @@ async def run_synthesis(
 
     async def on_tool(name: str, args: dict[str, Any], result: str, tc_id: str) -> None:
         del tc_id
-        await emit_agent_event(on_event, {
-            "type": "tool_step",
-            "stage": "synthesis",
-            "name": name,
-            "args": {k: str(v)[:80] for k, v in (args or {}).items()},
-            "status": "done",
-            "result": str(result)[:400],
-        })
+        await emit_agent_event(
+            on_event,
+            {
+                "type": "tool_step",
+                "stage": "synthesis",
+                "name": name,
+                "args": {k: str(v)[:80] for k, v in (args or {}).items()},
+                "status": "done",
+                "result": str(result)[:400],
+            },
+        )
 
     messages = [
         {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},

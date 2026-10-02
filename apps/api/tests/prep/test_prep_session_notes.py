@@ -3,11 +3,16 @@
 Covers: note_rating_into_session missing, rated/unrated, corrupt and rollback branches
 Conventions: Temp DB fixture; never raises on corrupt data; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import json
+
 import pytest
+
 from realmock.domains.prep.models import PrepSession
 from realmock.platform.core.session_auth import new_access_token
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -16,6 +21,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 def _session(db, **kwargs) -> PrepSession:
     kwargs.setdefault("status", "active")
@@ -26,6 +32,7 @@ def _session(db, **kwargs) -> PrepSession:
     db.commit()
     db.refresh(row)
     return row
+
 
 def test_note_rating_into_session_edges(db) -> None:
     from realmock.domains.prep.services.session_notes import note_rating_into_session

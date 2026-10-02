@@ -16,6 +16,7 @@ GrowthStage = Literal["rising", "stalling", "plateau", "insufficient"]
 
 # ── GET /growth/history ────────────────────────────────────────────────────
 
+
 class GrowthHistoryItem(BaseModel):
     """One per-session growth snapshot (writers persist validated ``list[str]``)."""
 
@@ -27,6 +28,7 @@ class GrowthHistoryItem(BaseModel):
 
 
 # ── GET /growth/system-insights ────────────────────────────────────────────
+
 
 class GrowthProbeItem(BaseModel):
     """One recent weak-point probe (entries come from a local JSON file)."""
@@ -60,6 +62,7 @@ class SystemGrowthInsights(BaseModel):
 
 # ── GET /growth/aggregated ─────────────────────────────────────────────────
 
+
 class GrowthAggregatedStats(BaseModel):
     """Rule-based growth-page stats from ``GrowthAgent.analyze``."""
 
@@ -73,8 +76,8 @@ class GrowthAggregatedStats(BaseModel):
 
 # ── GET /growth/insight ────────────────────────────────────────────────────
 
-class GrowthWeaknessPattern(BaseModel):
 
+class GrowthWeaknessPattern(BaseModel):
     skill: str
     count: int
     trend: str
@@ -82,7 +85,6 @@ class GrowthWeaknessPattern(BaseModel):
 
 
 class GrowthTrainingFocus(BaseModel):
-
     area: str
     based_on: str
     actions: list[str]
@@ -104,15 +106,14 @@ class GrowthInsightPayload(BaseModel):
 
 
 class GrowthInsightEnvelope(BaseModel):
-
     insight: GrowthInsightPayload | None
     status: Literal["ready", "generating", "empty"]
 
 
 # ── POST /growth/insight/refresh ───────────────────────────────────────────
 
-class GrowthInsightRefreshResponse(BaseModel):
 
+class GrowthInsightRefreshResponse(BaseModel):
     scheduled: bool
     status: Literal["generating", "ready"]
 

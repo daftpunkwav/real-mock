@@ -11,8 +11,8 @@ from realmock.domains.resume.agents.review import (
     evidence_for_repair,
     finalize_review_json,
 )
-from realmock.platform.capabilities.ai.llm.json_extract import salvage_truncated_object
 from realmock.platform.capabilities.ai.agent import LoopResult
+from realmock.platform.capabilities.ai.llm.json_extract import salvage_truncated_object
 from realmock.platform.core.errors import ApiBusinessError
 
 
@@ -102,7 +102,7 @@ def test_finalize_valid_json_skips_repair() -> None:
 def test_extract_json_recovers_object_wrapped_in_prose() -> None:
     noisy = (
         "Let me lay out the analysis. Key points:\n"
-        '- 量化扎实（P95 1.2s、328 用例）\n'
+        "- 量化扎实（P95 1.2s、328 用例）\n"
         '{"score": 77, "headline": "wrapped", "dimension_scores": {"a": {"score": 1}}}\n'
         "以上为最终结论。"
     )
@@ -248,7 +248,9 @@ def test_forced_final_answer_retries_blank_reply() -> None:
             return '{"headline": "ok"}'
 
     llm = _BlankThenTextLLM()
-    loop = LoopResult(messages=[{"role": "user", "content": "overview"}], final_content="", tool_used=True)
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}], final_content="", tool_used=True
+    )
     text = asyncio.run(_request_forced_final_answer(llm, loop, locale="en"))
     assert llm.calls == 2
     assert text == '{"headline": "ok"}'
@@ -266,7 +268,9 @@ def test_forced_final_answer_returns_none_after_two_blanks() -> None:
             return ""
 
     llm = _AlwaysBlankLLM()
-    loop = LoopResult(messages=[{"role": "user", "content": "overview"}], final_content="", tool_used=True)
+    loop = LoopResult(
+        messages=[{"role": "user", "content": "overview"}], final_content="", tool_used=True
+    )
     text = asyncio.run(_request_forced_final_answer(llm, loop, locale="en"))
     assert llm.calls == 2
     assert text is None

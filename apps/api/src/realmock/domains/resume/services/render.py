@@ -46,9 +46,7 @@ def _clamped_zoom(page: Any, zoom: float) -> float:
     return min(zoom, MAX_RENDER_PX / longest_pt)
 
 
-def render_pdf_page_png(
-    file_path: Path, page_no: int, *, zoom: float = PAGE_PREVIEW_ZOOM
-) -> bytes:
+def render_pdf_page_png(file_path: Path, page_no: int, *, zoom: float = PAGE_PREVIEW_ZOOM) -> bytes:
     """Render the specified page (1-based) as PNG bytes (for paginated preview of the original file).
 
     An out-of-range page number raises ValueError, which the route layer translates into a domain error.

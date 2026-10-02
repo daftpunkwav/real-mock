@@ -6,9 +6,7 @@ from __future__ import annotations
 # final JSON object directly.
 RESEARCH_WRAP_UP_HINT = {
     "role": "system",
-    "content": (
-        "Wrap up now: output the final JSON object. No tool calls."
-    ),
+    "content": ("Wrap up now: output the final JSON object. No tool calls."),
 }
 
 __all__ = ["RESEARCH_WRAP_UP_HINT"]

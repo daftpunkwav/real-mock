@@ -52,7 +52,9 @@ def _persist_lease_sync(session_id: int, lease_token: str) -> None:
             row = db.query(WsSessionLease).filter(WsSessionLease.session_id == session_id).first()
             now = datetime.now(timezone.utc)
             if row is None:
-                db.add(WsSessionLease(session_id=session_id, lease_token=lease_token, updated_at=now))
+                db.add(
+                    WsSessionLease(session_id=session_id, lease_token=lease_token, updated_at=now)
+                )
             else:
                 row.lease_token = lease_token
                 row.updated_at = now
@@ -117,11 +119,19 @@ class WsConnectionRegistry:
                 code="B2003",
             )
         except Exception:
-            logger.debug("WS replaces the connection to notify the old end of failure session=%s", session_id, exc_info=True)
+            logger.debug(
+                "WS replaces the connection to notify the old end of failure session=%s",
+                session_id,
+                exc_info=True,
+            )
         try:
             await old.ws.close(code=4000)
         except Exception:
-            logger.debug("WS replaces the connection and fails to close the old end session=%s", session_id, exc_info=True)
+            logger.debug(
+                "WS replaces the connection and fails to close the old end session=%s",
+                session_id,
+                exc_info=True,
+            )
 
     async def verify_lease(self, handler: SessionConnection) -> bool:
         """Verify the lease token in database mode; if it fails, it will be marked superseded."""

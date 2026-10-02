@@ -160,9 +160,7 @@ class UsageAccumulator:
                 if "output_tokens" in usage:
                     cumulative = _as_int(usage.get("output_tokens"))
                     if cumulative > self._message_output_base:
-                        self.completion_tokens += (
-                            cumulative - self._message_output_base
-                        )
+                        self.completion_tokens += cumulative - self._message_output_base
                         self._message_output_base = cumulative
                 return True
             return False
@@ -189,7 +187,9 @@ class UsageAccumulator:
             prompt = _as_int(usage.get("prompt_tokens"))
             completion = _as_int(usage.get("completion_tokens"))
             details = usage.get("prompt_tokens_details")
-            cached = _as_int((details or {}).get("cached_tokens") if isinstance(details, dict) else 0)
+            cached = _as_int(
+                (details or {}).get("cached_tokens") if isinstance(details, dict) else 0
+            )
             if not cached:
                 # DeepSeek compatible fields
                 cached = _as_int(usage.get("prompt_cache_hit_tokens"))

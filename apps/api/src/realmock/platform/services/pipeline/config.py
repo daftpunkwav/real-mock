@@ -29,15 +29,26 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.models.config_models import LlmProvider, ModelProfile
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.core.secrets import encrypt_secret
 from realmock.platform.models import StageConfig
-from realmock.platform.services.pipeline.legacy import get_llm_settings_row, migrate_legacy_to_stages
+from realmock.platform.models.config_models import LlmProvider, ModelProfile
+from realmock.platform.services.pipeline.config_secrets import (
+    SECRET_EXTRA_KEYS,
+    SECRET_KEEP,
+    maybe_encrypt,
+    parse_json,
+    public_extras,
+    runtime_extras,
+)
+from realmock.platform.services.pipeline.legacy import (
+    get_llm_settings_row,
+    migrate_legacy_to_stages,
+)
 from realmock.platform.services.pipeline.migration import (
+    DEFAULT_FALLBACK,
     STAGE_BY_TASK,
     TASK_BY_STAGE,
-    DEFAULT_FALLBACK,
     allocate_provider_name,
     drop_legacy_provider_columns,
     ensure_provider_channels,
@@ -49,14 +60,6 @@ from realmock.platform.services.pipeline.resolve import (
     _runtime_config_from_profile,
     get_provider_model_rows,
     profile_to_response,
-)
-from realmock.platform.services.pipeline.config_secrets import (
-    SECRET_EXTRA_KEYS,
-    SECRET_KEEP,
-    maybe_encrypt,
-    parse_json,
-    public_extras,
-    runtime_extras,
 )
 from realmock.platform.services.pipeline.stages import (
     STAGES,

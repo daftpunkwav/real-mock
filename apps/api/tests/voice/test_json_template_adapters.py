@@ -13,13 +13,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from realmock.platform.capabilities.voice.stt import router as stt_router
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers import json_template as stt_mod
 from realmock.platform.capabilities.voice.stt.providers.json_template import (
     JsonTemplateSttProvider,
     resolve_stt_adapter,
 )
-from realmock.platform.capabilities.voice.stt import router as stt_router
 from realmock.platform.capabilities.voice.tts import TtsCredentials
 from realmock.platform.capabilities.voice.tts.providers import json_template as tts_mod
 from realmock.platform.capabilities.voice.tts.providers.json_template import (
@@ -65,13 +65,21 @@ class _FakeClient:
 
     async def request(self, method, url, headers=None, data=None, files=None, content=None):
         self.calls.append(
-            {"method": method, "url": url, "headers": headers, "data": data,
-             "files": files, "content": content}
+            {
+                "method": method,
+                "url": url,
+                "headers": headers,
+                "data": data,
+                "files": files,
+                "content": content,
+            }
         )
         return _FakeResp(self._payload)
 
     async def post(self, url, headers=None, data=None, files=None, content=None):
-        return await self.request("POST", url, headers=headers, data=data, files=files, content=content)
+        return await self.request(
+            "POST", url, headers=headers, data=data, files=files, content=content
+        )
 
 
 def _stt_adapter() -> dict:
@@ -89,7 +97,9 @@ async def test_stt_template_substitutes_and_reads_dotted_path(monkeypatch):
     client = _FakeClient({"result": {"text": "你好 世界"}})
     monkeypatch.setattr(stt_mod, "make_pinned_async_client", lambda *a, **k: client)
     creds = SttCredentials(
-        provider="custom", api_key="k", model="asr-x",
+        provider="custom",
+        api_key="k",
+        model="asr-x",
         extra={"stt_adapter": _stt_adapter()},
     )
     out = await JsonTemplateSttProvider().transcribe(_PCM_B64, sample_rate=16000, creds=creds)
@@ -109,17 +119,25 @@ async def test_stt_template_json_body_carries_audio_base64(monkeypatch):
     client = _FakeClient({"text": "hi"})
     monkeypatch.setattr(stt_mod, "make_pinned_async_client", lambda *a, **k: client)
     creds = SttCredentials(
-        provider="custom", api_key="k", model="m",
-        extra={"stt_adapter": {"url": "https://v.example/asr", "json_body": {"a": "{{audio_base64}}"}}},
+        provider="custom",
+        api_key="k",
+        model="m",
+        extra={
+            "stt_adapter": {"url": "https://v.example/asr", "json_body": {"a": "{{audio_base64}}"}}
+        },
     )
-    assert await JsonTemplateSttProvider().transcribe(_PCM_B64, sample_rate=16000, creds=creds) == "hi"
+    assert (
+        await JsonTemplateSttProvider().transcribe(_PCM_B64, sample_rate=16000, creds=creds) == "hi"
+    )
     assert b"audio/wav" not in (client.calls[0]["content"] or b"")
 
 
 def test_resolve_stt_adapter_requires_url():
     assert resolve_stt_adapter(SttCredentials(extra={})) is None
     assert resolve_stt_adapter(SttCredentials(extra={"stt_adapter": {"url": ""}})) is None
-    assert resolve_stt_adapter(SttCredentials(extra={"stt_adapter": {"url": "https://x"}})) is not None
+    assert (
+        resolve_stt_adapter(SttCredentials(extra={"stt_adapter": {"url": "https://x"}})) is not None
+    )
 
 
 @pytest.mark.asyncio
@@ -133,8 +151,12 @@ async def test_stt_router_dispatches_to_json_template(monkeypatch):
 
     monkeypatch.setattr(JsonTemplateSttProvider, "transcribe", _fake_transcribe)
     creds = SttCredentials(
-        provider="my-vendor", protocol="openai_chat", api_base="https://v.example",
-        api_key="k", model="m", extra={"stt_adapter": {"url": "https://v.example/asr"}},
+        provider="my-vendor",
+        protocol="openai_chat",
+        api_base="https://v.example",
+        api_key="k",
+        model="m",
+        extra={"stt_adapter": {"url": "https://v.example/asr"}},
     )
     result = await stt_router.transcribe_with_handler(_PCM_B64, sample_rate=16000, creds=creds)
     assert seen["called"] is True
@@ -149,13 +171,18 @@ async def test_tts_template_substitutes_text_and_decodes_hex(monkeypatch):
     client = _FakeClient({"data": {"audio": raw.hex()}})
     monkeypatch.setattr(tts_mod, "make_pinned_async_client", lambda *a, **k: client)
     creds = TtsCredentials(
-        handler="custom", api_key="k", model="tts-x", voice="main",
-        extra={"tts_adapter": {
-            "url": "https://v.example/tts",
-            "body": {"model": "{{model}}", "text": "{{text}}", "voice": "{{voice}}"},
-            "audio_path": "data.audio",
-            "audio_encoding": "hex",
-        }},
+        handler="custom",
+        api_key="k",
+        model="tts-x",
+        voice="main",
+        extra={
+            "tts_adapter": {
+                "url": "https://v.example/tts",
+                "body": {"model": "{{model}}", "text": "{{text}}", "voice": "{{voice}}"},
+                "audio_path": "data.audio",
+                "audio_encoding": "hex",
+            }
+        },
     )
     out = await synthesize_json_template_to_base64("你好", creds=creds)
     assert base64.b64decode(out) == raw
@@ -172,7 +199,8 @@ async def test_tts_template_base64_audio(monkeypatch):
     client = _FakeClient({"data": {"audio": base64.b64encode(raw).decode("ascii")}})
     monkeypatch.setattr(tts_mod, "make_pinned_async_client", lambda *a, **k: client)
     creds = TtsCredentials(
-        handler="custom", api_key="k",
+        handler="custom",
+        api_key="k",
         extra={"tts_adapter": {"url": "https://v.example/tts", "audio_encoding": "base64"}},
     )
     out = await synthesize_json_template_to_base64("hi", creds=creds)

@@ -17,10 +17,10 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocketDisconnect
 
-from realmock.platform.core.logging import set_trace_id
-from realmock.platform.database import SessionLocal
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.core.session_registry import release_session_connection
+from realmock.platform.core.logging import set_trace_id
+from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine

@@ -21,7 +21,10 @@ from realmock.domains.prep.agents.tools.spec import (
     ToolSpec,
 )
 from realmock.domains.prep.agents.tools.system.availability import preload_secondary, tool_available
-from realmock.domains.prep.agents.tools.system.compact import COMPACT_TOOL_DEFINITION, COMPACT_TOOL_NAME
+from realmock.domains.prep.agents.tools.system.compact import (
+    COMPACT_TOOL_DEFINITION,
+    COMPACT_TOOL_NAME,
+)
 from realmock.domains.prep.agents.tools.system.search_tools import mini_spec, search_specs
 
 __all__ = [

@@ -6,6 +6,7 @@ analyze_resume_with_llm missing-key/missing-file/agent-crash/db-write branches.
 Conventions: no real network/model downloads (all clients mocked); faked LLM/DB;
 rate limits reset per test.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -68,7 +69,9 @@ async def test_commit_locked_on_last_attempt_raises(monkeypatch) -> None:
 
     monkeypatch.setattr(amod.asyncio, "sleep", _no_sleep)
     db = MagicMock()
-    db.commit.side_effect = sqlalchemy.exc.OperationalError("s", {}, Exception("database is locked"))
+    db.commit.side_effect = sqlalchemy.exc.OperationalError(
+        "s", {}, Exception("database is locked")
+    )
     with pytest.raises(sqlalchemy.exc.OperationalError):
         await amod._commit_with_retry(db)
     assert db.commit.call_count == amod.COMMIT_RETRY_ATTEMPTS
@@ -82,6 +85,7 @@ async def test_commit_retry_reapplies_write_after_rollback(monkeypatch) -> None:
     ``reapply`` the retry commit succeeds vacuously and the write is silently
     lost while the caller sees success.
     """
+
     async def _no_sleep(s):
         return None
 
@@ -154,7 +158,9 @@ async def test_recover_not_dict_raises_c0002(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_recover_generic_validation_error_raises_c0002(monkeypatch) -> None:
     monkeypatch.setattr(
-        amod, "_request_score_recovery", AsyncMock(return_value={"score": 80, "dimension_scores": {}})
+        amod,
+        "_request_score_recovery",
+        AsyncMock(return_value={"score": 80, "dimension_scores": {}}),
     )
 
     def _boom(payload, *, locale):
@@ -207,7 +213,9 @@ async def test_analyze_agent_crash_raises_c0001(monkeypatch) -> None:
             return cls()
 
     monkeypatch.setattr(amod, "LLMClient", _LLM)
-    monkeypatch.setattr(amod, "run_resume_review", AsyncMock(side_effect=RuntimeError("agent down")))
+    monkeypatch.setattr(
+        amod, "run_resume_review", AsyncMock(side_effect=RuntimeError("agent down"))
+    )
     with pytest.raises(ApiBusinessError) as e:
         await amod.analyze_resume_with_llm(_resume(raw_text="body"), MagicMock())
     assert e.value.error_code == "C0001"

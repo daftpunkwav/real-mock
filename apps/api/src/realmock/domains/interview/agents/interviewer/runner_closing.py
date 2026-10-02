@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
 from realmock.domains.interview.agents.closing_prompts import (
     CLOSING_BY_PERSONALITY,
     closing_system_prompt,
@@ -22,10 +21,11 @@ from realmock.domains.interview.agents.closing_prompts import (
     jump_to_summary_phase,
 )
 from realmock.domains.interview.agents.events import LedgerWriteError, StreamEvent
-from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.domains.interview.agents.finish_lifecycle import run_finish_lifecycle
 from realmock.domains.interview.agents.say_first import stream_say_first
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
+from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
+from realmock.platform.core.agent_error_log import log_agent_error
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
@@ -41,9 +41,7 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
 
     try:
         personality = (runner.session.personality or "professional").lower()
-        style_hint = CLOSING_BY_PERSONALITY.get(
-            personality, CLOSING_BY_PERSONALITY["professional"]
-        )
+        style_hint = CLOSING_BY_PERSONALITY.get(personality, CLOSING_BY_PERSONALITY["professional"])
         jump_to_summary_phase(runner.agent, [p.id for p in runner.agent.phases])
 
         context_window = runner.prompter.get_context_window(db)
@@ -72,27 +70,28 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
         # (last_turn_score alone only ever carried the final judged turn).
         score_section = runner.agent._score_section()
         if score_section:
-            api_messages.append({
-                "role": "system",
-                "content": closing_verdict_grounding(score_section),
-            })
+            api_messages.append(
+                {
+                    "role": "system",
+                    "content": closing_verdict_grounding(score_section),
+                }
+            )
         api_messages = api_messages + [
-            {"role": "user", "content": "(system) Complete the spoken wrap-up and evaluation as instructed."},
+            {
+                "role": "user",
+                "content": "(system) Complete the spoken wrap-up and evaluation as instructed.",
+            },
         ]
 
         output: TurnOutput | None = None
         say_parts: list[str] = []
-        async for item in stream_say_first(
-            runner.llm, runner.tools, api_messages, temperature=0.7
-        ):
+        async for item in stream_say_first(runner.llm, runner.tools, api_messages, temperature=0.7):
             if isinstance(item, TurnOutput):
                 output = item
             else:
                 say_parts.append(item.token)
                 yield item
-        output = output or parse_turn_output(
-            None, say_text="".join(say_parts), degraded=True
-        )
+        output = output or parse_turn_output(None, say_text="".join(say_parts), degraded=True)
         # Completed at the end: when the model omits interview_complete,
         # the server sets it anyway.
         if output.interview_complete is False:
@@ -150,4 +149,8 @@ async def stream_closing(runner: "InterviewRunner", db: Session) -> AsyncIterato
         )
     except Exception as e:
         logger.exception("Closing speech failed: %s", e)
-        yield StreamEvent.make_error("AI interviewer temporarily unavailable; please retry later", code="C0001", retryable=True)
+        yield StreamEvent.make_error(
+            "AI interviewer temporarily unavailable; please retry later",
+            code="C0001",
+            retryable=True,
+        )

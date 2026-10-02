@@ -57,9 +57,15 @@ def test_build_working_context_appends_usage_hint_tail() -> None:
         {"role": "system", "content": "seed"},
         {"role": "user", "content": "hello"},
     ]
-    out = _run(build_working_context(
-        messages, 100_000, memory=WorkingMemory(), llm=None, reply_locale="en",
-    ))
+    out = _run(
+        build_working_context(
+            messages,
+            100_000,
+            memory=WorkingMemory(),
+            llm=None,
+            reply_locale="en",
+        )
+    )
     assert out[-1]["role"] == "system"
     assert out[-1]["content"].startswith(USAGE_HINT_MARKER)
     assert "~" in out[-1]["content"] and "tokens" in out[-1]["content"]
@@ -68,15 +74,28 @@ def test_build_working_context_appends_usage_hint_tail() -> None:
 def test_usage_hint_is_upserted_not_accumulated() -> None:
     """A second assembly replaces the previous usage block instead of stacking copies."""
     messages = [{"role": "user", "content": "hello"}]
-    first = _run(build_working_context(
-        messages, 100_000, memory=WorkingMemory(), llm=None, reply_locale="en",
-    ))
+    first = _run(
+        build_working_context(
+            messages,
+            100_000,
+            memory=WorkingMemory(),
+            llm=None,
+            reply_locale="en",
+        )
+    )
     grown = [*first, {"role": "user", "content": "more input " * 200}]
-    second = _run(build_working_context(
-        grown, 100_000, memory=WorkingMemory(), llm=None, reply_locale="en",
-    ))
+    second = _run(
+        build_working_context(
+            grown,
+            100_000,
+            memory=WorkingMemory(),
+            llm=None,
+            reply_locale="en",
+        )
+    )
     copies = [
-        m for m in second
+        m
+        for m in second
         if m.get("role") == "system"
         and isinstance(m.get("content"), str)
         and m["content"].startswith(USAGE_HINT_MARKER)
@@ -94,9 +113,7 @@ def test_turn_tool_definitions_are_cache_stable() -> None:
     agent.messages.append({"role": "assistant", "content": "grew " * 2000})
     second = agent._tool_definitions("hi")
     assert first == second
-    compact = next(
-        t for t in second if t.get("function", {}).get("name") == "compact_context"
-    )
+    compact = next(t for t in second if t.get("function", {}).get("name") == "compact_context")
     assert "Current context usage" not in compact["function"]["description"]
 
 

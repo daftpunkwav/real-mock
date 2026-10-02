@@ -3,12 +3,17 @@
 Covers: message loading, _ensure_system fallback, waiting-line alias, named-tool dispatch, tool-round timeout/error paths and tool definitions
 Conventions: No real LLM/network; agent loop faked; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import asyncio
 import json
 from types import SimpleNamespace
+
 import pytest
+
 from realmock.domains.prep.agents.agent import PrepAgent
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -17,6 +22,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 class _FakeSession:
     messages = "[]"
@@ -28,9 +34,11 @@ class _FakeSession:
     completion_tokens = 0
     cached_tokens = 0
 
+
 class _FakeDB:
     def commit(self) -> None:
         pass
+
 
 def _agent(messages: str = "[]", llm=None) -> PrepAgent:
     sess = _FakeSession()
@@ -38,15 +46,18 @@ def _agent(messages: str = "[]", llm=None) -> PrepAgent:
     fake_llm = llm or SimpleNamespace(context_window=8000)
     return PrepAgent(sess, fake_llm)  # type: ignore[arg-type]
 
+
 def test_load_messages_non_list_resets() -> None:
     agent = _agent(messages='{"a": 1}')
     assert agent.messages == []
+
 
 def test_load_messages_type_error_resets() -> None:
     sess = _FakeSession()
     sess.messages = None  # type: ignore[assignment]
     agent = PrepAgent(sess, SimpleNamespace(context_window=8000))  # type: ignore[arg-type]
     assert agent.messages == []
+
 
 @pytest.mark.asyncio
 async def test_ensure_system_degraded_falls_back(monkeypatch) -> None:
@@ -66,11 +77,13 @@ async def test_ensure_system_degraded_falls_back(monkeypatch) -> None:
     assert agent.messages[0]["role"] == "system"
     assert logged and logged[0]["kind"] == "seed_degraded"
 
+
 def test_waiting_line_alias_matches_pending() -> None:
     agent = _agent()
     agent.reply_locale = "en"
     assert agent.waiting_line() == agent.pending_reply_text()
     assert agent.waiting_line() != ""
+
 
 @pytest.mark.asyncio
 async def test_run_named_tool_compact_context_delegates(monkeypatch) -> None:
@@ -84,6 +97,7 @@ async def test_run_named_tool_compact_context_delegates(monkeypatch) -> None:
     assert text == "compacted-text"
     assert hits == [{"title": "t"}]
 
+
 @pytest.mark.asyncio
 async def test_run_named_tool_search_invalid_json_select(monkeypatch) -> None:
     import realmock.domains.prep.agents.agent as agent_mod
@@ -95,11 +109,14 @@ async def test_run_named_tool_search_invalid_json_select(monkeypatch) -> None:
 
     monkeypatch.setattr(agent_mod, "execute_prep_tool", _fake_exec)
     text, hits = await agent._run_named_tool(
-        "search_tools", {"query": "repo"}, _FakeDB()  # type: ignore[arg-type]
+        "search_tools",
+        {"query": "repo"},
+        _FakeDB(),  # type: ignore[arg-type]
     )
     assert text == "not-json{{{"
     assert hits == []
     assert agent._turn_state.expanded is True
+
 
 @pytest.mark.asyncio
 async def test_run_tool_rounds_compact_observation_timeout_paths(monkeypatch) -> None:
@@ -131,6 +148,7 @@ async def test_run_tool_rounds_compact_observation_timeout_paths(monkeypatch) ->
     assert captured.get("ok") is True
     assert out[1] == "done"
 
+
 @pytest.mark.asyncio
 async def test_run_tool_rounds_business_error_propagates(monkeypatch) -> None:
     import realmock.domains.prep.agents.agent as agent_mod
@@ -143,6 +161,7 @@ async def test_run_tool_rounds_business_error_propagates(monkeypatch) -> None:
     agent = _agent()
     with pytest.raises(ApiBusinessError):
         await agent._run_tool_rounds([{"role": "user", "content": "hi"}], _FakeDB())  # type: ignore[arg-type]
+
 
 @pytest.mark.asyncio
 async def test_run_tool_rounds_turn_timeout_returns_working(monkeypatch) -> None:
@@ -159,12 +178,14 @@ async def test_run_tool_rounds_turn_timeout_returns_working(monkeypatch) -> None
     agent = _agent()
     working = [{"role": "user", "content": "hi"}]
     messages, early, groups, steps, thinking = await agent._run_tool_rounds(
-        working, _FakeDB()  # type: ignore[arg-type]
+        working,
+        _FakeDB(),  # type: ignore[arg-type]
     )
     assert messages == working
     assert early is None
     assert thinking == ""
     assert logged and logged[0]["kind"] == "turn_timeout"
+
 
 @pytest.mark.asyncio
 async def test_run_tool_rounds_generic_error_returns_working(monkeypatch) -> None:
@@ -177,11 +198,13 @@ async def test_run_tool_rounds_generic_error_returns_working(monkeypatch) -> Non
     agent = _agent()
     working = [{"role": "user", "content": "hi"}]
     messages, early, groups, steps, thinking = await agent._run_tool_rounds(
-        working, _FakeDB()  # type: ignore[arg-type]
+        working,
+        _FakeDB(),  # type: ignore[arg-type]
     )
     assert messages == working
     assert early is None
     assert thinking == ""
+
 
 def test_tool_definitions_empty_user_text() -> None:
     agent = _agent()

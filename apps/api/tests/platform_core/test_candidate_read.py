@@ -17,7 +17,6 @@ from sqlalchemy.exc import OperationalError
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -25,7 +24,13 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import (
+        LlmProvider,
+        LLMSettings,
+        ModelProfile,
+        StageConfig,
+        TaskBinding,
+    )
 
     for m in (TaskBinding, ModelProfile, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()
@@ -87,7 +92,12 @@ class TestCandidateRead:
         assert cr.get_candidate_profile(api_db, 999) is None
         assert cr.get_resume_detail(api_db, 999) is None
         assert cr.get_resume_agent_payload(api_db, 999) is None
-        row = Resume(filename="r.pdf", file_type="pdf", raw_text="raw", parsed_profile=json.dumps({"name": "Z", "layout_notes": "n"}))
+        row = Resume(
+            filename="r.pdf",
+            file_type="pdf",
+            raw_text="raw",
+            parsed_profile=json.dumps({"name": "Z", "layout_notes": "n"}),
+        )
         api_db.add(row)
         api_db.commit()
         assert "r.pdf" in cr.format_resume_summary(api_db, row.id)

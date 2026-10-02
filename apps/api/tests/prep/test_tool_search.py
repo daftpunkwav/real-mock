@@ -28,9 +28,7 @@ class _FakeLLM:
 
     async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
         del messages, temperature, kwargs
-        self.tools_seen.append(
-            [str((t.get("function") or {}).get("name")) for t in (tools or [])]
-        )
+        self.tools_seen.append([str((t.get("function") or {}).get("name")) for t in (tools or [])])
         idx = min(self.calls, len(self.replies) - 1)
         self.calls += 1
         return self.replies[idx]
@@ -56,7 +54,11 @@ def _tool_call(name: str, args: dict) -> dict:
         "role": "assistant",
         "content": None,
         "tool_calls": [
-            {"id": "c1", "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(args)},
+            }
         ],
     }
 
@@ -146,7 +148,9 @@ def test_tool_definitions_filter_per_turn() -> None:
 
 
 def test_search_expands_turn_tools_for_next_round() -> None:
-    search_round = _tool_call("search_tools", {"query": "repo files", "select": ["github_get_file"]})
+    search_round = _tool_call(
+        "search_tools", {"query": "repo files", "select": ["github_get_file"]}
+    )
     done_round = {"role": "assistant", "content": "done", "tool_calls": None}
     llm = _FakeLLM([search_round, done_round])
     agent = PrepAgent(_FakeSession(), llm)  # type: ignore[arg-type]
@@ -174,7 +178,9 @@ def test_search_expansion_guard_allows_single_load() -> None:
 
     async def run():
         return await agent._run_tool_rounds(
-            [{"role": "user", "content": "hi"}], _FakeDB(), asked_user={"on": False}  # type: ignore[arg-type]
+            [{"role": "user", "content": "hi"}],
+            _FakeDB(),
+            asked_user={"on": False},  # type: ignore[arg-type]
         )
 
     messages, early, groups, steps, thinking = asyncio.run(run())
@@ -189,7 +195,9 @@ def test_search_unknown_select_reports_catalog() -> None:
 
     async def run():
         return await agent._run_named_tool(
-            "search_tools", {"query": "zzz-no-match", "select": ["not_a_tool"]}, _FakeDB()  # type: ignore[arg-type]
+            "search_tools",
+            {"query": "zzz-no-match", "select": ["not_a_tool"]},
+            _FakeDB(),  # type: ignore[arg-type]
         )
 
     text, _ = asyncio.run(run())

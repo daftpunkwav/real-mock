@@ -15,6 +15,8 @@ from fastapi.testclient import TestClient
 
 from realmock.domains.interview.models import InterviewSession
 from realmock.platform.core.constants import SessionStatus
+
+
 def _make_session(db) -> InterviewSession:
     s = InterviewSession(
         profile_id=1,

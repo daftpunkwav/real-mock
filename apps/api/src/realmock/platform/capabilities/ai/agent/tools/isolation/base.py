@@ -84,9 +84,7 @@ _CAPTURE_LIMIT_BYTES = 2 * 1024 * 1024
 _READ_CHUNK_BYTES = 65536
 
 
-def _pump_stream(
-    stream: IO[bytes], buf: bytearray, limit: int, lock: threading.Lock
-) -> None:
+def _pump_stream(stream: IO[bytes], buf: bytearray, limit: int, lock: threading.Lock) -> None:
     """Drain ``stream`` into ``buf`` up to ``limit``; excess is discarded.
 
     Draining (instead of stopping at the limit) keeps the child unblocked so a

@@ -11,7 +11,6 @@ from __future__ import annotations
 import pytest
 
 
-
 @pytest.mark.asyncio
 async def test_client_thin_wrappers_delegate(monkeypatch) -> None:
     from realmock.platform.capabilities.integrations.github.client import GitHubClient

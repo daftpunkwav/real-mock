@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
-from realmock.platform.capabilities.voice.stt.providers import volcengine as volc_mod
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
+from realmock.platform.capabilities.voice.stt.providers import volcengine as volc_mod
 from realmock.platform.capabilities.voice.stt.providers.volcengine import VolcengineProvider
 
 

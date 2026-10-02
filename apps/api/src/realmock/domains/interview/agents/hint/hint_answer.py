@@ -19,8 +19,13 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.agents.agent_policies import HINT_LOOP
 from realmock.domains.interview.agents.agent_text import strip_markers, strip_think_blocks
-from realmock.domains.interview.agents.tools import execute_interview_tool
+from realmock.domains.interview.agents.hint.hint_prompts import (
+    HINT_MODEL_ANSWER_WRITER_SYSTEM,
+    HINT_TOOL_FREE_WRAP_UP,
+    hint_coach_system,
+)
 from realmock.domains.interview.agents.tool_guard import ToolGuard
+from realmock.domains.interview.agents.tools import execute_interview_tool
 from realmock.platform.capabilities.ai.agent import run_agent_loop
 from realmock.platform.capabilities.ai.agent.tools import (
     github_tool_specs,
@@ -32,11 +37,6 @@ from realmock.platform.services.candidate_read import (
     get_default_user_profile,
     get_resume_agent_payload,
     get_user_profile,
-)
-from realmock.domains.interview.agents.hint.hint_prompts import (
-    HINT_MODEL_ANSWER_WRITER_SYSTEM,
-    HINT_TOOL_FREE_WRAP_UP,
-    hint_coach_system,
 )
 
 logger = logging.getLogger(__name__)

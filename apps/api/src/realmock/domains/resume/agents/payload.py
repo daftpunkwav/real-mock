@@ -54,8 +54,7 @@ def _overview_text(snapshot: ResumeSnapshot) -> str:
         },
     }
     return (
-        review_intro_instruction()
-        + f"Compact parsed map:\n{json.dumps(brief, ensure_ascii=False)}"
+        review_intro_instruction() + f"Compact parsed map:\n{json.dumps(brief, ensure_ascii=False)}"
     )
 
 
@@ -98,14 +97,17 @@ async def build_review_user_message(
             "content": intro + "\nVisual render unavailable (file missing); use resume tools.",
         }
     try:
-        urls = await asyncio.to_thread(render_pdf_pages_as_data_urls, path, max_pages=MAX_VISION_PAGES)
+        urls = await asyncio.to_thread(
+            render_pdf_pages_as_data_urls, path, max_pages=MAX_VISION_PAGES
+        )
     except Exception as exc:
         logger.warning("PDF page render failed id=%s: %s", resume.id, exc)
         snapshot.has_visual_pages = False
         snapshot.visual_status = "render_failed"
         return {
             "role": "user",
-            "content": intro + "\nVisual render failed; use resume tools for content and structure.",
+            "content": intro
+            + "\nVisual render failed; use resume tools for content and structure.",
         }
     urls = select_vision_urls(urls, resolve_context_window(context_window))
     if not urls:
@@ -117,7 +119,8 @@ async def build_review_user_message(
     content: list[dict[str, Any]] = [
         {
             "type": "text",
-            "text": intro + f"\n{len(urls)} original PDF page image(s) follow. Judge layout and typography from them.",
+            "text": intro
+            + f"\n{len(urls)} original PDF page image(s) follow. Judge layout and typography from them.",
         }
     ]
     content.extend({"type": "image_url", "image_url": {"url": url}} for url in urls)

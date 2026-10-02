@@ -9,14 +9,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-
-from realmock.platform.database import SessionLocal
 from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
-
 
     from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext

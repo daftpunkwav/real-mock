@@ -14,17 +14,24 @@ class TestBootstrap:
     def test_warn_memory(self, monkeypatch, caplog) -> None:
         import realmock.bootstrap.db_bootstrap as bs
 
-        monkeypatch.setattr(bs, "get_settings", lambda: SimpleNamespace(ws_lease_backend="memory", ratelimit_backend="database"))
+        monkeypatch.setattr(
+            bs,
+            "get_settings",
+            lambda: SimpleNamespace(ws_lease_backend="memory", ratelimit_backend="database"),
+        )
         with caplog.at_level("WARNING"):
             bs._warn_inmemory_backends()
         assert any("memory" in r.message for r in caplog.records)
-        monkeypatch.setattr(bs, "get_settings", lambda: SimpleNamespace(ws_lease_backend="database", ratelimit_backend="database"))
+        monkeypatch.setattr(
+            bs,
+            "get_settings",
+            lambda: SimpleNamespace(ws_lease_backend="database", ratelimit_backend="database"),
+        )
         bs._warn_inmemory_backends()
 
     def test_run_migrations_empty_domains(self, api_engine, engine) -> None:
         import realmock.bootstrap.db_bootstrap as bs
         import realmock.platform.models  # noqa: F401
-
         from realmock.platform.database import ApiBase, SessionsBase
 
         ApiBase.metadata.create_all(bind=api_engine)
@@ -47,7 +54,6 @@ class TestBootstrap:
     def test_bootstrap_non_test_calls_seed(self, monkeypatch, api_engine, engine) -> None:
         import realmock.bootstrap.db_bootstrap as bs
         import realmock.platform.models  # noqa: F401
-
         from realmock.platform.database import ApiBase, SessionsBase
 
         ApiBase.metadata.create_all(bind=api_engine)
@@ -63,13 +69,14 @@ class TestBootstrap:
         assert called == ["seed", "pipeline"]
         monkeypatch.setenv("TEST_MODE", "1")
 
-    def test_seed_failure_logs_actionable_hint(self, monkeypatch, api_engine, engine, caplog) -> None:
+    def test_seed_failure_logs_actionable_hint(
+        self, monkeypatch, api_engine, engine, caplog
+    ) -> None:
         """A startup seed failure must re-raise (fail fast) but leave a repair path."""
         import pytest
 
         import realmock.bootstrap.db_bootstrap as bs
         import realmock.platform.models  # noqa: F401
-
         from realmock.platform.database import ApiBase, SessionsBase
 
         ApiBase.metadata.create_all(bind=api_engine)

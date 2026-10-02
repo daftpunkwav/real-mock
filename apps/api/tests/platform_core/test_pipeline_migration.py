@@ -18,7 +18,6 @@ from realmock.platform.services.pipeline import migration as pmig
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -26,7 +25,14 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, LlmProviderChannel, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import (
+        LlmProvider,
+        LlmProviderChannel,
+        LLMSettings,
+        ModelProfile,
+        StageConfig,
+        TaskBinding,
+    )
 
     for m in (TaskBinding, ModelProfile, LlmProviderChannel, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()
@@ -46,8 +52,14 @@ class TestAllocateAndMigrateProfiles:
 
     def test_stage_has_data(self) -> None:
         assert pmig._stage_has_data(None) is False
-        assert pmig._stage_has_data(SimpleNamespace(provider="", api_base="", model="", api_key="")) is False
-        assert pmig._stage_has_data(SimpleNamespace(provider="x", api_base="", model="", api_key="")) is True
+        assert (
+            pmig._stage_has_data(SimpleNamespace(provider="", api_base="", model="", api_key=""))
+            is False
+        )
+        assert (
+            pmig._stage_has_data(SimpleNamespace(provider="x", api_base="", model="", api_key=""))
+            is True
+        )
 
     def test_migrate_noop_when_profiles_exist(self, api_db) -> None:
         _wipe(api_db)
@@ -93,7 +105,9 @@ class TestEnsureProviderChannels:
         api_db.flush()
         return row
 
-    def _legacy_flat(self, api_db, provider_id, *, api_base, protocol="openai_chat", api_key="", full_url=False):
+    def _legacy_flat(
+        self, api_db, provider_id, *, api_base, protocol="openai_chat", api_key="", full_url=False
+    ):
         """Add the pre-channel flat columns to the (fresh) table, then fill them for one row.
 
         Mirrors a real upgraded database, where llm_providers still carries those columns.
@@ -124,9 +138,13 @@ class TestEnsureProviderChannels:
         from realmock.platform.models import LlmProviderChannel, ModelProfile
 
         base = self._provider(api_db, "MiniMax")
-        self._legacy_flat(api_db, base.id, api_base="https://api.minimaxi.com/v1", api_key="enc:chatkey")
+        self._legacy_flat(
+            api_db, base.id, api_base="https://api.minimaxi.com/v1", api_key="enc:chatkey"
+        )
         stt = self._provider(api_db, "MiniMax--语音识别")
-        self._legacy_flat(api_db, stt.id, api_base="https://api.minimaxi.com/v1", api_key="enc:sttkey")
+        self._legacy_flat(
+            api_db, stt.id, api_base="https://api.minimaxi.com/v1", api_key="enc:sttkey"
+        )
         tts = self._provider(api_db, "MiniMax--语音播报")
         self._legacy_flat(api_db, tts.id, api_base="https://api.minimaxi.com/v1")
         api_db.add(ModelProfile(provider_id=base.id, model="MiniMax-M3", cap_chat=True))
@@ -140,14 +158,17 @@ class TestEnsureProviderChannels:
         assert set(providers) == {"MiniMax"}
         channels = {
             c.kind: c
-            for c in api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == base.id).all()
+            for c in api_db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == base.id)
+            .all()
         }
         assert set(channels) == {"chat", "stt", "tts"}
         assert channels["chat"].api_key == "enc:chatkey"
         assert channels["stt"].api_key == "enc:sttkey"
         assert channels["stt"].vendor == "minimax"
         models = {
-            m.model: m for m in api_db.query(ModelProfile).filter(ModelProfile.provider_id == base.id).all()
+            m.model: m
+            for m in api_db.query(ModelProfile).filter(ModelProfile.provider_id == base.id).all()
         }
         assert set(models) == {"MiniMax-M3", "asr-1.0", "speech-2.8-hd"}
         assert models["asr-1.0"].kind == "stt"
@@ -166,7 +187,9 @@ class TestEnsureProviderChannels:
         api_db.commit()
 
         assert pmig.ensure_provider_channels(api_db) is True
-        channels = api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == p.id).all()
+        channels = (
+            api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == p.id).all()
+        )
         assert len(channels) == 1
         assert channels[0].kind == "stt"
         assert channels[0].api_base == "https://asr.example.com"
@@ -196,7 +219,12 @@ class TestEnsureProviderChannels:
             text(
                 "UPDATE llm_providers SET api_base = :b, protocol = :pr, api_key = :k WHERE id = :id"
             ),
-            {"b": "https://old.example.com/v1", "pr": "anthropic_messages", "k": "enc:oldkey", "id": p.id},
+            {
+                "b": "https://old.example.com/v1",
+                "pr": "anthropic_messages",
+                "k": "enc:oldkey",
+                "id": p.id,
+            },
         )
         api_db.commit()
 

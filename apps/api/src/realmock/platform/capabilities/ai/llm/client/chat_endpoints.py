@@ -12,14 +12,13 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from realmock.platform.core.prompts import strip_emojis
-from realmock.platform.core.security import make_pinned_async_client
-
 from realmock.platform.capabilities.ai.llm.defaults import (
     LLM_CHAT_MESSAGE_TIMEOUT_SECONDS,
     LLM_CHAT_TIMEOUT_SECONDS,
     LLM_TEST_CONNECTION_TIMEOUT_SECONDS,
 )
+from realmock.platform.core.prompts import strip_emojis
+from realmock.platform.core.security import make_pinned_async_client
 
 from .base import LLMUpstreamError, _is_local_allowed, _require_https, _retry_request
 from .protocol_utils import _headers
@@ -72,7 +71,9 @@ async def chat(
             client.usage.note_request_start()
             resp = await _retry_request(
                 lambda: http.post(
-                    url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
+                    url,
+                    headers=_headers(client.api_key, client.protocol, client.extra_headers),
+                    json=payload,
                 )
             )
             resp.raise_for_status()
@@ -99,9 +100,7 @@ async def chat(
         raise LLMUpstreamError(business_error)
     finish = extract_finish_reason(data, client.protocol)
     if finish in ("length", "max_tokens") or finish.startswith("incomplete"):
-        logger.warning(
-            "LLM chat answer truncated (finish=%s) model=%s", finish, client.model
-        )
+        logger.warning("LLM chat answer truncated (finish=%s) model=%s", finish, client.model)
     return extract_text(data, client.protocol)
 
 
@@ -124,7 +123,9 @@ async def test_connection(client: "UnifiedLLMClient") -> tuple[bool, str]:
     async with pinned as http:
         try:
             resp = await http.post(
-                url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
+                url,
+                headers=_headers(client.api_key, client.protocol, client.extra_headers),
+                json=payload,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -177,7 +178,9 @@ async def chat_message(
             # openai_chat path and the streaming ladder semantics.
             resp = await _retry_request(
                 lambda: http.post(
-                    url, headers=_headers(client.api_key, client.protocol, client.extra_headers), json=payload
+                    url,
+                    headers=_headers(client.api_key, client.protocol, client.extra_headers),
+                    json=payload,
                 )
             )
             resp.raise_for_status()

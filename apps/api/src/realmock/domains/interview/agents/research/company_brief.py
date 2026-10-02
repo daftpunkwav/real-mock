@@ -20,10 +20,10 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.models import CompanyBrief, CompanyDigest
 from realmock.domains.interview.agents.research.company_research import (
     run_web_research,
 )
+from realmock.domains.interview.models import CompanyBrief, CompanyDigest
 from realmock.platform.capabilities.ai.llm.json_extract import extract_json_object
 
 logger = logging.getLogger(__name__)
@@ -46,9 +46,7 @@ _MAX_TRACKED_FAILURES = 128
 #: Singleflight: one in-flight generation per cache key; concurrent requesters
 #: wait on the same lock and then hit the freshly written cache row. Weak
 #: values let finished locks be garbage-collected without manual bookkeeping.
-_generation_locks: "weakref.WeakValueDictionary[str, asyncio.Lock]" = (
-    weakref.WeakValueDictionary()
-)
+_generation_locks: "weakref.WeakValueDictionary[str, asyncio.Lock]" = weakref.WeakValueDictionary()
 _recent_failures: dict[str, float] = {}
 
 
@@ -133,7 +131,9 @@ def get_cached_brief(
         db.query(CompanyBrief)
         .filter(
             CompanyBrief.company_key
-            == company_cache_key(company, lang, role=role, level=level, interview_type=interview_type)
+            == company_cache_key(
+                company, lang, role=role, level=level, interview_type=interview_type
+            )
         )
         .first()
     )
@@ -235,9 +235,7 @@ async def get_or_create_brief(
     ``FAILURE_COOLDOWN_SECONDS`` instead of re-burning the LLM on every retry,
     and a cache-write failure only loses the caching, never the answer.
     """
-    key = company_cache_key(
-        company, locale, role=role, level=level, interview_type=interview_type
-    )
+    key = company_cache_key(company, locale, role=role, level=level, interview_type=interview_type)
     lock = _generation_locks.setdefault(key, asyncio.Lock())
     async with lock:
         cached = get_cached_brief(

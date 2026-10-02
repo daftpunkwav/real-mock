@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from realmock.domains.interview.models import CompanyBrief
 from realmock.domains.interview.agents.research import company_brief as cb
+from realmock.domains.interview.models import CompanyBrief
 from tests.fakes import FakeLLMClient
 
 
@@ -34,7 +34,9 @@ def _brief_payload() -> dict:
 
 
 def test_company_cache_key_normalizes() -> None:
-    assert cb.company_cache_key("  ByteDance ", "zh-CN") == cb.company_cache_key("bytedance", "zh-CN")
+    assert cb.company_cache_key("  ByteDance ", "zh-CN") == cb.company_cache_key(
+        "bytedance", "zh-CN"
+    )
     # Empty locale falls back to "en".
     assert cb.company_cache_key("acme", "") == cb.company_cache_key("acme", "en")
     assert cb.company_cache_key("acme", "en") != cb.company_cache_key("acme", "zh-CN")
@@ -43,10 +45,12 @@ def test_company_cache_key_normalizes() -> None:
 def test_company_cache_key_scopes_by_role_level_type() -> None:
     base = dict(lang="zh-CN")
     assert cb.company_cache_key("acme", "zh-CN") == cb.company_cache_key("acme", "zh-CN")
-    assert cb.company_cache_key("acme", **base, role="Backend") != cb.company_cache_key("acme", **base)
-    assert cb.company_cache_key("acme", **base, role="Backend", level="mid") != cb.company_cache_key(
-        "acme", **base, role="Backend"
+    assert cb.company_cache_key("acme", **base, role="Backend") != cb.company_cache_key(
+        "acme", **base
     )
+    assert cb.company_cache_key(
+        "acme", **base, role="Backend", level="mid"
+    ) != cb.company_cache_key("acme", **base, role="Backend")
     assert cb.company_cache_key(
         "acme", **base, role="Backend", level="mid", interview_type="tech_1"
     ) != cb.company_cache_key("acme", **base, role="Backend", level="mid", interview_type="hr_1")
@@ -59,9 +63,10 @@ def test_company_cache_key_scopes_by_role_level_type() -> None:
 def test_cache_roundtrip(db) -> None:
     cb.clear_company_briefs(db)
     key = cb.company_cache_key("acme", "zh-CN", role="r", level="l", interview_type="tech_1")
-    assert cb.get_cached_brief(
-        db, "acme", "zh-CN", role="r", level="l", interview_type="tech_1"
-    ) is None
+    assert (
+        cb.get_cached_brief(db, "acme", "zh-CN", role="r", level="l", interview_type="tech_1")
+        is None
+    )
     db.add(
         CompanyBrief(
             company_key=key,
@@ -90,7 +95,13 @@ def test_different_interview_type_misses_cache(db) -> None:
     llm = FakeLLMClient(tokens=[json.dumps(_brief_payload(), ensure_ascii=False)])
     first = asyncio.run(
         cb.get_or_create_brief(
-            db, llm, company="Acme", role="Backend", level="mid", interview_type="tech_1", locale="en"
+            db,
+            llm,
+            company="Acme",
+            role="Backend",
+            level="mid",
+            interview_type="tech_1",
+            locale="en",
         )
     )
     assert first is not None and first["cached"] is False
@@ -99,7 +110,13 @@ def test_different_interview_type_misses_cache(db) -> None:
     second_llm = FakeLLMClient(tokens=[json.dumps(_brief_payload(), ensure_ascii=False)])
     second = asyncio.run(
         cb.get_or_create_brief(
-            db, second_llm, company="Acme", role="Backend", level="mid", interview_type="hr_1", locale="en"
+            db,
+            second_llm,
+            company="Acme",
+            role="Backend",
+            level="mid",
+            interview_type="hr_1",
+            locale="en",
         )
     )
     assert second is not None and second["cached"] is False
@@ -109,7 +126,13 @@ def test_different_interview_type_misses_cache(db) -> None:
     third_llm = FakeLLMClient(tokens=["must not be consumed"])
     third = asyncio.run(
         cb.get_or_create_brief(
-            db, third_llm, company="acme", role="Backend", level="mid", interview_type="tech_1", locale="en"
+            db,
+            third_llm,
+            company="acme",
+            role="Backend",
+            level="mid",
+            interview_type="tech_1",
+            locale="en",
         )
     )
     assert third is not None and third["cached"] is True
@@ -129,7 +152,9 @@ def test_generate_persists_then_hits_cache(db) -> None:
 
     second = FakeLLMClient(tokens=["must not be consumed"])
     again = asyncio.run(
-        cb.get_or_create_brief(db, second, company="acme", role="Backend", level="mid", locale="zh-CN")
+        cb.get_or_create_brief(
+            db, second, company="acme", role="Backend", level="mid", locale="zh-CN"
+        )
     )
     assert again is not None and again["cached"] is True
     assert second.stream_calls == []
@@ -151,7 +176,13 @@ def test_concurrent_requests_share_one_generation(db) -> None:
 
     async def ask() -> dict | None:
         return await cb.get_or_create_brief(
-            db, llm, company="Acme", role="Backend", level="mid", interview_type="tech_1", locale="en"
+            db,
+            llm,
+            company="Acme",
+            role="Backend",
+            level="mid",
+            interview_type="tech_1",
+            locale="en",
         )
 
     async def main() -> tuple[dict | None, dict | None]:
@@ -169,7 +200,13 @@ def test_failure_cooldown_fails_fast_then_expires(db, monkeypatch) -> None:
     assert (
         asyncio.run(
             cb.get_or_create_brief(
-                db, failing, company="Acme", role="r", level="l", interview_type="tech_1", locale="en"
+                db,
+                failing,
+                company="Acme",
+                role="r",
+                level="l",
+                interview_type="tech_1",
+                locale="en",
             )
         )
         is None
@@ -254,7 +291,13 @@ def test_clear_company_briefs_resets_failure_cooldown(db) -> None:
     assert (
         asyncio.run(
             cb.get_or_create_brief(
-                db, failing, company="Acme", role="r", level="l", interview_type="tech_1", locale="en"
+                db,
+                failing,
+                company="Acme",
+                role="r",
+                level="l",
+                interview_type="tech_1",
+                locale="en",
             )
         )
         is None

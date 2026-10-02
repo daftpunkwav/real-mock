@@ -9,9 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
-
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from realmock.platform.database import SessionsBase
 

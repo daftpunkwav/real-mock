@@ -163,10 +163,10 @@ def get_company_context(company_id: str) -> str:
         )
 
     questions = "\n".join(f"- {q}" for q in company["sample_questions"])
-    return f"""## Target company: {company['name']}
-Interview style: {company['style']}
-Focus areas: {', '.join(company['focus_areas'])}
-Typical interview flow: {company['interview_flow']}
-Pressure level: {company['pressure_level']}
+    return f"""## Target company: {company["name"]}
+Interview style: {company["style"]}
+Focus areas: {", ".join(company["focus_areas"])}
+Typical interview flow: {company["interview_flow"]}
+Pressure level: {company["pressure_level"]}
 Sample question style:
 {questions}"""

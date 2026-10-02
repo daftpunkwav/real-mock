@@ -40,7 +40,7 @@ async def _ok_handler(args: dict) -> str:
 
 def test_extract_json_object_recovers_noisy_and_key_richest() -> None:
     assert extract_json_object('{"a": 1}') == {"a": 1}
-    assert extract_json_object("```json\n{\"a\": 1}\n```") == {"a": 1}
+    assert extract_json_object('```json\n{"a": 1}\n```') == {"a": 1}
     noisy = '{"draft": 1} middle {"score": 5, "headline": "full"} end'
     assert extract_json_object(noisy) == {"score": 5, "headline": "full"}
     assert extract_json_object("") is None
@@ -50,9 +50,7 @@ def test_extract_json_object_recovers_noisy_and_key_richest() -> None:
 
 def test_iter_balanced_objects_ignores_braces_in_strings_and_caps() -> None:
     text = 'noise {"narrative": "has {braces} inside", "score": 1} tail'
-    assert list(iter_balanced_objects(text)) == [
-        '{"narrative": "has {braces} inside", "score": 1}'
-    ]
+    assert list(iter_balanced_objects(text)) == ['{"narrative": "has {braces} inside", "score": 1}']
     many = " ".join(['{"a": 1}' for _ in range(300)])
     assert len(list(iter_balanced_objects(many))) == 200
 
@@ -134,6 +132,7 @@ async def test_invoke_with_timeout_classifies_provider_error_hints() -> None:
 
 async def test_invoke_with_timeout_truncates_args_echo() -> None:
     """The echoed call arguments in an error observation are capped at 400 chars."""
+
     async def _boom(args: dict) -> str:
         del args
         raise RuntimeError("kaboom")
@@ -252,9 +251,7 @@ class _ToolCallLLM:
             return {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [
-                    {"id": "c1", "function": {"name": "guarded", "arguments": "{}"}}
-                ],
+                "tool_calls": [{"id": "c1", "function": {"name": "guarded", "arguments": "{}"}}],
             }
         return {"role": "assistant", "content": "unreached", "tool_calls": None}
 

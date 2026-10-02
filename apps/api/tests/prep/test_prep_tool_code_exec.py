@@ -3,9 +3,13 @@
 Covers: missing-code guard and timeout default/clamp branches
 Conventions: run_code_snippet faked; no real execution; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import pytest
+
 from realmock.platform.capabilities.ai.agent import WorkingMemory
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -15,8 +19,10 @@ def _reset_rate_limit():
     yield
     reset_rate_limit()
 
+
 def _memory() -> WorkingMemory:
     return WorkingMemory()
+
 
 @pytest.mark.asyncio
 async def test_code_exec_missing_code() -> None:
@@ -25,6 +31,7 @@ async def test_code_exec_missing_code() -> None:
     text, hits = await run_code_exec({"language": "python", "code": "   "}, _memory())
     assert "missing code" in text
     assert hits == []
+
 
 @pytest.mark.asyncio
 async def test_code_exec_bad_timeout_uses_default(monkeypatch) -> None:
@@ -51,6 +58,7 @@ async def test_code_exec_bad_timeout_uses_default(monkeypatch) -> None:
     assert text2.startswith("OBS:")
     assert seen["timeout"] == code_mod._CODE_EXEC_MAX_TIMEOUT
 
+
 @pytest.mark.asyncio
 async def test_code_exec_overlong_code_refused_not_truncated(monkeypatch) -> None:
     import realmock.domains.prep.agents.tools.basic.code_exec as code_mod
@@ -65,6 +73,7 @@ async def test_code_exec_overlong_code_refused_not_truncated(monkeypatch) -> Non
     )
     assert "too long" in text
     assert hits == []
+
 
 @pytest.mark.asyncio
 async def test_code_exec_nonfinite_timeout_uses_default(monkeypatch) -> None:

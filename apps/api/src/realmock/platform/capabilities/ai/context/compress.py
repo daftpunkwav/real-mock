@@ -83,9 +83,7 @@ def compress_messages(
     - Write omitted user/assistant messages into a summary line; when ``memory`` is supplied, absorb them into working memory as well.
     """
     system = [m for m in messages if m.get("role") == "system"]
-    rest = _prune_stale_tool_pairs(
-        [m for m in messages if m.get("role") != "system"]
-    )
+    rest = _prune_stale_tool_pairs([m for m in messages if m.get("role") != "system"])
     # The old tool took unconditional effect on folding (micro-compression); further compression was only performed when a threshold was exceeded
     if max_tokens > 0 and estimate_messages_tokens(system + rest) <= max_tokens * threshold:
         return system + rest

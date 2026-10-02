@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import inspect
 
-from realmock.domains.interview.routes import turns as interview_api
 from realmock.domains.interview.agents import session_state as agent_mod
+from realmock.domains.interview.routes import turns as interview_api
 
 
 def test_interview_agent_has_no_start_or_respond() -> None:

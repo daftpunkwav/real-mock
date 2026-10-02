@@ -12,14 +12,17 @@ from realmock.platform.schemas import CandidateProfile
 
 
 def _seed(api_db, *, scored: bool = True):
-    row = store.insert_upload(        api_db,
+    row = store.insert_upload(
+        api_db,
         filename="cv.txt",
         file_type="txt",
         raw_text="body",
         parsed=CandidateProfile(name="Ada"),
     )
     if scored:
-        row.analysis = json.dumps({"score": 70, "dimension_scores": {f"d{i}": 70 for i in range(5)}})
+        row.analysis = json.dumps(
+            {"score": 70, "dimension_scores": {f"d{i}": 70 for i in range(5)}}
+        )
         row.score = 70
         api_db.commit()
         api_db.refresh(row)

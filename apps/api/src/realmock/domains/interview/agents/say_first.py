@@ -54,9 +54,7 @@ async def stream_say_first(
     parser = SayFirstStreamParser()
     say_parts: list[str] = []
     stream_tools = tools.collect_chat_tools(include_function_tools=False)
-    async for token in llm.chat_stream(
-        api_messages, temperature=temperature, tools=stream_tools
-    ):
+    async for token in llm.chat_stream(api_messages, temperature=temperature, tools=stream_tools):
         visible = think_filter.feed(token or "")
         if not visible:
             continue

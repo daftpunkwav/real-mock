@@ -173,12 +173,12 @@ class SayFirstStreamParser:
             keep = len(_SAY_KEY) - 1
             self._pending = self._pending[-keep:] if len(self._pending) > keep else self._pending
             return
-        rest = self._pending[idx + len(_SAY_KEY):]
+        rest = self._pending[idx + len(_SAY_KEY) :]
         colon = rest.find(":")
         if colon < 0:
             self._pending = rest
             return
-        rest = rest[colon + 1:].lstrip()
+        rest = rest[colon + 1 :].lstrip()
         if not rest.startswith('"'):
             if len(rest) > 4:
                 # say is not a string: give up streaming extraction and downgrade to plain text as a whole
@@ -204,16 +204,16 @@ class SayFirstStreamParser:
                     if i + 6 > n:
                         break  # \\uXXXX is incomplete, wait for the next token
                     try:
-                        out.append(chr(int(s[i + 2:i + 6], 16)))
+                        out.append(chr(int(s[i + 2 : i + 6], 16)))
                     except ValueError:
-                        out.append(s[i:i + 6])
+                        out.append(s[i : i + 6])
                     i += 6
                     continue
                 out.append(_ESCAPES.get(esc, esc))
                 i += 2
                 continue
             if c == '"':
-                self._pending = s[i + 1:]
+                self._pending = s[i + 1 :]
                 self._state = _STATE_DONE
                 return
             out.append(c)

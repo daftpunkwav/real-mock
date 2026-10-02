@@ -35,6 +35,7 @@ def test_web_search_uses_shared_execute(monkeypatch) -> None:
 def test_company_lookup_persists_finding():
     """Company/resume lookups survive compaction via company_findings."""
     import asyncio
+
     from realmock.domains.interview.agents.tools import execute_interview_tool
 
     state: dict = {}
@@ -57,11 +58,17 @@ def test_company_lookup_persists_finding():
 def test_working_memory_renders_company_findings():
     from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
 
-    memory = WorkingMemory.from_state({
-        "company_findings": [
-            {"tool": "lookup_resume_projects", "args": "fastapi", "preview": "3 matching projects"}
-        ]
-    })
+    memory = WorkingMemory.from_state(
+        {
+            "company_findings": [
+                {
+                    "tool": "lookup_resume_projects",
+                    "args": "fastapi",
+                    "preview": "3 matching projects",
+                }
+            ]
+        }
+    )
     rendered = memory.render()
     assert "Verified" in rendered
     assert "lookup_resume_projects" in rendered

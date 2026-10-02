@@ -10,13 +10,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from realmock.domains.interview.agents.interviewer import runner_closing as rcmod
 from realmock.domains.interview.agents.events import EventKind
+from realmock.domains.interview.agents.interviewer import runner_closing as rcmod
 from realmock.domains.interview.agents.turn_output import TurnOutput
-
-
-
-
 
 
 def _state(idx: int, phase_ids: list[str]):
@@ -24,15 +20,8 @@ def _state(idx: int, phase_ids: list[str]):
     return SimpleNamespace(current_phase_idx=idx, questions_in_phase=5, session=session)
 
 
-
-
-
-
-
-
-
-
 # ---- runner_closing ----
+
 
 def _make_runner(monkeypatch, *, status="active", personality="professional", say="Thanks, bye."):
     from tests.fakes import FakeLLMClient
@@ -49,7 +38,9 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         current_phase_idx=0,
         session=SimpleNamespace(current_phase="identity_check"),
         memory_block=lambda: "",
-        record_assistant_text=lambda text: agent.messages.append({"role": "assistant", "content": text}),
+        record_assistant_text=lambda text: agent.messages.append(
+            {"role": "assistant", "content": text}
+        ),
         note_turn_output=lambda output: None,
         note_verdict=lambda verdict: setattr(agent.session, "result", verdict),
         mark_completed=lambda: setattr(session, "status", "completed"),
@@ -59,7 +50,10 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         _score_section=lambda: "## scores\n1. 4/5 — good",
     )
     session = SimpleNamespace(
-        status=status, personality=personality, id=1, current_phase="identity_check",
+        status=status,
+        personality=personality,
+        id=1,
+        current_phase="identity_check",
     )
     # bind mark_completed closure over session
     orig_mark = agent.mark_completed
@@ -76,7 +70,9 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         from realmock.domains.interview.agents.events import StreamEvent as SE
 
         yield SE.make_token(say)
-        yield TurnOutput(say=say, emotion="smile", wait_seconds=0, interview_complete=False, verdict="passed")
+        yield TurnOutput(
+            say=say, emotion="smile", wait_seconds=0, interview_complete=False, verdict="passed"
+        )
 
     monkeypatch.setattr(rcmod, "stream_say_first", fake_say_first)
     monkeypatch.setattr(rcmod, "append_turn", lambda db, sess, **k: {"turn_id": "t-0001"})
@@ -133,7 +129,8 @@ async def test_stream_closing_uses_context_window_compaction(monkeypatch) -> Non
     import realmock.domains.interview.agents.interviewer.runner_closing as m
 
     monkeypatch.setitem(
-        __import__("sys").modules, "realmock.platform.capabilities.ai.context.summarize",
+        __import__("sys").modules,
+        "realmock.platform.capabilities.ai.context.summarize",
         SimpleNamespace(compact_with_summary=fake_compact),
     )
     # Patch via import path inside function: monkeypatch the module attribute directly
@@ -195,21 +192,33 @@ def test_stream_closing_persists_agent_state_json_shape(db) -> None:
     # Real DB shape: closing must leave ledger + completed status via InterviewRunner.
     import json
 
-    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
+    from realmock.domains.interview.models import InterviewSession
     from tests.fakes import FakeLLMClient
 
     s = InterviewSession(
-        profile_id=1, role="Backend", level="Senior", company="bytedance",
-        workflow_type="technical", personality="professional", strictness=3,
-        interview_style="deep_dive", status="active", current_phase="summary",
-        plan_status="failed", messages=json.dumps([{"role": "system", "content": "sys"}]),
+        profile_id=1,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        status="active",
+        current_phase="summary",
+        plan_status="failed",
+        messages=json.dumps([{"role": "system", "content": "sys"}]),
         agent_state=json.dumps({"phase_idx": 8, "questions_in_phase": 0}),
     )
     db.add(s)
     db.commit()
     db.refresh(s)
-    llm = FakeLLMClient(tokens=['{"say":"bye","v":1,"emotion":"smile","interview_complete":true,"verdict":"passed"}'])
+    llm = FakeLLMClient(
+        tokens=[
+            '{"say":"bye","v":1,"emotion":"smile","interview_complete":true,"verdict":"passed"}'
+        ]
+    )
     runner = InterviewRunner(s, llm)
     import asyncio
 

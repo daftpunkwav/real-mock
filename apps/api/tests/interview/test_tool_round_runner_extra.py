@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.agents.agent_text import ThinkStreamFilter
 from realmock.domains.interview.agents.events import StreamEvent
 from realmock.domains.interview.agents.tool_round_runner import (
@@ -48,18 +49,6 @@ def _empty_llm() -> MagicMock:
 
 
 # ---- process orchestrator ----
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- tool round runner: rag + tools ----
@@ -416,31 +405,7 @@ def _opening_runner(**overrides):
     return runner
 
 
-
-
-
-
-
-
-
-
-
-
 # ---- stepfun backend ----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- turn-scope dedup / tool-free final round / rag budget ----
@@ -488,9 +453,7 @@ async def test_run_tool_rounds_dedup_allows_retry_after_failure(monkeypatch) -> 
         lambda: _loop_settings(),
     )
     monkeypatch.setattr(r, "collect_chat_tools", lambda **k: [{"type": "function"}])
-    r.guard = SimpleNamespace(
-        run=AsyncMock(side_effect=[RuntimeError("boom"), "RETRY_OK"])
-    )
+    r.guard = SimpleNamespace(run=AsyncMock(side_effect=[RuntimeError("boom"), "RETRY_OK"]))
 
     observations: list[str] = []
 

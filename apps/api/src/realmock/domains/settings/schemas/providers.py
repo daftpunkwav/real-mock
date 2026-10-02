@@ -16,6 +16,7 @@ ModelKind = Literal["chat", "stt", "tts"]
 
 # ── Channels / model profiles ──────────────────────────────────────────────
 
+
 class ProviderChannelResponse(BaseModel):
     """External channel view (``channel_to_response``; key masked to a boolean)."""
 
@@ -28,7 +29,6 @@ class ProviderChannelResponse(BaseModel):
 
 
 class ModelCapabilitiesResponse(BaseModel):
-
     chat: bool
     vision: bool
     audio_input: bool
@@ -54,7 +54,6 @@ class ModelProfileResponse(BaseModel):
 
 
 class ProviderWithModelsResponse(BaseModel):
-
     id: int
     name: str
     enabled: bool
@@ -65,7 +64,6 @@ class ProviderWithModelsResponse(BaseModel):
 
 
 class ProviderListResponse(BaseModel):
-
     providers: list[ProviderWithModelsResponse]
 
 
@@ -97,14 +95,13 @@ class ChannelModelCatalogResponse(BaseModel):
 
 # ── Task bindings ──────────────────────────────────────────────────────────
 
-class BindingFallback(BaseModel):
 
+class BindingFallback(BaseModel):
     handler: str
     mode: str
 
 
 class TaskBindingView(BaseModel):
-
     task: ModelKind
     profile: ModelProfileResponse | None
     fallback: BindingFallback
@@ -120,6 +117,7 @@ class BindingsResponse(BaseModel):
 
 # ── Recommended vendors ────────────────────────────────────────────────────
 
+
 class VendorCapabilityDef(BaseModel):
     """Deep request template metadata from the vendor descriptor JSON."""
 
@@ -130,7 +128,6 @@ class VendorCapabilityDef(BaseModel):
 
 
 class RecommendedVendorCapability(BaseModel):
-
     model_config = ConfigDict(populate_by_name=True)
 
     provider_id: str
@@ -154,7 +151,6 @@ class RecommendedVendorResponse(BaseModel):
 
 
 class RecommendedVendorsResponse(BaseModel):
-
     vendors: list[RecommendedVendorResponse]
 
 
@@ -168,6 +164,7 @@ class VendorApplyResponse(BaseModel):
 
 
 # ── GitHub integration ─────────────────────────────────────────────────────
+
 
 class GithubStatusResponse(BaseModel):
     """Link status: configured flag plus tail mask, never the secret."""
@@ -189,6 +186,7 @@ class GithubTestResponse(BaseModel):
 
 
 # ── Voice / reasoning catalog ──────────────────────────────────────────────
+
 
 class VoiceProviderOptionResponse(BaseModel):
     """One catalog provider row (``catalog_schema._p`` shape)."""

@@ -26,9 +26,7 @@ def rag(tmp_path: Path, monkeypatch) -> CompanyKnowledgeRAG:
     # Override _data_dir so chroma persists to a temporary directory
     from realmock.domains.interview.capabilities.rag import company_rag
 
-    monkeypatch.setattr(
-        company_rag, "_data_dir", lambda: tmp_path / "chroma"
-    )
+    monkeypatch.setattr(company_rag, "_data_dir", lambda: tmp_path / "chroma")
     # Use an independent collection name for each test to avoid chromadb client-level caching.
     unique_name = f"test_{uuid.uuid4().hex[:8]}"
     rag = CompanyKnowledgeRAG(FakeLLMClient())

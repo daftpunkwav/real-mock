@@ -84,12 +84,8 @@ class TurnTimersMixin:
 
     def arm_think_timer(self) -> None:
         """Arm/re-arm only the think window (periodic retry until guards pass)."""
-        think_s = clamp_nudge_wait(
-            self.ctx.last_wait_seconds, self.ctx.nudge_cooldown_sec
-        )
-        self.ctx.think_timer_task = self._spawn_delayed(
-            think_s, self._on_think_timer_fire
-        )
+        think_s = clamp_nudge_wait(self.ctx.last_wait_seconds, self.ctx.nudge_cooldown_sec)
+        self.ctx.think_timer_task = self._spawn_delayed(think_s, self._on_think_timer_fire)
 
     def cancel_turn_timers(self) -> None:
         """Cancel both timers (new question, candidate turn started, teardown)."""
@@ -119,9 +115,7 @@ class TurnTimersMixin:
         answer_task = self.ctx.answer_timer_task
         if answer_task is None or answer_task.done():
             answer_s = clamp_answer_wait(self.ctx.last_answer_wait_seconds)
-            self.ctx.answer_timer_task = self._spawn_delayed(
-                answer_s, self._on_answer_timer_fire
-            )
+            self.ctx.answer_timer_task = self._spawn_delayed(answer_s, self._on_answer_timer_fire)
 
     def restore_turn_timers_after_incomplete_turn(self) -> None:
         """A candidate turn ended WITHOUT a completed answer (e.g. empty STT
@@ -165,9 +159,7 @@ class TurnTimersMixin:
         try:
             await self._on_silence_nudge()
         except Exception:
-            logger.exception(
-                "think timer nudge failed sid=%s", self.ctx.session_id
-            )
+            logger.exception("think timer nudge failed sid=%s", self.ctx.session_id)
         still_thinking = (
             not self.ctx.answer_started_at
             and not self.ctx.silence_capped

@@ -12,9 +12,11 @@ from enum import Enum
 class EventKind(str, Enum):
     """All event types pushed to the upper layer by the runner."""
 
-    TOKEN = "token"               # Streaming token
-    TURN_COMPLETE = "turn_done"   # Completed in a single round (with complete text and stage information)
-    ERROR = "error"               # abnormal
+    TOKEN = "token"  # Streaming token
+    TURN_COMPLETE = (
+        "turn_done"  # Completed in a single round (with complete text and stage information)
+    )
+    ERROR = "error"  # abnormal
 
 
 class LedgerWriteError(RuntimeError):
@@ -32,19 +34,25 @@ class StreamEvent:
 
     kind: EventKind
     token: str = ""
-    content: str = ""             # Full text (populated only for TURN_COMPLETE; plain text under say protocol)
-    phase_id: str = ""            # current stage id
-    is_complete: bool = False     # Whether the interview is complete (interview_complete)
-    phase_changed: bool = False   # Whether the phase has been switched this round
-    emotion: str = "neutral"      # Emotion tag (turn protocol emotion field)
-    error: str = ""               # error message
-    error_code: str = ""          # Business error code; defaults to B0001 on frontend when empty
-    error_retryable: bool = False # Is it possible to retry
-    wait_seconds: int = 0         # The number of seconds the candidate is expected to answer (0=not provided)
-    answer_wait_seconds: int = 0  # Answer window (s) from the candidate's first input; 0=not provided
-    sources: tuple[str, ...] = () # Basis for answering this round (resume/github/company_kb/none)
-    result: str | None = None     # Agent verdict announced on the wrap-up turn (passed/failed)
-    phase_title: str = ""         # Display title of the current plan step (agent-authored; empty = static id)
+    content: str = ""  # Full text (populated only for TURN_COMPLETE; plain text under say protocol)
+    phase_id: str = ""  # current stage id
+    is_complete: bool = False  # Whether the interview is complete (interview_complete)
+    phase_changed: bool = False  # Whether the phase has been switched this round
+    emotion: str = "neutral"  # Emotion tag (turn protocol emotion field)
+    error: str = ""  # error message
+    error_code: str = ""  # Business error code; defaults to B0001 on frontend when empty
+    error_retryable: bool = False  # Is it possible to retry
+    wait_seconds: int = (
+        0  # The number of seconds the candidate is expected to answer (0=not provided)
+    )
+    answer_wait_seconds: int = (
+        0  # Answer window (s) from the candidate's first input; 0=not provided
+    )
+    sources: tuple[str, ...] = ()  # Basis for answering this round (resume/github/company_kb/none)
+    result: str | None = None  # Agent verdict announced on the wrap-up turn (passed/failed)
+    phase_title: str = (
+        ""  # Display title of the current plan step (agent-authored; empty = static id)
+    )
 
     @classmethod
     def make_token(cls, token: str) -> "StreamEvent":

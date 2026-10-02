@@ -57,6 +57,7 @@ def _manage_limit() -> "DependsInstance":
         rate_limit_dep(key="manage", limit=DEFAULT_RATE_LIMIT_PER_MINUTE),
     )
 
+
 router = APIRouter()
 
 router.add_api_route(

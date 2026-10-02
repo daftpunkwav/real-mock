@@ -6,9 +6,9 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 
 from __future__ import annotations
 
-
 import pytest
 from fastapi.testclient import TestClient
+
 from realmock.asgi import app
 from realmock.platform.core.ratelimit import reset_rate_limit
 
@@ -22,8 +22,8 @@ def _clean_limits():
 
 @pytest.fixture(autouse=True)
 def _growth_table(engine):
-    from realmock.platform.database import SessionsBase
     import realmock.domains.growth.models.growth  # noqa: F401
+    from realmock.platform.database import SessionsBase
 
     SessionsBase.metadata.create_all(bind=engine)
     yield
@@ -69,14 +69,6 @@ def test_safe_json_list_bad_payload() -> None:
 
 
 # ---- ingest (29-31, 34-35, 50-51) ----
-
-
-
-
-
-
-
-
 
 
 # ---- learning (73-75, 90, 96-97) ----

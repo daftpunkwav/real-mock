@@ -11,9 +11,9 @@ from __future__ import annotations
 import asyncio
 import json
 
-from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
+from realmock.domains.interview.models import InterviewSession
 from tests.fakes import FakeLLMClient
 
 
@@ -173,12 +173,21 @@ def test_stream_turn_resets_parser_across_content_rounds(db) -> None:
     session = _make_session(db)
     narr = json.dumps({"say": "Let me check the profile first.", "v": 1}, ensure_ascii=False)
     final_say = "Here is the real question about caching."
-    final_json = json.dumps({
-        "say": final_say, "v": 1, "wait_seconds": 20, "emotion": "neutral",
-        "phase_complete": False, "interview_complete": False,
-        "turn_score": None, "probe": None, "sources": [],
-    }, ensure_ascii=False)
-    chunks = [final_json[i:i + 9] for i in range(0, len(final_json), 9)]
+    final_json = json.dumps(
+        {
+            "say": final_say,
+            "v": 1,
+            "wait_seconds": 20,
+            "emotion": "neutral",
+            "phase_complete": False,
+            "interview_complete": False,
+            "turn_score": None,
+            "probe": None,
+            "sources": [],
+        },
+        ensure_ascii=False,
+    )
+    chunks = [final_json[i : i + 9] for i in range(0, len(final_json), 9)]
     llm = _RoundStreamLLM(
         rounds=[
             [
@@ -189,15 +198,17 @@ def test_stream_turn_resets_parser_across_content_rounds(db) -> None:
                         "role": "assistant",
                         "content": narr,
                         "tool_calls": [
-                            {"id": "c1", "type": "function",
-                             "function": {"name": "lookup_company_profile", "arguments": "{}"}}
+                            {
+                                "id": "c1",
+                                "type": "function",
+                                "function": {"name": "lookup_company_profile", "arguments": "{}"},
+                            }
                         ],
                     },
                 },
             ],
-            [
-                {"type": "text", "text": c} for c in chunks
-            ] + [{"type": "message", "message": {"role": "assistant", "content": final_json}}],
+            [{"type": "text", "text": c} for c in chunks]
+            + [{"type": "message", "message": {"role": "assistant", "content": final_json}}],
         ]
     )
     runner = InterviewRunner(session, llm)

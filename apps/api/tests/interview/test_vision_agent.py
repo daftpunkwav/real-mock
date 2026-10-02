@@ -11,34 +11,6 @@ import pytest
 from realmock.domains.interview.capabilities.vision.agent import VisionAgent
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def test_vision_summarize_none_and_empty() -> None:
     assert VisionAgent.summarize(None) == ""
     assert VisionAgent.summarize({}) == ""

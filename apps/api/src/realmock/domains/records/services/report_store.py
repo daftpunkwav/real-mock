@@ -41,11 +41,7 @@ def _as_aware(dt: datetime | None) -> datetime | None:
 
 def get_report_row(db: Session, session_id: int) -> InterviewReportRow | None:
     """Fetch report row by session_id."""
-    return (
-        db.query(InterviewReportRow)
-        .filter(InterviewReportRow.session_id == session_id)
-        .first()
-    )
+    return db.query(InterviewReportRow).filter(InterviewReportRow.session_id == session_id).first()
 
 
 def is_stale_generating(row: InterviewReportRow) -> bool:
@@ -145,9 +141,7 @@ def parse_payload(row: InterviewReportRow) -> DebriefReport | None:
     try:
         return DebriefReport.model_validate_json(raw)
     except Exception:
-        logger.debug(
-            "report payload parse failed sid=%s", row.session_id, exc_info=True
-        )
+        logger.debug("report payload parse failed sid=%s", row.session_id, exc_info=True)
         return None
 
 

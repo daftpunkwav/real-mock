@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -61,11 +62,7 @@ def test_plan_user_message_all_branches() -> None:
 # ---- process_service (165, 278-279, 308-310) ----
 
 
-
-
-    # No crash, warning path (278-279).
-
-
+# No crash, warning path (278-279).
 
 
 # ---- turns (115, 118, 122, 155, 166-168) ----

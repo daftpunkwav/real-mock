@@ -68,8 +68,7 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
         answer_started_at=0.0,
         closing=False,
         turn_busy=False,
-        agent=SimpleNamespace(plan=None, messages=agent_messages,
-                              agent_state={}),
+        agent=SimpleNamespace(plan=None, messages=agent_messages, agent_state={}),
         # The realtime layer reads agent state only through the runner facade.
         # message_history mirrors the production contract: a shallow copy of
         # the list whose dicts are shared with the agent's own history.
@@ -93,9 +92,7 @@ def _mixin(**ctx_kwargs) -> SilenceNudgeMixin:
     mixin.send = send  # type: ignore[method-assign]
     mixin.set_turn = set_turn  # type: ignore[method-assign]
     # Persona / ledger workers hit the DB in a thread; unit tests stub them.
-    mixin._read_persona = (
-        lambda: asyncio.sleep(0, result=("professional", 3, "tech"))
-    )  # type: ignore[method-assign]
+    mixin._read_persona = lambda: asyncio.sleep(0, result=("professional", 3, "tech"))  # type: ignore[method-assign]
     mixin._persist_probe_flag = lambda payload: asyncio.sleep(0)  # type: ignore[method-assign]
     # The real method is synchronous (raises generation, clears event).
     mixin._begin_playback_wait = lambda: None  # type: ignore[method-assign]

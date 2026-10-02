@@ -26,9 +26,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault("LLM_MODEL", "test-model")
     os.environ.setdefault("CORS_ORIGINS", "http://localhost:8080")
     os.environ["TEST_MODE"] = "1"
-    os.environ.setdefault(
-        "SECRET_KEY", base64.b64encode(b"test-master-key-32-bytes").decode()
-    )
+    os.environ.setdefault("SECRET_KEY", base64.b64encode(b"test-master-key-32-bytes").decode())
     try:
         from realmock.platform.config import get_settings
         from realmock.platform.database import reset_engines
@@ -73,10 +71,10 @@ def api_engine():
 
 @pytest.fixture
 def session_factory(engine, api_engine):
-    from realmock.platform.database import ApiBase, SessionsBase
-    import realmock.platform.models  # noqa: F401
-    import realmock.domains.prep.models  # noqa: F401
     import realmock.domains.interview.models  # noqa: F401
+    import realmock.domains.prep.models  # noqa: F401
+    import realmock.platform.models  # noqa: F401
+    from realmock.platform.database import ApiBase, SessionsBase
 
     ApiBase.metadata.create_all(bind=api_engine)
     SessionsBase.metadata.create_all(bind=engine)
@@ -94,8 +92,8 @@ def db(session_factory) -> Generator:
 
 @pytest.fixture
 def api_db(api_engine) -> Generator:
-    from realmock.platform.database import ApiBase
     import realmock.platform.models  # noqa: F401
+    from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
     factory = sessionmaker(autocommit=False, autoflush=False, bind=api_engine)
@@ -130,6 +128,7 @@ def public_dns(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(security_url, "_resolve_all", fake_resolve)
 
+
 @pytest.fixture
 def seed_ledger_turns(db):
     """Insert ledger turns for a session (post-restructure seeding).
@@ -139,7 +138,6 @@ def seed_ledger_turns(db):
     rows plus the session flag, replacing the dropped ``ledger`` column.
     """
     from realmock.domains.interview.models import InterviewSession, InterviewTurn
-
 
     def _seed(session_id: int, doc: dict) -> None:
         for seq, turn in enumerate(doc.get("turns") or [], start=1):
@@ -152,11 +150,7 @@ def seed_ledger_turns(db):
                         else f"t-{seq:04d}"
                     ),
                     seq=seq,
-                    turn=(
-                        turn
-                        if isinstance(turn, str)
-                        else json.dumps(turn, ensure_ascii=False)
-                    ),
+                    turn=(turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)),
                 )
             )
         if doc.get("corrupt"):

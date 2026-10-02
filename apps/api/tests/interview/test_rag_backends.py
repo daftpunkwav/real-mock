@@ -13,8 +13,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from realmock.platform.config import Settings
-from realmock.platform.core.constants import RAGBackendKind
 from realmock.domains.interview.capabilities.rag.base import RAGBackend
 from realmock.domains.interview.capabilities.rag.company_rag import CompanyKnowledgeRAG
 from realmock.domains.interview.capabilities.rag.factory import _NullRAG, build_rag_backend
@@ -23,8 +21,9 @@ from realmock.domains.interview.capabilities.rag.stepfun_backend import (
     StepFunRetrievalRAG,
     _serialize_documents_to_jsonl,
 )
+from realmock.platform.config import Settings
+from realmock.platform.core.constants import RAGBackendKind
 from tests.fakes import FakeLLMClient
-
 
 # ── Factory selection ──────────────────────────────────────
 

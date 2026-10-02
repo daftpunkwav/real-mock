@@ -150,7 +150,9 @@ def profile_tool_specs(snapshot: ProfileSnapshot) -> list[ToolSpec]:
                 ensure_ascii=False,
             )
         if not snapshot.fields:
-            return json.dumps({"error": "no_profile_on_file", "section": section}, ensure_ascii=False)
+            return json.dumps(
+                {"error": "no_profile_on_file", "section": section}, ensure_ascii=False
+            )
         return json.dumps(
             {
                 "section": section,

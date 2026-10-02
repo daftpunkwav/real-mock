@@ -14,7 +14,9 @@ from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 
 
-async def run_compact_out_of_loop(args: dict[str, Any], memory: WorkingMemory) -> tuple[str, SearchHits]:
+async def run_compact_out_of_loop(
+    args: dict[str, Any], memory: WorkingMemory
+) -> tuple[str, SearchHits]:
     """Fallback for out-of-loop direct dispatch (never fires in the turn loop)."""
     del args, memory
     return "compact_context runs inside the turn loop only; it cannot fold history from here.", []

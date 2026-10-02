@@ -24,7 +24,10 @@ def test_tokens_match_accepts_equal() -> None:
 
 @pytest.mark.asyncio
 async def test_audio_chunk_uses_running_byte_total() -> None:
-    from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler, _AUDIO_BUFFER_MAX_BYTES
+    from realmock.domains.interview.realtime.ws_handler import (
+        _AUDIO_BUFFER_MAX_BYTES,
+        InterviewWSHandler,
+    )
 
     ws = MagicMock()
     ws.send_json = AsyncMock()

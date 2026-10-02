@@ -118,9 +118,7 @@ def extract_reasoning(data: dict[str, Any], protocol: str) -> str:
             summary = item.get("summary")
             if isinstance(summary, list):
                 parts.extend(
-                    str(part.get("text") or "")
-                    for part in summary
-                    if isinstance(part, dict)
+                    str(part.get("text") or "") for part in summary if isinstance(part, dict)
                 )
             elif isinstance(summary, str):
                 parts.append(summary)
@@ -200,9 +198,7 @@ def extract_citations(data: dict[str, Any], protocol: str) -> list[dict[str, str
                 url = str(ann.get("url") or "")
                 if not url:
                     continue
-                citations.append(
-                    {"url": url, "title": str(ann.get("title") or "")}
-                )
+                citations.append({"url": url, "title": str(ann.get("title") or "")})
     return citations
 
 
@@ -242,7 +238,9 @@ def provider_business_error(data: dict[str, Any], protocol: str) -> str:
             err = data.get("error") or {}
             code = err.get("code") if isinstance(err, dict) else None
             message = err.get("message") if isinstance(err, dict) else None
-            return f"Provider reported failure (status=failed, code={code}): {message or 'no detail'}"
+            return (
+                f"Provider reported failure (status=failed, code={code}): {message or 'no detail'}"
+            )
         return ""
     base_resp = data.get("base_resp")
     if isinstance(base_resp, dict):
@@ -265,7 +263,10 @@ def parse_sse_event(event: dict[str, Any], protocol: str) -> tuple[str, str]:
     if protocol == LLMProtocol.OPENAI_RESPONSES:
         if event.get("type") == "response.output_text.delta":
             return str(event.get("delta") or ""), ""
-        if event.get("type") in ("response.reasoning_summary_text.delta", "response.reasoning_text.delta"):
+        if event.get("type") in (
+            "response.reasoning_summary_text.delta",
+            "response.reasoning_text.delta",
+        ):
             return "", str(event.get("delta") or "")
         return "", ""
     # openai_chat

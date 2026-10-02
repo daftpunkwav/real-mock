@@ -32,12 +32,16 @@ async def parse_chat_json(
         max_tokens=max_tokens,
     )
     if not (isinstance(content, str) and content.strip()):
-        logger.warning("chat_json returns empty for the first time, and returns no response_format to try again.")
+        logger.warning(
+            "chat_json returns empty for the first time, and returns no response_format to try again."
+        )
         retry_messages = list(messages)
-        retry_messages.append({
-            "role": "user",
-            "content": "Please only output a legal JSON object, no Markdown, no interpretation.",
-        })
+        retry_messages.append(
+            {
+                "role": "user",
+                "content": "Please only output a legal JSON object, no Markdown, no interpretation.",
+            }
+        )
         content = await chat_fn(retry_messages, temperature=temperature)
     if content is None or (isinstance(content, str) and not content.strip()):
         raise ValueError(
@@ -80,7 +84,9 @@ async def parse_chat_json(
             repaired = repair_common_json_errors(auto_close_brackets(text))
             if repaired != text:
                 # Completion means that the output is likely to be truncated: part of the results are dropped into the database and need to be traced for investigation.
-                logger.warning("LLM JSON is missing the closing character and has been automatically completed (suspected to truncate the output)")
+                logger.warning(
+                    "LLM JSON is missing the closing character and has been automatically completed (suspected to truncate the output)"
+                )
             data = json.loads(repaired)
     if not isinstance(data, dict):
         raise ValueError("LLM JSON root type must be object")

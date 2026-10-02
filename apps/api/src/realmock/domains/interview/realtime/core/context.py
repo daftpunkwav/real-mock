@@ -13,9 +13,9 @@ from typing import Any
 
 from fastapi import WebSocket
 
-from realmock.domains.interview.realtime.nudge.orchestrator import InterviewOrchestrator
-from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.agents import InterviewRunner, InterviewSessionState
+from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.domains.interview.realtime.nudge.orchestrator import InterviewOrchestrator
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.voice.stt import SttCredentials
 from realmock.platform.capabilities.voice.tts import TtsCredentials
@@ -58,7 +58,9 @@ class ConnectionContext:
     tts_soft_idx: int = 0
 
     # ── STT ───────────────────────────────────────
-    stt_creds: SttCredentials = field(default_factory=lambda: SttCredentials(provider="local", model="base"))
+    stt_creds: SttCredentials = field(
+        default_factory=lambda: SttCredentials(provider="local", model="base")
+    )
     whisper_model: str = ""
 
     # ── Word Wheel Lock ───────────────────────────────────
@@ -96,13 +98,15 @@ class ConnectionContext:
     last_wait_seconds: float = 0.0
     #: Last C2001 error frame sent (STT-failure errors back off to avoid spam).
     last_stt_error_at: float = 0.0
-    silence_probe_seq: int = 0          # Silence probes sent for current question (0=none yet; max 2).
+    silence_probe_seq: int = 0  # Silence probes sent for current question (0=none yet; max 2).
     #: Assistant message count when the current probe window started. A new
     #: question is a new assistant message, so this is the exact window key —
     #: probes/closing text are appended to the same message and never reset it.
     silence_probe_msg_count: int = 0
-    silence_probe_question: str = ""    # Question text of the current probe window (set when a new one opens)
-    last_silence_probe: str = ""        # Content of the previous probe (to avoid repeating it)
+    silence_probe_question: str = (
+        ""  # Question text of the current probe window (set when a new one opens)
+    )
+    last_silence_probe: str = ""  # Content of the previous probe (to avoid repeating it)
     #: Closing nudge already spoken for the current question (after the probe
     #: cap): further silence stays quiet instead of looping probes or errors.
     silence_capped: bool = False

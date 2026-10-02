@@ -14,9 +14,6 @@ from __future__ import annotations
 from fastapi import Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.errors import raise_error
-from realmock.platform.core.security import sniff_extension
-from realmock.platform.database import get_db
 from realmock.domains.resume.schemas.limits import (
     ALLOWED_EXTENSIONS,
     FILENAME_MAX_LENGTH,
@@ -25,6 +22,9 @@ from realmock.domains.resume.schemas.limits import (
 )
 from realmock.domains.resume.services import resume_versions, store
 from realmock.domains.resume.services.ingest import ingest_resume_content
+from realmock.platform.core.errors import raise_error
+from realmock.platform.core.security import sniff_extension
+from realmock.platform.database import get_db
 
 
 async def ingest_uploaded_file(

@@ -319,6 +319,7 @@ class PrepMemoryBatchDelete(BaseModel):
 
 # --- Management-operation responses (owner-level routes without a body model) ---
 
+
 class PrepTruncateResponse(BaseModel):
     """POST /sessions/{id}/messages/truncate: history length after the cut."""
 

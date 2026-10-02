@@ -119,7 +119,9 @@ def test_error_observations_keep_exact_legacy_shape() -> None:
 
 def test_env_scrub_preserved_under_isolation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("REALMOCK_CODEEXEC_SECRET_PROBE", "leak-me")
-    code = "import os; print('secret=' + os.environ.get('REALMOCK_CODEEXEC_SECRET_PROBE', 'absent'))"
+    code = (
+        "import os; print('secret=' + os.environ.get('REALMOCK_CODEEXEC_SECRET_PROBE', 'absent'))"
+    )
     result = run_code_snippet("python", code, isolation="process")
     assert result.exit_code == 0
     assert "secret=absent" in result.stdout
@@ -160,6 +162,7 @@ def test_terminate_tree_posix_and_dead_paths(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(base_mod.os, "killpg", _boom, raising=False)
     base_mod.terminate_tree(p)  # type: ignore[arg-type]
     assert p.killed is True
+
     # proc.kill raises -> swallowed.
     class _Dead:
         pid = 1
@@ -199,8 +202,13 @@ def test_output_caps_preserved_with_isolation_param() -> None:
 
 def test_notes_rendered_in_observation() -> None:
     result = CodeResult(
-        language="python", exit_code=0, stdout="a", stderr="",
-        duration_ms=1, isolation="linux-job", notes=("cgroup=unavailable (probe)",),
+        language="python",
+        exit_code=0,
+        stdout="a",
+        stderr="",
+        duration_ms=1,
+        isolation="linux-job",
+        notes=("cgroup=unavailable (probe)",),
     )
     assert "cgroup=unavailable (probe)" in format_observation(result)
 
@@ -211,10 +219,17 @@ def test_process_backend_describes_its_limits() -> None:
 
 def test_build_plan_prefers_contained_for_root_with_tools() -> None:
     plan = linux_job_mod.build_plan(
-        is_root=True, username="nobody", uid=65534, gid=65534,
-        allow_network=False, unshare="/usr/bin/unshare",
-        user_switch=("setpriv", "--reuid=65534"), map_users_ok=True,
-        netns_ok=True, mountns_netns_ok=True, userns_mountns_netns_ok=True,
+        is_root=True,
+        username="nobody",
+        uid=65534,
+        gid=65534,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=("setpriv", "--reuid=65534"),
+        map_users_ok=True,
+        netns_ok=True,
+        mountns_netns_ok=True,
+        userns_mountns_netns_ok=True,
     )
     assert plan.kind == "contained"
     assert plan.drops_to == "nobody(65534:65534)"
@@ -225,10 +240,17 @@ def test_build_plan_prefers_contained_for_root_with_tools() -> None:
 
 def test_build_plan_falls_back_without_unshare() -> None:
     plan = linux_job_mod.build_plan(
-        is_root=False, username="nobody", uid=65534, gid=65534,
-        allow_network=False, unshare=None, user_switch=(),
-        map_users_ok=False, netns_ok=False,
-        mountns_netns_ok=False, userns_mountns_netns_ok=False,
+        is_root=False,
+        username="nobody",
+        uid=65534,
+        gid=65534,
+        allow_network=False,
+        unshare=None,
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=False,
     )
     assert plan.kind == "plain"
     assert plan.mount_prelude is False
@@ -238,10 +260,17 @@ def test_build_plan_falls_back_without_unshare() -> None:
 
 def test_build_plan_userns_netonly_keeps_uid_marker_for_non_root() -> None:
     plan = linux_job_mod.build_plan(
-        is_root=False, username="nobody", uid=65534, gid=65534,
-        allow_network=False, unshare="/usr/bin/unshare", user_switch=(),
-        map_users_ok=False, netns_ok=False,
-        mountns_netns_ok=False, userns_mountns_netns_ok=True,
+        is_root=False,
+        username="nobody",
+        uid=65534,
+        gid=65534,
+        allow_network=False,
+        unshare="/usr/bin/unshare",
+        user_switch=(),
+        map_users_ok=False,
+        netns_ok=False,
+        mountns_netns_ok=False,
+        userns_mountns_netns_ok=True,
     )
     assert plan.kind == "userns-netonly"
     assert plan.net_blocked is True
@@ -251,10 +280,17 @@ def test_build_plan_userns_netonly_keeps_uid_marker_for_non_root() -> None:
 
 def test_build_plan_explicit_network_opt_in_is_marked() -> None:
     plan = linux_job_mod.build_plan(
-        is_root=True, username="nobody", uid=65534, gid=65534,
-        allow_network=True, unshare="/usr/bin/unshare",
-        user_switch=("setpriv", "--reuid=65534"), map_users_ok=True,
-        netns_ok=True, mountns_netns_ok=True, userns_mountns_netns_ok=True,
+        is_root=True,
+        username="nobody",
+        uid=65534,
+        gid=65534,
+        allow_network=True,
+        unshare="/usr/bin/unshare",
+        user_switch=("setpriv", "--reuid=65534"),
+        map_users_ok=True,
+        netns_ok=True,
+        mountns_netns_ok=True,
+        userns_mountns_netns_ok=True,
     )
     assert plan.net_blocked is False
     assert "network=allowed (explicit opt-in)" in plan.notes

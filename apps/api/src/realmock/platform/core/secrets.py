@@ -26,7 +26,9 @@ from functools import lru_cache
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from realmock.platform.config import PLATFORM_ROOT  # Single source of truth: master key and DB are in the same directory
+from realmock.platform.config import (
+    PLATFORM_ROOT,  # Single source of truth: master key and DB are in the same directory
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +88,7 @@ def _derive_key(master: bytes, salt: bytes) -> bytes:
     """
     import hashlib
 
-    return hashlib.pbkdf2_hmac(
-        "sha256", master, salt, _KDF_ITERATIONS, dklen=_KEY_BYTES
-    )
+    return hashlib.pbkdf2_hmac("sha256", master, salt, _KDF_ITERATIONS, dklen=_KEY_BYTES)
 
 
 def _load_secret_bytes() -> bytes:
@@ -226,7 +226,7 @@ def decrypt_secret(value: str | None) -> str | None:
         # Fail loud instead of silently migrating: a decryption failure must
         # not be misread as a wrong key.
         raise LegacySecretFormatError(
-            "An old version (enc:v1) encrypted API Key was detected. Please go to the \"Settings\" page to save it again."
+            'An old version (enc:v1) encrypted API Key was detected. Please go to the "Settings" page to save it again.'
         )
     if not value.startswith(f"{_VERSION_V2}:"):
         # Unencrypted plain text: migration period or development environment compatibility.
@@ -241,7 +241,9 @@ def decrypt_secret(value: str | None) -> str | None:
         tag = base64.b64decode(tag_b64)
         ct = base64.b64decode(ct_b64)
     except Exception as exc:
-        raise ValueError("Encrypted string: failed to base64-decode salt/nonce/tag/ciphertext") from exc
+        raise ValueError(
+            "Encrypted string: failed to base64-decode salt/nonce/tag/ciphertext"
+        ) from exc
     master = _master_bytes()
     key = _derive_key(master, salt)
     try:

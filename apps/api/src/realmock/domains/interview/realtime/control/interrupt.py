@@ -7,9 +7,9 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from realmock.platform.database import SessionLocal
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -40,11 +40,7 @@ class InterruptControlMixin:
         """
         db = SessionLocal()
         try:
-            session = (
-                db.query(InterviewSession)
-                .filter(InterviewSession.id == session_id)
-                .first()
-            )
+            session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
             if session is None:
                 return False
             session.agent_state = state_json
@@ -86,9 +82,7 @@ class InterruptControlMixin:
             ai=self.ctx.ai_interrupts,
         )
         state_json = json.dumps(state, ensure_ascii=False)
-        await asyncio.to_thread(
-            self._persist_interrupt_stats_sync, self.ctx.session_id, state_json
-        )
+        await asyncio.to_thread(self._persist_interrupt_stats_sync, self.ctx.session_id, state_json)
 
     async def _on_candidate_barge_in(self) -> None:
         """The candidate interrupts the interviewer's broadcast: clear the TTS and let go of the conversation."""

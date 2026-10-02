@@ -260,7 +260,8 @@ class _ResponsesRoundAssembler:
             )
             if status == "failed":
                 self.terminal_error = str(
-                    message or f"Provider reported failure (status=failed{', ' + str(suffix) if suffix else ''})"
+                    message
+                    or f"Provider reported failure (status=failed{', ' + str(suffix) if suffix else ''})"
                 )
             return ""
         if etype == "error":

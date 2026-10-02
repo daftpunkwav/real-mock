@@ -11,13 +11,12 @@ from __future__ import annotations
 import pytest
 
 
-
 def test_isolation_root_fallback_to_process(monkeypatch) -> None:
+    import realmock.platform.capabilities.ai.agent.tools.isolation as mod
     from realmock.platform.capabilities.ai.agent.tools.isolation import (
         ProcessIsolation,
         resolve_backend,
     )
-    import realmock.platform.capabilities.ai.agent.tools.isolation as mod
 
     monkeypatch.setattr(mod, "_running_as_root", lambda: True)
     monkeypatch.setattr(mod, "_warned_fallback", False)

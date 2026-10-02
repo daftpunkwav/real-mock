@@ -9,9 +9,11 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 
 # No handler fixture: stream_tool_rounds is exercised with mocked runner/db arguments.
+
 
 @pytest.mark.asyncio
 async def test_stream_tool_rounds_success_error_cancel():
@@ -40,7 +42,9 @@ async def test_stream_tool_rounds_success_error_cancel():
     runner2 = MagicMock()
     runner2.tools.run_tool_rounds = AsyncMock(side_effect=RuntimeError("tool boom"))
     outcome2: dict = {}
-    seen2 = [ev async for ev in stream_tool_rounds(runner2, outcome2, [], MagicMock(), temperature=0.1)]
+    seen2 = [
+        ev async for ev in stream_tool_rounds(runner2, outcome2, [], MagicMock(), temperature=0.1)
+    ]
     assert seen2 == []
     assert isinstance(outcome2["error"], RuntimeError)
 

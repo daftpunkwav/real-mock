@@ -23,11 +23,6 @@ from typing import cast, get_args
 
 from sqlalchemy import String
 
-from realmock.platform.core.constants import (
-    RESUME_ALLOWED_EXTENSIONS,
-    RESUME_MAX_UPLOAD_BYTES,
-)
-from realmock.platform.models import Resume
 from realmock.domains.resume.schemas.limits import (
     ALLOWED_EXTENSIONS,
     ANALYSIS_LOCALES,
@@ -42,6 +37,11 @@ from realmock.domains.resume.schemas.limits import (
 )
 from realmock.domains.resume.schemas.request import ResumeAnalyzeRequest
 from realmock.domains.resume.schemas.response import ResumeDomainLimits, ResumeResponse
+from realmock.platform.core.constants import (
+    RESUME_ALLOWED_EXTENSIONS,
+    RESUME_MAX_UPLOAD_BYTES,
+)
+from realmock.platform.models import Resume
 
 # JSON-encoded ORM text columns that the HTTP response exposes as structured fields.
 _JSON_RESPONSE_FIELDS = frozenset({"parsed_profile", "analysis"})
@@ -79,7 +79,9 @@ def assert_resume_contract_aligned() -> None:
     # Identity (not equality) is intentional: the domain catalog must alias the
     # platform object, so any copy-paste refactor fails fast here at startup.
     if ALLOWED_EXTENSIONS is not RESUME_ALLOWED_EXTENSIONS:
-        raise RuntimeError("limits.ALLOWED_EXTENSIONS drifted from platform RESUME_ALLOWED_EXTENSIONS")
+        raise RuntimeError(
+            "limits.ALLOWED_EXTENSIONS drifted from platform RESUME_ALLOWED_EXTENSIONS"
+        )
     if MAX_UPLOAD_BYTES != RESUME_MAX_UPLOAD_BYTES:
         raise RuntimeError("limits.MAX_UPLOAD_BYTES drifted from platform RESUME_MAX_UPLOAD_BYTES")
 
@@ -111,9 +113,7 @@ def assert_resume_contract_aligned() -> None:
     locale_ann = ResumeAnalyzeRequest.model_fields["locale"].annotation
     locale_args = get_args(locale_ann)
     if not locale_args:
-        raise RuntimeError(
-            f"ResumeAnalyzeRequest.locale is not a Literal (got {locale_ann!r})"
-        )
+        raise RuntimeError(f"ResumeAnalyzeRequest.locale is not a Literal (got {locale_ann!r})")
     if set(locale_args) != set(ANALYSIS_LOCALES):
         raise RuntimeError(
             "ResumeAnalyzeRequest.locale drift vs ANALYSIS_LOCALES: "

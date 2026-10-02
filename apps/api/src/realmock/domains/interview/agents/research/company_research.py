@@ -413,9 +413,7 @@ def deferred_digest_persist(
                     row.company_research = value
                     sdb.commit()
         except Exception:
-            logger.debug(
-                "delayed research persist failed %s=%s", id_label, row_id, exc_info=True
-            )
+            logger.debug("delayed research persist failed %s=%s", id_label, row_id, exc_info=True)
 
     return _persist
 

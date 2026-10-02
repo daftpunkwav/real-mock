@@ -13,10 +13,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from realmock.domains.interview.capabilities.rag._kb_data import (
+    COLLECTION_NAME,
+    _build_documents,
+    _data_dir,
+)
+from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.config import Settings
 from realmock.platform.core.constants import RAGBackendKind
-from realmock.domains.interview.capabilities.rag._kb_data import COLLECTION_NAME, _build_documents, _data_dir
-from realmock.platform.capabilities.ai.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +57,9 @@ class LocalEmbeddingRAG:
             logger.info("Local RAG index already exists, skip building")
             return self._collection.count()
         if self._llm is None:
-            raise RuntimeError("Building a Local RAG index for the first time requires providing LLMClient for embed()")
+            raise RuntimeError(
+                "Building a Local RAG index for the first time requires providing LLMClient for embed()"
+            )
 
         texts, metadatas, ids = _build_documents()
         logger.info("Build Local RAG index: %d documents", len(texts))
@@ -122,7 +128,9 @@ class LocalEmbeddingRAG:
         try:
             self._client.delete_collection(COLLECTION_NAME)
         except Exception:
-            logger.debug("Failed to delete RAG collection, continue to rebuild the collection", exc_info=True)
+            logger.debug(
+                "Failed to delete RAG collection, continue to rebuild the collection", exc_info=True
+            )
         self._collection = self._client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},

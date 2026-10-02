@@ -11,17 +11,17 @@ import base64
 import json
 import sys
 import types
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
 
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.xfyun import XfyunProvider, _auth_url
 
-
 PCM = base64.b64encode(b"\x00\x01" * 500).decode("ascii")
 LONG_PCM = base64.b64encode(b"\x00\x01" * 6000).decode("ascii")
 SHORT_PCM = base64.b64encode(b"\x00\x01" * 100).decode("ascii")
+
 
 class _FakeWS:
     def __init__(self, messages, send_exc=None):

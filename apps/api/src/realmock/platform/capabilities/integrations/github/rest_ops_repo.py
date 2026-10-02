@@ -92,13 +92,15 @@ async def _list_commits(
     for c in data:
         commit = c.get("commit") or {}
         author_info = commit.get("author") or {}
-        commits.append({
-            "sha": (c.get("sha") or "")[:8],
-            "message": (commit.get("message") or "").split("\n")[0][:200],
-            "author": author_info.get("name"),
-            "date": author_info.get("date"),
-            "html_url": c.get("html_url"),
-        })
+        commits.append(
+            {
+                "sha": (c.get("sha") or "")[:8],
+                "message": (commit.get("message") or "").split("\n")[0][:200],
+                "author": author_info.get("name"),
+                "date": author_info.get("date"),
+                "html_url": c.get("html_url"),
+            }
+        )
     return {"owner": owner, "repo": repo, "count": len(commits), "commits": commits}
 
 
@@ -122,15 +124,17 @@ async def _list_pull_requests(
         return {"error": "unexpected_response"}
     prs = []
     for p in data:
-        prs.append({
-            "number": p.get("number"),
-            "title": p.get("title"),
-            "state": p.get("state"),
-            "user": (p.get("user") or {}).get("login"),
-            "created_at": p.get("created_at"),
-            "merged_at": p.get("merged_at"),
-            "html_url": p.get("html_url"),
-        })
+        prs.append(
+            {
+                "number": p.get("number"),
+                "title": p.get("title"),
+                "state": p.get("state"),
+                "user": (p.get("user") or {}).get("login"),
+                "created_at": p.get("created_at"),
+                "merged_at": p.get("merged_at"),
+                "html_url": p.get("html_url"),
+            }
+        )
     return {"owner": owner, "repo": repo, "count": len(prs), "pulls": prs}
 
 
@@ -156,15 +160,17 @@ async def _list_issues(
     for i in data:
         if i.get("pull_request"):
             continue
-        issues.append({
-            "number": i.get("number"),
-            "title": i.get("title"),
-            "state": i.get("state"),
-            "user": (i.get("user") or {}).get("login"),
-            "comments": i.get("comments"),
-            "created_at": i.get("created_at"),
-            "html_url": i.get("html_url"),
-        })
+        issues.append(
+            {
+                "number": i.get("number"),
+                "title": i.get("title"),
+                "state": i.get("state"),
+                "user": (i.get("user") or {}).get("login"),
+                "comments": i.get("comments"),
+                "created_at": i.get("created_at"),
+                "html_url": i.get("html_url"),
+            }
+        )
     return {"owner": owner, "repo": repo, "count": len(issues), "issues": issues}
 
 
@@ -216,7 +222,12 @@ async def _get_file_content(
         return data
     if isinstance(data, list):
         entries = [
-            {"name": e.get("name"), "type": e.get("type"), "path": e.get("path"), "size": e.get("size")}
+            {
+                "name": e.get("name"),
+                "type": e.get("type"),
+                "path": e.get("path"),
+                "size": e.get("size"),
+            }
             for e in data[:50]
         ]
         return {"type": "dir", "path": path, "entries": entries}
@@ -241,9 +252,7 @@ async def _get_file_content(
 
 async def _get_languages(client: "GitHubClient", owner: str, repo: str) -> dict[str, Any]:
     """Warehouse language proportion."""
-    data = await client._get(
-        f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/languages"
-    )
+    data = await client._get(f"/repos/{_path_segment(owner)}/{_path_segment(repo)}/languages")
     if _is_error(data):
         return data
     if not isinstance(data, dict):

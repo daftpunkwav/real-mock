@@ -57,7 +57,9 @@ def test_db_bootstrap_import_skips_interview_orm(monkeypatch: pytest.MonkeyPatch
     import importlib
 
     for name in list(sys.modules):
-        if name == "realmock.bootstrap.db_bootstrap" or name.startswith("realmock.domains.interview"):
+        if name == "realmock.bootstrap.db_bootstrap" or name.startswith(
+            "realmock.domains.interview"
+        ):
             monkeypatch.delitem(sys.modules, name, raising=False)
 
     imported: list[str] = []
@@ -88,7 +90,9 @@ def test_register_prep_only_skips_interview(monkeypatch: pytest.MonkeyPatch) -> 
     real_import = __import__
 
     def tracking_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "realmock.domains.interview.models" or name.startswith("realmock.domains.interview.models."):
+        if name == "realmock.domains.interview.models" or name.startswith(
+            "realmock.domains.interview.models."
+        ):
             imported.append(name)
         return real_import(name, globals, locals, fromlist, level)
 

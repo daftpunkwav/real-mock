@@ -41,16 +41,18 @@ DEFAULT_TOOL_TIMEOUT_SECONDS: float = 30.0
 
 # Exception class names treated as transient connect-phase failures (duck-typed
 # to stay dependency-free across http/urllib/asyncio transports).
-_CONNECTION_ERROR_NAMES = frozenset({
-    "ConnectError",
-    "ConnectTimeout",
-    "ConnectionError",
-    "ConnectionResetError",
-    "ReadError",
-    "WriteError",
-    "RemoteProtocolError",
-    "SSLError",
-})
+_CONNECTION_ERROR_NAMES = frozenset(
+    {
+        "ConnectError",
+        "ConnectTimeout",
+        "ConnectionError",
+        "ConnectionResetError",
+        "ReadError",
+        "WriteError",
+        "RemoteProtocolError",
+        "SSLError",
+    }
+)
 
 # Upper bound for the echoed call arguments in an error observation.
 _ARGS_ECHO_MAX_CHARS = 400
@@ -142,7 +144,10 @@ async def invoke_with_timeout(
             logger.warning("Agent tool timeout name=%s timeout=%.0fs", name, effective)
             domain, session = error_scope(context)
             log_agent_error(
-                domain=domain, session=session, tool=name, kind="timeout",
+                domain=domain,
+                session=session,
+                tool=name,
+                kind="timeout",
                 message=f"Tool exceeded {effective:.0f}s",
             )
             return (
@@ -160,13 +165,17 @@ async def invoke_with_timeout(
             if attempt == 0 and type(exc).__name__ in _CONNECTION_ERROR_NAMES:
                 logger.warning(
                     "Agent tool transient connection failure name=%s (%s); retrying once",
-                    name, type(exc).__name__,
+                    name,
+                    type(exc).__name__,
                 )
                 continue
             logger.warning("Agent tool failed name=%s: %s", name, exc, exc_info=True)
             domain, session = error_scope(context)
             log_agent_error(
-                domain=domain, session=session, tool=name, kind="tool_failed",
+                domain=domain,
+                session=session,
+                tool=name,
+                kind="tool_failed",
                 message=str(exc),
             )
             return (_error_observation("tool_failed", name, args, exc), "error")
@@ -174,7 +183,6 @@ async def invoke_with_timeout(
         _error_observation("tool_failed", name, args, RuntimeError("unreachable retry state")),
         "error",
     )
-
 
 
 class ToolRunGuard:

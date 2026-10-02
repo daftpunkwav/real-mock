@@ -10,10 +10,10 @@ Coverage:
 
 from __future__ import annotations
 
-from realmock.platform.schemas import CandidateProfile
-from realmock.domains.interview.schemas import InterviewConfig
 from realmock.domains.interview.agents.agent_prompts import build_system_prompt
+from realmock.domains.interview.schemas import InterviewConfig
 from realmock.domains.interview.workflows import get_workflow
+from realmock.platform.schemas import CandidateProfile
 
 
 def _config(**overrides) -> InterviewConfig:
@@ -216,17 +216,22 @@ def test_refresh_system_head_swaps_candidate_and_phase() -> None:
     mixin = SessionPromptMixin()
     mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="ByteDance")
     mixin.agent_state = {"asked_questions": ["Old question"]}
-    mixin.messages = [{
-        "role": "system",
-        "content": (
-            opening_prompt
-            + "\n\n## Session structured memory (do not repeat asked questions)\n"
-            "Covered: Old question"
-        ),
-    }]
+    mixin.messages = [
+        {
+            "role": "system",
+            "content": (
+                opening_prompt
+                + "\n\n## Session structured memory (do not repeat asked questions)\n"
+                "Covered: Old question"
+            ),
+        }
+    ]
     reverse_qa = next(p for p in get_workflow("technical").phases if p.id == "reverse_qa")
     profile_stub = SimpleNamespace(
-        name="Zhang San", target_role="Backend", school="TSU", github_username="",
+        name="Zhang San",
+        target_role="Backend",
+        school="TSU",
+        github_username="",
     )
 
     mixin.refresh_system_head(reverse_qa, profile=profile_stub, candidate=_candidate())
@@ -322,7 +327,10 @@ def test_refresh_system_head_keeps_compact_card_without_candidate_data(
         lambda db, resume_id: None,
     )
     empty_profile = SimpleNamespace(
-        name="", school="", self_intro="", github_username="",
+        name="",
+        school="",
+        self_intro="",
+        github_username="",
     )
     opening_prompt = build_system_prompt(**_prompt_kwargs(candidate=None))
     mixin = SessionPromptMixin()
@@ -381,7 +389,9 @@ def test_turn_protocol_includes_answer_wait_rule():
 
 def test_voice_directive_renders_after_spoken_voice_section():
     """The TTS-channel directive is baked into the system prompt when provided."""
-    prompt = build_system_prompt(**_prompt_kwargs(), voice_directive="## Voice channel\n(laughs) allowed")
+    prompt = build_system_prompt(
+        **_prompt_kwargs(), voice_directive="## Voice channel\n(laughs) allowed"
+    )
     assert "## Voice channel" in prompt
     assert "(laughs) allowed" in prompt
     assert prompt.index("How you talk") < prompt.index("## Voice channel")

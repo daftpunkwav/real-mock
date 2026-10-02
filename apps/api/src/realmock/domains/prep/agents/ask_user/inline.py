@@ -12,7 +12,6 @@ from realmock.domains.prep.agents.ask_user.normalize import (
     normalize_ask_options,
 )
 
-
 # Inline tool-call blocks in the body (function calling protocol drift: <tool_call>…</tool_call>)
 _INLINE_TOOL_BLOCK_RE = re.compile(r"<tool_call>.*?</tool_call>", re.S)
 # Two common ask_user forms inside a block: JSON arguments and <parameter> tags
@@ -53,13 +52,14 @@ def _parse_inline_ask_args(raw: str) -> dict[str, Any] | None:
                     continue
             except json.JSONDecodeError:
                 pass
-            params["options"] = [line.strip(" -") for line in value.splitlines() if line.strip(" -")]
+            params["options"] = [
+                line.strip(" -") for line in value.splitlines() if line.strip(" -")
+            ]
         else:
             params[key] = value
     if params.get("question"):
         return params
     return None
-
 
 
 def extract_inline_ask_user(text: str) -> tuple[str, dict[str, Any] | None]:

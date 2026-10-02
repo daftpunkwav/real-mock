@@ -23,20 +23,28 @@ from realmock.platform.core.security import UnsafeURLError
 
 
 def _client(**kw: Any) -> LLMClient:
-    args: dict[str, Any] = {"api_base": "https://api.test/v1/", "api_key": "sk-test-key", "model": "m"}
+    args: dict[str, Any] = {
+        "api_base": "https://api.test/v1/",
+        "api_key": "sk-test-key",
+        "model": "m",
+    }
     args.update(kw)
     return LLMClient(**args)
 
 
 def test_init_normalizes() -> None:
-    c = LLMClient(api_base="https://x/v1/", api_key="k", model="m", context_window=-5, supports_vision=1)
+    c = LLMClient(
+        api_base="https://x/v1/", api_key="k", model="m", context_window=-5, supports_vision=1
+    )
     assert c.api_base == "https://x/v1"
     assert c.context_window == 0
     assert c.supports_vision is True
     assert isinstance(c.usage, UsageAccumulator)
     assert c._stream_usage_disabled is False
     sink = UsageAccumulator()
-    c2 = LLMClient(api_base="https://x", api_key="k", model="m", usage_sink=sink, reasoning_effort="high")
+    c2 = LLMClient(
+        api_base="https://x", api_key="k", model="m", usage_sink=sink, reasoning_effort="high"
+    )
     assert c2.usage is sink
     assert c2.reasoning_effort == "high"
 
@@ -163,6 +171,7 @@ async def test_chat_delegates_for_non_default_protocol() -> None:
     with patch.object(LLMClient, "_delegate", return_value=delegate):
         assert await c.chat([{"role": "user", "content": "hi"}]) == "delegated"
 
+
 @pytest.mark.asyncio
 async def test_chat_delegation_forwards_max_tokens() -> None:
     """A per-call max_tokens cap must survive the protocol delegation."""
@@ -173,6 +182,7 @@ async def test_chat_delegation_forwards_max_tokens() -> None:
         await c.chat([{"role": "user", "content": "hi"}], max_tokens=400)
     _, kwargs = delegate.chat.call_args
     assert kwargs["max_tokens"] == 400
+
 
 def test_unified_payload_max_tokens_override() -> None:
     """max_tokens_override replaces the profile-level budget in the translated payload."""
@@ -254,9 +264,7 @@ async def test_chat_message_openai_with_tools_and_reasoning() -> None:
         patch.object(lc_mod, "build_payload", return_value={}),
         patch.object(lc_mod, "chat_completions", new=AsyncMock(return_value=data)),
     ):
-        msg = await c.chat_message(
-            [{"role": "user", "content": "hi"}], tool_choice="auto"
-        )
+        msg = await c.chat_message([{"role": "user", "content": "hi"}], tool_choice="auto")
     assert msg["tool_calls"] == [{"id": "c1"}]
     assert msg["reasoning"] == "think"
 
@@ -294,7 +302,9 @@ async def test_chat_message_reasoning_key_and_role_fallback() -> None:
 async def test_chat_message_delegates_and_strips_empty_tools() -> None:
     c = _client(protocol=LLMProtocol.OPENAI_RESPONSES)
     delegate = MagicMock()
-    delegate.chat_message = AsyncMock(return_value={"role": "assistant", "content": "x", "tool_calls": []})
+    delegate.chat_message = AsyncMock(
+        return_value={"role": "assistant", "content": "x", "tool_calls": []}
+    )
     with patch.object(LLMClient, "_delegate", return_value=delegate):
         msg = await c.chat_message([{"role": "user", "content": "hi"}])
     assert "tool_calls" not in msg

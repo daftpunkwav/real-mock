@@ -5,6 +5,7 @@ appended path, multipart fields (model/response_format/file/language), text
 parsing incl. short/empty text, HTTP and generic error branches (HTTP client faked).
 Conventions: no real network/model downloads (all clients mocked).
 """
+
 from __future__ import annotations
 
 import base64
@@ -14,11 +15,11 @@ import httpx
 import pytest
 
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
+from realmock.platform.capabilities.voice.stt.providers import minimax as minimax_stt_mod
 from realmock.platform.capabilities.voice.stt.providers.minimax import (
     DEFAULT_MODEL,
     MiniMaxSttProvider,
 )
-from realmock.platform.capabilities.voice.stt.providers import minimax as minimax_stt_mod
 
 # 1s of int16 mono silence @16k — passes the min-duration guard, wav wrapping is pure bytes.
 _PCM_B64 = base64.b64encode(b"\x00\x00" * 16000).decode("ascii")
@@ -26,7 +27,9 @@ _PCM_B64 = base64.b64encode(b"\x00\x00" * 16000).decode("ascii")
 
 def _settings(monkeypatch):
     monkeypatch.setattr(
-        minimax_stt_mod, "get_settings", lambda: SimpleNamespace(allow_local_llm=False, is_prod=False)
+        minimax_stt_mod,
+        "get_settings",
+        lambda: SimpleNamespace(allow_local_llm=False, is_prod=False),
     )
 
 
@@ -125,9 +128,7 @@ async def test_base_mode_appends_documented_path_and_uses_declared_model(monkeyp
     client = _FakeClient(resp=_FakeResp(payload={"text": "hello world"}))
     _patch_client(monkeypatch, client)
     provider = MiniMaxSttProvider()
-    out = await provider.transcribe(
-        _PCM_B64, sample_rate=16000, creds=_creds(model="asr-1.0")
-    )
+    out = await provider.transcribe(_PCM_B64, sample_rate=16000, creds=_creds(model="asr-1.0"))
     assert out == "hello world"
     assert client.post_calls[0]["url"] == "https://api.minimaxi.com/v1/speech_to_text"
     assert client.post_calls[0]["data"]["model"] == "asr-1.0"

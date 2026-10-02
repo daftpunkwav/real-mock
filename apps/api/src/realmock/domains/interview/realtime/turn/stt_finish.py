@@ -15,14 +15,14 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.constants import AUDIO_BUFFER_MAX_BYTES, MAX_USER_TEXT_CHARS
-from realmock.platform.database import SessionLocal
 from realmock.domains.interview.constants import BUSY_TURN_NOTICE
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.domains.interview.realtime.voice.pipeline import _is_echo_of_assistant, _pick_stt_text
 from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
 from realmock.platform.capabilities.voice.stt.providers.whisper import local_stt_unavailable_reason
-from realmock.domains.interview.realtime.voice.pipeline import _is_echo_of_assistant, _pick_stt_text
+from realmock.platform.core.constants import AUDIO_BUFFER_MAX_BYTES, MAX_USER_TEXT_CHARS
+from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -117,7 +117,10 @@ class TurnSttFinishMixin:
     async def _on_user_turn_end(
         self, data: dict[str, Any], db: Session, session: InterviewSession
     ) -> None:
-        if self.ctx.turn_state == TurnState.PROCESSING or self.ctx.turn_state == TurnState.AI_SPEAKING:
+        if (
+            self.ctx.turn_state == TurnState.PROCESSING
+            or self.ctx.turn_state == TurnState.AI_SPEAKING
+        ):
             # Never drop silently: the client cleared its input on send, so it
             # needs a frame explaining why the turn was not admitted. Drained
             # buffered audio cannot leak into the next turn's STT input.
@@ -267,9 +270,7 @@ class TurnSttFinishMixin:
                 # telling the candidate to "speak again" would loop forever, so
                 # surface the load failure instead (same C2001 code, so the
                 # client-side STT-failure handling stays unchanged).
-                load_error = (
-                    local_stt_unavailable_reason() if stt_provider == "local" else None
-                )
+                load_error = local_stt_unavailable_reason() if stt_provider == "local" else None
                 if load_error:
                     message = (
                         "Local recognition is unavailable (model load failed: "

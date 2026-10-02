@@ -20,18 +20,18 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.capabilities.rag.company_rag import CompanyKnowledgeRAG
-from realmock.domains.interview.models import InterviewSession
+from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.agents.interviewer import (
     runner_closing,
     runner_opening,
     runner_turn,
 )
-from realmock.domains.interview.agents.events import EventKind, StreamEvent
 from realmock.domains.interview.agents.prompt_assembler import PromptAssembler
 from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundRunner
 from realmock.domains.interview.agents.topology import ShadowEvaluatorAgent
+from realmock.domains.interview.capabilities.rag.company_rag import CompanyKnowledgeRAG
+from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.contracts.lifecycle_hooks import get_system_insights_provider
 

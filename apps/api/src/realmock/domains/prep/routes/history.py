@@ -17,9 +17,7 @@ from fastapi import Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.agents.agent import PrepAgent
-from realmock.domains.prep.models import PrepSession
-from realmock.domains.prep.models import commit_session, utcnow
-from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
+from realmock.domains.prep.models import PrepSession, commit_session, utcnow
 from realmock.domains.prep.schemas import (
     PrepCompactRequest,
     PrepCompactResponse,
@@ -27,6 +25,7 @@ from realmock.domains.prep.schemas import (
     PrepSummaryUpdateRequest,
     PrepTruncateRequest,
 )
+from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
     COMPACTION_SUMMARY_MARKER,
@@ -73,12 +72,14 @@ def _load_session_messages(session: PrepSession) -> list[dict]:
     except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
         logger.warning(
             "Prep history unreadable, serving empty sid=%s len=%s",
-            getattr(session, "id", ""), len(session.messages or ""),
+            getattr(session, "id", ""),
+            len(session.messages or ""),
         )
         return []
     if not isinstance(messages, list):
         logger.warning(
-            "Prep history not a list, serving empty sid=%s", getattr(session, "id", ""),
+            "Prep history not a list, serving empty sid=%s",
+            getattr(session, "id", ""),
         )
         return []
     return messages
@@ -228,10 +229,14 @@ async def compact_prep_session(
     params = body or PrepCompactRequest()
     llm = LLMClient.from_db(api_db)
     agent = PrepAgent(session, llm)
-    if params.expected_message_count is not None and params.expected_message_count != len(agent.messages):
+    if params.expected_message_count is not None and params.expected_message_count != len(
+        agent.messages
+    ):
         raise_error("A3003")
     options = CompactionOptions.resolve(
-        intensity=params.intensity, directive=params.directive, retain=params.retain,
+        intensity=params.intensity,
+        directive=params.directive,
+        retain=params.retain,
     )
     before = estimate_messages_tokens(agent.messages)
     had = _has_summary_block(agent.messages)
@@ -259,7 +264,8 @@ async def compact_prep_session(
     report: dict[str, Any] = {}
     try:
         working = await agent._build_context(
-            force=True, options=options,
+            force=True,
+            options=options,
             provenance={"backup_session_id": backup_session_id, "fork_point": fork_point},
             report=report,
         )
@@ -308,7 +314,7 @@ def _current_summary(messages: list[dict]) -> tuple[str, int]:
         return "", 0
     content = str(messages[idx].get("content") or "")
     version = parse_provenance(content).get("v", 0)
-    return strip_provenance(content[len(COMPACTION_SUMMARY_MARKER):].strip()), int(version or 0)
+    return strip_provenance(content[len(COMPACTION_SUMMARY_MARKER) :].strip()), int(version or 0)
 
 
 def _current_summary_text(messages: list[dict]) -> str:
@@ -364,7 +370,9 @@ async def update_prep_summary(
         summary_text=summary_text,
         summary_version=summary_version,
         fork_point=old.get("fork_point") if isinstance(old.get("fork_point"), int) else None,
-        backup_session_id=old.get("backup_session") if isinstance(old.get("backup_session"), int) else None,
+        backup_session_id=old.get("backup_session")
+        if isinstance(old.get("backup_session"), int)
+        else None,
     )
 
 

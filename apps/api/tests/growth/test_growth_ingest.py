@@ -10,6 +10,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -22,20 +23,14 @@ def _clean_limits():
 
 @pytest.fixture(autouse=True)
 def _growth_table(engine):
-    from realmock.platform.database import SessionsBase
     import realmock.domains.growth.models.growth  # noqa: F401
+    from realmock.platform.database import SessionsBase
 
     SessionsBase.metadata.create_all(bind=engine)
     yield
 
 
 # ---- routes/router (59-67, 73-74) ----
-
-
-
-
-
-
 
 
 # ---- ingest (29-31, 34-35, 50-51) ----
@@ -47,9 +42,7 @@ def test_ingest_persist_failure_returns(caplog) -> None:
 
     payload = ReportSummaryPayload(session_id=9101, overall_score=80)
     with (
-        patch.object(
-            mod, "persist_growth_from_summary", side_effect=RuntimeError("db down")
-        ),
+        patch.object(mod, "persist_growth_from_summary", side_effect=RuntimeError("db down")),
         caplog.at_level(logging.ERROR, logger="realmock.domains.growth.services.ingest"),
     ):
         mod.handle_report_summary(payload)

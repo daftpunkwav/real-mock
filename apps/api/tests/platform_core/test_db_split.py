@@ -32,16 +32,29 @@ class TestDbSplit:
 
         src = self._src(
             tmp_path,
-            ["CREATE TABLE user_profiles (id INTEGER PRIMARY KEY, name TEXT)", "CREATE TABLE interview_sessions (id INTEGER PRIMARY KEY)", "CREATE TABLE mystery (id INTEGER PRIMARY KEY)"],
-            [("INSERT INTO user_profiles (id, name) VALUES (?, ?)", (1, "n")), ("INSERT INTO interview_sessions (id) VALUES (?)", (5,))],
+            [
+                "CREATE TABLE user_profiles (id INTEGER PRIMARY KEY, name TEXT)",
+                "CREATE TABLE interview_sessions (id INTEGER PRIMARY KEY)",
+                "CREATE TABLE mystery (id INTEGER PRIMARY KEY)",
+            ],
+            [
+                ("INSERT INTO user_profiles (id, name) VALUES (?, ?)", (1, "n")),
+                ("INSERT INTO interview_sessions (id) VALUES (?)", (5,)),
+            ],
         )
         api_p = tmp_path / "out" / "api.db"
         ses_p = tmp_path / "out" / "sessions.db"
         with caplog.at_level("WARNING"):
             assert split_app_db(src, api_p, ses_p) is True
         assert any("mystery" in r.message for r in caplog.records)
-        assert sqlite3.connect(str(api_p)).execute("SELECT name FROM user_profiles").fetchone()[0] == "n"
-        assert sqlite3.connect(str(ses_p)).execute("SELECT id FROM interview_sessions").fetchone()[0] == 5
+        assert (
+            sqlite3.connect(str(api_p)).execute("SELECT name FROM user_profiles").fetchone()[0]
+            == "n"
+        )
+        assert (
+            sqlite3.connect(str(ses_p)).execute("SELECT id FROM interview_sessions").fetchone()[0]
+            == 5
+        )
 
     def test_copy_skips_existing_and_empty_sql(self, tmp_path) -> None:
         import realmock.platform.services.db_split as ds
@@ -85,7 +98,9 @@ class TestDbSplit:
         ds.maybe_migrate_legacy_app_db()
         assert (d2 / "data" / "api.db").is_file()
         # exception path swallowed
-        monkeypatch.setattr(ds, "split_app_db", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            ds, "split_app_db", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         (d2 / "data" / "api.db").unlink()
         (d2 / "data" / "sessions.db").unlink(missing_ok=True)
         ds.maybe_migrate_legacy_app_db()

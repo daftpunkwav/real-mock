@@ -28,8 +28,8 @@ from .halt import AgentHalt
 from .hints import _DRIFT_HINT, _DRIFT_MAX_CHARS, _WRAP_UP_HINT, countdown_hint
 from .llm_round import (
     ExecuteFn,
-    OnThinkFn,
     OnTextFn,
+    OnThinkFn,
     OnToolFn,
     _call_llm_round,
     _truncate_tool_result,
@@ -164,7 +164,8 @@ async def run_agent_loop(
     on_round_start: Callable[[], Awaitable[None]] | None = None,
     drift_retry: bool = False,
     wrap_up_hint: dict[str, Any] | None = None,
-    prepare_messages: Callable[[list[dict[str, Any]]], Awaitable[list[dict[str, Any]]]] | None = None,
+    prepare_messages: Callable[[list[dict[str, Any]]], Awaitable[list[dict[str, Any]]]]
+    | None = None,
     compact_observation: Callable[[str], Awaitable[str]] | None = None,
     error_context: dict[str, Any] | None = None,
     countdown_rounds: int = 0,
@@ -342,11 +343,15 @@ async def run_agent_loop(
                 if attempts_left == 0:
                     logger.warning(
                         "Agent round LLM failed round=%s: %s: %s",
-                        round_i, type(e).__name__, e,
+                        round_i,
+                        type(e).__name__,
+                        e,
                     )
                     domain, session = error_scope(error_context)
                     log_agent_error(
-                        domain=domain, session=session, kind="llm_round_failed",
+                        domain=domain,
+                        session=session,
+                        kind="llm_round_failed",
                         message=f"round {round_i}: {e}",
                     )
                     break
@@ -360,7 +365,9 @@ async def run_agent_loop(
                 round_thinking.clear()
                 logger.warning(
                     "Agent round LLM call failed (%s: %s); retrying round=%s",
-                    type(e).__name__, e, round_i,
+                    type(e).__name__,
+                    e,
+                    round_i,
                 )
         if msg is None:
             break
@@ -382,25 +389,23 @@ async def run_agent_loop(
             truncated = finish_reason in ("length", "max_tokens") or finish_reason.startswith(
                 "incomplete"
             )
-            if (
-                truncated
-                and text
-                and not continuation_used
-                and round_i < max_rounds - 1
-            ):
+            if truncated and text and not continuation_used and round_i < max_rounds - 1:
                 # The answer hit the model's output cap mid-stream: keep the
                 # partial answer in history and resume seamlessly next round
                 # instead of shipping a silently amputated reply.
                 continuation_used = True
                 continuation_prefix += str(content or "")
-                working.append({
-                    "role": "assistant",
-                    "content": content,
-                })
+                working.append(
+                    {
+                        "role": "assistant",
+                        "content": content,
+                    }
+                )
                 transient = [_CONTINUATION_HINT]
                 logger.info(
                     "Agent final answer truncated (finish=%s, round=%s); continuing once",
-                    finish_reason, round_i,
+                    finish_reason,
+                    round_i,
                 )
                 continue
             if (
@@ -414,13 +419,15 @@ async def run_agent_loop(
                 drift_corrected = True
                 # The rejected narration never entered working, so quote it inside the
                 # hint itself — the model cannot see a message that is not there.
-                transient = [{
-                    "role": "system",
-                    "content": (
-                        _DRIFT_HINT["content"]
-                        + f'\nFor reference, your unacted announcement was: "{text[:200]}"'
-                    ),
-                }]
+                transient = [
+                    {
+                        "role": "system",
+                        "content": (
+                            _DRIFT_HINT["content"]
+                            + f'\nFor reference, your unacted announcement was: "{text[:200]}"'
+                        ),
+                    }
+                ]
                 logger.info(
                     "Agent detects toolless action narration (round=%s, %s characters), injects correction prompts and tries again",
                     round_i,
@@ -489,7 +496,9 @@ async def run_agent_loop(
                 if not getattr(tool_exc, "already_logged", False):
                     domain, session = error_scope(error_context)
                     log_agent_error(
-                        domain=domain, session=session, tool=name,
+                        domain=domain,
+                        session=session,
+                        tool=name,
                         kind=getattr(tool_exc, "error_kind", "tool_failed"),
                         message=str(tool_exc),
                     )
@@ -505,11 +514,13 @@ async def run_agent_loop(
             name = str(fn.get("name") or "")
             args = parse_tool_arguments(fn.get("arguments"))
             tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
-            working.append({
-                "role": "tool",
-                "tool_call_id": tc_id,
-                "content": result,
-            })
+            working.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": result,
+                }
+            )
             if on_tool is not None:
                 maybe = on_tool(name, args, result, tc_id)
                 if maybe is not None and inspect.isawaitable(maybe):
@@ -521,15 +532,17 @@ async def run_agent_loop(
             fn = tc.get("function") or {}
             name = str(fn.get("name") or "")
             tc_id = str(tc.get("id") or f"call_{round_i}_{name}_budget_{position}")
-            working.append({
-                "role": "tool",
-                "tool_call_id": tc_id,
-                "content": (
-                    f"[{name}] Not executed: the per-round tool budget "
-                    f"({max_tools_per_round}) was exhausted. Re-issue this call "
-                    "next round if it is still needed."
-                ),
-            })
+            working.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": (
+                        f"[{name}] Not executed: the per-round tool budget "
+                        f"({max_tools_per_round}) was exhausted. Re-issue this call "
+                        "next round if it is still needed."
+                    ),
+                }
+            )
         if halted:
             break
 

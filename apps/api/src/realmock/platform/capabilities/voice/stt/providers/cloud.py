@@ -11,9 +11,9 @@ import logging
 
 import httpx
 
+from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 from realmock.platform.config import get_settings
 from realmock.platform.core.security import make_pinned_async_client
-from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
 
 logger = logging.getLogger(__name__)
 

@@ -91,8 +91,7 @@ def resolve_backend(selection: str | IsolationBackend | None = None) -> Isolatio
             return LinuxJobIsolation()
         except (RuntimeError, ValueError, OSError) as exc:
             _warn_once(
-                "codeexec: linux-job isolation unavailable (%s); "
-                "falling back to process isolation",
+                "codeexec: linux-job isolation unavailable (%s); falling back to process isolation",
                 exc,
             )
             return ProcessIsolation()

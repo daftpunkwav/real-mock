@@ -17,7 +17,9 @@ def test_extract_empty_non_pdf_is_a1004(tmp_path: Path) -> None:
     path.write_text("", encoding="utf-8")
 
     async def run() -> None:
-        await extract_mod.extract_resume_text(path, "txt", SimpleNamespace(api_key="k"), db=object())
+        await extract_mod.extract_resume_text(
+            path, "txt", SimpleNamespace(api_key="k"), db=object()
+        )
 
     with pytest.raises(ApiBusinessError) as caught:
         asyncio.run(run())
@@ -62,7 +64,9 @@ def test_extract_parser_failure_is_a1004(tmp_path: Path, monkeypatch: pytest.Mon
     )
 
     async def run() -> None:
-        await extract_mod.extract_resume_text(path, "txt", SimpleNamespace(api_key="k"), db=object())
+        await extract_mod.extract_resume_text(
+            path, "txt", SimpleNamespace(api_key="k"), db=object()
+        )
 
     with pytest.raises(ApiBusinessError) as caught:
         asyncio.run(run())

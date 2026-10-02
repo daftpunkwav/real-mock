@@ -30,10 +30,10 @@ import logging
 
 import httpx
 
-from realmock.platform.config import get_settings
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.config import get_settings
+from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.vendors.templates import fill_placeholders, get_dotted
 
 logger = logging.getLogger(__name__)
@@ -52,9 +52,7 @@ def resolve_stt_adapter(creds: SttCredentials) -> dict | None:
 class JsonTemplateSttProvider:
     """Turns a user-authored request template into an actual transcription request."""
 
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         adapter = resolve_stt_adapter(creds)
         if adapter is None:
             return ""
@@ -83,7 +81,9 @@ class JsonTemplateSttProvider:
         json_body = adapter.get("json_body")
         if json_body is not None:
             body = fill_placeholders(json_body, variables)
-            body = fill_placeholders(body, {"audio_base64": base64.b64encode(wav_bytes).decode("ascii")})
+            body = fill_placeholders(
+                body, {"audio_base64": base64.b64encode(wav_bytes).decode("ascii")}
+            )
             headers.setdefault("Content-Type", "application/json")
             data = None
             files = None
@@ -114,7 +114,9 @@ class JsonTemplateSttProvider:
                 if content is not None:
                     resp = await client.post(url, headers=headers, content=content)
                 else:
-                    resp = await client.request(method, url, headers=headers, data=data, files=files)
+                    resp = await client.request(
+                        method, url, headers=headers, data=data, files=files
+                    )
                 resp.raise_for_status()
                 payload = resp.json()
         except httpx.HTTPStatusError as e:

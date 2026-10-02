@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser
 from realmock.domains.interview.agents.turn_output import parse_turn_output
+from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser
 
 
 def feed_all(parser: SayFirstStreamParser, text: str, chunk: int) -> str:
@@ -25,7 +25,11 @@ FULL = json.dumps(
         "emotion": "serious",
         "phase_complete": False,
         "interview_complete": False,
-        "turn_score": {"brief": "Mentioned middleware", "rating": 3, "weak_points": ["Consistency"]},
+        "turn_score": {
+            "brief": "Mentioned middleware",
+            "rating": 3,
+            "weak_points": ["Consistency"],
+        },
         "probe": "Consider the access layer",
         "sources": ["resume"],
     },
@@ -37,7 +41,10 @@ def test_say_streams_incrementally_and_controls_parse() -> None:
     for chunk in (1, 3, 7, 10000):  # Cover the worst-case cross-token split
         parser = SayFirstStreamParser()
         text = feed_all(parser, FULL, chunk)
-        assert text == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers.", f"chunk={chunk}"
+        assert (
+            text
+            == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+        ), f"chunk={chunk}"
         assert not parser.degraded
         controls = parser.controls
         assert controls and controls["wait_seconds"] == 90
@@ -103,7 +110,10 @@ def test_non_string_say_degrades_to_raw() -> None:
 
 def test_parse_turn_output_full() -> None:
     controls = json.loads(FULL)
-    out = parse_turn_output(controls, say_text="Okay, let us discuss flash-sale systems. Start by explaining the architecture layers.")
+    out = parse_turn_output(
+        controls,
+        say_text="Okay, let us discuss flash-sale systems. Start by explaining the architecture layers.",
+    )
     # Parser passes say_text through and clamps wait to the 7-60s window.
     assert out.say.startswith("Okay, let us discuss flash-sale systems")
     assert out.protocol_version == 1
@@ -183,7 +193,10 @@ def test_markdown_fence_controls_recovered() -> None:
     parser = SayFirstStreamParser()
     text = feed_all(parser, body, 10)
     assert not parser.degraded
-    assert text == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+    assert (
+        text
+        == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+    )
     assert parser.controls and parser.controls["wait_seconds"] == 90
     assert parser.controls["turn_score"]["rating"] == 3
 
@@ -193,5 +206,8 @@ def test_outer_noise_json_recovered() -> None:
     parser = SayFirstStreamParser()
     text = feed_all(parser, body, 12)
     assert not parser.degraded
-    assert text == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+    assert (
+        text
+        == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
+    )
     assert parser.controls and parser.controls["wait_seconds"] == 90

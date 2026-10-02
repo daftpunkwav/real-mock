@@ -16,12 +16,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.agents.history_compaction import adaptive_fold_thresholds
+from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
 from realmock.platform.capabilities.ai.context.summarize import compact_with_summary
-from realmock.domains.interview.agents.history_compaction import adaptive_fold_thresholds
-from realmock.domains.interview.agents.session_state import InterviewSessionState
 from realmock.platform.database import api_db_session
 from realmock.platform.services.pipeline.config import get_stage_config_for_runtime
 
@@ -82,11 +82,7 @@ class PromptAssembler:
         if image_b64:
             user_content = self.build_user_content(text, face)
             last_user = next(
-                (
-                    i
-                    for i in range(len(messages) - 1, -1, -1)
-                    if messages[i].get("role") == "user"
-                ),
+                (i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"),
                 len(messages) - 1,
             )
             messages[last_user] = {
@@ -127,8 +123,13 @@ class PromptAssembler:
                     before_tokens = after_tokens = -1
                 logger.info(
                     "Context compaction: session=%s %d->%d msgs %s->%s tokens (budget=%d ratio=%.2f)",
-                    self.session.id, len(messages), len(compressed),
-                    before_tokens, after_tokens, context_window, ephemeral_ratio,
+                    self.session.id,
+                    len(messages),
+                    len(compressed),
+                    before_tokens,
+                    after_tokens,
+                    context_window,
+                    ephemeral_ratio,
                 )
             return compressed
         return messages

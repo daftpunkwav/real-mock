@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.resume.services.files import find_resume_file, find_resume_files
 from realmock.domains.resume.services.parser import transcribe_pages_with_vision
-from realmock.domains.resume.services.text_extract import extract_text_from_file
 from realmock.domains.resume.services.render import render_pdf_pages_as_data_urls
+from realmock.domains.resume.services.text_extract import extract_text_from_file
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.core.errors import raise_error
 from realmock.platform.services.pipeline.config import get_stage_config_for_runtime

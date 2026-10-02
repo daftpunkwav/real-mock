@@ -44,7 +44,9 @@ def _project_turn(turn: dict[str, Any]) -> dict[str, Any]:
     return {
         "turn_id": turn.get("turn_id"),
         "phase": turn.get("phase"),
-        "question": str(assistant.get("text", ""))[:_TURN_CHARS] if isinstance(assistant, dict) else "",
+        "question": str(assistant.get("text", ""))[:_TURN_CHARS]
+        if isinstance(assistant, dict)
+        else "",
         "answer": str(user.get("text", ""))[:_TURN_CHARS] if isinstance(user, dict) else "",
         "tools": [
             {"name": t.get("name"), "preview": str(t.get("result", ""))[:200]}
@@ -86,7 +88,7 @@ def ledger_tool_specs(
         offset = max(0, int(args.get("offset") or 0))
         requested = args.get("turn_ids")
         if isinstance(requested, list) and requested:
-            want = {str(t) for t in requested[:_PAGE_TURNS * 2]}
+            want = {str(t) for t in requested[: _PAGE_TURNS * 2]}
             page = [t for t in scoped if str(t.get("turn_id")) in want]
         else:
             page = scoped[offset : offset + _PAGE_TURNS]
@@ -131,7 +133,10 @@ def ledger_tool_specs(
             parameters={
                 "type": "object",
                 "properties": {
-                    "offset": {"type": "integer", "description": "Page offset (0-based); default 0"},
+                    "offset": {
+                        "type": "integer",
+                        "description": "Page offset (0-based); default 0",
+                    },
                     "turn_ids": {
                         "type": "array",
                         "items": {"type": "string"},

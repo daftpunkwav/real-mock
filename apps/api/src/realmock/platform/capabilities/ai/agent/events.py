@@ -17,9 +17,7 @@ AgentEvent = dict[str, Any]
 OnAgentEvent = Callable[[AgentEvent], Awaitable[None] | None]
 
 
-async def emit_agent_event(
-    on_event: OnAgentEvent | None, event: AgentEvent
-) -> None:
+async def emit_agent_event(on_event: OnAgentEvent | None, event: AgentEvent) -> None:
     """Deliver one progress event; callback failures are logged, never raised."""
     if on_event is None:
         return
@@ -28,9 +26,7 @@ async def emit_agent_event(
         if maybe is not None:
             await maybe
     except Exception:
-        logger.warning(
-            "Agent event emit failed type=%s", event.get("type"), exc_info=True
-        )
+        logger.warning("Agent event emit failed type=%s", event.get("type"), exc_info=True)
 
 
 __all__ = ["AgentEvent", "OnAgentEvent", "emit_agent_event"]

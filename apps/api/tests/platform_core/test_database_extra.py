@@ -40,10 +40,9 @@ class TestDatabaseExtras:
         assert dbm.reset_engine is dbm.reset_engines
 
     def test_session_generators(self, api_engine, engine) -> None:
-        import realmock.platform.models  # noqa: F401
-        import realmock.domains.prep.models  # noqa: F401
         import realmock.domains.interview.models  # noqa: F401
-
+        import realmock.domains.prep.models  # noqa: F401
+        import realmock.platform.models  # noqa: F401
         from realmock.platform.database import (
             ApiBase,
             SessionsBase,
@@ -52,8 +51,8 @@ class TestDatabaseExtras:
             get_db,
             get_sessions_db,
             init_api_db,
-            init_sessions_db,
             init_db,
+            init_sessions_db,
             sessions_db_session,
         )
 

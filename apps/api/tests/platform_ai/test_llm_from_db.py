@@ -13,7 +13,10 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from realmock.platform.capabilities.ai.llm.client import from_db as fd_mod
-from realmock.platform.capabilities.ai.llm.client.from_db import build_from_db, build_from_stage_config
+from realmock.platform.capabilities.ai.llm.client.from_db import (
+    build_from_db,
+    build_from_stage_config,
+)
 from realmock.platform.core.secrets import LegacySecretFormatError
 
 _RUNTIME_CFG = "realmock.platform.services.pipeline.config.get_stage_config_for_runtime"
@@ -39,15 +42,22 @@ def _patch(
 ) -> Any:
     ctx = patch(_RUNTIME_CFG, return_value=cfg)
     ctx2 = patch.object(fd_mod, "get_settings", return_value=_settings())
-    ctx3 = patch.object(fd_mod, "decrypt_secret", side_effect=(lambda v: v) if decrypt is None else decrypt)
+    ctx3 = patch.object(
+        fd_mod, "decrypt_secret", side_effect=(lambda v: v) if decrypt is None else decrypt
+    )
     return (ctx, ctx2, ctx3)
 
 
 def test_full_profile_with_reasoning() -> None:
     cfg = {
-        "api_base": "https://x", "api_key": "k", "model": "m", "max_tokens": 111,
-        "protocol": "anthropic_messages", "reasoning_capable": True,
-        "context_window": 99, "supports_vision": True,
+        "api_base": "https://x",
+        "api_key": "k",
+        "model": "m",
+        "max_tokens": 111,
+        "protocol": "anthropic_messages",
+        "reasoning_capable": True,
+        "context_window": 99,
+        "supports_vision": True,
     }
     ctx, ctx2, ctx3 = _patch(cfg)
     with ctx, ctx2, ctx3:
@@ -71,7 +81,9 @@ def test_reasoning_dropped_without_capability() -> None:
 def test_thinking_opt_out_disables_reasoning() -> None:
     """enable_thinking=False suppresses reasoning even for a capable profile."""
     cfg = {
-        "api_base": "https://x", "api_key": "k", "model": "m",
+        "api_base": "https://x",
+        "api_key": "k",
+        "model": "m",
         "reasoning_capable": True,
         "extras": {"reasoning": {"variants": ["low", "high"], "defaultVariant": "high"}},
     }
@@ -86,7 +98,9 @@ def test_thinking_opt_out_disables_reasoning() -> None:
 def test_default_reasoning_variant_used_without_explicit_effort() -> None:
     """No caller effort → extras.reasoning.defaultVariant applies (capability-gated)."""
     cfg = {
-        "api_base": "https://x", "api_key": "k", "model": "m",
+        "api_base": "https://x",
+        "api_key": "k",
+        "model": "m",
         "reasoning_capable": True,
         "extras": {"reasoning": {"variants": ["low", "high"], "defaultVariant": "high"}},
     }
@@ -98,7 +112,9 @@ def test_default_reasoning_variant_used_without_explicit_effort() -> None:
 
 def test_default_reasoning_variant_gated_by_capability() -> None:
     cfg = {
-        "api_base": "https://x", "api_key": "k", "model": "m",
+        "api_base": "https://x",
+        "api_key": "k",
+        "model": "m",
         "reasoning_capable": False,
         "extras": {"reasoning": {"variants": ["high"], "defaultVariant": "high"}},
     }
@@ -110,7 +126,9 @@ def test_default_reasoning_variant_gated_by_capability() -> None:
 
 def test_explicit_effort_overrides_default_variant() -> None:
     cfg = {
-        "api_base": "https://x", "api_key": "k", "model": "m",
+        "api_base": "https://x",
+        "api_key": "k",
+        "model": "m",
         "reasoning_capable": True,
         "extras": {"reasoning": {"variants": ["low", "high"], "defaultVariant": "high"}},
     }
@@ -175,14 +193,14 @@ def test_from_stage_config_plain_and_enc() -> None:
     out = build_from_stage_config(_FakeClient, {"api_base": "b", "api_key": "k", "model": "m"})  # type: ignore[arg-type]
     assert out.kw["api_key"] == "k"
     with patch.object(fd_mod, "decrypt_secret", return_value="plain"):
-        out2 = build_from_stage_config(_FakeClient, {"api_base": "b", "api_key": "enc:v2:x", "model": "m"})  # type: ignore[arg-type]
+        out2 = build_from_stage_config(
+            _FakeClient, {"api_base": "b", "api_key": "enc:v2:x", "model": "m"}
+        )  # type: ignore[arg-type]
     assert out2.kw["api_key"] == "plain"
 
 
 def test_from_stage_config_enc_failures_blank_key() -> None:
-    with patch.object(
-        fd_mod, "decrypt_secret", side_effect=LegacySecretFormatError("old")
-    ):
+    with patch.object(fd_mod, "decrypt_secret", side_effect=LegacySecretFormatError("old")):
         out = build_from_stage_config(_FakeClient, {"api_key": "enc:v1:old"})  # type: ignore[arg-type]
     assert out.kw["api_key"] == ""
     with patch.object(fd_mod, "decrypt_secret", side_effect=ValueError("bad")):

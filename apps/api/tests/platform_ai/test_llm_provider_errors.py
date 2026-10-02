@@ -18,15 +18,18 @@ from realmock.platform.capabilities.ai.llm.provider_errors import (
 )
 
 
-
-def _exc_with(status: Any, text: str = "", payload: Any = None, *, raw_json: Any = None) -> Exception:
+def _exc_with(
+    status: Any, text: str = "", payload: Any = None, *, raw_json: Any = None
+) -> Exception:
     resp = MagicMock()
     resp.status_code = status
     resp.text = text
     if raw_json is not None:
         resp.json = raw_json
     else:
-        resp.json = MagicMock(return_value=payload, side_effect=None if payload is not None else Exception("no"))
+        resp.json = MagicMock(
+            return_value=payload, side_effect=None if payload is not None else Exception("no")
+        )
     exc = ValueError("boom")
     exc.response = resp  # type: ignore[attr-defined]
     return exc
@@ -77,13 +80,16 @@ def test_is_diagnosable_rate_limit_and_quota() -> None:
 
 def test_is_diagnosable_overflow_and_rejections() -> None:
     assert is_diagnosable_upstream_error(ValueError("context_length_exceeded")) is True
-    assert is_diagnosable_upstream_error(
-        _exc_with(400, text="Maximum context length reached")
-    ) is True
+    assert (
+        is_diagnosable_upstream_error(_exc_with(400, text="Maximum context length reached")) is True
+    )
     # Auth, gateway and opaque SDK failures stay log-only.
     assert is_diagnosable_upstream_error(_exc_with(401, text="invalid api key")) is False
     assert is_diagnosable_upstream_error(ValueError("connection reset by peer")) is False
-    assert is_diagnosable_upstream_error(ValueError("connect timeout to http://10.0.0.3:8080/v1")) is False
+    assert (
+        is_diagnosable_upstream_error(ValueError("connect timeout to http://10.0.0.3:8080/v1"))
+        is False
+    )
 
 
 def test_is_diagnosable_never_raises() -> None:

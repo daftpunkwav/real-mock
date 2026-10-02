@@ -3,9 +3,13 @@
 Covers: github_tool_spec handler passthrough/missing and _build_github_specs skip
 Conventions: github_tool_specs faked; no network; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import pytest
+
 from realmock.platform.capabilities.ai.agent import WorkingMemory
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -15,8 +19,10 @@ def _reset_rate_limit():
     yield
     reset_rate_limit()
 
+
 def _memory() -> WorkingMemory:
     return WorkingMemory()
+
 
 @pytest.mark.asyncio
 async def test_github_spec_handler_and_missing(monkeypatch) -> None:
@@ -30,9 +36,7 @@ async def test_github_spec_handler_and_missing(monkeypatch) -> None:
         async def handler(self, args):
             return f"SHARED:{args.get('repo')}"
 
-    monkeypatch.setattr(
-        github_mod, "github_tool_specs", lambda names=None: iter([_Shared()])
-    )
+    monkeypatch.setattr(github_mod, "github_tool_specs", lambda names=None: iter([_Shared()]))
     spec = github_mod.github_tool_spec("github_get_file")
     text, hits = await spec.handler({"repo": "a/b"}, _memory())
     assert text == "SHARED:a/b"
@@ -41,6 +45,7 @@ async def test_github_spec_handler_and_missing(monkeypatch) -> None:
     monkeypatch.setattr(github_mod, "github_tool_specs", lambda names=None: iter([]))
     with pytest.raises(RuntimeError, match="Platform github tool missing"):
         github_mod.github_tool_spec("github_get_file")
+
 
 def test_build_github_specs_skips_missing(monkeypatch) -> None:
     import realmock.domains.prep.agents.tools.repo.github as github_mod

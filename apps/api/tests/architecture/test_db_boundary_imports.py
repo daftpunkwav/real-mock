@@ -50,4 +50,6 @@ def test_agent_domains_no_direct_shared_resume_imports() -> None:
                 continue
             for hit in _imports_resume_or_profile(path):
                 violations.append(f"{path.relative_to(services)}: {hit}")
-    assert not violations, "The profile/resume should be read via candidate_read:\n" + "\n".join(violations)
+    assert not violations, "The profile/resume should be read via candidate_read:\n" + "\n".join(
+        violations
+    )

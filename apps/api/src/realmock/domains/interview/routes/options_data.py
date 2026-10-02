@@ -7,9 +7,9 @@ This module depends on interview workflows and the platform company catalog.
 from __future__ import annotations
 
 from realmock.domains.interview.schemas import WorkflowTypeOption
-from realmock.platform.catalogs.company import get_all_companies
 from realmock.domains.interview.workflows import WORKFLOWS, phase_label_map
 from realmock.platform.capabilities.voice.tts.options import AVATARS, TTS_VOICES
+from realmock.platform.catalogs.company import get_all_companies
 
 # Stable role / level ids — UI labels come from frontend i18n.
 ROLES = [
@@ -45,17 +45,37 @@ EXPERIENCE_YEARS = [
 
 PERSONALITIES = [
     {"id": "gentle", "name": "Gentle", "description": "Warm and supportive, with light guidance"},
-    {"id": "professional", "name": "Professional", "description": "Precise and rigorous, depth-focused"},
-    {"id": "pressure", "name": "Pressure", "description": "High-pressure probing, stress-interview style"},
+    {
+        "id": "professional",
+        "name": "Professional",
+        "description": "Precise and rigorous, depth-focused",
+    },
+    {
+        "id": "pressure",
+        "name": "Pressure",
+        "description": "High-pressure probing, stress-interview style",
+    },
     {"id": "hr", "name": "HR", "description": "Soft skills and culture fit"},
-    {"id": "expert", "name": "Technical expert", "description": "Deep technical focus on fundamentals"},
+    {
+        "id": "expert",
+        "name": "Technical expert",
+        "description": "Deep technical focus on fundamentals",
+    },
 ]
 
 INTERVIEW_STYLES = [
     {"id": "guided", "name": "Guided", "description": "Light hints to help expand answers"},
     {"id": "deep_dive", "name": "Deep dive", "description": "Layered follow-ups to the core"},
-    {"id": "continuous", "name": "Continuous probing", "description": "Stay on one point without switching"},
-    {"id": "challenging", "name": "Challenging", "description": "Challenge proposals and demand justification"},
+    {
+        "id": "continuous",
+        "name": "Continuous probing",
+        "description": "Stay on one point without switching",
+    },
+    {
+        "id": "challenging",
+        "name": "Challenging",
+        "description": "Challenge proposals and demand justification",
+    },
 ]
 
 # phases are phase ids; UI maps them via resolvePhaseLabels / i18n

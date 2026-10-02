@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 # Session metadata for the history page (no access token).
 class SessionHistoryItem(BaseModel):
-
     id: int
     role: str
     level: str

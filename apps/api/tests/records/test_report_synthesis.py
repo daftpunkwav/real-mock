@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.records.agents.report.synthesis_agent import (
     _consume_web_budget,
     run_agent_loop_safe,
@@ -32,20 +33,6 @@ def _llm_empty() -> MagicMock:
 
 
 # ---- finalize ----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- synthesis ----

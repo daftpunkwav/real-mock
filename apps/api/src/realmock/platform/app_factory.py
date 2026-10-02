@@ -82,9 +82,7 @@ def create_service_app(
 
     # Normalized router list (compatible with single APIRouter and multiple)
     routers: list[APIRouter] = (
-        [service_routers]
-        if isinstance(service_routers, APIRouter)
-        else list(service_routers)
+        [service_routers] if isinstance(service_routers, APIRouter) else list(service_routers)
     )
 
     @asynccontextmanager
@@ -156,7 +154,13 @@ def add_default_cors(app: FastAPI, *, cors_origin_list: list[str]) -> None:
         allow_origins=cors_origin_list,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-Id", TRACE_ID_HEADER, "X-Interview-Token"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-Id",
+            TRACE_ID_HEADER,
+            "X-Interview-Token",
+        ],
         expose_headers=[TRACE_ID_HEADER],
         max_age=600,
     )
@@ -186,9 +190,7 @@ def _register_error_envelope_schema(app: FastAPI) -> None:
         schema = original()
         components = schema.setdefault("components", {}).setdefault("schemas", {})
         body_schema = ErrorBody.model_json_schema()
-        api_schema = APIError.model_json_schema(
-            ref_template="#/components/schemas/{model}"
-        )
+        api_schema = APIError.model_json_schema(ref_template="#/components/schemas/{model}")
         # Nested definitions move to the referenced components entry.
         api_schema.pop("$defs", None)
         components.setdefault("ErrorBody", body_schema)

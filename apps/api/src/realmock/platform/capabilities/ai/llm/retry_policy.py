@@ -71,7 +71,9 @@ async def sleep_retry(
     retry_after: float | None = None,
 ) -> float:
     """Sleep before the given retry attempt; returns the waited seconds."""
-    delay = retry_delay(attempt, retry_after if retry_after is not None else parse_retry_after(headers))
+    delay = retry_delay(
+        attempt, retry_after if retry_after is not None else parse_retry_after(headers)
+    )
     logger.info("LLM request retrying in %.0fs (attempt %d)", delay, attempt + 1)
     await asyncio.sleep(delay)
     return delay

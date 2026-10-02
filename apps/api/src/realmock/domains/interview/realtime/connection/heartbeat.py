@@ -78,7 +78,8 @@ class HeartbeatMixin:
                 if miss_count >= _HEARTBEAT_MAX_MISSES:
                     logger.warning(
                         "WS heartbeat timeout disconnect session=%s miss=%s",
-                        self.ctx.session_id, miss_count,
+                        self.ctx.session_id,
+                        miss_count,
                     )
                     try:
                         await self.send(

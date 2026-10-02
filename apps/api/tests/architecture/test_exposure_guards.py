@@ -23,10 +23,10 @@ from realmock.platform.core.session_auth import extract_ws_token
 @pytest.fixture(autouse=True)
 def _api_tables(engine, api_engine):
     """TestClient-based guards here must not depend on other files creating tables first."""
-    from realmock.platform.database import ApiBase, SessionsBase
     import realmock.domains.interview.models  # noqa: F401
     import realmock.domains.prep.models  # noqa: F401
     import realmock.platform.models  # noqa: F401
+    from realmock.platform.database import ApiBase, SessionsBase
 
     ApiBase.metadata.create_all(bind=api_engine)
     SessionsBase.metadata.create_all(bind=engine)
@@ -147,7 +147,9 @@ def test_create_and_list_sessions_require_local_peer():
     from realmock.asgi import app
 
     def _deny() -> None:
-        raise HTTPException(status_code=403, detail="Allow management API access from localhost only")
+        raise HTTPException(
+            status_code=403, detail="Allow management API access from localhost only"
+        )
 
     app.dependency_overrides[require_local_peer] = _deny
     try:

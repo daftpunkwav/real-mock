@@ -55,8 +55,14 @@ def test_avatar_gender_lookup_is_total_for_catalog() -> None:
     """Every catalog avatar has a gender entry; unknown ids resolve empty."""
     assert {avatar["id"] for avatar in AVATARS} <= {
         aid
-        for aid in ("professional_male", "senior_male", "strict_expert",
-                    "gentle_female", "hr_female", "young_female")
+        for aid in (
+            "professional_male",
+            "senior_male",
+            "strict_expert",
+            "gentle_female",
+            "hr_female",
+            "young_female",
+        )
         if avatar_gender(aid)
     }
     assert avatar_gender("mystery_avatar") == ""

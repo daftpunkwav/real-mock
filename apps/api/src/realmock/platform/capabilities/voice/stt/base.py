@@ -28,6 +28,4 @@ class SttCredentials:
 
 
 class SttProvider(Protocol):
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str: ...
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str: ...

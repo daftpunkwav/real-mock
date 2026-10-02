@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from realmock.domains.records.agents.report.finalize import (
     _evidence_text,
     finalize_json,
@@ -136,14 +137,6 @@ async def test_finalize_json_repairs_when_not_json() -> None:
 
 
 # ---- synthesis ----
-
-
-
-
-
-
-
-
 
 
 # ---- turn notes ----

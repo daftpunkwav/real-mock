@@ -45,6 +45,7 @@ class _FakeLLM:
         async def _gen():
             for t in self.stream_tokens:
                 yield t
+
         return _gen()
 
 
@@ -92,6 +93,7 @@ class _FakeQuery:
 def _collect(agen) -> list:
     async def run():
         return [item async for item in agen]
+
     return asyncio.run(run())
 
 
@@ -268,10 +270,12 @@ def test_run_chat_drop_last_assistant_regenerates() -> None:
 
     llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
     session = _FakeSession()
-    session.messages = json.dumps([
-        {"role": "user", "content": "q"},
-        {"role": "assistant", "content": "stale"},
-    ])
+    session.messages = json.dumps(
+        [
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "stale"},
+        ]
+    )
     agent = PrepAgent(session, llm)  # type: ignore[arg-type]
 
     async def run():
@@ -317,10 +321,12 @@ def test_run_chat_drop_last_assistant_keeps_unrelated_exchange() -> None:
 
     llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
     session = _FakeSession()
-    session.messages = json.dumps([
-        {"role": "user", "content": "older question"},
-        {"role": "assistant", "content": "older answer"},
-    ])
+    session.messages = json.dumps(
+        [
+            {"role": "user", "content": "older question"},
+            {"role": "assistant", "content": "older answer"},
+        ]
+    )
     agent = PrepAgent(session, llm)  # type: ignore[arg-type]
 
     async def run():
@@ -395,7 +401,10 @@ def test_ask_user_options_normalizes_json_shapes() -> None:
                         {
                             "question": "Next step?",
                             "options": [
-                                {"description": "Generate a set of MCP practice questions", "value": "quiz_mcp"},
+                                {
+                                    "description": "Generate a set of MCP practice questions",
+                                    "value": "quiz_mcp",
+                                },
                                 "{description: 'Pick one project for simulated chained follow-up questions', value: 'deep_dive'}",
                                 "Provide the learning roadmap directly",
                             ],
@@ -454,17 +463,21 @@ def test_chat_stream_persists_steps_and_search_groups(monkeypatch) -> None:
 
     items = asyncio.run(run())
     assert "".join(i for i in items if isinstance(i, str)) == answer
-    assert llm.stream_calls == 0, "final answer comes from the loop return; no extra tool-less stream"
+    assert llm.stream_calls == 0, (
+        "final answer comes from the loop return; no extra tool-less stream"
+    )
 
     assistant_msgs = [m for m in agent.messages if m.get("role") == "assistant"]
     last = assistant_msgs[-1]
     assert last["content"] == answer
-    assert last["steps"] == [{
-        "name": "web_search",
-        "query": "interview experiences",
-        "args": {"query": "interview experiences"},
-        "result": "[web_search] interview experiences\n[1] fake",
-    }]
+    assert last["steps"] == [
+        {
+            "name": "web_search",
+            "query": "interview experiences",
+            "args": {"query": "interview experiences"},
+            "result": "[web_search] interview experiences\n[1] fake",
+        }
+    ]
     assert last["search_groups"][0]["query"] == "interview experiences"
 
 
@@ -500,13 +513,13 @@ def test_chat_stream_emits_thinking_event_and_persists() -> None:
         return [item async for item in agent.chat_stream("hi", _FakeDB())]  # type: ignore[arg-type]
 
     items = asyncio.run(run())
-    thinking_events = [
-        i for i in items if isinstance(i, dict) and i["type"] == "thinking"
-    ]
+    thinking_events = [i for i in items if isinstance(i, dict) and i["type"] == "thinking"]
     assert [e["content"] for e in thinking_events] == [
         search_reasoning,
         "\n\n" + answer_reasoning,
-    ], "non-stream full reasoning is emitted per round; round 2 starts with an inter-round separator"
+    ], (
+        "non-stream full reasoning is emitted per round; round 2 starts with an inter-round separator"
+    )
     # Thinking events precede answer tokens
     first_text_idx = next(i for i, x in enumerate(items) if isinstance(x, str))
     assert items.index(thinking_events[0]) < first_text_idx
@@ -559,9 +572,7 @@ def test_chat_stream_rounds_stream_thinking_deltas_and_persist() -> None:
         return [item async for item in agent.chat_stream("hi", _FakeDB())]  # type: ignore[arg-type]
 
     items = asyncio.run(run())
-    thinking_events = [
-        i for i in items if isinstance(i, dict) and i["type"] == "thinking"
-    ]
+    thinking_events = [i for i in items if isinstance(i, dict) and i["type"] == "thinking"]
     assert [e["content"] for e in thinking_events] == [
         "Note this first",
         "Record key points",
@@ -727,14 +738,18 @@ async def test_execute_short_circuits_duplicate_tool_calls(monkeypatch) -> None:
     monkeypatch.setattr(
         "realmock.platform.capabilities.ai.agent.tools.search.web_search_with_hits", fake_search
     )
-    agent = PrepAgent(_FakeSession(), _FakeLLM(messages_reply={"role": "assistant", "content": "x"}))  # type: ignore[arg-type]
+    agent = PrepAgent(
+        _FakeSession(), _FakeLLM(messages_reply={"role": "assistant", "content": "x"})
+    )  # type: ignore[arg-type]
     execute = agent._build_execute(_FakeDB(), [], None, None)
 
     first = await execute("web_search", {"query": "Interview notes"})
     second = await execute("web_search", {"query": "Interview notes"})
     third = await execute("web_search", {"query": "React interview notes"})
 
-    assert calls == ["Interview notes", "React interview notes"], "same args should execute only once"
+    assert calls == ["Interview notes", "React interview notes"], (
+        "same args should execute only once"
+    )
     assert "Duplicate call" in second and "Duplicate call" not in first
     assert "Duplicate call" not in third
 
@@ -756,7 +771,9 @@ async def test_execute_failed_call_not_cached(monkeypatch) -> None:
     monkeypatch.setattr(
         "realmock.platform.capabilities.ai.agent.tools.search.web_search_with_hits", slow_search
     )
-    agent = PrepAgent(_FakeSession(), _FakeLLM(messages_reply={"role": "assistant", "content": "x"}))  # type: ignore[arg-type]
+    agent = PrepAgent(
+        _FakeSession(), _FakeLLM(messages_reply={"role": "assistant", "content": "x"})
+    )  # type: ignore[arg-type]
     execute = agent._build_execute(_FakeDB(), [], None, None)
 
     first = await execute("web_search", {"query": "Interview notes"})
@@ -804,7 +821,11 @@ async def test_prep_function_calling_round(db, monkeypatch):
                         }
                     ],
                 }
-            return {"role": "assistant", "content": "Coaching based on company knowledge", "tool_calls": None}
+            return {
+                "role": "assistant",
+                "content": "Coaching based on company knowledge",
+                "tool_calls": None,
+            }
 
         async def chat(self, messages, temperature=0.7, tools=None):
             return "Final coaching response"
@@ -830,7 +851,10 @@ def _note_tool_round() -> dict:
                 {
                     "id": "c0",
                     "type": "function",
-                    "function": {"name": "take_note", "arguments": '{"kind": "note", "content": "x"}'},
+                    "function": {
+                        "name": "take_note",
+                        "arguments": '{"kind": "note", "content": "x"}',
+                    },
                 }
             ],
         },
@@ -839,9 +863,7 @@ def _note_tool_round() -> dict:
 
 def _token_dicts(items: list) -> list[str]:
     """Concatenated content of dict-shaped token events (speculative streaming)."""
-    return "".join(
-        i["content"] for i in items if isinstance(i, dict) and i.get("type") == "token"
-    )
+    return "".join(i["content"] for i in items if isinstance(i, dict) and i.get("type") == "token")
 
 
 def test_chat_stream_speculative_content_streams_as_tokens() -> None:
@@ -860,7 +882,10 @@ def test_chat_stream_speculative_content_streams_as_tokens() -> None:
                             {
                                 "id": "c0",
                                 "type": "function",
-                                "function": {"name": "take_note", "arguments": '{"kind": "note", "content": "x"}'},
+                                "function": {
+                                    "name": "take_note",
+                                    "arguments": '{"kind": "note", "content": "x"}',
+                                },
                             }
                         ],
                     },
@@ -909,8 +934,7 @@ def test_chat_stream_first_content_token_clears_status() -> None:
         i for i, x in enumerate(items) if isinstance(x, dict) and x.get("type") == "token"
     )
     statuses_before = [
-        x for x in items[:first_token_idx]
-        if isinstance(x, dict) and x.get("type") == "status"
+        x for x in items[:first_token_idx] if isinstance(x, dict) and x.get("type") == "status"
     ]
     assert statuses_before and statuses_before[-1]["text"] == ""
     assert statuses_before[0]["text"] == "思考中"
@@ -938,11 +962,13 @@ async def test_chat_stream_propagates_tool_round_error(monkeypatch) -> None:
 def test_chat_stream_empty_polished_early_falls_back_to_live_stream() -> None:
     """Early text that sanitizes to nothing (invalid inline ask_user block) must not end the turn empty."""
     llm = _FakeLLM(
-        replies=[{
-            "role": "assistant",
-            "content": '<tool_call>{"name": "ask_user", "arguments": {"question": "", "options": ["A", "B"]}}</tool_call>',
-            "tool_calls": None,
-        }],
+        replies=[
+            {
+                "role": "assistant",
+                "content": '<tool_call>{"name": "ask_user", "arguments": {"question": "", "options": ["A", "B"]}}</tool_call>',
+                "tool_calls": None,
+            }
+        ],
         stream_tokens=("Recovered closing answer",),
     )
     agent = PrepAgent(_FakeSession(), llm)  # type: ignore[arg-type]
@@ -959,14 +985,16 @@ def test_chat_stream_empty_polished_early_falls_back_to_live_stream() -> None:
 def test_chat_stream_inline_ask_with_empty_body_shows_waiting_line() -> None:
     """A rescued dialog from an otherwise-empty body still lands the waiting line."""
     llm = _FakeLLM(
-        replies=[{
-            "role": "assistant",
-            "content": (
-                '<tool_call>{"name": "ask_user", "arguments": '
-                '{"question": "Which one?", "options": ["A", "B"]}}</tool_call>'
-            ),
-            "tool_calls": None,
-        }]
+        replies=[
+            {
+                "role": "assistant",
+                "content": (
+                    '<tool_call>{"name": "ask_user", "arguments": '
+                    '{"question": "Which one?", "options": ["A", "B"]}}</tool_call>'
+                ),
+                "tool_calls": None,
+            }
+        ]
     )
     agent = PrepAgent(_FakeSession(), llm)  # type: ignore[arg-type]
 
@@ -998,15 +1026,15 @@ def test_display_filter_mirrors_sanitize_final_reply() -> None:
 
     samples = [
         "plain coaching text",
-        "emoji kept \U0001F600 and kaomoji (\uff61\u25d5\u203f\u25d5\uff61)",
+        "emoji kept \U0001f600 and kaomoji (\uff61\u25d5\u203f\u25d5\uff61)",
         "<|minimax|> template token stripped",
         'prose <tool_call><invoke name="quiz">hello <question>Q?</question></invoke></tool_call> tail',
         'bad <tool_call>{"name": "ask_user", "arguments": {"question": "Q?", "options": ["A", "B"]}}</tool_call> tail',
-        "special <|x|> mixed <tool_call><invoke name=\"t\">{}</invoke></tool_call> end",
+        'special <|x|> mixed <tool_call><invoke name="t">{}</invoke></tool_call> end',
     ]
     for text in samples:
         f = DisplayTextFilter()
-        out = "".join(f.feed(text[k:k + 7]) for k in range(0, len(text), 7)) + f.flush()
+        out = "".join(f.feed(text[k : k + 7]) for k in range(0, len(text), 7)) + f.flush()
         expected, _ = sanitize_final_reply(text)
         assert out == expected, f"mirror mismatch for: {text!r}"
 
@@ -1039,7 +1067,7 @@ def test_chat_stream_speculative_json_ask_block_not_flashed() -> None:
 
 def test_chat_stream_speculative_keeps_emojis_like_persistence() -> None:
     """Emojis survive both the live stream and persistence (no refresh rewrite)."""
-    text = "Keep focus \U0001F600 then answer"
+    text = "Keep focus \U0001f600 then answer"
     llm = _StreamFakeLLM(
         rounds=[
             [_note_tool_round()],
@@ -1077,7 +1105,11 @@ async def test_dispatch_multi_question_event_shape() -> None:
             args={
                 "questions": [
                     {"question": "Target role?", "options": ["Backend", "Algorithm"]},
-                    {"question": "Weekly hours?", "widget": "slider", "scale": {"min": 1, "max": 40}},
+                    {
+                        "question": "Weekly hours?",
+                        "widget": "slider",
+                        "scale": {"min": 1, "max": 40},
+                    },
                 ],
             },
             memory=memory,
@@ -1188,4 +1220,6 @@ def test_chat_stream_finishes_with_streamed_text_when_loop_dies() -> None:
     assert text.count(streamed_text) == 1, "no regenerated duplicate after streamed content"
     assert llm.stream_calls == 0, "fallback regeneration must not run once content streamed"
     assistant_msgs = [m for m in agent.messages if m.get("role") == "assistant"]
-    assert streamed_text in (assistant_msgs[-1].get("content") or ""), "persisted text matches what was heard"
+    assert streamed_text in (assistant_msgs[-1].get("content") or ""), (
+        "persisted text matches what was heard"
+    )

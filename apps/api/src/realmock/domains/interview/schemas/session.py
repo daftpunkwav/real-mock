@@ -13,7 +13,6 @@ from realmock.platform.core.constants import MAX_CONFIG_STR_CHARS, MAX_USER_TEXT
 
 # Processor selection for mock interviews: thinking / voice input / voice output + thinking intensity.
 class AiOverrides(BaseModel):
-
     chat_profile_id: int | None = None
     stt_profile_id: int | None = None
     tts_profile_id: int | None = None
@@ -27,9 +26,13 @@ class InterviewConfig(BaseModel):
     level: str = Field(..., max_length=MAX_CONFIG_STR_CHARS)
     company: str = Field(..., max_length=MAX_CONFIG_STR_CHARS)
     workflow_type: Literal["technical", "hr", "management"] = "technical"
-    personality: Literal["gentle", "professional", "pressure", "hr", "expert"] = DEFAULT_PERSONALITY.value
+    personality: Literal["gentle", "professional", "pressure", "hr", "expert"] = (
+        DEFAULT_PERSONALITY.value
+    )
     strictness: int = Field(default=3, ge=1, le=10)
-    interview_style: Literal["guided", "deep_dive", "continuous", "challenging"] = DEFAULT_INTERVIEW_STYLE.value
+    interview_style: Literal["guided", "deep_dive", "continuous", "challenging"] = (
+        DEFAULT_INTERVIEW_STYLE.value
+    )
     resume_id: int | None = None
     avatar_id: str = Field(default="professional_male", max_length=MAX_CONFIG_STR_CHARS)
     scene_id: str = Field(default="meeting_room", max_length=MAX_CONFIG_STR_CHARS)
@@ -43,7 +46,6 @@ class InterviewConfig(BaseModel):
 
 # Light plan-step projection for room UI (flow spine).
 class PlanStepView(BaseModel):
-
     id: str
     title: str
 

@@ -5,20 +5,34 @@ status keys, finish errors.
 Conventions: no real network/LLM (all external calls mocked); uses _agen helper for event streams.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from realmock.domains.interview.agents.events import StreamEvent
-from realmock.domains.interview.routes.turns import _collect_turn_result, finish_interview, send_message, start_interview
+from realmock.domains.interview.routes.turns import (
+    _collect_turn_result,
+    finish_interview,
+    send_message,
+    start_interview,
+)
 from realmock.platform.core.errors import ApiBusinessError
+
 
 async def _agen(items):
     """Yield canned stream events for deterministic route tests."""
     for i in items:
         yield i
 
+
 @pytest.mark.asyncio
 async def test_collect_tokens_and_error():
-    evs = [StreamEvent.make_token("Hi "), StreamEvent.make_turn_done(content="Hi", phase_id="p", is_complete=False, phase_changed=False)]
+    evs = [
+        StreamEvent.make_token("Hi "),
+        StreamEvent.make_turn_done(
+            content="Hi", phase_id="p", is_complete=False, phase_changed=False
+        ),
+    ]
     c, done = await _collect_turn_result(_agen(evs))
     assert c == "Hi" and done is False
     errs = [StreamEvent.make_error("bad", code="A2002")]
@@ -68,7 +82,9 @@ async def test_status_key_and_finish_errors():
         assert e.error_code == "A2002"
     s2 = MagicMock(status="pending", access_token="tok")
     db.query.return_value.filter.return_value.first.return_value = s2
-    with patch("realmock.domains.interview.routes.turns.session_llm", return_value=MagicMock(api_key="")):
+    with patch(
+        "realmock.domains.interview.routes.turns.session_llm", return_value=MagicMock(api_key="")
+    ):
         try:
             await start_interview(1, db=db, access="tok")
             assert False
@@ -80,23 +96,37 @@ async def test_status_key_and_finish_errors():
     db.query.return_value.filter.return_value.first.return_value = sess
     llm = MagicMock(api_key="sk")
     runner = MagicMock()
+
     async def _op(db2):
-        yield StreamEvent.make_turn_done(content="open", phase_id="p", is_complete=False, phase_changed=False)
+        yield StreamEvent.make_turn_done(
+            content="open", phase_id="p", is_complete=False, phase_changed=False
+        )
+
     runner.stream_opening = _op
     with patch("realmock.domains.interview.routes.turns.session_llm", return_value=llm):
         with patch("realmock.domains.interview.routes.turns.InterviewRunner", return_value=runner):
-            with patch("realmock.domains.interview.routes.turns.InterviewSessionState", return_value=MagicMock(phases_remaining=lambda: [])):
+            with patch(
+                "realmock.domains.interview.routes.turns.InterviewSessionState",
+                return_value=MagicMock(phases_remaining=lambda: []),
+            ):
                 out = await start_interview(1, db=db, access="tok")
                 assert out["message"].content == "open"
     sess2 = MagicMock(status="active", access_token="tok", current_phase="p")
     db.query.return_value.filter.return_value.first.return_value = sess2
+
     async def _tu(*a, **k):
         yield StreamEvent.make_token("a")
-        yield StreamEvent.make_turn_done(content="a", phase_id="p", is_complete=False, phase_changed=False)
+        yield StreamEvent.make_turn_done(
+            content="a", phase_id="p", is_complete=False, phase_changed=False
+        )
+
     runner.stream_turn = _tu
     body = MagicMock(content="hi", face_analysis=None, image_base64=None)
     with patch("realmock.domains.interview.routes.turns.session_llm", return_value=llm):
         with patch("realmock.domains.interview.routes.turns.InterviewRunner", return_value=runner):
-            with patch("realmock.domains.interview.routes.turns.InterviewSessionState", return_value=MagicMock(phases_remaining=lambda: ["x"])):
+            with patch(
+                "realmock.domains.interview.routes.turns.InterviewSessionState",
+                return_value=MagicMock(phases_remaining=lambda: ["x"]),
+            ):
                 out2 = await send_message(1, body, db=db, access="tok")
                 assert out2.message.content == "a"

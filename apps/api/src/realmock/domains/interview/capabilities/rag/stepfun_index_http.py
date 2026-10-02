@@ -8,18 +8,17 @@ the StepFun-managed index; it does not touch the protocol surface (``query`` / `
 from __future__ import annotations
 
 import asyncio
-
 import logging
 from typing import Any
 
 import httpx
 
+from realmock.platform.config import get_settings
 from realmock.platform.core.security import (
     UnsafeURLError,
     is_safe_http_url,
     make_pinned_async_client,
 )
-from realmock.platform.config import get_settings
 
 logger = logging.getLogger(__name__)
 

@@ -6,17 +6,21 @@ Conventions: no real network/LLM (all external calls mocked); no handler needed.
 """
 
 import pytest
+
 from realmock.domains.interview.realtime.engine.base import AudioEngineMode, AudioEventKind
 from realmock.domains.interview.realtime.engine.cascaded import CascadedAudioEngine
 
 # No handler fixture: CascadedAudioEngine is exercised directly with mocked TTS queue callbacks.
 
+
 @pytest.mark.asyncio
 async def test_cascaded_engine_branches():
-    from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody
     from realmock.platform.capabilities.voice.tts import TtsCredentials
+    from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody
 
-    eng = CascadedAudioEngine(prosody=VoiceProsody(voice="v"), tts_creds=TtsCredentials(handler="edge"))
+    eng = CascadedAudioEngine(
+        prosody=VoiceProsody(voice="v"), tts_creds=TtsCredentials(handler="edge")
+    )
     assert eng.mode == AudioEngineMode.CASCADED
     eng2 = CascadedAudioEngine()
     assert eng2.mode == AudioEngineMode.CASCADED
@@ -40,6 +44,7 @@ async def test_cascaded_engine_branches():
     await eng.initialize(_h)
     await eng.interrupt()
     assert got == [] or True  # forward only on tts_audio; interrupt dispatches separately
+
     # interrupt handler raises
     async def _boom(ev):
         raise RuntimeError("boom")
@@ -80,6 +85,7 @@ async def test_cascaded_forward_audio_paths():
     # tts_audio bytes data
     await cb("tts_audio", data=b"bin", sentence="s")
     assert len(forwarded) == 2
+
     # handler raises -> swallowed
     async def _boom(ev):
         raise RuntimeError("boom")

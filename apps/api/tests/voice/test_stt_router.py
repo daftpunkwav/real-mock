@@ -7,6 +7,7 @@ unknown-handler, primary-success, text-only branches (providers faked).
 Conventions: no real network/model downloads (all clients mocked); fake providers;
 rate limits reset per test.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -52,9 +53,7 @@ async def test_empty_pcm_returns_local_empty() -> None:
 
 @pytest.mark.asyncio
 async def test_coming_soon_forces_local_fallback(monkeypatch) -> None:
-    monkeypatch.setattr(
-        router_mod, "find_provider", lambda stage, pid: {"status": "coming_soon"}
-    )
+    monkeypatch.setattr(router_mod, "find_provider", lambda stage, pid: {"status": "coming_soon"})
     fake_local = _fake_provider("local-text")
     monkeypatch.setitem(router_mod._PROVIDERS, "local", fake_local)
     out = await router_mod.transcribe_with_handler(
@@ -197,9 +196,7 @@ async def test_unknown_fallback_handler_reports_primary(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_primary_success_no_fallback(monkeypatch) -> None:
-    monkeypatch.setattr(
-        router_mod, "find_provider", lambda stage, pid: {"status": "ready"}
-    )
+    monkeypatch.setattr(router_mod, "find_provider", lambda stage, pid: {"status": "ready"})
     fake = _fake_provider("direct")
     monkeypatch.setitem(router_mod._PROVIDERS, "xfyun", fake)
     out = await router_mod.transcribe_with_handler(

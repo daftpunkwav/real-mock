@@ -11,7 +11,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile, TaskBinding
 from realmock.platform.capabilities.ai.llm.defaults import (
     resolve_context_window,
     resolve_max_output_tokens,
@@ -19,9 +18,23 @@ from realmock.platform.capabilities.ai.llm.defaults import (
 from realmock.platform.core.constants import DEFAULT_LLM_PROTOCOL
 from realmock.platform.core.secrets import decrypt_secret
 from realmock.platform.models import StageConfig
-from realmock.platform.services.pipeline.legacy import get_llm_settings_row, migrate_legacy_to_stages
-from realmock.platform.services.pipeline.migration import TASK_BY_STAGE, DEFAULT_FALLBACK
-from realmock.platform.services.pipeline.config_secrets import _dec, parse_json, public_extras, runtime_extras
+from realmock.platform.models.config_models import (
+    LlmProvider,
+    LlmProviderChannel,
+    ModelProfile,
+    TaskBinding,
+)
+from realmock.platform.services.pipeline.config_secrets import (
+    _dec,
+    parse_json,
+    public_extras,
+    runtime_extras,
+)
+from realmock.platform.services.pipeline.legacy import (
+    get_llm_settings_row,
+    migrate_legacy_to_stages,
+)
+from realmock.platform.services.pipeline.migration import DEFAULT_FALLBACK, TASK_BY_STAGE
 from realmock.platform.services.pipeline.stages import load_stage_configs, stage_to_response
 
 
@@ -74,7 +87,9 @@ def _channel_for_profile(
     if channel is None and kind != "chat":
         channel = (
             db.query(LlmProviderChannel)
-            .filter(LlmProviderChannel.provider_id == provider.id, LlmProviderChannel.kind == "chat")
+            .filter(
+                LlmProviderChannel.provider_id == provider.id, LlmProviderChannel.kind == "chat"
+            )
             .first()
         )
     if channel is None:

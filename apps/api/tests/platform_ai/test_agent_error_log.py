@@ -34,17 +34,13 @@ def _env(monkeypatch: pytest.MonkeyPatch, tmp_path, *, enabled: bool) -> str:
     return target
 
 
-def test_disabled_by_default_writes_nothing(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:
+def test_disabled_by_default_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     target = _env(monkeypatch, tmp_path, enabled=False)
     log_agent_error(domain="resume", tool="web_search", kind="timeout", message="x")
     assert not os.path.exists(target)
 
 
-def test_enabled_timeout_is_persisted(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:
+def test_enabled_timeout_is_persisted(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     target = _env(monkeypatch, tmp_path, enabled=True)
     raw, status = asyncio.run(
         invoke_with_timeout(

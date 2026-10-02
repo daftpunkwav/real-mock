@@ -16,6 +16,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from realmock.domains.resume.agents.review import OnReviewEvent, run_resume_review
+from realmock.domains.resume.prompts import (
+    dimension_scores_schema_fragment,
+    score_recovery_system,
+)
 from realmock.domains.resume.schemas.analysis import ResumeAnalysis
 from realmock.domains.resume.schemas.limits import (
     COMMIT_RETRY_ATTEMPTS,
@@ -31,10 +35,6 @@ from realmock.domains.resume.services.analysis_normalize import (
     compute_score_from_dims,
     normalize_resume_analysis_payload,
 )
-from realmock.domains.resume.prompts import (
-    dimension_scores_schema_fragment,
-    score_recovery_system,
-)
 from realmock.domains.resume.services.extract import extract_resume_text
 from realmock.domains.resume.services.files import find_resume_file
 from realmock.platform.capabilities.ai.llm.client import LLMClient
@@ -44,9 +44,7 @@ from realmock.platform.models import Resume
 logger = logging.getLogger(__name__)
 
 
-async def _commit_with_retry(
-    db: Session, *, reapply: Callable[[], None] | None = None
-) -> None:
+async def _commit_with_retry(db: Session, *, reapply: Callable[[], None] | None = None) -> None:
     """Commit and briefly retry on SQLite ``database is locked``.
 
     ``reapply`` re-applies in-memory writes after a rollback: ``Session.rollback()``
@@ -63,9 +61,7 @@ async def _commit_with_retry(
             db.rollback()
             if attempt == COMMIT_RETRY_ATTEMPTS or "locked" not in str(e).lower():
                 raise
-            logger.warning(
-                "Resume analysis commit hit SQLite lock, retry %s: %s", attempt, e
-            )
+            logger.warning("Resume analysis commit hit SQLite lock, retry %s: %s", attempt, e)
             if reapply is not None:
                 reapply()
             await asyncio.sleep(COMMIT_RETRY_DELAY_SECONDS * attempt)
@@ -160,9 +156,7 @@ async def _request_score_recovery(
         max_tokens=4_000,
     )
     try:
-        recovered = await (
-            asyncio.wait_for(call, timeout=timeout) if timeout is not None else call
-        )
+        recovered = await (asyncio.wait_for(call, timeout=timeout) if timeout is not None else call)
     except Exception as exc:
         logger.warning("Resume score recovery failed: %s", exc)
         return None
@@ -225,9 +219,7 @@ async def analyze_resume_with_llm(
         ]
         try:
             resume.raw_text = extracted
-            await _commit_with_retry(
-                db, reapply=lambda: setattr(resume, "raw_text", extracted)
-            )
+            await _commit_with_retry(db, reapply=lambda: setattr(resume, "raw_text", extracted))
         except Exception as e:
             # Same envelope as the analysis write below: a local DB failure is
             # B1001, not an unwrapped OperationalError that would surface as a

@@ -105,10 +105,7 @@ def test_contract_guard_rejects_response_field_drift(monkeypatch: pytest.MonkeyP
 
 def test_contract_max_length_reads_metadata_then_fieldinfo() -> None:
     """Annotated metadata wins; a bare FieldInfo-level constraint is the fallback."""
-    assert (
-        _contract_max_length(UserProfileUpdate.model_fields["name"])
-        == FIELD_MAX_LENGTH["name"]
-    )
+    assert _contract_max_length(UserProfileUpdate.model_fields["name"]) == FIELD_MAX_LENGTH["name"]
     # Metadata without max_length, and no FieldInfo-level constraint either.
     assert _contract_max_length(SimpleNamespace(metadata=[object()], max_length=None)) is None
     # Constraint declared on the FieldInfo itself, not in Annotated metadata.

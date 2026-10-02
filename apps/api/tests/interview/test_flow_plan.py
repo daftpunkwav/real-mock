@@ -4,28 +4,27 @@ from __future__ import annotations
 
 import json
 
-from realmock.domains.interview.models import InterviewProcess, InterviewSession, InterviewTurn
 from realmock.domains.interview.agents.past_records import (
     prior_round_sessions,
     read_past_round,
     search_past_interviews,
-)
-from realmock.domains.interview.agents.session_state import InterviewSessionState
-from realmock.domains.interview.agents.turn_output import parse_turn_output
-from realmock.domains.interview.protocols.plan_schema import (
-    MAX_PLAN_STEPS,
-    MIN_PLAN_STEPS,
-    parse_plan,
-    plan_from_workflow,
 )
 from realmock.domains.interview.agents.planning.planner import (
     PLAN_STATUS_READY,
     ensure_plan,
     fallback_plan_for,
 )
+from realmock.domains.interview.agents.session_state import InterviewSessionState
+from realmock.domains.interview.agents.turn_output import parse_turn_output
+from realmock.domains.interview.models import InterviewProcess, InterviewSession, InterviewTurn
+from realmock.domains.interview.protocols.plan_schema import (
+    MAX_PLAN_STEPS,
+    MIN_PLAN_STEPS,
+    parse_plan,
+    plan_from_workflow,
+)
 from realmock.domains.interview.workflows import get_workflow
 from tests.fakes import FakeLLMClient
-
 
 # ---- plan schema ---------------------------------------------------------------
 
@@ -207,12 +206,16 @@ def test_plan_ops_parsed_and_sanitized():
     assert output.plan_ops[0]["max_questions"] == 4
 
     assert parse_turn_output({"plan_ops": None}, say_text="x").plan_ops == ()
-    assert parse_turn_output({"plan_ops": {"insert_after_current": []}}, say_text="x").plan_ops == ()
+    assert (
+        parse_turn_output({"plan_ops": {"insert_after_current": []}}, say_text="x").plan_ops == ()
+    )
 
 
 def test_apply_plan_ops_inserts_after_current():
     session = InterviewSession(
-        role="r", level="l", company="c",
+        role="r",
+        level="l",
+        company="c",
         plan=json.dumps(_agent_plan_dict(10), ensure_ascii=False),
         plan_status="ready",
     )
@@ -223,9 +226,7 @@ def test_apply_plan_ops_inserts_after_current():
     agent.current_phase_idx = 2
     agent.questions_in_phase = 0
 
-    inserted = agent.apply_plan_ops(
-        ({"title": "新项目追问", "focus": "f", "max_questions": 2},)
-    )
+    inserted = agent.apply_plan_ops(({"title": "新项目追问", "focus": "f", "max_questions": 2},))
     assert inserted == 1
     assert agent.plan.steps[3].title == "新项目追问"
     # current step unchanged; next step is the insertion
@@ -239,7 +240,9 @@ def test_apply_plan_ops_inserts_after_current():
 
 def test_apply_plan_ops_respects_total_cap():
     session = InterviewSession(
-        role="r", level="l", company="c",
+        role="r",
+        level="l",
+        company="c",
         plan=json.dumps(_agent_plan_dict(MAX_PLAN_STEPS), ensure_ascii=False),
         plan_status="ready",
     )
@@ -259,8 +262,14 @@ def _make_process_with_rounds(db):
     db.add(process)
     db.flush()
     first = InterviewSession(
-        role="r", level="l", company="c", status="completed",
-        process_id=process.id, round_no=1, result="passed", ledger_frozen=True,
+        role="r",
+        level="l",
+        company="c",
+        status="completed",
+        process_id=process.id,
+        round_no=1,
+        result="passed",
+        ledger_frozen=True,
     )
     db.add(first)
     db.commit()
@@ -268,16 +277,32 @@ def _make_process_with_rounds(db):
     db.add_all(
         [
             InterviewTurn(
-                session_id=first.id, turn_id="t1", seq=1,
-                turn=json.dumps({"turn_id": "t1", "phase": "project_deep_dive",
-                                "assistant": {"text": "讲讲库存系统的 QPS"},
-                                "user": {"text": "大概 5000"}}, ensure_ascii=False),
+                session_id=first.id,
+                turn_id="t1",
+                seq=1,
+                turn=json.dumps(
+                    {
+                        "turn_id": "t1",
+                        "phase": "project_deep_dive",
+                        "assistant": {"text": "讲讲库存系统的 QPS"},
+                        "user": {"text": "大概 5000"},
+                    },
+                    ensure_ascii=False,
+                ),
             ),
             InterviewTurn(
-                session_id=first.id, turn_id="t2", seq=2,
-                turn=json.dumps({"turn_id": "t2", "phase": "summary",
-                                "assistant": {"text": "总结一下"},
-                                "user": {"text": "好的"}}, ensure_ascii=False),
+                session_id=first.id,
+                turn_id="t2",
+                seq=2,
+                turn=json.dumps(
+                    {
+                        "turn_id": "t2",
+                        "phase": "summary",
+                        "assistant": {"text": "总结一下"},
+                        "user": {"text": "好的"},
+                    },
+                    ensure_ascii=False,
+                ),
             ),
         ]
     )
@@ -288,8 +313,12 @@ def _make_process_with_rounds(db):
 def test_prior_rounds_scoped_to_process_and_completed(db):
     process, first = _make_process_with_rounds(db)
     current = InterviewSession(
-        role="r", level="l", company="c", status="active",
-        process_id=process.id, round_no=2,
+        role="r",
+        level="l",
+        company="c",
+        status="active",
+        process_id=process.id,
+        round_no=2,
     )
     standalone = InterviewSession(role="r", level="l", company="c", status="completed")
     db.add_all([current, standalone])
@@ -303,8 +332,12 @@ def test_prior_rounds_scoped_to_process_and_completed(db):
 def test_search_and_read_past_rounds(db):
     process, first = _make_process_with_rounds(db)
     current = InterviewSession(
-        role="r", level="l", company="c", status="active",
-        process_id=process.id, round_no=2,
+        role="r",
+        level="l",
+        company="c",
+        status="active",
+        process_id=process.id,
+        round_no=2,
     )
     db.add(current)
     db.commit()
@@ -329,9 +362,7 @@ def test_search_and_read_past_rounds(db):
 
 
 def test_ensure_plan_stores_fallback_when_failed(db):
-    session = InterviewSession(
-        role="r", level="l", company="c", plan_status="failed"
-    )
+    session = InterviewSession(role="r", level="l", company="c", plan_status="failed")
     db.add(session)
     db.commit()
 

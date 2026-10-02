@@ -16,9 +16,26 @@ def _keyword_vector(text: str, dim: int = 32) -> list[float]:
     """Convert keywords in the text into sparse vectors for controlled RAG retrieval."""
     text = text.lower()
     keywords = [
-        "bytedance", "tencent", "alibaba", "meituan", "mihoyo", "openai", "google",
-        "Project", "Performance", "System", "Basics", "Failure", "Team", "Load testing",
-        "Deep dive", "Data", "Business", "Cache", "Distributed", "Rendering",
+        "bytedance",
+        "tencent",
+        "alibaba",
+        "meituan",
+        "mihoyo",
+        "openai",
+        "google",
+        "Project",
+        "Performance",
+        "System",
+        "Basics",
+        "Failure",
+        "Team",
+        "Load testing",
+        "Deep dive",
+        "Data",
+        "Business",
+        "Cache",
+        "Distributed",
+        "Rendering",
     ]
     vec = [0.0] * dim
     for i, kw in enumerate(keywords):

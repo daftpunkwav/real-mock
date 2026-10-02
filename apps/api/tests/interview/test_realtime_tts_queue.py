@@ -7,14 +7,16 @@ Conventions: no real network/LLM (all external calls mocked); no handler needed.
 """
 
 import asyncio
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, patch
+
 from realmock.domains.interview.realtime.voice.tts_queue import _SentenceTTSQueue
 from realmock.platform.capabilities.voice.tts import TtsCredentials
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody
 
 # No handler fixture: _SentenceTTSQueue is exercised directly with mocked synth/send callbacks.
+
 
 @pytest.mark.asyncio
 async def test_setters_enqueue_clear_overflow():
@@ -40,36 +42,47 @@ async def test_setters_enqueue_clear_overflow():
 async def test_worker_success_and_failed_and_empty():
     async def _ok(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return f"audio:{text}"
+
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _ok):
         q = _SentenceTTSQueue()
         sent = []
+
         async def _send(t, **p):
             sent.append((t, p.get("sentence")))
+
         q.set_on_sent(MagicMock())
         await q.start(_send)
         await q.enqueue("Hi there.")
         await q.flush_remainder("")
         await q.stop()
         assert ("tts_audio", "Hi there.") in [(t, s) for t, s in sent]
+
     async def _fail(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         raise RuntimeError("synth down")
+
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _fail):
         q2 = _SentenceTTSQueue()
         errs = []
+
         async def _send2(t, **p):
             errs.append(t)
+
         await q2.start(_send2)
         await q2.enqueue("Hello world.")
         await q2.flush_remainder("")
         await q2.stop()
         assert "error" in errs
+
     async def _empty(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return ""
+
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _empty):
         q3 = _SentenceTTSQueue()
         got = []
+
         async def _send3(t, **p):
             got.append(t)
+
         await q3.start(_send3)
         await q3.enqueue("Hello world again.")
         await q3.flush_remainder("")
@@ -82,11 +95,14 @@ async def test_stop_timeout_cancels_worker():
     async def _slow(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         await asyncio.sleep(5)
         return "x"
+
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _slow):
         q = _SentenceTTSQueue()
         q._STOP_GRACE_SECONDS = 0.05
+
         async def _send(t, **p):
             pass
+
         await q.start(_send)
         await q.enqueue("Long sentence for timeout.")
         await asyncio.sleep(0.05)
@@ -98,10 +114,13 @@ async def test_stop_timeout_cancels_worker():
 async def test_flush_with_text_and_send_fail():
     async def _ok(text, creds=None, rate="+0%", pitch="+0Hz", emotion="neutral"):
         return "audio:x"
+
     with patch("realmock.domains.interview.realtime.voice.tts_queue.synthesize_speech", _ok):
         q = _SentenceTTSQueue()
+
         async def _bad_send(t, **p):
             raise RuntimeError("send down")
+
         await q.start(_bad_send)
         await q.flush_remainder("Hello world flush.")
         await q.stop()

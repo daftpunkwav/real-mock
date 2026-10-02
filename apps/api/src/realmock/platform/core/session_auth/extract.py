@@ -36,7 +36,9 @@ def _extract_from_request(
     header_tok = (x_interview_token or "").strip()
     query_tok = (token or "").strip()
     if query_tok and get_settings().is_prod:
-        logger.warning("The production environment rejects HTTP query token path=%s", request.url.path)
+        logger.warning(
+            "The production environment rejects HTTP query token path=%s", request.url.path
+        )
         query_tok = ""
     used_header = bool(header_tok)
     chosen = header_tok or cookie_tok or query_tok or None
@@ -58,7 +60,9 @@ def extract_token(
     session_id: int,
     request: Request,
     x_interview_token: str | None = Header(default=None, alias=HEADER_NAME),
-    token: str | None = Query(default=None, description="Session Capability Token (compatible; prod disabled)"),
+    token: str | None = Query(
+        default=None, description="Session Capability Token (compatible; prod disabled)"
+    ),
 ) -> str | None:
     """HTTP dependencies for interviews / reports: Header > Cookie > query (no query in prod)."""
     return _extract_from_request(
@@ -74,7 +78,9 @@ def extract_prep_token(
     session_id: int,
     request: Request,
     x_interview_token: str | None = Header(default=None, alias=HEADER_NAME),
-    token: str | None = Query(default=None, description="Prep capability token (compatible; prod disabled)"),
+    token: str | None = Query(
+        default=None, description="Prep capability token (compatible; prod disabled)"
+    ),
 ) -> str | None:
     """Prep HTTP dependencies."""
     return _extract_from_request(
@@ -109,7 +115,9 @@ def extract_ws_token(
         When the token came through a subprotocol, the second item is the complete subprotocol string for ``accept(subprotocol=...)``.
     """
     if session_id is not None:
-        cookie_tok = (websocket.cookies.get(cookie_name(COOKIE_SCOPE_INTERVIEW, session_id)) or "").strip()
+        cookie_tok = (
+            websocket.cookies.get(cookie_name(COOKIE_SCOPE_INTERVIEW, session_id)) or ""
+        ).strip()
         if cookie_tok:
             return cookie_tok, None
 

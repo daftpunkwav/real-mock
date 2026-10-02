@@ -22,7 +22,6 @@ from realmock.platform.models import Resume
 from realmock.platform.schemas import CandidateProfile
 
 
-
 def _stub_llm_client(api_key: str) -> type:
     class _StubClient:
         def __init__(self) -> None:
@@ -87,9 +86,7 @@ def test_upload_returns_pending_then_done(
     assert row.parse_error == ""
 
 
-def test_parse_failure_lands_in_row(
-    tmp_path, api_db, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_parse_failure_lands_in_row(tmp_path, api_db, monkeypatch: pytest.MonkeyPatch) -> None:
     """An LLM parse failure marks the row failed instead of surfacing as HTTP 500."""
     monkeypatch.setattr(ingest_module, "LLMClient", _stub_llm_client(api_key="k"))
 
@@ -219,6 +216,7 @@ def test_parse_task_ignores_deleted_row(api_db, monkeypatch: pytest.MonkeyPatch)
     async def _drive():
         schedule_resume_parse(row_id)
         from realmock.platform.core import background as _bg
+
         await asyncio.gather(*_bg._tasks)
 
     asyncio.run(_drive())

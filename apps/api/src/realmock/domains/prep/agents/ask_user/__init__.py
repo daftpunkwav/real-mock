@@ -7,7 +7,10 @@ dispatch.py; this module only re-exports the historical ``ask_user`` names.
 from __future__ import annotations
 
 from realmock.domains.prep.agents.ask_user.dispatch import dispatch_ask_user
-from realmock.domains.prep.agents.ask_user.inline import _extract_inline_ask_user, extract_inline_ask_user
+from realmock.domains.prep.agents.ask_user.inline import (
+    _extract_inline_ask_user,
+    extract_inline_ask_user,
+)
 from realmock.domains.prep.agents.ask_user.normalize import (
     _build_ask_event,
     normalize_ask_allow_custom,
@@ -18,10 +21,10 @@ from realmock.domains.prep.agents.ask_user.normalize import (
     normalize_ask_widget,
 )
 from realmock.domains.prep.agents.ask_user.schema import (
-    ASK_USER_FALLBACK_REPLY,
-    ASK_USER_TOOL,
     _ASK_USER_FALLBACK_REPLY,
     _ASK_USER_TOOL,
+    ASK_USER_FALLBACK_REPLY,
+    ASK_USER_TOOL,
     fallback_reply,
 )
 

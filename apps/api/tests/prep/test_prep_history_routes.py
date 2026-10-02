@@ -3,13 +3,18 @@
 Covers: writable-session guards, message loading/pruning helpers, summary helpers, compact backup and reason branches, HTTP status mismatches
 Conventions: No real LLM; LLM and context faked; temp DB and TestClient where needed; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import json
+
 import pytest
 from fastapi.testclient import TestClient
+
 from realmock.asgi import app
 from realmock.domains.prep.models import PrepSession
 from realmock.platform.core.session_auth import new_access_token
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -18,6 +23,7 @@ def _reset_rate_limit():
     reset_rate_limit()
     yield
     reset_rate_limit()
+
 
 def _session(db, messages: list[dict] | str = "[]", **kwargs) -> PrepSession:
     kwargs.setdefault("status", "active")
@@ -31,6 +37,7 @@ def _session(db, messages: list[dict] | str = "[]", **kwargs) -> PrepSession:
     db.commit()
     db.refresh(row)
     return row
+
 
 def test_require_writable_missing_and_completed(db) -> None:
     import realmock.domains.prep.routes.history as history_mod
@@ -47,6 +54,7 @@ def test_require_writable_missing_and_completed(db) -> None:
         history_mod._require_existing_writable_session(row.id, db)
     assert exc2.value.error_code == "A3002"
 
+
 def test_load_session_messages_corrupt_and_non_list(db) -> None:
     import realmock.domains.prep.routes.history as history_mod
 
@@ -57,36 +65,45 @@ def test_load_session_messages_corrupt_and_non_list(db) -> None:
     row3 = _session(db, messages=[{"role": "user", "content": "hi"}])
     assert len(history_mod._load_session_messages(row3)) == 1
 
+
 def test_call_ids_and_prune_helpers() -> None:
     import realmock.domains.prep.routes.history as history_mod
 
     assert history_mod._call_ids({"tool_calls": "bad"}) == []
     assert history_mod._call_ids({"tool_calls": [{"id": "c1"}, "bad"]}) == ["c1"]
     # Trailing assistant with tool_calls is pruned.
-    pruned = history_mod._prune_dangling_tool_tail([
-        {"role": "user", "content": "q"},
-        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
-    ])
+    pruned = history_mod._prune_dangling_tool_tail(
+        [
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
+        ]
+    )
     assert pruned == [{"role": "user", "content": "q"}]
     # Orphan tool result without owner is pruned.
-    pruned2 = history_mod._prune_dangling_tool_tail([
-        {"role": "user", "content": "q"},
-        {"role": "tool", "tool_call_id": "missing", "content": "obs"},
-    ])
+    pruned2 = history_mod._prune_dangling_tool_tail(
+        [
+            {"role": "user", "content": "q"},
+            {"role": "tool", "tool_call_id": "missing", "content": "obs"},
+        ]
+    )
     assert pruned2 == [{"role": "user", "content": "q"}]
     # Complete pair at tail is kept.
-    kept = history_mod._prune_dangling_tool_tail([
-        {"role": "user", "content": "q"},
-        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
-        {"role": "tool", "tool_call_id": "c1", "content": "obs"},
-    ])
+    kept = history_mod._prune_dangling_tool_tail(
+        [
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
+            {"role": "tool", "tool_call_id": "c1", "content": "obs"},
+        ]
+    )
     assert len(kept) == 3
+
 
 def test_current_summary_empty() -> None:
     import realmock.domains.prep.routes.history as history_mod
 
     assert history_mod._current_summary([]) == ("", 0)
     assert history_mod._current_summary_text([]) == ""
+
 
 @pytest.mark.asyncio
 async def test_compact_backup_cleanup_on_failure(db, monkeypatch) -> None:
@@ -103,10 +120,13 @@ async def test_compact_backup_cleanup_on_failure(db, monkeypatch) -> None:
         raise RuntimeError("summarizer-down")
 
     monkeypatch.setattr(history_mod.PrepAgent, "_build_context", _boom)
-    row = _session(db, messages=[
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    row = _session(
+        db,
+        messages=[
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
 
     class _Req:
         method = "POST"
@@ -115,11 +135,15 @@ async def test_compact_backup_cleanup_on_failure(db, monkeypatch) -> None:
     before_ids = {r.id for r in db.query(PrepSession).all()}
     with pytest.raises(RuntimeError, match="summarizer-down"):
         await history_mod.compact_prep_session(
-            row.id, _Req(), db, db,  # type: ignore[arg-type]
+            row.id,
+            _Req(),
+            db,
+            db,  # type: ignore[arg-type]
             history_mod.PrepCompactRequest(backup=True),
         )
     after_ids = {r.id for r in db.query(PrepSession).all()}
     assert before_ids == after_ids
+
 
 @pytest.mark.asyncio
 async def test_compact_reason_tool_pairs_only_and_nothing(db, monkeypatch) -> None:
@@ -131,11 +155,14 @@ async def test_compact_reason_tool_pairs_only_and_nothing(db, monkeypatch) -> No
 
     monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, *a, **k: _LLM()))
     monkeypatch.setattr(history_mod, "assert_csrf_if_cookie_only", lambda *a, **k: None)
-    row = _session(db, messages=[
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-        {"role": "user", "content": "q2"},
-    ])
+    row = _session(
+        db,
+        messages=[
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q2"},
+        ],
+    )
 
     async def _smaller(self, **kwargs):
         # Drop one message without writing a summary block.
@@ -148,7 +175,10 @@ async def test_compact_reason_tool_pairs_only_and_nothing(db, monkeypatch) -> No
         headers: dict = {}
 
     out = await history_mod.compact_prep_session(
-        row.id, _Req(), db, db,  # type: ignore[arg-type]
+        row.id,
+        _Req(),
+        db,
+        db,  # type: ignore[arg-type]
         history_mod.PrepCompactRequest(backup=False),
     )
     assert out.reason == "tool_pairs_only"
@@ -158,10 +188,14 @@ async def test_compact_reason_tool_pairs_only_and_nothing(db, monkeypatch) -> No
 
     monkeypatch.setattr(history_mod.PrepAgent, "_build_context", _same)
     out2 = await history_mod.compact_prep_session(
-        row.id, _Req(), db, db,  # type: ignore[arg-type]
+        row.id,
+        _Req(),
+        db,
+        db,  # type: ignore[arg-type]
         history_mod.PrepCompactRequest(backup=False),
     )
     assert out2.reason == "nothing_to_fold"
+
 
 def test_update_summary_expected_count_mismatch(db) -> None:
     row = _session(db, messages=[{"role": "user", "content": "hi"}])
@@ -173,6 +207,7 @@ def test_update_summary_expected_count_mismatch(db) -> None:
         )
     assert resp.status_code == 409
 
+
 def test_update_summary_no_block_is_a3004(db) -> None:
     row = _session(db, messages=[{"role": "user", "content": "hi"}])
     with TestClient(app) as client:
@@ -183,6 +218,7 @@ def test_update_summary_no_block_is_a3004(db) -> None:
         )
     assert resp.status_code == 404
 
+
 def test_fork_missing_is_404(db) -> None:
     with TestClient(app) as client:
         resp = client.post(
@@ -192,11 +228,15 @@ def test_fork_missing_is_404(db) -> None:
         )
     assert resp.status_code == 404
 
+
 def test_truncate_expected_count_mismatch(db) -> None:
-    row = _session(db, messages=[
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    row = _session(
+        db,
+        messages=[
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     with TestClient(app) as client:
         resp = client.post(
             f"/api/v1/prep/sessions/{row.id}/messages/truncate",
@@ -204,6 +244,7 @@ def test_truncate_expected_count_mismatch(db) -> None:
             json={"from_index": 1, "expected_message_count": 999},
         )
     assert resp.status_code == 409
+
 
 def test_compact_expected_count_mismatch(db, monkeypatch) -> None:
     from realmock.platform.capabilities.ai.llm.client import LLMClient

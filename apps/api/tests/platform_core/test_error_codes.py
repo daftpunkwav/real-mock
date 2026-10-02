@@ -24,9 +24,15 @@ def test_catalog_has_three_groups() -> None:
     a_codes = [c for c in CATALOG if c.startswith("A")]
     b_codes = [c for c in CATALOG if c.startswith("B")]
     c_codes = [c for c in CATALOG if c.startswith("C")]
-    assert len(a_codes) >= 15, f"Category A should cover multiple domains; actual coverage is only {len(a_codes)} items"
-    assert len(b_codes) >= 2, f"Category B must include at least B0001/B1001; actual count: {len(b_codes)} items"
-    assert len(c_codes) >= 7, f"Category C covers LLM/reports/voice/search/RAG; actual coverage: {len(c_codes)} items"
+    assert len(a_codes) >= 15, (
+        f"Category A should cover multiple domains; actual coverage is only {len(a_codes)} items"
+    )
+    assert len(b_codes) >= 2, (
+        f"Category B must include at least B0001/B1001; actual count: {len(b_codes)} items"
+    )
+    assert len(c_codes) >= 7, (
+        f"Category C covers LLM/reports/voice/search/RAG; actual coverage: {len(c_codes)} items"
+    )
 
 
 def test_error_spec_is_frozen() -> None:
@@ -79,11 +85,11 @@ def test_raise_error_unknown_code_falls_back() -> None:
 
 def test_retryable_field_propagates() -> None:
     """Pass the retryable field correctly; 429 and 5xx/502/503 default to True."""
-    assert get_spec("A0002").retryable is True   # 429 rate limiting
-    assert get_spec("B0001").retryable is True   # 500 system error
-    assert get_spec("B1001").retryable is True   # 500 write failed
-    assert get_spec("C0001").retryable is True   # 502 LLM
-    assert get_spec("C1001").retryable is True   # 502 report
+    assert get_spec("A0002").retryable is True  # 429 rate limiting
+    assert get_spec("B0001").retryable is True  # 500 system error
+    assert get_spec("B1001").retryable is True  # 500 write failed
+    assert get_spec("C0001").retryable is True  # 502 LLM
+    assert get_spec("C1001").retryable is True  # 502 report
     assert get_spec("A1005").retryable is False  # 404 resume not found
     assert get_spec("A2002").retryable is False  # 400 interview already finished
 

@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from realmock.domains.prep.agents.tools.candidate.profile import PROFILE_NAMES, profile_declaration_specs
+from realmock.domains.prep.agents.tools.candidate.profile import (
+    PROFILE_NAMES,
+    profile_declaration_specs,
+)
 from realmock.domains.prep.agents.tools.candidate.profile_resume_binding import (
     PROFILE_RESUME_NAMES,
     run_profile_or_resume,
 )
-from realmock.domains.prep.agents.tools.candidate.resume import RESUME_NAMES, resume_declaration_specs
+from realmock.domains.prep.agents.tools.candidate.resume import (
+    RESUME_NAMES,
+    resume_declaration_specs,
+)
 
 
 def candidate_declaration_specs() -> list[dict[str, Any]]:

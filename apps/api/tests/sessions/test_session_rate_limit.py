@@ -5,10 +5,10 @@ from __future__ import annotations
 from fastapi.routing import APIRoute
 
 from realmock.domains.interview.routes.interview import router as interview_router
+from realmock.domains.prep.routes.router import router as prep_router
 from realmock.domains.records.routes.report import router as reports_router
 from realmock.domains.resume.routes import router as resume_router
 from realmock.domains.settings.routes import router as settings_router
-from realmock.domains.prep.routes.router import router as prep_router
 from realmock.platform.core.ratelimit import check_rate_limit, rate_limit_dep, reset_rate_limit
 
 

@@ -11,10 +11,13 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
+from realmock.platform.capabilities.voice.config.catalog import (
+    find_provider,
+    non_reasoning_provider_ids,
+)
 from realmock.platform.config import get_settings
 from realmock.platform.core.constants import PipelineStage
 from realmock.platform.core.errors import ApiBusinessError, get_spec, raise_error
-from realmock.platform.capabilities.voice.config.catalog import find_provider, non_reasoning_provider_ids
 from realmock.platform.schemas import StageConfigUpdate
 
 
@@ -48,7 +51,9 @@ def validate_stage_config(stage: str, data: StageConfigUpdate) -> None:
     if stage == PipelineStage.RECOGNIZE:
         meta = find_provider("recognize", data.provider)
         if meta and meta.get("status") == "coming_soon":
-            raise ApiBusinessError(get_spec("A4003"), message="Recognition processor is not wired yet")
+            raise ApiBusinessError(
+                get_spec("A4003"), message="Recognition processor is not wired yet"
+            )
     elif stage == PipelineStage.REASON:
         # Blacklist derived from catalog (single source of truth)
         if data.provider in non_reasoning_provider_ids():

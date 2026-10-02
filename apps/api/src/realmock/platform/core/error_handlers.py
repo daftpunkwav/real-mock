@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # ── Envelope Builders ──────────────────────────────────────
 
+
 def _trace_id() -> str:
     return get_trace_id() or ""
 
@@ -79,6 +80,7 @@ def _envelope_spec(
 
 # ── HTTPException → envelope unified translator ──
 
+
 def _detail_str(exc: Exception) -> str:
     """HTTPException.detail may be str or list/dict, which is uniformly converted to str."""
     detail = getattr(exc, "detail", "")
@@ -125,6 +127,7 @@ def _envelope_from_http_exception(exc: HTTPException) -> JSONResponse:
 
 # ── 5 handler routes ──
 
+
 async def on_request_validation(request: Request, exc: RequestValidationError) -> JSONResponse:
     # Only log loc and msg: errors() contains the original text of user input (input field) and does not log
     brief = [
@@ -139,7 +142,9 @@ async def on_http_exception(request: Request, exc: HTTPException) -> JSONRespons
     return _envelope_from_http_exception(exc)
 
 
-async def on_starlette_http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+async def on_starlette_http_exception(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
     return _envelope_from_http_exception(exc)  # type: ignore[arg-type]
 
 

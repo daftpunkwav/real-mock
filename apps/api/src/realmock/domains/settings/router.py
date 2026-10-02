@@ -8,6 +8,8 @@ from realmock.domains.settings.routes import (
     integrations_router,
     model_tests_router,
     models_router,
+)
+from realmock.domains.settings.routes import (
     router as settings_routes_router,
 )
 

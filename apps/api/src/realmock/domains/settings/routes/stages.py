@@ -21,6 +21,11 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from realmock.domains.settings.schemas import VoiceCatalogResponse
+from realmock.domains.settings.services.route_timing import run_timed_stage_test
+from realmock.domains.settings.services.stage_tests import test_reason, test_recognize, test_speak
+from realmock.domains.settings.services.validation import safe_base, validate_stage_config
+from realmock.platform.capabilities.voice.config.catalog import catalog_payload
 from realmock.platform.core.constants import DEFAULT_LLM_RATE_LIMIT_PER_MINUTE, PipelineStage
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.ratelimit import rate_limit_dep
@@ -31,16 +36,11 @@ from realmock.platform.schemas import (
     StageConfigsResponse,
     StageConfigUpdate,
 )
-from realmock.platform.capabilities.voice.config.catalog import catalog_payload
 from realmock.platform.services.pipeline.config import (
     get_stage_config_map,
     stage_to_response,
     update_stage_config,
 )
-from realmock.domains.settings.schemas import VoiceCatalogResponse
-from realmock.domains.settings.services.route_timing import run_timed_stage_test
-from realmock.domains.settings.services.validation import safe_base, validate_stage_config
-from realmock.domains.settings.services.stage_tests import test_recognize, test_reason, test_speak
 
 router = APIRouter()
 

@@ -8,12 +8,16 @@ Conventions: no real network/LLM (all external calls mocked); uses _make_handler
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 
+
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -21,6 +25,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_playback_mixins():
@@ -77,8 +82,10 @@ async def test_open_mic_and_cancel_playback():
         h.ctx.tts_sent_this_turn = False
         h.ctx.playback_done.set()
         h.ctx.turn_state = TurnState.IDLE
+
         async def _fake_wait():
             h.ctx.stream_epoch = 6
+
         h._wait_client_playback = _fake_wait  # type: ignore[method-assign]
         await h._open_mic_after_playback(wait_playback=True)
         assert h.ctx.turn_state == TurnState.IDLE  # unchanged, early return
@@ -86,8 +93,10 @@ async def test_open_mic_and_cancel_playback():
         h.ctx.stream_epoch = 5
         h.ctx.playback_done.set()
         h.ctx.tts_sent_this_turn = True
+
         async def _noop_wait():
             return None
+
         h._wait_client_playback = _noop_wait  # type: ignore[method-assign]
         await h._open_mic_after_playback(wait_playback=True)
         assert h.ctx.speech_end_at != 0.0

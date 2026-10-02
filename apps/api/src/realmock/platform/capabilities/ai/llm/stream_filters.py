@@ -22,7 +22,7 @@ Implementation layers:
 from __future__ import annotations
 
 from .inline_tool_call import InlineToolCallCleaner, QuizBlockRenderer
-from .special_token_filter import SpecialTokenFilter, _SPECIAL_RE
+from .special_token_filter import _SPECIAL_RE, SpecialTokenFilter
 from .stream_sanitizer import StreamSanitizer
 
 __all__ = [

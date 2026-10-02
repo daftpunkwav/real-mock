@@ -19,10 +19,17 @@ from realmock.domains.interview.agents.session_prompt import (
 def _mixin(**overrides):
     m = SessionPromptMixin()
     m.session = SimpleNamespace(
-        role="Backend", level="Senior", company="bytedance",
-        workflow_type="technical", personality="professional", strictness=3,
-        interview_style="deep_dive", resume_id=1, profile_id=1,
-        round_no=1, process_id=None,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        resume_id=1,
+        profile_id=1,
+        round_no=1,
+        process_id=None,
     )
     m.agent_state = {}
     m.messages = [{"role": "system", "content": "base"}]
@@ -80,7 +87,8 @@ def test_system_learning_low_avg_and_probes() -> None:
 def test_system_learning_high_avg_no_section() -> None:
     m = _mixin()
     m.system_insights_provider = lambda **kw: {
-        "avg_scores_by_company": {"bytedance": 95}, "recent_probes": [],
+        "avg_scores_by_company": {"bytedance": 95},
+        "recent_probes": [],
     }
     assert m._system_learning_section() == ""
 
@@ -88,7 +96,8 @@ def test_system_learning_high_avg_no_section() -> None:
 def test_system_learning_skips_non_dict_probes() -> None:
     m = _mixin()
     m.system_insights_provider = lambda **kw: {
-        "avg_scores_by_company": {}, "recent_probes": ["bad", 42],
+        "avg_scores_by_company": {},
+        "recent_probes": ["bad", 42],
     }
     assert m._system_learning_section() == ""
 
@@ -120,8 +129,13 @@ def test_memory_section_with_cognitive_graph() -> None:
     m.agent_state = {}
     g = CognitiveMemoryGraph()
     g.record_finding(
-        topic="Redis", category="database", status=CompetencyStatus.VERIFIED,
-        claim="knows", finding="solid", turn_index=1, confidence=0.9,
+        topic="Redis",
+        category="database",
+        status=CompetencyStatus.VERIFIED,
+        claim="knows",
+        finding="solid",
+        turn_index=1,
+        confidence=0.9,
     )
     m.cognitive_memory = g  # type: ignore[attr-defined]
     out = m._memory_section()
@@ -175,8 +189,12 @@ def test_round_identity_none() -> None:
 def test_round_identity_renders() -> None:
     m = _mixin()
     step = SimpleNamespace(
-        label="Tech 1", round_no=1, personality="professional",
-        interview_style="deep_dive", strictness=3, focus="projects",
+        label="Tech 1",
+        round_no=1,
+        personality="professional",
+        interview_style="deep_dive",
+        strictness=3,
+        focus="projects",
     )
     out = m._round_identity_section(step)
     assert "Tech 1" in out
@@ -236,12 +254,25 @@ def test_process_round_with_memory_and_identity(monkeypatch) -> None:
     m = _mixin()
     m.session.process_id = 5
     m.session.round_no = 2
-    proc = SimpleNamespace(id=5, max_rounds=3, workflow_type="technical", memory=pm.dump_memory({
-        "schema": pm.MEMORY_SCHEMA, "rounds": [
-            {"round_no": 1, "session_id": 1, "result": "passed",
-             "digest": {"summary": "good", "topics_covered": ["Redis"]}},
-        ], "final": None,
-    }))
+    proc = SimpleNamespace(
+        id=5,
+        max_rounds=3,
+        workflow_type="technical",
+        memory=pm.dump_memory(
+            {
+                "schema": pm.MEMORY_SCHEMA,
+                "rounds": [
+                    {
+                        "round_no": 1,
+                        "session_id": 1,
+                        "result": "passed",
+                        "digest": {"summary": "good", "topics_covered": ["Redis"]},
+                    },
+                ],
+                "final": None,
+            }
+        ),
+    )
 
     @contextmanager
     def fake_sessions():
@@ -363,9 +394,7 @@ async def test_get_user_profile_and_candidate_use_api_db(monkeypatch) -> None:
         yield "API-DB"
 
     seen: dict = {}
-    monkeypatch.setattr(
-        "realmock.domains.interview.agents.session_prompt.api_db_session", fake_api
-    )
+    monkeypatch.setattr("realmock.domains.interview.agents.session_prompt.api_db_session", fake_api)
     monkeypatch.setattr(
         "realmock.domains.interview.agents.session_prompt.get_user_profile",
         lambda db, pid: seen.update({"u": (db, pid)}) or "PROFILE",

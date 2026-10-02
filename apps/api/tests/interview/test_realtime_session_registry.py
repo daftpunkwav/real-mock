@@ -5,8 +5,10 @@ sync persist/release/match, exception wrappers, supersede.
 Conventions: no real network/LLM (all external calls mocked); uses _conn helper for fake connections.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from realmock.domains.interview.realtime.core.session_registry import (
     WsConnectionRegistry,
     _db_lease_matches_sync,
@@ -17,12 +19,14 @@ from realmock.domains.interview.realtime.core.session_registry import (
     reset_session_registry_for_tests,
 )
 
+
 def _conn(sid=7, token="t1"):
     """Build a minimal fake connection exposing send/ws/lease fields."""
     m = MagicMock(session_id=sid, _superseded=False, lease_token=token)
     m.send = AsyncMock()
     m.ws = MagicMock(close=AsyncMock())
     return m
+
 
 @pytest.mark.asyncio
 async def test_lease_token_and_memory_claim_release():
@@ -97,9 +101,7 @@ async def test_database_backend_lease_roundtrip(monkeypatch, db):
         h2 = _conn(42, token="tok-other")
         await r.release(h2)
         db.expire_all()
-        assert (
-            db.query(WsSessionLease).filter(WsSessionLease.session_id == 42).first() is None
-        )
+        assert db.query(WsSessionLease).filter(WsSessionLease.session_id == 42).first() is None
         assert await r.verify_lease(h2) is False
     finally:
         get_settings.cache_clear()
@@ -108,6 +110,7 @@ async def test_database_backend_lease_roundtrip(monkeypatch, db):
 @pytest.mark.asyncio
 async def test_sync_exceptions_and_wrappers():
     from realmock.domains.interview.realtime.core import session_registry as reg
+
     db = MagicMock()
     db.query.side_effect = RuntimeError("db down")
     cm = MagicMock()

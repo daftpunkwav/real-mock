@@ -21,14 +21,14 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session, defer
 
-from realmock.platform.models import Resume
-from realmock.platform.config import get_settings
-from realmock.platform.core.errors import raise_error
-from realmock.platform.core.security import assert_within_dir
-from realmock.platform.schemas import CandidateProfile
 from realmock.domains.resume.schemas.limits import MAX_RESUME_VERSIONS
 from realmock.domains.resume.services import resume_versions
 from realmock.domains.resume.services.files import find_resume_files
+from realmock.platform.config import get_settings
+from realmock.platform.core.errors import raise_error
+from realmock.platform.core.security import assert_within_dir
+from realmock.platform.models import Resume
+from realmock.platform.schemas import CandidateProfile
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +40,7 @@ def list_rows(db: Session) -> list[Resume]:
     wipe, delete-all) reads the other columns only, so listing never loads the
     full resume text of every row.
     """
-    return (
-        db.query(Resume)
-        .options(defer(Resume.raw_text))
-        .order_by(Resume.created_at.desc())
-        .all()
-    )
+    return db.query(Resume).options(defer(Resume.raw_text)).order_by(Resume.created_at.desc()).all()
 
 
 def get_row(db: Session, resume_id: int) -> Resume | None:
@@ -191,7 +186,9 @@ def finalize_stored_file(row: Resume, temp_path: Path, sanitized: str) -> None:
         final_path = assert_within_dir(upload_dir / f"{row.id}_{sanitized}", upload_dir)
         temp_path.rename(final_path)
     except Exception:
-        logger.warning("Failed to rename resume file to row unique name id=%s", row.id, exc_info=True)
+        logger.warning(
+            "Failed to rename resume file to row unique name id=%s", row.id, exc_info=True
+        )
 
 
 __all__ = [

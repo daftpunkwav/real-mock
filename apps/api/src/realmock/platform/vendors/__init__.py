@@ -125,8 +125,12 @@ def recommended_vendors_payload() -> dict[str, Any]:
                     "request": capability_def.get("request") or {},
                     "notes": capability_def.get("notes") or "",
                 }
-                entry["default_model"] = entry["default_model"] or capability_def.get("default_model") or ""
-                entry["default_api_base"] = entry["default_api_base"] or capability_def.get("default_api_base") or ""
+                entry["default_model"] = (
+                    entry["default_model"] or capability_def.get("default_model") or ""
+                )
+                entry["default_api_base"] = (
+                    entry["default_api_base"] or capability_def.get("default_api_base") or ""
+                )
             grouped.setdefault(vendor_id, {})[capability] = entry
 
     vendors = []

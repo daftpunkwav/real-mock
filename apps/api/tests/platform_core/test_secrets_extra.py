@@ -128,17 +128,15 @@ class TestSecretsExtras:
         # even though the user typed plain text.
         monkeypatch.setenv("SECRET_KEY", "abcdefghijklmnopqrstuvwx")
         sec._reset_cache()
-        assert sec._load_secret_bytes() == _b64.b64decode(
-            "abcdefghijklmnopqrstuvwx"
-        ).ljust(sec._KEY_BYTES, b"0")
+        assert sec._load_secret_bytes() == _b64.b64decode("abcdefghijklmnopqrstuvwx").ljust(
+            sec._KEY_BYTES, b"0"
+        )
 
         # Valid base64 charset decoding to <16 bytes: KDF path over the raw
         # string, not the decoded bytes.
         monkeypatch.setenv("SECRET_KEY", "abcdefghijklmnop")
         sec._reset_cache()
-        assert sec._load_secret_bytes() == sec._derive_key(
-            b"abcdefghijklmnop", sec._MASTER_SALT
-        )
+        assert sec._load_secret_bytes() == sec._derive_key(b"abcdefghijklmnop", sec._MASTER_SALT)
 
         # Non-base64 plain text always takes the KDF path.
         monkeypatch.setenv("SECRET_KEY", "long-enough-secret-123")

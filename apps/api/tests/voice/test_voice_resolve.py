@@ -19,23 +19,14 @@ from realmock.platform.capabilities.voice.tts.voice_resolve import (
 
 def test_avatar_voice_priority_over_settings():
     assert (
-        resolve_session_voice("professional_male", "zh-CN-XiaoxiaoNeural")
-        == "zh-CN-YunyangNeural"
+        resolve_session_voice("professional_male", "zh-CN-XiaoxiaoNeural") == "zh-CN-YunyangNeural"
     )
-    assert (
-        resolve_session_voice("gentle_female", "zh-CN-YunyangNeural")
-        == "zh-CN-XiaoxiaoNeural"
-    )
-    assert (
-        resolve_session_voice("strict_expert", None) == "zh-CN-YunjianNeural"
-    )
+    assert resolve_session_voice("gentle_female", "zh-CN-YunyangNeural") == "zh-CN-XiaoxiaoNeural"
+    assert resolve_session_voice("strict_expert", None) == "zh-CN-YunjianNeural"
 
 
 def test_fallback_to_settings_then_default():
-    assert (
-        resolve_session_voice("unknown_avatar", "zh-CN-YunxiNeural")
-        == "zh-CN-YunxiNeural"
-    )
+    assert resolve_session_voice("unknown_avatar", "zh-CN-YunxiNeural") == "zh-CN-YunxiNeural"
     assert resolve_session_voice(None, None) == "zh-CN-XiaoxiaoNeural"
 
 

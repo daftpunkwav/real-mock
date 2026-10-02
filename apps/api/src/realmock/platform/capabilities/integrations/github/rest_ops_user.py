@@ -49,17 +49,19 @@ async def _list_repos(
         return {"error": "unexpected_response", "raw_type": type(data).__name__}
     repos = []
     for r in data:
-        repos.append({
-            "name": r.get("name"),
-            "full_name": r.get("full_name"),
-            "description": r.get("description"),
-            "language": r.get("language"),
-            "stargazers_count": r.get("stargazers_count"),
-            "forks_count": r.get("forks_count"),
-            "open_issues_count": r.get("open_issues_count"),
-            "updated_at": r.get("updated_at"),
-            "html_url": r.get("html_url"),
-            "topics": r.get("topics") or [],
-            "default_branch": r.get("default_branch"),
-        })
+        repos.append(
+            {
+                "name": r.get("name"),
+                "full_name": r.get("full_name"),
+                "description": r.get("description"),
+                "language": r.get("language"),
+                "stargazers_count": r.get("stargazers_count"),
+                "forks_count": r.get("forks_count"),
+                "open_issues_count": r.get("open_issues_count"),
+                "updated_at": r.get("updated_at"),
+                "html_url": r.get("html_url"),
+                "topics": r.get("topics") or [],
+                "default_branch": r.get("default_branch"),
+            }
+        )
     return {"username": username, "count": len(repos), "repos": repos}

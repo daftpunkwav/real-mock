@@ -109,7 +109,9 @@ async def synthesize_to_base64(
     Prefer ``Communicate(text, voice, rate=, pitch=)``; on failure, fall back to default prosody;
     raise an error if that also fails. The ``style`` parameter is retained for compatibility and is actually mapped to rate/pitch by the caller.
     """
-    del style  # edge-tts cannot be injected into express-as, the sentiment has been reflected in rate/pitch
+    del (
+        style
+    )  # edge-tts cannot be injected into express-as, the sentiment has been reflected in rate/pitch
     plain = plain_text_for_tts(text)
     if not plain:
         return ""
@@ -151,9 +153,7 @@ async def synthesize_to_base64_safe(
 ) -> str:
     """Synthesize speech; if failed, log and return an empty string (compatible with old calls)."""
     try:
-        return await synthesize_to_base64(
-            text, voice, rate=rate, pitch=pitch, style=style
-        )
+        return await synthesize_to_base64(text, voice, rate=rate, pitch=pitch, style=style)
     except Exception as e:
         logger.error("Edge TTS failed: %s", e)
         return ""

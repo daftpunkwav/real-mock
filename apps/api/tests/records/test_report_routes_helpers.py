@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from realmock.domains.interview.models import InterviewTurn, InterviewSession
+from realmock.domains.interview.models import InterviewSession, InterviewTurn
 from realmock.domains.records.routes import report as rmod
 from realmock.domains.records.schemas.report import DebriefReport
 from realmock.platform.contracts.session_catalog import SessionSnapshot
@@ -20,7 +20,6 @@ from realmock.platform.core.ratelimit import reset_rate_limit
 from realmock.platform.models import LLMSettings
 
 _TOKEN = "cov-report-token-" + ("c" * 12)
-
 
 
 def _seed_turns(db, session_id: int, doc: dict) -> None:
@@ -35,9 +34,7 @@ def _seed_turns(db, session_id: int, doc: dict) -> None:
                     else f"t-{seq:04d}"
                 ),
                 seq=seq,
-                turn=(
-                    turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)
-                ),
+                turn=(turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)),
             )
         )
     if doc.get("corrupt"):
@@ -86,19 +83,36 @@ def _ensure_llm(api_db) -> None:
 
 def _completed_session(db, *, status="completed", frozen=True, token=_TOKEN) -> int:
     ledger = {
-        "schema": "realmock.ledger.v1", "session_id": 0, "frozen": frozen,
-        "turns": [{"turn_id": "t-0001", "phase": "intro",
-                   "assistant": {"text": "hi", "visible": True}, "tools": [],
-                   "user": {"text": "hello", "source": "text"}, "flags": {}}],
+        "schema": "realmock.ledger.v1",
+        "session_id": 0,
+        "frozen": frozen,
+        "turns": [
+            {
+                "turn_id": "t-0001",
+                "phase": "intro",
+                "assistant": {"text": "hi", "visible": True},
+                "tools": [],
+                "user": {"text": "hello", "source": "text"},
+                "flags": {},
+            }
+        ],
     }
     s = InterviewSession(
-        profile_id=1, role="Backend", level="Senior", company="bytedance",
-        workflow_type="technical", status=status, current_phase="summary",
+        profile_id=1,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        status=status,
+        current_phase="summary",
         access_token=token,
-        messages=json.dumps([
-            {"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
-        ]),
-        )
+        messages=json.dumps(
+            [
+                {"role": "user", "content": "a"},
+                {"role": "assistant", "content": "b"},
+            ]
+        ),
+    )
     db.add(s)
     db.commit()
     db.refresh(s)
@@ -115,8 +129,13 @@ def _clean_limits():
 
 def _snap(**overrides) -> SessionSnapshot:
     base = {
-        "id": 1, "role": "Backend", "level": "Senior", "company": "bytedance",
-        "status": "completed", "messages": "[]", "ledger_frozen": True,
+        "id": 1,
+        "role": "Backend",
+        "level": "Senior",
+        "company": "bytedance",
+        "status": "completed",
+        "messages": "[]",
+        "ledger_frozen": True,
     }
     base.update(overrides)
     return SessionSnapshot.model_validate(base)
@@ -127,10 +146,16 @@ def test_messages_count_prefers_field() -> None:
 
 
 def test_messages_count_parses_roles() -> None:
-    snap = _snap(messages=json.dumps([
-        {"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
-        {"role": "system", "content": "s"}, "bad",
-    ]))
+    snap = _snap(
+        messages=json.dumps(
+            [
+                {"role": "user", "content": "a"},
+                {"role": "assistant", "content": "b"},
+                {"role": "system", "content": "s"},
+                "bad",
+            ]
+        )
+    )
     assert rmod._messages_count(snap) == 2
 
 
@@ -163,9 +188,7 @@ def test_require_session_maps_invalid_snapshot_to_not_found(db) -> None:
     from realmock.platform.core.errors import ApiBusinessError
 
     fake_db = MagicMock()
-    with patch(
-        "realmock.domains.records.routes.report.get_session_catalog"
-    ) as mock_cat:
+    with patch("realmock.domains.records.routes.report.get_session_catalog") as mock_cat:
         mock_cat.return_value.get_session_snapshot.return_value = {
             "id": "not-an-int",
             "duration_seconds": "oops",
@@ -179,9 +202,7 @@ def test_require_session_maps_invalid_snapshot_to_not_found(db) -> None:
 def test_build_response_uses_catalog_ledger_when_missing(db) -> None:
     snap = _snap(id=5, ledger=None)
     report = DebriefReport.model_validate(_report_dict())
-    with patch(
-        "realmock.domains.records.routes.report.get_session_catalog"
-    ) as mock_cat:
+    with patch("realmock.domains.records.routes.report.get_session_catalog") as mock_cat:
         mock_cat.return_value.get_ledger.return_value = {"frozen": True}
         resp = rmod._build_response(db, snap, report)
         assert resp.session_id == 5

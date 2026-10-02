@@ -11,18 +11,20 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec, TOOL_TIER_SECONDARY
+from realmock.domains.prep.agents.tools.spec import TOOL_TIER_SECONDARY, SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.agent.tools import github_tool_specs
 
-GITHUB_TOOL_NAMES = frozenset({
-    "github_list_repos",
-    "github_get_readme",
-    "github_get_repo",
-    "github_list_commits",
-    "github_get_user",
-    "github_get_file",
-})
+GITHUB_TOOL_NAMES = frozenset(
+    {
+        "github_list_repos",
+        "github_get_readme",
+        "github_get_repo",
+        "github_list_commits",
+        "github_get_user",
+        "github_get_file",
+    }
+)
 
 # Backward-compatible alias.
 _PREP_GITHUB_NAMES = GITHUB_TOOL_NAMES
@@ -37,7 +39,17 @@ _GITHUB_KEYWORDS: dict[str, tuple[str, ...]] = {
     "github_get_file": ("file", "文件", "source", "源码", "code"),
 }
 
-REPO_KEYWORDS = ("repo", "github", "仓库", "代码仓", "repository", "代码", "code", "项目", "project")
+REPO_KEYWORDS = (
+    "repo",
+    "github",
+    "仓库",
+    "代码仓",
+    "repository",
+    "代码",
+    "code",
+    "项目",
+    "project",
+)
 
 # Backward-compatible alias.
 _REPO_KEYWORDS = REPO_KEYWORDS
@@ -59,7 +71,9 @@ def github_tool_spec(name: str) -> ToolSpec:
         RuntimeError: When the platform no longer provides ``name``.
     """
     try:
-        shared = next(spec for spec in github_tool_specs(names=frozenset({name})) if spec.name == name)
+        shared = next(
+            spec for spec in github_tool_specs(names=frozenset({name})) if spec.name == name
+        )
     except StopIteration:
         raise RuntimeError(f"Platform github tool missing: {name}") from None
 

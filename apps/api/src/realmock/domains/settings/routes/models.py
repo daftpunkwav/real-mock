@@ -14,11 +14,6 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from realmock.platform.database import get_db
-from realmock.platform.services.pipeline.config import (
-    get_provider_model_rows,
-    profile_to_response,
-)
 from realmock.domains.settings.schemas import (
     BindingsResponse,
     ChannelModelCatalogResponse,
@@ -38,18 +33,35 @@ from realmock.domains.settings.services.model_registry import (
     ModelProfileUpdate,
     ProviderCreate,
     ProviderUpdate,
-    create_model as create_model_record,
-    create_provider as create_provider_record,
-    delete_model as delete_model_record,
-    delete_provider as delete_provider_record,
     list_bindings_payload,
     list_providers_payload,
     update_binding_record,
-    update_model as update_model_record,
-    update_provider as update_provider_record,
     upsert_channel,
 )
+from realmock.domains.settings.services.model_registry import (
+    create_model as create_model_record,
+)
+from realmock.domains.settings.services.model_registry import (
+    create_provider as create_provider_record,
+)
+from realmock.domains.settings.services.model_registry import (
+    delete_model as delete_model_record,
+)
+from realmock.domains.settings.services.model_registry import (
+    delete_provider as delete_provider_record,
+)
+from realmock.domains.settings.services.model_registry import (
+    update_model as update_model_record,
+)
+from realmock.domains.settings.services.model_registry import (
+    update_provider as update_provider_record,
+)
 from realmock.domains.settings.services.vendor_apply import apply_vendor, channel_model_catalog
+from realmock.platform.database import get_db
+from realmock.platform.services.pipeline.config import (
+    get_provider_model_rows,
+    profile_to_response,
+)
 
 router = APIRouter()
 
@@ -60,9 +72,7 @@ def list_model_options(db: Session = Depends(get_db)) -> dict[str, Any]:
     rows = get_provider_model_rows(db)
     return {
         "models": [
-            profile_to_response(profile, provider)
-            for profile, provider in rows
-            if profile.enabled
+            profile_to_response(profile, provider) for profile, provider in rows if profile.enabled
         ]
     }
 
@@ -108,7 +118,9 @@ def update_provider_channel(
     return upsert_channel(db, provider_id, kind, body)
 
 
-@router.get("/providers/{provider_id}/channels/{kind}/catalog", response_model=ChannelModelCatalogResponse)
+@router.get(
+    "/providers/{provider_id}/channels/{kind}/catalog", response_model=ChannelModelCatalogResponse
+)
 def fetch_channel_model_catalog(provider_id: int, kind: str, db: Session = Depends(get_db)) -> dict:
     """Model ids offered for this channel: vendor descriptor list or the provider's
     OpenAI-compatible /models endpoint."""

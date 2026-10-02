@@ -68,7 +68,9 @@ def test_note_company_finding_none_state_noop() -> None:
 
 def test_note_company_finding_appends_and_caps() -> None:
     state: dict = {}
-    _note_company_finding(state, tool="lookup_company_profile", subject="bytedance", result="r" * 600)
+    _note_company_finding(
+        state, tool="lookup_company_profile", subject="bytedance", result="r" * 600
+    )
     assert state["company_findings"][0]["tool"] == "lookup_company_profile"
     assert len(state["company_findings"][0]["preview"]) == 600
     for i in range(12):
@@ -117,9 +119,7 @@ async def test_execute_github_autofills_username_from_profile(monkeypatch) -> No
     monkeypatch.setattr(tmod, "api_db_session", lambda: _fake_api_db())
     monkeypatch.setattr(tmod, "get_user_profile", lambda db, pid: _Profile())
     state: dict = {}
-    await execute_interview_tool(
-        "github_get_user", {}, db=None, profile_id=7, agent_state=state
-    )
+    await execute_interview_tool("github_get_user", {}, db=None, profile_id=7, agent_state=state)
     assert seen.get("username") == "octocat"
     assert len(state["github_findings"]) == 1
 
@@ -130,7 +130,9 @@ async def test_execute_github_findings_capped_at_20(monkeypatch) -> None:
         return "r"
 
     monkeypatch.setattr(tmod, "execute_github_tool", fake_github)
-    state: dict = {"github_findings": [{"tool": "x", "args": {}, "preview": "p"} for _ in range(20)]}
+    state: dict = {
+        "github_findings": [{"tool": "x", "args": {}, "preview": "p"} for _ in range(20)]
+    }
     await execute_interview_tool("github_list_repos", {"username": "u"}, db=None, agent_state=state)
     assert len(state["github_findings"]) == 20
 
@@ -146,7 +148,11 @@ async def test_execute_profile_tool_success(monkeypatch) -> None:
     monkeypatch.setattr(tmod, "get_user_profile", lambda db, pid: object())
     monkeypatch.setattr(tmod, "profile_from_orm", lambda row: object())
     monkeypatch.setattr(
-        tmod, "profile_tool_specs", lambda snap: [ToolSpec(name="profile_list_sections", description="d", parameters={}, handler=handler)]
+        tmod,
+        "profile_tool_specs",
+        lambda snap: [
+            ToolSpec(name="profile_list_sections", description="d", parameters={}, handler=handler)
+        ],
     )
     out = await execute_interview_tool("profile_list_sections", {}, db=None, profile_id=1)
     assert "basics" in out
@@ -191,7 +197,11 @@ async def test_execute_resume_success(monkeypatch) -> None:
     monkeypatch.setattr(tmod, "get_resume_agent_payload", lambda db, rid: {"a": 1})
     monkeypatch.setattr(tmod, "snapshot_from_payload", lambda p: object())
     monkeypatch.setattr(
-        tmod, "resume_tool_specs", lambda snap: [ToolSpec(name="resume_get_text", description="d", parameters={}, handler=handler)]
+        tmod,
+        "resume_tool_specs",
+        lambda snap: [
+            ToolSpec(name="resume_get_text", description="d", parameters={}, handler=handler)
+        ],
     )
     out = await execute_interview_tool("resume_get_text", {}, db=None, resume_id=5)
     assert "resume-text" in out
@@ -263,9 +273,7 @@ async def test_web_search_success(monkeypatch) -> None:
         return json.dumps({"text": "hits for x"})
 
     monkeypatch.setattr(tmod, "execute_web_search", fake_search)
-    out = await execute_interview_tool(
-        "web_search", {"query": "bytedance interview"}, db=None
-    )
+    out = await execute_interview_tool("web_search", {"query": "bytedance interview"}, db=None)
     assert "hits for x" in out
 
 
@@ -287,9 +295,7 @@ async def test_web_fetch_success(monkeypatch) -> None:
         return json.dumps({"url": args["url"], "title": "T", "text": "page body"})
 
     monkeypatch.setattr(tmod, "execute_web_fetch", fake_fetch)
-    out = await execute_interview_tool(
-        "web_fetch", {"url": "https://example.com/post"}, db=None
-    )
+    out = await execute_interview_tool("web_fetch", {"url": "https://example.com/post"}, db=None)
     assert "page body" in out
 
 
@@ -299,15 +305,15 @@ async def test_web_fetch_failure_stays_observation(monkeypatch) -> None:
         return "FETCH_FAILED could not fetch the page"
 
     monkeypatch.setattr(tmod, "execute_web_fetch", unavailable)
-    out = await execute_interview_tool(
-        "web_fetch", {"url": "https://example.com/post"}, db=None
-    )
+    out = await execute_interview_tool("web_fetch", {"url": "https://example.com/post"}, db=None)
     assert out.startswith("FETCH_FAILED")
 
 
 @pytest.mark.asyncio
 async def test_past_tools_require_session() -> None:
-    out = await execute_interview_tool("search_past_interviews", {"query": "cache"}, db=None, session=None)
+    out = await execute_interview_tool(
+        "search_past_interviews", {"query": "cache"}, db=None, session=None
+    )
     assert json.loads(out)["error"] == "no_process_context"
     out2 = await execute_interview_tool("read_past_round", {"round_no": 1}, db=None, session=None)
     assert json.loads(out2)["error"] == "no_process_context"

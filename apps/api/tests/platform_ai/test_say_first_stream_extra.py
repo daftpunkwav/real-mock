@@ -11,7 +11,6 @@ from __future__ import annotations
 from realmock.platform.capabilities.ai.llm.say_first_stream import SayFirstStreamParser
 
 
-
 def test_feed_empty_and_post_done() -> None:
     p = SayFirstStreamParser()
     assert p.feed("") == ""

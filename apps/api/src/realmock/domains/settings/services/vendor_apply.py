@@ -11,13 +11,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.settings.services.model_registry import get_provider
 from realmock.platform.config import get_settings
 from realmock.platform.core.errors import ApiBusinessError, get_spec
 from realmock.platform.core.secrets import decrypt_secret
 from realmock.platform.core.security import make_pinned_client
 from realmock.platform.models.config_models import LlmProvider, LlmProviderChannel, ModelProfile
-from realmock.platform.vendors import CAPABILITIES, vendor_def, recommended_vendors_payload
-from realmock.domains.settings.services.model_registry import get_provider
+from realmock.platform.vendors import CAPABILITIES, recommended_vendors_payload, vendor_def
 
 #: Vendor capability name → channel kind (the two vocabularies meet here).
 KIND_BY_CAPABILITY = {"reasoning": "chat", "recognize": "stt", "speak": "tts"}
@@ -61,11 +61,7 @@ def apply_vendor(db: Session, vendor_id: str) -> dict[str, Any]:
         raise _apply_error(f"Unknown recommended vendor: {vendor_id}")
     label = vendor.get("label") or vendor_id
 
-    provider = (
-        db.query(LlmProvider)
-        .filter(LlmProvider.name.ilike(label))
-        .first()
-    )
+    provider = db.query(LlmProvider).filter(LlmProvider.name.ilike(label)).first()
     created_provider = provider is None
     if provider is None:
         provider = LlmProvider(name=label)
@@ -179,9 +175,7 @@ def _fetch_remote_models(channel: LlmProviderChannel) -> list[str]:
             get_spec("C0002"),
             message="Model list response has an unexpected shape (expected {data: [{id}]}).",
         )
-    models = sorted(
-        {str(row.get("id")) for row in rows if isinstance(row, dict) and row.get("id")}
-    )
+    models = sorted({str(row.get("id")) for row in rows if isinstance(row, dict) and row.get("id")})
     if not models:
         raise ApiBusinessError(
             get_spec("C0002"), message="The endpoint returned an empty model list."
@@ -204,12 +198,18 @@ def channel_model_catalog(db: Session, provider_id: int, kind: str) -> dict[str,
         .first()
     )
     if channel is None:
-        raise _apply_error("This model type is not configured on the provider yet; save the channel first.")
+        raise _apply_error(
+            "This model type is not configured on the provider yet; save the channel first."
+        )
     capability = CAPABILITY_BY_KIND[kind]
     capability_def = (vendor_def(channel.vendor) or {}).get("capabilities", {}).get(capability)
     if isinstance(capability_def, dict) and capability_def.get("models"):
         return {"source": "vendor", "models": list(capability_def["models"])}
-    if channel.protocol in ("openai_chat", "openai_responses") and channel.api_base and not channel.full_url:
+    if (
+        channel.protocol in ("openai_chat", "openai_responses")
+        and channel.api_base
+        and not channel.full_url
+    ):
         return {"source": "remote", "models": _fetch_remote_models(channel)}
     raise _apply_error(
         "No model catalog source: configure an adapted vendor on the channel, or use an OpenAI-compatible Base URL."

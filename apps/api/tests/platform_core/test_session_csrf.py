@@ -47,14 +47,26 @@ class TestCsrf:
     def test_origin_hit(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import csrf as m
 
-        monkeypatch.setattr(m, "get_settings", lambda: SimpleNamespace(cors_origin_list=["http://localhost:8080"]))
-        assert m.is_origin_in_cors_allowlist(_http_req(headers={"origin": "http://localhost:8080"})) is True
-        assert m.is_origin_in_cors_allowlist(_http_req(headers={"referer": "http://localhost:8080/some/page"})) is True
+        monkeypatch.setattr(
+            m, "get_settings", lambda: SimpleNamespace(cors_origin_list=["http://localhost:8080"])
+        )
+        assert (
+            m.is_origin_in_cors_allowlist(_http_req(headers={"origin": "http://localhost:8080"}))
+            is True
+        )
+        assert (
+            m.is_origin_in_cors_allowlist(
+                _http_req(headers={"referer": "http://localhost:8080/some/page"})
+            )
+            is True
+        )
 
     def test_referer_parse_fail(self, monkeypatch) -> None:
         from realmock.platform.core.session_auth import csrf as m
 
-        monkeypatch.setattr(m, "get_settings", lambda: SimpleNamespace(cors_origin_list=["http://localhost:8080"]))
+        monkeypatch.setattr(
+            m, "get_settings", lambda: SimpleNamespace(cors_origin_list=["http://localhost:8080"])
+        )
         assert m.is_origin_in_cors_allowlist(_http_req(headers={"referer": "http://%zz"})) is False
         assert m.is_origin_in_cors_allowlist(_http_req()) is False
 
@@ -64,6 +76,9 @@ class TestCsrf:
 
         assert_csrf_if_cookie_only(_http_req(), used_header=True)
         assert_csrf_if_cookie_only(_http_req(method="GET"), used_header=False)
-        monkeypatch.setattr("realmock.platform.core.session_auth.csrf.get_settings", lambda: SimpleNamespace(cors_origin_list=[]))
+        monkeypatch.setattr(
+            "realmock.platform.core.session_auth.csrf.get_settings",
+            lambda: SimpleNamespace(cors_origin_list=[]),
+        )
         with pytest.raises(ApiBusinessError):
             assert_csrf_if_cookie_only(_http_req(method="POST"), used_header=False)

@@ -119,6 +119,7 @@ API_MIGRATIONS: dict[str, list[str]] = {
     ],
 }
 
+
 def _column_name_from_stmt(stmt: str) -> str | None:
     """Extract column names from an ALTER ADD COLUMN statement."""
     try:
@@ -147,7 +148,10 @@ def apply_column_migrations(
     """
     backend = engine.url.get_backend_name()
     if backend != "sqlite":
-        logger.info("Non-SQLite database (%s), skips column-level ALTER migration, relies on Alembic", backend)
+        logger.info(
+            "Non-SQLite database (%s), skips column-level ALTER migration, relies on Alembic",
+            backend,
+        )
         return {}
 
     inspector = inspect(engine)
@@ -170,13 +174,16 @@ def apply_column_migrations(
                 applied[table] = create_statements
                 existing_tables.add(table)
             except Exception as e:
-                logger.error("Migration failed %s (table creation transaction has been rolled back): %s", table, e, exc_info=True)
+                logger.error(
+                    "Migration failed %s (table creation transaction has been rolled back): %s",
+                    table,
+                    e,
+                    exc_info=True,
+                )
             continue
         existing_cols = {c["name"] for c in inspector.get_columns(table)}
         to_apply: list[str] = [
-            s
-            for s in statements
-            if (col := _column_name_from_stmt(s)) and col not in existing_cols
+            s for s in statements if (col := _column_name_from_stmt(s)) and col not in existing_cols
         ]
         if not to_apply:
             continue
@@ -187,7 +194,9 @@ def apply_column_migrations(
                     logger.info("Migration successful: %s", stmt[:80])
             applied[table] = to_apply
         except (OperationalError, IntegrityError) as e:
-            logger.error("Migration failed %s (transaction rolled back): %s", table, e, exc_info=True)
+            logger.error(
+                "Migration failed %s (transaction rolled back): %s", table, e, exc_info=True
+            )
         except Exception as e:
             logger.error(
                 "Migration failed %s (transaction rolled back, unknown exception type): %s",

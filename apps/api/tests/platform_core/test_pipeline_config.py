@@ -18,7 +18,6 @@ from realmock.platform.services.pipeline import config as pconf
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -26,20 +25,31 @@ def _ensure_tables(api_engine):
 
 
 def _wipe(api_db) -> None:
-    from realmock.platform.models import LLMSettings, LlmProvider, LlmProviderChannel, ModelProfile, StageConfig, TaskBinding
+    from realmock.platform.models import (
+        LlmProvider,
+        LlmProviderChannel,
+        LLMSettings,
+        ModelProfile,
+        StageConfig,
+        TaskBinding,
+    )
 
     for m in (TaskBinding, ModelProfile, LlmProviderChannel, LlmProvider, StageConfig, LLMSettings):
         api_db.query(m).delete()
     api_db.commit()
 
 
-def _provider_with_channel(api_db, name, *, api_base="http://x/v1", protocol="openai_chat", kind="chat"):
+def _provider_with_channel(
+    api_db, name, *, api_base="http://x/v1", protocol="openai_chat", kind="chat"
+):
     from realmock.platform.models import LlmProvider, LlmProviderChannel
 
     p = LlmProvider(name=name)
     api_db.add(p)
     api_db.flush()
-    api_db.add(LlmProviderChannel(provider_id=p.id, kind=kind, api_base=api_base, protocol=protocol))
+    api_db.add(
+        LlmProviderChannel(provider_id=p.id, kind=kind, api_base=api_base, protocol=protocol)
+    )
     api_db.commit()
     return p
 
@@ -54,7 +64,12 @@ class TestPipelineConfig:
             "model": "m",
             "max_tokens": 10,
             "context_window": 100,
-            "capabilities": SimpleNamespace(supports_vision=True, supports_audio_input=True, supports_audio_output=True, supports_video_input=False),
+            "capabilities": SimpleNamespace(
+                supports_vision=True,
+                supports_audio_input=True,
+                supports_audio_output=True,
+                supports_video_input=False,
+            ),
             "fallback": SimpleNamespace(handler="h", mode="mm"),
             "extras": {"plain": "v", "asr_api_secret": "s"},
         }
@@ -69,7 +84,11 @@ class TestPipelineConfig:
         assert extras["source"] == "stage"
         assert extras["asr_api_secret"].startswith("enc:")
         # keep sentinel preserves secret
-        row2 = pconf.update_stage_config(api_db, "reason", self._data(extras={"asr_api_secret": "keep"}, capabilities=None, fallback=None))
+        row2 = pconf.update_stage_config(
+            api_db,
+            "reason",
+            self._data(extras={"asr_api_secret": "keep"}, capabilities=None, fallback=None),
+        )
         assert json.loads(row2.extras)["asr_api_secret"].startswith("enc:")
 
     def test_get_stage_config_map_with_legacy(self, api_db) -> None:

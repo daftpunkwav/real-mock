@@ -19,7 +19,9 @@ from realmock.platform.capabilities.ai.context.manager import upsert_memory_bloc
 logger = logging.getLogger(__name__)
 
 
-def note_rating_into_session(db: Session, session_id: int, memory_id: int, score: int | None) -> None:
+def note_rating_into_session(
+    db: Session, session_id: int, memory_id: int, score: int | None
+) -> None:
     """Mirror a rating into the session's working memory.
 
     Args:

@@ -19,7 +19,6 @@ from realmock.platform.core.errors import ApiBusinessError
 @pytest.fixture(autouse=True)
 def _clean_api_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -50,14 +49,19 @@ class TestApplyVendor:
         assert out["created_provider"] is True
         assert out["name"] == "MiniMax"
         channels = {
-            c.kind: c for c in api_db.query(LlmProviderChannel).filter(LlmProviderChannel.provider_id == out["provider_id"]).all()
+            c.kind: c
+            for c in api_db.query(LlmProviderChannel)
+            .filter(LlmProviderChannel.provider_id == out["provider_id"])
+            .all()
         }
         assert set(channels) == {"chat", "stt", "tts"}
         assert channels["chat"].vendor == "minimax"
         assert channels["chat"].api_base  # prefilled from the vendor catalog
         assert channels["chat"].api_key == ""  # key left for the user
         # One default entry per kind, with the kind's capability stamped.
-        entries = api_db.query(ModelProfile).filter(ModelProfile.provider_id == out["provider_id"]).all()
+        entries = (
+            api_db.query(ModelProfile).filter(ModelProfile.provider_id == out["provider_id"]).all()
+        )
         by_kind = {e.kind: e for e in entries}
         assert set(by_kind) == {"chat", "stt", "tts"}
         assert by_kind["chat"].cap_chat is True
@@ -71,7 +75,10 @@ class TestApplyVendor:
 
         channel = (
             api_db.query(LlmProviderChannel)
-            .filter(LlmProviderChannel.provider_id == first["provider_id"], LlmProviderChannel.kind == "chat")
+            .filter(
+                LlmProviderChannel.provider_id == first["provider_id"],
+                LlmProviderChannel.kind == "chat",
+            )
             .first()
         )
         channel.api_base = "https://user-edited.example/v1"
@@ -84,14 +91,23 @@ class TestApplyVendor:
 
 
 class TestChannelModelCatalog:
-    def _channel(self, api_db, kind, *, vendor="", api_base="", protocol="openai_chat", full_url=False):
+    def _channel(
+        self, api_db, kind, *, vendor="", api_base="", protocol="openai_chat", full_url=False
+    ):
         from realmock.platform.models import LlmProvider, LlmProviderChannel
 
         p = LlmProvider(name="cp")
         api_db.add(p)
         api_db.flush()
         api_db.add(
-            LlmProviderChannel(provider_id=p.id, kind=kind, vendor=vendor, api_base=api_base, protocol=protocol, full_url=full_url)
+            LlmProviderChannel(
+                provider_id=p.id,
+                kind=kind,
+                vendor=vendor,
+                api_base=api_base,
+                protocol=protocol,
+                full_url=full_url,
+            )
         )
         api_db.commit()
         return p.id
@@ -106,7 +122,14 @@ class TestChannelModelCatalog:
     def test_remote_openai_models(self, api_db) -> None:
         _wipe(api_db)
         pid = self._channel(api_db, "chat", api_base="https://api.example.com/v1")
-        response = type("_R", (), {"raise_for_status": lambda self: None, "json": lambda self: {"data": [{"id": "b-model"}, {"id": "a-model"}]}})()
+        response = type(
+            "_R",
+            (),
+            {
+                "raise_for_status": lambda self: None,
+                "json": lambda self: {"data": [{"id": "b-model"}, {"id": "a-model"}]},
+            },
+        )()
         seen: dict = {}
 
         class _Client:

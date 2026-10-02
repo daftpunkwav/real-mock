@@ -21,11 +21,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any] | None) -> dict[st
     """
     merged: dict[str, Any] = dict(base or {})
     for key, value in (override or {}).items():
-        if (
-            key in merged
-            and isinstance(merged[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
             merged[key] = deep_merge(merged[key], value)
         else:
             merged[key] = value
@@ -39,9 +35,7 @@ def fill_placeholders(value: Any, variables: dict[str, str]) -> Any:
     vendor's error response instead of silently disappearing.
     """
     if isinstance(value, str):
-        return _PLACEHOLDER.sub(
-            lambda m: str(variables.get(m.group(1), m.group(0))), value
-        )
+        return _PLACEHOLDER.sub(lambda m: str(variables.get(m.group(1), m.group(0))), value)
     if isinstance(value, dict):
         return {k: fill_placeholders(v, variables) for k, v in value.items()}
     if isinstance(value, list):

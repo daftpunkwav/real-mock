@@ -13,8 +13,8 @@ from typing import Any
 import httpx
 
 from realmock.platform.config import get_settings
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.core.secrets import LegacySecretFormatError, decrypt_secret
+from realmock.platform.core.security import make_pinned_async_client
 
 from .base import _is_local_allowed, _require_https, _retry_request
 
@@ -45,9 +45,7 @@ def build_payload(
     if tools:
         payload["tools"] = tools
     if reasoning_effort:
-        payload["reasoning_effort"] = (
-            "high" if reasoning_effort == "max" else reasoning_effort
-        )
+        payload["reasoning_effort"] = "high" if reasoning_effort == "max" else reasoning_effort
     # Vendor-specific request-body customization: model-entry extras (extra_body) win over
     # every standard key, so any provider field can be set from the settings page.
     if extra_body:
@@ -59,7 +57,9 @@ def build_payload(
     return payload
 
 
-def chat_completions_headers(api_key: str, extra_headers: dict[str, str] | None = None) -> dict[str, str]:
+def chat_completions_headers(
+    api_key: str, extra_headers: dict[str, str] | None = None
+) -> dict[str, str]:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -164,7 +164,15 @@ def repair_common_json_errors(text: str) -> str:
                 out.append(ch)
                 continue
             if ord(ch) < 0x20:
-                out.append("\\n" if ch == "\n" else "\\t" if ch == "\t" else "\\r" if ch == "\r" else f"\\u{ord(ch):04x}")
+                out.append(
+                    "\\n"
+                    if ch == "\n"
+                    else "\\t"
+                    if ch == "\t"
+                    else "\\r"
+                    if ch == "\r"
+                    else f"\\u{ord(ch):04x}"
+                )
                 continue
             out.append(ch)
             continue
@@ -199,14 +207,17 @@ async def embed_texts(
     }
     raw_embed = settings.effective_embeddings_key
     try:
-        embed_key = (decrypt_secret(raw_embed) if raw_embed else None)
+        embed_key = decrypt_secret(raw_embed) if raw_embed else None
         if not embed_key:
             embed_key = decrypt_secret(api_key) if api_key else ""
     except LegacySecretFormatError as e:
         logger.error("Embeddings API Key uses the old encryption format, please save again: %s", e)
         raise
     except ValueError as e:
-        logger.error("Embeddings API Key decryption failed, request aborted (plaintext will not be rolled back): %s", e)
+        logger.error(
+            "Embeddings API Key decryption failed, request aborted (plaintext will not be rolled back): %s",
+            e,
+        )
         raise
     headers = {
         "Authorization": f"Bearer {embed_key}",
@@ -222,9 +233,7 @@ async def embed_texts(
     )
     async with pinned as client:
         try:
-            resp = await _retry_request(
-                lambda: client.post(url, headers=headers, json=payload)
-            )
+            resp = await _retry_request(lambda: client.post(url, headers=headers, json=payload))
             resp.raise_for_status()
             data = resp.json()
         except httpx.HTTPStatusError as e:

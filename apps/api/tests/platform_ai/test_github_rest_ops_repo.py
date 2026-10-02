@@ -5,6 +5,7 @@ _get_tree/_get_file_content/_get_languages mapping, clamp, truncation, and error
 branches (client._get faked).
 Conventions: no real network/model downloads (all clients mocked).
 """
+
 from __future__ import annotations
 
 import base64

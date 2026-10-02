@@ -179,10 +179,21 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
                 },
                 {"id": "work", "filled": bool(work), "count": len(work)},
                 {"id": "projects", "filled": bool(projects), "count": len(projects)},
-                {"id": "skills", "filled": bool(_skill_labels(parsed)), "count": len(_skill_labels(parsed))},
+                {
+                    "id": "skills",
+                    "filled": bool(_skill_labels(parsed)),
+                    "count": len(_skill_labels(parsed)),
+                },
                 {"id": "summary", "filled": bool(str(parsed.get("summary") or "").strip())},
-                {"id": "links", "filled": bool(_link_bundle(parsed, snapshot.raw_text)["github_urls"])},
-                {"id": "raw", "filled": bool(snapshot.raw_text.strip()), "chars": len(snapshot.raw_text)},
+                {
+                    "id": "links",
+                    "filled": bool(_link_bundle(parsed, snapshot.raw_text)["github_urls"]),
+                },
+                {
+                    "id": "raw",
+                    "filled": bool(snapshot.raw_text.strip()),
+                    "chars": len(snapshot.raw_text),
+                },
             ],
             "project_names": _project_names(parsed),
             "skills": _skill_labels(parsed),
@@ -207,9 +218,7 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
             projects = _as_list(parsed.get("projects"))
             if focus:
                 projects = [
-                    p
-                    for p in projects
-                    if focus in json.dumps(p, ensure_ascii=False).lower()
+                    p for p in projects if focus in json.dumps(p, ensure_ascii=False).lower()
                 ]
             body = projects
         elif section == "skills":

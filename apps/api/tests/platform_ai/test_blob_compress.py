@@ -40,9 +40,7 @@ def test_compress_without_llm_uses_excerpt_marker() -> None:
 
 def test_compress_rejects_echo_that_stays_too_long() -> None:
     blob = "y" * (TOOL_OBSERVATION_SOFT_CHARS + 50)
-    out = asyncio.run(
-        compress_text_blob(_EchoLLM(), blob, soft_chars=100, target_chars=80)
-    )
+    out = asyncio.run(compress_text_blob(_EchoLLM(), blob, soft_chars=100, target_chars=80))
     assert "COMPRESSION_FAILED" in out
 
 

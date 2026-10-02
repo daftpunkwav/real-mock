@@ -13,11 +13,11 @@ from __future__ import annotations
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from realmock.platform.database import get_db
-from realmock.platform.core.errors import raise_error
 from realmock.domains.resume.schemas.limits import client_limits_payload
 from realmock.domains.resume.schemas.response import ResumeDomainLimits
 from realmock.domains.resume.services import resume_mappers, store
+from realmock.platform.core.errors import raise_error
+from realmock.platform.database import get_db
 
 
 def get_resume_limits() -> ResumeDomainLimits:

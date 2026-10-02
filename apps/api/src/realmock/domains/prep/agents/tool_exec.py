@@ -130,9 +130,13 @@ def build_execute_callback(
             "consecutive_failures": streak,
             "breaker": f"{streak}/{_TOOL_CIRCUIT_BREAKER_STREAK}",
         }
-        note = "" if streak < _TOOL_CIRCUIT_BREAKER_STREAK else (
-            f" {tool} is now blocked for the rest of this turn; continue with "
-            "other tools or general knowledge."
+        note = (
+            ""
+            if streak < _TOOL_CIRCUIT_BREAKER_STREAK
+            else (
+                f" {tool} is now blocked for the rest of this turn; continue with "
+                "other tools or general knowledge."
+            )
         )
         return json.dumps(payload, ensure_ascii=False) + note
 
@@ -241,7 +245,9 @@ def build_execute_callback(
             if attempts_left > 0:
                 # Transient failures get a short pause, then one more shot;
                 # only the final outcome tallies the circuit breaker.
-                await asyncio.sleep(_RETRY_PAUSE_SECONDS * (1 + (_TOOL_RETRY_ATTEMPTS - attempts_left)))
+                await asyncio.sleep(
+                    _RETRY_PAUSE_SECONDS * (1 + (_TOOL_RETRY_ATTEMPTS - attempts_left))
+                )
         if failure is not None or obs is None:
             kind, message = failure or ("tool_failed", "unknown failure")
             streak = error_streak.get(name, 0) + 1
@@ -250,17 +256,26 @@ def build_execute_callback(
                 attempted.pop(key, None)
             if kind == "tool_timeout":
                 log_agent_error(
-                    domain=domain, session=session, tool=name, kind="timeout",
+                    domain=domain,
+                    session=session,
+                    tool=name,
+                    kind="timeout",
                     message=f"Tool exceeded {timeout:.0f}s (after {_TOOL_RETRY_ATTEMPTS} retries)",
                 )
             elif kind == "retrieval_failed":
                 log_agent_error(
-                    domain=domain, session=session, tool=name, kind="retrieval_failed",
+                    domain=domain,
+                    session=session,
+                    tool=name,
+                    kind="retrieval_failed",
                     message=message,
                 )
             else:
                 log_agent_error(
-                    domain=domain, session=session, tool=name, kind="tool_failed",
+                    domain=domain,
+                    session=session,
+                    tool=name,
+                    kind="tool_failed",
                     message=message,
                 )
             observation = _failure_observation(kind, name, message, streak)

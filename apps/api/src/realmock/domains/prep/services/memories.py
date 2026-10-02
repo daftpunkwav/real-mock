@@ -146,7 +146,9 @@ def create_memory(
     return row
 
 
-def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LIST_DEFAULT_LIMIT) -> list[PrepMemory]:
+def list_memories(
+    db: Session, *, tag: str | None = None, limit: int = MEMORY_LIST_DEFAULT_LIMIT
+) -> list[PrepMemory]:
     """Newest-first memory rows, optionally filtered by one tag.
 
     Args:
@@ -173,24 +175,38 @@ def list_memories(db: Session, *, tag: str | None = None, limit: int = MEMORY_LI
         # JSON-escaped ('\\'), which byte matching would miss — either way
         # fall back to Python-side matching for such pathological input.
         if '"' in tag or "\\" in tag:
-            rows = db.execute(
-                select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
-            ).scalars().all()
+            rows = (
+                db.execute(
+                    select(PrepMemory)
+                    .order_by(desc(PrepMemory.updated_at))
+                    .limit(MEMORY_SCAN_LIMIT)
+                )
+                .scalars()
+                .all()
+            )
             rows = [r for r in rows if tag in _decode_list(r.tags)]
             return list(rows[:limit])
         # instr() is a literal byte-substring search: unlike LIKE it treats
         # '%', '_' as ordinary chars and stays case-sensitive, matching the
         # Python exact-element semantics in _decode_list.
-        rows = db.execute(
-            select(PrepMemory)
-            .where(func.instr(PrepMemory.tags, f'"{tag}"') > 0)
-            .order_by(desc(PrepMemory.updated_at))
-            .limit(limit)
-        ).scalars().all()
+        rows = (
+            db.execute(
+                select(PrepMemory)
+                .where(func.instr(PrepMemory.tags, f'"{tag}"') > 0)
+                .order_by(desc(PrepMemory.updated_at))
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
         return list(rows)
-    rows = db.execute(
-        select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
-    ).scalars().all()
+    rows = (
+        db.execute(
+            select(PrepMemory).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
+        )
+        .scalars()
+        .all()
+    )
     return list(rows[:limit])
 
 
@@ -199,7 +215,9 @@ def memory_tags(db: Session) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
     rows = db.execute(
-        select(PrepMemory.tags, PrepMemory.updated_at).order_by(desc(PrepMemory.updated_at)).limit(MEMORY_SCAN_LIMIT)
+        select(PrepMemory.tags, PrepMemory.updated_at)
+        .order_by(desc(PrepMemory.updated_at))
+        .limit(MEMORY_SCAN_LIMIT)
     ).all()
     for raw_tags, _ in rows:
         for tag in _decode_list(raw_tags):

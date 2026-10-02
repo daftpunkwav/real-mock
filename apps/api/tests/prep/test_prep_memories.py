@@ -31,11 +31,14 @@ def _headers(session: PrepSession) -> dict[str, str]:
 
 def test_history_coerces_null_content_rows(db) -> None:
     """Loop-internal rows (assistant tool_calls with null content) must not 500 history."""
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     with TestClient(app) as client:
         resp = client.get(
             f"/api/v1/prep/sessions/{session.id}/messages",
@@ -122,10 +125,13 @@ def test_memory_detail_404() -> None:
 
 
 def test_rating_mirrors_note_into_session_working_memory(db) -> None:
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     with TestClient(app) as client:
         denied = client.post(
             "/api/v1/prep/memories",
@@ -162,11 +168,14 @@ def test_rating_mirrors_note_into_session_working_memory(db) -> None:
 
 
 def test_fork_copies_history_through_index(db) -> None:
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-        {"role": "user", "content": "q2"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q2"},
+        ],
+    )
     with TestClient(app) as client:
         resp = client.post(
             f"/api/v1/prep/sessions/{session.id}/fork",
@@ -186,12 +195,15 @@ def test_fork_copies_history_through_index(db) -> None:
 
 
 def test_truncate_retracts_user_message_and_replies(db) -> None:
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-        {"role": "user", "content": "q2"},
-        {"role": "assistant", "content": "a2"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q2"},
+            {"role": "assistant", "content": "a2"},
+        ],
+    )
     with TestClient(app) as client:
         resp = client.post(
             f"/api/v1/prep/sessions/{session.id}/messages/truncate",
@@ -207,10 +219,13 @@ def test_truncate_retracts_user_message_and_replies(db) -> None:
 
 def test_truncate_orphan_without_token_succeeds(db) -> None:
     """Regression: clear-messages must not 403 on lost-cookie sessions."""
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     session.access_token = ""
     db.commit()
     with TestClient(app) as client:
@@ -225,10 +240,13 @@ def test_truncate_orphan_without_token_succeeds(db) -> None:
 
 def test_reissue_recovers_cookie_less_session(db) -> None:
     """A listed session with a lost capability token becomes readable again."""
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     with TestClient(app) as client:
         # No token anywhere: content read fails with A0401.
         denied = client.get(f"/api/v1/prep/sessions/{session.id}/messages")
@@ -250,9 +268,12 @@ def test_reissue_recovers_cookie_less_session(db) -> None:
 
 
 def test_truncate_requires_csrf(db) -> None:
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+        ],
+    )
     with TestClient(app) as client:
         denied = client.post(
             f"/api/v1/prep/sessions/{session.id}/messages/truncate",
@@ -263,9 +284,12 @@ def test_truncate_requires_csrf(db) -> None:
 
 def test_get_messages_still_requires_token(db) -> None:
     """Content-read path must stay token-gated after management relaxation."""
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+        ],
+    )
     with TestClient(app) as client:
         denied = client.get(f"/api/v1/prep/sessions/{session.id}/messages")
     assert denied.status_code == 403
@@ -278,10 +302,13 @@ def test_get_messages_still_requires_token(db) -> None:
 
 def test_fork_negative_up_to_keeps_everything(db) -> None:
     """Any negative up_to (not just -1) forks the full history."""
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     with TestClient(app) as client:
         resp = client.post(
             f"/api/v1/prep/sessions/{session.id}/fork",
@@ -296,10 +323,13 @@ def test_fork_negative_up_to_keeps_everything(db) -> None:
 
 
 def test_fork_clamps_huge_up_to_and_zeroes_counters(db) -> None:
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     session.prompt_tokens = 111
     session.completion_tokens = 22
     session.cached_tokens = 5
@@ -324,11 +354,14 @@ def test_fork_clamps_huge_up_to_and_zeroes_counters(db) -> None:
 
 
 def test_context_endpoint_reports_breakdown_and_usage(db) -> None:
-    session = _session_with_messages(db, [
-        {"role": "system", "content": "Coach instructions"},
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "system", "content": "Coach instructions"},
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     session.prompt_tokens = 100
     session.completion_tokens = 50
     session.cached_tokens = 10
@@ -345,7 +378,11 @@ def test_context_endpoint_reports_breakdown_and_usage(db) -> None:
     keys = {b["key"] for b in body["buckets"]}
     assert {"user", "assistant", "system"} <= keys
     assert body["total_estimate"] == sum(b["tokens"] for b in body["buckets"])
-    assert (body["prompt_tokens"], body["completion_tokens"], body["cached_tokens"]) == (100, 50, 10)
+    assert (body["prompt_tokens"], body["completion_tokens"], body["cached_tokens"]) == (
+        100,
+        50,
+        10,
+    )
 
 
 def test_compact_single_exchange_folds_whole(db, monkeypatch) -> None:
@@ -362,10 +399,13 @@ def test_compact_single_exchange_folds_whole(db, monkeypatch) -> None:
             return "Session objectives: ship it"
 
     monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, *a, **k: _SummaryLLM()))
-    session = _session_with_messages(db, [
-        {"role": "user", "content": "q1"},
-        {"role": "assistant", "content": "a1"},
-    ])
+    session = _session_with_messages(
+        db,
+        [
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ],
+    )
     with TestClient(app) as client:
         denied = client.post(f"/api/v1/prep/sessions/{session.id}/compact")
         assert denied.status_code == 403

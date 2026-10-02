@@ -22,20 +22,19 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from realmock.asgi import app
 from realmock.domains.resume.services import analysis as analysis_module
 from realmock.domains.resume.services import extract as extract_module
 from realmock.domains.resume.services import ingest as ingest_module
 from realmock.domains.resume.services.analysis import analyze_resume_with_llm
-from realmock.domains.resume.services.text_extract import extract_text_from_file
 from realmock.domains.resume.services.render import (
     render_pdf_page_png,
     render_pdf_pages_as_data_urls,
 )
-from realmock.asgi import app
+from realmock.domains.resume.services.text_extract import extract_text_from_file
 from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.models import Resume
 from realmock.platform.schemas import CandidateProfile
-
 
 
 def _write_image_only_pdf(path: Path) -> None:
@@ -79,9 +78,7 @@ def _stub_llm_client(api_key: str) -> type:
     return _StubLLMClient
 
 
-def _poll_parse_status(
-    client: TestClient, resume_id: int
-) -> tuple[str, str]:
+def _poll_parse_status(client: TestClient, resume_id: int) -> tuple[str, str]:
     """Poll ``/list`` until this row's background parse settles (done/failed).
 
     Each request pumps the TestClient's event loop, giving the fire-and-forget

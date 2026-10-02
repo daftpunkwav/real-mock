@@ -36,7 +36,9 @@ def test_pages_meta_pdf_read_error(monkeypatch) -> None:
 
     monkeypatch.setattr(file_mod, "pdf_page_count", _boom)
     monkeypatch.setattr(file_mod.store, "get_row", lambda db, rid: _resume_row())
-    monkeypatch.setattr(file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf"))
+    monkeypatch.setattr(
+        file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf")
+    )
     with pytest.raises(ApiBusinessError) as e:
         file_mod.get_resume_pages_meta(1, db=object())  # type: ignore[arg-type]
     assert e.value.error_code == "A1004"
@@ -53,21 +55,29 @@ def test_pages_meta_reraises_business(monkeypatch) -> None:
 
     monkeypatch.setattr(file_mod, "pdf_page_count", _boom)
     monkeypatch.setattr(file_mod.store, "get_row", lambda db, rid: _resume_row())
-    monkeypatch.setattr(file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf"))
+    monkeypatch.setattr(
+        file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf")
+    )
     with pytest.raises(ApiBusinessError):
         file_mod.get_resume_pages_meta(1, db=object())  # type: ignore[arg-type]
 
 
 def test_page_image_non_pdf_and_oob(monkeypatch) -> None:
     monkeypatch.setattr(file_mod.store, "get_row", lambda db, rid: _resume_row(file_type="txt"))
-    monkeypatch.setattr(file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.txt"))
+    monkeypatch.setattr(
+        file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.txt")
+    )
     with pytest.raises(ApiBusinessError) as e:
         file_mod.get_resume_page_image(1, 1, db=object())  # type: ignore[arg-type]
     assert e.value.error_code == "A0404"
 
     monkeypatch.setattr(file_mod.store, "get_row", lambda db, rid: _resume_row(file_type="pdf"))
-    monkeypatch.setattr(file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf"))
-    monkeypatch.setattr(file_mod, "render_pdf_page_png", lambda path, n: (_ for _ in ()).throw(ValueError("oob")))
+    monkeypatch.setattr(
+        file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf")
+    )
+    monkeypatch.setattr(
+        file_mod, "render_pdf_page_png", lambda path, n: (_ for _ in ()).throw(ValueError("oob"))
+    )
     with pytest.raises(ApiBusinessError) as e2:
         file_mod.get_resume_page_image(1, 99, db=object())  # type: ignore[arg-type]
     assert e2.value.error_code == "A0404"
@@ -75,8 +85,14 @@ def test_page_image_non_pdf_and_oob(monkeypatch) -> None:
 
 def test_page_image_generic_error(monkeypatch) -> None:
     monkeypatch.setattr(file_mod.store, "get_row", lambda db, rid: _resume_row(file_type="pdf"))
-    monkeypatch.setattr(file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf"))
-    monkeypatch.setattr(file_mod, "render_pdf_page_png", lambda path, n: (_ for _ in ()).throw(RuntimeError("render down")))
+    monkeypatch.setattr(
+        file_mod, "find_resume_file", lambda r: __import__("pathlib").Path("/tmp/a.pdf")
+    )
+    monkeypatch.setattr(
+        file_mod,
+        "render_pdf_page_png",
+        lambda path, n: (_ for _ in ()).throw(RuntimeError("render down")),
+    )
     with pytest.raises(ApiBusinessError) as e:
         file_mod.get_resume_page_image(1, 1, db=object())  # type: ignore[arg-type]
     assert e.value.error_code == "A1004"

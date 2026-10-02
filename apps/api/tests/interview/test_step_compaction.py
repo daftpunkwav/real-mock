@@ -7,9 +7,9 @@ accumulate-and-retry / rollup / never-raises. No real network or LLM.
 from __future__ import annotations
 
 import asyncio
-import pytest
 from types import SimpleNamespace as NS
 
+import pytest
 
 from realmock.domains.interview.agents.memory.cognitive_graph import CompetencyStatus
 from realmock.domains.interview.agents.step_compaction import (

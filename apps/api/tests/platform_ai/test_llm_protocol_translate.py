@@ -12,7 +12,6 @@ from realmock.platform.capabilities.ai.llm.client import protocol_translate as p
 from realmock.platform.core.constants import LLMProtocol
 
 
-
 def test_build_request_anthropic_full() -> None:
     url, payload = pt.build_request(
         LLMProtocol.ANTHROPIC_MESSAGES,
@@ -73,7 +72,11 @@ def test_build_request_responses_full() -> None:
 
 def test_build_request_responses_minimal() -> None:
     url, payload = pt.build_request(
-        LLMProtocol.OPENAI_RESPONSES, "https://x", "m", 64, "low",
+        LLMProtocol.OPENAI_RESPONSES,
+        "https://x",
+        "m",
+        64,
+        "low",
         [{"role": "user", "content": "hi"}],
     )
     assert url.endswith("/responses")
@@ -85,7 +88,12 @@ def test_build_request_responses_minimal() -> None:
 def test_build_request_openai_chat_full() -> None:
     msgs = [{"role": "user", "content": "hi"}]
     url, payload = pt.build_request(
-        "openai_chat", "https://x", "m", 64, "max", msgs,
+        "openai_chat",
+        "https://x",
+        "m",
+        64,
+        "max",
+        msgs,
         temperature=0.1,
         response_format={"type": "json_object"},
         tools=[{"type": "function", "function": {"name": "t"}}],
@@ -135,7 +143,12 @@ def test_build_request_anthropic_custom_variant_interpolates_budget() -> None:
     """A custom declared variant interpolates its budget from list position."""
     variants = ["minimal", "light", "deep", "extreme"]
     msgs = [{"role": "user", "content": "hi"}]
-    for effort, budget in (("minimal", 4096), ("light", 13_653), ("deep", 23_210), ("extreme", 32_768)):
+    for effort, budget in (
+        ("minimal", 4096),
+        ("light", 13_653),
+        ("deep", 23_210),
+        ("extreme", 32_768),
+    ):
         _, payload = pt.build_request(
             LLMProtocol.ANTHROPIC_MESSAGES,
             "https://x",

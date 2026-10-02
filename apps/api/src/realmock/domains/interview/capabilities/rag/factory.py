@@ -10,10 +10,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from realmock.domains.interview.capabilities.rag.base import RAGBackend
+from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.config import Settings
 from realmock.platform.core.constants import RAGBackendKind
-from realmock.platform.capabilities.ai.llm.client import LLMClient
-from realmock.domains.interview.capabilities.rag.base import RAGBackend
 
 logger = logging.getLogger(__name__)
 

@@ -17,12 +17,12 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from realmock.platform.database import SessionLocal
-from realmock.domains.interview.models import InterviewSession
-from realmock.platform.core.constants import SessionStatus
 from realmock.domains.interview.ledger.store import append_last_turn_flag
-from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.control.silence_probe import flow_language
+from realmock.domains.interview.realtime.core.events import TurnState
+from realmock.platform.core.constants import SessionStatus
+from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -95,7 +95,9 @@ def _read_persona_sync(session_id: int) -> tuple[Any, Any, Any] | None:
             db.close()
         except Exception:
             logger.debug(
-                "silence_nudge DB close failed sid=%s", session_id, exc_info=True,
+                "silence_nudge DB close failed sid=%s",
+                session_id,
+                exc_info=True,
             )
 
 
@@ -108,11 +110,7 @@ def _append_silence_flag_sync(session_id: int, payload: dict) -> None:
     """
     db = SessionLocal()
     try:
-        session = (
-            db.query(InterviewSession)
-            .filter(InterviewSession.id == session_id)
-            .first()
-        )
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if session is None:
             return
         append_last_turn_flag(db, session, "silence_probe", payload)
@@ -121,8 +119,11 @@ def _append_silence_flag_sync(session_id: int, payload: dict) -> None:
             db.close()
         except Exception:
             logger.debug(
-                "silence_nudge DB close failed sid=%s", session_id, exc_info=True,
+                "silence_nudge DB close failed sid=%s",
+                session_id,
+                exc_info=True,
             )
+
 
 class SilenceNudgeMixin:
     """Silence follow-up orchestration; depends on ctx fields + _generate_silence_probe (SilenceProbeMixin)."""
@@ -152,12 +153,12 @@ class SilenceNudgeMixin:
 
     async def _on_silence_nudge(self) -> None:
         """Realistic silence follow-up: use the reasoning LLM to generate one in real time from the current
-question/follow-up plan/silence count.
+        question/follow-up plan/silence count.
 
-        Follow up at most twice for the same question (first encourage the candidate to speak,
-        then provide a direct hint); then speak ONE closing nudge and go quiet for that
-        question. Appends follow-up text to the previous assistant utterance to preserve
-        alternating message roles (required by the Anthropic protocol).
+                Follow up at most twice for the same question (first encourage the candidate to speak,
+                then provide a direct hint); then speak ONE closing nudge and go quiet for that
+                question. Appends follow-up text to the previous assistant utterance to preserve
+                alternating message roles (required by the Anthropic protocol).
         """
         if self.ctx.turn_state != TurnState.USER_SPEAKING:
             return
@@ -172,9 +173,7 @@ question/follow-up plan/silence count.
         anchor = self.ctx.speech_end_at or self.ctx.mic_opened_at
         if anchor and now - anchor < self.ctx.nudge_grace_sec:
             return
-        cooldown = clamp_nudge_wait(
-            self.ctx.last_wait_seconds, self.ctx.nudge_cooldown_sec
-        )
+        cooldown = clamp_nudge_wait(self.ctx.last_wait_seconds, self.ctx.nudge_cooldown_sec)
         if now - self.ctx.last_nudge_at < cooldown:
             return
         # A new assistant question opens a new probe window. Counting assistant
@@ -202,11 +201,7 @@ question/follow-up plan/silence count.
             return
         # Working state comes through the runner facade; the realtime
         # layer never touches the agent's internals directly.
-        state = (
-            self.ctx.runner.agent_state_snapshot()
-            if self.ctx.runner is not None
-            else {}
-        )
+        state = self.ctx.runner.agent_state_snapshot() if self.ctx.runner is not None else {}
         probe_hint = str(state.get("last_probe") or "")
         silent_sec = int(now - anchor) if anchor else 0
 

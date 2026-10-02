@@ -16,35 +16,41 @@ from fastapi.testclient import TestClient
 
 from realmock.asgi import app
 from realmock.domains.prep.agents import tools as prep_tools
-from realmock.domains.prep.agents.tools.basic import company_info as company_info_tool
-from realmock.domains.prep.agents.tools.basic import web_search as web_search_tool
 from realmock.domains.prep.agents.agent import PrepAgent
 from realmock.domains.prep.agents.tool_exec import build_execute_callback
+from realmock.domains.prep.agents.tools.basic import company_info as company_info_tool
+from realmock.domains.prep.agents.tools.basic import web_search as web_search_tool
 from realmock.domains.prep.models import PrepSession
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.core.session_auth import new_access_token
 
 _LOCAL_TOOL_NAMES = frozenset({"web_search", "company_info", "quiz", "take_note"})
-_GITHUB_TOOL_NAMES = frozenset({
-    "github_list_repos",
-    "github_get_readme",
-    "github_get_repo",
-    "github_list_commits",
-    "github_get_user",
-    "github_get_file",
-})
-_PROFILE_RESUME_NAMES = frozenset({
-    "profile_list_sections",
-    "profile_get_section",
-    "resume_overview",
-    "resume_get_section",
-})
-_MEMORY_TOOL_NAMES = frozenset({
-    "memory_list_tags",
-    "memory_list_summaries",
-    "memory_get_detail",
-    "memory_write",
-})
+_GITHUB_TOOL_NAMES = frozenset(
+    {
+        "github_list_repos",
+        "github_get_readme",
+        "github_get_repo",
+        "github_list_commits",
+        "github_get_user",
+        "github_get_file",
+    }
+)
+_PROFILE_RESUME_NAMES = frozenset(
+    {
+        "profile_list_sections",
+        "profile_get_section",
+        "resume_overview",
+        "resume_get_section",
+    }
+)
+_MEMORY_TOOL_NAMES = frozenset(
+    {
+        "memory_list_tags",
+        "memory_list_summaries",
+        "memory_get_detail",
+        "memory_write",
+    }
+)
 
 
 def _memory() -> WorkingMemory:
@@ -156,6 +162,7 @@ async def test_web_search_does_not_pollute_working_memory(
 ) -> None:
     """Search queries stay out of working memory (tool steps already show them);
     the bounded note slots are reserved for real facts."""
+
     async def fake_search(args: dict, **kwargs) -> str:
         return json.dumps({"results": [{"title": "t"}], "text": "body"})
 
@@ -176,9 +183,7 @@ async def test_web_search_non_json_passthrough(
         return "RAW-UPSTREAM"
 
     monkeypatch.setattr(web_search_tool, "execute_web_search", fake_search)
-    text, hits = await prep_tools.execute_prep_tool(
-        "web_search", {"query": "x"}, _memory()
-    )
+    text, hits = await prep_tools.execute_prep_tool("web_search", {"query": "x"}, _memory())
     assert (text, hits) == ("RAW-UPSTREAM", [])
 
 
@@ -187,18 +192,14 @@ async def test_web_search_non_list_results(monkeypatch: pytest.MonkeyPatch) -> N
         return json.dumps({"results": "nope", "text": "T"})
 
     monkeypatch.setattr(web_search_tool, "execute_web_search", fake_search)
-    text, hits = await prep_tools.execute_prep_tool(
-        "web_search", {"query": "x"}, _memory()
-    )
+    text, hits = await prep_tools.execute_prep_tool("web_search", {"query": "x"}, _memory())
     assert (text, hits) == ("T", [])
 
 
 async def test_company_info_returns_catalog_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        company_info_tool, "get_company_context", lambda company: f"CTX:{company}"
-    )
+    monkeypatch.setattr(company_info_tool, "get_company_context", lambda company: f"CTX:{company}")
     text, hits = await prep_tools.execute_prep_tool(
         "company_info", {"company": "bytedance"}, _memory()
     )
@@ -227,7 +228,8 @@ def _stub_registry_timeouts(monkeypatch: pytest.MonkeyPatch, seconds: float) -> 
     import realmock.domains.prep.agents.tool_exec as tool_exec
 
     monkeypatch.setattr(
-        tool_exec, "TOOL_REGISTRY",
+        tool_exec,
+        "TOOL_REGISTRY",
         {"web_search": SimpleNamespace(timeout_seconds=seconds)},
     )
 
@@ -327,7 +329,8 @@ async def test_execute_unexpected_exception_returns_json_and_logs(
     import realmock.domains.prep.agents.tool_exec as tool_exec
 
     monkeypatch.setattr(
-        tool_exec, "log_agent_error",
+        tool_exec,
+        "log_agent_error",
         lambda **kw: records.append(kw),
     )
     execute = _callback(boom, error_context={"domain": "prep", "session": "7"})
@@ -353,7 +356,8 @@ async def test_execute_timeout_is_logged(
 
     _stub_registry_timeouts(monkeypatch, 0.05)
     monkeypatch.setattr(
-        tool_exec, "log_agent_error",
+        tool_exec,
+        "log_agent_error",
         lambda **kw: records.append(kw),
     )
     execute = _callback(slow, error_context={"domain": "prep", "session": "9"})
@@ -402,7 +406,10 @@ def test_ask_slider_scale_validation() -> None:
     from realmock.domains.prep.agents.ask_user import normalize_ask_scale
 
     assert normalize_ask_scale("slider", {"min": 0, "max": 10, "unit": "h"}) == {
-        "min": 0.0, "max": 10.0, "step": 1.0, "unit": "h",
+        "min": 0.0,
+        "max": 10.0,
+        "step": 1.0,
+        "unit": "h",
     }
     assert normalize_ask_scale("slider", {"min": 5, "max": 5}) is None
     assert normalize_ask_scale("slider", None) is None
@@ -456,16 +463,20 @@ async def test_ask_dispatch_emits_full_event() -> None:
     asked_user: dict[str, bool] = {"on": False}
     execute = _callback(
         lambda name, args, db: (_ for _ in ()).throw(AssertionError("must not run")),
-        events=events, asked_user=asked_user,
+        events=events,
+        asked_user=asked_user,
     )
     try:
-        await execute("ask_user", {
-            "question": "Which areas?",
-            "options": ["a", "b", "c"],
-            "selection": "multi",
-            "widget": "options",
-            "allow_custom": False,
-        })
+        await execute(
+            "ask_user",
+            {
+                "question": "Which areas?",
+                "options": ["a", "b", "c"],
+                "selection": "multi",
+                "widget": "options",
+                "allow_custom": False,
+            },
+        )
     except AgentHalt:
         pass
     assert asked_user["on"] is True
@@ -487,12 +498,15 @@ async def test_ask_dispatch_slider_without_options() -> None:
         events=events,
     )
     try:
-        await execute("ask_user", {
-            "question": "Hours per week?",
-            "options": [],
-            "widget": "slider",
-            "scale": {"min": 0, "max": 20, "unit": "h"},
-        })
+        await execute(
+            "ask_user",
+            {
+                "question": "Hours per week?",
+                "options": [],
+                "widget": "slider",
+                "scale": {"min": 0, "max": 20, "unit": "h"},
+            },
+        )
     except AgentHalt:
         pass
     event = await events.get()
@@ -557,19 +571,23 @@ async def test_memory_write_list_detail_roundtrip(db) -> None:
     assert list_memories(db, limit=1) is not None
     text, hits = await prep_tools.execute_prep_tool(
         "memory_write",
-        {"summary": "User targets backend roles", "tags": ["target", "backend"],
-         "user_input": "I want backend", "origin": "user_emphasis"},
+        {
+            "summary": "User targets backend roles",
+            "tags": ["target", "backend"],
+            "user_input": "I want backend",
+            "origin": "user_emphasis",
+        },
         _memory(),
     )
     assert hits == []
     payload = json.loads(text)
     assert payload["id"] > 0
 
-    text, _ = await prep_tools.execute_prep_tool(
-        "memory_list_summaries", {"limit": 5}, _memory()
-    )
+    text, _ = await prep_tools.execute_prep_tool("memory_list_summaries", {"limit": 5}, _memory())
     items = json.loads(text)["memories"]
-    assert any(i["id"] == payload["id"] and i["summary"] == "User targets backend roles" for i in items)
+    assert any(
+        i["id"] == payload["id"] and i["summary"] == "User targets backend roles" for i in items
+    )
 
     text, _ = await prep_tools.execute_prep_tool(
         "memory_get_detail", {"id": payload["id"]}, _memory()
@@ -613,17 +631,13 @@ def test_corrupt_history_backed_up_before_overwrite(db) -> None:
     agent.messages.append({"role": "user", "content": "q"})
     agent._save(db)
     archived = (
-        db.query(PrepSession)
-        .filter(PrepSession.status == SessionStatus.ARCHIVED.value)
-        .all()
+        db.query(PrepSession).filter(PrepSession.status == SessionStatus.ARCHIVED.value).all()
     )
     assert any(b.messages == raw for b in archived)
     # The flag clears: a second save must not duplicate the backup.
     agent._save(db)
     archived = (
-        db.query(PrepSession)
-        .filter(PrepSession.status == SessionStatus.ARCHIVED.value)
-        .all()
+        db.query(PrepSession).filter(PrepSession.status == SessionStatus.ARCHIVED.value).all()
     )
     assert sum(1 for b in archived if b.messages == raw) == 1
 
@@ -810,9 +824,7 @@ def test_system_messages_are_prefix_stable() -> None:
     assert blocks[0]["content"] == PREP_SYSTEM
     # Reply-language hint is a per-turn suffix, never part of the seed.
     assert all(LANG_HINT_MARKER not in b["content"] for b in blocks)
-    assert LANG_HINT_MARKER not in build_system_message(
-        db=None, resume_id=None, target_company=""
-    )
+    assert LANG_HINT_MARKER not in build_system_message(db=None, resume_id=None, target_company="")
 
 
 def test_upsert_lang_hint_is_idempotent() -> None:
@@ -860,17 +872,23 @@ def test_context_breakdown_buckets_messages() -> None:
         build_context_breakdown,
     )
 
-    counts = build_context_breakdown([
-        {"role": "system", "content": "Coach instructions"},
-        {"role": "user", "content": "hello world"},
-        {"role": "assistant", "content": "hi there", "thinking": "reasoning here",
-         "tool_calls": [{"id": "c1", "function": {"name": "quiz"}}]},
-        {"role": "tool", "tool_call_id": "c1", "content": "observation text"},
-        {"role": "system", "content": "[Working memory]\n{}"},
-        {"role": "system", "content": "[Conversation Minutes] prior notes"},
-        {"role": "system", "content": "[Referenced sessions]\nLinked session #1"},
-        {"role": "system", "content": "[Reply language] The UI language is en."},
-    ])
+    counts = build_context_breakdown(
+        [
+            {"role": "system", "content": "Coach instructions"},
+            {"role": "user", "content": "hello world"},
+            {
+                "role": "assistant",
+                "content": "hi there",
+                "thinking": "reasoning here",
+                "tool_calls": [{"id": "c1", "function": {"name": "quiz"}}],
+            },
+            {"role": "tool", "tool_call_id": "c1", "content": "observation text"},
+            {"role": "system", "content": "[Working memory]\n{}"},
+            {"role": "system", "content": "[Conversation Minutes] prior notes"},
+            {"role": "system", "content": "[Referenced sessions]\nLinked session #1"},
+            {"role": "system", "content": "[Reply language] The UI language is en."},
+        ]
+    )
     assert set(counts) == set(BREAKDOWN_ORDER)
     assert counts["user"] > 0 and counts["assistant"] > 0
     assert counts["thinking"] > 0 and counts["tools"] > 0
@@ -894,16 +912,24 @@ def test_format_linked_sessions_caps_and_skips_unknown(db) -> None:
     from realmock.domains.prep.models import PrepSession
     from realmock.platform.core.session_auth import new_access_token as _token
 
-    first = PrepSession(access_token=_token(), status="active",
-                        messages=_json.dumps([{"role": "user", "content": "turn one"}]))
-    second = PrepSession(access_token=_token(), status="active",
-                         messages=_json.dumps([{"role": "user", "content": "turn two"}]))
+    first = PrepSession(
+        access_token=_token(),
+        status="active",
+        messages=_json.dumps([{"role": "user", "content": "turn one"}]),
+    )
+    second = PrepSession(
+        access_token=_token(),
+        status="active",
+        messages=_json.dumps([{"role": "user", "content": "turn two"}]),
+    )
     db.add_all([first, second])
     db.commit()
     db.refresh(first)
     db.refresh(second)
     out = format_linked_sessions(
-        db, [first.id, 999999999, second.id, first.id, -3], exclude_id=second.id + 1000,
+        db,
+        [first.id, 999999999, second.id, first.id, -3],
+        exclude_id=second.id + 1000,
     )
     assert "turn one" in out and "turn two" in out
     # Self references never leak into the block.
@@ -916,7 +942,10 @@ def test_message_request_context_refs_bounded() -> None:
 
     from realmock.domains.prep.schemas import PrepMessageRequest
 
-    assert PrepMessageRequest(content="hi", context_session_ids=[1, 2]).context_session_ids == [1, 2]
+    assert PrepMessageRequest(content="hi", context_session_ids=[1, 2]).context_session_ids == [
+        1,
+        2,
+    ]
     assert PrepMessageRequest(content="hi").context_session_ids is None
     with pytest.raises(pydantic.ValidationError):
         PrepMessageRequest(content="hi", context_session_ids=[1, 2, 3, 4, 5, 6])

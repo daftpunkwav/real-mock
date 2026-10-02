@@ -26,13 +26,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.prep.models import PrepSession
-from realmock.domains.prep.models import commit_session, utcnow
+from realmock.domains.prep.models import PrepSession, commit_session, utcnow
+from realmock.domains.prep.prompts import PREP_CLOSING_HINT
 from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
-from realmock.domains.prep.prompts import PREP_CLOSING_HINT
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
@@ -52,8 +51,8 @@ from .round_compaction import (
 )
 from .streaming import event_loopbacks
 from .tool_exec import build_execute_callback
-from .turn_state import TurnState
 from .tools import execute_prep_tool
+from .turn_state import TurnState
 from .turn_tools import (
     MAX_MEMORY_WRITES_PER_TURN,
     PREP_TOOL_DEFINITIONS,
@@ -216,7 +215,8 @@ class PrepAgent:
         try:
             self.messages = await asyncio.to_thread(
                 build_system_messages,
-                db, resume_id=self.session.resume_id,
+                db,
+                resume_id=self.session.resume_id,
                 target_company=self.session.target_company or "",
                 linked_session_id=getattr(self.session, "linked_session_id", None),
                 memory_index_limit=self.memory_index_limit,
@@ -224,11 +224,14 @@ class PrepAgent:
         except Exception as exc:
             logger.warning(
                 "Prep system seed degraded sid=%s: %s",
-                getattr(self.session, "id", ""), exc,
+                getattr(self.session, "id", ""),
+                exc,
             )
             log_agent_error(
-                domain="prep", session=str(getattr(self.session, "id", "") or ""),
-                kind="seed_degraded", message=str(exc)[:200],
+                domain="prep",
+                session=str(getattr(self.session, "id", "") or ""),
+                kind="seed_degraded",
+                message=str(exc)[:200],
             )
             self.messages = [{"role": "system", "content": PREP_SYSTEM}]
 
@@ -255,10 +258,17 @@ class PrepAgent:
         history route; refreshes the prefix fingerprint as before.
         """
         working = await build_turn_context(
-            messages=self.messages, context_window=self.context_window,
-            memory=self.memory, llm=self.llm,
-            reply_locale=self.reply_locale, threshold=threshold, force=force,
-            options=options, keep_from=keep_from, provenance=provenance, report=report,
+            messages=self.messages,
+            context_window=self.context_window,
+            memory=self.memory,
+            llm=self.llm,
+            reply_locale=self.reply_locale,
+            threshold=threshold,
+            force=force,
+            options=options,
+            keep_from=keep_from,
+            provenance=provenance,
+            report=report,
             default_focus=self._objective_line or None,
         )
         # Fingerprint over the declarations the loop will actually send: the
@@ -290,10 +300,15 @@ class PrepAgent:
         it rewrites agent history here, which plain handlers cannot reach.
         """
         outcome = await compact_current_round(
-            messages=self.messages, context_window=self.context_window,
-            memory=self.memory, llm=self.llm, reply_locale=self.reply_locale,
-            turn_state=self._turn_state, objective_line=self._objective_line,
-            resume_id=getattr(self.session, "resume_id", None), args=args,
+            messages=self.messages,
+            context_window=self.context_window,
+            memory=self.memory,
+            llm=self.llm,
+            reply_locale=self.reply_locale,
+            turn_state=self._turn_state,
+            objective_line=self._objective_line,
+            resume_id=getattr(self.session, "resume_id", None),
+            args=args,
         )
         if outcome.messages is not None:
             self.messages = outcome.messages
@@ -352,9 +367,7 @@ class PrepAgent:
                     hits,
                 )
             return text, hits
-        return await execute_prep_tool(
-            name, args, self.memory, resume_id=self.session.resume_id
-        )
+        return await execute_prep_tool(name, args, self.memory, resume_id=self.session.resume_id)
 
     def _build_execute(
         self,
@@ -365,8 +378,12 @@ class PrepAgent:
     ):
         """Tool execution callback: ask_user dispatch, same-args dedup, circuit breaker, and timeout/retrieval-failure handling (see :mod:`tool_exec`)."""
         return build_execute_callback(
-            run_named_tool=self._run_named_tool, memory=self.memory, db=db,
-            search_groups=search_groups, events=events, asked_user=asked_user,
+            run_named_tool=self._run_named_tool,
+            memory=self.memory,
+            db=db,
+            search_groups=search_groups,
+            events=events,
+            asked_user=asked_user,
             error_context={"domain": "prep", "session": str(getattr(self.session, "id", "") or "")},
         )
 
@@ -424,7 +441,9 @@ class PrepAgent:
         search_groups: list[dict[str, Any]] = []
         tool_steps: list[dict[str, Any]] = []
         on_thinking, on_tool, on_content = event_loopbacks(
-            events, on_tool_step=tool_steps.append, content_state=content_state,
+            events,
+            on_tool_step=tool_steps.append,
+            content_state=content_state,
         )
         # Turn-relevant static subset, resolved once per turn from the latest
         # user input; the SAME list object feeds every round so mid-turn
@@ -445,10 +464,14 @@ class PrepAgent:
                 # compress_text_blob already marks failures explicitly; truncate
                 # here with the same explicit marker instead of a silent cut.
                 clipped = str(text or "")
-                return clipped if len(clipped) <= 4000 else (
-                    clipped[:2000]
-                    + f"\n…[COMPRESSION_TIMEOUT: middle omitted; original {len(clipped)} chars]…\n"
-                    + clipped[-2000:]
+                return (
+                    clipped
+                    if len(clipped) <= 4000
+                    else (
+                        clipped[:2000]
+                        + f"\n…[COMPRESSION_TIMEOUT: middle omitted; original {len(clipped)} chars]…\n"
+                        + clipped[-2000:]
+                    )
                 )
 
         error_scope = {"domain": "prep", "session": str(getattr(self.session, "id", "") or "")}
@@ -484,7 +507,8 @@ class PrepAgent:
                 _TURN_TIMEOUT_SECONDS,
             )
             log_agent_error(
-                domain=error_scope["domain"], session=error_scope["session"],
+                domain=error_scope["domain"],
+                session=error_scope["session"],
                 kind="turn_timeout",
                 message=f"Tool rounds exceeded {_TURN_TIMEOUT_SECONDS:.0f}s",
             )
@@ -508,8 +532,12 @@ class PrepAgent:
         )
 
     async def chat(
-        self, user_text: str, db: Session, *,
-        drop_last_assistant: bool = False, ui_locale: str | None = None,
+        self,
+        user_text: str,
+        db: Session,
+        *,
+        drop_last_assistant: bool = False,
+        ui_locale: str | None = None,
         context_session_ids: list[int] | None = None,
         compact_threshold: float | None = None,
         compact_options: CompactionOptions | None = None,
@@ -530,8 +558,11 @@ class PrepAgent:
             The sanitized final reply text.
         """
         return await run_chat(
-            self, user_text, db,
-            drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+            self,
+            user_text,
+            db,
+            drop_last_assistant=drop_last_assistant,
+            ui_locale=ui_locale,
             context_session_ids=context_session_ids,
             compact_threshold=compact_threshold,
             compact_options=compact_options,
@@ -539,8 +570,12 @@ class PrepAgent:
         )
 
     async def chat_stream(
-        self, user_text: str, db: Session, *,
-        drop_last_assistant: bool = False, ui_locale: str | None = None,
+        self,
+        user_text: str,
+        db: Session,
+        *,
+        drop_last_assistant: bool = False,
+        ui_locale: str | None = None,
         context_session_ids: list[int] | None = None,
         compact_threshold: float | None = None,
         compact_options: CompactionOptions | None = None,
@@ -561,8 +596,11 @@ class PrepAgent:
         ``tool_step`` / ``search_results`` / ``ask_user`` / ``usage`` / ``compaction`` events).
         """
         async for item in run_chat_stream(
-            self, user_text, db,
-            drop_last_assistant=drop_last_assistant, ui_locale=ui_locale,
+            self,
+            user_text,
+            db,
+            drop_last_assistant=drop_last_assistant,
+            ui_locale=ui_locale,
             context_session_ids=context_session_ids,
             compact_threshold=compact_threshold,
             compact_options=compact_options,

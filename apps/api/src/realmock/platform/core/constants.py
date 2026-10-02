@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-
 # ── LLM Protocol ────────────────────────────────────────
 
 
@@ -48,12 +47,12 @@ class PipelineStage(StrEnum):
 class RAGBackendKind(StrEnum):
     """LOCAL RAG backend (RAGBackendKind.LOCAL) using local Chroma + OpenAI-compatible ``/embeddings``.
 
-Applicable to every LLM provider that exposes an OpenAI-compatible ``/embeddings`` endpoint
-(OpenAI / DeepSeek / SiliconFlow / Moonshot / GLM / other compatible providers).
+    Applicable to every LLM provider that exposes an OpenAI-compatible ``/embeddings`` endpoint
+    (OpenAI / DeepSeek / SiliconFlow / Moonshot / GLM / other compatible providers).
 
-Implementation notes:
+    Implementation notes:
 
-- Persistence directory under ``realmock/platform/`` (see module body).
+    - Persistence directory under ``realmock/platform/`` (see module body).
     """
 
     LOCAL = "local"

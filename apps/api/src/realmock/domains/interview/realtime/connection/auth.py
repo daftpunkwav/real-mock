@@ -7,11 +7,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy.orm import Session
 
-from realmock.platform.config import get_settings
-from realmock.platform.core.constants import SessionStatus
-from realmock.platform.core.session_auth import tokens_match
-from realmock.platform.database import api_db_session
 from realmock.domains.interview.agents import (
+    InterviewRunner,
+    InterviewSessionState,
     seed_session_github_evidence,
     session_llm,
     session_stt_credentials,
@@ -21,10 +19,13 @@ from realmock.domains.interview.agents import (
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.core.session_registry import claim_session_connection
-from realmock.domains.interview.agents import InterviewRunner, InterviewSessionState
+from realmock.platform.capabilities.voice.config.catalog import find_provider
 from realmock.platform.capabilities.voice.stt import is_local_stt_model, warmup_whisper
 from realmock.platform.capabilities.voice.tts.voice_resolve import VoiceProsody, resolve_prosody
-from realmock.platform.capabilities.voice.config.catalog import find_provider
+from realmock.platform.config import get_settings
+from realmock.platform.core.constants import SessionStatus
+from realmock.platform.core.session_auth import tokens_match
+from realmock.platform.database import api_db_session
 
 if TYPE_CHECKING:
     import asyncio
@@ -69,23 +70,19 @@ class ConnectionAuthMixin:
     # Authentication and session checking
     # ------------------------------------------------------------------
 
-    async def authenticate(
-        self, db: Session
-    ) -> InterviewSession | None:
+    async def authenticate(self, db: Session) -> InterviewSession | None:
         """Validate session existence, access token, and status; claim the single-connection lease on success.
 
         Returns:
             The validated session; on failure an error was already sent and the socket closed, so None.
         """
-        session = db.query(InterviewSession).filter(
-            InterviewSession.id == self.ctx.session_id
-        ).first()
+        session = (
+            db.query(InterviewSession).filter(InterviewSession.id == self.ctx.session_id).first()
+        )
         if not session:
             await self._fail_and_close("Interview session unavailable")
             return None
-        if not tokens_match(
-            getattr(session, "access_token", None), self.ctx.client_access_token
-        ):
+        if not tokens_match(getattr(session, "access_token", None), self.ctx.client_access_token):
             await self._fail_and_close("Interview session unavailable")
             return None
         if session.status not in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
@@ -106,9 +103,7 @@ class ConnectionAuthMixin:
     # LLM / RAG / Voice Pipe Assembly
     # ------------------------------------------------------------------
 
-    async def bind_pipeline(
-        self, db: Session, session: InterviewSession
-    ) -> bool:
+    async def bind_pipeline(self, db: Session, session: InterviewSession) -> bool:
         """Assemble LLM, Agent, Runner, STT/TTS credentials, and voice.
 
         Returns:
@@ -117,7 +112,9 @@ class ConnectionAuthMixin:
         with api_db_session() as api_db:
             self.ctx.llm = session_llm(api_db, session)
             if not self.ctx.llm.api_key:
-                await self._fail_and_close("Please configure the API Key of the interview thinking processor first")
+                await self._fail_and_close(
+                    "Please configure the API Key of the interview thinking processor first"
+                )
                 return False
             self.ctx.stt_creds = session_stt_credentials(api_db, session)
             self.ctx.tts_creds = session_tts_credentials(api_db, session)
@@ -211,7 +208,9 @@ class ConnectionAuthMixin:
     async def _warmup_stt(self) -> None:
         """Pre-warm local Whisper (configured model, else base) in background."""
         if self.ctx.stt_creds.provider == "local" or is_local_stt_model(self.ctx.whisper_model):
-            local_m = self.ctx.whisper_model if is_local_stt_model(self.ctx.whisper_model) else "base"
+            local_m = (
+                self.ctx.whisper_model if is_local_stt_model(self.ctx.whisper_model) else "base"
+            )
             self._spawn(warmup_whisper(local_m))
         else:
             self._spawn(warmup_whisper("base"))

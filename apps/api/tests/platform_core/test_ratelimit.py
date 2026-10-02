@@ -8,12 +8,8 @@ from realmock.platform.core.ratelimit import reset_rate_limit, try_rate_limit_by
 def test_try_rate_limit_by_id_blocks_after_limit():
     reset_rate_limit("llm_test_ws")
     for _ in range(3):
-        assert try_rate_limit_by_id(
-            key="llm_test_ws", client_id="s1", limit=3, window_seconds=60
-        )
-    assert not try_rate_limit_by_id(
-        key="llm_test_ws", client_id="s1", limit=3, window_seconds=60
-    )
+        assert try_rate_limit_by_id(key="llm_test_ws", client_id="s1", limit=3, window_seconds=60)
+    assert not try_rate_limit_by_id(key="llm_test_ws", client_id="s1", limit=3, window_seconds=60)
     reset_rate_limit("llm_test_ws")
 
 

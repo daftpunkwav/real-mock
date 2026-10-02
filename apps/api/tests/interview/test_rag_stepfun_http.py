@@ -29,7 +29,9 @@ def test_stepfun_headers_and_client(monkeypatch) -> None:
     captured = {}
 
     def _fake_pinned(api_base, allow_local=False, require_https=False, timeout=30.0):
-        captured.update({"api_base": api_base, "allow_local": allow_local, "require_https": require_https})
+        captured.update(
+            {"api_base": api_base, "allow_local": allow_local, "require_https": require_https}
+        )
         return SimpleNamespace()
 
     monkeypatch.setattr(mod, "make_pinned_async_client", _fake_pinned)
@@ -71,7 +73,9 @@ async def test_stepfun_create_upload_attach_verify(monkeypatch) -> None:
             return False
 
         async def post(self, url, headers=None, json=None, data=None, files=None):
-            self._seen.update({"url": url, "headers": headers, "json": json, "data": data, "files": files})
+            self._seen.update(
+                {"url": url, "headers": headers, "json": json, "data": data, "files": files}
+            )
             return self._resp
 
         async def get(self, url, headers=None):
@@ -80,7 +84,9 @@ async def test_stepfun_create_upload_attach_verify(monkeypatch) -> None:
 
     # create success
     seen: dict = {}
-    monkeypatch.setattr(c, "_pinned_client", lambda api_base: _Client(_Resp(200, {"id": "vs-1"}), seen))
+    monkeypatch.setattr(
+        c, "_pinned_client", lambda api_base: _Client(_Resp(200, {"id": "vs-1"}), seen)
+    )
     assert await c.create_vector_store("https://api.example.com", "k") == "vs-1"
     assert seen["url"].endswith("/vector_stores")
 
@@ -108,7 +114,9 @@ async def test_stepfun_create_upload_attach_verify(monkeypatch) -> None:
 
     # upload + attach + verify
     seen2: dict = {}
-    monkeypatch.setattr(c, "_pinned_client", lambda api_base: _Client(_Resp(200, {"id": "file-1"}), seen2))
+    monkeypatch.setattr(
+        c, "_pinned_client", lambda api_base: _Client(_Resp(200, {"id": "file-1"}), seen2)
+    )
     assert await c.upload_kb_file("https://api.example.com", "k", b"a") == "file-1"
     assert seen2["files"]["file"][0] == "company_kb.jsonl"
     with pytest.raises(RuntimeError, match="missing id"):

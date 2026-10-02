@@ -68,7 +68,13 @@ def test_github_urls_limit() -> None:
 
 def test_snapshot_from_payload_variants() -> None:
     s = snapshot_from_payload(
-        {"resume_id": "7", "filename": "a", "file_type": "pdf", "raw_text": "t", "parsed": {"a": 1}},
+        {
+            "resume_id": "7",
+            "filename": "a",
+            "file_type": "pdf",
+            "raw_text": "t",
+            "parsed": {"a": 1},
+        },
         has_visual_pages=True,
     )
     assert s.resume_id == 7
@@ -188,9 +194,7 @@ async def test_get_section_raw_paging() -> None:
         await specs["resume_get_section"].handler({"section": "raw", "limit": 999999})
     )
     assert huge["data"]["limit"] == resume_mod.RESUME_RAW_PAGE_HARD_CHARS
-    bad = json.loads(
-        await specs["resume_get_section"].handler({"section": "raw", "limit": "bad"})
-    )
+    bad = json.loads(await specs["resume_get_section"].handler({"section": "raw", "limit": "bad"}))
     assert bad["data"]["limit"] == resume_mod.RESUME_RAW_PAGE_CHARS
     # Negative offset clamped, EOF flag.
     neg = json.loads(

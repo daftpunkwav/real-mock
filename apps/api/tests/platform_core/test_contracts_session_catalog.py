@@ -35,5 +35,7 @@ class TestSessionCatalogContract:
         register_session_catalog(cat)
         assert get_session_catalog() is cat
         set_session_catalog(prev)
-        snap = snapshot_from_catalog_dict({"id": 1, "role": "r", "level": "l", "company": "c", "status": "done"})
+        snap = snapshot_from_catalog_dict(
+            {"id": 1, "role": "r", "level": "l", "company": "c", "status": "done"}
+        )
         assert snap.id == 1

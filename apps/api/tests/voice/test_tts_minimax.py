@@ -5,6 +5,7 @@ top-level/missing/non-string audio branches, base/model/voice defaults, HTTP
 status/text-read/generic/JSON-decode error branches (HTTP client faked).
 Conventions: no real network/model downloads (all clients mocked).
 """
+
 from __future__ import annotations
 
 import base64
@@ -271,7 +272,11 @@ async def test_long_text_splits_at_sentence_boundaries_and_concatenates(monkeypa
     _settings(monkeypatch)
     text = "第一句话内容足够长。\n第二段也有实际内容，可以独立成段。"
     limit = 10  # force multiple chunks below the real descriptor limit
-    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: {"limits": {"chunk_chars": limit}, "request": {}, "response": {}})
+    monkeypatch.setattr(
+        minimax_mod,
+        "_capability_def",
+        lambda: {"limits": {"chunk_chars": limit}, "request": {}, "response": {}},
+    )
     parts = [b"part-one", b"part-two", b"part-three"]
 
     async def _fake_chunk(body, url, api_key):
@@ -279,15 +284,13 @@ async def test_long_text_splits_at_sentence_boundaries_and_concatenates(monkeypa
 
     monkeypatch.setattr(minimax_mod, "_synthesize_chunk", _fake_chunk)
     out = await synthesize_minimax_to_base64(text, api_key="k")
-    assert base64.b64decode(out) == b"".join(
-        [b"part-one", b"part-two", b"part-three"]
-    )
+    assert base64.b64decode(out) == b"".join([b"part-one", b"part-two", b"part-three"])
 
 
 def test_split_text_chunks_respects_limit_and_paragraphs():
     chunks = minimax_mod.split_text_chunks("短句。", 100)
     assert chunks == ["短句。"]
-    long_text = "。" .join(["一句话" * 30] * 6) + "。"
+    long_text = "。".join(["一句话" * 30] * 6) + "。"
     for chunk in minimax_mod.split_text_chunks(long_text, 200):
         assert len(chunk) <= 200
     joined = "".join(minimax_mod.split_text_chunks(long_text, 200))
@@ -363,7 +366,9 @@ def test_build_tts_body_pitch_offset_and_clamp(monkeypatch):
 
 def test_build_tts_body_without_prosody_section_is_noop(monkeypatch):
     monkeypatch.setattr(
-        minimax_mod, "_capability_def", lambda: {"request": {"body": {"voice_setting": {}}}, "response": {}}
+        minimax_mod,
+        "_capability_def",
+        lambda: {"request": {"body": {"voice_setting": {}}}, "response": {}},
     )
     body = minimax_mod.build_tts_body(
         "hi", model="m", voice="v", emotion="smile", rate="+12%", pitch="+3Hz"
@@ -388,7 +393,5 @@ async def test_synthesize_passes_prosody_into_request(monkeypatch):
         return base64.b64encode(b"a").decode("ascii")
 
     monkeypatch.setattr(minimax_mod, "_synthesize_chunk", _fake_chunk)
-    await synthesize_minimax_to_base64(
-        "hi", api_key="k", emotion="smile", rate="+5%", pitch="+2Hz"
-    )
+    await synthesize_minimax_to_base64("hi", api_key="k", emotion="smile", rate="+5%", pitch="+2Hz")
     assert seen == [{"emotion": "smile", "rate": "+5%", "pitch": "+2Hz"}]

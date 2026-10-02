@@ -50,14 +50,6 @@ def non_reasoning_provider_ids() -> frozenset[str]:
     Used by settings-save validation to reject "assigning an ASR/TTS provider to the reason stage";
     adding a voice provider requires only updating the catalog tables, and this set follows automatically.
     """
-    reason_capable = {
-        p["id"]
-        for p in REASONING_PROVIDERS
-        if p.get("can_interview_reason")
-    }
-    voice_only = {
-        p["id"]
-        for table in (RECOGNIZE_PROVIDERS, SPEAK_PROVIDERS)
-        for p in table
-    }
+    reason_capable = {p["id"] for p in REASONING_PROVIDERS if p.get("can_interview_reason")}
+    voice_only = {p["id"] for table in (RECOGNIZE_PROVIDERS, SPEAK_PROVIDERS) for p in table}
     return frozenset(voice_only - reason_capable)

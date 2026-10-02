@@ -5,10 +5,10 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from realmock.platform.capabilities.ai.llm.unified_client import UnifiedLLMClient
 from realmock.platform.database import ApiBase
 from realmock.platform.models import LLMSettings, StageConfig
 from realmock.platform.schemas import StageConfigUpdate
-from realmock.platform.capabilities.ai.llm.unified_client import UnifiedLLMClient
 from realmock.platform.services.pipeline.config import (
     get_stage_config_for_runtime,
     stage_to_response,
@@ -260,7 +260,19 @@ def test_non_reasoning_provider_ids_derived_from_catalog() -> None:
 
     ids = non_reasoning_provider_ids()
     # Voice/transcription-only providers must be selected
-    for expected in ("openai_compat", "xfyun", "volcengine", "aliyun", "tencent", "baidu", "local", "edge", "minimax_speech", "none", "mimo_audio"):
+    for expected in (
+        "openai_compat",
+        "xfyun",
+        "volcengine",
+        "aliyun",
+        "tencent",
+        "baidu",
+        "local",
+        "edge",
+        "minimax_speech",
+        "none",
+        "mimo_audio",
+    ):
         assert expected in ids, expected
     # Exclude IDs declared as reasoning-capable in the reasoning directory (custom / mimo, etc.).
     for p in REASONING_PROVIDERS:

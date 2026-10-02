@@ -62,10 +62,7 @@ def test_normalize_analysis_locale() -> None:
 
 
 def test_infer_resume_text_locale_from_body() -> None:
-    chinese = (
-        "熟悉 Python 与 FastAPI，曾负责招聘系统后端，主导性能优化、"
-        "接口设计和面试流程改进。"
-    )
+    chinese = "熟悉 Python 与 FastAPI，曾负责招聘系统后端，主导性能优化、接口设计和面试流程改进。"
     english = (
         "Senior software engineer with eight years building distributed "
         "backends in Python and FastAPI."

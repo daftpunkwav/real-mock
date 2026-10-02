@@ -11,14 +11,18 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from realmock.platform.capabilities.ai.llm.unified_client import UnifiedLLMClient
+from realmock.platform.capabilities.voice.config.catalog import find_provider
 from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.cloud import is_local_stt_model
 from realmock.platform.capabilities.voice.stt.providers.whisper import (
     local_stt_unavailable_reason,
 )
-from realmock.platform.capabilities.voice.tts import TtsCredentials, synthesize_custom_speech, synthesize_speech
-from realmock.platform.capabilities.voice.config.catalog import find_provider
+from realmock.platform.capabilities.voice.tts import (
+    TtsCredentials,
+    synthesize_custom_speech,
+    synthesize_speech,
+)
 from realmock.platform.services.pipeline.config import get_stage_config_for_runtime
 
 logger = logging.getLogger(__name__)
@@ -43,7 +47,9 @@ def load_fixture() -> tuple[bytes, str]:
             data = json.loads(_EXPECTED_PATH.read_text(encoding="utf-8"))
             expected = str(data.get("expected_zh") or expected)
         except Exception:
-            logger.debug("Failed to read STT fixture expected text; using built-in default", exc_info=True)
+            logger.debug(
+                "Failed to read STT fixture expected text; using built-in default", exc_info=True
+            )
     if not _AUDIO_PATH.is_file():
         raise FileNotFoundError(f"Missing standard test audio: {_AUDIO_PATH}")
     return _AUDIO_PATH.read_bytes(), expected
@@ -149,7 +155,10 @@ async def test_reason(db: Session, *, profile_id: int | None = None) -> dict:
 
     api_key = cfg.get("api_key") or ""
     if not api_key or not cfg.get("api_base") or not cfg.get("model"):
-        return {"success": False, "message": "Configure the interview reasoning processor API Key first"}
+        return {
+            "success": False,
+            "message": "Configure the interview reasoning processor API Key first",
+        }
 
     llm = UnifiedLLMClient.from_stage_config(cfg)
     try:
@@ -185,7 +194,10 @@ async def test_speak(db: Session, *, profile_id: int | None = None) -> dict:
             "fallback": fallback,
         }
     if mode == "text_only" or provider == "none":
-        return {"success": True, "message": "Configured as captions-only; no audio synthesis needed"}
+        return {
+            "success": True,
+            "message": "Configured as captions-only; no audio synthesis needed",
+        }
 
     creds = TtsCredentials(
         handler=provider,

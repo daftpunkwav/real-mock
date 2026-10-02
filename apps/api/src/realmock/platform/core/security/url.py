@@ -123,7 +123,9 @@ def _ip_is_safe(ip: ipaddress._BaseAddress, *, allow_local: bool) -> bool:
         if getattr(ip, "is_unspecified", False):
             return False
     except Exception:
-        logger.debug("IP security attribute check failed ip=%r, process as allowed", ip, exc_info=True)
+        logger.debug(
+            "IP security attribute check failed ip=%r, process as allowed", ip, exc_info=True
+        )
     return True
 
 

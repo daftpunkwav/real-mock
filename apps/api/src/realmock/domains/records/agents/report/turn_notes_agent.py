@@ -13,17 +13,17 @@ from typing import Any
 
 from realmock.domains.records.agents.report.finalize import finalize_json
 from realmock.domains.records.agents.report.ledger_tools import ledger_tool_specs
+from realmock.domains.records.agents.report.normalize import normalize_turn_note
 from realmock.domains.records.agents.report.prompts import (
     TURN_NOTES_SYSTEM_PROMPT,
     TURN_NOTES_WRAP_UP_HINT,
     notes_json_schema_text,
     turn_notes_user_message,
 )
-from realmock.domains.records.agents.report.normalize import normalize_turn_note
 from realmock.platform.capabilities.ai.agent import OnAgentEvent as OnEvent
 from realmock.platform.capabilities.ai.agent import emit_agent_event
-from realmock.platform.capabilities.ai.agent.tools.spec import ToolBundle
 from realmock.platform.capabilities.ai.agent.tools import invoke_with_timeout
+from realmock.platform.capabilities.ai.agent.tools.spec import ToolBundle
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,7 @@ _REPAIR_MAX_TURNS = 12
 
 async def _invoke_tool(bundle: ToolBundle, name: str, args: dict[str, Any]) -> str:
     """Run one tool; canonical platform timeout/error observation contract."""
-    raw, _status = await invoke_with_timeout(
-        bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS
-    )
+    raw, _status = await invoke_with_timeout(bundle, name, args, timeout=_TOOL_TIMEOUT_SECONDS)
     return raw
 
 
@@ -63,15 +61,18 @@ async def run_turn_notes_batch(
 
     async def on_tool(name: str, args: dict[str, Any], result: str, tc_id: str) -> None:
         del tc_id
-        await emit_agent_event(on_event, {
-            "type": "tool_step",
-            "stage": "turn_notes",
-            "batch": batch_label,
-            "name": name,
-            "args": {k: str(v)[:80] for k, v in (args or {}).items()},
-            "status": "done",
-            "result": str(result)[:400],
-        })
+        await emit_agent_event(
+            on_event,
+            {
+                "type": "tool_step",
+                "stage": "turn_notes",
+                "batch": batch_label,
+                "name": name,
+                "args": {k: str(v)[:80] for k, v in (args or {}).items()},
+                "status": "done",
+                "result": str(result)[:400],
+            },
+        )
 
     messages = [
         {"role": "system", "content": TURN_NOTES_SYSTEM_PROMPT},
@@ -94,9 +95,19 @@ async def run_turn_notes_batch(
 
     missing = [tid for tid in turn_ids if tid not in {n.get("turn_id") for n in notes}]
     if missing:
-        notes.extend(await _repair_missing(llm, ledger, turn_ids=missing, batch_label=batch_label,
-                                           role=role, level=level, company=company,
-                                           context_specs=context_specs, on_event=on_event))
+        notes.extend(
+            await _repair_missing(
+                llm,
+                ledger,
+                turn_ids=missing,
+                batch_label=batch_label,
+                role=role,
+                level=level,
+                company=company,
+                context_specs=context_specs,
+                on_event=on_event,
+            )
+        )
     return notes
 
 
@@ -181,7 +192,12 @@ async def _repair_missing(
         },
     ]
     loop = await _run_loop(
-        llm, messages, bundle.definitions(), execute, None, on_event,
+        llm,
+        messages,
+        bundle.definitions(),
+        execute,
+        None,
+        on_event,
         max_rounds=_REPAIR_MAX_ROUNDS,
     )
     payload = await finalize_json(

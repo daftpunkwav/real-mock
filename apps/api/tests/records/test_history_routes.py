@@ -12,8 +12,9 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+
 from realmock.asgi import app
-from realmock.domains.interview.models import InterviewTurn, InterviewSession
+from realmock.domains.interview.models import InterviewSession, InterviewTurn
 from realmock.domains.records.routes import history as hmod
 from realmock.domains.records.services import report_events
 from realmock.platform.contracts.session_catalog import SessionSnapshot
@@ -30,7 +31,6 @@ def _clean_limits():
             report_events.unsubscribe(int(key.split(":")[1]), queue)
 
 
-
 def _seed_turns(db, session_id: int, doc: dict) -> None:
     """Land a legacy ledger document as interview_turns rows (restructure)."""
     for seq, turn in enumerate(doc.get("turns") or [], start=1):
@@ -43,9 +43,7 @@ def _seed_turns(db, session_id: int, doc: dict) -> None:
                     else f"t-{seq:04d}"
                 ),
                 seq=seq,
-                turn=(
-                    turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)
-                ),
+                turn=(turn if isinstance(turn, str) else json.dumps(turn, ensure_ascii=False)),
             )
         )
     session = db.get(InterviewSession, session_id)
@@ -90,7 +88,7 @@ def _completed_session(db, token="cov-rep2-token-abc123") -> int:
         current_phase="summary",
         access_token=token,
         messages=json.dumps([{"role": "user", "content": "a"}]),
-        )
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -118,44 +116,12 @@ def _snap_dict(**overrides) -> dict:
 # ---- legacy fallback ----
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 # ---- debrief runner ----
-
-
-
-
-
-
-
-
 
 
 @contextmanager
 def _session_ctx(db):
     yield db
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- history routes ----

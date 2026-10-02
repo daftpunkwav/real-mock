@@ -8,9 +8,9 @@ import logging
 
 import httpx
 
+from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.config import get_settings
 from realmock.platform.core.security import make_pinned_async_client
-from realmock.platform.capabilities.voice.stt.base import SttCredentials
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 class MimoAudioProvider:
     """Call OpenAI Chat and pass the audio to the ASR model as input_audio."""
 
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         api_key = (creds.api_key or "").strip()
         api_base = (creds.api_base or "").rstrip("/")
         model = creds.model or "mimo-v2.5-asr"
@@ -41,14 +39,16 @@ class MimoAudioProvider:
             "messages": [
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "input_audio", "input_audio": {"data": data_uri}}
-                    ],
+                    "content": [{"type": "input_audio", "input_audio": {"data": data_uri}}],
                 }
             ],
             "asr_options": {"language": "zh"},
         }
-        headers = {"api-key": api_key, "Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        headers = {
+            "api-key": api_key,
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
 
         settings = get_settings()
         try:
@@ -108,7 +108,9 @@ async def transcribe_pcm_cloud(
     full_url: bool = False,
 ) -> str:
     """Transcribe via the OpenAI-compatible /audio/transcriptions endpoint (legacy function retained for test compatibility)."""
-    from realmock.platform.capabilities.voice.stt.providers.cloud import transcribe_pcm_cloud as _cloud
+    from realmock.platform.capabilities.voice.stt.providers.cloud import (
+        transcribe_pcm_cloud as _cloud,
+    )
 
     return await _cloud(
         pcm_b64,
@@ -121,9 +123,7 @@ async def transcribe_pcm_cloud(
 
 
 class OpenAICompatProvider:
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         return await transcribe_pcm_cloud(
             pcm_b64,
             sample_rate=sample_rate,

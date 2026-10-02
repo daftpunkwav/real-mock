@@ -3,12 +3,17 @@
 Covers: _generate_with_live_events drain and get_report_stream cancel/failure paths
 Conventions: run_debrief_for_session and sessions DB faked; temp DB for store; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import asyncio
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from realmock.domains.records.schemas.report import DebriefReport
 from realmock.platform.core.ratelimit import reset_rate_limit
+
 
 @pytest.fixture(autouse=True)
 def _clean_limits():
@@ -16,13 +21,15 @@ def _clean_limits():
     yield
     reset_rate_limit()
 
+
 @pytest.fixture(autouse=True)
 def _records_table(engine):
-    from realmock.platform.database import SessionsBase
     import realmock.domains.records.models.report  # noqa: F401
+    from realmock.platform.database import SessionsBase
 
     SessionsBase.metadata.create_all(bind=engine)
     yield
+
 
 def _report_dict(score=80) -> dict:
     return {
@@ -33,6 +40,7 @@ def _report_dict(score=80) -> dict:
         "improvement_suggestions": ["y"],
         "turn_notes": [],
     }
+
 
 def _snap(**overrides):
     from realmock.platform.contracts.session_catalog import SessionSnapshot
@@ -48,6 +56,7 @@ def _snap(**overrides):
     }
     base.update(overrides)
     return SessionSnapshot.model_validate(base)
+
 
 @pytest.mark.asyncio
 async def test_generate_drains_second_while() -> None:
@@ -81,6 +90,7 @@ async def test_generate_drains_second_while() -> None:
         assert out and out[0].overall_score == 75
         assert any("second" in line or "first" in line for line in lines)
 
+
 @pytest.mark.asyncio
 async def test_report_stream_cancel_keeps_generating(db) -> None:
     import realmock.domains.records.routes.report as rmod
@@ -95,7 +105,8 @@ async def test_report_stream_cancel_keeps_generating(db) -> None:
     assert row is not None
     row.status = store.STATUS_GENERATING
     from contextlib import contextmanager
-    from datetime import datetime, timezone as _tz
+    from datetime import datetime
+    from datetime import timezone as _tz
 
     row.updated_at = datetime.now(_tz.utc)
     db.commit()
@@ -110,15 +121,9 @@ async def test_report_stream_cancel_keeps_generating(db) -> None:
 
     with (
         patch.object(rmod, "run_debrief_for_session", side_effect=_cancel),
-        patch.object(
-            LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())
-        ),
-        patch.object(
-            rmod, "_require_finished_session", return_value=_snap(id=sid_seed)
-        ),
-        patch(
-            "realmock.platform.database.sessions_db_session", side_effect=_same_session
-        ),
+        patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())),
+        patch.object(rmod, "_require_finished_session", return_value=_snap(id=sid_seed)),
+        patch("realmock.platform.database.sessions_db_session", side_effect=_same_session),
     ):
         resp = await rmod.get_report_stream(sid_seed, db=db, api_db=MagicMock(), access="t")
         with pytest.raises(asyncio.CancelledError):
@@ -128,6 +133,7 @@ async def test_report_stream_cancel_keeps_generating(db) -> None:
     # running and the next GET/stream polls it up (regression: old code marked
     # failed here, turning transient disconnects into permanent A2005).
     assert store.get_report_row(db, sid_seed).status == store.STATUS_GENERATING  # type: ignore[union-attr]
+
 
 @pytest.mark.asyncio
 async def test_debrief_failure_after_disconnect_is_observed(caplog) -> None:
@@ -163,10 +169,8 @@ async def test_debrief_failure_after_disconnect_is_observed(caplog) -> None:
         with caplog.at_level(_logging.ERROR, logger=rmod.__name__):
             await asyncio.sleep(0.2)
         assert not out
-        assert any(
-            "failed after SSE disconnect" in record.message
-            for record in caplog.records
-        )
+        assert any("failed after SSE disconnect" in record.message for record in caplog.records)
+
 
 @pytest.mark.asyncio
 async def test_report_stream_cancel_inner_failure_covered(db) -> None:
@@ -187,12 +191,8 @@ async def test_report_stream_cancel_inner_failure_covered(db) -> None:
 
     with (
         patch.object(rmod, "run_debrief_for_session", side_effect=_cancel),
-        patch.object(
-            LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())
-        ),
-        patch.object(
-            rmod, "_require_finished_session", return_value=_snap(id=sid_seed)
-        ),
+        patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())),
+        patch.object(rmod, "_require_finished_session", return_value=_snap(id=sid_seed)),
         patch("realmock.platform.database.sessions_db_session", side_effect=_boom_session),
     ):
         resp = await rmod.get_report_stream(sid_seed, db=db, api_db=MagicMock(), access="t")

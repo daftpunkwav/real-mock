@@ -52,9 +52,11 @@ def _err_resp(status: int, body: bytes = b"{}", exc: bool = True) -> MagicMock:
         )
     else:
         resp.raise_for_status = MagicMock()
+
     async def _gen() -> Any:
         if False:
             yield ""
+
     resp.aiter_lines = lambda: _gen()
     return resp
 
@@ -124,7 +126,10 @@ async def test_msg_429_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_sleep(monkeypatch)
     client = _client()
     pinned = _pinned_for(
-        [_err_resp(429), _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"])]
+        [
+            _err_resp(429),
+            _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]),
+        ]
     )
     with patch.object(rs_mod, "make_pinned_async_client", return_value=pinned):
         events = await _collect(
@@ -205,7 +210,10 @@ async def test_msg_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> 
     _patch_sleep(monkeypatch)
     client = _client()
     pinned = _pinned_for(
-        [httpx.ConnectError("down"), _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"])]
+        [
+            httpx.ConnectError("down"),
+            _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]),
+        ]
     )
     with patch.object(rs_mod, "make_pinned_async_client", return_value=pinned):
         events = await _collect(
@@ -294,7 +302,10 @@ async def test_text_429_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_sleep(monkeypatch)
     client = _client()
     pinned = _pinned_for(
-        [_err_resp(429), _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"])]
+        [
+            _err_resp(429),
+            _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]),
+        ]
     )
     with patch.object(rs_mod, "make_pinned_async_client", return_value=pinned):
         tokens = await _collect(
@@ -355,7 +366,10 @@ async def test_text_connection_retry_and_emit_guard(monkeypatch: pytest.MonkeyPa
     _patch_sleep(monkeypatch)
     client = _client()
     pinned = _pinned_for(
-        [httpx.ConnectError("down"), _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"])]
+        [
+            httpx.ConnectError("down"),
+            _ok_resp(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]),
+        ]
     )
     with patch.object(rs_mod, "make_pinned_async_client", return_value=pinned):
         tokens = await _collect(

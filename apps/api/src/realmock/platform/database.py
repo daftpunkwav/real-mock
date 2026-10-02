@@ -130,9 +130,7 @@ def get_api_session_factory() -> sessionmaker[Session]:
     with _engine_lock:
         if _ApiSessionLocal is not None:
             return _ApiSessionLocal
-        _ApiSessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=get_api_engine()
-        )
+        _ApiSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_api_engine())
     return _ApiSessionLocal
 
 

@@ -8,12 +8,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from realmock.platform.core.errors import raise_error
-from realmock.platform.database import get_api_db, get_sessions_db
 from realmock.domains.interview.agents import (
     clear_company_briefs,
     get_or_create_brief,
 )
+from realmock.platform.core.errors import raise_error
+from realmock.platform.database import get_api_db, get_sessions_db
 
 router = APIRouter()
 
@@ -37,12 +37,15 @@ class CompanyBriefResponse(BaseModel):
 
 
 class CompanyBriefsClearResponse(BaseModel):
-
     cleared: int
 
 
 @router.post("/company-brief", response_model=CompanyBriefResponse)
-async def company_brief(body: CompanyBriefRequest, api_db: Session = Depends(get_api_db), db: Session = Depends(get_sessions_db)) -> dict[str, Any]:
+async def company_brief(
+    body: CompanyBriefRequest,
+    api_db: Session = Depends(get_api_db),
+    db: Session = Depends(get_sessions_db),
+) -> dict[str, Any]:
     """Agent-researched brief (style / focus areas / process) for the setup preview.
 
     Cached per company + role + level + interview type + language; generation

@@ -13,7 +13,6 @@ import pytest
 import realmock.platform.capabilities.integrations.github.rest_ops_user as user_mod
 
 
-
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
     from realmock.platform.core.ratelimit import reset_rate_limit

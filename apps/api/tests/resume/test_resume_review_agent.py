@@ -60,7 +60,14 @@ def test_content_as_text_variants() -> None:
 
     assert _content_as_text("plain") == "plain"
     assert _content_as_text(None) == ""
-    out = _content_as_text([123, {"text": " hi "}, {"type": "image_url", "image_url": {"url": "data:x"}}, {"image_url": "y"}])
+    out = _content_as_text(
+        [
+            123,
+            {"text": " hi "},
+            {"type": "image_url", "image_url": {"url": "data:x"}},
+            {"image_url": "y"},
+        ]
+    )
     assert "123" in out
     assert "hi" in out
     assert "[attached page image]" in out
@@ -93,7 +100,9 @@ async def test_finalize_evidence_empty_and_repair_failures(monkeypatch) -> None:
             return {"ok": 1}
 
     # evidence empty -> C0001 (tool used but no user/tool evidence and empty draft)
-    loop = LoopResult(messages=[{"role": "system", "content": "sys"}], final_content="", tool_used=True)
+    loop = LoopResult(
+        messages=[{"role": "system", "content": "sys"}], final_content="", tool_used=True
+    )
     with pytest.raises(ApiBusinessError) as exc:
         await finalize_review_json(loop, _LLM(), locale="en", max_output=512)  # type: ignore[arg-type]
     assert exc.value.error_code == "C0001"
@@ -103,7 +112,9 @@ async def test_finalize_evidence_empty_and_repair_failures(monkeypatch) -> None:
         async def chat_json(self, *a, **k):
             raise RuntimeError("llm-down")
 
-    loop2 = LoopResult(messages=[{"role": "user", "content": "overview-text"}], final_content="bad", tool_used=True)
+    loop2 = LoopResult(
+        messages=[{"role": "user", "content": "overview-text"}], final_content="bad", tool_used=True
+    )
     with pytest.raises(ApiBusinessError) as exc2:
         await finalize_review_json(loop2, _BoomLLM(), locale="en", max_output=512)  # type: ignore[arg-type]
     assert exc2.value.error_code == "C0002"
@@ -121,7 +132,9 @@ async def test_finalize_evidence_empty_and_repair_failures(monkeypatch) -> None:
 def test_reinsert_first_user_branches() -> None:
     from realmock.domains.resume.agents.review import _reinsert_first_user
 
-    assert _reinsert_first_user([], [{"role": "system", "content": "s"}]) == [{"role": "system", "content": "s"}]
+    assert _reinsert_first_user([], [{"role": "system", "content": "s"}]) == [
+        {"role": "system", "content": "s"}
+    ]
     first = {"role": "user", "content": "u"}
     compacted = [first, {"role": "assistant", "content": "a"}]
     assert _reinsert_first_user([first], compacted) is compacted
@@ -140,17 +153,21 @@ def test_vision_notice_and_plan_reminder() -> None:
     assert _vision_notice_message(locale="en", file_type="pdf", visual_status="ok") is None
     assert _vision_notice_message(locale="en", file_type="docx", visual_status="no_vision") is None
     assert _vision_notice_message(locale="en", file_type="pdf", visual_status="unknown") is None
-    assert "Vision" in (_vision_notice_message(locale="en", file_type="pdf", visual_status="no_vision") or "")
-    assert "纯文本" in (_vision_notice_message(locale="zh-CN", file_type="PDF", visual_status="missing_file") or "")
+    assert "Vision" in (
+        _vision_notice_message(locale="en", file_type="pdf", visual_status="no_vision") or ""
+    )
+    assert "纯文本" in (
+        _vision_notice_message(locale="zh-CN", file_type="PDF", visual_status="missing_file") or ""
+    )
 
 
 def test_restore_merge_attach_helpers() -> None:
+    from realmock.domains.resume.agents.process import ReviewProcess
     from realmock.domains.resume.agents.review import (
         _attach_review_audit,
         _merge_search_queries_used,
         _restore_max_tokens,
     )
-    from realmock.domains.resume.agents.process import ReviewProcess
 
     class _LLM:
         max_tokens = 5
@@ -205,8 +222,8 @@ async def test_build_tool_executor_plan_and_circuit(monkeypatch) -> None:
 
 
 def test_build_snapshot_and_bundle(db) -> None:
-    from realmock.domains.resume.agents.review import build_resume_snapshot, build_review_bundle
     from realmock.domains.resume.agents.process import ReviewProcess
+    from realmock.domains.resume.agents.review import build_resume_snapshot, build_review_bundle
 
     row = _resume_row(parsed_profile='{"layout_notes": "two-col"}')
     row.id = 7
@@ -216,7 +233,9 @@ def test_build_snapshot_and_bundle(db) -> None:
     assert snap2.resume_id == 0
 
     queries: list[str] = []
-    bundle = build_review_bundle(snapshot=snap, db=db, process=ReviewProcess(), search_queries=queries)
+    bundle = build_review_bundle(
+        snapshot=snap, db=db, process=ReviewProcess(), search_queries=queries
+    )
     names = {d["function"]["name"] for d in bundle.definitions()}
     assert "review_set_plan" in names
     assert "web_search" in names
@@ -311,13 +330,27 @@ async def test_run_resume_review_visual_notice_and_errors(monkeypatch, db) -> No
 
     # visual notice path (missing_file for pdf without vision? force via snapshot patch)
     monkeypatch.setattr(rev, "_calibration_for_review", lambda r, d: "")
-    monkeypatch.setattr(rev, "build_resume_snapshot", lambda r, has_visual_pages=False: SimpleNamespace(file_type="pdf", visual_status="missing_file", raw_text="x", parsed={}, layout_notes="", filename="a.pdf", resume_id=1))
+    monkeypatch.setattr(
+        rev,
+        "build_resume_snapshot",
+        lambda r, has_visual_pages=False: SimpleNamespace(
+            file_type="pdf",
+            visual_status="missing_file",
+            raw_text="x",
+            parsed={},
+            layout_notes="",
+            filename="a.pdf",
+            resume_id=1,
+        ),
+    )
 
     async def _user_msg(*a, **k):
         return {"role": "user", "content": "u"}
 
     monkeypatch.setattr(rev, "build_review_user_message", _user_msg)
-    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: []))
+    monkeypatch.setattr(
+        rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: [])
+    )
 
     async def _loop_ok(llm_, messages, **kwargs):
         return LoopResult(messages=[], final_content="{}", tool_used=False)
@@ -412,10 +445,14 @@ async def test_run_resume_review_forces_final_answer_on_exhaustion(monkeypatch, 
         return {"role": "user", "content": "u"}
 
     monkeypatch.setattr(rev, "build_review_user_message", _user_msg)
-    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: []))
+    monkeypatch.setattr(
+        rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: [])
+    )
 
     async def _loop_exhausted(llm_, messages, **kwargs):
-        return LoopResult(messages=[{"role": "user", "content": "u"}], final_content=None, tool_used=True)
+        return LoopResult(
+            messages=[{"role": "user", "content": "u"}], final_content=None, tool_used=True
+        )
 
     monkeypatch.setattr(rev, "run_agent_loop", _loop_exhausted)
 
@@ -458,7 +495,9 @@ async def test_run_resume_review_skips_forced_answer_without_tools(monkeypatch, 
         return {"role": "user", "content": "u"}
 
     monkeypatch.setattr(rev, "build_review_user_message", _user_msg)
-    monkeypatch.setattr(rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: []))
+    monkeypatch.setattr(
+        rev, "build_review_bundle", lambda **k: SimpleNamespace(definitions=lambda: [])
+    )
 
     async def _loop_silent(llm_, messages, **kwargs):
         return LoopResult(messages=[], final_content=None, tool_used=False)
@@ -568,7 +607,8 @@ async def test_run_resume_review_prepare_has_no_budget_line(monkeypatch, db) -> 
         last_call.append(prepared)
         assert all("Progress: LLM round" not in str(m) for m in prepared)
         assert all("[Budget]" not in str(m) for m in prepared), (
-            "budget line must come from the platform loop, not prepare_messages")
+            "budget line must come from the platform loop, not prepare_messages"
+        )
         return LoopResult(messages=prepared, final_content='{"score": 4}', tool_used=False)
 
     monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
@@ -581,6 +621,7 @@ async def test_run_resume_review_prepare_has_no_budget_line(monkeypatch, db) -> 
     await rev.run_resume_review(row, db, llm, locale="en")  # type: ignore[arg-type]
     assert last_call
 
+
 async def test_finalize_self_correction_recovers() -> None:
     """A malformed draft is fixed by one self-correction round, not repair."""
     from realmock.domains.resume.agents.review import finalize_review_json
@@ -589,7 +630,9 @@ async def test_finalize_self_correction_recovers() -> None:
     class _LLM:
         async def chat(self, messages, **k):
             # The draft rides along as an assistant message before the ask.
-            assert any(m.get("role") == "assistant" and "prose" in str(m.get("content")) for m in messages)
+            assert any(
+                m.get("role") == "assistant" and "prose" in str(m.get("content")) for m in messages
+            )
             return '{"score": 8, "dimension_scores": {}}'
 
         async def chat_json(self, *a, **k):
@@ -707,7 +750,12 @@ async def test_build_tool_executor_budget_and_args_keyed_breaker(monkeypatch) ->
     )
     activity: list[str] = []
     ex = rev._build_tool_executor(
-        object(), used, None, None, guard=guard, activity_sink=activity.append  # type: ignore[arg-type]
+        object(),
+        used,
+        None,
+        None,
+        guard=guard,
+        activity_sink=activity.append,  # type: ignore[arg-type]
     )
 
     # Same call failing three times in a row arms the breaker...
@@ -921,7 +969,11 @@ async def test_finalize_emits_progress_notices() -> None:
         tool_used=True,
     )
     out = await finalize_review_json(
-        loop, _LLM(), locale="zh-CN", max_output=512, on_event=_on_event  # type: ignore[arg-type]
+        loop,
+        _LLM(),
+        locale="zh-CN",
+        max_output=512,
+        on_event=_on_event,  # type: ignore[arg-type]
     )
     assert out == {"score": 5}
     kinds = [str(e.get("message")) for e in events if e.get("type") == "notice"]
@@ -951,6 +1003,7 @@ async def test_tool_executor_counts_skip_plan_tools() -> None:
         await ex("resume_overview", {})
     assert guard.used == 3
 
+
 @pytest.mark.asyncio
 async def test_run_resume_review_plan_reminder_is_capped(monkeypatch, db) -> None:
     """Without a declared plan, the create-plan nudge repeats at most three times."""
@@ -979,9 +1032,7 @@ async def test_run_resume_review_plan_reminder_is_capped(monkeypatch, db) -> Non
         reminders = 0
         for _ in range(5):
             prepared = await prepare([{"role": "user", "content": "u"}])
-            if any(
-                "Create the review plan" in str(m.get("content")) for m in prepared
-            ):
+            if any("Create the review plan" in str(m.get("content")) for m in prepared):
                 reminders += 1
         assert reminders == 3, "the nudge must stop after three rounds, not nag forever"
         return LoopResult(messages=prepared, final_content='{"score": 7}', tool_used=True)
@@ -1046,9 +1097,9 @@ async def test_prepare_messages_retires_images_by_round_ratio_without_layout_ste
             )
         assert all(images_by_round[:9]), "images stay attached through round 9"
         assert not images_by_round[9], "the ratio bound retires them at round 10"
-        assert any(
-            "page images" in str(part.get("text")) for part in first_user["content"]
-        ), "retirement replaces images with an explicit text marker"
+        assert any("page images" in str(part.get("text")) for part in first_user["content"]), (
+            "retirement replaces images with an explicit text marker"
+        )
         return LoopResult(messages=prepared, final_content='{"score": 8}', tool_used=False)
 
     monkeypatch.setattr(rev, "run_agent_loop", _fake_loop)
@@ -1095,8 +1146,18 @@ async def test_prepare_messages_retires_images_after_layout_step(monkeypatch, db
         execute = kwargs["execute"]
         await execute(
             "review_set_plan",
-            {"steps": ["step a", "从页面图像评审版式与排版", "step c", "step d",
-                       "step e", "step f", "step g", "Generate evaluation JSON"]},
+            {
+                "steps": [
+                    "step a",
+                    "从页面图像评审版式与排版",
+                    "step c",
+                    "step d",
+                    "step e",
+                    "step f",
+                    "step g",
+                    "Generate evaluation JSON",
+                ]
+            },
         )
         before = await kwargs["prepare_messages"]([multimodal])
         first_before = next(m for m in before if m.get("role") == "user")

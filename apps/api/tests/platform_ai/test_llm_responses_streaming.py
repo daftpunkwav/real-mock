@@ -39,11 +39,25 @@ def test_assembler_streams_reasoning_and_text() -> None:
 
 def test_assembler_buffers_tool_calls_from_deltas() -> None:
     a = _ResponsesRoundAssembler()
-    a.feed({"type": "response.output_item.added", "item": {
-        "type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "resume_get_section",
-    }})
+    a.feed(
+        {
+            "type": "response.output_item.added",
+            "item": {
+                "type": "function_call",
+                "id": "fc_1",
+                "call_id": "call_1",
+                "name": "resume_get_section",
+            },
+        }
+    )
     a.feed({"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": '{"sec'})
-    a.feed({"type": "response.function_call_arguments.delta", "item_id": "fc_1", "delta": 'tion": "edu"}'})
+    a.feed(
+        {
+            "type": "response.function_call_arguments.delta",
+            "item_id": "fc_1",
+            "delta": 'tion": "edu"}',
+        }
+    )
 
     msg = a.message()
     assert msg["role"] == "assistant" and msg["content"] is None
@@ -55,16 +69,25 @@ def test_assembler_buffers_tool_calls_from_deltas() -> None:
 def test_completed_snapshot_is_authoritative() -> None:
     a = _ResponsesRoundAssembler()
     a.feed({"type": "response.output_text.delta", "delta": "partial"})
-    a.feed(_completed([
-        {"type": "message", "content": [{"type": "output_text", "text": "final body"}]},
-        {"type": "function_call", "id": "fc_9", "call_id": "call_9", "name": "t",
-         "arguments": "{\"x\": 1}"},
-    ]))
+    a.feed(
+        _completed(
+            [
+                {"type": "message", "content": [{"type": "output_text", "text": "final body"}]},
+                {
+                    "type": "function_call",
+                    "id": "fc_9",
+                    "call_id": "call_9",
+                    "name": "t",
+                    "arguments": '{"x": 1}',
+                },
+            ]
+        )
+    )
     msg = a.message()
     # The completed snapshot replaces delta-stitched buffers (no drift).
     assert msg["content"] == "final body"
     assert msg["tool_calls"][0]["id"] == "call_9"
-    assert msg["tool_calls"][0]["function"]["arguments"] == "{\"x\": 1}"
+    assert msg["tool_calls"][0]["function"]["arguments"] == '{"x": 1}'
 
 
 def test_no_completed_event_falls_back_to_buffers() -> None:
@@ -85,10 +108,15 @@ def test_parse_sse_event_surfaces_reasoning() -> None:
 
 
 def test_extract_reasoning_concatenates_summaries() -> None:
-    data = {"output": [
-        {"type": "reasoning", "summary": [{"type": "summary_text", "text": "a"}, {"text": "b"}]},
-        {"type": "message", "content": []},
-    ]}
+    data = {
+        "output": [
+            {
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": "a"}, {"text": "b"}],
+            },
+            {"type": "message", "content": []},
+        ]
+    }
     assert extract_reasoning(data, "openai_responses") == "ab"
     assert extract_reasoning({"output": [{"type": "message"}]}, "openai_responses") == ""
 
@@ -143,9 +171,18 @@ def test_stream_message_round_dispatches_responses_assembler(monkeypatch) -> Non
 
     monkeypatch.setattr(stream_mod, "make_pinned_async_client", lambda *a, **k: _FakeClient())
     client = SimpleNamespace(usage=_Usage(), extra_headers=None)
-    events = asyncio.run(_gather(stream_mod.stream_message_round(
-        client, "https://api.example.com", "openai_responses", "key", "https://api.example.com/responses", {},
-    )))
+    events = asyncio.run(
+        _gather(
+            stream_mod.stream_message_round(
+                client,
+                "https://api.example.com",
+                "openai_responses",
+                "key",
+                "https://api.example.com/responses",
+                {},
+            )
+        )
+    )
     reasoning = [e for e in events if e["type"] == "reasoning"]
     text = [e for e in events if e["type"] == "text"]
     assert reasoning and reasoning[0]["text"] == "why"

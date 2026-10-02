@@ -5,13 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from realmock.domains.settings.services.model_registry import get_profile
+from realmock.domains.settings.services.route_timing import run_timed_stage_test
+from realmock.domains.settings.services.stage_tests import test_reason, test_recognize, test_speak
 from realmock.platform.core.constants import DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
 from realmock.platform.core.ratelimit import rate_limit_dep
 from realmock.platform.database import get_db
 from realmock.platform.schemas import LLMTestResponse
-from realmock.domains.settings.services.model_registry import get_profile
-from realmock.domains.settings.services.route_timing import run_timed_stage_test
-from realmock.domains.settings.services.stage_tests import test_recognize, test_reason, test_speak
 
 router = APIRouter()
 

@@ -7,7 +7,6 @@ from typing import Any
 from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 
-
 # Working-memory bound: unbounded notes would bloat every later turn's prompt.
 _TAKE_NOTE_MAX_CHARS = 2000
 

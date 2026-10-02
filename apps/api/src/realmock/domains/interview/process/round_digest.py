@@ -61,11 +61,11 @@ def build_round_digest(session: Any, ledger: dict[str, Any] | None = None) -> di
     )
 
     return {
-        "summary": summary[:DIGEST_LIMITS["summary_chars"]],
+        "summary": summary[: DIGEST_LIMITS["summary_chars"]],
         "topics_covered": topics[: DIGEST_LIMITS["topics"]],
         "weak_points": weak[: DIGEST_LIMITS["weak_points"]],
         "strengths": strengths[: DIGEST_LIMITS["strengths"]],
-        "phases_covered": phases[: 16],
+        "phases_covered": phases[:16],
     }
 
 

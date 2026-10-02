@@ -13,7 +13,6 @@ from realmock.platform.core.security import sanitize_filename
 from realmock.platform.models import Resume
 
 
-
 def _seed_resume_with_file(api_db, filename: str, content: bytes) -> Resume:
     """Create a database record and disk file according to the upload-storage rule (UUID prefix_sanitized name).
 

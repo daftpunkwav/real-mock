@@ -30,7 +30,11 @@ from realmock.platform.capabilities.ai.agent import LoopResult, OnAgentEvent
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.json_extract import (
     extract_json_object as _extract_json_object,
+)
+from realmock.platform.capabilities.ai.llm.json_extract import (
     salvage_truncated_object as _salvage_truncated_object,
+)
+from realmock.platform.capabilities.ai.llm.json_extract import (
     truncate_chunk,
 )
 from realmock.platform.core.errors import raise_error

@@ -12,6 +12,7 @@ from realmock.domains.interview.ledger.preview import truncate_preview
 
 # No handler fixture: truncate_preview is a pure function tested directly.
 
+
 def test_truncate_preview_branches():
     assert truncate_preview(None) is None
     assert truncate_preview("short", max_chars=10) == "short"
@@ -25,14 +26,19 @@ def test_truncate_preview_branches():
     out = truncate_preview(big, max_chars=20)
     assert isinstance(out, str) and out.endswith("…")
     # dumps failure -> repr path
-    with patch("realmock.domains.interview.ledger.preview.json.dumps", side_effect=TypeError("no json")):
+    with patch(
+        "realmock.domains.interview.ledger.preview.json.dumps", side_effect=TypeError("no json")
+    ):
         v = object()
         out2 = truncate_preview(v, max_chars=1000)
         assert isinstance(out2, str)
     # loads failure -> return text
     with (
         patch("realmock.domains.interview.ledger.preview.json.dumps", return_value="not-json{{{"),
-        patch("realmock.domains.interview.ledger.preview.json.loads", side_effect=json.JSONDecodeError("e", "d", 0)),
+        patch(
+            "realmock.domains.interview.ledger.preview.json.loads",
+            side_effect=json.JSONDecodeError("e", "d", 0),
+        ),
     ):
         assert truncate_preview({"a": 1}, max_chars=100) == "not-json{{{"
     # truncated path needs no loads

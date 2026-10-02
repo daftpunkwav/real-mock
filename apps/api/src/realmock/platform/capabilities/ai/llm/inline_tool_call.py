@@ -118,7 +118,7 @@ class InlineToolCallCleaner:
                     self._in_block = False
                 break
             self._emit_local(out, self._convert_block(self._buf[:j]))
-            self._buf = self._buf[j + len(self._CLOSE):]
+            self._buf = self._buf[j + len(self._CLOSE) :]
             self._in_block = False
         return "".join(out)
 

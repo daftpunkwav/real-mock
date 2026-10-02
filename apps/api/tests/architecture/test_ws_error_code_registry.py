@@ -68,8 +68,7 @@ def test_ws_error_code_guard_self_check(tmp_path: Path) -> None:
     """The guard actually fires on a constructed unregistered code."""
     probe = tmp_path / "violation.py"
     probe.write_text(
-        'def f(send):\n'
-        '    await send("error", message="x", code="Z9999")\n',
+        'def f(send):\n    await send("error", message="x", code="Z9999")\n',
         encoding="utf-8",
     )
     hits = _emitted_codes(probe)

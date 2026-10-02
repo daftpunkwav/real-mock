@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from realmock.platform.capabilities.voice.tts.providers.edge import DEFAULT_VOICE
 from realmock.platform.capabilities.voice.tts.options import AVATARS
+from realmock.platform.capabilities.voice.tts.providers.edge import DEFAULT_VOICE
 
 # avatar_id → Neural voice (kept in sync with options.AVATARS.voice)
 _AVATAR_VOICE: dict[str, str] = {
@@ -86,6 +86,7 @@ def resolve_session_voice(
 
 def _combine_percent(base: str, delta: str) -> str:
     """Add two relative values ​​of the form ``+10%`` / ``-5%``."""
+
     def _parse(s: str) -> int:
         s = (s or "+0%").strip().replace("%", "")
         try:

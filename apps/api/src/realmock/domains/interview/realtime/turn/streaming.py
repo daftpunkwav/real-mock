@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.agents import strip_markers
 from realmock.domains.interview.agents.events import EventKind, StreamEvent
+from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.voice.tts.providers.edge import (
     next_soft_min,
     should_flush_sentence_buffer,
@@ -106,9 +106,7 @@ class TurnStreamingMixin:
                     if should_flush_sentence_buffer(sentence_buf, soft_min=soft_min):
                         if epoch != self.ctx.stream_epoch:
                             return None
-                        await self.ctx.tts_queue.enqueue(
-                            sentence_buf, emotion=turn_emotion
-                        )
+                        await self.ctx.tts_queue.enqueue(sentence_buf, emotion=turn_emotion)
                         sentence_buf = ""
                         soft_min, self.ctx.tts_soft_idx = next_soft_min(self.ctx.tts_soft_idx)
             elif event.kind == EventKind.TURN_COMPLETE:
@@ -136,11 +134,7 @@ class TurnStreamingMixin:
                         phase=event.phase_id,
                         phase_title=event.phase_title or None,
                     )
-                if (
-                    auto_hint
-                    and not event.is_complete
-                    and clean.strip()
-                ):
+                if auto_hint and not event.is_complete and clean.strip():
                     self._spawn(self._on_request_hint({"question": clean}))
                 # Latest per-question wait estimate drives the silence timer
                 # (frontend waitMs + backend nudge cooldown, clamped 7-60s).
@@ -158,9 +152,7 @@ class TurnStreamingMixin:
                 if epoch != self.ctx.stream_epoch:
                     return None
                 if sentence_buf.strip():
-                    await self.ctx.tts_queue.enqueue(
-                        sentence_buf, emotion=turn_emotion
-                    )
+                    await self.ctx.tts_queue.enqueue(sentence_buf, emotion=turn_emotion)
                     sentence_buf = ""
                 if epoch != self.ctx.stream_epoch:
                     return None
@@ -169,9 +161,7 @@ class TurnStreamingMixin:
                 # sentence to be synthesized or played. Pending audio keeps playing;
                 # a user reply cancels it via _cancel_pending_playback, and barge-in
                 # clears the queue, so the stale drain just joins an empty queue.
-                self._spawn(
-                    self.ctx.tts_queue.flush_remainder("", emotion=turn_emotion)
-                )
+                self._spawn(self.ctx.tts_queue.flush_remainder("", emotion=turn_emotion))
                 last = event
             elif event.kind == EventKind.ERROR:
                 await self.send(

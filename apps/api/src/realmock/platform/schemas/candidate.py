@@ -23,7 +23,6 @@ class CompanyInfo(BaseModel):
 # Produced by the resume domain parser and read by the interview Agent to build the candidate persona;
 # shared by both domains, so it belongs in the platform contract layer.
 class CandidateProfile(BaseModel):
-
     name: str = ""
     education: list[dict[str, Any]] = Field(default_factory=list)
     work_experience: list[dict[str, Any]] = Field(default_factory=list)
@@ -51,7 +50,6 @@ class CandidateProfile(BaseModel):
 
 # Resume drop-down read-only summary: shared by prep/interview configuration pages, does not include analysis text and in-depth evaluation.
 class ResumePickerItem(BaseModel):
-
     id: int
     filename: str
     is_active: bool = False

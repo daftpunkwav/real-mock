@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -23,14 +24,6 @@ def _clean_limits():
 # ---- prompt_assembler (57, 81-82, 109-110, 117, 133, 144) ----
 
 
-
-
-
-
-
-
-
-
 # ---- history_compaction (118-119, 138-139, 152-153) ----
 
 
@@ -42,15 +35,7 @@ def _fold_agent(n=12):
     return SimpleNamespace(messages=messages, agent_state={})
 
 
-
-
-
-
-
-
 # ---- past_records (29-31, 68-69) ----
-
-
 
 
 # ---- session_prompt (237, 315-316, 397-398) ----
@@ -80,12 +65,6 @@ def _sp_mixin(**overrides):
     for k, v in overrides.items():
         setattr(m, k, v)
     return m
-
-
-
-
-
-
 
 
 # ---- tool_guard (74, 109-110, 116, 127) ----

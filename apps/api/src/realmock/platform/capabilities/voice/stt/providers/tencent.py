@@ -10,9 +10,9 @@ import json
 import logging
 import time
 
-from realmock.platform.core.security import make_pinned_async_client
 from realmock.platform.capabilities.voice.stt.base import SttCredentials
 from realmock.platform.capabilities.voice.stt.providers.whisper import pcm_base64_to_wav_bytes
+from realmock.platform.core.security import make_pinned_async_client
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,7 @@ def _sign_tc3(
     http_request_method = "POST"
     canonical_uri = "/"
     canonical_querystring = ""
-    canonical_headers = (
-        f"content-type:application/json; charset=utf-8\nhost:{_HOST}\n"
-    )
+    canonical_headers = f"content-type:application/json; charset=utf-8\nhost:{_HOST}\n"
     signed_headers = "content-type;host"
     hashed_request_payload = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     canonical_request = (
@@ -56,9 +54,7 @@ def _sign_tc3(
     secret_date = _hmac(("TC3" + secret_key).encode("utf-8"), date)
     secret_service = _hmac(secret_date, _SERVICE)
     secret_signing = _hmac(secret_service, "tc3_request")
-    signature = hmac.new(
-        secret_signing, string_to_sign.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
+    signature = hmac.new(secret_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
     authorization = (
         "TC3-HMAC-SHA256 "
         f"Credential={secret_id}/{credential_scope}, "
@@ -75,9 +71,7 @@ def _sign_tc3(
 
 
 class TencentProvider:
-    async def transcribe(
-        self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials
-    ) -> str:
+    async def transcribe(self, pcm_b64: str, *, sample_rate: int, creds: SttCredentials) -> str:
         app_id = (creds.app_id or "").strip()
         secret_id = (creds.api_key or "").strip()
         secret_key = (creds.api_secret or "").strip()
@@ -111,13 +105,10 @@ class TencentProvider:
         try:
             # Keep DNS resolution off the event loop (same convention as web_fetch).
             pinned = await asyncio.to_thread(
-                make_pinned_async_client,
-                f"https://{_HOST}", timeout=25.0
+                make_pinned_async_client, f"https://{_HOST}", timeout=25.0
             )
             async with pinned as client:
-                resp = await client.post(
-                    f"https://{_HOST}", headers=headers, content=payload
-                )
+                resp = await client.post(f"https://{_HOST}", headers=headers, content=payload)
                 resp.raise_for_status()
                 payload_json = resp.json()
         except Exception as e:

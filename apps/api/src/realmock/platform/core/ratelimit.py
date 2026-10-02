@@ -381,9 +381,7 @@ def check_rate_limit_by_id(
     """
     bucket_key = (key, client_id or "unknown")
     if _use_db_ratelimit():
-        _check_rate_limit_db(
-            bucket_key=bucket_key, limit=limit, window_seconds=window_seconds
-        )
+        _check_rate_limit_db(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
         return
     _check_rate_limit_memory(bucket_key=bucket_key, limit=limit, window_seconds=window_seconds)
 
@@ -412,9 +410,7 @@ def rate_limit_dep(*, key: str, limit: int, window_seconds: int = 60):
     """Returns the current limiting Depends callback that can be hooked to FastAPI ``dependencies=``."""
 
     def _dep(request: Request) -> None:
-        check_rate_limit(
-            request, key=key, limit=limit, window_seconds=window_seconds
-        )
+        check_rate_limit(request, key=key, limit=limit, window_seconds=window_seconds)
 
     return _dep
 

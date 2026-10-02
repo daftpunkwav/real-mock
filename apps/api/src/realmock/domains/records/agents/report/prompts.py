@@ -79,6 +79,7 @@ Rules:
 6. Never invent resume projects, metrics, star counts, company interview facts, or URLs. If search is unavailable, say less — do not fill the gap from memory.
 7. No emoji. Return JSON only.""")  # noqa: E501
 
+
 def turn_notes_user_message(
     *,
     role: str,
@@ -159,6 +160,7 @@ def report_repair_system(schema_text: str) -> str:
         "Use only facts present in the evidence; do not invent scores or "
         "quotes. No tool calls. Return JSON only."
     )
+
 
 __all__ = [
     "SYNTHESIS_SYSTEM_PROMPT",

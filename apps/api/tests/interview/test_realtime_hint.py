@@ -11,12 +11,18 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from realmock.domains.interview.realtime.core.session_registry import reset_session_registry_for_tests
+
+from realmock.domains.interview.realtime.core.session_registry import (
+    reset_session_registry_for_tests,
+)
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
+
 
 def _make_handler(sid=101):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     h = InterviewWSHandler(ws, session_id=sid)
     # Realtime reads of the agent state go through the runner facade.
     h.ctx.runner = MagicMock()
@@ -36,11 +42,15 @@ def _seed_outline(h, lang="zh"):
     h.ctx.agent = MagicMock()
     h.ctx.agent.plan = plan
     history = [
-        {"role": "system", "content": "## Interview setup\nRole: BE\n## Candidate profile\nAda\n## Current phase\nx"},
+        {
+            "role": "system",
+            "content": "## Interview setup\nRole: BE\n## Candidate profile\nAda\n## Current phase\nx",
+        },
     ]
     h.ctx.agent.messages = history
     h.ctx.runner.message_history.return_value = history
     return h
+
 
 @pytest.mark.asyncio
 async def test_hint_background_and_candidate_slice_branches():
@@ -49,7 +59,9 @@ async def test_hint_background_and_candidate_slice_branches():
     try:
         h.ctx.runner.message_history.return_value = [{"role": "user", "content": "hi"}]
         assert h._hint_background() == ""
-        h.ctx.runner.message_history.return_value = [{"role": "system", "content": "plain head no markers here"}]
+        h.ctx.runner.message_history.return_value = [
+            {"role": "system", "content": "plain head no markers here"}
+        ]
         assert h._hint_background() == "plain head no markers here"
         h.ctx.runner = None
         assert h._hint_background() == ""
@@ -73,7 +85,10 @@ async def test_extract_hint_question_variants():
     try:
         assert h._extract_hint_question("") == ""
         assert h._extract_hint_question("   \n  ") == ""
-        assert h._extract_hint_question("hello, please tell me about yourself") == "hello, please tell me about yourself"
+        assert (
+            h._extract_hint_question("hello, please tell me about yourself")
+            == "hello, please tell me about yourself"
+        )
         assert "?" in h._extract_hint_question("intro line\nWhat did you do?")
         assert h._extract_hint_question("line1\nintroduce yourself") == "introduce yourself"
         assert h._extract_hint_question("chat about cache") == "chat about cache"
@@ -116,7 +131,10 @@ async def test_on_request_hint_outline_success_timeout_error():
         h._generate_reference_hint = AsyncMock(side_effect=asyncio.TimeoutError())  # type: ignore[method-assign]
         await h._on_request_hint({"question": "超时问题?"})
         assert h.ctx.ws.send_json.await_args[0][0]["type"] == "reference_hint"
-        assert "STAR" in h.ctx.ws.send_json.await_args[0][0]["content"] or "超时" in h.ctx.ws.send_json.await_args[0][0]["content"]
+        assert (
+            "STAR" in h.ctx.ws.send_json.await_args[0][0]["content"]
+            or "超时" in h.ctx.ws.send_json.await_args[0][0]["content"]
+        )
 
         # generic error path
         h.ctx.ws.send_json.reset_mock()
@@ -194,7 +212,9 @@ async def test_generate_full_reference_hint_branches():
         db.close = MagicMock()
         # session None -> None
         h._load_session = MagicMock(return_value=None)  # type: ignore[method-assign]
-        with patch("realmock.domains.interview.realtime.control.hint.SessionLocal", return_value=db):
+        with patch(
+            "realmock.domains.interview.realtime.control.hint.SessionLocal", return_value=db
+        ):
             assert await h._generate_full_reference_hint("q?") is None
         # success path
         sess = MagicMock()
@@ -211,7 +231,9 @@ async def test_generate_full_reference_hint_branches():
         db2 = MagicMock()
         db2.close = MagicMock(side_effect=RuntimeError("close boom"))
         h._load_session = MagicMock(return_value=None)  # type: ignore[method-assign]
-        with patch("realmock.domains.interview.realtime.control.hint.SessionLocal", return_value=db2):
+        with patch(
+            "realmock.domains.interview.realtime.control.hint.SessionLocal", return_value=db2
+        ):
             assert await h._generate_full_reference_hint("q?") is None
     finally:
         await h._cancel_bg_tasks()

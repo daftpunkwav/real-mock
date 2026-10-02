@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
 from realmock.domains.interview.agents.events import LedgerWriteError, StreamEvent
-from realmock.platform.core.agent_error_log import log_agent_error
+from realmock.domains.interview.agents.planning.planner import ensure_plan
 from realmock.domains.interview.agents.say_first import (
     parse_complete_output,
     stream_say_first,
@@ -22,7 +21,8 @@ from realmock.domains.interview.agents.say_first import (
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
-from realmock.domains.interview.agents.planning.planner import ensure_plan
+from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
+from realmock.platform.core.agent_error_log import log_agent_error
 
 if TYPE_CHECKING:
     from realmock.domains.interview.agents.interviewer.runner import InterviewRunner
@@ -48,10 +48,15 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
             runner.agent.messages = compress_messages(runner.agent.messages, context_window)
 
         opening_messages = list(runner.agent.messages) + [
-            {"role": "user", "content": "The interview is starting; begin asking questions for the current phase."},
+            {
+                "role": "user",
+                "content": "The interview is starting; begin asking questions for the current phase.",
+            },
         ]
         outcome: dict[str, Any] = {}
-        async for event in stream_tool_rounds(runner, outcome, opening_messages, db, temperature=0.8):
+        async for event in stream_tool_rounds(
+            runner, outcome, opening_messages, db, temperature=0.8
+        ):
             yield event
         error = outcome.get("error")
         if error is not None:
@@ -134,4 +139,8 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
         )
     except Exception as e:
         logger.exception("Opening round failed: %s", e)
-        yield StreamEvent.make_error("AI interviewer temporarily unavailable; please retry later", code="C0001", retryable=True)
+        yield StreamEvent.make_error(
+            "AI interviewer temporarily unavailable; please retry later",
+            code="C0001",
+            retryable=True,
+        )

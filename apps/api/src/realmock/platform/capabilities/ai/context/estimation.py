@@ -28,7 +28,9 @@ LATIN_CHARS_PER_TOKEN = 4.0
 #: block/role overhead convention of token-meter style estimators.
 MESSAGE_OVERHEAD_TOKENS = 4
 
-_CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]")
+_CJK_RE = re.compile(
+    r"[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]"
+)
 
 
 def _script_tokens(text: str) -> int:
@@ -158,9 +160,15 @@ def _omitted_digest(omitted: list[dict[str, Any]], *, max_lines: int = 16) -> st
         return kept[:head] + [f"(...omitted in the middle {skipped} strip…)"] + kept[head:]
 
     if user_lines:
-        sections.append("User demands (early stage):\n" + "\n".join(f"- {line}" for line in _window(user_lines, 2, 3)))
+        sections.append(
+            "User demands (early stage):\n"
+            + "\n".join(f"- {line}" for line in _window(user_lines, 2, 3))
+        )
     if assistant_lines:
-        sections.append("Conclusion given (early stage):\n" + "\n".join(f"- {line}" for line in _window(assistant_lines, 0, 2)))
+        sections.append(
+            "Conclusion given (early stage):\n"
+            + "\n".join(f"- {line}" for line in _window(assistant_lines, 0, 2))
+        )
     if not sections:
         return ""
     return "\n".join(sections)[: max_lines * 90]

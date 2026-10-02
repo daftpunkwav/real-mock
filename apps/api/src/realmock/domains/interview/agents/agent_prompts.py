@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import json
-
 from typing import Any
 
-from realmock.platform.core.prompts import with_agent_output_rules
-from realmock.platform.schemas import CandidateProfile
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.domains.interview.workflows import (
     PERSONALITY_PROMPTS,
@@ -16,6 +13,8 @@ from realmock.domains.interview.workflows import (
     InterviewPhase,
     Workflow,
 )
+from realmock.platform.core.prompts import with_agent_output_rules
+from realmock.platform.schemas import CandidateProfile
 
 
 def _language_rule(flow_language: str) -> str:

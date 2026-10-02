@@ -9,21 +9,39 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+
 def _session_row(**kw):
     """Build a minimal session row namespace with sensible defaults."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
     base = {
-        "id": 1, "role": "BE", "level": "S", "company": "Acme", "workflow_type": "technical",
-        "personality": "professional", "strictness": 3, "interview_style": "deep_dive",
-        "avatar_id": None, "scene_id": None, "status": "active", "current_phase": "tech",
-        "overall_score": None, "process_id": None, "round_no": None, "result": None,
-        "plan_status": None, "plan": None, "started_at": now, "ended_at": None,
-        "created_at": now, "access_token": "tok",
+        "id": 1,
+        "role": "BE",
+        "level": "S",
+        "company": "Acme",
+        "workflow_type": "technical",
+        "personality": "professional",
+        "strictness": 3,
+        "interview_style": "deep_dive",
+        "avatar_id": None,
+        "scene_id": None,
+        "status": "active",
+        "current_phase": "tech",
+        "overall_score": None,
+        "process_id": None,
+        "round_no": None,
+        "result": None,
+        "plan_status": None,
+        "plan": None,
+        "started_at": now,
+        "ended_at": None,
+        "created_at": now,
+        "access_token": "tok",
     }
     base.update(kw)
     return SimpleNamespace(**base)
+
 
 def test_sessions_crud_gaps():
     from realmock.domains.interview.routes import sessions as mod
@@ -65,7 +83,21 @@ def test_sessions_crud_gaps():
         cookie.assert_called_once()
         to_resp.assert_called_once()
     # create with overrides + locale trim (bypass 10-char validation to hit [:10] slice)
-    cfg2 = InterviewConfig.model_construct(role="BE", level="S", company="Acme", workflow_type="technical", personality="professional", strictness=3, interview_style="deep_dive", resume_id=None, avatar_id="a", scene_id="s", ai_overrides=None, ui_locale="zh-CN-extra-long", reference_detail="full")
+    cfg2 = InterviewConfig.model_construct(
+        role="BE",
+        level="S",
+        company="Acme",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        resume_id=None,
+        avatar_id="a",
+        scene_id="s",
+        ai_overrides=None,
+        ui_locale="zh-CN-extra-long",
+        reference_detail="full",
+    )
     cfg2.ai_overrides = SimpleNamespace(model_dump=lambda exclude_none=True: {"k": "v"})
     db2 = MagicMock()
     db2.add = MagicMock()
@@ -87,7 +119,9 @@ def test_sessions_crud_gaps():
         _session_row(),
         _session_row(id=2),
     ]
-    with patch.object(mod, "to_session_response", side_effect=lambda s, include_token=False: {"id": s.id}):
+    with patch.object(
+        mod, "to_session_response", side_effect=lambda s, include_token=False: {"id": s.id}
+    ):
         assert mod.list_sessions(db3) == [{"id": 1}, {"id": 2}]
     # get_session 404 / 403 / ok
     db4 = MagicMock()
@@ -141,11 +175,16 @@ def test_sessions_crud_gaps():
     with patch.object(mod, "assert_session_token", return_value=None):
         assert mod.get_messages(1, db9, "tok") == []
     # to_session_response defaults avatar/scene
-    with patch.object(mod, "parse_plan", return_value=None), patch.object(mod, "plan_step_views", return_value=[]):
+    with (
+        patch.object(mod, "parse_plan", return_value=None),
+        patch.object(mod, "plan_step_views", return_value=[]),
+    ):
         resp_out = mod.to_session_response(_session_row(), include_token=False)
         assert resp_out.avatar_id == "professional_male"
         assert resp_out.scene_id == "meeting_room"
         assert resp_out.access_token is None
-        resp2 = mod.to_session_response(_session_row(avatar_id="a", scene_id="s"), include_token=True)
+        resp2 = mod.to_session_response(
+            _session_row(avatar_id="a", scene_id="s"), include_token=True
+        )
         assert resp2.avatar_id == "a"
         assert resp2.access_token == "tok"

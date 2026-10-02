@@ -120,7 +120,7 @@ def parse_provenance(text: str) -> dict[str, Any]:
         start = str(text or "").rfind(_PROVENANCE_MARKER)
         if start < 0:
             return out
-        body = str(text)[start + len(_PROVENANCE_MARKER):].strip().rstrip("]").strip()
+        body = str(text)[start + len(_PROVENANCE_MARKER) :].strip().rstrip("]").strip()
         for token in body.split():
             if "=" not in token:
                 continue
@@ -154,7 +154,7 @@ def _previous_summary_text(system: list[dict[str, Any]]) -> str:
             body = content
             for marker in _PREVIOUS_SUMMARY_MARKERS:
                 if body.startswith(marker):
-                    body = body[len(marker):]
+                    body = body[len(marker) :]
                     break
             return strip_provenance(body.strip())
     return ""
@@ -306,7 +306,7 @@ async def _summarize_transcript(
     """
     lines = _transcript_lines(omitted)
     chunks = [
-        lines[i: i + _SUMMARY_SNIPPETS_PER_CHUNK]
+        lines[i : i + _SUMMARY_SNIPPETS_PER_CHUNK]
         for i in range(0, max(1, len(lines)), _SUMMARY_SNIPPETS_PER_CHUNK)
     ]
     remainder_note = ""
@@ -352,7 +352,9 @@ async def _summarize_transcript(
         finally:
             if report is not None:
                 try:
-                    report["latency_ms"] = report.get("latency_ms", 0.0) + (time.perf_counter() - started) * 1000.0
+                    report["latency_ms"] = (
+                        report.get("latency_ms", 0.0) + (time.perf_counter() - started) * 1000.0
+                    )
                     for key, value in _usage_delta(llm, usage_before).items():
                         report[key] = report.get(key, 0) + value
                 except Exception:
@@ -422,9 +424,7 @@ async def compact_with_summary(
     """
     opts = options or CompactionOptions()
     system = [m for m in messages if m.get("role") == "system"]
-    rest = _prune_stale_tool_pairs(
-        [m for m in messages if m.get("role") != "system"]
-    )
+    rest = _prune_stale_tool_pairs([m for m in messages if m.get("role") != "system"])
     if not isinstance(threshold, (int, float)) or not 0 < threshold < 1:
         threshold = 0.3
     # The old tool takes effect unconditionally on folding (micro-compression); LLM records are only generated when the threshold is exceeded
@@ -510,8 +510,13 @@ async def compact_with_summary(
         try:
             prefix_blocks = [str(m.get("content") or "") for m in system[:1]]
             summary_text = await _summarize_transcript(
-                llm, _previous_summary_text(system), omitted, opts,
-                prefix_blocks=prefix_blocks, default_focus=default_focus, report=report,
+                llm,
+                _previous_summary_text(system),
+                omitted,
+                opts,
+                prefix_blocks=prefix_blocks,
+                default_focus=default_focus,
+                report=report,
             )
         except Exception as e:
             if force:
@@ -528,7 +533,10 @@ async def compact_with_summary(
         # Draft with a placeholder trailer first so the recorded delta is
         # honest, then stamp the real trailer (same shape, negligible drift).
         minutes_body = summary_text + (f"\n\n{ledger}" if ledger else "")
-        draft_block = {"role": "system", "content": f"{COMPACTION_SUMMARY_MARKER} {minutes_body}\n{_PROVENANCE_MARKER} v=1]"}
+        draft_block = {
+            "role": "system",
+            "content": f"{COMPACTION_SUMMARY_MARKER} {minutes_body}\n{_PROVENANCE_MARKER} v=1]",
+        }
         after_est = estimate_messages_tokens(kept_system + [draft_block] + trimmed)
         if not force and after_est >= before_est:
             # Folding a tiny history costs a summary block plus suffixes while
@@ -549,9 +557,16 @@ async def compact_with_summary(
             after=after_est,
             base=len(trimmed),
         )
-        return kept_system + [
-            {"role": "system", "content": f"{COMPACTION_SUMMARY_MARKER} {minutes_body}\n{trailer}"}
-        ] + trimmed
+        return (
+            kept_system
+            + [
+                {
+                    "role": "system",
+                    "content": f"{COMPACTION_SUMMARY_MARKER} {minutes_body}\n{trailer}",
+                }
+            ]
+            + trimmed
+        )
 
     digest = _omitted_digest(omitted)
     body = (

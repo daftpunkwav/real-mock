@@ -6,14 +6,19 @@ disconnect, teardown exception swallowing, subprotocol bind.
 Conventions: no real network/LLM (all external calls mocked); uses _make_handler for handler construction.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.ws_handler import InterviewWSHandler
 
+
 def _make_handler(sid=1):
     """Build a mocked InterviewWSHandler bound to an in-memory websocket."""
-    ws = MagicMock(accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock())
+    ws = MagicMock(
+        accept=AsyncMock(), send_json=AsyncMock(), receive_json=AsyncMock(), close=AsyncMock()
+    )
     return InterviewWSHandler(ws, session_id=sid)
 
 
@@ -21,6 +26,7 @@ async def _agen(items):
     """Yield canned stream events for deterministic streaming tests."""
     for i in items:
         yield i
+
 
 @pytest.mark.asyncio
 async def test_send_tts_set_turn_fail_close():
@@ -45,7 +51,9 @@ async def test_serve_session_auth_fail_and_teardown():
     h.ctx.ws.accept = AsyncMock()
     h.authenticate = AsyncMock(return_value=None)  # type: ignore[method-assign]
     db = MagicMock()
-    with patch("realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=db):
+    with patch(
+        "realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=db
+    ):
         await h.serve_session()
     db.close.assert_called()
     h2 = _make_handler()
@@ -61,7 +69,9 @@ async def test_handle_exception_recovers():
     h.ctx.ws.accept = AsyncMock()
     h.authenticate = AsyncMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
     db = MagicMock()
-    with patch("realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=db):
+    with patch(
+        "realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=db
+    ):
         await h.serve_session()
     sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
     assert any(e.get("code") == "B2001" for e in sent)
@@ -71,6 +81,7 @@ async def test_handle_exception_recovers():
 @pytest.mark.asyncio
 async def test_handle_success_loop_and_disconnect():
     from fastapi import WebSocketDisconnect
+
     h = _make_handler()
     h.ctx.ws.accept = AsyncMock()
     h.authenticate = AsyncMock(return_value=MagicMock())  # type: ignore[method-assign]
@@ -80,20 +91,28 @@ async def test_handle_success_loop_and_disconnect():
     h._dispatch = AsyncMock()  # type: ignore[method-assign]
     db = MagicMock()
     db.close = MagicMock()
-    with patch("realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=db):
+    with patch(
+        "realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=db
+    ):
         await h.serve_session()
     h._dispatch.assert_awaited_once()
     h2 = _make_handler()
     h2.ctx.ws.accept = AsyncMock()
     h2.authenticate = AsyncMock(side_effect=WebSocketDisconnect())  # type: ignore[method-assign]
-    with patch("realmock.domains.interview.realtime.connection.lifecycle.SessionLocal", return_value=MagicMock()):
+    with patch(
+        "realmock.domains.interview.realtime.connection.lifecycle.SessionLocal",
+        return_value=MagicMock(),
+    ):
         await h2.serve_session()
 
 
 @pytest.mark.asyncio
 async def test_teardown_exceptions_covered():
     h = _make_handler()
-    with patch("realmock.domains.interview.realtime.connection.lifecycle.release_session_connection", AsyncMock(side_effect=RuntimeError("r"))):
+    with patch(
+        "realmock.domains.interview.realtime.connection.lifecycle.release_session_connection",
+        AsyncMock(side_effect=RuntimeError("r")),
+    ):
         h._cancel_bg_tasks = AsyncMock(side_effect=RuntimeError("c"))  # type: ignore[method-assign]
         h.ctx.tts_queue.stop = AsyncMock(side_effect=RuntimeError("s"))
         db = MagicMock()

@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.realtime.core.events import TurnState
-from realmock.domains.interview.agents.events import EventKind
 
 if TYPE_CHECKING:
     import asyncio

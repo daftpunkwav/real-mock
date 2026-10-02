@@ -13,17 +13,16 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from realmock.asgi import app
-from realmock.domains.settings.services import stage_tests
 import realmock.platform.capabilities.voice.stt.router as router_mod
 import realmock.platform.capabilities.voice.tts as tts_pkg
+from realmock.asgi import app
+from realmock.domains.settings.services import stage_tests
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
 @pytest.fixture(autouse=True)
 def _clean_api_tables(api_engine):
     import realmock.platform.models  # noqa: F401
-
     from realmock.platform.database import ApiBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -87,7 +86,11 @@ class TestProviderCrudFullUrl:
             json={
                 "name": "ASR 专线",
                 "channels": [
-                    {"kind": "stt", "api_base": "https://api.minimaxi.com/v1/speech_to_text", "full_url": True}
+                    {
+                        "kind": "stt",
+                        "api_base": "https://api.minimaxi.com/v1/speech_to_text",
+                        "full_url": True,
+                    }
                 ],
             },
         )
@@ -143,7 +146,9 @@ class TestRecognizeFullUrl:
             api_db, api_base="https://vendor.example/whatever", model="asr-1.0", cap="in"
         )
         monkeypatch.setitem(
-            router_mod._PROVIDERS, "local", type("_L", (), {"transcribe": AsyncMock(return_value="本地结果")})()
+            router_mod._PROVIDERS,
+            "local",
+            type("_L", (), {"transcribe": AsyncMock(return_value="本地结果")})(),
         )
         result = await stage_tests.test_recognize(api_db, profile_id=profile_id)
         assert result["success"] is False
@@ -161,9 +166,7 @@ class TestSpeakFullUrl:
             model="speech-2.8-hd",
             cap="out",
         )
-        monkeypatch.setattr(
-            tts_pkg, "synthesize_minimax_to_base64", AsyncMock(return_value="QUFB")
-        )
+        monkeypatch.setattr(tts_pkg, "synthesize_minimax_to_base64", AsyncMock(return_value="QUFB"))
         result = await stage_tests.test_speak(api_db, profile_id=profile_id)
         assert result["success"] is True, result
         assert result["audio_base64"] == "QUFB"

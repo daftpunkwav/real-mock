@@ -151,7 +151,11 @@ async def test_chat_message_with_reasoning() -> None:
                 "message": {
                     "content": "hello",
                     "tool_calls": [
-                        {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}
+                        {
+                            "id": "c1",
+                            "type": "function",
+                            "function": {"name": "f", "arguments": "{}"},
+                        }
                     ],
                     "reasoning_content": "thinking",
                 }

@@ -10,6 +10,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -22,8 +23,8 @@ def _clean_limits():
 
 @pytest.fixture(autouse=True)
 def _growth_table(engine):
-    from realmock.platform.database import SessionsBase
     import realmock.domains.growth.models.growth  # noqa: F401
+    from realmock.platform.database import SessionsBase
 
     SessionsBase.metadata.create_all(bind=engine)
     yield
@@ -32,21 +33,7 @@ def _growth_table(engine):
 # ---- routes/router (59-67, 73-74) ----
 
 
-
-
-
-
-
-
 # ---- ingest (29-31, 34-35, 50-51) ----
-
-
-
-
-
-
-
-
 
 
 # ---- learning (73-75, 90, 96-97) ----

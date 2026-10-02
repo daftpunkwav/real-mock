@@ -8,9 +8,9 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from realmock.asgi import app
-from realmock.platform.models import LLMSettings
 from realmock.domains.interview.models import InterviewSession
 from realmock.platform.capabilities.ai.llm.client import LLMClient
+from realmock.platform.models import LLMSettings
 from tests.fakes import FakeLLMClient
 
 

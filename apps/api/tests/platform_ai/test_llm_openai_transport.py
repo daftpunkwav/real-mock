@@ -27,7 +27,6 @@ from realmock.platform.capabilities.ai.llm.client.openai_transport import (
 from realmock.platform.core.secrets import LegacySecretFormatError
 
 
-
 def _pinned(http: MagicMock) -> MagicMock:
     pinned = MagicMock()
     pinned.__aenter__ = AsyncMock(return_value=http)
@@ -60,8 +59,9 @@ def _patch_net(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_build_payload_optionals() -> None:
-    p = build_payload("m", [], 0.5, 64, "max",
-                      response_format={"type": "json_object"}, tools=[{"t": 1}])
+    p = build_payload(
+        "m", [], 0.5, 64, "max", response_format={"type": "json_object"}, tools=[{"t": 1}]
+    )
     assert p["response_format"] == {"type": "json_object"}
     assert p["tools"] == [{"t": 1}]
     assert p["reasoning_effort"] == "high"
@@ -70,7 +70,8 @@ def test_build_payload_optionals() -> None:
     p3 = build_payload("m", [], 0.5, 64, None)
     assert "reasoning_effort" not in p3
     assert chat_completions_headers("k") == {
-        "Authorization": "Bearer k", "Content-Type": "application/json",
+        "Authorization": "Bearer k",
+        "Content-Type": "application/json",
     }
 
 
@@ -83,7 +84,7 @@ def test_strip_code_fences_variants() -> None:
 
 def test_repair_common_json_errors() -> None:
     assert json.loads(repair_common_json_errors('{"a": 1,}')) == {"a": 1}
-    assert json.loads(repair_common_json_errors('[1, 2,]')) == [1, 2]
+    assert json.loads(repair_common_json_errors("[1, 2,]")) == [1, 2]
     assert json.loads(repair_common_json_errors('{"a": 1, "b": 2}')) == {"a": 1, "b": 2}
     raw = '{"a": "x\ny\tz\rr", "q": "he\\"s", "n": 1,}'
     assert json.loads(repair_common_json_errors(raw)) == {"a": "x\ny\tz\rr", "q": 'he"s', "n": 1}
@@ -96,8 +97,13 @@ async def test_chat_completions_success(monkeypatch: pytest.MonkeyPatch) -> None
     http.post = AsyncMock(return_value=_ok_resp({"choices": []}))
     with patch.object(ot_mod, "make_pinned_async_client", return_value=_pinned(http)):
         out = await ot_mod.chat_completions(
-            api_base="https://x", api_key="k", url="https://x/chat",
-            payload={"model": "m"}, timeout=5.0, log_label="t", model="m",
+            api_base="https://x",
+            api_key="k",
+            url="https://x/chat",
+            payload={"model": "m"},
+            timeout=5.0,
+            log_label="t",
+            model="m",
         )
     assert out == {"choices": []}
     _, kwargs = http.post.call_args
@@ -117,15 +123,23 @@ async def test_chat_completions_http_error_redacts_key(
         pytest.raises(httpx.HTTPStatusError),
     ):
         await ot_mod.chat_completions(
-            api_base="https://x", api_key="sk-secret-xyz-123", url="https://x/chat",
-            payload={}, timeout=5.0, log_label="t", model="m",
+            api_base="https://x",
+            api_key="sk-secret-xyz-123",
+            url="https://x/chat",
+            payload={},
+            timeout=5.0,
+            log_label="t",
+            model="m",
         )
     assert not any("sk-secret-xyz-123" in r.getMessage() for r in caplog.records)
 
 
 def _embed_settings(**kw: Any) -> SimpleNamespace:
-    base = {"effective_embeddings_base": "https://emb", "effective_embeddings_model": "em",
-            "effective_embeddings_key": "emb-key"}
+    base = {
+        "effective_embeddings_base": "https://emb",
+        "effective_embeddings_model": "em",
+        "effective_embeddings_key": "emb-key",
+    }
     base.update(kw)
     return SimpleNamespace(**base)
 
@@ -149,12 +163,16 @@ async def test_embed_texts_success(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_embed_texts_falls_back_to_llm_key(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_net(monkeypatch)
-    monkeypatch.setattr(ot_mod, "get_settings", lambda: _embed_settings(effective_embeddings_key=""))
+    monkeypatch.setattr(
+        ot_mod, "get_settings", lambda: _embed_settings(effective_embeddings_key="")
+    )
     monkeypatch.setattr(ot_mod, "decrypt_secret", lambda v: ("DEC:" + v) if v else None)
     http = MagicMock()
     http.post = AsyncMock(return_value=_ok_resp({"data": []}))
     with patch.object(ot_mod, "make_pinned_async_client", return_value=_pinned(http)):
-        assert await ot_mod.embed_texts(texts=["hi"], model="m2", api_base="x", api_key="sk-x") == []
+        assert (
+            await ot_mod.embed_texts(texts=["hi"], model="m2", api_base="x", api_key="sk-x") == []
+        )
     _, kwargs = http.post.call_args
     assert kwargs["headers"]["Authorization"] == "Bearer DEC:sk-x"
     assert kwargs["json"]["model"] == "m2"
@@ -165,7 +183,8 @@ async def test_embed_texts_decrypt_errors_raise(monkeypatch: pytest.MonkeyPatch)
     _patch_net(monkeypatch)
     monkeypatch.setattr(ot_mod, "get_settings", lambda: _embed_settings())
     monkeypatch.setattr(
-        ot_mod, "decrypt_secret",
+        ot_mod,
+        "decrypt_secret",
         MagicMock(side_effect=LegacySecretFormatError("old")),
     )
     with pytest.raises(LegacySecretFormatError):
@@ -181,7 +200,8 @@ async def test_embed_texts_http_error_redacts_key(
 ) -> None:
     _patch_net(monkeypatch)
     monkeypatch.setattr(
-        ot_mod, "get_settings",
+        ot_mod,
+        "get_settings",
         lambda: _embed_settings(effective_embeddings_key="sk-embed-secret-99"),
     )
     monkeypatch.setattr(ot_mod, "decrypt_secret", lambda v: v)
@@ -198,7 +218,11 @@ async def test_embed_texts_http_error_redacts_key(
 
 def test_build_payload_extra_body_overrides_standard_keys():
     payload = build_payload(
-        "m", [{"role": "user", "content": "hi"}], 0.7, 100, None,
+        "m",
+        [{"role": "user", "content": "hi"}],
+        0.7,
+        100,
+        None,
         extra_body={"temperature": 0.9, "vendor_field": {"deep": 1}},
     )
     assert payload["temperature"] == 0.9  # override wins
@@ -224,8 +248,11 @@ def test_llm_client_carries_extra_body_and_headers_into_payload():
     from realmock.platform.capabilities.ai.llm.client.llm_client import LLMClient
 
     client = LLMClient(
-        api_base="https://api.example.com", api_key="k", model="m",
-        extra_body={"temperature": 0.3}, extra_headers={"X-Region": "cn"},
+        api_base="https://api.example.com",
+        api_key="k",
+        model="m",
+        extra_body={"temperature": 0.3},
+        extra_headers={"X-Region": "cn"},
     )
     payload = client._build_payload([{"role": "user", "content": "hi"}], 0.7)
     assert payload["temperature"] == 0.3
@@ -262,9 +289,12 @@ def test_unified_client_extra_headers_survive_protocol_delegation():
     assert payload["max_tokens"] == 999  # extra_body wins over protocol translation
 
     client = LLMClient(
-        api_base="https://api.example.com", api_key="k", model="m",
+        api_base="https://api.example.com",
+        api_key="k",
+        model="m",
         protocol="anthropic_messages",
-        extra_body={"max_tokens": 999}, extra_headers={"X-Custom": "v"},
+        extra_body={"max_tokens": 999},
+        extra_headers={"X-Custom": "v"},
     )
     delegated = client._delegate()
     assert delegated.extra_headers == {"X-Custom": "v"}

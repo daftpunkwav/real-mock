@@ -9,10 +9,12 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from realmock.domains.interview.realtime.engine.base import AudioEngineMode, AudioEventKind
 from realmock.domains.interview.realtime.engine.native import NativeRealtimeAudioEngine
 
 # No handler fixture: NativeRealtimeAudioEngine is exercised directly with mocked callbacks.
+
 
 @pytest.mark.asyncio
 async def test_native_engine_branches():
@@ -43,6 +45,7 @@ async def test_native_engine_branches():
     await eng.push_audio_chunk(b"z")
     await eng.interrupt()
     assert events and events[-1].kind == AudioEventKind.INTERRUPTED
+
     # interrupt handler raises -> swallowed
     async def _boom(ev):
         raise RuntimeError("boom")

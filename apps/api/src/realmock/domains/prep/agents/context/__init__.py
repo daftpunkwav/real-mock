@@ -41,7 +41,10 @@ from realmock.domains.prep.agents.context.seed import (
     build_system_messages,
     format_memory_index,
 )
-from realmock.domains.prep.agents.context.working import build_context_breakdown, build_working_context
+from realmock.domains.prep.agents.context.working import (
+    build_context_breakdown,
+    build_working_context,
+)
 
 __all__ = [
     "BREAKDOWN_ASSISTANT",

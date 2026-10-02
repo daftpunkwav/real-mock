@@ -12,11 +12,11 @@ from realmock.platform.capabilities.ai.agent.tools.fetch import (
     FETCH_ALLOWED_PORTS,
     _detect_charset,
     _read_capped,
+    _strip_html,
     clamp_max_chars,
     execute_web_fetch,
     web_fetch_tool_spec,
 )
-from realmock.platform.capabilities.ai.agent.tools.fetch import _strip_html
 
 
 def test_strip_html_removes_tags_script_and_collapses_space():
@@ -67,8 +67,14 @@ def test_spec_shape():
 class _FakeResponse:
     """Minimal httpx.Response stand-in for streamed fetches."""
 
-    def __init__(self, status: int, *, location: str | None = None,
-                 content_type: str | None = "text/html", body: bytes = b"") -> None:
+    def __init__(
+        self,
+        status: int,
+        *,
+        location: str | None = None,
+        content_type: str | None = "text/html",
+        body: bytes = b"",
+    ) -> None:
         self.status_code = status
         self.headers = {}
         if location is not None:
@@ -133,10 +139,13 @@ _PAGE = b"<html><head><title>Final</title></head><body><p>Landing content.</p></
 
 def test_redirects_are_followed_hop_by_hop(monkeypatch) -> None:
     """Each hop gets its own pinned client, so policy checks re-run per hop."""
-    created = _patch_clients(monkeypatch, [
-        _FakeResponse(302, location="https://cdn.example/b"),          # hop 1
-        _FakeResponse(200, body=_PAGE),                                # hop 2
-    ])
+    created = _patch_clients(
+        monkeypatch,
+        [
+            _FakeResponse(302, location="https://cdn.example/b"),  # hop 1
+            _FakeResponse(200, body=_PAGE),  # hop 2
+        ],
+    )
     payload = json.loads(asyncio.run(execute_web_fetch({"url": "https://start.example/a"})))
     assert [url for url, _ in created] == ["https://start.example/a", "https://cdn.example/b"]
     assert payload["url"] == "https://cdn.example/b"  # the page actually read
@@ -146,10 +155,13 @@ def test_redirects_are_followed_hop_by_hop(monkeypatch) -> None:
 
 
 def test_relative_redirect_target_is_resolved(monkeypatch) -> None:
-    created = _patch_clients(monkeypatch, [
-        _FakeResponse(301, location="final"),  # relative Location
-        _FakeResponse(200, body=_PAGE),
-    ])
+    created = _patch_clients(
+        monkeypatch,
+        [
+            _FakeResponse(301, location="final"),  # relative Location
+            _FakeResponse(200, body=_PAGE),
+        ],
+    )
     asyncio.run(execute_web_fetch({"url": "https://start.example/a"}))
     assert created[1][0] == "https://start.example/final"
 

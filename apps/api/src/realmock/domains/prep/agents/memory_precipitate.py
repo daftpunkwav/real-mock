@@ -48,9 +48,7 @@ or
 {{"save": true, "summary": "<one line ≤200 chars, topic-organized>", "user_input": "<the durable user statement, ≤500 chars>", "agent_output": "<the durable conclusion, ≤500 chars>", "tags": ["tag1", "tag2"], "origin": "agent_note"}}"""
 
 
-async def precipitate_turn_memory(
-    agent: "PrepAgent", user_text: str, final: str
-) -> None:
+async def precipitate_turn_memory(agent: "PrepAgent", user_text: str, final: str) -> None:
     """Ask once whether the finished turn is worth remembering; write at most one memory.
 
     Never raises: the user already has their answer, so any failure here must
@@ -67,9 +65,7 @@ async def precipitate_turn_memory(
                 rows = list_memories(db, limit=10)
         except Exception:
             rows = []
-        memory_index = "; ".join(
-            f"#{row.id} {str(row.summary or '')[:80]}" for row in rows
-        )
+        memory_index = "; ".join(f"#{row.id} {str(row.summary or '')[:80]}" for row in rows)
         answer_digest = (final or "").strip()[:_ANSWER_DIGEST_CHARS]
         prompt = _PRECIPITATE_PROMPT.format(
             memory_index=memory_index or "(empty)",
@@ -90,7 +86,9 @@ async def precipitate_turn_memory(
             "summary": summary[:200],
             "user_input": strip_emojis(str(verdict.get("user_input") or ""))[:500],
             "agent_output": strip_emojis(str(verdict.get("agent_output") or ""))[:500],
-            "tags": [str(t)[:30] for t in (verdict.get("tags") or [])[:5] if isinstance(t, (str, int))],
+            "tags": [
+                str(t)[:30] for t in (verdict.get("tags") or [])[:5] if isinstance(t, (str, int))
+            ],
             "origin": "agent_note",
             # The key only dedupes accidental double-writes within one turn
             # (each turn mints a fresh turn_id). Regenerated turns are covered
@@ -108,9 +106,7 @@ async def precipitate_turn_memory(
 _BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 
-def schedule_turn_memory_precipitation(
-    agent: "PrepAgent", user_text: str, final: str
-) -> None:
+def schedule_turn_memory_precipitation(agent: "PrepAgent", user_text: str, final: str) -> None:
     """Run end-of-turn curation as a detached task (never raises here).
 
     Curation must not delay the sync response body or the stream's ``done``

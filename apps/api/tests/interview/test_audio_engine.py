@@ -1,6 +1,7 @@
 """Unit tests for RealtimeAudioEngine abstractions and factory."""
 
 import pytest
+
 from realmock.domains.interview.realtime.engine import (
     AudioEngineEvent,
     AudioEngineMode,

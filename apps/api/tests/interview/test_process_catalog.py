@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from realmock.domains.interview.models import InterviewProcess, InterviewSession
 from realmock.domains.interview.process.catalog import (
     InterviewSessionCatalog,
@@ -57,36 +58,6 @@ def _db_session(db, **overrides) -> InterviewSession:
 
 
 # ---- ledger store ----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---- catalog ----
@@ -189,9 +160,7 @@ def test_to_snapshot_defaults_and_frozen(db) -> None:
 def test_apply_overall_score_missing_no_crash(db, caplog) -> None:
     with caplog.at_level(logging.WARNING):
         InterviewSessionScoreProjection().apply_overall_score(db, 999999, 80)
-    assert any(
-        "apply_overall_score: session missing" in r.message for r in caplog.records
-    )
+    assert any("apply_overall_score: session missing" in r.message for r in caplog.records)
     # The miss must not create a phantom row.
     assert db.get(InterviewSession, 999999) is None
 

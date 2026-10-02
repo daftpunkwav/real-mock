@@ -27,7 +27,6 @@ from realmock.domains.interview.ledger.store import (
 from realmock.domains.interview.models import InterviewSession, InterviewTurn
 
 
-
 def _row(db, **overrides) -> InterviewSession:
     base = {
         "profile_id": 1,
@@ -195,6 +194,7 @@ def test_freeze_ledger_sets_column_and_is_idempotent(db) -> None:
     out2 = freeze_ledger(db, _reload(db, row))
     assert out2["frozen"] is True
     assert len(out2["turns"]) == 1
+
 
 def test_load_ledger_rebuilds_corrupt_evidence_row(db) -> None:
     """The migration writes corrupt blobs as the reserved seq=0 row;

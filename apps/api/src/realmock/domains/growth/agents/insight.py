@@ -43,6 +43,8 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.client.base import LLMUpstreamError
 from realmock.platform.capabilities.ai.llm.json_extract import (
     extract_json_object as _extract_json_object,
+)
+from realmock.platform.capabilities.ai.llm.json_extract import (
     salvage_truncated_object as _salvage_truncated_object,
 )
 from realmock.platform.contracts.session_catalog import get_session_catalog
@@ -274,7 +276,6 @@ async def generate_growth_insight(
         )
         guard.report(name, args, failed=(status == "error"))
         return raw
-
 
     messages = [
         {"role": "system", "content": GROWTH_INSIGHT_SYSTEM},

@@ -3,10 +3,14 @@
 Covers: run_profile_or_resume passthrough and load_profile_or_resume_spec branches
 Conventions: No real DB/LLM; api_db_session and profile/resume loaders faked; rate limits reset per test
 """
+
 from __future__ import annotations
+
 import json
 from types import SimpleNamespace
+
 import pytest
+
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
@@ -16,11 +20,13 @@ def _reset_rate_limit():
     yield
     reset_rate_limit()
 
+
 def _tool_spec(name: str):
     async def _handler(args: dict):
         return f"obs:{name}:{json.dumps(args, ensure_ascii=False)}"
 
     return SimpleNamespace(name=name, handler=_handler)
+
 
 @pytest.mark.asyncio
 async def test_run_profile_or_resume_passthrough_and_success(monkeypatch) -> None:
@@ -34,10 +40,13 @@ async def test_run_profile_or_resume_passthrough_and_success(monkeypatch) -> Non
     async def _handler(args: dict):
         return "ok-obs"
 
-    monkeypatch.setattr(binding, "load_profile_or_resume_spec", lambda name, rid: SimpleNamespace(handler=_handler))
+    monkeypatch.setattr(
+        binding, "load_profile_or_resume_spec", lambda name, rid: SimpleNamespace(handler=_handler)
+    )
     out2, hits2 = await binding.run_profile_or_resume("resume_overview", {"a": 1}, resume_id=3)
     assert out2 == "ok-obs"
     assert hits2 == []
+
 
 def test_load_profile_or_resume_spec_branches(monkeypatch) -> None:
     import realmock.domains.prep.agents.tools.candidate.profile_resume_binding as binding
@@ -54,7 +63,9 @@ def test_load_profile_or_resume_spec_branches(monkeypatch) -> None:
     # profile unknown tool
     monkeypatch.setattr(binding, "get_default_user_profile", lambda db: object())
     monkeypatch.setattr(binding, "profile_from_orm", lambda p: {"x": 1})
-    monkeypatch.setattr(binding, "profile_tool_specs", lambda snap: [_tool_spec("profile_list_sections")])
+    monkeypatch.setattr(
+        binding, "profile_tool_specs", lambda snap: [_tool_spec("profile_list_sections")]
+    )
     err = binding.load_profile_or_resume_spec("profile_unknown", None)
     assert json.loads(err)["error"] == "unknown_tool"
     ok = binding.load_profile_or_resume_spec("profile_list_sections", None)

@@ -73,11 +73,15 @@ def build_context_breakdown(messages: list[dict[str, Any]]) -> dict[str, int]:
                 counts[BREAKDOWN_THINKING] += estimate_tokens(str(thinking))
             tool_calls = m.get("tool_calls")
             if tool_calls:
-                counts[BREAKDOWN_TOOLS] += estimate_tokens(json.dumps(tool_calls, ensure_ascii=False, default=str))
+                counts[BREAKDOWN_TOOLS] += estimate_tokens(
+                    json.dumps(tool_calls, ensure_ascii=False, default=str)
+                )
             for meta_key in ("steps", "search_groups"):
                 meta = m.get(meta_key)
                 if meta:
-                    counts[BREAKDOWN_TOOLS] += estimate_tokens(json.dumps(meta, ensure_ascii=False, default=str))
+                    counts[BREAKDOWN_TOOLS] += estimate_tokens(
+                        json.dumps(meta, ensure_ascii=False, default=str)
+                    )
         elif role == "tool":
             counts[BREAKDOWN_TOOLS] += estimate_tokens(str(content))
         elif role == "system":
@@ -127,7 +131,10 @@ async def build_working_context(
     """
     opts = options or CompactionOptions()
     compacted = await compact_with_summary(
-        messages, context_window, memory=memory, llm=llm,
+        messages,
+        context_window,
+        memory=memory,
+        llm=llm,
         # The verbatim tail follows the turn policy exactly (retain setting
         # raised by the intensity floor), floored at the latest exchange so
         # the live user message is never summarized away. The platform's

@@ -18,18 +18,16 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.models import InterviewSession
-from realmock.platform.catalogs.company import get_company_context
-from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
-from realmock.domains.interview.agents.turn_output import TurnOutput
 from realmock.domains.interview.agents.agent_text import (
     PHASE_COMPLETE_MARKER,
     has_marker,
     strip_markers,
 )
 from realmock.domains.interview.agents.memory.cognitive_graph import CognitiveMemoryGraph
+from realmock.domains.interview.agents.session_prompt import SessionPromptMixin
 from realmock.domains.interview.agents.step_compaction_state import record_step_boundary
-from realmock.domains.interview.workflows import Workflow, get_workflow
+from realmock.domains.interview.agents.turn_output import TurnOutput
+from realmock.domains.interview.models import InterviewSession
 from realmock.domains.interview.protocols.plan_schema import (
     MAX_PLAN_STEPS,
     REVERSE_QA_KIND,
@@ -37,14 +35,15 @@ from realmock.domains.interview.protocols.plan_schema import (
     PlanStep,
     parse_plan,
 )
+from realmock.domains.interview.workflows import Workflow, get_workflow
 from realmock.platform.capabilities.ai.llm.client import LLMClient
+from realmock.platform.catalogs.company import get_company_context
 
 logger = logging.getLogger(__name__)
 
 
 #: Interview-age marks (minutes) that trigger a one-shot pacing hint.
 _PACE_THRESHOLDS = (30, 45, 60)
-
 
 
 def _is_summary_phase(phase: Any) -> bool:

@@ -5,8 +5,10 @@ Conventions: no real network/LLM (all external calls mocked); uses _Concrete stu
 """
 
 import pytest
+
 from realmock.domains.interview.realtime.engine.base import AudioEngineMode, RealtimeAudioEngine
 from realmock.platform.core.ratelimit import reset_rate_limit
+
 
 @pytest.fixture(autouse=True)
 def _clean_limits():
@@ -40,6 +42,7 @@ class _Concrete(RealtimeAudioEngine):
 
     async def shutdown(self):  # type: ignore[override]
         return await super().shutdown()
+
 
 @pytest.mark.asyncio
 async def test_engine_base_all_raises() -> None:
