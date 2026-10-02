@@ -153,12 +153,13 @@ jobs:
         run: python -m mypy src
 
       - name: pytest full regression + coverage gate (>=90%)
+        # Whole-package coverage: --cov=realmock keeps the gate future-proof -
+        # a new domain is measured the moment it exists, without editing this
+        # file (measured 96% at the switch from the explicit package list).
         working-directory: apps/api
         run: >
           python -m pytest -q
-          --cov=realmock.platform --cov=realmock.domains.profile --cov=realmock.domains.resume
-          --cov=realmock.domains.settings --cov=realmock.domains.prep --cov=realmock.domains.interview
-          --cov=realmock.domains.growth
+          --cov=realmock
           --cov-report=term-missing --cov-fail-under=90
 
       - name: pip-audit dependency scan
