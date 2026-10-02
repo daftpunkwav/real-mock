@@ -5,19 +5,26 @@
 # would silently change what runs here. Dependabot (github-actions ecosystem)
 # bumps these SHAs in a PR - never edit them by hand without matching the version
 # comment on the same line.
+#
+# Execution strategy:
+#   - The "changes" job diffs the trigger against its base and flips per-area
+#     switches (backend / frontend / docker / workflows); heavy jobs only run
+#     when their area changed. There is intentionally NO paths-ignore on the
+#     triggers: the "gate" job is a required status check for merging, and a
+#     workflow skipped by path filtering would leave that check absent, which
+#     deadlocks the merge. Docs-only diffs flow through as "nothing changed"
+#     and gate passes with every heavy job skipped.
+#   - "gate" is always the last word: it passes when every job that ran is
+#     green and fails on any failure/cancellation. Branch protection requires
+#     exactly this one check (plus the review bots), so the required-checks
+#     list stays stable while jobs come and go.
 
 name: CI
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
   pull_request:
-    # Markdown-only changes cannot affect any gate below (no gate reads prose);
-    # mixed diffs that touch code alongside docs still trigger every job.
-    paths-ignore:
-      - "**.md"
 
 # Least privilege: jobs only check out code and publish no artifacts.
 permissions:
@@ -28,8 +35,69 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      docker: ${{ steps.filter.outputs.docker }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the diff base on push events (github.event.before) can
+          # be arbitrarily far back, and a shallow clone would make the range
+          # undiffable. No LFS download: only path names are read here.
+          fetch-depth: 0
+
+      - name: Compute per-area switches
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "diff base unavailable ($EVENT_NAME) - running every gate"
+            printf 'backend=%s\nfrontend=%s\ndocker=%s\nworkflows=%s\n' \
+              true true true true >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "$changed"
+          backend=false
+          frontend=false
+          docker=false
+          workflows=false
+          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$' <<< "$changed"; then
+            backend=true
+          fi
+          if grep -qE '^apps/web/|^openapi\.json$' <<< "$changed"; then
+            frontend=true
+          fi
+          if [ "$backend" = true ] || [ "$frontend" = true ] \
+            || grep -qE '^Dockerfile$|^apps/web/Dockerfile$' <<< "$changed"; then
+            docker=true
+          fi
+          if grep -qE '^\.github/' <<< "$changed"; then
+            workflows=true
+          fi
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "docker=$docker"
+            echo "workflows=$workflows"
+          } >> "$GITHUB_OUTPUT"
+
   backend:
     name: Backend (ruff / mypy / pytest / audit)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -106,6 +174,8 @@ jobs:
 
   frontend:
     name: Frontend (tsc / lint / test / build / audit)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -153,6 +223,8 @@ jobs:
         run: npm run audit
   docker:
     name: Docker (backend + web image builds)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -178,6 +250,8 @@ jobs:
 
   workflow-lint:
     name: Workflow lint (actionlint + zizmor)
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -185,8 +259,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # No job here pushes; leaving the checkout token on disk would
-          # let anything in a later step (or a cached artifact) reuse it.
           persist-credentials: false
 
       - name: actionlint
@@ -239,3 +311,34 @@ jobs:
         # silently and every other Windows/macOS clone then breaks. Git only warns
         # at checkout time, so this is the only place it can be enforced.
         run: python3 scripts/ci/check_case_collisions.py
+
+  gate:
+    name: gate
+    # Merge-time summary: branch protection requires exactly this check. It
+    # always runs, passes when every job that ran succeeded (skipped areas are
+    # fine - that is the path filtering above) and fails on any failure or
+    # cancellation, so a cancelled run can never masquerade as green.
+    needs: [changes, backend, frontend, docker, workflow-lint, repo-hygiene]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Evaluate gate results
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+          DOCKER: ${{ needs.docker.result }}
+          WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
+          REPO_HYGIENE: ${{ needs.repo-hygiene.result }}
+        run: |
+          set -euo pipefail
+          results="changes=$CHANGES backend=$BACKEND frontend=$FRONTEND docker=$DOCKER workflow_lint=$WORKFLOW_LINT repo_hygiene=$REPO_HYGIENE"
+          echo "$results"
+          if grep -qE '=(failure|cancelled)' <<< "$results"; then
+            echo "::error::one or more gates failed or were cancelled"
+            exit 1
+          fi
+          echo "all triggered gates passed (skipped areas excluded)"
