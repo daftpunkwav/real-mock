@@ -119,21 +119,3 @@ def test_think_stream_filter_thinking_variant() -> None:
 def test_think_stream_filter_case_insensitive() -> None:
     f = ThinkStreamFilter()
     assert f.feed("A <THINK>x</THINK> B") == "A  B"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -101,4 +101,3 @@ async def test_finish_error_and_exception():
             assert False
         except RuntimeError:
             assert h2.ctx.closing is False
-

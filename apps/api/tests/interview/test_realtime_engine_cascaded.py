@@ -87,4 +87,3 @@ async def test_cascaded_forward_audio_paths():
     eng._event_handler = _boom  # type: ignore[assignment]
     await cb("tts_audio", data="x")
     await eng.shutdown()
-

@@ -202,14 +202,3 @@ async def test_retry_report_ready_bad_payload_is_404(db, api_db, seed_ledger_tur
     with TestClient(app) as client:
         resp = client.post(f"/api/reports/{sid}/retry", headers=_headers())
     assert resp.status_code == 404
-
-
-
-
-
-
-
-
-
-
-

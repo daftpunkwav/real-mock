@@ -176,4 +176,3 @@ function ToastView({ item }: { item: ToastItem }) {
     </motion.div>
   );
 }
-

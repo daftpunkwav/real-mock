@@ -72,4 +72,3 @@ async def test_ws_handler_spawn_cancel_and_props():
     finally:
         await h._cancel_bg_tasks()
         reset_session_registry_for_tests()
-

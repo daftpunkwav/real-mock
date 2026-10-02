@@ -80,5 +80,3 @@ def test_safe_json_list_bad_payload() -> None:
 
 
 # ---- learning (73-75, 90, 96-97) ----
-
-

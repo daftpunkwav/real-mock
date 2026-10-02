@@ -217,5 +217,3 @@ async def test_stt_text_overlong_dropped():
         h.ctx.ws.send_json.assert_not_called()
     finally:
         await h._cancel_bg_tasks()
-
-

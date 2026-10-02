@@ -298,10 +298,3 @@ async def test_generate_with_live_events_drains_leftover_queue() -> None:
                     break
             assert out and out[0].overall_score == 75
             assert any("leftover" in line for line in lines)
-
-
-
-
-
-
-

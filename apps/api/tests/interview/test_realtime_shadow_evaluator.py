@@ -80,4 +80,3 @@ async def test_shadow_string_list_fields_stay_whole():
     )
     assert ev.inconsistencies == ["said Go, resume says Python"]
     assert ev.technical_holes == []
-

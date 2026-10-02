@@ -229,11 +229,3 @@ def _session_ctx(db):
 
 
 # ---- history routes ----
-
-
-
-
-
-
-
-

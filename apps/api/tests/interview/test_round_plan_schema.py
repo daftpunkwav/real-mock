@@ -209,15 +209,3 @@ def test_load_round_plan_exception_returns_none() -> None:
 
 
 # ---- round planner background ----
-
-
-
-
-
-
-
-
-
-
-
-

@@ -125,4 +125,3 @@ async def test_sync_exceptions_and_wrappers():
     await reg.claim_session_connection(h)
     assert await reg.verify_connection_lease(h) is True
     await reg.release_session_connection(h)
-

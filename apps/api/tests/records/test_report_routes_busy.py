@@ -303,4 +303,3 @@ async def test_report_stream_cancelled_branch_marks_generating_failed(db) -> Non
         raised = True
     assert raised
     assert _store.get_report_row(db, sid).status == _store.STATUS_FAILED  # type: ignore[union-attr]
-

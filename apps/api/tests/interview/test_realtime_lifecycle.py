@@ -142,4 +142,3 @@ async def test_lifecycle_exception_recovery_failures() -> None:
     ):
         await h.serve_session()
     assert db.rollback.called
-

@@ -244,4 +244,3 @@ async def test_non_string_browser_text_is_coerced_not_fatal():
     await h._on_user_turn_end({"text": {"injected": "value"}}, MagicMock(), MagicMock())
     h._process_user_text.assert_awaited_once()
     assert isinstance(h._process_user_text.await_args.args[0], str)
-

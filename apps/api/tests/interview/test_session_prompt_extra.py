@@ -169,7 +169,3 @@ def test_session_prompt_refresh_head_loads_profile(monkeypatch) -> None:
 
 
 # ---- tool_guard (74, 109-110, 116, 127) ----
-
-
-
-

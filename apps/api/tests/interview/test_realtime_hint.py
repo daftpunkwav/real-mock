@@ -215,4 +215,3 @@ async def test_generate_full_reference_hint_branches():
             assert await h._generate_full_reference_hint("q?") is None
     finally:
         await h._cancel_bg_tasks()
-

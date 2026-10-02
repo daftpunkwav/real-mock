@@ -86,4 +86,3 @@ async def test_generate_silence_probe_branches():
         assert "你好吗" in out5
     finally:
         await h._cancel_bg_tasks()
-

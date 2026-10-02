@@ -122,4 +122,3 @@ async def test_tool_round_stream_cancel_with_exception():
             seen.append(ev)
             break  # early break -> finally: task not done -> cancel -> await raises RuntimeError -> warning
         assert seen == [tok]  # covers tool_round_stream.py 75-76
-

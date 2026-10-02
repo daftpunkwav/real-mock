@@ -195,4 +195,3 @@ def test_outer_noise_json_recovered() -> None:
     assert not parser.degraded
     assert text == "Okay, let us discuss flash-sale systems. Start by explaining the architecture layers."
     assert parser.controls and parser.controls["wait_seconds"] == 90
-

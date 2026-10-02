@@ -187,4 +187,3 @@ async def test_active_resume_rearms_think_timer():
         await h._cancel_bg_tasks()
         assert h.ctx.think_timer_task.cancelled()
         reset_session_registry_for_tests()
-

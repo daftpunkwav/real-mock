@@ -56,4 +56,3 @@ async def test_run_finish_lifecycle_branches():
     ):
         mod.run_finish_lifecycle(MagicMock(), sess3, mark_completed=False)
         assert sess3.status == "active"
-

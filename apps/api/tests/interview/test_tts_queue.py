@@ -111,4 +111,3 @@ async def test_enqueue_overflow_drops_and_notifies() -> None:
     assert len(info_events) >= 1
     assert "latency" in info_events[0][1]["message"]
     assert q._dropped_count == 2
-

@@ -146,4 +146,3 @@ export const RING_CARDS = [
 ] as const;
 
 export type RingCard = (typeof RING_CARDS)[number];
-

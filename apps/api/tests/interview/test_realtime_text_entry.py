@@ -69,4 +69,3 @@ async def test_run_exception_recovers_c0001():
     sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
     assert any(e.get("code") == "C0001" for e in sent)
     assert h.ctx.turn_state == TurnState.USER_SPEAKING
-

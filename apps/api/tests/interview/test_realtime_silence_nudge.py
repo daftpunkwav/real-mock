@@ -249,4 +249,3 @@ async def test_speak_closing_nudge_variants():
             await h._speak_closing_nudge()
     finally:
         await h._cancel_bg_tasks()
-

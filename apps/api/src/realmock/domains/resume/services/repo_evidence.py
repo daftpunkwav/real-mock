@@ -166,5 +166,3 @@ async def _evidence_for_repo(client: GitHubClient, target: _RepoTarget) -> dict:
     if not evidence.get("summary") and not evidence.get("key_files"):
         evidence["evidence_notes"].append("The README/source code content has not been obtained, and the evidence is limited.")
     return evidence
-
-

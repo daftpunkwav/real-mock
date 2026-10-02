@@ -127,4 +127,3 @@ class ThinkStreamFilter:
         rest = self._buf
         self._buf = ""
         return rest
-

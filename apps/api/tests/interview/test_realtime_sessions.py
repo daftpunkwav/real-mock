@@ -149,4 +149,3 @@ def test_sessions_crud_gaps():
         resp2 = mod.to_session_response(_session_row(avatar_id="a", scene_id="s"), include_token=True)
         assert resp2.avatar_id == "a"
         assert resp2.access_token == "tok"
-

@@ -291,4 +291,3 @@ def test_new_assistant_message_opens_a_new_probe_window():
     assert mixin.ctx.silence_capped is False
     assert mixin.ctx.silence_probe_question.startswith("Q? Specifically")
     assert "\nprobe-1" in mixin.ctx.agent.messages[-1]["content"]
-

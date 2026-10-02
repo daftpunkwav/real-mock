@@ -232,16 +232,3 @@ def test_get_report_legacy_fallback(db, api_db) -> None:
         resp = client.get(f"/api/reports/{sid}", headers=_headers())
     assert resp.status_code == 200
     assert resp.json()["report"]["overall_score"] == 73
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -59,4 +59,3 @@ async def test_engine_base_all_raises() -> None:
     with pytest.raises(NotImplementedError):
         await eng.shutdown()
     assert AudioEngineMode.CASCADED.value == "cascaded"
-

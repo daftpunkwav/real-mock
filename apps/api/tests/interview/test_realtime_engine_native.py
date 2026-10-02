@@ -67,4 +67,3 @@ async def test_native_queueempty_race_interrupt_and_shutdown():
     await eng.interrupt()  # covers native.py 96-97
     await eng.shutdown()  # covers native.py 112-115
     assert eng._is_active is False
-

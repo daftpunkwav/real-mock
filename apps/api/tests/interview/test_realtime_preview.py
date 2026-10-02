@@ -38,4 +38,3 @@ def test_truncate_preview_branches():
     # truncated path needs no loads
     with patch("realmock.domains.interview.ledger.preview.json.dumps", return_value="z" * 50):
         assert truncate_preview({"a": 1}, max_chars=10).endswith("…")
-

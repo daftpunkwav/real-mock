@@ -86,9 +86,3 @@ def _turn_db(session_row=None):
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = session_row
     return db
-
-
-
-
-
-

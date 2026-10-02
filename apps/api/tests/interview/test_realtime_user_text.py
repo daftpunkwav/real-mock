@@ -104,4 +104,3 @@ async def test_process_user_text_error_complete_incomplete():
                 h._spawn.assert_called_once()
         finally:
             await h._cancel_bg_tasks()
-

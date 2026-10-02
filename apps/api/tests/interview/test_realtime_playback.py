@@ -119,4 +119,3 @@ async def test_open_mic_and_cancel_playback():
         assert h.ctx.playback_done.is_set()
     finally:
         await h._cancel_bg_tasks()
-

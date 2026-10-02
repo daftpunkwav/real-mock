@@ -59,4 +59,3 @@ async def test_speak_one_empty_audio_sends_failed():
         await h._speak_one("Hello world test.")
         sent = [c.args[0] for c in h.ctx.ws.send_json.call_args_list]
         assert any(e.get("type") == "tts_failed" for e in sent)
-

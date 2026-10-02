@@ -306,4 +306,3 @@ async def test_boundary_pins_end_before_phase_advance():
     # never inflates the persisted history the boundary spans.
     assert r.agent.mark_step_boundary.call_args.kwargs.get("end") == 1
     assert evs[-1].phase_changed is True
-

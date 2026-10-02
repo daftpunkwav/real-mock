@@ -100,4 +100,3 @@ async def test_status_key_and_finish_errors():
             with patch("realmock.domains.interview.routes.turns.InterviewSessionState", return_value=MagicMock(phases_remaining=lambda: ["x"])):
                 out2 = await send_message(1, body, db=db, access="tok")
                 assert out2.message.content == "a"
-

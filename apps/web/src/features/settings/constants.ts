@@ -106,4 +106,3 @@ export function emptyDraft(kind: ModelKind): ModelDraft {
     extras_text: "",
   };
 }
-
