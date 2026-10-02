@@ -91,13 +91,30 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-# Pin rule set (E/F baseline) to avoid CI drift from ruff 0.16+ default expansion
+# Pin rule set to avoid CI drift from ruff 0.16+ default expansion.
+# I (isort) and the formatter are what E501 defers to; both are now enforced.
 select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes
+    "I",   # isort - import order
+    "N",   # pep8-naming
 ]
 ignore = [
     "E501",  # line length handled by formatter; long strings/URLs stay as-is
+    # Naming rules that conflict with deliberate choices in this codebase:
+    #   N818 - domain exceptions are named for the condition, not the category.
+    #          AgentHalt is a control-flow signal (the agent is waiting on the
+    #          user), not an error; FileLockTimeout says exactly what it is.
+    #          Renaming either to *Error would make them less accurate.
+    "N818",
+    #   N814/N817 - tests deliberately abbreviate CamelCase imports (NS, TO,
+    #          SE, _LP). PEP 8 prefers the full name; the short form is what
+    #          makes the assertions readable.
+    "N814",
+    "N817",
+    #   N802 - SessionsSessionLocal is a PascalCase proxy for the symbol it
+    #          wraps (database.SessionsSessionLocal) and must not drift from it.
+    "N802",
 ]
 
 [tool.ruff.lint.per-file-ignores]

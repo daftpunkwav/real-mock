@@ -63,6 +63,12 @@ jobs:
       - name: ruff static check
         run: python -m ruff check apps/api
 
+      - name: ruff format check
+        # .editorconfig ignores E501 with the note that line length is the
+        # formatter's job; this is that job being checked. Run `ruff format`
+        # locally and the gate goes green.
+        run: python -m ruff format --check apps/api
+
       - name: mypy typecheck
         # Full-package typecheck (matches local verification); blocking since the tree is clean
         working-directory: apps/api
@@ -200,6 +206,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Committed files match .editorconfig
+        # .editorconfig configures editors; until now nothing read it, so files
+        # landed with CRLF, missing final newlines and extra blank lines at EOF.
+        # Runs against git blobs, not the working tree: core.autocrlf=true puts
+        # CRLF in every checkout, so a working-tree scan would be ~1300 false
+        # positives.
+        run: python3 scripts/ci/check_editorconfig.py
 
       - name: No case-insensitive path collisions
         # The worktree is developed on Windows, where the filesystem cannot hold
