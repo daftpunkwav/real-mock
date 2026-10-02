@@ -15,9 +15,14 @@ FRONTEND_OUT="$LOGS/frontend_out.log"
 FRONTEND_ERR="$LOGS/frontend_err.log"
 
 start_backend() {
-  # realmock-api must be installed editable first (pip install -e apps/api), then start by package name.
+  # realmock-api must be installed editable into the project venv first
+  # (uv pip install -e 'apps/api[dev]'). The venv is what pytest and CI
+  # exercise; the bare `python` on PATH is the system interpreter and its
+  # dependency versions drift from the venv (fastapi 0.139 vs 0.142 at the
+  # time of writing), which would make green tests meaningless for the
+  # running app.
   cd "$ROOT"
-  nohup python -m uvicorn realmock.asgi:app \
+  nohup "$ROOT/.venv/Scripts/python.exe" -m uvicorn realmock.asgi:app \
     --host 127.0.0.1 --port 8081 \
     >>"$BACKEND_OUT" 2>>"$BACKEND_ERR" &
   echo $! >"$LOGS/backend.pid"
