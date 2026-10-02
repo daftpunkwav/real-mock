@@ -16,7 +16,11 @@ export function CtaSection() {
       ref={ref}
       className="relative mx-auto max-w-[1200px] overflow-hidden px-5 pb-24 pt-20 sm:px-6 sm:pb-32 sm:pt-28 lg:px-8"
     >
-      <FlowItem progress={progress} reduce={reduce} className="relative flex flex-col items-center text-center">
+      <FlowItem
+        progress={progress}
+        reduce={reduce}
+        className="relative flex flex-col items-center text-center"
+      >
         <p className="page-eyebrow">{t("cta.eyebrow")}</p>
         <h2 className="mt-2 text-[clamp(1.6rem,3.4vw,2.3rem)] font-bold leading-[1.12] tracking-[-0.02em] text-ink">
           {t("cta.title")}

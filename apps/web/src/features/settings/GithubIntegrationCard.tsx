@@ -40,7 +40,10 @@ export function GithubIntegrationCard() {
     void refresh();
   }, []);
 
-  const fail = (err: unknown, fallbackKey: "integrations.github.saveFailed" | "integrations.github.testFailed") => {
+  const fail = (
+    err: unknown,
+    fallbackKey: "integrations.github.saveFailed" | "integrations.github.testFailed",
+  ) => {
     toast.error(err instanceof Error ? formatApiError(err) : t(fallbackKey));
   };
 

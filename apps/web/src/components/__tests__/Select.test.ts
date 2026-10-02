@@ -77,7 +77,12 @@ describe("Select", () => {
       const handleChange = (v: number | string) => {
         if (typeof v === "number") setValue(v);
       };
-      return createElement(Select, { value, options: OPTIONS, onChange: handleChange, ariaLabel: "Wait" });
+      return createElement(Select, {
+        value,
+        options: OPTIONS,
+        onChange: handleChange,
+        ariaLabel: "Wait",
+      });
     }
     render(createElement(Controlled));
     fireEvent.click(screen.getByRole("combobox"));

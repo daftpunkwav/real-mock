@@ -55,10 +55,7 @@ function asToolStatus(value: unknown, hasResult: boolean): ReviewToolStatus {
   return hasResult ? "done" : "running";
 }
 
-function closeOpenThinking(
-  timeline: ReviewTimelineItem[],
-  now: number,
-): ReviewTimelineItem[] {
+function closeOpenThinking(timeline: ReviewTimelineItem[], now: number): ReviewTimelineItem[] {
   const last = timeline[timeline.length - 1];
   if (!last || last.kind !== "thinking" || last.endedAt != null) return timeline;
   return [...timeline.slice(0, -1), { ...last, endedAt: now }];

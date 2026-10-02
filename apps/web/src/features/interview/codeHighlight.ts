@@ -31,27 +31,32 @@ const JS_RULES: TokenRule[] = [
 ];
 
 const PY_KEYWORDS = new Set(
-  ("def class return if elif else for while in not and or import from as with try except " +
+  (
+    "def class return if elif else for while in not and or import from as with try except " +
     "finally raise lambda pass break continue global nonlocal assert yield del is None True " +
-    "False async await match case")
-    .split(" "),
+    "False async await match case"
+  ).split(" "),
 );
 
 const PY_BUILTINS = new Set(
-  ("print len range str int float list dict set tuple enumerate zip map filter super self " +
-    "isinstance type open abs min max sum sorted any all repr hash id input round")
-    .split(" "),
+  (
+    "print len range str int float list dict set tuple enumerate zip map filter super self " +
+    "isinstance type open abs min max sum sorted any all repr hash id input round"
+  ).split(" "),
 );
 
 const JS_KEYWORDS = new Set(
-  ("function const let var return if else for while in of new class extends import export " +
+  (
+    "function const let var return if else for while in of new class extends import export " +
     "from async await try catch finally throw typeof instanceof this null true false undefined " +
-    "break continue switch case default do delete void yield static get set")
-    .split(" "),
+    "break continue switch case default do delete void yield static get set"
+  ).split(" "),
 );
 
 const JS_BUILTINS = new Set(
-  "console Math JSON Object Array String Number Boolean Promise Map Set Date RegExp Error".split(" "),
+  "console Math JSON Object Array String Number Boolean Promise Map Set Date RegExp Error".split(
+    " ",
+  ),
 );
 
 const IDENT_RE = /[A-Za-z_$][\w$]*/y;
@@ -64,7 +69,12 @@ function span(cls: string, text: string): string {
   return `<span class="${cls}">${escapeHtml(text)}</span>`;
 }
 
-function tokenize(code: string, rules: TokenRule[], keywords: Set<string>, builtins: Set<string>): string {
+function tokenize(
+  code: string,
+  rules: TokenRule[],
+  keywords: Set<string>,
+  builtins: Set<string>,
+): string {
   let out = "";
   let plain = "";
   let pos = 0;

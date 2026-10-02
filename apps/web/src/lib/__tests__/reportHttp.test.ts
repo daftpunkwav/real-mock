@@ -50,9 +50,7 @@ describe("reportHttp.streamReport", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const events: unknown[] = [];
-    await expect(
-      reportHttp.streamReport(7, (e) => events.push(e)),
-    ).resolves.toBeUndefined();
+    await expect(reportHttp.streamReport(7, (e) => events.push(e))).resolves.toBeUndefined();
 
     expect(events).toEqual([
       { type: "stage", stage: "reading" },
@@ -66,10 +64,7 @@ describe("reportHttp.streamReport", () => {
   });
 
   it("throws NET0005 when the stream endpoint answers non-2xx", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("nope", { status: 500 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 500 })));
     await expect(reportHttp.streamReport(7, () => {})).rejects.toMatchObject({
       code: "NET0005",
       status: 500,

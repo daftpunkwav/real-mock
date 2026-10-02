@@ -23,10 +23,7 @@ export function DimensionScores({ scores }: { scores: NormalizedScores }) {
         const display = formatScore(value);
         const numeric = typeof value === "number";
         return (
-          <div
-            key={d.key}
-            className="kpi-card items-center text-center !p-3"
-          >
+          <div key={d.key} className="kpi-card items-center text-center !p-3">
             <div
               className="font-mono text-[24px] font-semibold leading-none num-tabular"
               style={{ color: numeric ? scoreColor(value) : undefined }}

@@ -5,7 +5,15 @@
  * rule-based stats. Three states: empty (guide), generating (spinner), ready.
  */
 
-import { Bot, CalendarClock, ListChecks, RefreshCw, Sparkles, TrendingUp, Wrench } from "lucide-react";
+import {
+  Bot,
+  CalendarClock,
+  ListChecks,
+  RefreshCw,
+  Sparkles,
+  TrendingUp,
+  Wrench,
+} from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { GrowthInsight } from "@/lib/api/clients";
@@ -69,9 +77,7 @@ export function InsightCard({
       ) : status === "loading" || status === "generating" ? (
         <div className="flex items-center gap-2 py-8 text-[13px] text-ink-muted">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          {status === "generating"
-            ? t("insight.generating")
-            : t("insight.loading")}
+          {status === "generating" ? t("insight.generating") : t("insight.loading")}
         </div>
       ) : !insight ? (
         <div className="py-8 text-center">
@@ -169,7 +175,10 @@ export function InsightCard({
               </p>
               <div className="space-y-2">
                 {insight.training_plan.map((focus) => (
-                  <div key={focus.area} className="rounded-md border border-surface-border px-2.5 py-2">
+                  <div
+                    key={focus.area}
+                    className="rounded-md border border-surface-border px-2.5 py-2"
+                  >
                     <p className="text-[12.5px] font-medium text-ink">{focus.area}</p>
                     {focus.based_on ? (
                       <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-subtle">
@@ -179,7 +188,10 @@ export function InsightCard({
                     ) : null}
                     <ul className="mt-1 space-y-0.5">
                       {focus.actions.map((action) => (
-                        <li key={action} className="flex items-start gap-1.5 text-[12px] text-ink-muted">
+                        <li
+                          key={action}
+                          className="flex items-start gap-1.5 text-[12px] text-ink-muted"
+                        >
                           <Wrench size={10} className="mt-1 shrink-0 text-ink-subtle" />
                           <span className="min-w-0 break-words">{action}</span>
                         </li>

@@ -29,7 +29,9 @@ export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | 
               <FileText size={16} strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold text-ink">{previewResume.filename}</p>
+              <p className="truncate text-[13px] font-semibold text-ink">
+                {previewResume.filename}
+              </p>
               <p className="mt-0.5 text-[11px] text-ink-subtle">
                 {previewResume.parsed_profile.name || t("previewCard.nameUnknown")} ·{" "}
                 {previewResume.file_type.toUpperCase()}
@@ -114,7 +116,9 @@ export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | 
                 {previewResume.parsed_profile.projects.slice(0, PREVIEW_PROJECT_MAX).map((p, i) => (
                   <li key={i} className="flex items-start gap-1.5 text-[12px] text-ink-muted">
                     <CheckCircle size={11} className="mt-0.5 shrink-0 text-[var(--success)]" />
-                    <span className="line-clamp-2">{p.name || p.description || t("previewCard.projectUnnamed")}</span>
+                    <span className="line-clamp-2">
+                      {p.name || p.description || t("previewCard.projectUnnamed")}
+                    </span>
                   </li>
                 ))}
               </ul>

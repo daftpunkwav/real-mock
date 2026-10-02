@@ -69,7 +69,18 @@ export function ResumeFilePreview() {
 
   const renderable = isPdf || isText;
   const notRenderable = !id || !renderable || failed;
-  const { scrollerRef, pageRefs, zoom, baseWidth, currentPage, dragging, zoomAt, setZoom, onScroll, panProps } = viewport;
+  const {
+    scrollerRef,
+    pageRefs,
+    zoom,
+    baseWidth,
+    currentPage,
+    dragging,
+    zoomAt,
+    setZoom,
+    onScroll,
+    panProps,
+  } = viewport;
 
   return (
     <div className="flex h-dvh flex-col bg-surface-alt">
@@ -87,46 +98,48 @@ export function ResumeFilePreview() {
       />
 
       <div ref={scrollerRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto">
-      {notRenderable ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-32 text-[13px] text-ink-muted">
-          <FileWarning size={20} />
-          <p>{failed ? t("preview.loadFailed") : t("preview.unsupported")}</p>
-          <a href={downloadUrl} className="btn-primary !h-8 !px-3 !text-[12px]">
-            <Download size={13} />
-            {t("preview.downloadFile")}
-          </a>
-        </div>
-      ) : isText ? (
-        text == null ? (
+        {notRenderable ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-32 text-[13px] text-ink-muted">
+            <FileWarning size={20} />
+            <p>{failed ? t("preview.loadFailed") : t("preview.unsupported")}</p>
+            <a href={downloadUrl} className="btn-primary !h-8 !px-3 !text-[12px]">
+              <Download size={13} />
+              {t("preview.downloadFile")}
+            </a>
+          </div>
+        ) : isText ? (
+          text == null ? (
+            <Loading />
+          ) : (
+            <div className="mx-auto max-w-4xl p-5">
+              <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-muted">
+                {text}
+              </pre>
+            </div>
+          )
+        ) : pageCount == null || baseWidth <= 0 ? (
           <Loading />
         ) : (
-          <div className="mx-auto max-w-4xl p-5">
-            <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-muted">{text}</pre>
+          <div
+            {...panProps}
+            className={`mx-auto w-fit p-4 ${dragging ? "cursor-grabbing select-none" : "cursor-grab"}`}
+          >
+            <div className="flex flex-col items-center gap-5">
+              {Array.from({ length: pageCount }, (_, i) => (
+                <PreviewPageImage
+                  key={i + 1}
+                  id={id}
+                  page={i + 1}
+                  name={name}
+                  width={Math.round(baseWidth * zoom)}
+                  registerRef={(el) => {
+                    pageRefs.current[i] = el;
+                  }}
+                />
+              ))}
+            </div>
           </div>
-        )
-      ) : pageCount == null || baseWidth <= 0 ? (
-        <Loading />
-      ) : (
-        <div
-          {...panProps}
-          className={`mx-auto w-fit p-4 ${dragging ? "cursor-grabbing select-none" : "cursor-grab"}`}
-        >
-          <div className="flex flex-col items-center gap-5">
-            {Array.from({ length: pageCount }, (_, i) => (
-              <PreviewPageImage
-                key={i + 1}
-                id={id}
-                page={i + 1}
-                name={name}
-                width={Math.round(baseWidth * zoom)}
-                registerRef={(el) => {
-                  pageRefs.current[i] = el;
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );

@@ -10,10 +10,7 @@
  */
 
 /** Cut text at a character cap; reports whether truncation happened. */
-export function truncateText(
-  text: string,
-  maxChars: number,
-): { text: string; truncated: boolean } {
+export function truncateText(text: string, maxChars: number): { text: string; truncated: boolean } {
   if (text.length <= maxChars) return { text, truncated: false };
   return { text: text.slice(0, maxChars), truncated: true };
 }
@@ -52,8 +49,7 @@ export function formatLogArgs(args: readonly unknown[]): string {
           }
           if (typeof nested === "bigint") return `${nested.toString()}n`;
           if (typeof nested === "function") return "[Function]";
-          if (nested instanceof Error)
-            return `${nested.name}: ${nested.message}`;
+          if (nested instanceof Error) return `${nested.name}: ${nested.message}`;
           return nested;
         },
         2,

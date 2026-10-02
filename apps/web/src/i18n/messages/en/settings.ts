@@ -80,7 +80,7 @@ export const settings = {
   "providerCard.delete": "Delete",
   "providerCard.deleteConfirmTitle": "Delete provider",
   "providerCard.deleteConfirmMessage":
-    "This permanently deletes \"{name}\" together with all its model entries, channel settings, and task bindings pointing at them.",
+    'This permanently deletes "{name}" together with all its model entries, channel settings, and task bindings pointing at them.',
   "providerCard.saving": "Saving…",
   "providerCard.save": "Save provider",
   "providerCard.saved": "Provider saved",
@@ -94,7 +94,7 @@ export const settings = {
   "modelList.edit": "Edit model",
   "modelList.empty":
     "No model entries yet; entries declare capabilities and can serve multiple tasks",
-  "modelList.emptyKind": "No entries for this model type yet — use \"Add model\" to create one",
+  "modelList.emptyKind": 'No entries for this model type yet — use "Add model" to create one',
 
   // ModelRow
   "modelRow.test": "Test",
@@ -102,7 +102,7 @@ export const settings = {
   "modelRow.delete": "Delete",
   "modelRow.deleteConfirmTitle": "Delete model entry",
   "modelRow.deleteConfirmMessage":
-    "This permanently deletes \"{label}\". If the entry is bound as a default processor, change the binding first — the delete will be rejected.",
+    'This permanently deletes "{label}". If the entry is bound as a default processor, change the binding first — the delete will be rejected.',
 
   // CAP_OPTIONS
   "caps.chat": "Chat / Reasoning",
@@ -117,10 +117,10 @@ export const settings = {
   "modelForm.displayName.label": "Display name (optional)",
   "modelForm.contextWindow.label": "Context window (tokens)",
   "modelForm.maxOutput.label": "Max output (tokens)",
-  "modelForm.capabilities.label":
-    "Capabilities (multi-select; one model can serve multiple tasks)",
+  "modelForm.capabilities.label": "Capabilities (multi-select; one model can serve multiple tasks)",
   "modelForm.extras.summary": "Advanced params (JSON, e.g. voice credentials)",
-  "modelForm.reasoningVariants.label": "Custom thinking levels (comma-separated, sent verbatim; blank = default low/medium/high/max)",
+  "modelForm.reasoningVariants.label":
+    "Custom thinking levels (comma-separated, sent verbatim; blank = default low/medium/high/max)",
   "modelForm.reasoningVariants.default": "Default level",
   "modelForm.reasoningVariants.none": "None",
   "modelForm.capsConfig.summary": "Capability config (JSON; Apply writes back to the form)",
@@ -133,7 +133,8 @@ export const settings = {
   "tasks.chat.label": "Reasoning (chat)",
   "tasks.chat.hint": "Default model for interview coach, mock interviews and resume feedback",
   "tasks.stt.label": "Speech input (stt)",
-  "tasks.stt.hint": "Interview speech recognition; falls back per the degradation policy on failure",
+  "tasks.stt.hint":
+    "Interview speech recognition; falls back per the degradation policy on failure",
   "tasks.tts.label": "Speech output (tts)",
   "tasks.tts.hint": "Interviewer playback; falls back per the degradation policy on failure",
 
@@ -234,7 +235,8 @@ export const settings = {
   "prep.compact.directivePlaceholder": "e.g. prioritize stack traces and confirmed plans…",
   "prep.compact.retainLabel": "Retained messages (auto-compact keeps the latest N verbatim)",
   "prep.memoryIndex.title": "Long-term memory injection",
-  "prep.memoryIndex.desc": "How many long-term memory index entries are injected into a new session's system prompt (0 = all memories).",
+  "prep.memoryIndex.desc":
+    "How many long-term memory index entries are injected into a new session's system prompt (0 = all memories).",
   "prep.memoryIndex.label": "Memory index entries",
   "prep.memoryIndex.allHint": "0 = every memory is injected (widest recall).",
   "prep.memoryIndex.defaultHint": "Default {n}; applies to newly created sessions.",
@@ -246,17 +248,21 @@ export const settings = {
   "prep.timeout.off": "Off",
   "prep.timeout.minutes": "{n} min",
   "prep.purge.title": "Purge empty sessions",
-  "prep.purge.desc": "Delete sessions that never accumulated conversation content (e.g. duplicated blank sessions); sessions with content are untouched.",
+  "prep.purge.desc":
+    "Delete sessions that never accumulated conversation content (e.g. duplicated blank sessions); sessions with content are untouched.",
   "prep.purge.action": "Purge empty sessions",
   "prep.purge.confirmTitle": "Purge empty sessions",
-  "prep.purge.confirmBody": "Delete all contentless sessions? Sessions with content are untouched; this cannot be undone.",
+  "prep.purge.confirmBody":
+    "Delete all contentless sessions? Sessions with content are untouched; this cannot be undone.",
   "prep.purge.done": "Purged {count} empty sessions",
   "prep.purge.failed": "Purge failed",
   "prep.purgeAll.title": "Purge all sessions",
-  "prep.purgeAll.desc": "Delete all conversation history, including sessions with content. This cannot be undone — proceed with care.",
+  "prep.purgeAll.desc":
+    "Delete all conversation history, including sessions with content. This cannot be undone — proceed with care.",
   "prep.purgeAll.action": "Purge all sessions",
   "prep.purgeAll.confirmTitle": "Purge all sessions",
-  "prep.purgeAll.confirmBody": "Delete all sessions and their messages? Sessions with content will also be removed; this cannot be undone.",
+  "prep.purgeAll.confirmBody":
+    "Delete all sessions and their messages? Sessions with content will also be removed; this cannot be undone.",
   "prep.purgeAll.done": "Purged {count} sessions",
   "prep.purgeAll.failed": "Purge failed",
 

@@ -115,7 +115,9 @@ export function AddProviderPanel({
           </button>
         ))}
       </div>
-      <p className="mt-2 px-1 text-[10px] leading-relaxed text-ink-subtle">{t("recommended.hint")}</p>
+      <p className="mt-2 px-1 text-[10px] leading-relaxed text-ink-subtle">
+        {t("recommended.hint")}
+      </p>
 
       <div className="mt-3 flex gap-1.5">
         <input

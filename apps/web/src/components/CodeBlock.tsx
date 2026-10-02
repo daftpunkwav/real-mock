@@ -23,10 +23,10 @@ import {
 const COPIED_RESET_MS = 1500;
 
 /** Highlighter chunk loads lazily; plain text shows meanwhile. */
-const LazyHighlight = dynamic(
-  () => import("./SyntaxHighlight").then((m) => m.SyntaxHighlight),
-  { ssr: false, loading: () => null },
-);
+const LazyHighlight = dynamic(() => import("./SyntaxHighlight").then((m) => m.SyntaxHighlight), {
+  ssr: false,
+  loading: () => null,
+});
 
 /** i18n key per execution status (explicit map keeps Translator typing exact). */
 const STATUS_KEYS = {
@@ -46,12 +46,8 @@ function StatusPill({ result }: { result: ExecutionResult }) {
         ? "bg-red-500/15 text-red-600 dark:text-red-400"
         : "bg-surface-muted text-ink-subtle";
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}
-      role="status"
-    >
-      {t(STATUS_KEYS[result.status])} ·{" "}
-      {t("code.durationMs", { ms: result.durationMs })}
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`} role="status">
+      {t(STATUS_KEYS[result.status])} · {t("code.durationMs", { ms: result.durationMs })}
     </span>
   );
 }

@@ -6,7 +6,11 @@
  */
 
 /** Download text as a file with the given filename and MIME type. */
-export function downloadTextFile(filename: string, text: string, mime = "text/markdown;charset=utf-8"): void {
+export function downloadTextFile(
+  filename: string,
+  text: string,
+  mime = "text/markdown;charset=utf-8",
+): void {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

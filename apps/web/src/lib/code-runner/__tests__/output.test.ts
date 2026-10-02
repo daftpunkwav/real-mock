@@ -20,9 +20,7 @@ describe("formatLogArgs", () => {
   });
 
   it("serializes objects and arrays", () => {
-    expect(formatLogArgs([{ x: 1 }, [1, 2]])).toBe(
-      '{\n  "x": 1\n} [\n  1,\n  2\n]',
-    );
+    expect(formatLogArgs([{ x: 1 }, [1, 2]])).toBe('{\n  "x": 1\n} [\n  1,\n  2\n]');
   });
 
   it("degrades cycles instead of throwing", () => {

@@ -26,10 +26,7 @@ const REQUIRED_FILLED = {
 
 describe("cleanTechDomains", () => {
   it("trims, drops empties, and dedupes while preserving order", () => {
-    expect(cleanTechDomains([" Python ", "", "Go", "Python", "  "])).toEqual([
-      "Python",
-      "Go",
-    ]);
+    expect(cleanTechDomains([" Python ", "", "Go", "Python", "  "])).toEqual(["Python", "Go"]);
   });
 
   it("returns an empty list for empty input", () => {
@@ -54,9 +51,7 @@ describe("completionStatsOf", () => {
   });
 
   it("counts only required fields when optional ones are empty (6/25)", () => {
-    const stats = completionStatsOf(
-      makeProfile({ ...REQUIRED_FILLED, tech_domains: ["Python"] }),
-    );
+    const stats = completionStatsOf(makeProfile({ ...REQUIRED_FILLED, tech_domains: ["Python"] }));
     expect(stats.requiredMissing).toEqual([]);
     expect(stats.requiredDone).toBe(REQUIRED_KEYS.length);
     expect(stats.optionalDone).toBe(0);
@@ -148,7 +143,9 @@ describe("isProfileContentEqual", () => {
     expect(isProfileContentEqual(base, makeProfile({ tech_domains: ["Python", "Go "] }))).toBe(
       false,
     );
-    expect(isProfileContentEqual(base, makeProfile({ tech_domains: ["Go", "Python"] }))).toBe(false);
+    expect(isProfileContentEqual(base, makeProfile({ tech_domains: ["Go", "Python"] }))).toBe(
+      false,
+    );
   });
 
   it("detects a tech_domains length change", () => {

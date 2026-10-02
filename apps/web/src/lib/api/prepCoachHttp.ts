@@ -13,9 +13,24 @@ import type {
   PrepToolStep,
   ResumePickerItem,
 } from "@/lib/api/contract";
-import type { AskUserDialog, PrepCompactParams, PrepCompactResult, PrepContextBreakdown, PrepSSEEvent, PrepUsageStats, ReasoningEffort } from "@/types";
+import type {
+  AskUserDialog,
+  PrepCompactParams,
+  PrepCompactResult,
+  PrepContextBreakdown,
+  PrepSSEEvent,
+  PrepUsageStats,
+  ReasoningEffort,
+} from "@/types";
 import { normalizeAskDialog } from "@/lib/askDialog";
-import { ApiError, consumeSSE, parseStructuredErrorResponse, request, resolveBackendUrl, LLM_HEAVY_TIMEOUT_MS } from "@/lib/api/base";
+import {
+  ApiError,
+  consumeSSE,
+  parseStructuredErrorResponse,
+  request,
+  resolveBackendUrl,
+  LLM_HEAVY_TIMEOUT_MS,
+} from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
 
 export interface PrepStreamCallbacks {
@@ -80,7 +95,9 @@ export const prepCoachHttp = {
       timeoutMs: LLM_HEAVY_TIMEOUT_MS,
       body: JSON.stringify({
         text,
-        ...(typeof expectedMessageCount === "number" ? { expected_message_count: expectedMessageCount } : {}),
+        ...(typeof expectedMessageCount === "number"
+          ? { expected_message_count: expectedMessageCount }
+          : {}),
       }),
     }),
   prepMessageStream: async (
@@ -117,7 +134,16 @@ export const prepCoachHttp = {
     last_latency_ms?: number;
     usage: PrepUsageStats | null;
   }> => {
-    const { onToken, onThinking, onSearchResults, onStatus, onToolStep, onAskUser, onUsage, onCompaction } = callbacks;
+    const {
+      onToken,
+      onThinking,
+      onSearchResults,
+      onStatus,
+      onToolStep,
+      onAskUser,
+      onUsage,
+      onCompaction,
+    } = callbacks;
     const url = resolveBackendUrl(`/api/v1/prep/sessions/${sessionId}/message/stream`);
     // Idle watchdog: tool rounds emit events steadily, so a quiet stream is a
     // half-open connection, not a thinking model. No auto-reconnect: a turn is
@@ -168,16 +194,24 @@ export const prepCoachHttp = {
       window.clearInterval(watchdog);
       opts?.signal?.removeEventListener("abort", forwardUserAbort);
       if (stalled) {
-        throw new ApiError(`Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`, 0, {
-          code: "NET0006",
-          params: { url },
-        });
+        throw new ApiError(
+          `Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`,
+          0,
+          {
+            code: "NET0006",
+            params: { url },
+          },
+        );
       }
       if (err instanceof DOMException && err.name === "AbortError") throw err;
-      throw new ApiError(`Cannot reach the backend (stream ${url}). Confirm the backend is running`, 0, {
-        code: "NET0000",
-        params: { url },
-      });
+      throw new ApiError(
+        `Cannot reach the backend (stream ${url}). Confirm the backend is running`,
+        0,
+        {
+          code: "NET0000",
+          params: { url },
+        },
+      );
     }
     // The watchdog and the user-abort forwarder must stay live through the SSE
     // read: stopping mid-stream or a stalled connection only surfaces there.
@@ -200,79 +234,94 @@ export const prepCoachHttp = {
       let lastRequestId: string | undefined;
       let lastLatencyMs: number | undefined;
       let usage: PrepUsageStats | null = null;
-      await consumeSSE<PrepSSEEvent>(res, (event) => {
-      touch();
-      if (event.type === "token" && typeof event.content === "string") {
-        onToken(event.content);
-      } else if (event.type === "compaction") {
-        onCompaction?.({
-          before: Number(event.before) || 0,
-          after: Number(event.after) || 0,
-          summarized: event.summarized === true,
-          prompt_tokens: Number(event.prompt_tokens) || 0,
-          completion_tokens: Number(event.completion_tokens) || 0,
-          latency_ms: Number(event.latency_ms) || 0,
-        });
-      } else if (event.type === "thinking" && typeof event.content === "string") {
-        onThinking?.(event.content);
-      } else if (event.type === "status" && typeof event.text === "string") {
-        onStatus?.(event.text);
-      } else if (event.type === "tool_step" && typeof event.name === "string") {
-        onToolStep?.({
-          name: event.name,
-          query: String(event.query ?? ""),
-          ...(event.args && typeof event.args === "object" ? { args: event.args } : {}),
-          result: typeof event.result === "string" ? event.result : "",
-        });
-      } else if (event.type === "search_results" && Array.isArray(event.groups)) {
-        onSearchResults?.(event.groups);
-      } else if (
-        event.type === "ask_user" &&
-        typeof event.question === "string" &&
-        Array.isArray(event.options)
-      ) {
-        onAskUser?.(normalizeAskDialog(event));
-      } else if (event.type === "usage") {
-        usage = {
-          prompt_tokens: Number(event.prompt_tokens) || 0,
-          completion_tokens: Number(event.completion_tokens) || 0,
-          cached_tokens: Number(event.cached_tokens) || 0,
-          ...(Number(event.reasoning_tokens) > 0 ? { reasoning_tokens: Number(event.reasoning_tokens) } : {}),
-          ...(Number(event.requests) > 0 ? { requests: Number(event.requests) } : {}),
-          ...(typeof event.last_request_id === "string" && event.last_request_id
-            ? { last_request_id: event.last_request_id }
-            : {}),
-          ...(Number(event.last_latency_ms) > 0 ? { last_latency_ms: Number(event.last_latency_ms) } : {}),
-          ...(typeof event.last_error === "string" && event.last_error ? { last_error: event.last_error } : {}),
-        };
-        onUsage?.(usage);
-      } else if (event.type === "done") {
-        tokenUsage = Number(event.token_usage) || 0;
-        // Session-level provider totals (drift self-healing for usage merge).
-        promptTokens = Number(event.prompt_tokens) || 0;
-        completionTokens = Number(event.completion_tokens) || 0;
-        cachedTokens = Number(event.cached_tokens) || 0;
-        // Last LLM call of the turn (provider-reported real context occupancy).
-        lastRoundPrompt = Number(event.last_round_prompt_tokens) || 0;
-        lastRoundCompletion = Number(event.last_round_completion_tokens) || 0;
-        // Mechanical estimate of the turn's model input; display fallback only.
-        promptEstimated = Number(event.prompt_tokens_estimated) || 0;
-        // Turn correlation id (persisted on the assistant message) and the
-        // stable-prefix fingerprint for cache-hit measurement.
-        turnId = typeof event.turn_id === "string" ? event.turn_id : "";
-        prefixFingerprint = typeof event.prefix_fingerprint === "string" ? event.prefix_fingerprint : "";
-        // Backend-truth length: tool/trim rounds make client +2 reservations drift.
-        messageCount = Number(event.message_count) || 0;
-        // Turn-level request diagnostics (present when the provider reported them).
-        if (typeof event.last_request_id === "string" && event.last_request_id) lastRequestId = event.last_request_id;
-        if (Number(event.last_latency_ms) > 0) lastLatencyMs = Number(event.last_latency_ms);
-      } else if (event.type === "error") {
-        // Backend error-event message is data — pass through; localize only when missing.
-        // NOTE: res.status is 200 here by construction (headers preceded the
-        // failure); it is threading, not the failure code.
-        throw new ApiError(event.message || getTranslator("common")("stream.failed"), res.status);
-      }
-    }, touch);
+      await consumeSSE<PrepSSEEvent>(
+        res,
+        (event) => {
+          touch();
+          if (event.type === "token" && typeof event.content === "string") {
+            onToken(event.content);
+          } else if (event.type === "compaction") {
+            onCompaction?.({
+              before: Number(event.before) || 0,
+              after: Number(event.after) || 0,
+              summarized: event.summarized === true,
+              prompt_tokens: Number(event.prompt_tokens) || 0,
+              completion_tokens: Number(event.completion_tokens) || 0,
+              latency_ms: Number(event.latency_ms) || 0,
+            });
+          } else if (event.type === "thinking" && typeof event.content === "string") {
+            onThinking?.(event.content);
+          } else if (event.type === "status" && typeof event.text === "string") {
+            onStatus?.(event.text);
+          } else if (event.type === "tool_step" && typeof event.name === "string") {
+            onToolStep?.({
+              name: event.name,
+              query: String(event.query ?? ""),
+              ...(event.args && typeof event.args === "object" ? { args: event.args } : {}),
+              result: typeof event.result === "string" ? event.result : "",
+            });
+          } else if (event.type === "search_results" && Array.isArray(event.groups)) {
+            onSearchResults?.(event.groups);
+          } else if (
+            event.type === "ask_user" &&
+            typeof event.question === "string" &&
+            Array.isArray(event.options)
+          ) {
+            onAskUser?.(normalizeAskDialog(event));
+          } else if (event.type === "usage") {
+            usage = {
+              prompt_tokens: Number(event.prompt_tokens) || 0,
+              completion_tokens: Number(event.completion_tokens) || 0,
+              cached_tokens: Number(event.cached_tokens) || 0,
+              ...(Number(event.reasoning_tokens) > 0
+                ? { reasoning_tokens: Number(event.reasoning_tokens) }
+                : {}),
+              ...(Number(event.requests) > 0 ? { requests: Number(event.requests) } : {}),
+              ...(typeof event.last_request_id === "string" && event.last_request_id
+                ? { last_request_id: event.last_request_id }
+                : {}),
+              ...(Number(event.last_latency_ms) > 0
+                ? { last_latency_ms: Number(event.last_latency_ms) }
+                : {}),
+              ...(typeof event.last_error === "string" && event.last_error
+                ? { last_error: event.last_error }
+                : {}),
+            };
+            onUsage?.(usage);
+          } else if (event.type === "done") {
+            tokenUsage = Number(event.token_usage) || 0;
+            // Session-level provider totals (drift self-healing for usage merge).
+            promptTokens = Number(event.prompt_tokens) || 0;
+            completionTokens = Number(event.completion_tokens) || 0;
+            cachedTokens = Number(event.cached_tokens) || 0;
+            // Last LLM call of the turn (provider-reported real context occupancy).
+            lastRoundPrompt = Number(event.last_round_prompt_tokens) || 0;
+            lastRoundCompletion = Number(event.last_round_completion_tokens) || 0;
+            // Mechanical estimate of the turn's model input; display fallback only.
+            promptEstimated = Number(event.prompt_tokens_estimated) || 0;
+            // Turn correlation id (persisted on the assistant message) and the
+            // stable-prefix fingerprint for cache-hit measurement.
+            turnId = typeof event.turn_id === "string" ? event.turn_id : "";
+            prefixFingerprint =
+              typeof event.prefix_fingerprint === "string" ? event.prefix_fingerprint : "";
+            // Backend-truth length: tool/trim rounds make client +2 reservations drift.
+            messageCount = Number(event.message_count) || 0;
+            // Turn-level request diagnostics (present when the provider reported them).
+            if (typeof event.last_request_id === "string" && event.last_request_id)
+              lastRequestId = event.last_request_id;
+            if (Number(event.last_latency_ms) > 0) lastLatencyMs = Number(event.last_latency_ms);
+          } else if (event.type === "error") {
+            // Backend error-event message is data — pass through; localize only when missing.
+            // NOTE: res.status is 200 here by construction (headers preceded the
+            // failure); it is threading, not the failure code.
+            throw new ApiError(
+              event.message || getTranslator("common")("stream.failed"),
+              res.status,
+            );
+          }
+        },
+        touch,
+      );
       return {
         token_usage: tokenUsage,
         prompt_tokens: promptTokens,
@@ -292,10 +341,14 @@ export const prepCoachHttp = {
       // A watchdog abort mid-stream rejects the reader with AbortError; convert
       // it so the caller does not mistake the stall for a user stop.
       if (stalled) {
-        throw new ApiError(`Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`, 0, {
-          code: "NET0006",
-          params: { url },
-        });
+        throw new ApiError(
+          `Stream stalled with no events for ${STREAM_IDLE_TIMEOUT_MS / 1000}s. Please resend.`,
+          0,
+          {
+            code: "NET0006",
+            params: { url },
+          },
+        );
       }
       throw err;
     } finally {
@@ -317,7 +370,9 @@ export const prepCoachHttp = {
       method: "POST",
       body: JSON.stringify({
         from_index: fromIndex,
-        ...(typeof expectedMessageCount === "number" ? { expected_message_count: expectedMessageCount } : {}),
+        ...(typeof expectedMessageCount === "number"
+          ? { expected_message_count: expectedMessageCount }
+          : {}),
       }),
     }),
   deleteSession: (sessionId: number) =>

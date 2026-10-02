@@ -31,10 +31,7 @@ export const reportHttp = {
   getReport: (id: number) => request<GetReportResponse>(`/v1/reports/${id}`),
 
   /** Open the live generation stream; resolves when the stream ends. */
-  streamReport: async (
-    id: number,
-    onEvent: (event: ReportStreamEvent) => void,
-  ): Promise<void> => {
+  streamReport: async (id: number, onEvent: (event: ReportStreamEvent) => void): Promise<void> => {
     const url = resolveBackendUrl(`/api/v1/reports/${id}/stream`);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);

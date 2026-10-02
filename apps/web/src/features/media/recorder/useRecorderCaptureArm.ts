@@ -48,10 +48,7 @@ export function useRecorderCaptureArm(
       let bytes = 0;
       for (const c of seed) bytes += c.byteLength;
       chunksBytesRef.current = bytes;
-      speechChunksRef.current = Math.max(
-        MIN_SPEECH_CHUNKS,
-        Math.min(seed.length, 8),
-      );
+      speechChunksRef.current = Math.max(MIN_SPEECH_CHUNKS, Math.min(seed.length, 8));
       silenceStartRef.current = null;
       bargeLoudSinceRef.current = null;
       finalsRef.current = "";

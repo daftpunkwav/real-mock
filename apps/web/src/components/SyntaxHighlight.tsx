@@ -71,11 +71,7 @@ export const SyntaxHighlight = memo(function SyntaxHighlight({
     const grammar = (Prism.languages as Record<string, unknown>)[grammarId];
     if (!grammar) return null;
     try {
-      return Prism.highlight(
-        code,
-        grammar as Parameters<typeof Prism.highlight>[1],
-        grammarId,
-      );
+      return Prism.highlight(code, grammar as Parameters<typeof Prism.highlight>[1], grammarId);
     } catch {
       // A broken grammar must never break the message render.
       return null;
@@ -83,7 +79,5 @@ export const SyntaxHighlight = memo(function SyntaxHighlight({
   }, [code, language]);
 
   if (html === null) return <>{code}</>;
-  return (
-    <span className={styles.code} dangerouslySetInnerHTML={{ __html: html }} />
-  );
+  return <span className={styles.code} dangerouslySetInnerHTML={{ __html: html }} />;
 });

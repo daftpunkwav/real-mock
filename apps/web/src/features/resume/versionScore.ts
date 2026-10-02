@@ -46,7 +46,10 @@ function dimensionMap(analysis: Record<string, unknown> | undefined): Record<str
   return out;
 }
 
-function overallScore(row: ResumeItem, analysis: Record<string, unknown> | undefined): number | null {
+function overallScore(
+  row: ResumeItem,
+  analysis: Record<string, unknown> | undefined,
+): number | null {
   if (typeof row.score === "number") return row.score;
   if (typeof analysis?.score === "number") return Number(analysis.score);
   return null;
@@ -102,10 +105,7 @@ export function familyScoreSeries(rows: ResumeItem[], familyId: number): ScorePo
     .sort((a, b) => a.version_n - b.version_n);
 }
 
-export function previousScorePoint(
-  series: ScorePoint[],
-  currentId: number,
-): ScorePoint | null {
+export function previousScorePoint(series: ScorePoint[], currentId: number): ScorePoint | null {
   const index = series.findIndex((row) => row.id === currentId);
   if (index <= 0) return null;
   return series[index - 1] ?? null;

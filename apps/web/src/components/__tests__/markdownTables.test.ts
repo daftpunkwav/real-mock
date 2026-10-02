@@ -24,9 +24,7 @@ describe("normalizeLooseTables", () => {
 
   it("still inserts a separator for a loose pipe table in prose", () => {
     const src = ["| a | b |", "| 1 | 2 |"].join("\n");
-    expect(normalizeLooseTables(src)).toBe(
-      ["| a | b |", "| --- | --- |", "| 1 | 2 |"].join("\n"),
-    );
+    expect(normalizeLooseTables(src)).toBe(["| a | b |", "| --- | --- |", "| 1 | 2 |"].join("\n"));
   });
 
   it("fixes prose tables while keeping an adjacent code fence intact", () => {

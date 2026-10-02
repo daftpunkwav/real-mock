@@ -92,7 +92,11 @@ export function useInterviewSetup() {
         });
         markPrefsRestored();
       })
-      .catch((e) => setLoadError(e instanceof Error ? e.message : getTranslator("interview")("setup.loadFailed")))
+      .catch((e) =>
+        setLoadError(
+          e instanceof Error ? e.message : getTranslator("interview")("setup.loadFailed"),
+        ),
+      )
       .finally(() => setLoading(false));
   };
 
@@ -132,7 +136,10 @@ export function useInterviewSetup() {
         modelsReadyRef.current = false;
         markPrefsRestored();
       });
-    settingsHttp.getBindings().then(setDefaultBindings).catch(() => {});
+    settingsHttp
+      .getBindings()
+      .then(setDefaultBindings)
+      .catch(() => {});
   }, [storedPrefs]);
 
   // Write-back on every change so the next visit restores the latest choices.
@@ -144,7 +151,16 @@ export function useInterviewSetup() {
       storedPrefs,
     );
     writeSetupPrefs({ config, multiRound, ...modelIds, effort, referenceDetail });
-  }, [prefsRestored, config, multiRound, chatModelId, sttModelId, ttsModelId, effort, referenceDetail]);
+  }, [
+    prefsRestored,
+    config,
+    multiRound,
+    chatModelId,
+    sttModelId,
+    ttsModelId,
+    effort,
+    referenceDetail,
+  ]);
 
   const set = (patch: Partial<InterviewConfig>) => setConfig((c) => ({ ...c, ...patch }));
 

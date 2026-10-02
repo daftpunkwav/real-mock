@@ -6,10 +6,7 @@ import { useEffect, useState } from "react";
 import { useT, type Translator } from "@/i18n";
 import type { ReportLiveState } from "../liveEvents";
 
-function eventLine(
-  t: Translator<"report">,
-  event: ReportLiveState["events"][number],
-): string {
+function eventLine(t: Translator<"report">, event: ReportLiveState["events"][number]): string {
   if (event.type === "stage") {
     return event.stage === "synthesis" ? t("live.stageSynthesis") : t("live.stageNotes");
   }
@@ -35,9 +32,7 @@ export function ReportLiveProgress({ live }: { live: ReportLiveState }) {
       <div className="surface-card p-5">
         <div className="mb-1 flex items-center gap-2.5">
           <span className="block h-4 w-4 anim-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
-          <h2 className="text-[13px] font-semibold tracking-tight text-ink">
-            {t("live.title")}
-          </h2>
+          <h2 className="text-[13px] font-semibold tracking-tight text-ink">{t("live.title")}</h2>
           <span className="ml-auto text-[11px] text-ink-subtle num-tabular">
             {t("live.elapsed", { n: elapsed })}
           </span>

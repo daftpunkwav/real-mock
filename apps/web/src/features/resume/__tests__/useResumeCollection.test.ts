@@ -39,10 +39,8 @@ describe("useResumeCollection poll generation guard", () => {
       expect(result.current.resumes[0]?.parse_status).toBe("pending");
 
       // The poll tick fires while its response is still in flight.
-      let resolvePoll!: (v: typeof pending[]) => void;
-      listMock.mockImplementationOnce(
-        () => new Promise((resolve) => (resolvePoll = resolve)),
-      );
+      let resolvePoll!: (v: (typeof pending)[]) => void;
+      listMock.mockImplementationOnce(() => new Promise((resolve) => (resolvePoll = resolve)));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(4_000);
       });
@@ -75,10 +73,8 @@ describe("useResumeCollection poll generation guard", () => {
       const { result } = renderHook(() => useResumeCollection());
       await act(async () => {});
 
-      let resolvePoll!: (v: typeof pending[]) => void;
-      listMock.mockImplementationOnce(
-        () => new Promise((resolve) => (resolvePoll = resolve)),
-      );
+      let resolvePoll!: (v: (typeof pending)[]) => void;
+      listMock.mockImplementationOnce(() => new Promise((resolve) => (resolvePoll = resolve)));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(4_000);
       });

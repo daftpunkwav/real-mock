@@ -21,17 +21,17 @@ export function PlanSpine({ steps }: { steps: ReviewPlanStep[] }) {
   }
   return (
     <ol className="relative m-0 list-none p-0">
-      <span
-        aria-hidden
-        className="absolute bottom-2 left-[7px] top-2 w-px bg-surface-border"
-      />
+      <span aria-hidden className="absolute bottom-2 left-[7px] top-2 w-px bg-surface-border" />
       {steps.map((step, index) => {
         const status = statusOf(step);
         const done = status === "done" || status === "skipped";
         const active = status === "in_progress";
         const parallel = step.mode === "parallel";
         return (
-          <li key={step.id || `${step.title}-${index}`} className="relative flex items-start gap-2.5 pb-3 last:pb-0">
+          <li
+            key={step.id || `${step.title}-${index}`}
+            className="relative flex items-start gap-2.5 pb-3 last:pb-0"
+          >
             <span
               className={cn(
                 "relative z-[1] mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-[var(--card)]",
@@ -61,7 +61,9 @@ export function PlanSpine({ steps }: { steps: ReviewPlanStep[] }) {
                 ) : null}
               </span>
               {step.note ? (
-                <span className="mt-0.5 block text-[11px] font-normal text-ink-subtle">{step.note}</span>
+                <span className="mt-0.5 block text-[11px] font-normal text-ink-subtle">
+                  {step.note}
+                </span>
               ) : null}
             </span>
           </li>

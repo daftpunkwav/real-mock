@@ -10,6 +10,8 @@ export function Spinner({
 }) {
   const border = color === "primary" ? "border-[var(--primary)]" : "border-current";
   return (
-    <span className={`block anim-spin rounded-full border-2 ${border} border-t-transparent ${className}`} />
+    <span
+      className={`block anim-spin rounded-full border-2 ${border} border-t-transparent ${className}`}
+    />
   );
 }

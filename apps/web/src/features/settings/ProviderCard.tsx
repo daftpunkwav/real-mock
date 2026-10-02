@@ -71,8 +71,14 @@ export function ProviderCard({
     <div className="surface-card !p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1 sm:max-w-sm">
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.name.label")}</label>
-          <input className="field-input !h-9 w-full" value={name} onChange={(e) => setName(e.target.value)} />
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("providerCard.name.label")}
+          </label>
+          <input
+            className="field-input !h-9 w-full"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
         <label className="flex items-center gap-1.5 text-[12px] text-ink-muted sm:pb-2.5">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
@@ -81,7 +87,9 @@ export function ProviderCard({
       </div>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.website.label")}</label>
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("providerCard.website.label")}
+          </label>
           <input
             className="field-input !h-9"
             placeholder={t("providerCard.website.placeholder")}
@@ -90,8 +98,14 @@ export function ProviderCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.notes.label")}</label>
-          <input className="field-input !h-9" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("providerCard.notes.label")}
+          </label>
+          <input
+            className="field-input !h-9"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </div>
       </div>
       <div className="mt-3 flex items-center justify-end gap-2">

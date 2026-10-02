@@ -136,9 +136,7 @@ describe("usePrepChatSession.switchSession", () => {
     mockedPrepMessages.mockImplementationOnce(
       () => new Promise((resolve) => (resolveFirst = resolve)),
     );
-    mockedPrepMessages.mockResolvedValue([
-      { role: "user", content: "fresh" },
-    ] as never);
+    mockedPrepMessages.mockResolvedValue([{ role: "user", content: "fresh" }] as never);
     const { result } = renderSessionHook(makeOptions());
 
     let first!: Promise<void>;
@@ -160,9 +158,7 @@ describe("usePrepChatSession.switchSession", () => {
   });
 
   it("switches sessions without blocking on generation", async () => {
-    mockedPrepMessages.mockResolvedValue([
-      { role: "user", content: "hello" },
-    ] as never);
+    mockedPrepMessages.mockResolvedValue([{ role: "user", content: "hello" }] as never);
     const { result } = renderSessionHook(makeOptions());
 
     await act(async () => {
@@ -208,9 +204,7 @@ describe("usePrepChatSession.switchSession", () => {
 describe("usePrepChatSession.restore", () => {
   it("restores the persisted session on mount", async () => {
     window.localStorage.setItem(RESTORE_KEY, "9");
-    mockedPrepMessages.mockResolvedValue([
-      { role: "user", content: "hello" },
-    ] as never);
+    mockedPrepMessages.mockResolvedValue([{ role: "user", content: "hello" }] as never);
     const options = makeOptions();
     renderSessionHook(options);
 

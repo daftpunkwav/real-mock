@@ -165,18 +165,10 @@ export default function ReportPage() {
           className="flex flex-col gap-5"
         >
           {report.verdict === "passed" && (
-            <Section
-              title={t("sections.highlights")}
-              items={report.highlights}
-              tone="success"
-            />
+            <Section title={t("sections.highlights")} items={report.highlights} tone="success" />
           )}
           {report.verdict === "failed" && (
-            <Section
-              title={t("sections.keyProblems")}
-              items={report.key_problems}
-              tone="danger"
-            />
+            <Section title={t("sections.keyProblems")} items={report.key_problems} tone="danger" />
           )}
           {report.presence_moments && report.presence_moments.length > 0 && (
             <Section

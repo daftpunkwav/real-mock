@@ -6,16 +6,16 @@
 
 ## 子 hook 职责(装配顺序)
 
-| Hook | 职责 |
-| --- | --- |
-| `useInterviewRoomBootstrap` | 会话元数据、历史消息、阶段恢复 |
-| `useInterviewWS` | WebSocket 连接与 `TurnState` |
-| `useInterviewRoomState` | UI 状态 + ref 容器 |
-| `useInterviewRoomTtsBinding` | TTS 播放与生成对齐 |
-| `useInterviewRoomSilenceTimer` | 沉默超时 / 追问 |
-| `useInterviewRoomEvents` | WS 服务端事件处理 |
-| `useInterviewRoomActions` | 用户操作(发送、收束、打断) |
-| `useInterviewRoomRecorderBridge` | 麦克风 / 录音机桥接 |
+| Hook                             | 职责                           |
+| -------------------------------- | ------------------------------ |
+| `useInterviewRoomBootstrap`      | 会话元数据、历史消息、阶段恢复 |
+| `useInterviewWS`                 | WebSocket 连接与 `TurnState`   |
+| `useInterviewRoomState`          | UI 状态 + ref 容器             |
+| `useInterviewRoomTtsBinding`     | TTS 播放与生成对齐             |
+| `useInterviewRoomSilenceTimer`   | 沉默超时 / 追问                |
+| `useInterviewRoomEvents`         | WS 服务端事件处理              |
+| `useInterviewRoomActions`        | 用户操作(发送、收束、打断)     |
+| `useInterviewRoomRecorderBridge` | 麦克风 / 录音机桥接            |
 
 ## 跨 hook 数据流
 

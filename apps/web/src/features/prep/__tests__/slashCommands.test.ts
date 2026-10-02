@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { matchSlashCommands, parseCompactArgs, parseSlashCommand, resolveSlashCommand } from "../slashCommands";
+import {
+  matchSlashCommands,
+  parseCompactArgs,
+  parseSlashCommand,
+  resolveSlashCommand,
+} from "../slashCommands";
 
 describe("parseSlashCommand", () => {
   it("returns null for plain input", () => {
@@ -53,6 +58,8 @@ describe("parseCompactArgs", () => {
   });
 
   it("treats unknown first words as directive text", () => {
-    expect(parseCompactArgs("please keep decisions")).toEqual({ directive: "please keep decisions" });
+    expect(parseCompactArgs("please keep decisions")).toEqual({
+      directive: "please keep decisions",
+    });
   });
 });

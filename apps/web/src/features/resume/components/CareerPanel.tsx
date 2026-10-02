@@ -62,9 +62,7 @@ export function CareerPanel({ career }: { career: CareerAnalysisData }) {
               </ul>
             </div>
           )}
-          {career.notes && (
-            <p className="eval-career-notes">{cn(career.notes)}</p>
-          )}
+          {career.notes && <p className="eval-career-notes">{cn(career.notes)}</p>}
         </div>
       </div>
     </section>

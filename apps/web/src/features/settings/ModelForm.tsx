@@ -16,7 +16,11 @@ import { Download, Save, X } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import type { ChannelModelCatalog } from "@/types";
-import { applyCapabilityConfig, capsConfigFromDraft, updateReasoningVariants } from "./capabilityConfig";
+import {
+  applyCapabilityConfig,
+  capsConfigFromDraft,
+  updateReasoningVariants,
+} from "./capabilityConfig";
 import { CAP_OPTIONS, type ModelDraft } from "./constants";
 
 /** Custom thinking-level editor (extras.reasoning.variants). Levels are
@@ -70,9 +74,7 @@ function ReasoningVariantsEditor({
           <select
             className="field-input !h-7 !w-auto text-[11px]"
             value={defaultVariant}
-            onChange={(e) =>
-              setDraft(updateReasoningVariants(draft, variants, e.target.value))
-            }
+            onChange={(e) => setDraft(updateReasoningVariants(draft, variants, e.target.value))}
           >
             <option value="">{t("modelForm.reasoningVariants.none")}</option>
             {variants.map((v) => (
@@ -110,8 +112,7 @@ export function ModelForm({
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [capsText, setCapsText] = useState("");
   const query = draft.model.trim().toLowerCase();
-  const candidates =
-    catalog?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? [];
+  const candidates = catalog?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? [];
 
   // The JSON panel re-derives from the form (canonical) on every draft change;
   // unapplied manual edits in the textarea are intentionally discarded.
@@ -202,7 +203,9 @@ export function ModelForm({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("modelForm.displayName.label")}</label>
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("modelForm.displayName.label")}
+          </label>
           <input
             className="field-input !h-9"
             value={draft.display_name}
@@ -210,7 +213,9 @@ export function ModelForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("modelForm.contextWindow.label")}</label>
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("modelForm.contextWindow.label")}
+          </label>
           <input
             className="field-input !h-9"
             type="number"
@@ -220,7 +225,9 @@ export function ModelForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("modelForm.maxOutput.label")}</label>
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("modelForm.maxOutput.label")}
+          </label>
           <input
             className="field-input !h-9"
             type="number"

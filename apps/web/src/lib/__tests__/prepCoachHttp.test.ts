@@ -66,7 +66,10 @@ function makeCallbacks() {
 }
 
 function lastCall(fetchMock: ReturnType<typeof vi.fn>): { url: string; init: RequestInit } {
-  const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [string, RequestInit];
+  const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [
+    string,
+    RequestInit,
+  ];
   return { url, init };
 }
 
@@ -180,14 +183,10 @@ describe("prepMessageStream SSE dispatch", () => {
     expect(calls.token).toEqual(["Hel", "lo"]);
     expect(calls.thinking).toEqual(["hmm"]);
     expect(calls.status).toEqual(["searching"]);
-    expect(calls.tool).toEqual([
-      { name: "web_search", query: "q", args: { k: 1 }, result: "r" },
-    ]);
+    expect(calls.tool).toEqual([{ name: "web_search", query: "q", args: { k: 1 }, result: "r" }]);
     expect(calls.search).toEqual([[{ id: "g" }]]);
     expect(calls.ask).toEqual([expect.objectContaining({ question: "pick one" })]);
-    expect(calls.usage).toEqual([
-      { prompt_tokens: 100, completion_tokens: 50, cached_tokens: 60 },
-    ]);
+    expect(calls.usage).toEqual([{ prompt_tokens: 100, completion_tokens: 50, cached_tokens: 60 }]);
     expect(calls.compaction).toEqual([
       {
         before: 10,

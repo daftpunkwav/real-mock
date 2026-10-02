@@ -197,12 +197,8 @@ describe("restoreSetupConfig", () => {
   });
 
   it("drops a resume id that no longer exists", () => {
-    expect(
-      restoreSetupConfig({ resume_id: 7 }, makeOptions(), resumes).resume_id,
-    ).toBe(7);
-    expect(
-      restoreSetupConfig({ resume_id: 7 }, makeOptions(), []).resume_id,
-    ).toBeUndefined();
+    expect(restoreSetupConfig({ resume_id: 7 }, makeOptions(), resumes).resume_id).toBe(7);
+    expect(restoreSetupConfig({ resume_id: 7 }, makeOptions(), []).resume_id).toBeUndefined();
   });
 });
 

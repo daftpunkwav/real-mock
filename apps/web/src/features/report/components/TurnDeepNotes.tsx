@@ -60,9 +60,7 @@ export function TurnDeepNotes({
                 }`}
               >
                 {g.label || t("qa.ungrouped")}
-                <span className="num-tabular text-[11px] text-ink-subtle">
-                  {g.notes.length}
-                </span>
+                <span className="num-tabular text-[11px] text-ink-subtle">{g.notes.length}</span>
               </button>
             );
           })}

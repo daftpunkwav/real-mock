@@ -3,10 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  applyCapabilityConfig,
-  capsConfigFromDraft,
-} from "../capabilityConfig";
+import { applyCapabilityConfig, capsConfigFromDraft } from "../capabilityConfig";
 import { emptyDraft, type ModelDraft } from "../constants";
 
 const draftWith = (over: Partial<ModelDraft>): ModelDraft => ({
@@ -29,7 +26,10 @@ describe("capsConfigFromDraft", () => {
         max_output: "32000",
       }),
     );
-    expect(view.modalities).toEqual({ input: ["text", "image", "audio"], output: ["text", "audio"] });
+    expect(view.modalities).toEqual({
+      input: ["text", "image", "audio"],
+      output: ["text", "audio"],
+    });
     expect(view.reasoning).toEqual({ enabled: true, variants: [], defaultVariant: "" });
     expect(view.limit).toEqual({ context: 200000, output: 32000 });
   });
@@ -147,7 +147,13 @@ describe("applyCapabilityConfig", () => {
 
   it("round-trips through the view", () => {
     const start = draftWith({
-      capabilities: { chat: true, vision: true, audio_input: false, audio_output: false, reasoning: true },
+      capabilities: {
+        chat: true,
+        vision: true,
+        audio_input: false,
+        audio_output: false,
+        reasoning: true,
+      },
       context_window: "900000",
       max_output: "384000",
       extras_text: JSON.stringify({

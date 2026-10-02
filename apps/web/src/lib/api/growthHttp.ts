@@ -34,7 +34,6 @@ export type GrowthAggregatedStats = {
   growth_level: string;
 };
 
-
 /** LLM growth insight payload (GET /growth/insight; hand-written contract). */
 export type GrowthWeaknessPattern = {
   skill: string;

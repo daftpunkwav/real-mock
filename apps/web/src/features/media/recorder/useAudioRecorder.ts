@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  MIN_SPEECH_CHUNKS,
-  MIN_TEXT_CHARS,
-  TARGET_SAMPLE_RATE,
-} from "./audioRecorderConstants";
+import { MIN_SPEECH_CHUNKS, MIN_TEXT_CHARS, TARGET_SAMPLE_RATE } from "./audioRecorderConstants";
 import { encodeBase64, safeCloseAudioContext } from "./audioRecorderPcm";
 import type { SpeechRecognition } from "./audioRecorderTypes";
 import type { RecorderInternalRefs } from "./recorderInternalRefs";
@@ -95,8 +91,7 @@ export function useAudioRecorder(
     onBargeCandidateRef.current = onBargeCandidate;
   }, [onSilence, onPartial, onSpeechActivity, onBargeCandidate]);
 
-  const isCapturing = () =>
-    captureEnabledRef.current && Date.now() >= captureArmAtRef.current;
+  const isCapturing = () => captureEnabledRef.current && Date.now() >= captureArmAtRef.current;
 
   const stopAsr = useCallback(() => {
     asrAllowedRef.current = false;
@@ -140,9 +135,7 @@ export function useAudioRecorder(
       return;
     }
     const text = `${finalsRef.current}${interimRef.current}`.trim();
-    const hasSpeech =
-      speechChunksRef.current >= MIN_SPEECH_CHUNKS ||
-      text.length >= MIN_TEXT_CHARS;
+    const hasSpeech = speechChunksRef.current >= MIN_SPEECH_CHUNKS || text.length >= MIN_TEXT_CHARS;
     const nativeRate = ctxRef.current?.sampleRate || TARGET_SAMPLE_RATE;
     const b64 = hasSpeech ? encodeBase64(chunksRef.current, nativeRate) : "";
     resetCaptureState();
@@ -177,21 +170,8 @@ export function useAudioRecorder(
     emitSilenceRef.current();
   }, []);
 
-  useRecorderCaptureArm(
-    captureEnabled,
-    refs,
-    clearCaptureBuffers,
-    stopAsr,
-    setPartialText,
-  );
-  useRecorderMicBootstrap(
-    enabled,
-    refs,
-    stop,
-    setIsRecording,
-    setMicError,
-    setPartialText,
-  );
+  useRecorderCaptureArm(captureEnabled, refs, clearCaptureBuffers, stopAsr, setPartialText);
+  useRecorderMicBootstrap(enabled, refs, stop, setIsRecording, setMicError, setPartialText);
 
   return {
     stop,

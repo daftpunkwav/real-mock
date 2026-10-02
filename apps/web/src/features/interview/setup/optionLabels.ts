@@ -139,9 +139,7 @@ export function localizeOptions(
     personalityLabels: Object.fromEntries(
       options.personalities.map((p) => [p.id, personalityLabel(p.id, t)]),
     ),
-    sceneLabels: Object.fromEntries(
-      (options.scenes ?? []).map((s) => [s.id, sceneLabel(s.id, t)]),
-    ),
+    sceneLabels: Object.fromEntries((options.scenes ?? []).map((s) => [s.id, sceneLabel(s.id, t)])),
     companies: options.companies.map((c) => companyDisplay(c, t)),
     phaseLabels,
   };

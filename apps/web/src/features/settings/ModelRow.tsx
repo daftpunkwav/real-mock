@@ -34,7 +34,10 @@ export function ModelRow({
         {formatWindow(model.context_window)}
       </span>
       {caps.map((c) => (
-        <span key={c} className="hidden shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] text-ink-muted sm:inline">
+        <span
+          key={c}
+          className="hidden shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] text-ink-muted sm:inline"
+        >
           {c}
         </span>
       ))}

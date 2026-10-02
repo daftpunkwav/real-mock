@@ -37,12 +37,8 @@ export function PrepEmptyState({
           <span className="icon-badge icon-badge-brand mx-auto mb-4 !h-14 !w-14">
             <Sparkles size={22} strokeWidth={1.75} />
           </span>
-          <h2 className="text-[18px] font-semibold tracking-tight text-ink">
-            {t("empty.title")}
-          </h2>
-          <p className="mt-1.5 text-[13px] text-ink-muted">
-            {t("empty.desc")}
-          </p>
+          <h2 className="text-[18px] font-semibold tracking-tight text-ink">{t("empty.title")}</h2>
+          <p className="mt-1.5 text-[13px] text-ink-muted">{t("empty.desc")}</p>
         </div>
 
         {resumeLoadError ? (
@@ -61,14 +57,10 @@ export function PrepEmptyState({
             />
           </div>
         ) : (
-          <div className="alert alert-warning !block text-center">
-            {t("empty.noResume")}
-          </div>
+          <div className="alert alert-warning !block text-center">{t("empty.noResume")}</div>
         )}
 
-        {prepError && (
-          <div className="alert alert-error !block text-center">{prepError}</div>
-        )}
+        {prepError && <div className="alert alert-error !block text-center">{prepError}</div>}
 
         <button
           type="button"

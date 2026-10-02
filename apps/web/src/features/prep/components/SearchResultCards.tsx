@@ -52,7 +52,10 @@ export const SearchResultCards = memo(function SearchResultCards({
         </span>
         {!expanded && (
           <span className="min-w-0 flex-1 truncate text-ink-subtle" title={visible[0]!.query}>
-            {visible.map((g) => g.query).filter(Boolean).join(" / ")}
+            {visible
+              .map((g) => g.query)
+              .filter(Boolean)
+              .join(" / ")}
           </span>
         )}
       </button>

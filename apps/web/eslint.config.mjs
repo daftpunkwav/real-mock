@@ -26,6 +26,14 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
+      // Prettier owns formatting; these ESLint rules would otherwise report
+      // the same lines a different way. Grouped so the split is obvious.
+      "@typescript-eslint/indent": "off",
+      "@typescript-eslint/quotes": "off",
+      "@typescript-eslint/semi": "off",
+      "@typescript-eslint/comma-dangle": "off",
+      "@typescript-eslint/space-before-blocks": "off",
+      "@typescript-eslint/object-curly-spacing": "off",
       "no-restricted-imports": [
         "error",
         {

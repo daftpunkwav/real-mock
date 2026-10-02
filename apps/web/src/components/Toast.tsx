@@ -21,13 +21,7 @@
  * - Motion via framer-motion; icons via lucide-react.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, XCircle, Info, AlertTriangle, X } from "lucide-react";
 import { useT } from "@/i18n";
@@ -81,13 +75,37 @@ export const toast = {
       durationMs: opts?.durationMs,
     }),
   success: (message: string, opts?: { persist?: boolean; durationMs?: number }) =>
-    push({ id: ++_seq, message, kind: "success", persist: opts?.persist, durationMs: opts?.durationMs }),
+    push({
+      id: ++_seq,
+      message,
+      kind: "success",
+      persist: opts?.persist,
+      durationMs: opts?.durationMs,
+    }),
   info: (message: string, opts?: { persist?: boolean; durationMs?: number }) =>
-    push({ id: ++_seq, message, kind: "info", persist: opts?.persist, durationMs: opts?.durationMs }),
+    push({
+      id: ++_seq,
+      message,
+      kind: "info",
+      persist: opts?.persist,
+      durationMs: opts?.durationMs,
+    }),
   warning: (message: string, opts?: { persist?: boolean; durationMs?: number }) =>
-    push({ id: ++_seq, message, kind: "warning", persist: opts?.persist, durationMs: opts?.durationMs }),
+    push({
+      id: ++_seq,
+      message,
+      kind: "warning",
+      persist: opts?.persist,
+      durationMs: opts?.durationMs,
+    }),
   error: (message: string, opts?: { persist?: boolean; durationMs?: number }) =>
-    push({ id: ++_seq, message, kind: "error", persist: opts?.persist, durationMs: opts?.durationMs }),
+    push({
+      id: ++_seq,
+      message,
+      kind: "error",
+      persist: opts?.persist,
+      durationMs: opts?.durationMs,
+    }),
   dismiss: (id: number) => remove(id),
   clear: () => clearAll(),
 };
@@ -165,12 +183,7 @@ function ToastView({ item }: { item: ToastItem }) {
       <p className="flex-1 text-[13px] leading-relaxed text-ink whitespace-pre-wrap">
         {item.message}
       </p>
-      <button
-        type="button"
-        onClick={close}
-        className="shrink-0"
-        aria-label={t("action.close")}
-      >
+      <button type="button" onClick={close} className="shrink-0" aria-label={t("action.close")}>
         <X size={14} className="text-ink-subtle hover:text-ink" />
       </button>
     </motion.div>

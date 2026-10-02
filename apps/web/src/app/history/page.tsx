@@ -28,7 +28,7 @@ export default function HistoryPage() {
   } = useHistoryPage();
   const selectedProcessId = selected?.process_id ?? null;
   const nextRoundNo = selectedProcessId
-    ? nextRoundIndex[selectedProcessId]?.next_round_no ?? null
+    ? (nextRoundIndex[selectedProcessId]?.next_round_no ?? null)
     : null;
 
   return (

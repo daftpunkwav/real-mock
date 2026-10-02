@@ -149,9 +149,7 @@ export function useGrowthPage() {
       applyInsight(insightEnv);
     } catch (e) {
       if (seq !== seqRef.current) return;
-      setLoadError(
-        e instanceof Error ? e.message : getTranslator("growth")("page.loadFailed"),
-      );
+      setLoadError(e instanceof Error ? e.message : getTranslator("growth")("page.loadFailed"));
     } finally {
       if (seq !== seqRef.current) return;
       setLoading(false);

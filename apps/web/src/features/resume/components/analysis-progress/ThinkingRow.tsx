@@ -31,7 +31,9 @@ export function ThinkingRow({
   const seconds = thinkingSeconds(item, now);
   const body = item.content.replace(/^\s+/, "");
   const duration =
-    seconds > 0 ? t("stage.thinkingDuration", { seconds: active ? seconds : Math.max(1, seconds) }) : "";
+    seconds > 0
+      ? t("stage.thinkingDuration", { seconds: active ? seconds : Math.max(1, seconds) })
+      : "";
   const label = active ? t("stage.thinkingActive") : t("stage.thinking");
 
   return (

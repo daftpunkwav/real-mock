@@ -110,7 +110,9 @@ export function ResumeWarning() {
   const t = useT("interview");
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-ink-muted">{t("setup.resume.label")}</label>
+      <label className="mb-1 block text-xs font-medium text-ink-muted">
+        {t("setup.resume.label")}
+      </label>
       <p className="rounded-md border border-[var(--warning)]/30 bg-[var(--warning-soft)] px-2.5 py-2 text-[11px] text-[var(--warning-ink)]">
         {t("setup.resume.empty")}
       </p>

@@ -84,7 +84,10 @@ export const resumeHttp = {
       const error = await parseStructuredErrorResponse(res);
       throw new ApiError(error.message, res.status, error);
     }
-    return readJsonBody<ResumeResponse>(res, "Failed to upload resume: server returned an empty response");
+    return readJsonBody<ResumeResponse>(
+      res,
+      "Failed to upload resume: server returned an empty response",
+    );
   },
   uploadVersion: async (resumeId: number, file: File): Promise<ResumeResponse> => {
     const url = resolveBackendUrl(`/api/v1/resume/${resumeId}/versions`);
@@ -116,7 +119,10 @@ export const resumeHttp = {
       const error = await parseStructuredErrorResponse(res);
       throw new ApiError(error.message, res.status, error);
     }
-    return readJsonBody<ResumeResponse>(res, "Failed to upload resume version: server returned an empty response");
+    return readJsonBody<ResumeResponse>(
+      res,
+      "Failed to upload resume version: server returned an empty response",
+    );
   },
   listResumes: async (options?: { signal?: AbortSignal }) =>
     expectBody(
@@ -169,8 +175,7 @@ export const resumeHttp = {
   resumePageImageUrl: (id: number, page: number) =>
     resolveBackendUrl(resumeHttp.resumePageImagePath(id, page)),
   /** Path-only variant for hydration-safe rendering (see ``useAlignedBackendUrl``). */
-  resumePageImagePath: (id: number, page: number) =>
-    `/api/v1/resume/${id}/pages/${page}`,
+  resumePageImagePath: (id: number, page: number) => `/api/v1/resume/${id}/pages/${page}`,
   activateResume: async (id: number, options?: { signal?: AbortSignal }) =>
     expectBody(
       await request<ResumeResponse>(`/v1/resume/${id}/activate`, {
@@ -319,9 +324,13 @@ export const resumeHttp = {
         throw e;
       }
       if (!analysis) {
-        throw new ApiError("Failed to analyze resume: server returned an empty response", res.status, {
-          code: "NET0003",
-        });
+        throw new ApiError(
+          "Failed to analyze resume: server returned an empty response",
+          res.status,
+          {
+            code: "NET0003",
+          },
+        );
       }
       return analysis;
     } finally {

@@ -13,8 +13,10 @@ export const growth = {
   "insight.generate": "Generate growth analysis",
   "insight.generating": "AI is analyzing your interview history…",
   "insight.loading": "Loading…",
-  "insight.empty": "After an interview, AI builds a cross-session growth analysis from all reports, your resume, and profile.",
-  "insight.pollTimeout": "Analysis is still running and this wait timed out. Refresh again in a moment.",
+  "insight.empty":
+    "After an interview, AI builds a cross-session growth analysis from all reports, your resume, and profile.",
+  "insight.pollTimeout":
+    "Analysis is still running and this wait timed out. Refresh again in a moment.",
   "insight.refreshFailed": "Couldn't regenerate the growth analysis",
   "insight.stage.rising": "Rising",
   "insight.stage.stalling": "Stalling",
@@ -67,7 +69,8 @@ export const growth = {
 
   // System self-growth (SystemInsightsSection)
   "insights.title": "System self-growth",
-  "insights.description": "Cross-interview aggregation: company distribution, tool usage, accumulated weak points.",
+  "insights.description":
+    "Cross-interview aggregation: company distribution, tool usage, accumulated weak points.",
   "insights.toolsOn": " Tool loop is enabled.",
   "insights.toolsOff": " Tool loop is disabled.",
   "insights.githubConfigured": " GitHub Token is configured.",

@@ -9,18 +9,24 @@ export const settingsHttp = {
   listProviders: () =>
     request<{ providers: import("@/types").ProviderWithModels[] }>("/v1/settings/providers"),
   createProvider: (data: import("@/types").ProviderWrite) =>
-    request<{ id: number }>("/v1/settings/providers", { method: "POST", body: JSON.stringify(data) }),
+    request<{ id: number }>("/v1/settings/providers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   updateProvider: (id: number, data: import("@/types").ProviderWrite) =>
-    request<{ id: number }>(`/v1/settings/providers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<{ id: number }>(`/v1/settings/providers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   updateChannel: (
     id: number,
     kind: import("@/types").ModelKind,
     data: Omit<import("@/types").ProviderChannelWrite, "kind">,
   ) =>
-    request<import("@/types").ProviderChannel>(
-      `/v1/settings/providers/${id}/channels/${kind}`,
-      { method: "PUT", body: JSON.stringify(data) },
-    ),
+    request<import("@/types").ProviderChannel>(`/v1/settings/providers/${id}/channels/${kind}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   fetchChannelCatalog: (id: number, kind: import("@/types").ModelKind) =>
     request<import("@/types").ChannelModelCatalog>(
       `/v1/settings/providers/${id}/channels/${kind}/catalog`,
@@ -47,8 +53,7 @@ export const settingsHttp = {
     request<{ deleted: number }>(`/v1/settings/models/${id}`, { method: "DELETE" }),
   testModel: (id: number) =>
     request<LLMTestResponse>(`/v1/settings/test/model/${id}`, { method: "POST" }),
-  getBindings: () =>
-    request<import("@/types").TaskBindings>("/v1/settings/bindings"),
+  getBindings: () => request<import("@/types").TaskBindings>("/v1/settings/bindings"),
   updateBinding: (
     task: "chat" | "stt" | "tts",
     data: { profile_id: number; fallback_handler?: string; fallback_mode?: string },

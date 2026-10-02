@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  normalizeCnPunctuation,
-  parseRewriteExample,
-  tokenizeEvalText,
-} from "../cnText";
+import { normalizeCnPunctuation, parseRewriteExample, tokenizeEvalText } from "../cnText";
 
 describe("normalizeCnPunctuation", () => {
   it("converts half-width commas in CJK context", () => {
@@ -83,9 +79,7 @@ describe("tokenizeEvalText", () => {
 
   it("does not bold units that continue into a word", () => {
     // "07 s" used to swallow the first letter of "sonara".
-    expect(tokenizeEvalText("2026-07 sonara")).toEqual([
-      { type: "text", value: "2026-07 sonara" },
-    ]);
+    expect(tokenizeEvalText("2026-07 sonara")).toEqual([{ type: "text", value: "2026-07 sonara" }]);
     expect(tokenizeEvalText("687KB")).toEqual([{ type: "text", value: "687KB" }]);
     expect(tokenizeEvalText("size 51411KB；语言 Python")).toEqual([
       { type: "text", value: "size 51411KB；语言 Python" },
@@ -101,9 +95,7 @@ describe("tokenizeEvalText", () => {
     // "ABC95%" must not degrade to "5%" by starting inside the digit run.
     expect(tokenizeEvalText("ABC95%")).toEqual([{ type: "text", value: "ABC95%" }]);
     expect(tokenizeEvalText("AP99")).toEqual([{ type: "text", value: "AP99" }]);
-    expect(tokenizeEvalText("HTTP200 状态")).toEqual([
-      { type: "text", value: "HTTP200 状态" },
-    ]);
+    expect(tokenizeEvalText("HTTP200 状态")).toEqual([{ type: "text", value: "HTTP200 状态" }]);
   });
 
   it("still highlights standalone percentages and latency percentiles", () => {

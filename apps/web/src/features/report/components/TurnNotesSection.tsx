@@ -14,7 +14,9 @@ export function TurnNotesSection({ notes }: { notes?: TurnNote[] }) {
 
   return (
     <section className="mt-4 rounded-md border border-surface-border bg-surface-card p-4">
-      <h2 className="mb-3 text-[13px] font-semibold tracking-tight text-ink">{t("turns.notesTitle")}</h2>
+      <h2 className="mb-3 text-[13px] font-semibold tracking-tight text-ink">
+        {t("turns.notesTitle")}
+      </h2>
       <ul className="space-y-3">
         {notes.map((note) => {
           const user = note.user_review;

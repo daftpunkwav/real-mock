@@ -82,13 +82,7 @@ describe("repairUnclosedFence", () => {
   });
 
   it("leaves pipe-heavy code tails alone (P0-1 protection holds)", () => {
-    const src = [
-      "```python",
-      "a = x | y",
-      "b = p | q",
-      "c = m | n",
-      "print(a, b, c)",
-    ].join("\n");
+    const src = ["```python", "a = x | y", "b = p | q", "c = m | n", "print(a, b, c)"].join("\n");
     expect(repairUnclosedFence(src)).toBe(src);
   });
 

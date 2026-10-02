@@ -124,9 +124,7 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
       d.hintTimeoutRef.current = setTimeout(() => {
         d.setHintLoading(false);
         d.setReferenceHint((prev) =>
-          prev.trim()
-            ? prev
-            : getTranslator("interview")("room.hint.timeout"),
+          prev.trim() ? prev : getTranslator("interview")("room.hint.timeout"),
         );
       }, 25_000);
       d.sendRef.current({ type: "request_hint", question });
@@ -285,7 +283,13 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
     on("tts_failed", (msg) => {
       d.setAudioBlocked(true);
       toast.error(msg.message || getTranslator("interview")("room.toast.ttsFailed"));
-      d.setMessages((prev) => [...prev, { role: "assistant", content: getTranslator("interview")("room.msg.warning", { msg: msg.message }) }]);
+      d.setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: getTranslator("interview")("room.msg.warning", { msg: msg.message }),
+        },
+      ]);
       d.sendRef.current({
         type: "tts_playback_done",
         generation: d.playbackGenRef.current,
@@ -395,7 +399,13 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
     });
 
     on("error", (msg) => {
-      d.setMessages((prev) => [...prev, { role: "assistant", content: getTranslator("interview")("room.msg.warning", { msg: msg.message }) }]);
+      d.setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: getTranslator("interview")("room.msg.warning", { msg: msg.message }),
+        },
+      ]);
       // Reset finish UI when closing fails so the candidate can retry. Once
       // navigation is scheduled (closing speech playing), errors must not pop
       // the finishing UI back to the End button.
@@ -423,7 +433,18 @@ export function useInterviewRoomEvents(deps: InterviewRoomEventsDeps) {
     return () => {
       mountedRef.current = false;
     };
-  }, [on, playBase64Mp3, router, sessionId, requestHint, stopTTS, clearHintTimeout, armSpeechWatch, disarmSpeechWatch, fireSpeechEndBump]);
+  }, [
+    on,
+    playBase64Mp3,
+    router,
+    sessionId,
+    requestHint,
+    stopTTS,
+    clearHintTimeout,
+    armSpeechWatch,
+    disarmSpeechWatch,
+    fireSpeechEndBump,
+  ]);
 
   return { requestHint, clearHintTimeout, fireSpeechEndBump, disarmSpeechWatch };
 }

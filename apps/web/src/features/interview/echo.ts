@@ -13,7 +13,10 @@ export function isLikelyEchoOfAssistant(userText: string, assistantText: string)
   const u = normalizeEchoText(userText);
   const a = normalizeEchoText(assistantText);
   if (u.length < 12 || a.length < 12) return false;
-  if (u.includes(a.slice(0, Math.min(40, a.length))) || a.includes(u.slice(0, Math.min(40, u.length)))) {
+  if (
+    u.includes(a.slice(0, Math.min(40, a.length))) ||
+    a.includes(u.slice(0, Math.min(40, u.length)))
+  ) {
     return true;
   }
   const window = Math.min(u.length, a.length, 80);

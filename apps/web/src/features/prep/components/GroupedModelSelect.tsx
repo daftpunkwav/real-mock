@@ -53,7 +53,8 @@ export function GroupedModelSelect({
 
   // Identical to ModelSelect: null follows the default profile when listed.
   const effectiveValue =
-    value ?? (defaultProfile && models.some((m) => m.id === defaultProfile.id) ? defaultProfile.id : "");
+    value ??
+    (defaultProfile && models.some((m) => m.id === defaultProfile.id) ? defaultProfile.id : "");
   const selected = models.find((m) => m.id === effectiveValue) ?? null;
   const selectedProvider = (selected?.provider_name ?? "").trim();
   const activeModels = groups.find((g) => g.provider === activeProvider)?.models ?? [];

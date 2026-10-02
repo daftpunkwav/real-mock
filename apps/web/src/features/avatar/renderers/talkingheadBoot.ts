@@ -38,8 +38,9 @@ export function useTalkingHeadBoot(
       if (!node) return;
       try {
         const mod = await import("@met4citizen/talkinghead");
-        const TalkingHead = (mod as { TalkingHead: new (n: HTMLElement, o?: object) => HeadInstance })
-          .TalkingHead;
+        const TalkingHead = (
+          mod as { TalkingHead: new (n: HTMLElement, o?: object) => HeadInstance }
+        ).TalkingHead;
         if (cancelled || bootGenRef.current !== gen) return;
 
         const profile = AVATAR_ASSETS[avatarId] || AVATAR_ASSETS.professional_male!;

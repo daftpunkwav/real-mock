@@ -54,7 +54,8 @@ export const common = {
   "context.promptTokens": "Input tokens",
   "context.completionTokens": "Output tokens",
   "context.reasoningTokens": "…of which reasoning",
-  "context.reasoningHint": "Reasoning tokens billed within output (provider-reported; hidden when the provider does not itemize)",
+  "context.reasoningHint":
+    "Reasoning tokens billed within output (provider-reported; hidden when the provider does not itemize)",
   "context.cacheRate": "Cache hit rate",
   "context.cacheRateValue": "{percent} ({tokens})",
   "context.requests": "Provider requests",
@@ -62,7 +63,8 @@ export const common = {
   "context.latencyValue": "{ms} ms",
   "context.lastError": "Last error",
   "context.estimated": "est.",
-  "context.estimatedHint": "Provider reported no input usage; mechanically estimated from context, indicative only",
+  "context.estimatedHint":
+    "Provider reported no input usage; mechanically estimated from context, indicative only",
   "context.bucket.user": "Messages",
   "context.bucket.userHint": "Message bodies you sent",
   "context.bucket.assistant": "Replies",

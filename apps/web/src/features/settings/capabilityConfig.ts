@@ -129,8 +129,7 @@ export function updateReasoningVariants(
   }
   return {
     ...draft,
-    extras_text:
-      Object.keys(nextExtras).length > 0 ? JSON.stringify(nextExtras, null, 2) : "",
+    extras_text: Object.keys(nextExtras).length > 0 ? JSON.stringify(nextExtras, null, 2) : "",
   };
 }
 
@@ -193,11 +192,9 @@ export function applyCapabilityConfig(
     draft: {
       ...draft,
       capabilities,
-      context_window:
-        context !== null && context >= 0 ? String(context) : draft.context_window,
+      context_window: context !== null && context >= 0 ? String(context) : draft.context_window,
       max_output: output !== null && output >= 1 ? String(output) : draft.max_output,
-      extras_text:
-        Object.keys(nextExtras).length > 0 ? JSON.stringify(nextExtras, null, 2) : "",
+      extras_text: Object.keys(nextExtras).length > 0 ? JSON.stringify(nextExtras, null, 2) : "",
     },
   };
 }

@@ -9,7 +9,16 @@
  */
 
 import { memo, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, ChevronRight, Eraser, MessageSquare, Plus, Square, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronRight,
+  Eraser,
+  MessageSquare,
+  Plus,
+  Square,
+  Trash2,
+} from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useT, type Translator } from "@/i18n";
 import { parseTimestamp } from "@/i18n/format";
@@ -115,10 +124,7 @@ function SessionRow({
       </button>
       <div className="flex shrink-0 items-center pt-0.5">
         {generating && (
-          <RowAction
-            title={t("sessions.stopGeneration")}
-            onClick={() => onStop(session.id)}
-          >
+          <RowAction title={t("sessions.stopGeneration")} onClick={() => onStop(session.id)}>
             <Square size={12} fill="currentColor" />
           </RowAction>
         )}
@@ -193,7 +199,11 @@ export const PrepSessionList = memo(function PrepSessionList({
       }
       const key = s.resume_id != null ? `r${s.resume_id}` : "none";
       if (!map.has(key))
-        map.set(key, { id: key, label: s.resume_filename || t("sessions.genericGroup"), items: [] });
+        map.set(key, {
+          id: key,
+          label: s.resume_filename || t("sessions.genericGroup"),
+          items: [],
+        });
       map.get(key)!.items.push(s);
     }
     return { activeGroups: [...map.values()], archived: archivedItems };
@@ -201,12 +211,28 @@ export const PrepSessionList = memo(function PrepSessionList({
 
   const confirmCopy =
     pending?.kind === "delete"
-      ? { title: t("sessions.deleteTitle"), body: t("sessions.deleteBody"), action: t("sessions.delete") }
+      ? {
+          title: t("sessions.deleteTitle"),
+          body: t("sessions.deleteBody"),
+          action: t("sessions.delete"),
+        }
       : pending?.kind === "archive"
         ? pending.archived
-          ? { title: t("sessions.archiveTitle"), body: t("sessions.archiveBody"), action: t("sessions.archive") }
-          : { title: t("sessions.unarchiveTitle"), body: t("sessions.unarchiveBody"), action: t("sessions.unarchive") }
-        : { title: t("sessions.clearTitle"), body: t("sessions.clearBody"), action: t("sessions.clear") };
+          ? {
+              title: t("sessions.archiveTitle"),
+              body: t("sessions.archiveBody"),
+              action: t("sessions.archive"),
+            }
+          : {
+              title: t("sessions.unarchiveTitle"),
+              body: t("sessions.unarchiveBody"),
+              action: t("sessions.unarchive"),
+            }
+        : {
+            title: t("sessions.clearTitle"),
+            body: t("sessions.clearBody"),
+            action: t("sessions.clear"),
+          };
 
   const runPending = async () => {
     if (!pending) return;
@@ -251,9 +277,7 @@ export const PrepSessionList = memo(function PrepSessionList({
       </div>
 
       {sessions.length === 0 ? (
-        <p className="text-[11px] leading-relaxed text-ink-subtle">
-          {t("sessions.empty")}
-        </p>
+        <p className="text-[11px] leading-relaxed text-ink-subtle">{t("sessions.empty")}</p>
       ) : (
         <div className="max-h-[280px] space-y-3 overflow-y-auto pr-0.5 [scrollbar-gutter:stable]">
           {activeGroups.map((g) => (

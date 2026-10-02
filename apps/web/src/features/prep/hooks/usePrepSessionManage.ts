@@ -40,7 +40,10 @@ export function usePrepSessionManage(opts: {
     refreshSessions,
   } = opts;
 
-  const fail = (key: "sessions.deleteFailed" | "sessions.archiveFailed" | "sessions.clearFailed", err: unknown) => {
+  const fail = (
+    key: "sessions.deleteFailed" | "sessions.archiveFailed" | "sessions.clearFailed",
+    err: unknown,
+  ) => {
     const t = getTranslator("prep");
     toast.error(err instanceof Error ? formatApiError(err) : t(key));
   };
@@ -88,7 +91,12 @@ export function usePrepSessionManage(opts: {
         setBackendCount(id, 0);
         setAskDialog(null);
         setMessages([
-          { id: nextMsgId("a"), role: "assistant", content: t("sessions.welcome"), localOnly: true },
+          {
+            id: nextMsgId("a"),
+            role: "assistant",
+            content: t("sessions.welcome"),
+            localOnly: true,
+          },
         ]);
       }
     } catch (err) {

@@ -98,7 +98,9 @@ export function ProcessorCard({
           />
         </div>
         <div>
-          <label className="field-label !mb-1 !text-xs">{t("setup.processor.referenceDetail")}</label>
+          <label className="field-label !mb-1 !text-xs">
+            {t("setup.processor.referenceDetail")}
+          </label>
           <CustomSelect
             className="!h-9 !w-full !text-xs"
             ariaLabel={t("setup.processor.referenceDetail")}

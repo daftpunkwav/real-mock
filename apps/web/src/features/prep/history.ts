@@ -112,10 +112,19 @@ export interface CompactionProvenance {
 }
 
 /** Split a persisted summary block into display text and provenance. */
-export function parseSummaryBlock(content: string): { summary: string; provenance: CompactionProvenance } {
+export function parseSummaryBlock(content: string): {
+  summary: string;
+  provenance: CompactionProvenance;
+} {
   const text = content ?? "";
   const start = text.lastIndexOf(PROVENANCE_MARKER);
-  const provenance: CompactionProvenance = { version: 0, forkPoint: null, backupSessionId: null, before: null, after: null };
+  const provenance: CompactionProvenance = {
+    version: 0,
+    forkPoint: null,
+    backupSessionId: null,
+    before: null,
+    after: null,
+  };
   let summary = text;
   if (start >= 0) {
     summary = text.slice(0, start).trim();
@@ -208,7 +217,9 @@ export function mapHistoryMessages(
       thinking,
       trace: buildTraceFromParts(thinking, steps),
       stopped: (m as { stopped?: unknown }).stopped === true ? true : undefined,
-      ...(rawAsk && typeof rawAsk === "object" ? { ask: normalizeAskDialog(rawAsk as Record<string, unknown>) } : {}),
+      ...(rawAsk && typeof rawAsk === "object"
+        ? { ask: normalizeAskDialog(rawAsk as Record<string, unknown>) }
+        : {}),
       backendIndex: index,
     };
     // An ask turn persists as TWO assistant rows: the loop tail (model answer,
@@ -222,7 +233,11 @@ export function mapHistoryMessages(
       // Skip interleaved tool-result/system rows: the ask_user call leaves a
       // "dialog shown" tool row between the loop tail and the display message.
       let j = i + 1;
-      while (j < rows.length && rows[j]!.role !== "user" && !(rows[j]!.role === "assistant" && rows[j]!.content)) {
+      while (
+        j < rows.length &&
+        rows[j]!.role !== "user" &&
+        !(rows[j]!.role === "assistant" && rows[j]!.content)
+      ) {
         j += 1;
       }
       const next = rows[j];

@@ -38,10 +38,7 @@ export function CompletionCard({ stats }: { stats: ProfileCompletionStats }) {
         aria-valuemax={100}
         aria-valuenow={completionPct}
       >
-        <div
-          className="progress-bar anim-progress-fill"
-          style={{ width: `${completionPct}%` }}
-        />
+        <div className="progress-bar anim-progress-fill" style={{ width: `${completionPct}%` }} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-center">
         <div className="kpi-card !p-2.5">

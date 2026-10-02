@@ -5,17 +5,8 @@
 
 import { useLocale, useT } from "@/i18n";
 import { Briefcase, ListChecks, UserCircle } from "lucide-react";
-import type {
-  InterviewConfig,
-  Options,
-  ResumePickerItem,
-} from "@/lib/api/contract";
-import type {
-  ModelProfile,
-  ReasoningEffort,
-  ReferenceDetail,
-  TaskBindings,
-} from "@/types";
+import type { InterviewConfig, Options, ResumePickerItem } from "@/lib/api/contract";
+import type { ModelProfile, ReasoningEffort, ReferenceDetail, TaskBindings } from "@/types";
 import { CompanyGrid, ResumeWarning, Select } from "./controls";
 import { ProcessorCard } from "./processorCard";
 import {
@@ -82,7 +73,9 @@ export function strictnessLevelIndex(strictness: number): number {
 }
 
 export function strictnessLabelKey(strictness: number): StrictnessLabelKey {
-  return STRICTNESS_LEVELS[strictnessLevelIndex(strictness)]?.labelKey ?? "setup.strictness.balanced";
+  return (
+    STRICTNESS_LEVELS[strictnessLevelIndex(strictness)]?.labelKey ?? "setup.strictness.balanced"
+  );
 }
 
 export function ResumeSelect({
@@ -100,7 +93,9 @@ export function ResumeSelect({
       label={t("setup.resume.label")}
       value={String(value)}
       options={resumes.map((r) => String(r.id))}
-      labels={resumes.map((r) => (r.is_active ? t("setup.resume.activeItem", { name: r.filename }) : r.filename))}
+      labels={resumes.map((r) =>
+        r.is_active ? t("setup.resume.activeItem", { name: r.filename }) : r.filename,
+      )}
       onChange={(v) => onChange(Number(v))}
     />
   );
@@ -156,9 +151,7 @@ export function SetupFields({
   const t = useT("interview");
   const { locale } = useLocale();
   const localized = localizeOptions(options, t, locale);
-  const roleSelectValue = isPresetRole(config.role, options.roles)
-    ? config.role
-    : CUSTOM_ROLE_ID;
+  const roleSelectValue = isPresetRole(config.role, options.roles) ? config.role : CUSTOM_ROLE_ID;
   const customRoleText = roleSelectValue === CUSTOM_ROLE_ID ? config.role : "";
   const companyIsCustom = !isPresetCompany(config.company, options.companies);
   const customCompanyText = companyIsCustom ? config.company : "";
@@ -270,9 +263,7 @@ export function SetupFields({
               options={options.avatars.map((a) => a.id)}
               labels={options.avatars.map((a) => {
                 const name = avatarLabel(a.id, locale);
-                const voiceName = a.voice
-                  ? voiceLabel(a.voice, t)
-                  : "";
+                const voiceName = a.voice ? voiceLabel(a.voice, t) : "";
                 return voiceName ? t("setup.avatar.voiceMatch", { name, voice: voiceName }) : name;
               })}
               onChange={(v) => onConfig({ avatar_id: v })}
@@ -295,7 +286,11 @@ export function SetupFields({
             }
           />
           {resumes.length > 0 ? (
-            <ResumeSelect resumes={resumes} value={config.resume_id ?? null} onChange={(v) => onConfig({ resume_id: v })} />
+            <ResumeSelect
+              resumes={resumes}
+              value={config.resume_id ?? null}
+              onChange={(v) => onConfig({ resume_id: v })}
+            />
           ) : (
             <ResumeWarning />
           )}

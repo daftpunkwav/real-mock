@@ -11,7 +11,7 @@ describe("highlightCode", () => {
 
   it("colors python keywords, strings, comments, and def function names", () => {
     const out = highlightCode(
-      "# hi\ndef reverse_list(head):\n    return None\n    s = \"abc\"\n",
+      '# hi\ndef reverse_list(head):\n    return None\n    s = "abc"\n',
       "python",
     );
     expect(out).toContain('class="tok-com"');

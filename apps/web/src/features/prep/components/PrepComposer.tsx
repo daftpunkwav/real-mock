@@ -21,7 +21,12 @@ import {
   stripHashQuery,
   type PendingSessionRef,
 } from "../sessionRefs";
-import { matchSlashCommands, parseSlashCommand, resolveSlashCommand, type SlashName } from "../slashCommands";
+import {
+  matchSlashCommands,
+  parseSlashCommand,
+  resolveSlashCommand,
+  type SlashName,
+} from "../slashCommands";
 import type { PrepChatMessage } from "../types";
 
 interface PrepComposerProps {
@@ -59,16 +64,55 @@ interface PrepComposerProps {
   onRemoveRef: (id: number) => void;
 }
 
-
 /** Backend bucket keys in panel order with stable colors. */
-const BUCKET_ORDER: { key: string; color: string; label: MessageKey<"common">; hint: MessageKey<"common"> }[] = [
-  { key: "user", color: "var(--primary)", label: "context.bucket.user", hint: "context.bucket.userHint" },
-  { key: "assistant", color: "#8b5cf6", label: "context.bucket.assistant", hint: "context.bucket.assistantHint" },
-  { key: "thinking", color: "#f59e0b", label: "context.bucket.thinking", hint: "context.bucket.thinkingHint" },
-  { key: "tools", color: "#22c55e", label: "context.bucket.tools", hint: "context.bucket.toolsHint" },
-  { key: "system", color: "#94a3b8", label: "context.bucket.system", hint: "context.bucket.systemHint" },
-  { key: "memory", color: "#ec4899", label: "context.bucket.memory", hint: "context.bucket.memoryHint" },
-  { key: "other", color: "#64748b", label: "context.bucket.other", hint: "context.bucket.otherHint" },
+const BUCKET_ORDER: {
+  key: string;
+  color: string;
+  label: MessageKey<"common">;
+  hint: MessageKey<"common">;
+}[] = [
+  {
+    key: "user",
+    color: "var(--primary)",
+    label: "context.bucket.user",
+    hint: "context.bucket.userHint",
+  },
+  {
+    key: "assistant",
+    color: "#8b5cf6",
+    label: "context.bucket.assistant",
+    hint: "context.bucket.assistantHint",
+  },
+  {
+    key: "thinking",
+    color: "#f59e0b",
+    label: "context.bucket.thinking",
+    hint: "context.bucket.thinkingHint",
+  },
+  {
+    key: "tools",
+    color: "#22c55e",
+    label: "context.bucket.tools",
+    hint: "context.bucket.toolsHint",
+  },
+  {
+    key: "system",
+    color: "#94a3b8",
+    label: "context.bucket.system",
+    hint: "context.bucket.systemHint",
+  },
+  {
+    key: "memory",
+    color: "#ec4899",
+    label: "context.bucket.memory",
+    hint: "context.bucket.memoryHint",
+  },
+  {
+    key: "other",
+    color: "#64748b",
+    label: "context.bucket.other",
+    hint: "context.bucket.otherHint",
+  },
 ];
 
 export function PrepComposer({
@@ -100,11 +144,7 @@ export function PrepComposer({
 }: PrepComposerProps) {
   const t = useT("prep");
   const tc = useT("common");
-  const selectedModel = resolveSelectedModel(
-    chatModels,
-    selectedModelId,
-    defaultChatProfile,
-  );
+  const selectedModel = resolveSelectedModel(chatModels, selectedModelId, defaultChatProfile);
   const win = selectedModel?.context_window || 0;
   // Local fallback estimate (no reasoning/tool split for server-side blocks).
   const est = estimatePrepContext(messages, tokenUsage);
@@ -126,11 +166,14 @@ export function PrepComposer({
   // Fall back to the mechanical estimates (flagged as estimated) when the
   // provider reported nothing.
   const reportedUsed = (reportedContext.prompt || 0) + (reportedContext.completion || 0);
-  const used = reportedUsed > 0
-    ? reportedUsed
-    : Math.max(est.used, contextTotal || 0, tokenUsage || 0);
+  const used =
+    reportedUsed > 0 ? reportedUsed : Math.max(est.used, contextTotal || 0, tokenUsage || 0);
   // Mechanical input fallback when the provider reported no prompt usage.
-  const estimated = Math.max(estimatedPrompt || 0, contextTotal || 0, Math.round(est.measuredTotal));
+  const estimated = Math.max(
+    estimatedPrompt || 0,
+    contextTotal || 0,
+    Math.round(est.measuredTotal),
+  );
 
   // Slash-command menu: typing "/" filters; Enter runs the highlight.
   const slashParsed = useMemo(() => parseSlashCommand(input), [input]);
@@ -170,7 +213,13 @@ export function PrepComposer({
   const hashCandidates = useMemo(
     () =>
       hashQuery
-        ? refCandidates(sessions, currentSessionId, pickedIds, hashQuery.query, t("sessions.newSessionFallback"))
+        ? refCandidates(
+            sessions,
+            currentSessionId,
+            pickedIds,
+            hashQuery.query,
+            t("sessions.newSessionFallback"),
+          )
         : [],
     [hashQuery, sessions, currentSessionId, pickedIds, t],
   );
@@ -219,7 +268,9 @@ export function PrepComposer({
             className="surface-card absolute bottom-full left-0 z-40 mb-2 max-h-64 w-80 overflow-y-auto !p-1 shadow-lg"
           >
             {hashCandidates.length === 0 ? (
-              <p className="px-2.5 py-2 text-[12px] text-ink-subtle">{t("composer.refMenuEmpty")}</p>
+              <p className="px-2.5 py-2 text-[12px] text-ink-subtle">
+                {t("composer.refMenuEmpty")}
+              </p>
             ) : (
               hashCandidates.map((candidate, i) => (
                 <button
@@ -297,7 +348,11 @@ export function PrepComposer({
               e.preventDefault();
               const dir = e.key === "ArrowDown" ? 1 : -1;
               if (hashOpen) {
-                setHashHighlight((h) => (hashCandidates.length === 0 ? 0 : (h + dir + hashCandidates.length) % hashCandidates.length));
+                setHashHighlight((h) =>
+                  hashCandidates.length === 0
+                    ? 0
+                    : (h + dir + hashCandidates.length) % hashCandidates.length,
+                );
               } else {
                 setSlashHighlight((h) => (h + dir + slashMatches.length) % slashMatches.length);
               }
@@ -356,18 +411,20 @@ export function PrepComposer({
             />
           </div>
           <div className="shrink-0 [&_button]:h-7 [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-1.5 [&_button]:shadow-none [&_button]:min-w-[76px]">
-            <EffortSelect
-              model={selectedModel}
-              value={effort}
-              onChange={onEffortChange}
-            />
+            <EffortSelect model={selectedModel} value={effort} onChange={onEffortChange} />
           </div>
           <button
             type="button"
             onClick={loading ? onStop : onSend}
             disabled={compacting && !loading}
             className="btn-primary h-8 w-8 shrink-0 !rounded-full !p-0 disabled:opacity-50"
-            aria-label={loading ? t("composer.stop") : compacting ? t("composer.compacting") : t("composer.send")}
+            aria-label={
+              loading
+                ? t("composer.stop")
+                : compacting
+                  ? t("composer.compacting")
+                  : t("composer.send")
+            }
           >
             {loading ? <Square size={13} fill="currentColor" /> : <Send size={14} />}
           </button>

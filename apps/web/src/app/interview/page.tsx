@@ -6,10 +6,7 @@ import { useT } from "@/i18n";
 import { Play } from "lucide-react";
 import { LoadError } from "@/components/LoadError";
 import { useInterviewSetup } from "@/features/interview/hooks/useInterviewSetup";
-import {
-  ContinueProcesses,
-  useProcessContinuation,
-} from "@/features/interview/processes";
+import { ContinueProcesses, useProcessContinuation } from "@/features/interview/processes";
 import { SetupFields } from "@/features/interview/setup/fields";
 import { SetupHeader, SetupLoading, SetupMain } from "@/features/interview/setup/shell";
 import { InterviewPreview } from "@/features/interview/setup/preview";

@@ -7,7 +7,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { asAnalysis, bandColor, dimComment, dimScore, percentileFromScore, scoreBand } from "../analysisFormat";
+import {
+  asAnalysis,
+  bandColor,
+  dimComment,
+  dimScore,
+  percentileFromScore,
+  scoreBand,
+} from "../analysisFormat";
 import { visibleAnalysisTabIds, TAB_LABEL_KEYS } from "../analysisTabs";
 import { normalizeParsedProfile, normalizeResumeList } from "../resumeNormalize";
 import { shortSkillLabel } from "../resumePreview";
@@ -85,7 +92,9 @@ describe("visibleAnalysisTabIds", () => {
   it("adds document / projects / interview / advice when those fields have content", () => {
     const tabs = visibleAnalysisTabIds({
       score: 10,
-      project_cards: [{ name: "P", score: 1, one_line: "", highlights: [], risks: [], deep_questions: [] }],
+      project_cards: [
+        { name: "P", score: 1, one_line: "", highlights: [], risks: [], deep_questions: [] },
+      ],
       interview_qa: [{ question: "Q", intent: "", answer_points: [], follow_ups: [] }],
       skill_trust: { solid: ["Py"], claimed: [], missing: [] },
       layout_review: "cramped",

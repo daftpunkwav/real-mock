@@ -6,9 +6,5 @@ import { useT } from "@/i18n";
 export function ShortSessionAlert({ show }: { show: boolean }) {
   const t = useT("report");
   if (!show) return null;
-  return (
-    <div className="alert alert-warning">
-      {t("alerts.shortSession")}
-    </div>
-  );
+  return <div className="alert alert-warning">{t("alerts.shortSession")}</div>;
 }

@@ -74,7 +74,8 @@ export function PrepSidePanel({
             {selectedResume && (
               <p className="mt-1.5 text-[11px] text-ink-subtle">
                 {selectedResume.is_active ? t("panel.resumeActive") : t("panel.resumeInactive")}
-                {selectedResume.score != null && t("panel.resumeScore", { score: selectedResume.score })}
+                {selectedResume.score != null &&
+                  t("panel.resumeScore", { score: selectedResume.score })}
               </p>
             )}
           </>

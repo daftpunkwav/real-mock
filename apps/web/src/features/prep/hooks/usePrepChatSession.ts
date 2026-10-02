@@ -64,7 +64,9 @@ async function loadHistory(id: number): Promise<PrepHistoryMessage[]> {
     } catch (retryError) {
       if (!isUnreachable(retryError)) throw retryError;
       const t = getTranslator("prep");
-      throw new Error((await isBackendReachable()) ? t("sessions.backendUnstable") : t("sessions.backendDown"));
+      throw new Error(
+        (await isBackendReachable()) ? t("sessions.backendUnstable") : t("sessions.backendDown"),
+      );
     }
   }
 }
@@ -300,7 +302,16 @@ export function usePrepChatSession({
         }
       }
     },
-    [prepSessionId, sessions, nextMsgId, setMessages, setAskDialog, seedBackendCount, resetContext, refreshContext],
+    [
+      prepSessionId,
+      sessions,
+      nextMsgId,
+      setMessages,
+      setAskDialog,
+      seedBackendCount,
+      resetContext,
+      refreshContext,
+    ],
   );
 
   const startPrep = useCallback(async () => {
@@ -393,9 +404,21 @@ export function usePrepChatSession({
       ...(u.requests !== undefined || prev?.requests !== undefined
         ? { requests: u.requests ?? prev?.requests ?? 0 }
         : {}),
-      ...(u.last_request_id !== undefined ? { last_request_id: u.last_request_id } : prev?.last_request_id !== undefined ? { last_request_id: prev.last_request_id } : {}),
-      ...(u.last_latency_ms !== undefined ? { last_latency_ms: u.last_latency_ms } : prev?.last_latency_ms !== undefined ? { last_latency_ms: prev.last_latency_ms } : {}),
-      ...(u.last_error !== undefined ? { last_error: u.last_error } : prev?.last_error !== undefined ? { last_error: prev.last_error } : {}),
+      ...(u.last_request_id !== undefined
+        ? { last_request_id: u.last_request_id }
+        : prev?.last_request_id !== undefined
+          ? { last_request_id: prev.last_request_id }
+          : {}),
+      ...(u.last_latency_ms !== undefined
+        ? { last_latency_ms: u.last_latency_ms }
+        : prev?.last_latency_ms !== undefined
+          ? { last_latency_ms: prev.last_latency_ms }
+          : {}),
+      ...(u.last_error !== undefined
+        ? { last_error: u.last_error }
+        : prev?.last_error !== undefined
+          ? { last_error: prev.last_error }
+          : {}),
     }));
   }, []);
 

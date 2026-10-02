@@ -22,7 +22,13 @@ function profile(id: number, label: string): ModelProfile {
     label,
     context_window: 8000,
     max_output: 2000,
-    capabilities: { chat: true, vision: false, audio_input: false, audio_output: false, reasoning: false },
+    capabilities: {
+      chat: true,
+      vision: false,
+      audio_input: false,
+      audio_output: false,
+      reasoning: false,
+    },
     extras: {},
     enabled: true,
   };

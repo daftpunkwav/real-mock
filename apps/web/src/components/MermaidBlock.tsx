@@ -195,9 +195,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const source = chart.trimEnd();
 
   const diagramPane = (tall: boolean) => (
-    <div
-      className={`overflow-auto bg-surface-alt ${tall ? "max-h-[76vh]" : "max-h-[480px]"}`}
-    >
+    <div className={`overflow-auto bg-surface-alt ${tall ? "max-h-[76vh]" : "max-h-[480px]"}`}>
       {svg ? (
         <div
           className={zoomPct <= 100 ? "mx-auto" : undefined}
@@ -225,9 +223,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
               <summary className="cursor-pointer underline underline-offset-2">
                 {t("code.errorDetail")}
               </summary>
-              <p className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap">
-                {failure}
-              </p>
+              <p className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap">{failure}</p>
             </details>
           </div>
         </div>
@@ -264,9 +260,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
       </button>
       <button
         type="button"
-        onClick={() =>
-          setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))
-        }
+        onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
         disabled={!canZoom || zoomIndex >= ZOOM_STEPS.length - 1}
         className="rounded p-1.5 text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={t("code.zoomIn")}
@@ -351,9 +345,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
-              <span className="truncate text-[13px] font-medium text-ink">
-                {t("code.diagram")}
-              </span>
+              <span className="truncate text-[13px] font-medium text-ink">{t("code.diagram")}</span>
               <div className="flex items-center gap-0.5">
                 {controls}
                 <button

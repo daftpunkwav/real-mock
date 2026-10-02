@@ -29,7 +29,9 @@ interface AnalyzeStreamDeps {
 
 export function useAnalyzeStream({ resumes, load, setPreviewId }: AnalyzeStreamDeps) {
   const [analyzingIds, setAnalyzingIds] = useState<number[]>([]);
-  const [analyzeProgressById, setAnalyzeProgressById] = useState<Record<number, ReviewLiveState>>({});
+  const [analyzeProgressById, setAnalyzeProgressById] = useState<Record<number, ReviewLiveState>>(
+    {},
+  );
   const [analyzeError, setAnalyzeError] = useState("");
   const analyzingIdsRef = useRef<number[]>([]);
 

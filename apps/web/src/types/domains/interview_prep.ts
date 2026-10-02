@@ -128,10 +128,12 @@ export type PrepSSEEvent =
   | { type: "token"; content: string }
   | { type: "status"; text: string }
   | { type: "thinking"; content: string }
-  | ({ type: "tool_step"; name: string; query: string } & Partial<Pick<PrepToolStep, "args" | "result">>)
+  | ({ type: "tool_step"; name: string; query: string } & Partial<
+      Pick<PrepToolStep, "args" | "result">
+    >)
   | { type: "search_results"; groups: PrepSearchGroup[] }
   | ({ type: "ask_user" } & Partial<AskUserDialog> & Pick<AskUserDialog, "question" | "options">)
-  | PrepUsageStats & { type: "usage" }
+  | (PrepUsageStats & { type: "usage" })
   | (PrepCompactionEvent & { type: "compaction" })
   /** Terminal envelope: session-level estimate plus provider-reported session totals. */
   | {

@@ -53,7 +53,11 @@ function toDate(value: DateInput): Date {
   return parseTimestamp(value);
 }
 
-function formatDateWith(value: DateInput, cacheKey: string, opts: Intl.DateTimeFormatOptions): string {
+function formatDateWith(
+  value: DateInput,
+  cacheKey: string,
+  opts: Intl.DateTimeFormatOptions,
+): string {
   const date = toDate(value);
   // Match native toLocaleString fallback: invalid input returns a marker string, does not throw
   if (Number.isNaN(date.getTime())) return "Invalid Date";

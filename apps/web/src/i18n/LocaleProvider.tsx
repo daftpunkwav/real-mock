@@ -39,10 +39,7 @@ export function LocaleProvider({
     applyDocumentLocale(next);
   }, []);
 
-  const value = useMemo(
-    () => ({ locale, setLocale, locales: LOCALES }),
-    [locale, setLocale],
-  );
+  const value = useMemo(() => ({ locale, setLocale, locales: LOCALES }), [locale, setLocale]);
 
   // Title is rendered by React (hoisted into <head>): imperative document.title
   // gets reset by the metadata mechanism after hydration back to the SSR default.

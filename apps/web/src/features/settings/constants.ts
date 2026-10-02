@@ -26,10 +26,7 @@ export const KIND_META: {
 ];
 
 /** Capability defaults for a new entry created under each tab. */
-export const KIND_DEFAULT_CAPS: Record<
-  ModelKind,
-  ModelProfile["capabilities"]
-> = {
+export const KIND_DEFAULT_CAPS: Record<ModelKind, ModelProfile["capabilities"]> = {
   chat: { chat: true, vision: false, audio_input: false, audio_output: false, reasoning: false },
   stt: { chat: false, vision: false, audio_input: true, audio_output: false, reasoning: false },
   tts: { chat: false, vision: false, audio_input: false, audio_output: true, reasoning: false },

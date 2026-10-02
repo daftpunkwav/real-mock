@@ -107,8 +107,7 @@ export function useFaceAnalysisLoop({
             // Score nervousness once at least 3 samples exist.
             if (jitterHistory.current.length >= 3) {
               const avg =
-                jitterHistory.current.reduce((a, b) => a + b, 0) /
-                jitterHistory.current.length;
+                jitterHistory.current.reduce((a, b) => a + b, 0) / jitterHistory.current.length;
               const variance =
                 jitterHistory.current.reduce((s, v) => s + (v - avg) ** 2, 0) /
                 jitterHistory.current.length;

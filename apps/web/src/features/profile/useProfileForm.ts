@@ -26,8 +26,7 @@ export function useProfileForm() {
   const stats = useMemo(() => completionStatsOf(editor.profile), [editor.profile]);
   const save = useProfileSave(editor, stats);
   const nav = useUnsavedNavigation(editor.dirty);
-  const canClear =
-    editor.profile !== null && (editor.dirty || !isProfileBlank(editor.profile));
+  const canClear = editor.profile !== null && (editor.dirty || !isProfileBlank(editor.profile));
 
   const patch = <K extends keyof UserProfileResponse>(key: K, value: UserProfileResponse[K]) => {
     editor.patch(key, value);

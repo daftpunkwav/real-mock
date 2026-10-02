@@ -30,9 +30,7 @@ export function useTokenBatch(
     if (!p) return;
     pendingTokenRef.current = null;
     setMessages((m) =>
-      m.map((msg) =>
-        msg.id === p.id ? { ...msg, content: msg.content + p.text } : msg,
-      ),
+      m.map((msg) => (msg.id === p.id ? { ...msg, content: msg.content + p.text } : msg)),
     );
   }, [setMessages]);
 

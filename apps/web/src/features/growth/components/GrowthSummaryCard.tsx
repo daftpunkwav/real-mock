@@ -28,8 +28,7 @@ export function GrowthSummaryCard({
         <div
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white"
           style={{
-            background:
-              "linear-gradient(135deg, var(--chart-3), var(--chart-2))",
+            background: "linear-gradient(135deg, var(--chart-3), var(--chart-2))",
           }}
         >
           <TrendingUp size={20} strokeWidth={2} />
@@ -74,10 +73,7 @@ export function GrowthSummaryCard({
           </p>
           <ul className="space-y-2">
             {topWeaknesses.slice(0, 4).map(([skill], i) => (
-              <li
-                key={skill}
-                className="flex gap-2 text-[11px] leading-relaxed text-ink-muted"
-              >
+              <li key={skill} className="flex gap-2 text-[11px] leading-relaxed text-ink-muted">
                 <span className="font-mono shrink-0 font-semibold text-[var(--warning)] num-tabular">
                   {i + 1}.
                 </span>
@@ -94,10 +90,7 @@ export function GrowthSummaryCard({
           </p>
           <ul className="space-y-1.5">
             {selected.training_plan.slice(0, 3).map((step, i) => (
-              <li
-                key={i}
-                className="flex gap-1.5 text-[11px] leading-relaxed text-ink-muted"
-              >
+              <li key={i} className="flex gap-1.5 text-[11px] leading-relaxed text-ink-muted">
                 <span className="shrink-0 font-semibold text-[var(--primary)]">{i + 1}.</span>
                 <span className="line-clamp-2">{step}</span>
               </li>

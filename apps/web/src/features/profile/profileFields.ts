@@ -74,9 +74,9 @@ export const PROFILE_FIELDS = {
 } as const satisfies Record<keyof UserProfileUpdate, ProfileFieldSpec>;
 
 /** Reject extra catalog keys that UserProfileUpdate does not declare. */
-type _CatalogKeysExact = [
-  Exclude<keyof typeof PROFILE_FIELDS, keyof UserProfileUpdate>,
-] extends [never]
+type _CatalogKeysExact = [Exclude<keyof typeof PROFILE_FIELDS, keyof UserProfileUpdate>] extends [
+  never,
+]
   ? true
   : never;
 const _catalogKeysExact: _CatalogKeysExact = true;
@@ -110,12 +110,10 @@ export const REQUIRED_KEYS = FIELD_KEYS.filter(
   (key): key is RequiredKey => PROFILE_FIELDS[key].required,
 );
 
-export const OPTIONAL_COMPLETION_KEYS = FIELD_KEYS.filter(
-  (key): key is OptionalCompletionKey => {
-    const spec = PROFILE_FIELDS[key];
-    return !spec.required && spec.kind === "string" && spec.inCompletion;
-  },
-);
+export const OPTIONAL_COMPLETION_KEYS = FIELD_KEYS.filter((key): key is OptionalCompletionKey => {
+  const spec = PROFILE_FIELDS[key];
+  return !spec.required && spec.kind === "string" && spec.inCompletion;
+});
 
 export const PROFILE_FIELD_LIMITS = Object.fromEntries(
   FIELD_KEYS.filter((key): key is StringFieldKey => PROFILE_FIELDS[key].kind === "string").map(

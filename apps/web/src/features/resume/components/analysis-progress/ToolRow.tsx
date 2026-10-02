@@ -42,7 +42,10 @@ export function ToolRow({
       >
         <ChevronRight
           size={13}
-          className={cn("mt-0.5 shrink-0 text-ink-subtle transition-transform", expanded && "rotate-90")}
+          className={cn(
+            "mt-0.5 shrink-0 text-ink-subtle transition-transform",
+            expanded && "rotate-90",
+          )}
         />
         <Icon
           size={13}

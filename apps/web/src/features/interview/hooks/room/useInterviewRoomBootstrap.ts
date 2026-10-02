@@ -38,9 +38,7 @@ export function useInterviewRoomBootstrap(sessionId: number) {
   const [restoredPhase, setRestoredPhase] = useState("");
   const [sessionStatus, setSessionStatus] = useState("");
   const [silenceNudgeMs, setSilenceNudgeMs] = useState(25000);
-  const [phaseLabelOverlay, setPhaseLabelOverlay] = useState<Record<string, string> | null>(
-    null,
-  );
+  const [phaseLabelOverlay, setPhaseLabelOverlay] = useState<Record<string, string> | null>(null);
   const [lastAssistantContent, setLastAssistantContent] = useState("");
   const [historySessionId, setHistorySessionId] = useState<number | null>(null);
   const [historyError, setHistoryError] = useState(false);

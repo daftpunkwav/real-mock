@@ -5,16 +5,8 @@
  * Also holds the current locale for non-React callers (getTranslator/getLocale).
  */
 
-import {
-  DEFAULT_LOCALE,
-  isLocaleId,
-  type LocaleId,
-} from "./locales";
-import {
-  messageCatalog,
-  type MessageKey,
-  type NamespaceId,
-} from "./catalog";
+import { DEFAULT_LOCALE, isLocaleId, type LocaleId } from "./locales";
+import { messageCatalog, type MessageKey, type NamespaceId } from "./catalog";
 
 export type TranslateValues = Record<string, string | number>;
 
@@ -48,10 +40,7 @@ export function peekMessage(locale: LocaleId, ns: NamespaceId, key: string): str
   return table[key] ?? fallback[key];
 }
 
-export function createTranslator<N extends NamespaceId>(
-  locale: LocaleId,
-  ns: N,
-): Translator<N> {
+export function createTranslator<N extends NamespaceId>(locale: LocaleId, ns: N): Translator<N> {
   // Defense: unregistered locale at runtime (e.g. hand-edited storage) falls back to default
   const active = isLocaleId(locale) ? locale : DEFAULT_LOCALE;
   const table = messageCatalog[active][ns] as Record<string, string>;

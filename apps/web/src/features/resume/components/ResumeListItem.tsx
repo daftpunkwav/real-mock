@@ -68,18 +68,14 @@ export function ResumeListItem({
       >
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${
-            selected
-              ? "bg-[var(--primary)] text-white"
-              : "bg-surface-alt text-ink-subtle"
+            selected ? "bg-[var(--primary)] text-white" : "bg-surface-alt text-ink-subtle"
           }`}
         >
           <FileText size={15} strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-[13px] font-medium text-ink">
-              {r.filename}
-            </span>
+            <span className="truncate text-[13px] font-medium text-ink">{r.filename}</span>
             {r.is_active && <span className="chip chip-blue">{t("item.chipActive")}</span>}
             {r.score != null && (
               <span className="chip chip-green">{t("item.scoreChip", { score: r.score })}</span>
@@ -90,9 +86,7 @@ export function ResumeListItem({
                 {t("item.chipParsing")}
               </span>
             )}
-            {parseFailed && (
-              <span className="chip chip-red">{t("item.chipParseFailed")}</span>
-            )}
+            {parseFailed && <span className="chip chip-red">{t("item.chipParseFailed")}</span>}
           </div>
           <p className="mt-0.5 text-[11px] text-ink-subtle">
             {r.file_type.toUpperCase()}
@@ -192,11 +186,7 @@ export function ResumeListItem({
             disabled={analyzing}
             className="btn-primary !h-8 !px-3 !text-xs"
           >
-            {analyzing ? (
-              <Spinner className="h-3 w-3" />
-            ) : (
-              <Sparkles size={12} />
-            )}
+            {analyzing ? <Spinner className="h-3 w-3" /> : <Sparkles size={12} />}
             {analyzing ? t("item.analyzing") : t("item.analyze")}
           </button>
         </div>

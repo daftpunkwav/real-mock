@@ -20,10 +20,22 @@ export function useInterviewRoom(sessionId: number) {
   const router = useRouter();
   const bootstrap = useInterviewRoomBootstrap(sessionId);
 
-  const { connected, everConnected, turnState, connectionState, reconnectAttempt, send, on, retryNow } =
-    useInterviewWS(bootstrap.sessionIdValid ? sessionId : 0);
+  const {
+    connected,
+    everConnected,
+    turnState,
+    connectionState,
+    reconnectAttempt,
+    send,
+    on,
+    retryNow,
+  } = useInterviewWS(bootstrap.sessionIdValid ? sessionId : 0);
 
-  const { state: st, set: setSt, refs: rf } = useInterviewRoomState({
+  const {
+    state: st,
+    set: setSt,
+    refs: rf,
+  } = useInterviewRoomState({
     sessionId,
     historySessionId: bootstrap.historySessionId,
     historyMessages: bootstrap.historyMessages,
@@ -33,17 +45,24 @@ export function useInterviewRoom(sessionId: number) {
     send,
   });
 
-  const { playBase64Mp3, unlockAudio, flushHeldQueue, retryLastFailed, stopTTS, isActivelyPlaying, audioUnlocked } =
-    useInterviewRoomTtsBinding({
-      playbackGenRef: rf.playbackGenRef,
-      lastPlaybackDoneGenRef: rf.lastPlaybackDoneGenRef,
-      sendRef: rf.sendRef,
-      bumpSilenceTimerRef: rf.bumpSilenceTimerRef,
-      awaitingSpeechEndRef: rf.awaitingSpeechEndRef,
-      speechFallbackRef: rf.speechFallbackRef,
-      setAiSpeaking: setSt.setAiSpeaking,
-      setAudioBlocked: setSt.setAudioBlocked,
-    });
+  const {
+    playBase64Mp3,
+    unlockAudio,
+    flushHeldQueue,
+    retryLastFailed,
+    stopTTS,
+    isActivelyPlaying,
+    audioUnlocked,
+  } = useInterviewRoomTtsBinding({
+    playbackGenRef: rf.playbackGenRef,
+    lastPlaybackDoneGenRef: rf.lastPlaybackDoneGenRef,
+    sendRef: rf.sendRef,
+    bumpSilenceTimerRef: rf.bumpSilenceTimerRef,
+    awaitingSpeechEndRef: rf.awaitingSpeechEndRef,
+    speechFallbackRef: rf.speechFallbackRef,
+    setAiSpeaking: setSt.setAiSpeaking,
+    setAudioBlocked: setSt.setAudioBlocked,
+  });
 
   // Stabilize the playback-busy probe for the closing-navigation wait: the raw
   // callback is re-created per render, but the underlying refs are live.
@@ -114,7 +133,12 @@ export function useInterviewRoom(sessionId: number) {
     sessionId,
   });
 
-  const recorderRef = useRef<RecorderBridge>({ flush: () => {}, isRecording: false, partialText: "", micError: "" });
+  const recorderRef = useRef<RecorderBridge>({
+    flush: () => {},
+    isRecording: false,
+    partialText: "",
+    micError: "",
+  });
 
   const actions = useInterviewRoomActions({
     setInputText: setSt.setInputText,

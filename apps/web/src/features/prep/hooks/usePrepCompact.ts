@@ -14,7 +14,12 @@ import { formatTokens } from "@/components/ModelControls";
 import { prepCoachHttp as api } from "@/lib/api/clients";
 import { ApiError, formatApiError } from "@/lib/api/base";
 import type { PrepChatMessage } from "../types";
-import { loadArchive, pushArchivedGroup, toArchivedCopy, type ArchivedGroup } from "../compactionArchive";
+import {
+  loadArchive,
+  pushArchivedGroup,
+  toArchivedCopy,
+  type ArchivedGroup,
+} from "../compactionArchive";
 import { hasActiveStream } from "../streamRegistry";
 
 export interface CompactRunParams {

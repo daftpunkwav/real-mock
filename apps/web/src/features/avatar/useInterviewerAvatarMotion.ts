@@ -20,7 +20,13 @@ export interface InterviewerAvatarMotion {
   bob: number;
 }
 
-const IDLE: InterviewerAvatarMotion = { mouthOpen: 0, mouthWide: 0, mouthRound: 0, blink: 1, bob: 0 };
+const IDLE: InterviewerAvatarMotion = {
+  mouthOpen: 0,
+  mouthWide: 0,
+  mouthRound: 0,
+  blink: 1,
+  bob: 0,
+};
 
 /**
  * 2D portrait performance: lips follow the shared TTS level sink with the same
@@ -83,13 +89,16 @@ export function useInterviewerAvatarMotion(
       timers.add(id);
     };
     const schedule = () => {
-      later(() => {
-        setMotion((m) => ({ ...m, blink: 0.08 }));
-        later(() => {
-          setMotion((m) => ({ ...m, blink: 1 }));
-          schedule();
-        }, 120);
-      }, 2800 + Math.random() * 3200);
+      later(
+        () => {
+          setMotion((m) => ({ ...m, blink: 0.08 }));
+          later(() => {
+            setMotion((m) => ({ ...m, blink: 1 }));
+            schedule();
+          }, 120);
+        },
+        2800 + Math.random() * 3200,
+      );
     };
     schedule();
     return () => {

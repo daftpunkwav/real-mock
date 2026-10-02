@@ -109,9 +109,7 @@ describe("formatApiError", () => {
   it("emits Chinese copy when locale is zh-CN", () => {
     setCurrentLocale("zh-CN");
     const e = new ApiError("any", 404, { code: "A1005" });
-    expect(formatApiError(e)).toBe(
-      "[A1005] 简历不存在\n简历可能已被删除，请刷新列表",
-    );
+    expect(formatApiError(e)).toBe("[A1005] 简历不存在\n简历可能已被删除，请刷新列表");
   });
 
   it("falls back to server message when catalog has placeholders but no params", () => {
@@ -167,10 +165,7 @@ describe("consumeSSE", () => {
   it("reports heartbeat comments and data reads as keepalive", async () => {
     const events: { type: string }[] = [];
     let keepAlive = 0;
-    const res = sseResponse([
-      ': ping\n\ndata: {"type":"token"}\n',
-      ': ping\n',
-    ]);
+    const res = sseResponse([': ping\n\ndata: {"type":"token"}\n', ": ping\n"]);
     await consumeSSE(
       res,
       (event) => {

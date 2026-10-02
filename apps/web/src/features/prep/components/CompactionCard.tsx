@@ -95,7 +95,10 @@ export function CompactionCard({
           </span>
           <ChevronRight
             size={12}
-            className={cn("ml-auto shrink-0 text-ink-subtle transition-transform", expanded && "rotate-90")}
+            className={cn(
+              "ml-auto shrink-0 text-ink-subtle transition-transform",
+              expanded && "rotate-90",
+            )}
           />
         </button>
         {expanded && (
@@ -110,10 +113,20 @@ export function CompactionCard({
                   placeholder={t("compactCard.editPlaceholder")}
                 />
                 <div className="flex gap-2">
-                  <button type="button" className="btn-primary text-[12px]" disabled={busyAll || !draft.trim()} onClick={() => void saveEdit()}>
+                  <button
+                    type="button"
+                    className="btn-primary text-[12px]"
+                    disabled={busyAll || !draft.trim()}
+                    onClick={() => void saveEdit()}
+                  >
                     {t("compactCard.save")}
                   </button>
-                  <button type="button" className="btn-secondary text-[12px]" disabled={busy} onClick={() => setEditing(false)}>
+                  <button
+                    type="button"
+                    className="btn-secondary text-[12px]"
+                    disabled={busy}
+                    onClick={() => setEditing(false)}
+                  >
                     {t("compactCard.cancel")}
                   </button>
                 </div>
@@ -135,16 +148,26 @@ export function CompactionCard({
                     {t("compactCard.edit")}
                   </button>
                 ) : null}
-            {editable ? (
-              <button type="button" className="btn-secondary text-[12px]" disabled={busyAll} onClick={regenerate}>
-                {t("compactCard.regenerate")}
-              </button>
-            ) : null}
+                {editable ? (
+                  <button
+                    type="button"
+                    className="btn-secondary text-[12px]"
+                    disabled={busyAll}
+                    onClick={regenerate}
+                  >
+                    {t("compactCard.regenerate")}
+                  </button>
+                ) : null}
                 {card.backupSessionId !== null && card.forkPoint !== null ? (
                   <button
                     type="button"
                     className="btn-secondary text-[12px]"
-                    onClick={() => actions.onForkFromPoint(card.backupSessionId as number, card.forkPoint as number)}
+                    onClick={() =>
+                      actions.onForkFromPoint(
+                        card.backupSessionId as number,
+                        card.forkPoint as number,
+                      )
+                    }
                   >
                     {t("compactCard.forkFromPoint")}
                   </button>

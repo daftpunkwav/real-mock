@@ -42,7 +42,8 @@ export async function consumeSSE<TEvent extends { type: string }>(
   onEvent: (event: TEvent) => void,
   onKeepAlive?: () => void,
 ): Promise<void> {
-  if (!res.body) throw new ApiError("Streaming response unavailable", res.status, { code: "NET0005" });
+  if (!res.body)
+    throw new ApiError("Streaming response unavailable", res.status, { code: "NET0005" });
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

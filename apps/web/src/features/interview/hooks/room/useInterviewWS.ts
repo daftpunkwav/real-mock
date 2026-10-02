@@ -156,7 +156,10 @@ export function useInterviewWS(
         setConnected(false);
 
         // Skip reconnect for intentional client-side closes.
-        if (ev.code === 1000 && (ev.reason === "client_cancel" || ev.reason === "replace" || ev.reason === "stale")) {
+        if (
+          ev.code === 1000 &&
+          (ev.reason === "client_cancel" || ev.reason === "replace" || ev.reason === "stale")
+        ) {
           return;
         }
 

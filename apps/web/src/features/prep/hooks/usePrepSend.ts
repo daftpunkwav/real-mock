@@ -225,7 +225,8 @@ export function usePrepSend(opts: {
       // bubble carries its backend index even when composed while streaming).
       // A full queue refuses the send and keeps the input so nothing is lost.
       if ((queuesRef.current.get(sid) ?? []).length >= MAX_QUEUED_PER_SESSION) return false;
-      const queuedIndex = sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, RESERVE_TURN_INDICES);
+      const queuedIndex =
+        sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, RESERVE_TURN_INDICES);
       if (viewing && !skipUserMessage) {
         setMessages((m) => [
           ...m,
@@ -239,13 +240,16 @@ export function usePrepSend(opts: {
     // Regenerate drops the stale assistant reply locally; the backend replaces
     // the trailing user+assistant pair.
     if (viewing && dropLast) {
-      setMessages((m) => (m.length > 0 && m[m.length - 1]?.role === "assistant" ? m.slice(0, -1) : m));
+      setMessages((m) =>
+        m.length > 0 && m[m.length - 1]?.role === "assistant" ? m.slice(0, -1) : m,
+      );
     }
     // Reserve backend indices: user + assistant (regenerate usually passes a
     // pinned reservedUserIndex instead — no new reservation needed).
     // Queued follow-ups reuse the index reserved when they were queued.
     const userBackendIndex =
-      sendOpts?.reservedUserIndex ?? takeBackendIndex(sid, dropLast ? RESERVE_REGENERATE_INDICES : RESERVE_TURN_INDICES);
+      sendOpts?.reservedUserIndex ??
+      takeBackendIndex(sid, dropLast ? RESERVE_REGENERATE_INDICES : RESERVE_TURN_INDICES);
     const assistantId = nextMsgId("a");
     if (viewing) {
       if (!skipUserMessage) {
@@ -270,7 +274,11 @@ export function usePrepSend(opts: {
       stickToBottom();
     }
 
-    const appendTrace = (updater: (trace: NonNullable<PrepChatMessage["trace"]>) => NonNullable<PrepChatMessage["trace"]>) => {
+    const appendTrace = (
+      updater: (
+        trace: NonNullable<PrepChatMessage["trace"]>,
+      ) => NonNullable<PrepChatMessage["trace"]>,
+    ) => {
       setMessages((m) =>
         m.map((msg) =>
           msg.id === assistantId ? { ...msg, trace: updater(msg.trace ?? []) } : msg,
@@ -489,5 +497,12 @@ export function usePrepSend(opts: {
     await sendMessage(prompt);
   };
 
-  return { handleSend, handleStop, handleAskAnswer, handleQuickPrompt, sendMessage, consumeBackgroundUsage };
+  return {
+    handleSend,
+    handleStop,
+    handleAskAnswer,
+    handleQuickPrompt,
+    sendMessage,
+    consumeBackgroundUsage,
+  };
 }

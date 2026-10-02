@@ -15,19 +15,18 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Briefcase,
-  Compass,
-  FileStack,
-  LayoutList,
-  Lightbulb,
-  MessagesSquare,
-} from "lucide-react";
+import { Briefcase, Compass, FileStack, LayoutList, Lightbulb, MessagesSquare } from "lucide-react";
 import { useT } from "@/i18n";
 import type { ResumeAnalysis } from "../types";
 import type { ResumeItem } from "../resumeNormalize";
 import { visibleAnalysisTabIds, TAB_LABEL_KEYS, type TabId } from "../analysisTabs";
-import { DIM_LABEL_KEYS, dimComment, dimScore, percentileFromScore, type RadarDim } from "../analysisFormat";
+import {
+  DIM_LABEL_KEYS,
+  dimComment,
+  dimScore,
+  percentileFromScore,
+  type RadarDim,
+} from "../analysisFormat";
 import { EvalRichText } from "./EvalRichText";
 import { ScoreRing } from "./ScoreRing";
 import { FirstImpressionCard, HeadlineBanner } from "./ImpressionCards";

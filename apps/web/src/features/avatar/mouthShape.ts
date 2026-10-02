@@ -19,10 +19,7 @@ export const MOUTH_OPEN_MAX = 0.95;
 export function mouthOpenFromLevel(level: number, speaking: boolean): number {
   if (!speaking) return 0;
   if (level < MOUTH_LEVEL_FLOOR) return 0;
-  const shaped = Math.pow(
-    Math.min(1, (level - MOUTH_LEVEL_FLOOR) / MOUTH_LEVEL_CEILING),
-    0.85,
-  );
+  const shaped = Math.pow(Math.min(1, (level - MOUTH_LEVEL_FLOOR) / MOUTH_LEVEL_CEILING), 0.85);
   return Math.min(MOUTH_OPEN_MAX, 0.12 + shaped * 0.88);
 }
 

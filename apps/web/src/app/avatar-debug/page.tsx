@@ -19,8 +19,8 @@ export default function AvatarDebugPage() {
     <div className="p-6 space-y-4">
       <h1 className="text-lg font-bold">Avatar live debug</h1>
       <p className="text-sm text-white/60">
-        Expect 3D portraits; a yellow &quot;3D avatar failed to load&quot; bar means it is still broken.
-        Hard-refresh with Ctrl+Shift+R and recheck.
+        Expect 3D portraits; a yellow &quot;3D avatar failed to load&quot; bar means it is still
+        broken. Hard-refresh with Ctrl+Shift+R and recheck.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {CASES.map((c) => (

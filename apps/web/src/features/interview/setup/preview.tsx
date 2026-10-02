@@ -55,9 +55,7 @@ export function PreviewRow({
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-ink-subtle">{children}</p>
-  );
+  return <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-ink-subtle">{children}</p>;
 }
 
 export function InterviewPreview({

@@ -38,7 +38,8 @@ export const prep = {
   "empty.desc": "After linking a resume, the AI coach will tailor guidance to your background.",
   "empty.resumeLabel": "Linked resume",
   "empty.resumeActiveSuffix": " (applied)",
-  "empty.noResume": "No resume yet — upload one in \"Resume Management\" first, or start with general coaching",
+  "empty.noResume":
+    'No resume yet — upload one in "Resume Management" first, or start with general coaching',
   "empty.starting": "Connecting…",
   "empty.start": "Start coaching",
 
@@ -168,7 +169,8 @@ export const prep = {
   "slash.clearDesc": "Clear all messages in the current session",
   "slash.help": "Help",
   "slash.helpDesc": "List available commands",
-  "slash.helpBody": "Available commands:\n/compact [light|balanced|aggressive] [directive] - compact history and write a summary now\n/clear Clear messages - clear all messages in the current session\n/help Help - list available commands",
+  "slash.helpBody":
+    "Available commands:\n/compact [light|balanced|aggressive] [directive] - compact history and write a summary now\n/clear Clear messages - clear all messages in the current session\n/help Help - list available commands",
   "slash.noSession": "No active session; cannot run that command",
   "slash.compactDoneSummary": "Context compacted with summary: {before} → {after}",
   "slash.compactDonePruned": "Context tidied: {before} → {after}",

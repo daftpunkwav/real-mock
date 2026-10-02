@@ -114,7 +114,10 @@ export function restoreSetupConfig(
   if (!isRecord(stored)) return {};
   const patch: Partial<InterviewConfig> = {};
 
-  if (typeof stored.role === "string" && (options.roles.includes(stored.role) || stored.role.trim())) {
+  if (
+    typeof stored.role === "string" &&
+    (options.roles.includes(stored.role) || stored.role.trim())
+  ) {
     patch.role = stored.role;
   }
   if (typeof stored.level === "string" && options.levels.includes(stored.level)) {

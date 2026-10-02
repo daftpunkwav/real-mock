@@ -8,8 +8,7 @@ export const report = {
   "errors.unavailable": "Report unavailable",
   "errors.invalidSession": "Invalid session ID",
   "errors.generateFailed": "Report generation failed, please retry",
-  "errors.notGenerated":
-    "Report not generated yet. Click the button below to generate or reload.",
+  "errors.notGenerated": "Report not generated yet. Click the button below to generate or reload.",
 
   // Score summary card (ScoreSummaryCard)
   "summary.backLink": "Back to History",
@@ -90,7 +89,8 @@ export const report = {
   "sections.highlights": "Highlights",
   "sections.phaseOverview": "Phase-by-phase Overview",
   "sections.externalNotes": "External Verification",
-  "externalNotes.hint": "Checked live by the report agent via public web search/fetch, with sources.",
+  "externalNotes.hint":
+    "Checked live by the report agent via public web search/fetch, with sources.",
   "sections.keyProblems": "Key Problems",
   "qa.intent": "Question intent",
   "qa.ungrouped": "Other questions",
@@ -103,13 +103,14 @@ export const report = {
   "live.title": "Generating your report",
   "live.starting": "Starting the report agent…",
   "live.elapsed": "Waited {n}s",
-  "live.tip": "Deep reports read every answer, check the resume, and verify externally — usually 1–4 minutes. Please keep this page open.",
+  "live.tip":
+    "Deep reports read every answer, check the resume, and verify externally — usually 1–4 minutes. Please keep this page open.",
   "live.stageNotes": "Reading the transcript and resume evidence per question",
   "live.stageSynthesis": "Synthesizing scores and the final verdict",
   "live.tool": "Verifying: {name}",
   "live.thinking": "Thinking…",
   "live.working": "Searching…",
-    "turns.qualityLabel": "Quality:",
+  "turns.qualityLabel": "Quality:",
 } as const;
 
 export type ReportMessageKey = keyof typeof report;

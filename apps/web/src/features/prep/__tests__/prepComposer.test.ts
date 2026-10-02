@@ -40,9 +40,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     onRemoveRef: vi.fn(),
     ...overrides,
   };
-  render(
-    createElement(LocaleProvider, null, [createElement(PrepComposer, props)]),
-  );
+  render(createElement(LocaleProvider, null, [createElement(PrepComposer, props)]));
   // jsdom has no stored locale: the provider falls back to English strings.
   // Assertions are locale-tolerant (see the /1M|100万/ alternation below).
   const box = screen.getByRole("textbox") as HTMLTextAreaElement;
@@ -75,7 +73,8 @@ describe("PrepComposer multiline input", () => {
       key: "Enter",
       bubbles: true,
       cancelable: true,
-    });    Object.defineProperty(event, "isComposing", { value: true });
+    });
+    Object.defineProperty(event, "isComposing", { value: true });
     fireEvent(box, event);
     expect(onSend).not.toHaveBeenCalled();
   });
@@ -90,7 +89,13 @@ describe("PrepComposer multiline input", () => {
       label,
       context_window,
       max_output: 8000,
-      capabilities: { chat: true, vision: false, audio_input: false, audio_output: false, reasoning: false },
+      capabilities: {
+        chat: true,
+        vision: false,
+        audio_input: false,
+        audio_output: false,
+        reasoning: false,
+      },
       extras: {},
       enabled: true,
     });
@@ -119,7 +124,13 @@ describe("PrepComposer multiline input", () => {
       label,
       context_window,
       max_output: 8000,
-      capabilities: { chat: true, vision: false, audio_input: false, audio_output: false, reasoning: false },
+      capabilities: {
+        chat: true,
+        vision: false,
+        audio_input: false,
+        audio_output: false,
+        reasoning: false,
+      },
       extras: {},
       enabled: true,
     });

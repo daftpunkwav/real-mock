@@ -6,9 +6,7 @@ import { runTypeScript, transpileTypeScript } from "../typescriptRunner";
 
 describe("transpileTypeScript", () => {
   it("strips type annotations into runnable JavaScript", async () => {
-    const outcome = await transpileTypeScript(
-      "const x: number = 1;\nconsole.log(x + 1);",
-    );
+    const outcome = await transpileTypeScript("const x: number = 1;\nconsole.log(x + 1);");
     expect("code" in outcome && outcome.code).toContain("console.log(x + 1)");
     expect("code" in outcome && outcome.code).not.toContain(": number");
   });

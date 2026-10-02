@@ -46,12 +46,16 @@ export function DeepQaCard({ note, index }: { note: TurnNote; index?: number }) 
   // strong answers keep it collapsible to reduce noise.
   const weak = (note.score ?? 0) > 0 && (note.score ?? 0) < 60;
   const [showReference, setShowReference] = useState(weak);
-  const hasLegacy =
-    Boolean(note.user_review?.summary) || Boolean(note.interviewer_review?.intent);
-  const hasDeep =
-    Boolean(note.question || note.reference_answer || note.how_to_answer ||
-      (note.problems ?? []).length > 0 || (note.knowledge_points ?? []).length > 0 ||
-      note.knowledge_brushup || (note.exercises ?? []).length > 0);
+  const hasLegacy = Boolean(note.user_review?.summary) || Boolean(note.interviewer_review?.intent);
+  const hasDeep = Boolean(
+    note.question ||
+      note.reference_answer ||
+      note.how_to_answer ||
+      (note.problems ?? []).length > 0 ||
+      (note.knowledge_points ?? []).length > 0 ||
+      note.knowledge_brushup ||
+      (note.exercises ?? []).length > 0,
+  );
 
   return (
     <li className="eval-qa-card">
@@ -76,9 +80,7 @@ export function DeepQaCard({ note, index }: { note: TurnNote; index?: number }) 
           </div>
         </div>
         {(note.score ?? 0) > 0 && (
-          <span className={`chip shrink-0 ${scoreTone(note.score)} num-tabular`}>
-            {note.score}
-          </span>
+          <span className={`chip shrink-0 ${scoreTone(note.score)} num-tabular`}>{note.score}</span>
         )}
       </div>
 

@@ -86,10 +86,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(targetRef.current === "dark" ? "light" : "dark");
   }, [setTheme]);
 
-  const value = useMemo(
-    () => ({ theme, setTheme, toggleTheme }),
-    [theme, setTheme, toggleTheme],
-  );
+  const value = useMemo(() => ({ theme, setTheme, toggleTheme }), [theme, setTheme, toggleTheme]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

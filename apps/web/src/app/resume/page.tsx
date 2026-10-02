@@ -85,9 +85,7 @@ export default function ResumePage() {
               analysis={analysis}
               familyRows={resumes}
               analyzingIds={analyzingIds}
-              analyzeProgress={
-                previewResume ? analyzeProgressById[previewResume.id] : undefined
-              }
+              analyzeProgress={previewResume ? analyzeProgressById[previewResume.id] : undefined}
               error={analyzeError}
               onAnalyze={handleAnalyze}
             />

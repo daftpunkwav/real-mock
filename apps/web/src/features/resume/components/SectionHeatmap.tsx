@@ -35,10 +35,12 @@ export function SectionHeatmap({ reviews }: { reviews: SectionReview[] }) {
             aria-selected={i === active}
             onClick={() => setActive(i)}
             className={`eval-heat-seg ${i === active ? "is-active" : ""}`}
-            style={{
-              flexGrow: Math.max(r.detail.length, 40),
-              "--seg-color": scoreColor(r.score),
-            } as React.CSSProperties}
+            style={
+              {
+                flexGrow: Math.max(r.detail.length, 40),
+                "--seg-color": scoreColor(r.score),
+              } as React.CSSProperties
+            }
           >
             <span className="eval-heat-score num-tabular">{r.score}</span>
             <span className="eval-heat-name">{r.section}</span>

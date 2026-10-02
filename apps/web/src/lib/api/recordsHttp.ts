@@ -9,8 +9,7 @@ import { request, LLM_HEAVY_TIMEOUT_MS } from "@/lib/api/base";
 
 export const recordsHttp = {
   listSessions: () => request<SessionHistoryItem[]>(`/v1/records/sessions`),
-  getLedger: (id: number) =>
-    request<LedgerDocument>(`/v1/records/sessions/${id}/ledger`),
+  getLedger: (id: number) => request<LedgerDocument>(`/v1/records/sessions/${id}/ledger`),
   retryReport: (id: number) =>
     request<GetReportResponse>(`/v1/reports/${id}/retry`, {
       method: "POST",

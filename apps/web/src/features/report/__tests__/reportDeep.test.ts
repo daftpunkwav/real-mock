@@ -7,15 +7,8 @@ import {
   defaultReportTab,
   visibleReportTabIds,
 } from "../reportTabs";
-import {
-  REPORT_LIVE_MAX_EVENTS,
-  applyReportLiveEvent,
-  emptyReportLiveState,
-} from "../liveEvents";
-import {
-  buildNextRoundIndex,
-  selectEligibleProcesses,
-} from "@/features/interview";
+import { REPORT_LIVE_MAX_EVENTS, applyReportLiveEvent, emptyReportLiveState } from "../liveEvents";
+import { buildNextRoundIndex, selectEligibleProcesses } from "@/features/interview";
 import type { DebriefReport } from "@/types/domains/report";
 import type { InterviewProcessResponse } from "@/lib/api/contract";
 
@@ -34,7 +27,9 @@ describe("visibleReportTabIds", () => {
 
     const full = visibleReportTabIds(
       report({
-        turn_notes: [{ turn_id: "t1" }] as DebriefReport["turn_notes"] as DebriefReport["turn_notes"],
+        turn_notes: [
+          { turn_id: "t1" },
+        ] as DebriefReport["turn_notes"] as DebriefReport["turn_notes"],
         verdict: "passed",
         highlights: ["x"],
         training_plan: ["y"],
@@ -50,7 +45,9 @@ describe("visibleReportTabIds", () => {
     for (const id of REPORT_TAB_IDS) {
       expect(REPORT_TAB_LABEL_KEYS[id]).toBeTruthy();
     }
-    expect(defaultReportTab(report({ turn_notes: [{ turn_id: "t1" }] as DebriefReport["turn_notes"] }))).toBe("overview");
+    expect(
+      defaultReportTab(report({ turn_notes: [{ turn_id: "t1" }] as DebriefReport["turn_notes"] })),
+    ).toBe("overview");
     expect(defaultReportTab(report())).toBe("overview");
   });
 });

@@ -18,8 +18,17 @@ function painGraphic(index: number): React.ReactNode {
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="h-1.5 flex-1 rounded-full" style={{ background: i === 2 ? soft : faint }} />
-              <svg width="9" height="9" viewBox="0 0 9 9" className="shrink-0" style={{ opacity: i === 2 ? 1 : 0 }}>
+              <span
+                className="h-1.5 flex-1 rounded-full"
+                style={{ background: i === 2 ? soft : faint }}
+              />
+              <svg
+                width="9"
+                height="9"
+                viewBox="0 0 9 9"
+                className="shrink-0"
+                style={{ opacity: i === 2 ? 1 : 0 }}
+              >
                 <path d="M1 1l7 7M8 1L1 8" stroke={ink} strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </div>
@@ -35,7 +44,13 @@ function painGraphic(index: number): React.ReactNode {
             <div className="h-1.5 w-3/5 rounded-full" style={{ background: soft }} />
           </div>
           <svg width="14" height="8" viewBox="0 0 14 8" className="shrink-0">
-            <path d="M0 4h11M8 1l3 3-3 3" stroke={soft} strokeWidth="1.4" fill="none" strokeLinecap="round" />
+            <path
+              d="M0 4h11M8 1l3 3-3 3"
+              stroke={soft}
+              strokeWidth="1.4"
+              fill="none"
+              strokeLinecap="round"
+            />
           </svg>
           <div
             className="h-9 flex-1 rounded-md border border-dashed"

@@ -1,13 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
-import {
-  motion,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-  type MotionValue,
-} from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
 
 /**
  * Scroll-linked reading flow: a section's blocks drift in from the right as
@@ -42,7 +36,11 @@ export function FlowItem({
   if (reduce) {
     return <div className={className}>{children}</div>;
   }
-  return <FlowMotion progress={progress} index={index} className={className}>{children}</FlowMotion>;
+  return (
+    <FlowMotion progress={progress} index={index} className={className}>
+      {children}
+    </FlowMotion>
+  );
 }
 
 function FlowMotion({

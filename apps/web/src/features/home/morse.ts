@@ -5,32 +5,32 @@
  */
 
 const MORSE: Record<string, string> = {
-  a: '.-',
-  b: '-...',
-  c: '-.-.',
-  d: '-..',
-  e: '.',
-  f: '..-.',
-  g: '--.',
-  h: '....',
-  i: '..',
-  j: '.---',
-  k: '-.-',
-  l: '.-..',
-  m: '--',
-  n: '-.',
-  o: '---',
-  p: '.--.',
-  q: '--.-',
-  r: '.-.',
-  s: '...',
-  t: '-',
-  u: '..-',
-  v: '...-',
-  w: '.--',
-  x: '-..-',
-  y: '-.--',
-  z: '--..',
+  a: ".-",
+  b: "-...",
+  c: "-.-.",
+  d: "-..",
+  e: ".",
+  f: "..-.",
+  g: "--.",
+  h: "....",
+  i: "..",
+  j: ".---",
+  k: "-.-",
+  l: ".-..",
+  m: "--",
+  n: "-.",
+  o: "---",
+  p: ".--.",
+  q: "--.-",
+  r: ".-.",
+  s: "...",
+  t: "-",
+  u: "..-",
+  v: "...-",
+  w: ".--",
+  x: "-..-",
+  y: "-.--",
+  z: "--..",
 };
 
 /** Dot = 0 (low hop), dash = 1 (high hop); one low hop separates letters. */
@@ -41,14 +41,14 @@ function encodeWord(word: string): (0 | 1)[] {
     if (!pattern) continue;
     if (bits.length > 0) bits.push(0);
     for (const symbol of pattern) {
-      bits.push(symbol === '-' ? 1 : 0);
+      bits.push(symbol === "-" ? 1 : 0);
     }
   }
   return bits;
 }
 
 /** The word spelled out by the hopping title, one bit per hop. */
-export const HERO_MORSE_WORD = 'daftpunkwav';
+export const HERO_MORSE_WORD = "daftpunkwav";
 
 export const HERO_MORSE_BITS = encodeWord(HERO_MORSE_WORD);
 

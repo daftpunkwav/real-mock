@@ -28,12 +28,7 @@ interface SkulptGlobal {
   misceval: {
     asyncToPromise(fn: () => unknown): Promise<unknown>;
   };
-  importMainWithBody(
-    name: string,
-    dumpJs: boolean,
-    code: string,
-    canSuspend: boolean,
-  ): unknown;
+  importMainWithBody(name: string, dumpJs: boolean, code: string, canSuspend: boolean): unknown;
   builtinFiles: { files: Record<string, string> };
   python3?: unknown;
 }
@@ -90,10 +85,7 @@ function loadSkulpt(): Promise<SkulptGlobal> {
     return Promise.reject(new Error("Python execution needs a browser."));
   }
   const preloaded = window.Sk;
-  if (
-    preloaded?.misceval &&
-    typeof preloaded.importMainWithBody === "function"
-  ) {
+  if (preloaded?.misceval && typeof preloaded.importMainWithBody === "function") {
     return Promise.resolve(preloaded);
   }
   if (!enginePromise) {
@@ -172,10 +164,7 @@ export function runPython(
     return {
       status: cancelled && partial.status !== "unavailable" ? "cancelled" : partial.status,
       output: out.text,
-      error:
-        cancelled && partial.status !== "unavailable"
-          ? "Execution cancelled."
-          : partial.error,
+      error: cancelled && partial.status !== "unavailable" ? "Execution cancelled." : partial.error,
       durationMs: Date.now() - startedAt,
       truncated: out.truncated,
     };

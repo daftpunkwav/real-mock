@@ -68,7 +68,9 @@ export function Select<T extends string | number>({
         POPOVER_MAX_HEIGHT,
         options.length * OPTION_ROW_HEIGHT + POPOVER_CHROME_HEIGHT,
       );
-      setOpenUp(window.innerHeight - rect.bottom < needed && rect.top > window.innerHeight - rect.bottom);
+      setOpenUp(
+        window.innerHeight - rect.bottom < needed && rect.top > window.innerHeight - rect.bottom,
+      );
     }
     setOpen(true);
   };
@@ -108,9 +110,7 @@ export function Select<T extends string | number>({
               openMenu();
             } else {
               setHighlight((h) =>
-                e.key === "ArrowDown"
-                  ? Math.min(options.length - 1, h + 1)
-                  : Math.max(0, h - 1),
+                e.key === "ArrowDown" ? Math.min(options.length - 1, h + 1) : Math.max(0, h - 1),
               );
             }
           } else if (e.key === "Enter" || e.key === " ") {
@@ -130,10 +130,7 @@ export function Select<T extends string | number>({
         <span className="min-w-0 truncate">{selected?.label ?? ""}</span>
         <ChevronDown
           size={14}
-          className={cn(
-            "shrink-0 text-ink-subtle transition-transform",
-            open && "rotate-180",
-          )}
+          className={cn("shrink-0 text-ink-subtle transition-transform", open && "rotate-180")}
         />
       </button>
       {open && (
@@ -147,9 +144,7 @@ export function Select<T extends string | number>({
               e.preventDefault();
               setHighlight((h) => {
                 const next =
-                  e.key === "ArrowDown"
-                    ? Math.min(options.length - 1, h + 1)
-                    : Math.max(0, h - 1);
+                  e.key === "ArrowDown" ? Math.min(options.length - 1, h + 1) : Math.max(0, h - 1);
                 listRef.current
                   ?.querySelector(`[data-index="${next}"]`)
                   ?.scrollIntoView({ block: "nearest" });

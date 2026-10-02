@@ -54,8 +54,7 @@ export function HeroSection() {
   let colorCursor = 0;
   const buildLine = (text: string, colored: boolean): TitleGlyph[] =>
     Array.from(text).map((char, charIndex) => {
-      if (char === " ")
-        return { char, space: true, charIndex, morseIndex: -1, colorIndex: -1 };
+      if (char === " ") return { char, space: true, charIndex, morseIndex: -1, colorIndex: -1 };
       return {
         char,
         space: false,
@@ -114,7 +113,9 @@ export function HeroSection() {
           className="text-[clamp(2.5rem,6vw,4.25rem)] font-bold leading-[1.06] tracking-[0.01em] text-ink"
         >
           {line1.map((glyph) => renderGlyph(glyph, false))}{" "}
-          <span className="whitespace-nowrap">{line2.map((glyph) => renderGlyph(glyph, true))}</span>
+          <span className="whitespace-nowrap">
+            {line2.map((glyph) => renderGlyph(glyph, true))}
+          </span>
         </motion.h1>
 
         <motion.p
@@ -129,10 +130,7 @@ export function HeroSection() {
           className="mt-8 flex flex-wrap items-center justify-center gap-2.5"
         >
           <StageButton href="/interview">{t("hero.cta.interview")}</StageButton>
-          <Link
-            href="/resume"
-            className="btn-secondary !h-[52px] !px-7 !text-[16px]"
-          >
+          <Link href="/resume" className="btn-secondary !h-[52px] !px-7 !text-[16px]">
             {t("hero.cta.resume")}
           </Link>
         </motion.div>
@@ -144,10 +142,7 @@ export function HeroSection() {
           narrow container (vertical stays visible so the rim-card arch is not
           sliced, and no horizontal scrollbar appears). */}
       <div className="relative h-[360px] w-full shrink-0 overflow-x-clip sm:h-[420px]">
-        <motion.div
-          {...(reduce ? {} : intro(0.4, 16))}
-          className="absolute inset-0"
-        >
+        <motion.div {...(reduce ? {} : intro(0.4, 16))} className="absolute inset-0">
           <CardStrip />
         </motion.div>
         {/* Pool of light under the wheel. Its centre sits INSIDE the box so

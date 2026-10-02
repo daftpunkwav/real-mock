@@ -70,7 +70,9 @@ export function InterviewRoomView({ room }: { room: InterviewRoomModel }) {
       <div className="h-screen flex flex-col items-center justify-center gap-3 bg-[var(--background)] text-ink-muted">
         <span className="block h-6 w-6 anim-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
         <p className="text-[13px]">
-          {connectionState === "reconnecting" ? t("room.connecting.reconnecting") : t("room.connecting.connecting")}
+          {connectionState === "reconnecting"
+            ? t("room.connecting.reconnecting")
+            : t("room.connecting.connecting")}
         </p>
       </div>
     );

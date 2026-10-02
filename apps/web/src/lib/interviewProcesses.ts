@@ -12,9 +12,7 @@ export type EligibleProcess = InterviewProcessResponse & {
   next_round_no: number;
 };
 
-export function selectEligibleProcesses(
-  processes: InterviewProcessResponse[],
-): EligibleProcess[] {
+export function selectEligibleProcesses(processes: InterviewProcessResponse[]): EligibleProcess[] {
   return processes
     .filter((p) => p.next_round_eligible && p.next_round_no != null)
     .map((p) => ({ ...p, next_round_no: p.next_round_no as number }))
@@ -22,9 +20,7 @@ export function selectEligibleProcesses(
 }
 
 /** process_id → eligible next-round process (history detail actions). */
-export function buildNextRoundIndex(
-  processes: EligibleProcess[],
-): Record<number, EligibleProcess> {
+export function buildNextRoundIndex(processes: EligibleProcess[]): Record<number, EligibleProcess> {
   const index: Record<number, EligibleProcess> = {};
   for (const p of processes) index[p.id] = p;
   return index;

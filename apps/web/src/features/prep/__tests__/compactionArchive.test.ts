@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import {
-  clearArchive,
-  loadArchive,
-  pushArchivedGroup,
-  toArchivedCopy,
-} from "../compactionArchive";
+import { clearArchive, loadArchive, pushArchivedGroup, toArchivedCopy } from "../compactionArchive";
 import type { PrepChatMessage } from "@/features/prep/types";
 
 function installMemoryStorage() {
@@ -48,10 +43,7 @@ describe("compactionArchive", () => {
     expect(next.groups).toHaveLength(1);
     expect(next.groups[0]?.staleBackup).toBe(false);
     const loaded = loadArchive(7);
-    expect(loaded?.groups[0]?.messages.map((m) => m.id)).toEqual([
-      "archived-u-1",
-      "archived-a-2",
-    ]);
+    expect(loaded?.groups[0]?.messages.map((m) => m.id)).toEqual(["archived-u-1", "archived-a-2"]);
     expect(loaded?.groups[0]?.messages[0]?.backendIndex).toBe(0);
   });
 

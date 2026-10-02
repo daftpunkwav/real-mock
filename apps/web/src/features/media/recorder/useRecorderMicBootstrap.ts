@@ -50,8 +50,7 @@ export function useRecorderMicBootstrap(
     emitSilenceRef,
   } = refs;
 
-  const isCapturing = () =>
-    captureEnabledRef.current && Date.now() >= captureArmAtRef.current;
+  const isCapturing = () => captureEnabledRef.current && Date.now() >= captureArmAtRef.current;
 
   useEffect(() => {
     if (!enabled) {

@@ -19,11 +19,7 @@ export interface TTSLevelLoop {
  *   dt-rescaled value so the release speed is refresh-rate independent
  *   (0.9985 ≈ halving the peak every ~8s at 60fps).
  */
-export function agcNormalize(
-  rms: number,
-  peak: { value: number },
-  decayPerFrame = 0.9985,
-): number {
+export function agcNormalize(rms: number, peak: { value: number }, decayPerFrame = 0.9985): number {
   peak.value = Math.max(rms, peak.value * decayPerFrame);
   if (rms <= 0.0005) return 0;
   const floor = 0.08; // silence guard: never divide into huge gains

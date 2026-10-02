@@ -23,10 +23,7 @@ describe("normalizeSteps", () => {
   });
 
   it("fills missing query/result with empty strings", () => {
-    const steps = normalizeSteps([
-      { name: "web_search", query: "Note" },
-      { name: "quiz" },
-    ]);
+    const steps = normalizeSteps([{ name: "web_search", query: "Note" }, { name: "quiz" }]);
     expect(steps).toEqual([
       { name: "web_search", query: "Note", result: "" },
       { name: "quiz", query: "", result: "" },
@@ -50,7 +47,9 @@ describe("normalizeSearchGroups", () => {
       { results: [] },
       { query: "no results" },
     ]);
-    expect(groups).toEqual([{ query: "react interview tips", results: [{ url: "https://a.com" }] }]);
+    expect(groups).toEqual([
+      { query: "react interview tips", results: [{ url: "https://a.com" }] },
+    ]);
   });
 });
 
@@ -140,7 +139,9 @@ describe("mapHistoryMessages", () => {
         {
           role: "assistant",
           content: "参考答案正文",
-          tool_calls: [{ id: "c1", type: "function", function: { name: "ask_user", arguments: "{}" } }],
+          tool_calls: [
+            { id: "c1", type: "function", function: { name: "ask_user", arguments: "{}" } },
+          ],
         },
         {
           role: "assistant",
@@ -171,13 +172,22 @@ describe("mapHistoryMessages", () => {
         {
           role: "assistant",
           content: "参考答案正文",
-          tool_calls: [{ id: "c1", type: "function", function: { name: "ask_user", arguments: "{}" } }],
+          tool_calls: [
+            { id: "c1", type: "function", function: { name: "ask_user", arguments: "{}" } },
+          ],
         },
-        { role: "tool", content: "Dialog shown to the user; waiting for their answer.", tool_call_id: "c1" },
+        {
+          role: "tool",
+          content: "Dialog shown to the user; waiting for their answer.",
+          tool_call_id: "c1",
+        },
         {
           role: "assistant",
           content: "我在等你作答 — 请在弹窗中选择，或直接输入。",
-          steps: [{ name: "take_note", query: "", result: "" }, { name: "ask_user", query: "", result: "" }],
+          steps: [
+            { name: "take_note", query: "", result: "" },
+            { name: "ask_user", query: "", result: "" },
+          ],
           thinking: "plan",
         },
       ] as never,
@@ -201,7 +211,9 @@ describe("mapHistoryMessages", () => {
         {
           role: "assistant",
           content: "模型先叙述了要做什么",
-          tool_calls: [{ id: "c1", type: "function", function: { name: "web_search", arguments: "{}" } }],
+          tool_calls: [
+            { id: "c1", type: "function", function: { name: "web_search", arguments: "{}" } },
+          ],
         },
         { role: "tool", content: "[web_search] hits", tool_call_id: "c1" },
         {
@@ -272,7 +284,9 @@ describe("mapHistoryMessages", () => {
       nextId,
     );
     expect(mapped).toHaveLength(2);
-    const ask = (mapped[1] as { ask?: { question: string; options: string[]; suggested: string | null } }).ask;
+    const ask = (
+      mapped[1] as { ask?: { question: string; options: string[]; suggested: string | null } }
+    ).ask;
     expect(ask?.question).toBe("这一轮主要想练哪一块?");
     expect(ask?.options).toHaveLength(2);
     expect(ask?.suggested).toBe("Agent 三段式");
@@ -284,7 +298,8 @@ describe("mapHistoryMessages", () => {
         { role: "user", content: "q" },
         {
           role: "system",
-          content: "[Conversation Minutes] Session objectives: ship it\n[provenance v=2 backup_session=7 fork_point=4]",
+          content:
+            "[Conversation Minutes] Session objectives: ship it\n[provenance v=2 backup_session=7 fork_point=4]",
         },
         { role: "assistant", content: "a" },
       ] as never,
@@ -307,7 +322,9 @@ describe("mapHistoryMessages", () => {
 
   it("renders rule-fallback digests as read-only compaction cards", () => {
     const mapped = mapHistoryMessages(
-      [{ role: "system", content: "[Context compression] Early 3 The dialogue has been omitted" }] as never,
+      [
+        { role: "system", content: "[Context compression] Early 3 The dialogue has been omitted" },
+      ] as never,
       nextId,
     );
     expect(mapped).toHaveLength(1);

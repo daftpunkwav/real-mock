@@ -117,7 +117,8 @@ export const settings = {
   "modelForm.maxOutput.label": "最大输出(tokens)",
   "modelForm.capabilities.label": "能力(可多选;同一模型可服务多个任务)",
   "modelForm.extras.summary": "高级参数(语音凭证等 JSON)",
-  "modelForm.reasoningVariants.label": "自定义思考档位（逗号分隔,原样传给服务商;留空=默认 low/medium/high/max）",
+  "modelForm.reasoningVariants.label":
+    "自定义思考档位（逗号分隔,原样传给服务商;留空=默认 low/medium/high/max）",
   "modelForm.reasoningVariants.default": "默认档位",
   "modelForm.reasoningVariants.none": "不设默认",
   "modelForm.capsConfig.summary": "能力配置 (JSON; 应用后写回表单)",
@@ -161,7 +162,8 @@ export const settings = {
   "data.clearResults.desc": "清空所有简历的 AI 深度评价结果与分数，简历文件保留。此操作不可恢复。",
   "data.clearResults.action": "清除评价历史",
   "data.clearResults.confirmTitle": "清除评价历史",
-  "data.clearResults.confirmBody": "确定要清除所有简历的深度评价结果吗？简历文件会保留，此操作不可恢复。",
+  "data.clearResults.confirmBody":
+    "确定要清除所有简历的深度评价结果吗？简历文件会保留，此操作不可恢复。",
   "data.clearResults.done": "已清除 {count} 份简历的评价结果",
   "data.clearResults.failed": "清除失败",
   "data.clearAll.title": "清除所有简历",
@@ -174,7 +176,8 @@ export const settings = {
 
   // Prep 长期记忆(只能编辑 agent 记下的记忆,不能新建)
   "memories.title": "Prep 长期记忆",
-  "memories.desc": "用户评价与 agent 笔记沉淀的长期记忆,会注入到每轮对话。只能编辑或删除已有记忆,不能手动新建。",
+  "memories.desc":
+    "用户评价与 agent 笔记沉淀的长期记忆,会注入到每轮对话。只能编辑或删除已有记忆,不能手动新建。",
   "memories.searchPlaceholder": "搜索摘要…",
   "memories.tagFilter": "按标签筛选",
   "memories.tagAll": "全部标签",
@@ -212,7 +215,8 @@ export const settings = {
 
   // 自动压缩:上下文占用达到阈值时 agent 用 LLM 总结压缩历史
   "prep.compact.title": "自动压缩",
-  "prep.compact.desc": "每轮对话开始时,上下文占用达到所选比例则压缩历史;auto 档由 agent 自己判断并调用压缩工具,过程像其它工具一样实时展示。压缩一律用 LLM 总结,保留目标、结论、待办等关键信息,绝不直接截断。手动 /compact 可带参数(强度+指令),不受触发比例限制。保留条数仅约束自动压缩;旧工具结果始终折叠,手动 /compact 可无视该窗口直接折叠到最新一轮。",
+  "prep.compact.desc":
+    "每轮对话开始时,上下文占用达到所选比例则压缩历史;auto 档由 agent 自己判断并调用压缩工具,过程像其它工具一样实时展示。压缩一律用 LLM 总结,保留目标、结论、待办等关键信息,绝不直接截断。手动 /compact 可带参数(强度+指令),不受触发比例限制。保留条数仅约束自动压缩;旧工具结果始终折叠,手动 /compact 可无视该窗口直接折叠到最新一轮。",
   "prep.compact.label": "触发压缩的上下文占用",
   "prep.compact.auto": "自动(由 agent 决定)",
   "prep.compact.percent": "{n}%",
@@ -230,7 +234,8 @@ export const settings = {
   "prep.memoryIndex.defaultHint": "默认 {n} 条;对新创建的会话生效。",
   // 面试准备行为
   "prep.timeout.title": "提问弹窗等待",
-  "prep.timeout.desc": "教练弹窗给出推荐选项后,超时未作答则自动选择推荐项。仅选项类问题生效,无推荐时不自动选择。",
+  "prep.timeout.desc":
+    "教练弹窗给出推荐选项后,超时未作答则自动选择推荐项。仅选项类问题生效,无推荐时不自动选择。",
   "prep.timeout.label": "自动选择等待时长",
   "prep.timeout.off": "关闭",
   "prep.timeout.minutes": "{n} 分钟",
@@ -251,7 +256,8 @@ export const settings = {
 
   // 第三方集成:GitHub 真实账号关联(细粒度 PAT,只读公开仓)
   "integrations.github.title": "GitHub 账号关联",
-  "integrations.github.desc": "粘贴细粒度个人访问令牌(公开仓只读,建议 90 天过期),各 Agent 共用认证配额(5000 次/小时),替代匿名配额(60 次/小时)。令牌加密存储,永不明文回显。",
+  "integrations.github.desc":
+    "粘贴细粒度个人访问令牌(公开仓只读,建议 90 天过期),各 Agent 共用认证配额(5000 次/小时),替代匿名配额(60 次/小时)。令牌加密存储,永不明文回显。",
   "integrations.github.placeholder": "粘贴 Token(github_pat_… 或 ghp_…),仅此一次可见",
   "integrations.github.saveAndTest": "保存并测试",
   "integrations.github.test": "测试连接",

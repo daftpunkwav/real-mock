@@ -48,15 +48,20 @@ function asAllowCustom(raw: unknown): boolean {
 /** Clamp a raw SSE ask_user event into a renderable dialog (backend already validates; stay defensive). */
 export function normalizeAskDialog(raw: Record<string, unknown>): AskUserDialog {
   // Dedupe (order kept): repeated labels collide as dialog keys.
-  const options = [...new Set(
-    (Array.isArray(raw.options) ? raw.options : [])
-      .map(String)
-      .map((s) => s.trim())
-      .filter(Boolean),
-  )].slice(0, ASK_MAX_OPTIONS);
+  const options = [
+    ...new Set(
+      (Array.isArray(raw.options) ? raw.options : [])
+        .map(String)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, ASK_MAX_OPTIONS);
   let widget = asWidget(raw.widget);
   const scale = asScale(raw.scale);
-  if (widget === "slider" && (scale?.min === undefined || scale?.max === undefined || !(scale.min < scale.max))) {
+  if (
+    widget === "slider" &&
+    (scale?.min === undefined || scale?.max === undefined || !(scale.min < scale.max))
+  ) {
     // Unusable slider range: degrade to the options list, mirroring the backend.
     widget = "options";
   }

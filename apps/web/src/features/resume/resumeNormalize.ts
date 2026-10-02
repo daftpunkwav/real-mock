@@ -40,9 +40,7 @@ function lineageOf(row: ResumeResponse): { family_id: number; version_n: number 
   };
 }
 
-export function normalizeParsedProfile(
-  raw: CandidateProfile | null | undefined,
-): ParsedProfile {
+export function normalizeParsedProfile(raw: CandidateProfile | null | undefined): ParsedProfile {
   return {
     name: raw?.name ?? "",
     education: (raw?.education ?? []) as Record<string, unknown>[],

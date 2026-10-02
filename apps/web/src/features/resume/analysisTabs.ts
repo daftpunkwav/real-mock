@@ -12,13 +12,7 @@
 import type { MessageKey } from "@/i18n";
 import type { ResumeAnalysis } from "@/lib/api/contract";
 
-export type TabId =
-  | "overview"
-  | "document"
-  | "projects"
-  | "interview"
-  | "advice"
-  | "career";
+export type TabId = "overview" | "document" | "projects" | "interview" | "advice" | "career";
 
 export const ANALYSIS_TAB_IDS: readonly TabId[] = [
   "overview",

@@ -172,7 +172,8 @@ export const interview = {
   "room.outline.title": "Reference answer",
   "room.outline.tabCoding": "Code whiteboard",
   "room.outline.tabReference": "Reference answer",
-  "room.outline.regenerateTitle": "Regenerate the reference answer for the interviewer's latest question",
+  "room.outline.regenerateTitle":
+    "Regenerate the reference answer for the interviewer's latest question",
   "room.outline.regenerate": "Regenerate",
   "room.outline.toggle": "Show reference",
   "room.outline.replyChars": "Reply chars",
@@ -180,7 +181,8 @@ export const interview = {
   "room.outline.sourcesPrefix": "Sources: ",
   "room.outline.generating": "AI is generating the reference answer…",
   "room.outline.forQuestion": "Regarding: {q}",
-  "room.outline.placeholder": "After the interviewer asks, AI will generate reference answer points from your resume.",
+  "room.outline.placeholder":
+    "After the interviewer asks, AI will generate reference answer points from your resume.",
   "room.source.resume": "Resume",
   "room.source.github": "GitHub",
   "room.source.companyKb": "Company KB",
@@ -218,15 +220,16 @@ export const interview = {
   "room.toast.sendDisconnected": "Connection lost; the answer was not sent. Please retry.",
   "room.toast.finishing": "The interviewer is wrapping up the evaluation…",
   "room.toast.ttsFailed": "Voice playback failed",
-  "room.toast.interruptedCount": "Interrupted the speaker ({n} times total; affects the politeness score)",
+  "room.toast.interruptedCount":
+    "Interrupted the speaker ({n} times total; affects the politeness score)",
   "room.toast.interrupted": "Interrupted the interviewer",
   "room.toast.sttFailed": "Recognition failed; you can continue by typing below",
   "room.msg.warning": "⚠️ {msg}",
   "room.voice.error": "Error: {msg}",
   "room.voice.waitingTurn": "Waiting for your turn",
-  "room.voice.bargeWithText": "Barge-in ready · hearing \"{text}\"",
+  "room.voice.bargeWithText": 'Barge-in ready · hearing "{text}"',
   "room.voice.bargeHint": "Interviewer speaking · you can interrupt (affects the politeness score)",
-  "room.voice.recognizing": "Recognizing \"{text}\"",
+  "room.voice.recognizing": 'Recognizing "{text}"',
   "room.voice.listening": "Listening; pause for about 1 second to auto-send, or press send",
   "room.voice.startingMic": "Starting microphone…",
 
@@ -317,8 +320,7 @@ export const interview = {
     "Project experience, engine understanding, performance, and game-dev passion",
   "options.company.mihoyo.focus":
     "Game engines|Performance optimization|Rendering pipeline|Project experience|GC / memory",
-  "options.company.mihoyo.sample0":
-    "How would you investigate stuttering caused by GC in Unity?",
+  "options.company.mihoyo.sample0": "How would you investigate stuttering caused by GC in Unity?",
 
   "options.company.openai.name": "OpenAI",
   "options.company.openai.style":
@@ -331,7 +333,7 @@ export const interview = {
   "options.company.google.name": "Google",
   "options.company.google.style": "Algorithms, system design, leadership, and Googleyness",
   "options.company.google.focus": "Algorithms|System design|Code quality|Leadership|Innovation",
-    // Multi-round interview process
+  // Multi-round interview process
   "setup.rounds.label": "Rounds",
   "setup.rounds.single": "Single round",
   "setup.rounds.multi": "Multi-round (up to 5)",

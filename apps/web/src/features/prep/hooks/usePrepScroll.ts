@@ -20,8 +20,7 @@ export function usePrepScroll(messagesLength: number) {
   const handleScroll = useCallback(() => {
     const el = chatScrollRef.current;
     if (!el) return;
-    const atBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
     followRef.current = atBottom;
     setShowJump(!atBottom);
   }, []);

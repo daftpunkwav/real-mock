@@ -8,16 +8,16 @@ Prep coach chat: sessions, the streaming send pipeline, and per-message actions.
 pure helpers — history normalizers, context estimate, slash commands, "#"
 session refs — and the stream registry are exported alongside it). It wires:
 
-| Piece | Responsibility |
-| --- | --- |
-| `hooks/usePrepResources` | Resumes, sessions, model profiles |
-| `hooks/usePrepChatSession` | Restore / switch / create, history seeding, usage totals |
-| `hooks/usePrepSend` | Send pipeline: per-session queue, streaming handlers, abort/stop, usage merge, backend-index booking |
-| `hooks/usePrepMessageActions` | Export / fork / regenerate / retract / rate |
-| `hooks/usePrepCompact` | Manual `/compact`, summary edits, archive of folded turns |
-| `hooks/usePrepSessionManage` | Delete / archive / restore / clear (stops the live stream first) |
-| `hooks/usePrepScroll`, `hooks/useTokenBatch` | Autoscroll follow, rAF token batching |
-| `streamRegistry.ts` | Module-level in-flight streams keyed by session id — they survive session switches and in-app navigation |
+| Piece                                        | Responsibility                                                                                           |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `hooks/usePrepResources`                     | Resumes, sessions, model profiles                                                                        |
+| `hooks/usePrepChatSession`                   | Restore / switch / create, history seeding, usage totals                                                 |
+| `hooks/usePrepSend`                          | Send pipeline: per-session queue, streaming handlers, abort/stop, usage merge, backend-index booking     |
+| `hooks/usePrepMessageActions`                | Export / fork / regenerate / retract / rate                                                              |
+| `hooks/usePrepCompact`                       | Manual `/compact`, summary edits, archive of folded turns                                                |
+| `hooks/usePrepSessionManage`                 | Delete / archive / restore / clear (stops the live stream first)                                         |
+| `hooks/usePrepScroll`, `hooks/useTokenBatch` | Autoscroll follow, rAF token batching                                                                    |
+| `streamRegistry.ts`                          | Module-level in-flight streams keyed by session id — they survive session switches and in-app navigation |
 
 ## Invariants
 

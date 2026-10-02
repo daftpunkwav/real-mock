@@ -234,11 +234,17 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
         <div className="space-y-2.5">
           <div className="flex items-center gap-1.5">
             <span className="h-1.5 flex-1 rounded-full" style={{ background: dim }} />
-            <span className="h-1.5 w-1.5 rotate-45 border-r border-t" style={{ borderColor: accent }} />
+            <span
+              className="h-1.5 w-1.5 rotate-45 border-r border-t"
+              style={{ borderColor: accent }}
+            />
           </div>
           <div className="ml-4 flex items-center gap-1.5">
             <span className="h-1.5 flex-1 rounded-full" style={{ background: glow }} />
-            <span className="h-1.5 w-1.5 rotate-45 border-r border-t" style={{ borderColor: dim }} />
+            <span
+              className="h-1.5 w-1.5 rotate-45 border-r border-t"
+              style={{ borderColor: dim }}
+            />
           </div>
         </div>
       );
@@ -318,7 +324,11 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
           </div>
           <div className="space-y-[9px] pt-0.5">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-1 w-2/3 rounded-full" style={{ background: i === 0 ? `${accent}55` : glow }} />
+              <div
+                key={i}
+                className="h-1 w-2/3 rounded-full"
+                style={{ background: i === 0 ? `${accent}55` : glow }}
+              />
             ))}
           </div>
         </div>
@@ -353,7 +363,11 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
           </div>
           <div
             className="ml-3 h-2 w-2 -translate-y-1 rotate-45"
-            style={{ background: VARIANT_STYLE[variant], borderRight: `1px solid ${dim}`, borderBottom: `1px solid ${dim}` }}
+            style={{
+              background: VARIANT_STYLE[variant],
+              borderRight: `1px solid ${dim}`,
+              borderBottom: `1px solid ${dim}`,
+            }}
           />
         </div>
       );
@@ -427,7 +441,11 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
           ))}
           <div className="flex-1" />
           {[6, 8, 4].map((h, i) => (
-            <div key={i} className="w-1 rounded-full" style={{ height: h, background: i === 1 ? accent : dim }} />
+            <div
+              key={i}
+              className="w-1 rounded-full"
+              style={{ height: h, background: i === 1 ? accent : dim }}
+            />
           ))}
         </div>
       );
@@ -437,11 +455,17 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <div className="h-1.5 w-8 rounded-full" style={{ background: dim }} />
-            <div className="h-1.5 w-1.5 rotate-45 border-l border-t" style={{ borderColor: accent }} />
+            <div
+              className="h-1.5 w-1.5 rotate-45 border-l border-t"
+              style={{ borderColor: accent }}
+            />
           </div>
           <div className="h-1 w-6 rounded-full" style={{ background: glow }} />
           <div className="flex items-center gap-1">
-            <div className="h-1.5 w-1.5 rotate-45 border-r border-b" style={{ borderColor: accent }} />
+            <div
+              className="h-1.5 w-1.5 rotate-45 border-r border-b"
+              style={{ borderColor: accent }}
+            />
             <div className="h-1.5 w-8 rounded-full" style={{ background: dim }} />
           </div>
         </div>
@@ -453,7 +477,9 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
           <div className="h-2.5 w-2.5 rounded-full" style={{ border: `1px solid ${dim}` }} />
           <div
             className="h-px flex-1"
-            style={{ background: `repeating-linear-gradient(90deg, ${dim} 0 4px, transparent 4px 8px)` }}
+            style={{
+              background: `repeating-linear-gradient(90deg, ${dim} 0 4px, transparent 4px 8px)`,
+            }}
           />
           <div className="h-2.5 w-2.5 rounded-full" style={{ background: accent }} />
           <div className="ml-1.5 h-1 w-1/3 rounded-full" style={{ background: glow }} />
@@ -463,7 +489,10 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
       // Two bubbles trading turns: one listening, one speaking.
       return (
         <div className="space-y-2">
-          <div className="flex h-6 w-4/5 items-center gap-1 rounded-md px-2" style={{ border: `1px solid ${dim}` }}>
+          <div
+            className="flex h-6 w-4/5 items-center gap-1 rounded-md px-2"
+            style={{ border: `1px solid ${dim}` }}
+          >
             <span className="h-1 w-1 rounded-full" style={{ background: dim }} />
             <span className="h-1 w-1 rounded-full" style={{ background: dim }} />
             <span className="h-1 w-1 rounded-full" style={{ background: dim }} />
@@ -485,7 +514,10 @@ function cardGraphic(variant: string, accent: string): React.ReactNode {
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
             style={{ border: `1px solid ${accent}88` }}
           >
-            <div className="h-2.5 w-1.5 -translate-y-px rotate-45 border-b-2 border-r-2" style={{ borderColor: accent }} />
+            <div
+              className="h-2.5 w-1.5 -translate-y-px rotate-45 border-b-2 border-r-2"
+              style={{ borderColor: accent }}
+            />
           </div>
           <div className="flex-1 space-y-1.5">
             <div className="h-1.5 w-4/5 rounded-full" style={{ background: `${accent}66` }} />
@@ -668,7 +700,10 @@ export const CardStrip = memo(function CardStrip() {
                   }}
                 >
                   {/* quiet variant-specific motif, lower half */}
-                  <div className="absolute inset-x-3.5 bottom-0 top-[42%]" style={variantMotif(card.variant, accent)} />
+                  <div
+                    className="absolute inset-x-3.5 bottom-0 top-[42%]"
+                    style={variantMotif(card.variant, accent)}
+                  />
 
                   {/* kicker: index + hairline */}
                   <div className="absolute left-4 right-4 top-4 flex items-center gap-2">
@@ -696,7 +731,9 @@ export const CardStrip = memo(function CardStrip() {
                   </div>
 
                   {/* the evidence: a small data-graphic per variant */}
-                  <div className={`absolute left-4 right-4 ${isScore ? "top-[156px]" : "top-[120px]"}`}>
+                  <div
+                    className={`absolute left-4 right-4 ${isScore ? "top-[156px]" : "top-[120px]"}`}
+                  >
                     {cardGraphic(card.variant, accent)}
                   </div>
 
@@ -725,7 +762,10 @@ export const CardStrip = memo(function CardStrip() {
           {/* Specular sweep: a soft light band crossing the belt every few
               seconds (styles in globals.css). Inside the masked band, so it
               inherits the rim fade; parked at opacity 0 between sweeps. */}
-          <div className="card-strip-sweep pointer-events-none absolute inset-y-0 left-0" aria-hidden />
+          <div
+            className="card-strip-sweep pointer-events-none absolute inset-y-0 left-0"
+            aria-hidden
+          />
         </div>
       </div>
     </div>

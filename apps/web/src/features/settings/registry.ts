@@ -34,7 +34,12 @@ export const SETTINGS_CATEGORIES = [
   { id: "resume", labelKey: "nav.resume", icon: Database, Panel: ResumeSettingsPanel },
   { id: "prep", labelKey: "nav.prep", icon: GraduationCap, Panel: PrepSettingsPanel },
   { id: "interview", labelKey: "nav.interview", icon: Mic, Panel: InterviewSettingsPanel },
-  { id: "integrations", labelKey: "nav.integrations", icon: PlugZap, Panel: IntegrationsSettingsPanel },
+  {
+    id: "integrations",
+    labelKey: "nav.integrations",
+    icon: PlugZap,
+    Panel: IntegrationsSettingsPanel,
+  },
 ] as const satisfies readonly [SettingsCategory, ...SettingsCategory[]];
 
 /** First listed category is the default; derive it so order and ids stay in sync. */

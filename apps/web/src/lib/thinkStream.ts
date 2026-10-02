@@ -48,7 +48,10 @@ function matchClose(s: string, i: number, openTag: string | null): { len: number
   const lower = slice.toLowerCase();
   if (openTag === "```thinking") {
     // Fenced-block close: a lone ```
-    if (lower.startsWith("```") && (slice.length === 3 || /[\r\n]/.test(slice[3] ?? "\n") || slice[3] === undefined)) {
+    if (
+      lower.startsWith("```") &&
+      (slice.length === 3 || /[\r\n]/.test(slice[3] ?? "\n") || slice[3] === undefined)
+    ) {
       return { len: 3 };
     }
     return null;
@@ -111,20 +114,20 @@ export function splitThinkAnswer(raw: string): ThinkSplit {
   return { thinking: thinking.trim(), answer: answer.trimStart(), inThinking, hasThinking };
 }
 
-function couldBeTagPrefix(
-  rest: string,
-  kind: "open" | "close",
-  openTag?: string | null,
-): boolean {
+function couldBeTagPrefix(rest: string, kind: "open" | "close", openTag?: string | null): boolean {
   if (!rest || rest.length > 20) return false;
   const lower = rest.toLowerCase();
   if (kind === "open") {
-    return OPEN_TAGS.some((t) => t.toLowerCase().startsWith(lower) || lower.startsWith("<") || lower.startsWith("`"));
+    return OPEN_TAGS.some(
+      (t) => t.toLowerCase().startsWith(lower) || lower.startsWith("<") || lower.startsWith("`"),
+    );
   }
   if (openTag === "```thinking") {
     return "`".startsWith(lower) || lower.startsWith("`");
   }
-  return CLOSE_TAGS.some((t) => t !== "```" && (t.toLowerCase().startsWith(lower) || lower.startsWith("<")));
+  return CLOSE_TAGS.some(
+    (t) => t !== "```" && (t.toLowerCase().startsWith(lower) || lower.startsWith("<")),
+  );
 }
 
 /** Drop thinking blocks; keep the final answer (persist/display fallback) */

@@ -12,7 +12,9 @@ const BACKEND = "http://localhost:8081";
 
 function stubFetch(body: unknown = []): ReturnType<typeof vi.fn> {
   // A fresh Response per call: a body can only be read once.
-  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(body))));
+  const fetchMock = vi
+    .fn()
+    .mockImplementation(() => Promise.resolve(new Response(JSON.stringify(body))));
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }

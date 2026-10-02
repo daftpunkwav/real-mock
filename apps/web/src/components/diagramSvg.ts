@@ -88,8 +88,7 @@ export function repairMermaidSubgraphs(source: string): string {
     // Split a trailing ["title"]: `准备层 R["简历结构化档案"]` keeps both
     // parts; same for unquoted `工作流A[工作流 A：技术深挖]`.
     const titled =
-      header.match(/^(.*?)\[\s*"([^"\n]*)"\s*\]$/) ??
-      header.match(/^(.*?)\[([^\[\]"\n]+)\]$/);
+      header.match(/^(.*?)\[\s*"([^"\n]*)"\s*\]$/) ?? header.match(/^(.*?)\[([^\[\]"\n]+)\]$/);
     const title = titled
       ? [titled[1]?.trim(), titled[2]?.trim()].filter(Boolean).join(" ")
       : header;

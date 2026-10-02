@@ -39,9 +39,7 @@ export function VerdictBanner({
         >
           {passed ? t("verdict.passed") : t("verdict.failed")}
         </p>
-        {reasoning && (
-          <p className="mt-1 text-[13px] leading-relaxed text-ink">{reasoning}</p>
-        )}
+        {reasoning && <p className="mt-1 text-[13px] leading-relaxed text-ink">{reasoning}</p>}
       </div>
     </div>
   );

@@ -9,10 +9,7 @@ import type { TurnNote } from "@/types/domains/report";
 import type { LedgerDocument } from "@/types/domains/records";
 
 /** Sort notes into ledger turn order; unknown turns keep relative order. */
-export function orderNotesByLedger(
-  notes: TurnNote[],
-  ledger: LedgerDocument | null,
-): TurnNote[] {
+export function orderNotesByLedger(notes: TurnNote[], ledger: LedgerDocument | null): TurnNote[] {
   if (!ledger?.turns?.length) return notes;
   const order = new Map<string, number>();
   ledger.turns.forEach((turn, i) => {

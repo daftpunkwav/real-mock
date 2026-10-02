@@ -59,7 +59,9 @@ const EXPORT_PRELUDE = [
 
 describe("export/require interop", () => {
   it("runs exported functions invoked at top level", async () => {
-    const reply = await runTs(`${EXPORT_PRELUDE}console.log(JSON.stringify(bubbleSort([3, 1, 2])));`);
+    const reply = await runTs(
+      `${EXPORT_PRELUDE}console.log(JSON.stringify(bubbleSort([3, 1, 2])));`,
+    );
     expect(reply.ok).toBe(true);
     expect(reply.stdout).toBe("[1,2,3]");
   });

@@ -119,9 +119,7 @@ export function InterviewCodingPanel() {
         setConsoleOutput(res.output || t("room.coding.noOutput"));
         setRunStatus("success");
       } else {
-        setConsoleOutput(
-          `${t("room.coding.execFailed")} ${res.error ?? ""}\n${res.stderr ?? ""}`,
-        );
+        setConsoleOutput(`${t("room.coding.execFailed")} ${res.error ?? ""}\n${res.stderr ?? ""}`);
         setRunStatus("error");
       }
     } catch (err: unknown) {
@@ -155,7 +153,9 @@ export function InterviewCodingPanel() {
                 type="button"
                 onClick={() => setActiveTab(id)}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                  activeTab === id ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
+                  activeTab === id
+                    ? "bg-surface text-ink shadow-sm"
+                    : "text-ink-muted hover:text-ink"
                 }`}
               >
                 {t(labelKey)}

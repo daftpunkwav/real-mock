@@ -43,9 +43,9 @@ describe("normalizeAskDialog", () => {
   });
 
   it("drops duplicate labels to keep dialog keys unique", () => {
-    expect(
-      normalizeAskDialog({ question: "Q?", options: ["a", "b", "a", " a "] }).options,
-    ).toEqual(["a", "b"]);
+    expect(normalizeAskDialog({ question: "Q?", options: ["a", "b", "a", " a "] }).options).toEqual(
+      ["a", "b"],
+    );
   });
 
   it("falls back on unknown selection/widget and drops non-numeric scale", () => {
@@ -63,7 +63,8 @@ describe("normalizeAskDialog", () => {
 
   it("degrades an unusable slider to options, mirroring the backend", () => {
     expect(
-      normalizeAskDialog({ question: "Q?", options: ["a", "b"], widget: "slider", scale: null }).widget,
+      normalizeAskDialog({ question: "Q?", options: ["a", "b"], widget: "slider", scale: null })
+        .widget,
     ).toBe("options");
     expect(
       normalizeAskDialog({
@@ -77,31 +78,31 @@ describe("normalizeAskDialog", () => {
 
   it("parses allow_custom like the backend (only explicit negatives off)", () => {
     expect(normalizeAskDialog({ question: "Q?", options: [] }).allow_custom).toBe(true);
-    expect(normalizeAskDialog({ question: "Q?", options: [], allow_custom: "false" }).allow_custom).toBe(false);
-    expect(normalizeAskDialog({ question: "Q?", options: [], allow_custom: 0 }).allow_custom).toBe(false);
+    expect(
+      normalizeAskDialog({ question: "Q?", options: [], allow_custom: "false" }).allow_custom,
+    ).toBe(false);
+    expect(normalizeAskDialog({ question: "Q?", options: [], allow_custom: 0 }).allow_custom).toBe(
+      false,
+    );
   });
 });
 
 describe("formatAskAnswer", () => {
   it("joins multi selections with 、", () => {
-    expect(
-      formatAskAnswer({ widget: "options" }, { options: ["A", "B", "C"] }),
-    ).toBe("A、B、C");
+    expect(formatAskAnswer({ widget: "options" }, { options: ["A", "B", "C"] })).toBe("A、B、C");
   });
 
   it("formats slider values with unit and trims .0", () => {
-    expect(
-      formatAskAnswer({ widget: "slider", scale: { unit: "小时" } }, { slider: "7.0" }),
-    ).toBe("7小时");
-    expect(
-      formatAskAnswer({ widget: "slider", scale: { step: 0.5 } }, { slider: "7.5" }),
-    ).toBe("7.5");
+    expect(formatAskAnswer({ widget: "slider", scale: { unit: "小时" } }, { slider: "7.0" })).toBe(
+      "7小时",
+    );
+    expect(formatAskAnswer({ widget: "slider", scale: { step: 0.5 } }, { slider: "7.5" })).toBe(
+      "7.5",
+    );
   });
 
   it("formats ratings as value/max", () => {
-    expect(
-      formatAskAnswer({ widget: "rating", scale: { max: 5 } }, { rating: 4 }),
-    ).toBe("4/5");
+    expect(formatAskAnswer({ widget: "rating", scale: { max: 5 } }, { rating: 4 })).toBe("4/5");
   });
 });
 

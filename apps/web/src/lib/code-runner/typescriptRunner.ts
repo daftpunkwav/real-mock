@@ -21,10 +21,7 @@ export type TranspileOutcome = { code: string } | { error: string };
  * Strip TypeScript syntax via sucrase. Pure async (dynamic import keeps the
  * transpiler out of the main bundle); safe to call in Node for tests.
  */
-export async function transpileTypeScript(
-  source: string,
-  jsx = false,
-): Promise<TranspileOutcome> {
+export async function transpileTypeScript(source: string, jsx = false): Promise<TranspileOutcome> {
   if (!source.trim()) return { code: "" };
   try {
     const { transform } = await import("sucrase");

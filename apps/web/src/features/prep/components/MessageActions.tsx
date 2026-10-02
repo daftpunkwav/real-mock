@@ -7,15 +7,7 @@
  */
 
 import { useState } from "react";
-import {
-  Check,
-  Copy,
-  Download,
-  GitFork,
-  RefreshCw,
-  Star,
-  Undo2,
-} from "lucide-react";
+import { Check, Copy, Download, GitFork, RefreshCw, Star, Undo2 } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";

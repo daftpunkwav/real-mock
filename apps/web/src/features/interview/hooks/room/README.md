@@ -6,16 +6,16 @@
 
 ## Sub-hook responsibilities (assembly order)
 
-| Hook | Responsibility |
-| --- | --- |
-| `useInterviewRoomBootstrap` | Session metadata, history messages, phase restore |
-| `useInterviewWS` | WebSocket connection and `TurnState` |
-| `useInterviewRoomState` | UI state + ref container |
-| `useInterviewRoomTtsBinding` | TTS playback and generation alignment |
-| `useInterviewRoomSilenceTimer` | Silence timeout / nudge |
-| `useInterviewRoomEvents` | WS server event handling |
-| `useInterviewRoomActions` | User actions (send, wrap-up, barge-in) |
-| `useInterviewRoomRecorderBridge` | Mic / recorder bridge |
+| Hook                             | Responsibility                                    |
+| -------------------------------- | ------------------------------------------------- |
+| `useInterviewRoomBootstrap`      | Session metadata, history messages, phase restore |
+| `useInterviewWS`                 | WebSocket connection and `TurnState`              |
+| `useInterviewRoomState`          | UI state + ref container                          |
+| `useInterviewRoomTtsBinding`     | TTS playback and generation alignment             |
+| `useInterviewRoomSilenceTimer`   | Silence timeout / nudge                           |
+| `useInterviewRoomEvents`         | WS server event handling                          |
+| `useInterviewRoomActions`        | User actions (send, wrap-up, barge-in)            |
+| `useInterviewRoomRecorderBridge` | Mic / recorder bridge                             |
 
 ## Cross-hook data flow
 

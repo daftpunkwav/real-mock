@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type ComponentType,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode, type ComponentType } from "react";
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,9 +45,7 @@ export function CollapsibleSection({
   const isControlled = open !== undefined;
   const isOpen = isControlled ? open : inner;
   const bodyRef = useRef<HTMLDivElement>(null);
-  const [maxHeight, setMaxHeight] = useState<string>(
-    defaultOpen ? "none" : "0px",
-  );
+  const [maxHeight, setMaxHeight] = useState<string>(defaultOpen ? "none" : "0px");
 
   const toggle = () => {
     const next = !isOpen;
@@ -116,10 +108,7 @@ export function CollapsibleSection({
           />
         </button>
         {actions && (
-          <div
-            className="flex shrink-0 items-center gap-2"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {actions}
           </div>
         )}

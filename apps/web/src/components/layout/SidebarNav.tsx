@@ -21,9 +21,7 @@ function isNavActive(
   return (
     pathname === href ||
     pathname.startsWith(`${href}/`) ||
-    extraActivePrefixes.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-    )
+    extraActivePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
   );
 }
 
@@ -181,7 +179,9 @@ export function NavContent({
                     className={cn(
                       "shrink-0 -translate-x-1 text-ink-subtle opacity-0 transition-all duration-base ease-google",
                       !collapsed && "group-hover/nav:translate-x-0 group-hover/nav:opacity-100",
-                      isActive && !collapsed && "translate-x-0 text-[var(--sidebar-primary)] opacity-60",
+                      isActive &&
+                        !collapsed &&
+                        "translate-x-0 text-[var(--sidebar-primary)] opacity-60",
                     )}
                   />
                 )}

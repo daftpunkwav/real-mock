@@ -58,7 +58,7 @@ export function buildWorkerSource(): string {
     // the snippet is always the entry point here, never an import.
     "    var moduleShim = { exports: {} };\n" +
     "    moduleShim.main = moduleShim;\n" +
-    "    var requireShim = function (name) { throw new Error(\"Cannot load module '\" + name + \"' in the browser runner. Only self-contained snippets can run here.\"); };\n" +
+    '    var requireShim = function (name) { throw new Error("Cannot load module \'" + name + "\' in the browser runner. Only self-contained snippets can run here."); };\n' +
     "    requireShim.main = moduleShim;\n" +
     // Async wrapper: supports both sync snippets and top-level await.
     "    var fn = new Function('console', 'module', 'exports', 'require', '\"use strict\";\\nreturn (async function () {\\n' + source + '\\n})();');\n" +
@@ -78,8 +78,7 @@ export function formatWorkerError(err: unknown): string {
   if (err === null || err === undefined) return "Unknown error";
   if (typeof err === "string") return err || "Unknown error";
   const record = err as { name?: unknown; message?: unknown; stack?: unknown };
-  const name =
-    typeof record.name === "string" && record.name ? record.name : "Error";
+  const name = typeof record.name === "string" && record.name ? record.name : "Error";
   let message = "";
   if (typeof record.message === "string" && record.message) {
     message = record.message;

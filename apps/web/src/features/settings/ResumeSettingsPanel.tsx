@@ -89,9 +89,7 @@ export function ResumeSettingsPanel() {
         }),
       );
     } catch (err) {
-      const fallback = t(
-        kind === "results" ? "data.clearResults.failed" : "data.clearAll.failed",
-      );
+      const fallback = t(kind === "results" ? "data.clearResults.failed" : "data.clearAll.failed");
       toast.error(err instanceof Error ? formatApiError(err) : fallback);
       throw err;
     }

@@ -40,7 +40,11 @@ function ProjectCardItem({ card, index }: { card: ProjectCardData; index: number
         </span>
         <span className="eval-pcard-score num-tabular" style={{ color }}>
           {card.score}
-          <span className="eval-pcard-score-ring" style={{ background: `conic-gradient(${color} ${card.score}%, var(--muted) 0)` }} aria-hidden />
+          <span
+            className="eval-pcard-score-ring"
+            style={{ background: `conic-gradient(${color} ${card.score}%, var(--muted) 0)` }}
+            aria-hidden
+          />
         </span>
         <ChevronDown
           size={15}

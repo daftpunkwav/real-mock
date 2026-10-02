@@ -82,7 +82,9 @@ describe("resumeHttp empty-body guards", () => {
 
   it("resumeFileUrl toggles the download query", () => {
     expect(resumeHttp.resumeFileUrl(3)).toBe("http://backend/api/v1/resume/3/file");
-    expect(resumeHttp.resumeFileUrl(3, true)).toBe("http://backend/api/v1/resume/3/file?download=1");
+    expect(resumeHttp.resumeFileUrl(3, true)).toBe(
+      "http://backend/api/v1/resume/3/file?download=1",
+    );
   });
 
   it("resumePageImageUrl uses the full /api/v1 path", () => {

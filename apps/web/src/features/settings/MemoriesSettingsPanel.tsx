@@ -23,10 +23,11 @@ import { cn } from "@/lib/utils";
 const ORIGIN_KEYS = ["user_rating", "user_emphasis", "agent_note"] as const;
 
 function originLabel(t: ReturnType<typeof useT>, origin: string): string {
-  const key = `memories.origin.${(ORIGIN_KEYS as readonly string[]).includes(origin) ? origin : "agent_note"}` as
-    | "memories.origin.user_rating"
-    | "memories.origin.user_emphasis"
-    | "memories.origin.agent_note";
+  const key =
+    `memories.origin.${(ORIGIN_KEYS as readonly string[]).includes(origin) ? origin : "agent_note"}` as
+      | "memories.origin.user_rating"
+      | "memories.origin.user_emphasis"
+      | "memories.origin.agent_note";
   return t(key);
 }
 
@@ -45,7 +46,9 @@ function MemoryDetail({ detail }: { detail: PrepMemoryDetail }) {
       )}
       {detail.agent_output && (
         <div>
-          <p className="text-[11px] font-medium text-ink-muted">{t("memories.detailAgentOutput")}</p>
+          <p className="text-[11px] font-medium text-ink-muted">
+            {t("memories.detailAgentOutput")}
+          </p>
           <pre className="mt-0.5 max-h-64 overflow-y-auto whitespace-pre-wrap rounded bg-surface-muted px-2 py-1.5 text-[12px] leading-relaxed text-ink">
             {detail.agent_output}
           </pre>
@@ -61,7 +64,9 @@ function MemoryDetail({ detail }: { detail: PrepMemoryDetail }) {
       )}
       {(detail.reasons ?? []).length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-medium text-ink-muted">{t("memories.detailReasons")}</span>
+          <span className="text-[11px] font-medium text-ink-muted">
+            {t("memories.detailReasons")}
+          </span>
           {(detail.reasons ?? []).map((reason) => (
             <span
               key={reason}
@@ -444,7 +449,11 @@ export function MemoriesSettingsPanel() {
 
       <div className="surface-card divide-y divide-[var(--border)]">
         <label className="flex items-center gap-2.5 p-3 text-[12px] text-ink-muted">
-          <input type="checkbox" checked={visible.length > 0 && selected.length === visible.length} onChange={toggleAll} />
+          <input
+            type="checkbox"
+            checked={visible.length > 0 && selected.length === visible.length}
+            onChange={toggleAll}
+          />
           {t("memories.selectAll")}
         </label>
         {visible.length === 0 && (

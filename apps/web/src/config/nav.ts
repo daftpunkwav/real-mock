@@ -42,7 +42,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/resume", labelKey: "items.resume", icon: FileText },
   { href: "/prep", labelKey: "items.prep", icon: BookOpen },
   { href: "/interview", labelKey: "items.interview", icon: Mic },
-  { href: "/history", labelKey: "items.history", icon: BarChart3, extraActivePrefixes: ["/report"] },
+  {
+    href: "/history",
+    labelKey: "items.history",
+    icon: BarChart3,
+    extraActivePrefixes: ["/report"],
+  },
   { href: "/growth", labelKey: "items.growth", icon: TrendingUp },
   { href: "/settings", labelKey: "items.settings", icon: Settings },
 ] as const;

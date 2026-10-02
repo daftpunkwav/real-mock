@@ -122,16 +122,19 @@ export function createSpeechRecognitionSession(refs: AsrRefs): SpeechRecognition
       }
     },
     startAfterArm: (delayMs: number) => {
-      window.setTimeout(() => {
-        if (session !== refs.getSession()) return;
-        if (!refs.captureEnabledNow()) return;
-        refs.asrAllowedRef.current = true;
-        try {
-          startRec();
-        } catch {
-          /* ignore */
-        }
-      }, Math.max(0, delayMs));
+      window.setTimeout(
+        () => {
+          if (session !== refs.getSession()) return;
+          if (!refs.captureEnabledNow()) return;
+          refs.asrAllowedRef.current = true;
+          try {
+            startRec();
+          } catch {
+            /* ignore */
+          }
+        },
+        Math.max(0, delayMs),
+      );
     },
   };
 }

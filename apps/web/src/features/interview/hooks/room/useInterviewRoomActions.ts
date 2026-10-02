@@ -68,9 +68,9 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
 
   const { send, stopTTS, unlockAudio, flushHeldQueue, retryLastFailed } = deps;
 
-  const submitUserMessageRef = useRef<
-    (text: string, pcm?: string, sampleRate?: number) => boolean
-  >(() => false);
+  const submitUserMessageRef = useRef<(text: string, pcm?: string, sampleRate?: number) => boolean>(
+    () => false,
+  );
 
   const submitUserMessage = useCallback(
     (text: string, pcmBase64 = "", sampleRate = 16000) => {
@@ -145,20 +145,23 @@ export function useInterviewRoomActions(deps: InterviewRoomActionsDeps) {
     }
   }, []);
 
-  const onPartialStable = useCallback((text: string) => {
-    const d = depsRef.current;
-    if (d.turnStateRef.current !== "USER_SPEAKING") return;
-    if (isLikelyEchoOfAssistant(text, d.lastAssistantTextRef.current)) return;
-    d.partialTextRef.current = text;
-    notifyUserActivity();
-    const now = Date.now();
-    if (now - d.sttThrottleRef.current >= 500) {
-      d.sttThrottleRef.current = now;
-      d.sendRef.current({ type: "stt_text", text });
-    }
-    d.disarmSpeechWatch();
-    d.bumpSilenceTimerRef.current();
-  }, [notifyUserActivity]);
+  const onPartialStable = useCallback(
+    (text: string) => {
+      const d = depsRef.current;
+      if (d.turnStateRef.current !== "USER_SPEAKING") return;
+      if (isLikelyEchoOfAssistant(text, d.lastAssistantTextRef.current)) return;
+      d.partialTextRef.current = text;
+      notifyUserActivity();
+      const now = Date.now();
+      if (now - d.sttThrottleRef.current >= 500) {
+        d.sttThrottleRef.current = now;
+        d.sendRef.current({ type: "stt_text", text });
+      }
+      d.disarmSpeechWatch();
+      d.bumpSilenceTimerRef.current();
+    },
+    [notifyUserActivity],
+  );
 
   const onSpeechActivity = useCallback(() => {
     const d = depsRef.current;

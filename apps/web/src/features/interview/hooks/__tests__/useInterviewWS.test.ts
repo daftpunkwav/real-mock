@@ -139,7 +139,9 @@ describe("useInterviewWS contract", () => {
       lastSocket().serverMessage({ type: "assistant_token", token: "What..." });
     });
     expect(onToken).toHaveBeenCalledTimes(1);
-    expect(onToken).toHaveBeenCalledWith(expect.objectContaining({ type: "assistant_token", token: "What..." }));
+    expect(onToken).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "assistant_token", token: "What..." }),
+    );
     expect(result.current.turnState).toBe("IDLE");
   });
 

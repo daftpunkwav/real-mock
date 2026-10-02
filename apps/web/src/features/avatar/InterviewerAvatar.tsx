@@ -37,9 +37,16 @@ export function InterviewerAvatar({
   const sceneImg = SCENES[sceneId] || SCENES.meeting_room;
 
   return (
-    <div className="relative w-full h-full overflow-hidden rounded-xl" style={{ background: sceneBg }}>
+    <div
+      className="relative w-full h-full overflow-hidden rounded-xl"
+      style={{ background: sceneBg }}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={sceneImg} alt="" className="absolute inset-0 w-full h-full object-cover opacity-90" />
+      <img
+        src={sceneImg}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover opacity-90"
+      />
       <div className="absolute inset-0 opacity-15 bg-[url('/scenes/pattern.svg')] bg-cover" />
       {/* soft light */}
       <div
@@ -84,9 +91,7 @@ export function InterviewerAvatar({
           className="w-2 h-2 rounded-full"
           style={{ background: speaking ? "#22c55e" : profile.accent }}
         />
-        <span className="text-white/90 text-sm font-medium drop-shadow">
-          {t(profile.labelKey)}
-        </span>
+        <span className="text-white/90 text-sm font-medium drop-shadow">{t(profile.labelKey)}</span>
       </div>
       {emotion !== "neutral" && (
         <div className="absolute top-4 right-4 text-xs text-white/70 bg-black/30 px-2 py-0.5 rounded-full">

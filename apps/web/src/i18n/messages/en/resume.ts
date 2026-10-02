@@ -31,7 +31,7 @@ export const resume = {
   "item.analyze": "AI Deep Review",
   "item.delete": "Delete",
   "item.deleteTitle": "Delete resume",
-  "item.deleteConfirm": "Delete version \"{name}\"? Other versions in the family are kept.",
+  "item.deleteConfirm": 'Delete version "{name}"? Other versions in the family are kept.',
   "item.versionChip": "v{n}",
   "item.latestIdle": "Latest, not active",
   "item.uploadVersion": "Upload new version",
@@ -129,7 +129,8 @@ export const resume = {
   "overview.compareScores": "Overall by version",
   "overview.compareDeltas": "Change vs previous version",
   "overview.compareOverall": "Overall {prev} → {curr} ({delta})",
-  "overview.compareDimsMissing": "Previous version lacks dimension detail; comparing overall score only.",
+  "overview.compareDimsMissing":
+    "Previous version lacks dimension detail; comparing overall score only.",
   "overview.compareOverlay": "Radar overlay",
   "overview.scaleLow": "Low",
   "overview.scaleMid": "Mid",
@@ -214,11 +215,11 @@ export const resume = {
   "overviewCard.scored": "Scored",
   "overviewCard.active": "Active:",
   "tips.title": "Tips",
-  "tips.first": "· \"Set as active\" links the resume to mock interviews and interview prep",
+  "tips.first": '· "Set as active" links the resume to mock interviews and interview prep',
   "tips.second":
     "· Deep review searches job requirements online and reviews layout, typography and content",
   "tips.third":
-    "· Older reviews only refresh to the new structure after clicking \"AI Deep Review\" again",
+    '· Older reviews only refresh to the new structure after clicking "AI Deep Review" again',
 
   // ResumeFilePreview / PreviewToolbar: standalone file preview
   "preview.nameFallback": "Resume",
@@ -234,19 +235,20 @@ export const resume = {
 
   // useResumeList / previewRoute: error fallbacks and toasts
   "hook.loadFailed": "Load failed",
-  "toast.uploadQueued": "Uploaded; parsing runs in the background and the list updates automatically",
+  "toast.uploadQueued":
+    "Uploaded; parsing runs in the background and the list updates automatically",
   "toast.parseFailed":
-    "Resume parsing failed; click \"Retry parsing\" (bind a vision model in Settings for scanned files)",
+    'Resume parsing failed; click "Retry parsing" (bind a vision model in Settings for scanned files)',
   "toast.parseRetryFailed": "Failed to retry parsing",
   "toast.uploaded": "Resume uploaded and parsed",
   "toast.uploadedFallback":
     "Resume uploaded, but structured parsing fell back to a raw-text summary. Deep review can still run.",
   "toast.uploadFailed": "Upload failed",
-  "toast.listRefreshFailed":
-    "Change saved, but the list could not be refreshed. Reload the page.",
-  "toast.parallelLimit": "At most {count} resumes can be reviewed in parallel; wait for one to finish",
+  "toast.listRefreshFailed": "Change saved, but the list could not be refreshed. Reload the page.",
+  "toast.parallelLimit":
+    "At most {count} resumes can be reviewed in parallel; wait for one to finish",
   "toast.analyzing":
-    "Generating deep review for \"{name}\" (Agent tools + web lookup); takes about 2–4 minutes, up to {count} at a time…",
+    'Generating deep review for "{name}" (Agent tools + web lookup); takes about 2–4 minutes, up to {count} at a time…',
   "toast.analyzingUnnamed":
     "Generating deep review (Agent tools + web lookup); takes about 2–4 minutes, up to {count} at a time…",
   "toast.analyzeDone": "Review done · Overall score {score}",

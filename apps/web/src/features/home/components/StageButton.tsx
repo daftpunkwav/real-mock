@@ -23,7 +23,10 @@ export function StageButton({ href, children }: { href: string; children: ReactN
       }}
     >
       {children}
-      <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+      <ArrowRight
+        size={16}
+        className="transition-transform duration-200 group-hover:translate-x-0.5"
+      />
     </Link>
   );
 }

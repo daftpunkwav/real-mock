@@ -18,15 +18,12 @@ export function GrowthProgressCard({ growthPct }: { growthPct: number }) {
         <div
           className="progress-bar"
           style={{
-            background:
-              "linear-gradient(90deg, var(--chart-3), var(--chart-2))",
+            background: "linear-gradient(90deg, var(--chart-3), var(--chart-2))",
             width: `${growthPct}%`,
           }}
         />
       </div>
-      <p className="mt-2.5 text-[11px] leading-relaxed text-ink-subtle">
-        {t("progress.hint")}
-      </p>
+      <p className="mt-2.5 text-[11px] leading-relaxed text-ink-subtle">{t("progress.hint")}</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Link href="/interview" className="btn-secondary !h-9 !text-xs">
           {t("progress.interviewCta")}

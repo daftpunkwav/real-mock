@@ -38,7 +38,12 @@ export function useInterviewRoomRecorderBridge(deps: InterviewRoomRecorderBridge
   useEffect(() => {
     deps.clearCaptureBuffersRef.current = recorder.clearCaptureBuffers;
     deps.seedCaptureFromRingRef.current = recorder.seedCaptureFromRing;
-  }, [recorder.clearCaptureBuffers, recorder.seedCaptureFromRing, deps.clearCaptureBuffersRef, deps.seedCaptureFromRingRef]);
+  }, [
+    recorder.clearCaptureBuffers,
+    recorder.seedCaptureFromRing,
+    deps.clearCaptureBuffersRef,
+    deps.seedCaptureFromRingRef,
+  ]);
 
   return {
     isRecording: recorder.isRecording,

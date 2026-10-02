@@ -39,13 +39,7 @@ function labelAnchor(index: number, total: number): "start" | "end" | "middle" {
 }
 
 /** Equal-weight SVG radar; optional overlays are prior versions. */
-export function RadarChart({
-  dims,
-  overlays = [],
-}: {
-  dims: RadarDim[];
-  overlays?: number[][];
-}) {
+export function RadarChart({ dims, overlays = [] }: { dims: RadarDim[]; overlays?: number[][] }) {
   const t = useT("resume");
   const { ref, shown, reduce } = useInViewReveal();
 

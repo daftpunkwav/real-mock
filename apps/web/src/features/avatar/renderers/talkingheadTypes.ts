@@ -1,7 +1,10 @@
 /** 3D channel instance handle types (minimal subset of @met4citizen/talkinghead, shared by boot/gaze/emotion/mouth). */
 
 export type HeadInstance = {
-  showAvatar: (avatar: Record<string, unknown>, onprogress?: (ev: unknown) => void) => Promise<void>;
+  showAvatar: (
+    avatar: Record<string, unknown>,
+    onprogress?: (ev: unknown) => void,
+  ) => Promise<void>;
   setMood: (mood: string) => void;
   setValue: (mt: string, val: number, ms?: number | null) => void;
   setBaselineValue?: (mt: string, val: number | null) => void;

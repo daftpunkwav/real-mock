@@ -72,19 +72,39 @@ export function PreviewCard({
           />
         )}
         {isPreviewFilled(profile.education_level) && (
-          <PreviewRow icon={Award} label={t("preview.degree.label")} value={profile.education_level} />
+          <PreviewRow
+            icon={Award}
+            label={t("preview.degree.label")}
+            value={profile.education_level}
+          />
         )}
         {isPreviewFilled(profile.target_role) && (
-          <PreviewRow icon={Briefcase} label={t("preview.role.label")} value={profile.target_role} />
+          <PreviewRow
+            icon={Briefcase}
+            label={t("preview.role.label")}
+            value={profile.target_role}
+          />
         )}
         {isPreviewFilled(profile.job_direction) && (
-          <PreviewRow icon={MapPin} label={t("preview.direction.label")} value={profile.job_direction} />
+          <PreviewRow
+            icon={MapPin}
+            label={t("preview.direction.label")}
+            value={profile.job_direction}
+          />
         )}
         {isPreviewFilled(profile.current_company) && (
-          <PreviewRow icon={Building2} label={t("preview.company.label")} value={profile.current_company} />
+          <PreviewRow
+            icon={Building2}
+            label={t("preview.company.label")}
+            value={profile.current_company}
+          />
         )}
         {isPreviewFilled(profile.expected_city) && (
-          <PreviewRow icon={MapPin} label={t("preview.expectedCity.label")} value={profile.expected_city} />
+          <PreviewRow
+            icon={MapPin}
+            label={t("preview.expectedCity.label")}
+            value={profile.expected_city}
+          />
         )}
         {isPreviewFilled(profile.city) && !isPreviewFilled(profile.expected_city) && (
           <PreviewRow icon={MapPin} label={t("preview.city.label")} value={profile.city} />
@@ -96,7 +116,11 @@ export function PreviewCard({
           <PreviewRow icon={Phone} label={t("preview.phone.label")} value={profile.phone} />
         )}
         {isPreviewFilled(profile.github_username) && (
-          <PreviewRow icon={Link2} label={t("preview.github.label")} value={profile.github_username} />
+          <PreviewRow
+            icon={Link2}
+            label={t("preview.github.label")}
+            value={profile.github_username}
+          />
         )}
       </dl>
 

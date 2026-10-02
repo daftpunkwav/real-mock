@@ -23,12 +23,7 @@ export const ContextRing = memo(function ContextRing({
   const pct = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
   const r = 6;
   const c = 2 * Math.PI * r;
-  const color =
-    pct >= 0.9
-      ? "var(--danger)"
-      : pct >= 0.7
-        ? "var(--warning)"
-        : "var(--primary)";
+  const color = pct >= 0.9 ? "var(--danger)" : pct >= 0.7 ? "var(--warning)" : "var(--primary)";
   const label = title ?? t("context.usage", { percent: `${Math.round(pct * 100)}%` });
   return (
     <svg
@@ -109,8 +104,7 @@ export const ContextGauge = memo(function ContextGauge({
   const [open, setOpen] = useState(false);
   const t = useT("common");
   const pct = win ? Math.max(0, Math.min(1, used / win)) : 0;
-  const color =
-    pct >= 0.9 ? "var(--danger)" : pct >= 0.7 ? "var(--warning)" : "var(--primary)";
+  const color = pct >= 0.9 ? "var(--danger)" : pct >= 0.7 ? "var(--warning)" : "var(--primary)";
   const total = breakdown.reduce((s, b) => s + b.value, 0) || 1;
   const reportedPrompt = usage?.prompt_tokens ?? 0;
   const reportedCompletion = usage?.completion_tokens ?? 0;
@@ -120,9 +114,7 @@ export const ContextGauge = memo(function ContextGauge({
   const inputValue = reportedPrompt > 0 ? reportedPrompt : (estimatedPrompt ?? 0);
   const hasUsage = inputValue > 0 || reportedCompletion > 0;
   const cacheRate =
-    reportedPrompt > 0
-      ? Math.min(1, (usage?.cached_tokens ?? 0) / reportedPrompt)
-      : null;
+    reportedPrompt > 0 ? Math.min(1, (usage?.cached_tokens ?? 0) / reportedPrompt) : null;
 
   return (
     <div className="relative shrink-0">
@@ -239,7 +231,9 @@ export const ContextGauge = memo(function ContextGauge({
                   {(usage?.last_latency_ms ?? 0) > 0 && (
                     <div
                       className="flex items-center justify-between text-[11px]"
-                      title={usage?.last_request_id ? `request id: ${usage.last_request_id}` : undefined}
+                      title={
+                        usage?.last_request_id ? `request id: ${usage.last_request_id}` : undefined
+                      }
                     >
                       <span className="text-ink-muted">{t("context.lastLatency")}</span>
                       <span className="num-tabular text-ink-subtle">
@@ -251,8 +245,13 @@ export const ContextGauge = memo(function ContextGauge({
                   )}
                   {usage?.last_error ? (
                     <div className="flex items-start justify-between gap-2 text-[11px]">
-                      <span className="shrink-0 text-[var(--danger)]">{t("context.lastError")}</span>
-                      <span className="min-w-0 break-all text-right text-ink-subtle" title={usage.last_error}>
+                      <span className="shrink-0 text-[var(--danger)]">
+                        {t("context.lastError")}
+                      </span>
+                      <span
+                        className="min-w-0 break-all text-right text-ink-subtle"
+                        title={usage.last_error}
+                      >
                         {usage.last_error.length > 80
                           ? `${usage.last_error.slice(0, 80)}…`
                           : usage.last_error}

@@ -14,7 +14,11 @@ import { useEffect, useRef } from "react";
 import { Plus, Sparkles, X } from "lucide-react";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { useT } from "@/i18n";
-import { PROFILE_FIELD_LIMITS, TECH_DOMAIN_ITEM_MAX, TECH_DOMAINS_MAX_COUNT } from "../profileLimits";
+import {
+  PROFILE_FIELD_LIMITS,
+  TECH_DOMAIN_ITEM_MAX,
+  TECH_DOMAINS_MAX_COUNT,
+} from "../profileLimits";
 import type { ProfileSectionProps } from "../types";
 import { LimitedTextarea } from "./LimitedTextarea";
 

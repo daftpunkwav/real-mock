@@ -117,7 +117,9 @@ export function PercentileBar({ pct }: { pct: number }) {
         <span>{t("overview.scaleMid")}</span>
         <span>{t("overview.scaleHigh")}</span>
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">{t("overview.percentileDisclaimer")}</p>
+      <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">
+        {t("overview.percentileDisclaimer")}
+      </p>
     </div>
   );
 }

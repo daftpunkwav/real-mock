@@ -49,17 +49,15 @@ export function PrepSettingsPanel() {
   const t = useT("settings");
   const tc = useT("common");
   const [seconds, setSeconds] = useState<number>(() => readAskTimeoutSec());
-  const [compactThreshold, setCompactThreshold] = useState<CompactThresholdSetting>(
-    () => readCompactThreshold(),
+  const [compactThreshold, setCompactThreshold] = useState<CompactThresholdSetting>(() =>
+    readCompactThreshold(),
   );
   const [compactIntensity, setCompactIntensity] = useState<CompactionIntensity>(() =>
     readCompactIntensity(),
   );
   const [compactDirective, setCompactDirective] = useState<string>(() => readCompactDirective());
   const [compactRetain, setCompactRetain] = useState<number>(() => readCompactRetain());
-  const [memoryIndexLimit, setMemoryIndexLimit] = useState<number>(() =>
-    readMemoryIndexLimit(),
-  );
+  const [memoryIndexLimit, setMemoryIndexLimit] = useState<number>(() => readMemoryIndexLimit());
   const [confirmingPurge, setConfirmingPurge] = useState(false);
   const [purging, setPurging] = useState(false);
   const [confirmingPurgeAll, setConfirmingPurgeAll] = useState(false);
@@ -248,9 +246,7 @@ export function PrepSettingsPanel() {
           <GraduationCap size={16} className="text-[var(--primary)]" />
           <h2 className="text-[14px] font-semibold">{t("prep.memoryIndex.title")}</h2>
         </div>
-        <p className="text-[13px] leading-relaxed text-ink-muted">
-          {t("prep.memoryIndex.desc")}
-        </p>
+        <p className="text-[13px] leading-relaxed text-ink-muted">{t("prep.memoryIndex.desc")}</p>
         <div className="mt-3 max-w-xs">
           <label
             htmlFor="prep-memory-index-limit"

@@ -47,14 +47,22 @@ export function ChannelCard({
     setFullUrl(channel?.full_url ?? false);
     setProtocol(channel?.protocol ?? "openai_chat");
     setApiKey("");
-  }, [providerId, kind, channel?.api_base, channel?.full_url, channel?.protocol, channel?.has_api_key]);
+  }, [
+    providerId,
+    kind,
+    channel?.api_base,
+    channel?.full_url,
+    channel?.protocol,
+    channel?.has_api_key,
+  ]);
 
-  const save = () => onSave(providerId, kind, {
-    api_base: apiBase,
-    full_url: effectiveFullUrl,
-    ...(showProtocol ? { protocol } : {}),
-    ...(apiKey ? { api_key: apiKey } : {}),
-  });
+  const save = () =>
+    onSave(providerId, kind, {
+      api_base: apiBase,
+      full_url: effectiveFullUrl,
+      ...(showProtocol ? { protocol } : {}),
+      ...(apiKey ? { api_key: apiKey } : {}),
+    });
 
   return (
     <div className="grid grid-cols-1 gap-3">
@@ -63,7 +71,11 @@ export function ChannelCard({
           <span className="text-[11px] text-ink-muted">{t("providerCard.baseUrl.label")}</span>
           {fullUrlToggle && (
             <label className="flex cursor-pointer items-center gap-1 text-[11px] text-ink-muted">
-              <input type="checkbox" checked={fullUrl} onChange={(e) => setFullUrl(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={fullUrl}
+                onChange={(e) => setFullUrl(e.target.checked)}
+              />
               {t("providerCard.fullUrl.label")}
             </label>
           )}
@@ -77,7 +89,9 @@ export function ChannelCard({
       </div>
       {showProtocol && (
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">{t("providerCard.apiFormat.label")}</label>
+          <label className="mb-1 block text-[11px] text-ink-muted">
+            {t("providerCard.apiFormat.label")}
+          </label>
           <Select
             className="!h-9"
             ariaLabel={t("providerCard.apiFormat.label")}
@@ -86,7 +100,11 @@ export function ChannelCard({
             onChange={setProtocol}
             disabled={effectiveFullUrl}
           />
-          {effectiveFullUrl && <p className="mt-1 text-[11px] text-ink-subtle">{t("providerCard.apiFormat.disabledHint")}</p>}
+          {effectiveFullUrl && (
+            <p className="mt-1 text-[11px] text-ink-subtle">
+              {t("providerCard.apiFormat.disabledHint")}
+            </p>
+          )}
         </div>
       )}
       <div>

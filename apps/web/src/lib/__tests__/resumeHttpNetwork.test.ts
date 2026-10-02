@@ -110,10 +110,7 @@ describe("multipart uploads", () => {
 
 describe("resumeFileText", () => {
   it("returns the raw file text", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("resume body text")),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("resume body text")));
     await expect(resumeHttp.resumeFileText(4)).resolves.toBe("resume body text");
     const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`${BACKEND}/api/v1/resume/4/file`);
@@ -122,9 +119,7 @@ describe("resumeFileText", () => {
   it("propagates envelope errors and connection failures", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "gone" }), { status: 404 }),
-      ),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: "gone" }), { status: 404 })),
     );
     await expect(resumeHttp.resumeFileText(4)).rejects.toMatchObject({ status: 404 });
 
@@ -147,18 +142,22 @@ describe("analyzeResumeStream", () => {
       ),
     );
     const events: unknown[] = [];
-    await expect(
-      resumeHttp.analyzeResumeStream(9, (e) => events.push(e)),
-    ).resolves.toEqual(analysis);
+    await expect(resumeHttp.analyzeResumeStream(9, (e) => events.push(e))).resolves.toEqual(
+      analysis,
+    );
     expect(events).toHaveLength(2);
   });
 
   it("throws with the event code when the stream reports an error", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        sseResponse([{ type: "error", message: "model exploded", code: "B0002", retryable: true }]),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          sseResponse([
+            { type: "error", message: "model exploded", code: "B0002", retryable: true },
+          ]),
+        ),
     );
     await expect(resumeHttp.analyzeResumeStream(9)).rejects.toMatchObject({
       code: "B0002",
@@ -168,10 +167,7 @@ describe("analyzeResumeStream", () => {
   });
 
   it("throws NET0003 when the stream ends without a done event", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(sseResponse([{ type: "plan", steps: [] }])),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse([{ type: "plan", steps: [] }])));
     await expect(resumeHttp.analyzeResumeStream(9)).rejects.toMatchObject({ code: "NET0003" });
   });
 

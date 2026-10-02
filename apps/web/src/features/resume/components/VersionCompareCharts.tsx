@@ -32,16 +32,10 @@ function scoreScale(scores: number[]): {
   const hi = Math.min(100, Math.max(...scores) + 8);
   const span = Math.max(1, hi - lo);
   const { w, h, gutter, padRight, top, bottom } = PLOT;
-  const x = (i: number) =>
-    gutter + (i * (w - gutter - padRight)) / Math.max(1, scores.length - 1);
-  const y = (score: number) =>
-    top + (1 - (score - lo) / span) * (h - top - bottom);
-  const ticks = [lo, Math.round((lo + hi) / 2), hi].filter(
-    (v, i, arr) => arr.indexOf(v) === i,
-  );
-  const line = scores
-    .map((score, i) => `${x(i).toFixed(1)},${y(score).toFixed(1)}`)
-    .join(" ");
+  const x = (i: number) => gutter + (i * (w - gutter - padRight)) / Math.max(1, scores.length - 1);
+  const y = (score: number) => top + (1 - (score - lo) / span) * (h - top - bottom);
+  const ticks = [lo, Math.round((lo + hi) / 2), hi].filter((v, i, arr) => arr.indexOf(v) === i);
+  const line = scores.map((score, i) => `${x(i).toFixed(1)},${y(score).toFixed(1)}`).join(" ");
   return { x, y, ticks, line };
 }
 
@@ -56,8 +50,7 @@ export function VersionCompareCharts({
 }) {
   const t = useT("resume");
   const currentRow = familyRows.find((row) => row.id === currentId);
-  const series =
-    currentRow != null ? familyScoreSeries(familyRows, familyIdOf(currentRow)) : [];
+  const series = currentRow != null ? familyScoreSeries(familyRows, familyIdOf(currentRow)) : [];
   if (series.length < 2) return null;
   const current = series.find((row) => row.id === currentId);
   if (current == null) return null;
@@ -114,7 +107,12 @@ export function VersionCompareCharts({
           />
           {series.map((row, i) => (
             <g key={row.id}>
-              <circle cx={x(i)} cy={y(row.score)} r={row.id === currentId ? 4 : 3} fill="var(--primary)" />
+              <circle
+                cx={x(i)}
+                cy={y(row.score)}
+                r={row.id === currentId ? 4 : 3}
+                fill="var(--primary)"
+              />
               <text
                 x={x(i)}
                 y={y(row.score) - 8}

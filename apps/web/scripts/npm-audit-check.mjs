@@ -81,9 +81,7 @@ for (const [name, v] of Object.entries(vulns)) {
 if (metaCounts != null) {
   const metaHigh = (metaCounts.high ?? 0) + (metaCounts.critical ?? 0);
   if (metaHigh !== countedHigh) {
-    fail(
-      `audit metadata reports ${metaHigh} high/critical but ${countedHigh} were enumerated`,
-    );
+    fail(`audit metadata reports ${metaHigh} high/critical but ${countedHigh} were enumerated`);
   }
 }
 

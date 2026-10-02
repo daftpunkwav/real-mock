@@ -119,7 +119,8 @@ export const interview = {
 
   // ---- 房间:音频解锁 ----
   "room.audio.unlockTitle": "启用面试官声音",
-  "room.audio.unlockDesc": "浏览器禁止无手势自动播放。请点击下方按钮解锁音频,面试官开场白才会出声。",
+  "room.audio.unlockDesc":
+    "浏览器禁止无手势自动播放。请点击下方按钮解锁音频,面试官开场白才会出声。",
   "room.audio.unlockButton": "点击启用声音并开始",
   "room.audio.blockedBanner": "无声?浏览器可能拦截了自动播放",
   "room.audio.enableAndRetry": "点击启用并重试",
@@ -203,7 +204,8 @@ export const interview = {
   "room.source.resume": "简历",
   "room.source.github": "GitHub",
   "room.source.companyKb": "企业知识库",
-  "room.hint.timeout": "生成较慢或已超时。可先按 STAR：情境 → 任务 → 行动 → 结果（尽量量化）自行组织。",
+  "room.hint.timeout":
+    "生成较慢或已超时。可先按 STAR：情境 → 任务 → 行动 → 结果（尽量量化）自行组织。",
   "room.hint.timeoutDetailed": "完整版生成超时，可点“重新生成”再试一次。",
 
   // ---- 房间:toast / 语音状态(非渲染路径) ----
@@ -281,8 +283,7 @@ export const interview = {
   "options.company.bytedance.name": "字节跳动",
   "options.company.bytedance.style": "高频追问、强项目深挖、重视业务思考与数据量化",
   "options.company.bytedance.focus": "项目深挖|业务理解|性能优化|系统设计|算法基础",
-  "options.company.bytedance.sample0":
-    "你刚才说优化了接口性能，请具体解释优化前后的 QPS 数据。",
+  "options.company.bytedance.sample0": "你刚才说优化了接口性能，请具体解释优化前后的 QPS 数据。",
 
   "options.company.tencent.name": "腾讯",
   "options.company.tencent.style": "技术基础扎实、项目经验、团队协作与故障处理",

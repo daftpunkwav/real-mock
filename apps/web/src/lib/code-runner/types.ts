@@ -6,12 +6,7 @@
  */
 
 /** Terminal outcome of one execution. */
-export type ExecutionStatus =
-  | "ok"
-  | "error"
-  | "timeout"
-  | "cancelled"
-  | "unavailable";
+export type ExecutionStatus = "ok" | "error" | "timeout" | "cancelled" | "unavailable";
 
 /** Result of one execution: captured output plus a machine-readable status. */
 export interface ExecutionResult {

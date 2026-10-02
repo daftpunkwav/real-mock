@@ -50,7 +50,14 @@ describe("estimatePrepContext", () => {
       id: "c-1",
       role: "compaction",
       content: "Session objectives: ship it",
-      compaction: { summary: "x", version: 1, forkPoint: 8, backupSessionId: 2, before: null, after: null },
+      compaction: {
+        summary: "x",
+        version: 1,
+        forkPoint: 8,
+        backupSessionId: 2,
+        before: null,
+        after: null,
+      },
       backendIndex: 3,
     };
     const est = estimatePrepContext([card], 0);

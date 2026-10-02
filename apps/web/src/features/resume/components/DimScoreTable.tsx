@@ -45,10 +45,7 @@ export function DimScoreTable({
                 <td>{dim.label}</td>
                 <td className="num-tabular">{dim.score}</td>
                 <td>
-                  <span
-                    className="eval-band-chip"
-                    style={{ color: bandColor(band) }}
-                  >
+                  <span className="eval-band-chip" style={{ color: bandColor(band) }}>
                     {t(`overview.band.${band}`)}
                   </span>
                 </td>

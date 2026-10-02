@@ -7,7 +7,13 @@
  * Zoom bounds live in resumeLimits. Must not fetch files.
  */
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   clampPreviewZoom,
   PREVIEW_MAX_ZOOM,
@@ -122,5 +128,16 @@ export function usePreviewViewport() {
     onPointerLeave: endDrag,
   };
 
-  return { scrollerRef, pageRefs, zoom, baseWidth, currentPage, dragging, zoomAt, setZoom, onScroll, panProps };
+  return {
+    scrollerRef,
+    pageRefs,
+    zoom,
+    baseWidth,
+    currentPage,
+    dragging,
+    zoomAt,
+    setZoom,
+    onScroll,
+    panProps,
+  };
 }

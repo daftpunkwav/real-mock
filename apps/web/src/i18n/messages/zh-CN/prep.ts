@@ -168,7 +168,8 @@ export const prep = {
   "slash.clearDesc": "清空当前会话的全部消息",
   "slash.help": "帮助",
   "slash.helpDesc": "查看可用命令",
-  "slash.helpBody": "可用命令:\n/compact [轻度|标准|重度] [压缩指令] - 立即压缩历史并写入摘要\n/clear 清空消息 - 清空当前会话的全部消息\n/help 帮助 - 查看可用命令",
+  "slash.helpBody":
+    "可用命令:\n/compact [轻度|标准|重度] [压缩指令] - 立即压缩历史并写入摘要\n/clear 清空消息 - 清空当前会话的全部消息\n/help 帮助 - 查看可用命令",
   "slash.noSession": "没有活动会话,无法执行该命令",
   "slash.compactDoneSummary": "上下文已压缩并写入摘要:{before} → {after}",
   "slash.compactDonePruned": "上下文已整理:{before} → {after}",

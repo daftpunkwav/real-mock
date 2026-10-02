@@ -173,7 +173,10 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   /** Append a local-only notice (never persisted, never in context). */
   const pushNotice = useCallback(
     (text: string) => {
-      setMessages((m) => [...m, { id: nextMsgId("n"), role: "assistant", content: text, localOnly: true }]);
+      setMessages((m) => [
+        ...m,
+        { id: nextMsgId("n"), role: "assistant", content: text, localOnly: true },
+      ]);
     },
     [nextMsgId],
   );
@@ -242,39 +245,40 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     reloadMessages: session.reloadMessages,
   });
 
-  const { handleStop, handleAskAnswer, handleQuickPrompt, sendMessage, consumeBackgroundUsage } = usePrepSend({
-    prepSessionId: session.prepSessionId,
-    restoring: session.restoring,
-    input,
-    setInput,
-    setMessages,
-    setTokenUsage: session.setTokenUsage,
-    setAskDialog,
-    setBusySid,
-    nextMsgId,
-    patchMessage,
-    queueToken,
-    flushPendingToken,
-    stickToBottom: scroll.stickToBottom,
-    mergeUsage: session.mergeUsage,
-    syncUsage: session.syncUsage,
-    syncReportedContext: session.syncReportedContext,
-    setEstimatedPrompt: session.setEstimatedPrompt,
-    refreshContext: session.refreshContext,
-    onAskUser,
-    startPrep: session.startPrep,
-    chatModels: resources.chatModels,
-    selectedModelId: resources.selectedModelId,
-    defaultChatProfile: resources.defaultChatProfile,
-    effort: resources.effort,
-    uiLocale: locale,
-    refreshSessions: resources.refreshSessions,
-    viewingRef,
-    takeBackendIndex,
-    syncBackendCount,
-    isCompacting: isCompactingSession,
-    onTurnSettled: refreshSuggestions,
-  });
+  const { handleStop, handleAskAnswer, handleQuickPrompt, sendMessage, consumeBackgroundUsage } =
+    usePrepSend({
+      prepSessionId: session.prepSessionId,
+      restoring: session.restoring,
+      input,
+      setInput,
+      setMessages,
+      setTokenUsage: session.setTokenUsage,
+      setAskDialog,
+      setBusySid,
+      nextMsgId,
+      patchMessage,
+      queueToken,
+      flushPendingToken,
+      stickToBottom: scroll.stickToBottom,
+      mergeUsage: session.mergeUsage,
+      syncUsage: session.syncUsage,
+      syncReportedContext: session.syncReportedContext,
+      setEstimatedPrompt: session.setEstimatedPrompt,
+      refreshContext: session.refreshContext,
+      onAskUser,
+      startPrep: session.startPrep,
+      chatModels: resources.chatModels,
+      selectedModelId: resources.selectedModelId,
+      defaultChatProfile: resources.defaultChatProfile,
+      effort: resources.effort,
+      uiLocale: locale,
+      refreshSessions: resources.refreshSessions,
+      viewingRef,
+      takeBackendIndex,
+      syncBackendCount,
+      isCompacting: isCompactingSession,
+      onTurnSettled: refreshSuggestions,
+    });
 
   const actions = usePrepMessageActions({
     prepSessionId: session.prepSessionId,
@@ -313,7 +317,12 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     const text = input.trim();
     if (!text || !session.prepSessionId) return;
     const ids = pendingRefs.map((r) => r.id);
-    const accepted = await sendMessage(text, undefined, false, ids.length > 0 ? { contextSessionIds: ids } : undefined);
+    const accepted = await sendMessage(
+      text,
+      undefined,
+      false,
+      ids.length > 0 ? { contextSessionIds: ids } : undefined,
+    );
     // A refused send (compacting guard or full queue) keeps both the input
     // and the chips, so the references survive until the next accepted send.
     if (accepted) setPendingRefs([]);

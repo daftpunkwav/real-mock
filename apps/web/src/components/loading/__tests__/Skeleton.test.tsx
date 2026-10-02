@@ -27,9 +27,7 @@ describe("Skeleton", () => {
 describe("PageSkeleton", () => {
   it("marks the region busy for every variant", () => {
     for (const variant of ["split", "board", "form", "stats", "rail-panel"] as const) {
-      const { container, unmount } = render(
-        createElement(PageSkeleton, { variant }),
-      );
+      const { container, unmount } = render(createElement(PageSkeleton, { variant }));
       const region = container.firstElementChild as HTMLElement;
       expect(region.getAttribute("role")).toBe("status");
       expect(region.getAttribute("aria-busy")).toBe("true");
@@ -38,9 +36,7 @@ describe("PageSkeleton", () => {
   });
 
   it("drops the header block when the real header renders above", () => {
-    const { container } = render(
-      createElement(PageSkeleton, { variant: "split", header: false }),
-    );
+    const { container } = render(createElement(PageSkeleton, { variant: "split", header: false }));
     // header={false} keeps the body grid but no page-header skeleton.
     expect(container.querySelector(".page-header")).toBeNull();
     expect(container.firstElementChild?.className).toContain("page-shell");

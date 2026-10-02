@@ -11,7 +11,14 @@
 
 import type { MessageKey } from "@/i18n";
 import type { DimensionScore, ResumeAnalysis } from "@/lib/api/contract";
-import { DIMENSION_KEYS, PERCENTILE_CEILING, PERCENTILE_FLOOR, SCORE_BAND_FAIR, SCORE_BAND_STANDOUT, SCORE_BAND_STRONG } from "./resumeLimits";
+import {
+  DIMENSION_KEYS,
+  PERCENTILE_CEILING,
+  PERCENTILE_FLOOR,
+  SCORE_BAND_FAIR,
+  SCORE_BAND_STANDOUT,
+  SCORE_BAND_STRONG,
+} from "./resumeLimits";
 
 export const DIM_LABEL_KEYS: Record<string, MessageKey<"resume">> = Object.fromEntries(
   DIMENSION_KEYS.map((key) => [key, `dim.${key}` as MessageKey<"resume">]),
@@ -41,7 +48,8 @@ export function asAnalysis(raw: unknown): ResumeAnalysis | null {
 
 export function dimScore(v: DimensionValue): number {
   if (typeof v === "number") return v;
-  if (v && typeof v === "object" && "score" in v) return Number((v as { score: number }).score) || 0;
+  if (v && typeof v === "object" && "score" in v)
+    return Number((v as { score: number }).score) || 0;
   return 0;
 }
 

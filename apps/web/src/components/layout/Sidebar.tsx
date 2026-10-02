@@ -141,15 +141,10 @@ export function Sidebar({
         initial={false}
         animate={{ width: collapsed ? 64 : width }}
         transition={
-          resizing && !collapsed
-            ? { duration: 0 }
-            : { duration: 0.22, ease: [0.2, 0, 0, 1] }
+          resizing && !collapsed ? { duration: 0 } : { duration: 0.22, ease: [0.2, 0, 0, 1] }
         }
       >
-        <NavContent
-          collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed((v) => !v)}
-        />
+        <NavContent collapsed={collapsed} onToggleCollapse={() => setCollapsed((v) => !v)} />
 
         {/* Drag handle on the right edge to resize; dragging far left collapses */}
         <div

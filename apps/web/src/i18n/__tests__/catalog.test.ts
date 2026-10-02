@@ -51,10 +51,10 @@ describe("catalog", () => {
           const referencePlaceholders = (
             (table(REFERENCE_LOCALE, ns)[key] ?? "").match(/\{\w+\}/g) ?? []
           ).sort();
-          const localePlaceholders = ((table(locale, ns)[key] ?? "").match(/\{\w+\}/g) ?? []).sort();
-          expect(localePlaceholders, `${ns}/${key} ${locale}`).toEqual(
-            referencePlaceholders,
-          );
+          const localePlaceholders = (
+            (table(locale, ns)[key] ?? "").match(/\{\w+\}/g) ?? []
+          ).sort();
+          expect(localePlaceholders, `${ns}/${key} ${locale}`).toEqual(referencePlaceholders);
         }
       }
     }
@@ -127,8 +127,7 @@ describe.skipIf(!hasBackendCatalog)("errors × CATALOG", () => {
     const extra = Object.keys(zhErrors)
       .map((key) => key.split(".")[0] ?? "")
       .filter(
-        (code) =>
-          !pyCodes.has(code) && !/^NET\d{4}$/.test(code) && !code.startsWith("http_"),
+        (code) => !pyCodes.has(code) && !/^NET\d{4}$/.test(code) && !code.startsWith("http_"),
       );
     expect(extra, `errors catalog has codes missing from backend: ${extra.join(", ")}`).toEqual([]);
   });

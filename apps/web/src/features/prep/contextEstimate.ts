@@ -32,7 +32,10 @@ export function estimateTextTokens(value: unknown): number {
     if (CJK_RE.test(ch)) cjk += 1;
   }
   const latin = value.length - cjk;
-  return Math.max(1, Math.floor(cjk / PREP_EST_CJK_CHARS_PER_TOKEN + latin / PREP_EST_LATIN_CHARS_PER_TOKEN));
+  return Math.max(
+    1,
+    Math.floor(cjk / PREP_EST_CJK_CHARS_PER_TOKEN + latin / PREP_EST_LATIN_CHARS_PER_TOKEN),
+  );
 }
 
 export interface PrepContextEstimate {

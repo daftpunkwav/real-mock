@@ -28,8 +28,7 @@ export function useMonotonicWidth<T extends HTMLElement>() {
       if (parent) {
         // Space from the element's left edge to the parent's inner right edge:
         // accounts for leading siblings (the avatar) without hard-coded gaps.
-        const available =
-          parent.getBoundingClientRect().right - el.getBoundingClientRect().left;
+        const available = parent.getBoundingClientRect().right - el.getBoundingClientRect().left;
         if (Number.isFinite(available)) next = Math.min(maxSeen, available);
       }
       if (next > 0) {

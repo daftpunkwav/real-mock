@@ -33,8 +33,7 @@ export function OverviewTab({
 }) {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
-  const currentRow =
-    currentId != null ? familyRows.find((row) => row.id === currentId) : undefined;
+  const currentRow = currentId != null ? familyRows.find((row) => row.id === currentId) : undefined;
   const scoredVersions =
     currentRow != null ? familyScoredVersions(familyRows, familyIdOf(currentRow)) : [];
   const overlayKeys = radarDims.map((dim) => dim.key);
@@ -87,10 +86,7 @@ export function OverviewTab({
                     <span className="eval-dim-score">{d.score}</span>
                   </div>
                   <div className="progress !h-1">
-                    <div
-                      className="progress-bar"
-                      style={{ width: `${Math.min(d.score, 100)}%` }}
-                    />
+                    <div className="progress-bar" style={{ width: `${Math.min(d.score, 100)}%` }} />
                   </div>
                   {d.comment ? (
                     <p className="eval-dim-comment">

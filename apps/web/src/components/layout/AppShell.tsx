@@ -27,10 +27,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row bg-[var(--background)]">
-      <Sidebar
-        initialCollapsed={sidebarInitial.collapsed}
-        initialWidth={sidebarInitial.width}
-      />
+      <Sidebar initialCollapsed={sidebarInitial.collapsed} initialWidth={sidebarInitial.width} />
       <main
         className={
           isFixedHeightPage

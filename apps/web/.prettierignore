@@ -1,0 +1,20 @@
+node_modules
+.next
+out
+coverage
+package-lock.json
+src/types/generated
+next-env.d.ts
+vitest.config.mts
+.prettierrc.json
+package.json
+
+# Third-party runtime library (Skulpt) vendored into public/. Never format it:
+# the minified build is generated upstream and reformatting it would break
+# byte-comparison against upstream and add a megabyte of pointless diff.
+public/vendor
+
+# Hand-written HTML scratch pages under public/ are not linted or built; one of
+# them has a stray closing tag that Prettier refuses to parse. Their correctness
+# is checked when they are opened, not by a formatter.
+public/*.html

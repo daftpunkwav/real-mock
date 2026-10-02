@@ -5,10 +5,7 @@ import { cookies } from "next/headers";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
-import {
-  SIDEBAR_COOKIE_KEY,
-  parseSidebarState,
-} from "@/components/layout/sidebarStorage";
+import { SIDEBAR_COOKIE_KEY, parseSidebarState } from "@/components/layout/sidebarStorage";
 import { Toaster } from "@/components/Toast";
 import { canonicalHostInitScript } from "@/lib/canonicalHost";
 import { ThemeProvider, themeInitScript } from "@/components/theme/ThemeProvider";

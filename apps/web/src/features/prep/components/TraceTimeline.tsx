@@ -58,8 +58,10 @@ function shortenInline(text: string, limit = 200): string {
 
 /** Collapsed preview: the latest timeline entry. */
 function previewText(t: ReturnType<typeof useT>, item: PrepTraceItem): string {
-  if (item.kind === "tool") return `${toolLabel(t, item.name)}${item.query ? ` · ${item.query}` : ""}`;
-  if (item.kind === "compaction") return t("trace.compaction", { before: item.before, after: item.after });
+  if (item.kind === "tool")
+    return `${toolLabel(t, item.name)}${item.query ? ` · ${item.query}` : ""}`;
+  if (item.kind === "compaction")
+    return t("trace.compaction", { before: item.before, after: item.after });
   return shortenInline(item.text);
 }
 

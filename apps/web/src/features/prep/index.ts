@@ -17,7 +17,13 @@ export { TraceTimeline } from "./components/TraceTimeline";
 export { AssistantBubble, UserBubble } from "./components/ChatBubbles";
 export { CompactionCard, type CompactionCardActions } from "./components/CompactionCard";
 export { usePrepChat } from "./hooks/usePrepChat";
-export type { PrepChatMessage, PrepCompactionCard, PrepStreamHandlers, PrepStreamOptions, PrepTraceItem } from "./types";
+export type {
+  PrepChatMessage,
+  PrepCompactionCard,
+  PrepStreamHandlers,
+  PrepStreamOptions,
+  PrepTraceItem,
+} from "./types";
 export type { PrepSendSnapshot } from "./hooks/usePrepSend";
 export {
   appendTraceThinking,
@@ -32,7 +38,13 @@ export {
 export { resolveSelectedModel } from "./modelChoice";
 export { estimatePrepContext, assistantMetaChars, estimateTextTokens } from "./contextEstimate";
 export type { PrepContextEstimate } from "./contextEstimate";
-export { matchSlashCommands, parseCompactArgs, parseSlashCommand, resolveSlashCommand, SLASH_NAMES } from "./slashCommands";
+export {
+  matchSlashCommands,
+  parseCompactArgs,
+  parseSlashCommand,
+  resolveSlashCommand,
+  SLASH_NAMES,
+} from "./slashCommands";
 export type { SlashName } from "./slashCommands";
 export { detectHashQuery, refCandidates, refLabel, stripHashQuery } from "./sessionRefs";
 export type { PendingSessionRef } from "./sessionRefs";

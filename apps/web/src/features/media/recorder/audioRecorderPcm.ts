@@ -41,11 +41,7 @@ function downsampleTo16k(input: Int16Array, inputRate: number): Int16Array {
 }
 
 /** Drop chunks from the front until the byte limit is satisfied. */
-export function trimRing(
-  chunks: Int16Array[],
-  bytesRef: { current: number },
-  maxBytes: number,
-) {
+export function trimRing(chunks: Int16Array[], bytesRef: { current: number }, maxBytes: number) {
   while (chunks.length > 1 && bytesRef.current > maxBytes) {
     const dropped = chunks.shift();
     if (dropped) bytesRef.current -= dropped.byteLength;

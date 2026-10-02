@@ -106,7 +106,13 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
           onClick={handleSend}
           disabled={!canSend}
           className="btn-primary !h-10 !w-10 shrink-0 !px-0 disabled:!bg-surface-muted disabled:!text-ink-subtle"
-          title={inputText.trim() ? t("chat.send.text") : isRecording ? t("chat.send.voice") : t("chat.send.hint")}
+          title={
+            inputText.trim()
+              ? t("chat.send.text")
+              : isRecording
+                ? t("chat.send.voice")
+                : t("chat.send.hint")
+          }
         >
           <Send size={14} />
         </button>

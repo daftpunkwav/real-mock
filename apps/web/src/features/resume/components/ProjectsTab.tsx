@@ -46,10 +46,7 @@ function RepoEvidenceCards({ items }: { items: RepoEvidence[] }) {
               <ExternalLink size={11} className="shrink-0 text-ink-subtle" />
             </div>
             <p className="mb-1 text-[11px] text-ink-subtle">
-              {[
-                ev.language,
-                ev.last_push ? t("projects.lastPush", { date: ev.last_push }) : null,
-              ]
+              {[ev.language, ev.last_push ? t("projects.lastPush", { date: ev.last_push }) : null]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
@@ -118,7 +115,6 @@ export function ProjectsTab({ analysis }: { analysis: ResumeAnalysis }) {
           items={analysis.project_deep_dive.map(cn)}
         />
       )}
-
     </>
   );
 }

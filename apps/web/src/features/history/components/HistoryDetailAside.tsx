@@ -63,7 +63,10 @@ export function HistoryDetailAside({
               <DetailRow label={t("detail.role")} value={`${selected.role} · ${selected.level}`} />
               <DetailRow label={t("detail.company")} value={selected.company} />
               <DetailRow label={t("detail.type")} value={selected.workflow_type} />
-              <DetailRow label={t("detail.status")} value={<StatusBadge status={selected.status} />} />
+              <DetailRow
+                label={t("detail.status")}
+                value={<StatusBadge status={selected.status} />}
+              />
               {(selected.round_no || selected.result) && (
                 <DetailRow
                   label={t("detail.roundResult")}
@@ -78,12 +81,12 @@ export function HistoryDetailAside({
               {selected.ledger_frozen != null && (
                 <DetailRow
                   label={t("detail.ledger")}
-                  value={selected.ledger_frozen ? t("detail.ledgerFrozen") : t("detail.ledgerUnfrozen")}
+                  value={
+                    selected.ledger_frozen ? t("detail.ledgerFrozen") : t("detail.ledgerUnfrozen")
+                  }
                 />
               )}
-              {when && (
-                <DetailRow label={t("detail.time")} value={formatDateTime(when)} />
-              )}
+              {when && <DetailRow label={t("detail.time")} value={formatDateTime(when)} />}
               {selected.overall_score != null && (
                 <DetailRow
                   label={t("detail.overallScore")}
@@ -112,7 +115,9 @@ export function HistoryDetailAside({
                   {t("detail.continueInterview")}
                 </Link>
               ) : (
-                <p className="py-1 text-center text-[11px] text-ink-subtle">{t("detail.notStarted")}</p>
+                <p className="py-1 text-center text-[11px] text-ink-subtle">
+                  {t("detail.notStarted")}
+                </p>
               )}
               {processError ? (
                 <p className="text-[12px] text-[var(--danger-ink)]">{processError}</p>

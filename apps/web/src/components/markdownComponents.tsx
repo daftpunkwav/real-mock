@@ -22,10 +22,14 @@ function codeLanguage(className?: string): string | undefined {
 /** react-markdown component map: styles and link safety live here, decoupled from the render entry. */
 export const markdownComponents: Components = {
   h1: ({ children }) => (
-    <h1 className="mt-3 mb-1.5 text-base font-bold tracking-tight first:mt-0 text-ink">{children}</h1>
+    <h1 className="mt-3 mb-1.5 text-base font-bold tracking-tight first:mt-0 text-ink">
+      {children}
+    </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mt-3 mb-1.5 text-base font-bold tracking-tight first:mt-0 text-ink">{children}</h2>
+    <h2 className="mt-3 mb-1.5 text-base font-bold tracking-tight first:mt-0 text-ink">
+      {children}
+    </h2>
   ),
   h3: ({ children }) => (
     <h3 className="mt-2.5 mb-1 text-[14px] font-semibold first:mt-0 text-ink">{children}</h3>
@@ -34,9 +38,7 @@ export const markdownComponents: Components = {
   ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 text-ink">{children}</ul>,
   ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 text-ink">{children}</ol>,
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-  strong: ({ children }) => (
-    <strong className="font-semibold text-ink">{children}</strong>
-  ),
+  strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
   code: ({ className, children }) => {
     const language = codeLanguage(className);

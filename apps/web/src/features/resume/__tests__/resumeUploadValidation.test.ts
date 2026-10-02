@@ -39,7 +39,9 @@ describe("validateResumeFile", () => {
   });
 
   it("rejects overlong filenames as A0003, accepts the 255 boundary", () => {
-    expect(codeOf(() => validateResumeFile(new File(["x"], `${"a".repeat(296)}.pdf`)))).toBe("A0003");
+    expect(codeOf(() => validateResumeFile(new File(["x"], `${"a".repeat(296)}.pdf`)))).toBe(
+      "A0003",
+    );
     expect(codeOf(() => validateResumeFile(new File(["x"], `${"b".repeat(251)}.txt`)))).toBeNull();
   });
 });

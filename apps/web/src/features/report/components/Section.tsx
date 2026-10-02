@@ -35,10 +35,7 @@ export function Section({
   };
   const t = tintMap[tone] ?? tintMap.brand!;
   return (
-    <div
-      className="rounded-md border p-4"
-      style={{ background: t.bg, borderColor: t.border }}
-    >
+    <div className="rounded-md border p-4" style={{ background: t.bg, borderColor: t.border }}>
       <h3
         className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em]"
         style={{ color: t.fg }}

@@ -10,10 +10,7 @@ import { ArrowRight, GitBranch } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { interviewHttp as api } from "@/lib/api/clients";
 import type { InterviewProcessResponse } from "@/lib/api/contract";
-import {
-  selectEligibleProcesses,
-  type EligibleProcess,
-} from "@/lib/interviewProcesses";
+import { selectEligibleProcesses, type EligibleProcess } from "@/lib/interviewProcesses";
 
 /** Continue-process data domain: eligible multi-round processes + next-round creation. */
 export function useProcessContinuation() {
@@ -50,9 +47,7 @@ export function useProcessContinuation() {
       const session = await api.createNextRound(process.id);
       router.push(`/interview/${session.id}`);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("process.nextFailed"),
-      );
+      toast.error(e instanceof Error ? e.message : t("process.nextFailed"));
       setStartingId(null);
     }
   };
@@ -104,7 +99,10 @@ export function ContinueProcessRow({
         <span className="truncate font-medium">{process.role}</span>
         <span className="shrink-0 text-ink-muted">·</span>
         <span className="shrink-0 text-ink-muted">{process.company}</span>
-        <span className="chip chip-blue shrink-0" title={planStepTitle(process.round_plan, process.current_round) || undefined}>
+        <span
+          className="chip chip-blue shrink-0"
+          title={planStepTitle(process.round_plan, process.current_round) || undefined}
+        >
           {planStepLabel(t, process.round_plan, process.current_round)}
         </span>
       </div>

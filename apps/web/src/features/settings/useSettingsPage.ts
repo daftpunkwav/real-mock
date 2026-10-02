@@ -86,7 +86,8 @@ export function useSettingsPage() {
       context_window: String(m.context_window || ""),
       max_output: String(m.max_output || ""),
       capabilities: { ...m.capabilities },
-      extras_text: m.extras && Object.keys(m.extras).length ? JSON.stringify(m.extras, null, 2) : "",
+      extras_text:
+        m.extras && Object.keys(m.extras).length ? JSON.stringify(m.extras, null, 2) : "",
     });
   };
 
@@ -222,9 +223,7 @@ export function useSettingsPage() {
       await reload();
       setSelectedProviderId(res.provider_id);
       switchKind("chat");
-      toast.success(
-        t("recommended.applied").replace("{provider}", res.name),
-      );
+      toast.success(t("recommended.applied").replace("{provider}", res.name));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("recommended.addFailed"));
     }

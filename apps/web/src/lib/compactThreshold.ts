@@ -27,8 +27,7 @@ export const COMPACT_THRESHOLD_OPTIONS: CompactThresholdSetting[] = [
 /** Read the configured threshold; falls back to "auto" on any anomaly. */
 export function readCompactThreshold(): CompactThresholdSetting {
   try {
-    if (typeof window === "undefined" || !window.localStorage)
-      return COMPACT_THRESHOLD_DEFAULT;
+    if (typeof window === "undefined" || !window.localStorage) return COMPACT_THRESHOLD_DEFAULT;
     const raw = window.localStorage.getItem(COMPACT_THRESHOLD_KEY);
     if (raw === null) return COMPACT_THRESHOLD_DEFAULT;
     if (raw === "auto") return "auto";
@@ -54,9 +53,7 @@ export function writeCompactThreshold(value: CompactThresholdSetting): void {
  * Map the UI setting to the request payload: "auto" sends nothing (the
  * backend uses its agent-decided default), a number sends the fraction.
  */
-export function toCompactThresholdParam(
-  value: CompactThresholdSetting,
-): number | undefined {
+export function toCompactThresholdParam(value: CompactThresholdSetting): number | undefined {
   return value === "auto" ? undefined : value;
 }
 
@@ -72,11 +69,7 @@ export const COMPACT_RETAIN_KEY = "realmock_prep_compact_retain";
 export const COMPACT_INTENSITY_DEFAULT: CompactionIntensity = "balanced";
 
 /** Selectable intensities in the settings UI. */
-export const COMPACT_INTENSITY_OPTIONS: CompactionIntensity[] = [
-  "light",
-  "balanced",
-  "aggressive",
-];
+export const COMPACT_INTENSITY_OPTIONS: CompactionIntensity[] = ["light", "balanced", "aggressive"];
 
 /** Default verbatim tail (recent messages exempt from compaction). */
 export const COMPACT_RETAIN_DEFAULT = 4;
@@ -184,8 +177,7 @@ export function readMemoryIndexLimit(): number {
   const raw = readStored(MEMORY_INDEX_LIMIT_KEY);
   if (raw === null) return MEMORY_INDEX_LIMIT_DEFAULT;
   const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 500)
-    return MEMORY_INDEX_LIMIT_DEFAULT;
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 500) return MEMORY_INDEX_LIMIT_DEFAULT;
   return parsed;
 }
 

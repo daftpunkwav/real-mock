@@ -34,8 +34,22 @@ describe("toVisibleChatMessages", () => {
 
 describe("planStepTitle", () => {
   const plan = [
-    { round_no: 1, kind: "tech_1", workflow_type: "technical", label: "Tech 1", focus: "baseline", pass_criteria: "answer basics" },
-    { round_no: 2, kind: "hr_1", workflow_type: "hr", label: "HR 1", focus: "motivation", pass_criteria: "" },
+    {
+      round_no: 1,
+      kind: "tech_1",
+      workflow_type: "technical",
+      label: "Tech 1",
+      focus: "baseline",
+      pass_criteria: "answer basics",
+    },
+    {
+      round_no: 2,
+      kind: "hr_1",
+      workflow_type: "hr",
+      label: "HR 1",
+      focus: "motivation",
+      pass_criteria: "",
+    },
   ];
   it("joins focus and pass criteria", () => {
     expect(planStepTitle(plan, 1)).toBe("baseline\nanswer basics");

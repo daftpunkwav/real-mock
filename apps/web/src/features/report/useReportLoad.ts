@@ -11,11 +11,7 @@ import { recordsHttp, reportHttp } from "@/lib/api/clients";
 import type { ReportStreamEvent } from "@/lib/api/reportHttp";
 import { ApiError } from "@/lib/api/base";
 import { getTranslator } from "@/i18n/resolve";
-import {
-  applyReportLiveEvent,
-  emptyReportLiveState,
-  type ReportLiveState,
-} from "./liveEvents";
+import { applyReportLiveEvent, emptyReportLiveState, type ReportLiveState } from "./liveEvents";
 import type { DebriefReport, GetReportResponse } from "@/types/domains/report";
 import type { LedgerDocument } from "@/types/domains/records";
 
@@ -71,10 +67,7 @@ function isValidSessionId(id: number): boolean {
   return Number.isFinite(id) && id > 0;
 }
 
-async function ensureLedger(
-  id: number,
-  data: GetReportResponse,
-): Promise<LedgerDocument | null> {
+async function ensureLedger(id: number, data: GetReportResponse): Promise<LedgerDocument | null> {
   if (data.ledger?.turns && data.ledger.turns.length > 0) {
     return data.ledger;
   }
@@ -158,9 +151,7 @@ export function useReportLoad(sessionId: number) {
           if (ac.signal.aborted || seq !== seqRef.current) return;
           if (isReportFailed(e)) {
             setError(
-              e instanceof Error
-                ? e.message
-                : getTranslator("report")("errors.generateFailed"),
+              e instanceof Error ? e.message : getTranslator("report")("errors.generateFailed"),
             );
             setLoading(false);
             setGenerating(false);
@@ -211,8 +202,7 @@ export function useReportLoad(sessionId: number) {
                 report: event.report,
                 // Server-echoed counts when present (0 keeps legacy backends
                 // from showing "undefined" instead of a number).
-                messages_count:
-                  typeof event.messages_count === "number" ? event.messages_count : 0,
+                messages_count: typeof event.messages_count === "number" ? event.messages_count : 0,
                 ...(typeof event.duration_minutes === "number"
                   ? { duration_minutes: event.duration_minutes }
                   : {}),

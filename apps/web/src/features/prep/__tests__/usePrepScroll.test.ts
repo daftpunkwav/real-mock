@@ -59,10 +59,9 @@ afterEach(() => {
 describe("usePrepScroll", () => {
   it("auto-scrolls to bottom on content resize", () => {
     const restore = stubResizeObserver();
-    const { result, rerender } = renderHook(
-      ({ n }) => usePrepScroll(n),
-      { initialProps: { n: 0 } },
-    );
+    const { result, rerender } = renderHook(({ n }) => usePrepScroll(n), {
+      initialProps: { n: 0 },
+    });
 
     const scrollEl = document.createElement("div");
     const contentEl = document.createElement("div");
@@ -86,10 +85,9 @@ describe("usePrepScroll", () => {
 
   it("shows jump button when user scrolls up and pauses auto-scroll", () => {
     const restore = stubResizeObserver();
-    const { result, rerender } = renderHook(
-      ({ n }) => usePrepScroll(n),
-      { initialProps: { n: 0 } },
-    );
+    const { result, rerender } = renderHook(({ n }) => usePrepScroll(n), {
+      initialProps: { n: 0 },
+    });
 
     const scrollEl = document.createElement("div");
     withLayout(scrollEl, { scrollHeight: 1400, clientHeight: 400 });
@@ -114,10 +112,9 @@ describe("usePrepScroll", () => {
 
   it("stickToBottom re-enables auto-follow", () => {
     const restore = stubResizeObserver();
-    const { result, rerender } = renderHook(
-      ({ n }) => usePrepScroll(n),
-      { initialProps: { n: 0 } },
-    );
+    const { result, rerender } = renderHook(({ n }) => usePrepScroll(n), {
+      initialProps: { n: 0 },
+    });
 
     const scrollEl = document.createElement("div");
     withLayout(scrollEl, { scrollHeight: 1400, clientHeight: 400 });

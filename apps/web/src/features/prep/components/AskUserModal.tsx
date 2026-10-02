@@ -27,12 +27,7 @@ interface AskUserModalProps {
   onClose: () => void;
 }
 
-export function AskUserModal({
-  dialog,
-  disabled = false,
-  onAnswer,
-  onClose,
-}: AskUserModalProps) {
+export function AskUserModal({ dialog, disabled = false, onAnswer, onClose }: AskUserModalProps) {
   const t = useT("prep");
   const { question, options, selection, widget, scale, allow_custom, suggested } = dialog;
   const multiQuestions = dialog.questions && dialog.questions.length > 1 ? dialog.questions : null;
@@ -62,8 +57,7 @@ export function AskUserModal({
   }, []);
 
   const anyTyping =
-    custom.trim() !== "" ||
-    Object.values(answers).some((a) => (a.custom ?? "").trim() !== "");
+    custom.trim() !== "" || Object.values(answers).some((a) => (a.custom ?? "").trim() !== "");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -92,9 +86,7 @@ export function AskUserModal({
 
   const toggle = (opt: string) => {
     if (disabled) return;
-    setChecked((prev) =>
-      prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt],
-    );
+    setChecked((prev) => (prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]));
   };
 
   const ratingMax = Math.min(10, Math.max(3, Math.round(scale?.max ?? 5)));
@@ -120,9 +112,7 @@ export function AskUserModal({
     const typed = a.custom?.trim();
     if (typed) return typed;
     if (q.widget === "slider") {
-      return a.slider !== undefined
-        ? formatSliderValue(a.slider, q.scale?.unit ?? "")
-        : null;
+      return a.slider !== undefined ? formatSliderValue(a.slider, q.scale?.unit ?? "") : null;
     }
     if (q.widget === "rating") {
       return a.rating !== undefined ? formatAskAnswer(q, { rating: a.rating }) : null;
@@ -269,9 +259,7 @@ export function AskUserModal({
               {t("ask.title")}
             </p>
             {!isMulti && (
-              <p className="mt-1 text-[14px] font-medium leading-relaxed text-ink">
-                {question}
-              </p>
+              <p className="mt-1 text-[14px] font-medium leading-relaxed text-ink">{question}</p>
             )}
             {!isMulti && widget === "options" && selection === "multi" && (
               <p className="mt-0.5 text-[11px] text-ink-subtle">{t("ask.multiHint")}</p>
@@ -286,7 +274,12 @@ export function AskUserModal({
 
         {isMulti && multiQuestions ? (
           <div className="mt-4 space-y-5">
-            <MultiQuestionForm questions={multiQuestions} answers={answers} disabled={disabled} onPatch={setAnswer} />
+            <MultiQuestionForm
+              questions={multiQuestions}
+              answers={answers}
+              disabled={disabled}
+              onPatch={setAnswer}
+            />
             <div>
               <p className="mb-2 text-center text-[11px] text-ink-subtle">
                 {t("ask.progress", {

@@ -46,9 +46,7 @@ export function TrainingHistorySection({
                     {t("history.report")}
                   </Link>
                 </div>
-                <p className="mb-2 text-[11px] text-ink-subtle">
-                  {formatDateTime(r.created_at)}
-                </p>
+                <p className="mb-2 text-[11px] text-ink-subtle">{formatDateTime(r.created_at)}</p>
                 {r.weak_skills.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-1">
                     {r.weak_skills.map((s) => (

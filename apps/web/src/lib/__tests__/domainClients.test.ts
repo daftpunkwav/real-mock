@@ -31,7 +31,10 @@ function stubFetch(): ReturnType<typeof vi.fn> {
 }
 
 function lastCall(fetchMock: ReturnType<typeof vi.fn>): { url: string; init: RequestInit } {
-  const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [string, RequestInit];
+  const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [
+    string,
+    RequestInit,
+  ];
   return { url, init };
 }
 
@@ -222,9 +225,11 @@ describe("interviewHttp", () => {
   });
 
   it("returns parsed list bodies", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(jsonOk(url.includes("options") ? { ok: true } : [{ id: 1 }])),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        Promise.resolve(jsonOk(url.includes("options") ? { ok: true } : [{ id: 1 }])),
+      );
     vi.stubGlobal("fetch", fetchMock);
     await expect(interviewHttp.listSessions()).resolves.toEqual([{ id: 1 }]);
     await expect(interviewHttp.getOptions()).resolves.toEqual({ ok: true });

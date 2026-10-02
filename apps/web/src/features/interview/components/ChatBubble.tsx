@@ -28,9 +28,7 @@ export const ChatBubble = memo(function ChatBubble({
       <span
         className={cn(
           "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white",
-          isUser
-            ? "bg-[var(--primary)]"
-            : "bg-[var(--info)] text-[var(--info-ink)]",
+          isUser ? "bg-[var(--primary)]" : "bg-[var(--info)] text-[var(--info-ink)]",
         )}
       >
         {isUser ? t("chat.bubble.me") : t("chat.bubble.ai")}

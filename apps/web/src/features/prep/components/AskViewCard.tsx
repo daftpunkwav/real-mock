@@ -59,9 +59,12 @@ export const AskViewCard = memo(function AskViewCard({ ask }: { ask: AskUserDial
               )}
               {q.widget === "rating" && (
                 <p className="flex items-center gap-1 text-[11px] text-ink-subtle">
-                  {Array.from({ length: Math.min(10, Math.max(3, Math.round(q.scale?.max ?? 5))) }, (_, i) => (
-                    <Star key={i} size={12} className="text-ink-subtle" />
-                  ))}
+                  {Array.from(
+                    { length: Math.min(10, Math.max(3, Math.round(q.scale?.max ?? 5))) },
+                    (_, i) => (
+                      <Star key={i} size={12} className="text-ink-subtle" />
+                    ),
+                  )}
                 </p>
               )}
               {q.widget === "options" && (
@@ -74,7 +77,9 @@ export const AskViewCard = memo(function AskViewCard({ ask }: { ask: AskUserDial
                       <span
                         className={cn(
                           "shrink-0 rounded-full border border-ink-subtle",
-                          q.selection === "multi" ? "h-[12px] w-[12px] rounded-[3px]" : "h-[12px] w-[12px]",
+                          q.selection === "multi"
+                            ? "h-[12px] w-[12px] rounded-[3px]"
+                            : "h-[12px] w-[12px]",
                         )}
                       />
                       <span className="min-w-0 flex-1">{opt}</span>

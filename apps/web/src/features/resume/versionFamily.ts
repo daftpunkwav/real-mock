@@ -44,6 +44,9 @@ export function isLatestIdle(group: ResumeFamilyGroup, row: ResumeItem): boolean
 }
 
 /** Single source for the version-cap rule (hook toast gate + list-item disable). */
-export function canAddVersion(memberCount: number, maxVersions: number = MAX_RESUME_VERSIONS): boolean {
+export function canAddVersion(
+  memberCount: number,
+  maxVersions: number = MAX_RESUME_VERSIONS,
+): boolean {
   return memberCount < maxVersions;
 }

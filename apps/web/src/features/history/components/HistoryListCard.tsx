@@ -21,7 +21,9 @@ export function HistoryListCard({
   return (
     <div className="surface-card overflow-hidden">
       <div className="flex items-center justify-between border-b border-surface-border px-4 py-3">
-        <h2 className="text-[13px] font-semibold tracking-tight text-ink">{t("list.allSessions")}</h2>
+        <h2 className="text-[13px] font-semibold tracking-tight text-ink">
+          {t("list.allSessions")}
+        </h2>
         <span className="chip chip-gray">{t("list.total", { count: total })}</span>
       </div>
 

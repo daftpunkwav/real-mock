@@ -29,7 +29,12 @@ export function usePrepMessageActions(opts: {
     text: string,
     sessionId?: number,
     skipUserMessage?: boolean,
-    sendOpts?: { dropLastAssistant?: boolean; reservedUserIndex?: number; snapshot?: PrepSendSnapshot; contextSessionIds?: number[] },
+    sendOpts?: {
+      dropLastAssistant?: boolean;
+      reservedUserIndex?: number;
+      snapshot?: PrepSendSnapshot;
+      contextSessionIds?: number[];
+    },
   ) => Promise<boolean>;
   switchSession: (id: number) => Promise<void>;
   setBackendCount: (sid: number, n: number) => void;
@@ -75,7 +80,11 @@ export function usePrepMessageActions(opts: {
 
   const toastFailure = useCallback(
     (
-      key: "actions.forkFailed" | "actions.retractFailed" | "actions.rateFailed" | "actions.regenerateFailed",
+      key:
+        | "actions.forkFailed"
+        | "actions.retractFailed"
+        | "actions.rateFailed"
+        | "actions.regenerateFailed",
       err: unknown,
     ) => {
       const t = getTranslator("prep");
@@ -112,7 +121,10 @@ export function usePrepMessageActions(opts: {
         refreshSessions();
         await switchSession(id);
       } catch (err) {
-        toastFailure("actions.forkFailed", err instanceof Error ? err : new Error(t("actions.forkFailed")));
+        toastFailure(
+          "actions.forkFailed",
+          err instanceof Error ? err : new Error(t("actions.forkFailed")),
+        );
       }
     },
     [prepSessionId, refreshSessions, switchSession, toastFailure],

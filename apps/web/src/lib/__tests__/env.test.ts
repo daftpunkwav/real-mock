@@ -6,7 +6,11 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const ENV_KEYS = ["NEXT_PUBLIC_API_BASE", "NEXT_PUBLIC_STREAM_API_BASE", "NEXT_PUBLIC_WS_URL"] as const;
+const ENV_KEYS = [
+  "NEXT_PUBLIC_API_BASE",
+  "NEXT_PUBLIC_STREAM_API_BASE",
+  "NEXT_PUBLIC_WS_URL",
+] as const;
 
 async function loadEnv(env: Partial<Record<(typeof ENV_KEYS)[number], string>>) {
   vi.resetModules();

@@ -50,7 +50,12 @@ export type ServerEvent =
       playback_generation?: number;
     }
   | { type: "tts_failed"; message: string }
-  | { type: "tts_interrupted"; reason?: string; candidate_interrupts?: number; playback_generation?: number }
+  | {
+      type: "tts_interrupted";
+      reason?: string;
+      candidate_interrupts?: number;
+      playback_generation?: number;
+    }
   | { type: "silence_nudge"; content: string; seq?: number; ai_interrupts?: number }
   | { type: "reference_hint_loading"; question: string; detailed?: boolean }
   | { type: "reference_hint"; content: string; question: string }
@@ -96,5 +101,4 @@ export type ClientEvent =
   | { type: "request_finish" }
   | { type: "vision_update"; face_analysis: FaceAnalysis }
   | { type: "tts_playback_done"; generation?: number }
-  | { type: "pong"; t: number }
-;
+  | { type: "pong"; t: number };

@@ -48,9 +48,7 @@ function readEnv(): Env {
     const wsIsSecure = wsBase!.startsWith("wss://");
     const streamIsHttps = streamBase!.startsWith("https://");
     if (apiIsHttps !== wsIsSecure) {
-      throw new Error(
-        `[env] API_BASE and WS_URL protocol mismatch: api=${apiBase}, ws=${wsBase}`,
-      );
+      throw new Error(`[env] API_BASE and WS_URL protocol mismatch: api=${apiBase}, ws=${wsBase}`);
     }
     if (apiIsHttps !== streamIsHttps) {
       throw new Error(

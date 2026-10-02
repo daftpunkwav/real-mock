@@ -129,6 +129,13 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Prettier format check
+        # Prettier owns formatting; the ESLint rules that would also report
+        # formatting are disabled in eslint.config.mjs. Runs on Linux CI where
+        # core.autocrlf does not rewrite the checkout to CRLF - with autocrlf on
+        # Windows the working tree can never satisfy a LF-formatted gate.
+        run: npm run format:check
+
       - name: Dependency audit (fail on unlisted high+)
         # npm audit has no per-advisory ignore flag: scripts/npm-audit-check.mjs
         # enforces npm-audit-allowlist.json (mirrors the pip-audit --ignore-vuln

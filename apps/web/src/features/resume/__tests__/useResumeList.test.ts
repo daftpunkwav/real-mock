@@ -209,7 +209,7 @@ describe("useResumeList", () => {
     uploadMock.mockResolvedValue(row);
     const { result } = await renderLoaded();
 
-    let resolveReload: (value: typeof row[]) => void = () => undefined;
+    let resolveReload: (value: (typeof row)[]) => void = () => undefined;
     listMock.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -263,19 +263,26 @@ describe("useResumeList", () => {
   });
 
   it("toasts analyzeDone with the response score after a successful refresh", async () => {
-    analyzeMock.mockResolvedValue({ score: 88 } as Awaited<ReturnType<typeof resumeHttp.analyzeResume>>);
+    analyzeMock.mockResolvedValue({ score: 88 } as Awaited<
+      ReturnType<typeof resumeHttp.analyzeResume>
+    >);
     const { result } = await renderLoaded();
     act(() => {
       result.current.handleAnalyze(7);
     });
     await waitFor(() => expect(listMock).toHaveBeenCalledTimes(2));
-    expect(toastSuccess).toHaveBeenCalledWith(enResume["toast.analyzeDone"].replace("{score}", "88"), {
-      durationMs: 8000,
-    });
+    expect(toastSuccess).toHaveBeenCalledWith(
+      enResume["toast.analyzeDone"].replace("{score}", "88"),
+      {
+        durationMs: 8000,
+      },
+    );
   });
 
   it("toasts listRefreshFailed when analyze succeeds but list refresh fails", async () => {
-    analyzeMock.mockResolvedValue({ score: 88 } as Awaited<ReturnType<typeof resumeHttp.analyzeResume>>);
+    analyzeMock.mockResolvedValue({ score: 88 } as Awaited<
+      ReturnType<typeof resumeHttp.analyzeResume>
+    >);
     const { result } = await renderLoaded();
     listMock.mockRejectedValueOnce(new Error("reload-fail"));
     act(() => {

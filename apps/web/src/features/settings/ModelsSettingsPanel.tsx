@@ -113,7 +113,11 @@ export function ModelsSettingsPanel() {
             <div className="surface-card !p-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[172px_1fr]">
                 {/* Vertical kind rail */}
-                <div className="flex flex-row flex-wrap gap-1 md:flex-col" role="tablist" aria-orientation="vertical">
+                <div
+                  className="flex flex-row flex-wrap gap-1 md:flex-col"
+                  role="tablist"
+                  aria-orientation="vertical"
+                >
                   {KIND_META.map(({ kind, labelKey }) => {
                     const count = selectedProvider.models.filter((m) => m.kind === kind).length;
                     const active = kind === selectedKind;

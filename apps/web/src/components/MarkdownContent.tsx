@@ -208,10 +208,16 @@ function splitLooseColumns(line: string): string[] {
   const t = line.trim();
   if (!t) return [];
   if (t.includes("\t")) {
-    return t.split(/\t+/).map((c) => c.trim()).filter(Boolean);
+    return t
+      .split(/\t+/)
+      .map((c) => c.trim())
+      .filter(Boolean);
   }
   if (/\s{2,}/.test(t)) {
-    return t.split(/\s{2,}/).map((c) => c.trim()).filter(Boolean);
+    return t
+      .split(/\s{2,}/)
+      .map((c) => c.trim())
+      .filter(Boolean);
   }
   return [];
 }
@@ -263,7 +269,10 @@ function ensureGfmTableSeparators(src: string): string {
 }
 
 function countPipeColumns(line: string): number {
-  const parts = line.trim().split("|").map((p) => p.trim());
+  const parts = line
+    .trim()
+    .split("|")
+    .map((p) => p.trim());
   // Drop empty segments produced by leading/trailing |
   const cells = parts.filter((p, idx) => {
     if (idx === 0 && p === "") return false;

@@ -241,7 +241,8 @@ export const resume = {
   "toast.parallelLimit": "最多同时并行评价 {count} 份简历，请等其中一份完成",
   "toast.analyzing":
     "正在为「{name}」生成深度评价（Agent 工具 + 联网检索），约需 2–4 分钟，最多可同时评价 {count} 份…",
-  "toast.analyzingUnnamed": "正在生成深度评价（Agent 工具 + 联网检索），约需 2–4 分钟，最多可同时评价 {count} 份…",
+  "toast.analyzingUnnamed":
+    "正在生成深度评价（Agent 工具 + 联网检索），约需 2–4 分钟，最多可同时评价 {count} 份…",
   "toast.analyzeDone": "评价完成 · 综合评分 {score}",
   "toast.analyzeFailed": "分析失败",
   "toast.activated": "已设为投递简历",

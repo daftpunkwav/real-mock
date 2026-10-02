@@ -77,9 +77,7 @@ export function ResumeDetailPanel({
           </div>
         ) : (
           <>
-            {error && (
-              <div className="alert alert-warning mb-4 text-xs">{error}</div>
-            )}
+            {error && <div className="alert alert-warning mb-4 text-xs">{error}</div>}
             <AnalysisPanel
               analysis={analysis}
               familyRows={familyRows}

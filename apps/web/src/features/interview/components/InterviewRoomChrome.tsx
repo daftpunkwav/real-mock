@@ -44,7 +44,9 @@ export function InterviewRoomChrome({ room }: { room: InterviewRoomModel }) {
             <span className="icon-badge icon-badge-brand mx-auto mb-3 !h-12 !w-12">
               <Volume2 size={20} strokeWidth={1.75} />
             </span>
-            <h2 className="text-[18px] font-semibold tracking-tight text-ink">{t("room.audio.unlockTitle")}</h2>
+            <h2 className="text-[18px] font-semibold tracking-tight text-ink">
+              {t("room.audio.unlockTitle")}
+            </h2>
             <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
               {t("room.audio.unlockDesc")}
             </p>
@@ -96,7 +98,9 @@ export function InterviewRoomChrome({ room }: { room: InterviewRoomModel }) {
       )}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-surface-border bg-surface-card/80 px-3 backdrop-blur-md py-2.5 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 text-sm sm:gap-3">
-          <span className="shrink-0 font-medium text-ink">{t("room.header.session", { id: sessionId })}</span>
+          <span className="shrink-0 font-medium text-ink">
+            {t("room.header.session", { id: sessionId })}
+          </span>
           <span className="truncate rounded-full bg-[var(--info-soft)] px-2 py-0.5 text-xs text-[var(--info-ink)]">
             {currentStepLabel}
           </span>
@@ -112,7 +116,11 @@ export function InterviewRoomChrome({ room }: { room: InterviewRoomModel }) {
           >
             <Radio
               size={11}
-              className={turnState === "USER_SPEAKING" ? "anim-pulse-dot text-[var(--success)]" : "text-ink-subtle"}
+              className={
+                turnState === "USER_SPEAKING"
+                  ? "anim-pulse-dot text-[var(--success)]"
+                  : "text-ink-subtle"
+              }
             />
             {turnLabel ? t(turnLabel) : turnState}
           </span>
