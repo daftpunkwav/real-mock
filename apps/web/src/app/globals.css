@@ -1,6 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+/* Tailwind 4 compatibility path: keep tailwind.config.js as the single source
+ * of truth for the design tokens (brand/surface/ink palette, DM Sans + JetBrains
+ * Mono stacks, the compact font-size scale, radii, shadows, easings, the four
+ * keyframe animations) and the class-based dark mode. Moving these to a
+ * CSS-first @theme block is supported but is a rewrite of every token name;
+ * it is deliberately not bundled into this version bump. */
+@config "../../tailwind.config.js";
 
 /*
  * RealMock · Google Design System (clean / analytical / dashboard)
