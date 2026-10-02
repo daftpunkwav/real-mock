@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "//bundler": "next 16 defaults to Turbopack, which rejects the computed dynamic import inside @met4citizen/talkinghead (modules/talkinghead.mjs builds 'lipsync-<lang>.mjs' at runtime, so the specifier cannot be resolved statically). We pass lipsyncModules: [] and never load them, but the bundler analyses the whole vendor module regardless. dev and build therefore both pass --webpack; they must stay in sync or local dev would run a different bundler than CI ships. Remove both flags once the vendor ships a statically analysable entry or the build moves off this module.",
+  "//venv-python": "The openapi scripts must run under the project venv interpreter (not the PATH python): the backend package is only installed there once the system editable install is removed, keeping the contract export on the same dependency versions pytest and CI verify.",
   "scripts": {
     "dev": "cross-env NODE_ENV=development next dev --webpack --port 8080",
     "build": "next build --webpack",
@@ -11,7 +12,7 @@
     "test": "vitest run --coverage.enabled",
     "test:watch": "vitest",
     "audit": "npm audit --json | node scripts/npm-audit-check.mjs",
-    "export:openapi": "python ../../scripts/export_openapi.py",
+    "export:openapi": "..\\..\\.venv\\Scripts\\python.exe ../../scripts/export_openapi.py",
     "generate:api-types": "npm run export:openapi && openapi-typescript ../../openapi.json -o src/types/generated/api.d.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
