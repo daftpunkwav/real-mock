@@ -18,7 +18,10 @@ def main() -> None:
     from realmock.asgi import app
 
     schema = app.openapi()
-    OUT.write_text(json.dumps(schema, ensure_ascii=False, indent=2), encoding="utf-8")
+    # newline="\n" is explicit on purpose: the default translates to os.linesep,
+    # so regenerating on Windows would rewrite every line as CRLF and leave a
+    # working-tree diff that contradicts .editorconfig (and the committed blob).
+    OUT.write_text(json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"written {OUT}")
 
 
