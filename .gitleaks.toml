@@ -1,14 +1,34 @@
-# gitleaks configuration. Extends the default rule set; the allowlist covers
-# the backend test tree, where fake credentials (api_key="test-key", dummy
-# PEM strings) are fixtures by design - they exercise the credential-handling
-# paths and are not secrets. Keep the list path-scoped: a real leak outside
-# the tests tree must stay loud.
+# gitleaks configuration. Extends the default rule set; the allowlists cover
+# fabricated credentials in the backend test tree - each entry requires BOTH
+# the fixture path AND a value pattern (condition = "AND"), so a real
+# credential pasted into a test only escapes the scan if it also looks like
+# one of the documented fabrication families. Anything else stays loud.
+#
+# Fabrication families (from apps/api/tests fixtures):
+#   sk-*            - OpenAI-style fake keys
+#   enc:*           - encrypted-at-rest fixture values
+#   named constants - test-key / test_key / asr-key / env-key / plain-key /
+#                     legacy-secret / stage-secret
+#   BAIDU*          - Baidu voice client fixtures
+#   MIIEvQ          - the truncated dummy PEM body
 
 [extend]
 useDefault = true
 
-[allowlist]
-description = "backend test fixtures use fabricated credentials on purpose"
-paths = [
-  '''apps/api/tests/''',
+[[allowlists]]
+description = "fabricated API keys in backend test fixtures"
+condition = "AND"
+paths = ['''apps/api/tests/''']
+regexes = [
+  '''^sk-''',
+  '''^enc:''',
+  '''^(test-key|test_key|asr-key|env-key|plain-key|legacy-secret|stage-secret)$''',
+  '''^BAIDU(KEY123|SECRET456)$''',
+  '''^(cov-rep2|abcdef1234567890|abcdefghijklmnop|abcdefghijklmnopqrstuvwx|long-enough-secret-123|plain-text-key-long-enough-xyz|short)''',
 ]
+
+[[allowlists]]
+description = "truncated dummy PEM fixture bodies in the redaction/security tests"
+condition = "AND"
+paths = ['''apps/api/tests/platform_core/''']
+regexes = ['''MIIEv''']
