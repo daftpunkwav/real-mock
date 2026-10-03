@@ -51,7 +51,7 @@ for (const entry of allowlist.allow ?? []) {
       `incomplete allowlist entry (id, package and reason must be non-empty strings): ${JSON.stringify(entry)}`,
     );
   }
-  allowedIds.add(entry.id);
+  allowedIds.add(entry.id.trim());
 }
 
 let raw;
