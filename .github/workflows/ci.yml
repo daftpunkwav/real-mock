@@ -25,10 +25,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    # labeled / unlabeled carry the maintainer key that unlocks the
+    # expensive tier-2 jobs (see the full-approval guard below).
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
 # Least privilege: jobs only check out code and publish no artifacts.
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -93,6 +97,38 @@ jobs:
             echo "docker=$docker"
             echo "workflows=$workflows"
           } >> "$GITHUB_OUTPUT"
+
+  full-approval:
+    name: full-approval (maintainer key)
+    # Two-tier CI: cheap gates run on every event; the expensive tier below
+    # runs only after a maintainer attaches the ci-approved label. This
+    # guard FAILS (never pends) while unapproved, so the aggregate gate is
+    # red with an actionable message instead of a hanging check. GitHub
+    # forbids approving your own pull request, which makes an approval
+    # review unusable as the key for a solo maintainer - a label carries
+    # the same consent and works on the maintainer's own PRs too. Removing
+    # the label re-arms the gate (unlabeled re-triggers this workflow).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate maintainer approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "non-PR event ($EVENT): full CI runs unconditionally"
+            exit 0
+          fi
+          if gh api "repos/$REPO/pulls/$PR_NUMBER"               --jq '[.labels[].name] | index("ci-approved") != null' | grep -q true; then
+            echo "ci-approved label present: tier-2 unblocked"
+            exit 0
+          fi
+          echo "::error title=Full CI awaiting approval::Tier-1 results are above; attach the ci-approved label to run the full suite (tier 2)."
+          exit 1
 
   backend:
     name: Backend (ruff / mypy / pytest / audit)
@@ -221,8 +257,12 @@ jobs:
       # because CVEs appear without one.
   docker:
     name: Docker (backend + web image builds)
-    needs: changes
-    if: needs.changes.outputs.docker == 'true'
+    # Tier 2: path-routed on synchronize; the labeled event (key attached)
+    # carries no diff classifier output, so the tier runs in full there.
+    needs: [changes, full-approval]
+    if: >-
+      needs.full-approval.result == 'success' &&
+      (needs.changes.outputs.docker == 'true' || github.event.action == 'labeled')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -335,7 +375,7 @@ jobs:
     # always runs, passes when every job that ran succeeded (skipped areas are
     # fine - that is the path filtering above) and fails on any failure or
     # cancellation, so a cancelled run can never masquerade as green.
-    needs: [changes, backend, frontend, docker, workflow-lint, repo-hygiene]
+    needs: [changes, backend, frontend, docker, workflow-lint, repo-hygiene, full-approval]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -350,9 +390,10 @@ jobs:
           DOCKER: ${{ needs.docker.result }}
           WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
           REPO_HYGIENE: ${{ needs.repo-hygiene.result }}
+          FULL_APPROVAL: ${{ needs.full-approval.result }}
         run: |
           set -euo pipefail
-          results="changes=$CHANGES backend=$BACKEND frontend=$FRONTEND docker=$DOCKER workflow_lint=$WORKFLOW_LINT repo_hygiene=$REPO_HYGIENE"
+          results="changes=$CHANGES backend=$BACKEND frontend=$FRONTEND docker=$DOCKER workflow_lint=$WORKFLOW_LINT repo_hygiene=$REPO_HYGIENE full_approval=$FULL_APPROVAL"
           echo "$results"
           if grep -qE '=(failure|cancelled)' <<< "$results"; then
             echo "::error::one or more gates failed or were cancelled"
