@@ -1,23 +1,9 @@
-# CI: runs on push to main and all Pull Requests
-# Backend and frontend jobs run in parallel; commands match local verification
-# (toolchain versions are pinned — see backend step comments).
-# Every "uses:" is pinned to a full commit SHA: tags are mutable, so a moved tag
-# would silently change what runs here. Dependabot (github-actions ecosystem)
-# bumps these SHAs in a PR - never edit them by hand without matching the version
-# comment on the same line.
-#
-# Execution strategy:
-#   - The "changes" job diffs the trigger against its base and flips per-area
-#     switches (backend / frontend / docker / workflows); heavy jobs only run
-#     when their area changed. There is intentionally NO paths-ignore on the
-#     triggers: the "gate" job is a required status check for merging, and a
-#     workflow skipped by path filtering would leave that check absent, which
-#     deadlocks the merge. Docs-only diffs flow through as "nothing changed"
-#     and gate passes with every heavy job skipped.
-#   - "gate" is always the last word: it passes when every job that ran is
-#     green and fails on any failure/cancellation. Branch protection requires
-#     exactly this one check (plus the review bots), so the required-checks
-#     list stays stable while jobs come and go.
+# CI: push to main + all PRs, routed by the "changes" job so each heavy gate
+# runs only when its area changed (undiffable bases run everything).
+# No paths-ignore on the triggers: a skipped
+# workflow would leave the required "gate" check absent and deadlock merges.
+# "uses:" are SHA-pinned (dependabot bumps them); "gate" is the one required
+# check and aggregates every job below.
 
 name: CI
 
@@ -48,9 +34,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history: the diff base on push events (github.event.before) can
-          # be arbitrarily far back, and a shallow clone would make the range
-          # undiffable. No LFS download: only path names are read here.
+          # Full history: push-event bases can be arbitrarily far back.
           fetch-depth: 0
 
       - name: Compute per-area switches
@@ -109,8 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # No job here pushes; leaving the checkout token on disk would
-          # let anything in a later step (or a cached artifact) reuse it.
+          # No pushes here; keep the checkout token off disk.
           persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -120,20 +103,14 @@ jobs:
           cache-dependency-path: apps/api/pyproject.toml
 
       - name: Install deps and toolchain
-        # Toolchain pinned to the versions this gate was last verified green
-        # on. An older revision of this file held ruff at 0.15.20 because a
-        # 0.16 pre-release expanded the default rule set; the rule selection in
-        # pyproject.toml is explicit (E/F/I/N) and 0.16.10 reports zero findings,
-        # so the cap is gone. Bump only after this gate passes locally.
+        # Pinned toolchain; bump only after the gate passes locally.
         run: |
           pip install -q -e 'apps/api[dev]'
           pip install -q ruff==0.16.10 mypy==2.4.0 pytest-cov==7.1.0 pip-audit==2.10.1
 
       - name: OpenAPI contract is in sync (openapi.json)
-        # openapi.json is committed and is the source the frontend generates its
-        # types from (npm run generate:api-types). Regenerating it here and
-        # failing on drift turns "someone changed a route signature and forgot
-        # to re-export" into a build failure instead of a silent mismatch.
+        # openapi.json is committed and feeds the frontend types; drift means
+        # a route changed without re-exporting.
         run: |
           python scripts/export_openapi.py
           git diff --exit-code -- openapi.json
@@ -142,29 +119,23 @@ jobs:
         run: python -m ruff check apps/api
 
       - name: ruff format check
-        # .editorconfig ignores E501 with the note that line length is the
-        # formatter's job; this is that job being checked. Run `ruff format`
-        # locally and the gate goes green.
+        # Line length is the formatter's job (.editorconfig ignores E501).
         run: python -m ruff format --check apps/api
 
       - name: mypy typecheck
-        # Full-package typecheck (matches local verification); blocking since the tree is clean
+        # Matches local verification.
         working-directory: apps/api
         run: python -m mypy src
 
       - name: pytest full regression + coverage gate (>=90%)
-        # Whole-package coverage: --cov=realmock keeps the gate future-proof -
-        # a new domain is measured the moment it exists, without editing this
-        # file (measured 96% at the switch from the explicit package list).
+        # Whole-package coverage: new domains are measured automatically.
         working-directory: apps/api
         run: >
           python -m pytest -q
           --cov=realmock
           --cov-report=term-missing --cov-fail-under=90
 
-      # Dependency audits and the denylist policy live in security.yml: they
-      # re-run on a weekly schedule and must not be gated on code changes,
-      # because CVEs appear without one.
+      # Audits + denylist live in security.yml (scheduled; CVEs need no code change).
 
   frontend:
     name: Frontend (tsc / lint / test / build / audit)
@@ -178,8 +149,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # No job here pushes; leaving the checkout token on disk would
-          # let anything in a later step (or a cached artifact) reuse it.
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -204,21 +173,15 @@ jobs:
         run: npm run build
 
       - name: Prettier format check
-        # Prettier owns formatting; the ESLint rules that would also report
-        # formatting are disabled in eslint.config.mjs. Runs on Linux CI where
-        # core.autocrlf does not rewrite the checkout to CRLF - with autocrlf on
-        # Windows the working tree can never satisfy a LF-formatted gate.
+        # Prettier owns formatting (eslint rules disabled). Linux-only gate:
+        # autocrlf checkouts can never satisfy a LF format check.
         run: npm run format:check
 
       - name: i18n usage audit (ghost + dead keys)
-        # resolve.ts falls back silently on a missing key, so only a
-        # structural scan catches typos (ghosts) and unreferenced entries
-        # (dead); the allowlist next to the script carries the audited stock.
+        # Ghost keys render literally; dead keys rot unseen. Catch both here.
         run: node scripts/check-i18n-usage.mjs
 
-      # Dependency audit and the denylist policy live in security.yml: they
-      # re-run on a weekly schedule and must not be gated on code changes,
-      # because CVEs appear without one.
+      # Audit + denylist live in security.yml (scheduled; CVEs need no code change).
   docker:
     name: Docker (backend + web image builds)
     needs: changes
@@ -230,20 +193,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # No job here pushes; leaving the checkout token on disk would
-          # let anything in a later step (or a cached artifact) reuse it.
           persist-credentials: false
 
       - name: Build backend image
-        # The deployable artifact is a container. Without this, a typo in a
-        # COPY path or a command that only works on Windows ships green and
-        # breaks at deploy time. Root context: .dockerignore keeps the build to
-        # apps/api plus the stt_fixtures.
+        # The deployable artifact; root context (.dockerignore trims to apps/api).
         run: docker build --tag realmock-api:ci .
 
       - name: Build web image
-        # Context is apps/web; its .dockerignore already drops node_modules and
-        # .next, so this does not copy the 900 MB of local build state.
+        # apps/web context; its .dockerignore drops local build state.
         run: docker build --tag realmock-web:ci apps/web
 
   workflow-lint:
@@ -260,10 +217,7 @@ jobs:
           persist-credentials: false
 
       - name: actionlint
-        # Catches workflow syntax errors, bad expressions and shellcheck issues
-        # in run blocks - the class of mistake that only shows up as a confusing
-        # red X in the Actions tab. Installed as a pinned release binary, so this
-        # adds no third-party action to the allow list.
+        # Workflow syntax + shellcheck errors, as a pinned binary.
         run: |
           set -euo pipefail
           version=1.7.12
@@ -273,9 +227,7 @@ jobs:
           actionlint -color .github/workflows/*.yml
 
       - name: zizmor
-        # Audits the workflows themselves for unsafe expression expansion,
-        # excessive permissions and unpinned actions. Complements actionlint: one
-        # checks that the YAML is correct, the other that it is safe.
+        # Workflow security audit (permissions, injection, pinning).
         run: |
           set -euo pipefail
           version=1.30.1
@@ -295,31 +247,21 @@ jobs:
           persist-credentials: false
 
       - name: Committed files match .editorconfig
-        # .editorconfig configures editors; until now nothing read it, so files
-        # landed with CRLF, missing final newlines and extra blank lines at EOF.
-        # Runs against git blobs, not the working tree: core.autocrlf=true puts
-        # CRLF in every checkout, so a working-tree scan would be ~1300 false
-        # positives.
+        # Checked against git blobs, not the working tree: autocrlf checkouts
+        # would false-positive on nearly every file.
         run: python3 scripts/ci/check_editorconfig.py
 
       - name: No case-insensitive path collisions
-        # The worktree is developed on Windows, where the filesystem cannot hold
-        # two paths differing only by case - so a colliding pair is easy to create
-        # in review and impossible to reproduce locally. Linux (CI) accepts it
-        # silently and every other Windows/macOS clone then breaks. Git only warns
-        # at checkout time, so this is the only place it can be enforced.
+        # Case collisions are invisible on Windows dev machines and break other
+        # clones; only Linux CI can catch them.
         run: python3 scripts/ci/check_case_collisions.py
 
       - name: Documentation bilingual pairs
-        # docs/ ships as X.md + X.zh.md pairs; a rename or a new page landing
-        # in one language only would orphan readers of the other. The root
-        # README pair is included.
+        # docs/ ships as X.md + X.zh.md pairs (root README included).
         run: python3 scripts/ci/check_docs_pairs.py
 
       - name: Documentation internal links (lychee, offline)
-        # Internal links and anchors across the docs tree. --offline keeps the
-        # check network-free and flake-free: external URLs are excluded by
-        # design (they belong to a scheduled job, not a per-PR gate).
+        # Internal links only (--offline): network-free, flake-free.
         run: |
           set -euo pipefail
           version=0.24.2
@@ -331,10 +273,8 @@ jobs:
 
   gate:
     name: gate
-    # Merge-time summary: branch protection requires exactly this check. It
-    # always runs, passes when every job that ran succeeded (skipped areas are
-    # fine - that is the path filtering above) and fails on any failure or
-    # cancellation, so a cancelled run can never masquerade as green.
+    # The one required check: green iff every job that ran is green;
+    # failure or cancellation is red.
     needs: [changes, backend, frontend, docker, workflow-lint, repo-hygiene]
     if: always()
     runs-on: ubuntu-latest
