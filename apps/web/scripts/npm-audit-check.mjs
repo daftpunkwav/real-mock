@@ -39,9 +39,16 @@ try {
 // documented reason is not an auditable exception.
 const allowedIds = new Set();
 for (const entry of allowlist.allow ?? []) {
-  if (!entry?.id || !entry?.package || !entry?.reason) {
+  if (
+    typeof entry?.id !== "string" ||
+    !entry.id.trim() ||
+    typeof entry?.package !== "string" ||
+    !entry.package.trim() ||
+    typeof entry?.reason !== "string" ||
+    !entry.reason.trim()
+  ) {
     fail(
-      `incomplete allowlist entry (id, package and reason are all required): ${JSON.stringify(entry)}`,
+      `incomplete allowlist entry (id, package and reason must be non-empty strings): ${JSON.stringify(entry)}`,
     );
   }
   allowedIds.add(entry.id);
