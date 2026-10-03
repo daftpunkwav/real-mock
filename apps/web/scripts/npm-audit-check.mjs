@@ -51,6 +51,9 @@ for (const entry of allowlist.allow ?? []) {
       `incomplete allowlist entry (id, package and reason must be non-empty strings): ${JSON.stringify(entry)}`,
     );
   }
+  # Normalize once: the stale-entry check below compares the same
+  # trimmed value, or a padded id would always read as unobserved.
+  entry.id = entry.id.trim();
   allowedIds.add(entry.id.trim());
 }
 
