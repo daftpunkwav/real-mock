@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main() -> int:
+    """Print every unpaired documentation file; exit 1 when any exist."""
     problems: list[str] = []
 
     for md in sorted((ROOT / "docs").rglob("*.md")):

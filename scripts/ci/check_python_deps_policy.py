@@ -14,10 +14,12 @@ POLICY = Path(__file__).resolve().parent / "dependency-policy.json"
 
 
 def canonical(name: str) -> str:
+    """PEP 503 normalization: lowercase, runs of -/_/. collapsed to one dash."""
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def main() -> int:
+    """Fail on any banned distribution present in the installed environment."""
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     banned = {canonical(name): reason for name, reason in policy.get("pip", {}).items()}
 
