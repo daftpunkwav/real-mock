@@ -22,9 +22,8 @@ paths = ['''apps/api/tests/''']
 regexes = [
   '''^sk-''',
   '''^enc:''',
-  '''^(test-key|test_key|asr-key|env-key|plain-key|legacy-secret|stage-secret)$''',
+  '''^(test-key|test_key|asr-key|env-key|plain-key|legacy-secret|stage-secret|cov-rep2-none-ledger12|cov-rep2-ledger-token-xyz1|cov-rep2-token-abc123|abcdef1234567890abcdef1234567890abcd|abcdefghijklmnop|abcdefghijklmnopqrstuvwx|long-enough-secret-123|plain-text-key-long-enough-xyz|short)$''',
   '''^BAIDU(KEY123|SECRET456)$''',
-  '''^(cov-rep2|abcdef1234567890|abcdefghijklmnop|abcdefghijklmnopqrstuvwx|long-enough-secret-123|plain-text-key-long-enough-xyz|short)''',
 ]
 
 [[allowlists]]
