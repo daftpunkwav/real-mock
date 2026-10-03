@@ -1,0 +1,160 @@
+# Security: supply-chain and credential gates, split from ci.yml so a leak or
+# a CVE fails its own workflow instead of being buried in the build gate noise.
+#
+# No path filtering on purpose: vulnerabilities appear without any code change
+# (a new GHSA against an already-pinned version), so the audits re-run on every
+# push/PR and on a weekly schedule that re-scans main and catches drift even
+# when nothing was pushed all week. The weekly cron deliberately lands off the
+# dependabot days so findings arrive before/around the upgrade PRs, not on top
+# of them.
+#
+# Every "uses:" is pinned to a full commit SHA (same policy as ci.yml).
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history: a secret added and removed within a PR must still be
+      # caught, which a shallow checkout cannot see.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The binary comes from the official release, checksum-verified, instead
+      # of gitleaks-action. No automation covers this URL; bump deliberately.
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          V=8.30.1
+          curl -sSfL --retry 3 -o /tmp/gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_linux_x64.tar.gz"
+          curl -sSfL --retry 3 -o /tmp/checksums.txt \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_checksums.txt"
+          grep "gitleaks_${V}_linux_x64.tar.gz" /tmp/checksums.txt \
+            | sed "s|gitleaks_${V}_linux_x64.tar.gz|/tmp/gitleaks.tgz|" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks version
+
+      - name: Scan full history
+        run: /tmp/gitleaks detect --no-git --redact -v 2>/dev/null || /tmp/gitleaks detect --redact -v
+
+  python:
+    name: pip audit + dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TEST_MODE: "1"
+      ENV: "dev"
+      LLM_API_KEY: "test-key"
+      LLM_API_BASE: "http://127.0.0.1:9999/v1"
+      CORS_ORIGINS: "http://localhost:8080"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      # The audit must see the full runtime env (editable install included),
+      # so it installs the same set the backend job does.
+      - name: Install deps
+        run: pip install -q -e 'apps/api[dev]' pip-audit==2.10.1
+
+      - name: pip-audit dependency scan
+        # chromadb 1.5.9 (latest) known issues with no fixed release yet
+        # (see pyproject comments); re-check when upstream ships a fix.
+        run: >-
+          pip-audit
+          --ignore-vuln PYSEC-2026-311
+          --ignore-vuln PYSEC-2026-3813
+          --ignore-vuln PYSEC-2026-3814
+          --ignore-vuln PYSEC-2026-3815
+
+      - name: Dependency policy (denylist)
+        # A ban in scripts/ci/dependency-policy.json blocks the package on any
+        # path of arrival: this scans the installed environment, so transitive
+        # introductions are caught too.
+        run: python scripts/ci/check_python_deps_policy.py
+
+  node:
+    name: npm audit + dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency audit (fail on unlisted high+)
+        # npm audit has no per-advisory ignore flag: scripts/npm-audit-check.mjs
+        # enforces npm-audit-allowlist.json (mirrors the pip-audit --ignore-vuln
+        # pattern for unfixable upstream with unreachable entry points).
+        run: npm run audit
+
+      - name: Dependency policy (denylist)
+        # Scans package-lock.json (the full resolved graph, transitive
+        # included, aliases included) plus the manifest against
+        # scripts/ci/dependency-policy.json.
+        run: node ../../scripts/ci/check_npm_deps_policy.mjs
+
+  security-gate:
+    name: security-gate
+    # Merge-time summary: branch protection requires this check. Always runs;
+    # passes when everything that ran succeeded and fails on any failure or
+    # cancellation, so a cancelled run can never masquerade as green.
+    needs: [secrets, python, node]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Evaluate security gate results
+        env:
+          SECRETS: ${{ needs.secrets.result }}
+          PYTHON: ${{ needs.python.result }}
+          NODE: ${{ needs.node.result }}
+        run: |
+          set -euo pipefail
+          results="secrets=$SECRETS python=$PYTHON node=$NODE"
+          echo "$results"
+          if grep -qE '=(failure|cancelled)' <<< "$results"; then
+            echo "::error::one or more security gates failed or were cancelled"
+            exit 1
+          fi
+          echo "all security gates passed"

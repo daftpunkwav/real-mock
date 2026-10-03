@@ -74,10 +74,10 @@ jobs:
           frontend=false
           docker=false
           workflows=false
-          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$|^scripts/ci/dependency-policy\.json$|^scripts/ci/check_python_deps_policy\.py$' <<< "$changed"; then
+          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$' <<< "$changed"; then
             backend=true
           fi
-          if grep -qE '^apps/web/|^openapi\.json$|^scripts/ci/dependency-policy\.json$|^scripts/ci/check_npm_deps_policy\.mjs$' <<< "$changed"; then
+          if grep -qE '^apps/web/|^openapi\.json$' <<< "$changed"; then
             frontend=true
           fi
           if [ "$backend" = true ] || [ "$frontend" = true ] \
@@ -162,22 +162,9 @@ jobs:
           --cov=realmock
           --cov-report=term-missing --cov-fail-under=90
 
-      - name: pip-audit dependency scan
-        # Audit the current env (including editable realmock-api deps).
-        # chromadb 1.5.9 (latest) known issues with no fixed release yet
-        # (see pyproject comments); re-check when upstream ships a fix.
-        run: >-
-          pip-audit
-          --ignore-vuln PYSEC-2026-311
-          --ignore-vuln PYSEC-2026-3813
-          --ignore-vuln PYSEC-2026-3814
-          --ignore-vuln PYSEC-2026-3815
-
-      - name: Dependency policy (denylist)
-        # A ban in scripts/ci/dependency-policy.json blocks the package on any
-        # path of arrival: this scans the installed environment, so transitive
-        # introductions are caught too.
-        run: python scripts/ci/check_python_deps_policy.py
+      # Dependency audits and the denylist policy live in security.yml: they
+      # re-run on a weekly schedule and must not be gated on code changes,
+      # because CVEs appear without one.
 
   frontend:
     name: Frontend (tsc / lint / test / build / audit)
@@ -223,22 +210,15 @@ jobs:
         # Windows the working tree can never satisfy a LF-formatted gate.
         run: npm run format:check
 
-      - name: Dependency audit (fail on unlisted high+)
-        # npm audit has no per-advisory ignore flag: scripts/npm-audit-check.mjs
-        # enforces npm-audit-allowlist.json (mirrors the pip-audit --ignore-vuln
-        # pattern for unfixable upstream with unreachable entry points).
-        run: npm run audit
-
-      - name: Dependency policy (denylist)
-        # Scans package-lock.json (the full resolved graph, transitive
-        # included) plus the manifest against scripts/ci/dependency-policy.json.
-        run: node ../../scripts/ci/check_npm_deps_policy.mjs
-
       - name: i18n usage audit (ghost + dead keys)
         # resolve.ts falls back silently on a missing key, so only a
         # structural scan catches typos (ghosts) and unreferenced entries
         # (dead); the allowlist next to the script carries the audited stock.
         run: node scripts/check-i18n-usage.mjs
+
+      # Dependency audit and the denylist policy live in security.yml: they
+      # re-run on a weekly schedule and must not be gated on code changes,
+      # because CVEs appear without one.
   docker:
     name: Docker (backend + web image builds)
     needs: changes
