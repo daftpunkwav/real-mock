@@ -58,6 +58,24 @@ docstrings leak into schema descriptions — document schemas with `#` comments 
 - Commits are in English and describe the change itself
 - Branches: `<type>/<short-kebab-description>`, e.g. `feat/prep-agent-memory`
 
+## Review & merge
+
+`main` is protected by branch rulesets: no direct pushes, no force pushes,
+no deletions. Every change lands through a pull request.
+
+- Two approving reviews are required. The maintainer and the two reviewer
+  apps (CodeRabbit and Sourcery) all hold approval rights; a pull request
+  author cannot approve their own PR, so the maintainer's own PRs need both
+  apps to approve. The reviewer apps approve only once their findings are
+  addressed.
+- A new push dismisses stale approvals and the last push must be approved
+  again. All review threads must be resolved before merging — thread
+  resolution and approvals are separate requirements, and either alone
+  blocks the merge.
+- Required checks: `gate` and `security-gate`, and the branch must be up to
+  date with `main` when merging — update or rebase if `main` has moved.
+- Merge is squash; the branch is deleted after merge.
+
 ## Code rules
 
 Enforced in review, backed by the architecture tests:
