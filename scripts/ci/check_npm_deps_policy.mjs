@@ -48,7 +48,7 @@ const violations = [...found]
   .sort();
 
 const aliasViolations = aliases
-  .map((alias) => ({ ...alias, real: alias.target.match(/^npm:([^@]+)/)?.[1] ?? "" }))
+  .map((alias) => ({ ...alias, real: alias.target.match(/^npm:(.+)@[^@]+$/)?.[1] ?? alias.target.slice(4) }))
   .filter((alias) => banned[alias.real] !== undefined)
   .sort((a, b) => a.installed.localeCompare(b.installed));
 

@@ -35,7 +35,15 @@ try {
 } catch (err) {
   fail(`cannot read allowlist ${allowlistPath}: ${err.message}`);
 }
-const allowedIds = new Set((allowlist.allow ?? []).map((e) => e.id));
+// Fail closed on incomplete entries: an exception without its package and
+// documented reason is not an auditable exception.
+const allowedIds = new Set();
+for (const entry of allowlist.allow ?? []) {
+  if (!entry?.id || !entry?.package || !entry?.reason) {
+    fail(`incomplete allowlist entry (id, package and reason are all required): ${JSON.stringify(entry)}`);
+  }
+  allowedIds.add(entry.id);
+}
 
 let raw;
 try {
