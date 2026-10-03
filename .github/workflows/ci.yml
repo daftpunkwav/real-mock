@@ -130,6 +130,8 @@ jobs:
           fi
           # Effective approval per reviewer: their LATEST review state wins
           # (reviews are returned oldest-first, so later writes overwrite).
+          # shellcheck disable=SC2016  # the jq program is single-quoted on
+          # purpose: $r/$author/$owner are jq bindings (--arg), not shell.
           approved="$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews"             --arg author "$PR_AUTHOR" --arg owner "$REPO_OWNER"             --jq 'reduce .[] as $r ({}; .[$r.user.login] = $r.state)
                   | to_entries
                   | map(select((.key | endswith("[bot]")) | not))
