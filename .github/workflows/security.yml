@@ -55,7 +55,9 @@ jobs:
           /tmp/gitleaks version
 
       - name: Scan full history
-        run: /tmp/gitleaks detect --no-git --redact -v 2>/dev/null || /tmp/gitleaks detect --redact -v
+        # git-history scan: the checkout IS the tree in CI, and .gitleaks.toml
+        # (test fixtures with fabricated credentials) applies to both modes.
+        run: /tmp/gitleaks detect --redact -v
 
   python:
     name: pip audit + dependency policy

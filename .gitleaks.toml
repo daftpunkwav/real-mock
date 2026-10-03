@@ -1,0 +1,14 @@
+# gitleaks configuration. Extends the default rule set; the allowlist covers
+# the backend test tree, where fake credentials (api_key="test-key", dummy
+# PEM strings) are fixtures by design - they exercise the credential-handling
+# paths and are not secrets. Keep the list path-scoped: a real leak outside
+# the tests tree must stay loud.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "backend test fixtures use fabricated credentials on purpose"
+paths = [
+  '''apps/api/tests/''',
+]
