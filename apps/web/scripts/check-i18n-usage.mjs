@@ -14,6 +14,13 @@
  * when `phase.${id}` appears. Everything genuinely unreachable needs the
  * allowlist.
  *
+ * Known boundary (deliberate): call sites are not bound to their namespace -
+ * doing that requires translator-binding analysis across every file. Two
+ * consequences, both underreporting-only (the gate never false-blocks):
+ * a bare key defined in several namespaces is considered live if any one of
+ * them references it, and ghost candidates are limited to the translator
+ * call shapes recognized below.
+ *
  * Scanned: apps/web/src minus tests and minus i18n/messages (the data being
  * audited); the i18n module itself (LocaleProvider, error catalog) counts as
  * a consumer.
@@ -75,16 +82,25 @@ for (const file of walk(srcRoot)) {
   for (const match of text.matchAll(
     /peekMessage\(\s*[^,]+,\s*["'`]([a-z0-9-]+)["'`]\s*,\s*["'`]([a-z0-9.-]+)["'`]/g,
   )) {
-    callSites.push(`${match[1]}.${match[2]}`, match[2]);
+    // Bare key only: the qualified "ns.key" form is not in `known` and would
+    // be misreported as a ghost.
+    callSites.push(match[2]);
   }
 }
 
-// Template literals: `static.prefix.${...}` - every key under the prefix is
-// considered referenced (dynamic namespaces are exempt by construction).
+// Template literals with a dotted static prefix - `dim.${d.key}` even when
+// not written directly inside t(...) - mark every catalog key under that
+// prefix as referenced, but only when the family actually exists in the
+// catalog: an unrelated `debug.${id}` with no debug.* keys suppresses
+// nothing.
 const dynamicPrefixes = new Set();
 for (const match of corpus.matchAll(/`([^`\n]*?)\$\{/g)) {
   const prefix = match[1].match(/([a-z0-9-]+(?:\.[a-z0-9-]+)*)\.$/);
   if (prefix) dynamicPrefixes.add(`${prefix[1]}.`);
+}
+for (const prefix of [...dynamicPrefixes]) {
+  const familyExists = [...known].some((key) => key.startsWith(prefix));
+  if (!familyExists) dynamicPrefixes.delete(prefix);
 }
 
 function referencedVerbatim(key) {

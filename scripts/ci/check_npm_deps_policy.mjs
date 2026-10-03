@@ -22,23 +22,45 @@ const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
 // Lock entries look like "node_modules/next" or "node_modules/@scope/pkg";
 // the package name is everything after the last "node_modules/" segment.
+// Alias installs ("local": "npm:real@...") hide the real package behind a
+// local folder name - the spec string is the only place the real name shows,
+// so both the lock entry version and the manifest spec are inspected.
 const found = new Set();
-for (const key of Object.keys(lock.packages ?? {})) {
-  const name = key.split("node_modules/").pop();
-  if (name) found.add(name);
+const aliases = []; // { installed, target: "npm:<realname>@..." }
+for (const [key, entry] of Object.entries(lock.packages ?? {})) {
+  const installed = key.split("node_modules/").pop();
+  if (installed) found.add(installed);
+  if (typeof entry?.version === "string" && entry.version.startsWith("npm:")) {
+    aliases.push({ installed, target: entry.version });
+  }
 }
 for (const section of ["dependencies", "devDependencies", "overrides"]) {
-  for (const name of Object.keys(manifest[section] ?? {})) found.add(name);
+  for (const [installed, spec] of Object.entries(manifest[section] ?? {})) {
+    found.add(installed);
+    if (typeof spec === "string" && spec.startsWith("npm:")) {
+      aliases.push({ installed, target: spec });
+    }
+  }
 }
 
 const violations = [...found]
   .filter((name) => banned[name] !== undefined)
   .sort();
 
-if (violations.length > 0) {
+const aliasViolations = aliases
+  .map((alias) => ({ ...alias, real: alias.target.match(/^npm:([^@]+)/)?.[1] ?? "" }))
+  .filter((alias) => banned[alias.real] !== undefined)
+  .sort((a, b) => a.installed.localeCompare(b.installed));
+
+if (violations.length > 0 || aliasViolations.length > 0) {
   console.error("banned npm dependencies present:");
   for (const name of violations) {
     console.error(`  - ${name}: ${banned[name]}`);
+  }
+  for (const alias of aliasViolations) {
+    console.error(
+      `  - ${alias.installed} (alias for ${alias.real}): ${banned[alias.real]}`,
+    );
   }
   process.exit(1);
 }

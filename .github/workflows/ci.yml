@@ -74,10 +74,10 @@ jobs:
           frontend=false
           docker=false
           workflows=false
-          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$' <<< "$changed"; then
+          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$|^scripts/ci/dependency-policy\.json$|^scripts/ci/check_python_deps_policy\.py$' <<< "$changed"; then
             backend=true
           fi
-          if grep -qE '^apps/web/|^openapi\.json$' <<< "$changed"; then
+          if grep -qE '^apps/web/|^openapi\.json$|^scripts/ci/dependency-policy\.json$|^scripts/ci/check_npm_deps_policy\.mjs$' <<< "$changed"; then
             frontend=true
           fi
           if [ "$backend" = true ] || [ "$frontend" = true ] \
