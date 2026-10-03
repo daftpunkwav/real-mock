@@ -40,7 +40,9 @@ try {
 const allowedIds = new Set();
 for (const entry of allowlist.allow ?? []) {
   if (!entry?.id || !entry?.package || !entry?.reason) {
-    fail(`incomplete allowlist entry (id, package and reason are all required): ${JSON.stringify(entry)}`);
+    fail(
+      `incomplete allowlist entry (id, package and reason are all required): ${JSON.stringify(entry)}`,
+    );
   }
   allowedIds.add(entry.id);
 }
