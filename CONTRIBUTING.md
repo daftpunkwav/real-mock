@@ -6,7 +6,7 @@ agent-specific working rules live in [AGENTS.md](AGENTS.md).
 
 ## Setup
 
-- Backend: Python 3.12 (CI) / >=3.11 — `pip install -e './apps/api[dev]'` (tests live in the `dev` extra; the runtime image needs no extras)
+- Backend: Python 3.14 (`requires-python >=3.14`) — create the project venv and install editable: `uv venv && uv pip install -e 'apps/api[dev]'` (tests live in the `dev` extra; the runtime image needs no extras). The backend service also runs from this venv (`scripts/dev.sh`)
 - Frontend: Node 24 (see [.nvmrc](.nvmrc)) — `npm ci` inside `apps/web`
 - One-command local dev: `scripts/dev.sh start|stop` (frontend on 8080, backend on 8081, logs and PIDs under `logs/`)
 
@@ -16,10 +16,11 @@ Run from `apps/api` unless noted:
 
 | Gate | Command | Note |
 |---|---|---|
-| Lint | `python -m ruff check apps/api` | from repo root; CI pins `ruff==0.15.20` |
-| Types | `python -m mypy src` | CI pins `mypy==2.1.0`; blocking, must stay at 0 errors |
-| Tests | `python -m pytest` | Coverage gate >=90% over the platform kernel and the profile / resume / settings / prep / interview / growth domains in CI (records is not measured) |
+| Lint | `python -m ruff check apps/api` | from repo root; CI pins `ruff==0.16.10` |
+| Types | `python -m mypy src` | CI pins `mypy==2.4.0`; blocking, must stay at 0 errors |
+| Tests | `python -m pytest` | Coverage gate >=90% over the whole `realmock` package (`--cov=realmock` in CI) |
 | Deps audit | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 known issues with no upstream fix; declared in `pyproject.toml` |
+| Deps policy | `python scripts/ci/check_python_deps_policy.py` | from repo root; banned packages in `scripts/ci/dependency-policy.json` (scans the installed env, transitive included) |
 
 Frontend, run from `apps/web`:
 
@@ -29,7 +30,20 @@ npm run lint       # eslint
 npm test           # vitest (coverage thresholds enforced from apps/web/vitest.config.mts)
 npm run build      # production build
 npm run audit      # dependency audit (fails on high+ unless allowlisted in npm-audit-allowlist.json)
+node scripts/check-i18n-usage.mjs                               # ghost + dead message keys (allowlist: i18n-usage-allowlist.json)
+node ../../scripts/ci/check_npm_deps_policy.mjs                 # banned packages (scripts/ci/dependency-policy.json)
 ```
+
+## Git hooks (optional)
+
+The repo ships a fast staged-only hook (ruff + prettier, mirroring the two
+formatting gates). Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Everything else stays in CI on purpose - the hook is a convenience, not a gate.
 
 ## Contracts & generated files
 
@@ -65,3 +79,5 @@ listed there; changes to those paths deserve extra scrutiny in review.
 
 Every doc ships with a Chinese mirror (`<name>.zh.md`) kept current with the
 code; a directory gets a README once its files stop being self-explanatory.
+Both invariants are enforced in CI: `scripts/ci/check_docs_pairs.py` fails on
+an unpaired page, and lychee (offline) fails on a broken internal link.

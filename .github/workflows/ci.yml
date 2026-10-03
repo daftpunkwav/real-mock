@@ -74,10 +74,10 @@ jobs:
           frontend=false
           docker=false
           workflows=false
-          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$' <<< "$changed"; then
+          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$|^scripts/ci/dependency-policy\.json$|^scripts/ci/check_python_deps_policy\.py$' <<< "$changed"; then
             backend=true
           fi
-          if grep -qE '^apps/web/|^openapi\.json$' <<< "$changed"; then
+          if grep -qE '^apps/web/|^openapi\.json$|^scripts/ci/dependency-policy\.json$|^scripts/ci/check_npm_deps_policy\.mjs$' <<< "$changed"; then
             frontend=true
           fi
           if [ "$backend" = true ] || [ "$frontend" = true ] \
@@ -153,12 +153,13 @@ jobs:
         run: python -m mypy src
 
       - name: pytest full regression + coverage gate (>=90%)
+        # Whole-package coverage: --cov=realmock keeps the gate future-proof -
+        # a new domain is measured the moment it exists, without editing this
+        # file (measured 96% at the switch from the explicit package list).
         working-directory: apps/api
         run: >
           python -m pytest -q
-          --cov=realmock.platform --cov=realmock.domains.profile --cov=realmock.domains.resume
-          --cov=realmock.domains.settings --cov=realmock.domains.prep --cov=realmock.domains.interview
-          --cov=realmock.domains.growth
+          --cov=realmock
           --cov-report=term-missing --cov-fail-under=90
 
       - name: pip-audit dependency scan
@@ -171,6 +172,12 @@ jobs:
           --ignore-vuln PYSEC-2026-3813
           --ignore-vuln PYSEC-2026-3814
           --ignore-vuln PYSEC-2026-3815
+
+      - name: Dependency policy (denylist)
+        # A ban in scripts/ci/dependency-policy.json blocks the package on any
+        # path of arrival: this scans the installed environment, so transitive
+        # introductions are caught too.
+        run: python scripts/ci/check_python_deps_policy.py
 
   frontend:
     name: Frontend (tsc / lint / test / build / audit)
@@ -221,6 +228,17 @@ jobs:
         # enforces npm-audit-allowlist.json (mirrors the pip-audit --ignore-vuln
         # pattern for unfixable upstream with unreachable entry points).
         run: npm run audit
+
+      - name: Dependency policy (denylist)
+        # Scans package-lock.json (the full resolved graph, transitive
+        # included) plus the manifest against scripts/ci/dependency-policy.json.
+        run: node ../../scripts/ci/check_npm_deps_policy.mjs
+
+      - name: i18n usage audit (ghost + dead keys)
+        # resolve.ts falls back silently on a missing key, so only a
+        # structural scan catches typos (ghosts) and unreferenced entries
+        # (dead); the allowlist next to the script carries the audited stock.
+        run: node scripts/check-i18n-usage.mjs
   docker:
     name: Docker (backend + web image builds)
     needs: changes
@@ -311,6 +329,25 @@ jobs:
         # silently and every other Windows/macOS clone then breaks. Git only warns
         # at checkout time, so this is the only place it can be enforced.
         run: python3 scripts/ci/check_case_collisions.py
+
+      - name: Documentation bilingual pairs
+        # docs/ ships as X.md + X.zh.md pairs; a rename or a new page landing
+        # in one language only would orphan readers of the other. The root
+        # README pair is included.
+        run: python3 scripts/ci/check_docs_pairs.py
+
+      - name: Documentation internal links (lychee, offline)
+        # Internal links and anchors across the docs tree. --offline keeps the
+        # check network-free and flake-free: external URLs are excluded by
+        # design (they belong to a scheduled job, not a per-PR gate).
+        run: |
+          set -euo pipefail
+          version=0.24.2
+          curl -sSfL --retry 3 -o /tmp/lychee.tar.gz \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-v${version}/lychee-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/lychee.tar.gz -C /tmp
+          install "$(find /tmp -maxdepth 2 -name lychee -type f | head -1)" /usr/local/bin/lychee
+          lychee --offline --no-progress 'docs/**/*.md' 'README.md' 'README.zh.md' '*.md'
 
   gate:
     name: gate
