@@ -25,13 +25,22 @@ on:
   push:
     branches: [main]
   pull_request:
+  # An approving review is the maintainer key that unlocks the expensive
+  # tier-2 jobs (see the full-approval guard below). dismissed re-arms the
+  # gate when an approval is withdrawn.
+  pull_request_review:
+    types: [submitted, dismissed]
 
 # Least privilege: jobs only check out code and publish no artifacts.
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # The event name keeps a review event (tier-2 unlock) from cancelling an
+  # in-flight tier-1 run on the same ref; pushes to the same PR still
+  # supersede each other.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -93,6 +102,46 @@ jobs:
             echo "docker=$docker"
             echo "workflows=$workflows"
           } >> "$GITHUB_OUTPUT"
+
+  full-approval:
+    name: full-approval (maintainer key)
+    # Two-tier CI: cheap gates run on every event; the expensive tier below
+    # runs only after a maintainer approval. This guard FAILS (never pends)
+    # while unapproved, so the aggregate gate is red with an actionable
+    # message instead of a hanging check. Bots cannot unlock the tier (bot
+    # reviews are ignored), the PR author cannot unlock someone else's PR,
+    # and the repository owner's approval always counts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate maintainer approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ] && [ "$EVENT" != "pull_request_review" ]; then
+            echo "non-PR event ($EVENT): full CI runs unconditionally"
+            exit 0
+          fi
+          # Effective approval per reviewer: their LATEST review state wins
+          # (reviews are returned oldest-first, so later writes overwrite).
+          approved="$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews"             --arg author "$PR_AUTHOR" --arg owner "$REPO_OWNER"             --jq 'reduce .[] as $r ({}; .[$r.user.login] = $r.state)
+                  | to_entries
+                  | map(select((.key | endswith("[bot]")) | not))
+                  | map(select(.value == "APPROVED"))
+                  | map(select(.key != $author or .key == $owner))
+                  | length')" || approved=0
+          if [ "${approved:-0}" -ge 1 ]; then
+            echo "maintainer approval present: tier-2 unblocked"
+            exit 0
+          fi
+          echo "::error title=Full CI awaiting approval::Tier-1 results are above; submit an approving review to run the full suite (tier 2)."
+          exit 1
 
   backend:
     name: Backend (ruff / mypy / pytest / audit)
@@ -221,8 +270,12 @@ jobs:
       # because CVEs appear without one.
   docker:
     name: Docker (backend + web image builds)
-    needs: changes
-    if: needs.changes.outputs.docker == 'true'
+    # Tier 2: path-routed on synchronize, full on the approval event (the
+    # review payload carries no diff classifier output).
+    needs: [changes, full-approval]
+    if: >-
+      needs.full-approval.result == 'success' &&
+      (needs.changes.outputs.docker == 'true' || github.event_name == 'pull_request_review')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -335,7 +388,7 @@ jobs:
     # always runs, passes when every job that ran succeeded (skipped areas are
     # fine - that is the path filtering above) and fails on any failure or
     # cancellation, so a cancelled run can never masquerade as green.
-    needs: [changes, backend, frontend, docker, workflow-lint, repo-hygiene]
+    needs: [changes, backend, frontend, docker, workflow-lint, repo-hygiene, full-approval]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -350,9 +403,10 @@ jobs:
           DOCKER: ${{ needs.docker.result }}
           WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
           REPO_HYGIENE: ${{ needs.repo-hygiene.result }}
+          FULL_APPROVAL: ${{ needs.full-approval.result }}
         run: |
           set -euo pipefail
-          results="changes=$CHANGES backend=$BACKEND frontend=$FRONTEND docker=$DOCKER workflow_lint=$WORKFLOW_LINT repo_hygiene=$REPO_HYGIENE"
+          results="changes=$CHANGES backend=$BACKEND frontend=$FRONTEND docker=$DOCKER workflow_lint=$WORKFLOW_LINT repo_hygiene=$REPO_HYGIENE full_approval=$FULL_APPROVAL"
           echo "$results"
           if grep -qE '=(failure|cancelled)' <<< "$results"; then
             echo "::error::one or more gates failed or were cancelled"
