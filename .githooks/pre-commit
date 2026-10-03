@@ -6,8 +6,9 @@
 #
 # Checks run against the STAGED contents (git index), never the working tree:
 # an unstaged "fix" in the worktree must not make an unformatted commit pass.
-# Staged content is materialized into temp copies inside the repo (extension
-# preserved) so ruff/prettier still discover their configuration.
+# Content is piped via stdin with --stdin-filename/--stdin-filepath so both
+# tools resolve their per-file configuration against the real path without
+# materializing temp copies.
 #
 # Enable once per clone:
 #   git config core.hooksPath .githooks
@@ -18,37 +19,27 @@ VENV_PY="$ROOT/.venv/Scripts/python.exe"
 [ -x "$VENV_PY" ] || VENV_PY="$ROOT/.venv/bin/python"
 cd "$ROOT"
 
-TMP="$(mktemp -d "$ROOT/.git/hooks-staged-XXXXXX")"
-trap 'rm -rf "$TMP"' EXIT
-
-# Materialize staged content for the paths read on stdin; prints one temp path
-# per input path (flat names - extension preserved, collisions harmless).
-stage_copies() {
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    t="$TMP/$(printf '%s' "$f" | tr '/' '_')"
-    git show ":$f" > "$t"
-    echo "$t"
-  done
-}
-
-py_tmp=()
-while IFS= read -r t; do py_tmp+=("$t"); done < <(
-  git diff --cached --name-only --diff-filter=ACMR -- 'apps/api/*.py' 'scripts/*.py' | stage_copies
+py=()
+while IFS= read -r f; do [ -n "$f" ] && py+=("$f"); done < <(
+  git diff --cached --name-only --diff-filter=ACMR -- 'apps/api/*.py' 'scripts/*.py'
 )
-web_tmp=()
-while IFS= read -r t; do web_tmp+=("$t"); done < <(
+web=()
+while IFS= read -r f; do [ -n "$f" ] && web+=("${f#apps/web/}"); done < <(
   git diff --cached --name-only --diff-filter=ACMR -- \
-    'apps/web/*.ts' 'apps/web/*.tsx' 'apps/web/*.json' 'apps/web/*.css' 'apps/web/*.md' | stage_copies
+    'apps/web/*.ts' 'apps/web/*.tsx' 'apps/web/*.json' 'apps/web/*.css' 'apps/web/*.md'
 )
 
-if [ "${#py_tmp[@]}" -gt 0 ]; then
-  "$VENV_PY" -m ruff check "${py_tmp[@]}"
-  "$VENV_PY" -m ruff format --check "${py_tmp[@]}"
+if [ "${#py[@]}" -gt 0 ]; then
+  for f in "${py[@]}"; do
+    git show ":$f" | "$VENV_PY" -m ruff check --stdin-filename "$f" - >/dev/null
+    git show ":$f" | "$VENV_PY" -m ruff format --check --stdin-filename "$f" - >/dev/null
+  done
 fi
 
-if [ "${#web_tmp[@]}" -gt 0 ]; then
-  npx prettier --check "${web_tmp[@]}"
+if [ "${#web[@]}" -gt 0 ]; then
+  (cd apps/web && for f in "${web[@]}"; do
+    git show ":apps/web/$f" | npx prettier --stdin-filepath "$f" --check
+  done)
 fi
 
 exit 0

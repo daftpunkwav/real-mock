@@ -1,4 +1,10 @@
 {
-  "$comment": "Accepted npm advisories: unfixable upstream with unreachable entry points in our usage. Every entry must name the GHSA id, the affected package, and why it is accepted. npm audit has no --ignore flag, so scripts/npm-audit-check.mjs enforces this list (CI runs `npm run audit`). Re-check entries when the dependency tree changes.",
-  "allow": []
+  "$comment": "Accepted npm advisories: unfixable upstream with unreachable entry points in our usage. Every entry must name the GHSA id, the affected package, and why it is accepted. npm audit has no --ignore flag, so scripts/npm-audit-check.mjs enforces this list (CI runs `npm run audit`); chain findings (via strings) inherit the verdict of their advisory root. Re-check entries when the dependency tree changes.",
+  "allow": [
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "reason": "dev-chain transitive (braces <- micromatch <- fast-glob <- @next/eslint-plugin-next <- eslint-config-next); build-time lint tooling only, no runtime entry point for user-controlled glob patterns; re-check on the next eslint-config-next bump"
+    }
+  ]
 }

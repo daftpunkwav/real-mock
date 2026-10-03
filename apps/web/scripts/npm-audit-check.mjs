@@ -61,6 +61,42 @@ const metaCounts =
 const seenIds = new Set();
 const blocking = [];
 let countedHigh = 0;
+
+// npm audit reports an advisory AND every transitive package that reaches it
+// as separate high findings; the transitives' `via` entries are plain strings
+// naming their parent finding. A chain node therefore inherits the verdict of
+// the advisory root it points at: allowlisting the root allowlists the chain,
+// while a node with its own advisory object is judged on that advisory.
+// Resolution is memoized and cycle-safe.
+const verdicts = new Map();
+const visiting = new Set();
+
+function isBlocking(name, depth = 0) {
+  if (verdicts.has(name)) return verdicts.get(name);
+  if (visiting.has(name) || depth > 64) return true; // cycle: fail closed
+  visiting.add(name);
+  const v = vulns[name];
+  let verdict = true;
+  if (v != null) {
+    const vias = Array.isArray(v.via) ? v.via : [];
+    const ghsaIds = vias
+      .filter((x) => typeof x !== "string")
+      .map((x) => x.url?.split("/").pop() ?? "")
+      .filter(Boolean);
+    if (ghsaIds.length > 0) {
+      verdict = ghsaIds.some((id) => !allowedIds.has(id));
+    } else if (vias.length > 0) {
+      // Pure chain node: inherits the strictest parent verdict; with no
+      // parents resolved (empty graph) it stays blocking (fail closed).
+      const parents = vias.filter((x) => typeof x === "string");
+      verdict = parents.length === 0 || parents.some((parent) => isBlocking(parent, depth + 1));
+    }
+  }
+  visiting.delete(name);
+  verdicts.set(name, verdict);
+  return verdict;
+}
+
 for (const [name, v] of Object.entries(vulns)) {
   const severity = v?.severity ?? "";
   if (severity !== "high" && severity !== "critical") continue;
@@ -71,10 +107,8 @@ for (const [name, v] of Object.entries(vulns)) {
     .map((x) => x.url?.split("/").pop() ?? "")
     .filter(Boolean);
   for (const id of ghsaIds) seenIds.add(id);
-  // Fail closed: findings without an attributable advisory id always block.
-  const unlisted = ghsaIds.filter((id) => !allowedIds.has(id));
-  if (unlisted.length > 0 || ghsaIds.length === 0) {
-    blocking.push({ name, severity, range: v.range, advisory: unlisted });
+  if (isBlocking(name)) {
+    blocking.push({ name, severity, range: v.range, advisory: ghsaIds });
   }
 }
 
