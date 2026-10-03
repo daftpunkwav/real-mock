@@ -52,7 +52,7 @@ jobs:
               true true true true >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA" "$HEAD_SHA")"
           echo "$changed"
           backend=false
           frontend=false
