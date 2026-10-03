@@ -257,12 +257,12 @@ jobs:
       # because CVEs appear without one.
   docker:
     name: Docker (backend + web image builds)
-    # Tier 2: path-routed on synchronize; the labeled event (key attached)
-    # carries no diff classifier output, so the tier runs in full there.
+    # Tier 2: path-routed while approved; attaching the key runs the tier
+    # in full regardless of path (the labeled event carries the payload).
     needs: [changes, full-approval]
     if: >-
       needs.full-approval.result == 'success' &&
-      (needs.changes.outputs.docker == 'true' || github.event.action == 'labeled')
+      (needs.changes.outputs.docker == 'true' || (github.event.action == 'labeled' && github.event.label.name == 'ci-approved'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
