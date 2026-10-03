@@ -103,3 +103,4 @@ apps/api/_translate_cjk_*
 
 # Local docs (architecture reviews, collab notes, learning sites)
 /docs-local/
+scratch
