@@ -57,6 +57,20 @@ API 契约链为 `scripts/export_openapi.py` -> `openapi.json` -> `apps/web/src/
 - 提交信息用英文，只描述改动本身
 - 分支：`<type>/<short-kebab-description>`，如 `feat/prep-agent-memory`
 
+## 评审与合并
+
+`main` 由分支规则集（rulesets）保护：禁止直接推送、禁止强推、禁止删除，
+所有变更一律通过 pull request 落地。
+
+- 至少需要 2 个批准。维护者与两个评审 App（CodeRabbit 和 Sourcery）均有
+  批准权；PR 作者不能批准自己的 PR，因此维护者自己的 PR 需要两个 App 都
+  批准。评审意见未解决就拿不到批准，拿不到批准就合并不了。
+- 新的推送会撤销旧批准，末次推送后必须重新获得批准；所有评审会话
+  （thread）解决后才能合并。
+- 必需检查为 `gate` 与 `security-gate`；合并前分支必须基于最新 `main`——
+  若 `main` 前进过，先更新或变基。
+- 采用 squash 合并，合并后删除分支。
+
 ## 代码规则
 
 评审执行，并有架构测试兜底：
