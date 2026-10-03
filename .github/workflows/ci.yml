@@ -1,5 +1,6 @@
 # CI: push to main + all PRs, routed by the "changes" job so each heavy gate
-# runs only when its area changed. No paths-ignore on the triggers: a skipped
+# runs only when its area changed (undiffable bases run everything).
+# No paths-ignore on the triggers: a skipped
 # workflow would leave the required "gate" check absent and deadlock merges.
 # "uses:" are SHA-pinned (dependabot bumps them); "gate" is the one required
 # check and aggregates every job below.
@@ -177,7 +178,7 @@ jobs:
         run: npm run format:check
 
       - name: i18n usage audit (ghost + dead keys)
-        # Ghost/dead key scan: resolve.ts falls back silently, hiding both.
+        # Ghost keys render literally; dead keys rot unseen. Catch both here.
         run: node scripts/check-i18n-usage.mjs
 
       # Audit + denylist live in security.yml (scheduled; CVEs need no code change).
