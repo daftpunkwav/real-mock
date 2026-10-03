@@ -81,3 +81,4 @@ Every doc ships with a Chinese mirror (`<name>.zh.md`) kept current with the
 code; a directory gets a README once its files stop being self-explanatory.
 Both invariants are enforced in CI: `scripts/ci/check_docs_pairs.py` fails on
 an unpaired page, and lychee (offline) fails on a broken internal link.
+# scratch
