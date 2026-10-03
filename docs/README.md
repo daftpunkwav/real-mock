@@ -35,3 +35,4 @@ Topic guides covering the whole repository. Directory-level structure lives in t
 | [Deployment](operations/deployment.md) | CI workflow, container images, runtime data volume |
 
 Chinese versions of every guide sit beside it as `<name>.zh.md`.
+validation note
