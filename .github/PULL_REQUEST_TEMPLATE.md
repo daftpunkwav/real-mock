@@ -31,7 +31,7 @@ the branch ruleset (2 approvals, threads resolved, up to date with main).
       before the fix and passes after it
 - [ ] `python -m ruff check apps/api` · `python -m ruff format --check apps/api` (repo root)
 - [ ] `python -m mypy src` (blocking, must stay at 0 errors)
-- [ ] `python -m pytest` (coverage gate ≥ 90% over the whole `realmock` package; includes the OpenAPI contract-freshness guard)
+- [ ] `python -m pytest --cov=realmock` (coverage gate ≥ 90% over the whole `realmock` package; includes the OpenAPI contract-freshness guard)
 - [ ] `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`
 - [ ] `python scripts/ci/check_python_deps_policy.py` (repo root; banned packages)
 - [ ] `node ../../scripts/ci/check_npm_deps_policy.mjs` (apps/web; banned packages)
