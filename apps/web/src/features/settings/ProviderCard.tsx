@@ -28,6 +28,7 @@ export function ProviderCard({
   const t = useT("settings");
   const tc = useT("common");
   // Cards render in a list: generated ids keep the label associations unique.
+  const nameInputId = useId();
   const websiteInputId = useId();
   const notesInputId = useId();
 
@@ -74,10 +75,11 @@ export function ProviderCard({
     <div className="surface-card !p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1 sm:max-w-sm">
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          <label htmlFor={nameInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("providerCard.name.label")}
           </label>
           <input
+            id={nameInputId}
             className="field-input !h-9 w-full"
             value={name}
             onChange={(e) => {

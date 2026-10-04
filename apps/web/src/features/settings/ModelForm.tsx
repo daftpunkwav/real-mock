@@ -112,6 +112,9 @@ export function ModelForm({
 }) {
   const t = useT("settings");
   const modelInputId = useId();
+  const displayNameInputId = useId();
+  const contextWindowInputId = useId();
+  const maxOutputInputId = useId();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [capsText, setCapsText] = useState("");
   const query = draft.model.trim().toLowerCase();
@@ -209,20 +212,22 @@ export function ModelForm({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          <label htmlFor={displayNameInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.displayName.label")}
           </label>
           <input
+            id={displayNameInputId}
             className="field-input !h-9"
             value={draft.display_name}
             onChange={(e) => setDraft({ ...draft, display_name: e.target.value })}
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          <label htmlFor={contextWindowInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.contextWindow.label")}
           </label>
           <input
+            id={contextWindowInputId}
             className="field-input !h-9"
             type="number"
             min={0}
@@ -231,10 +236,11 @@ export function ModelForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          <label htmlFor={maxOutputInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.maxOutput.label")}
           </label>
           <input
+            id={maxOutputInputId}
             className="field-input !h-9"
             type="number"
             min={1}
