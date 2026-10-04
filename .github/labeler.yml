@@ -12,6 +12,7 @@ dependencies:
           - "apps/web/package-lock.json"
           - "apps/web/package.json"
           - "apps/api/pyproject.toml"
+          - ".github/workflows/**"
 
 python:
   - changed-files:
