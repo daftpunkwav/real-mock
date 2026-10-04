@@ -35,7 +35,7 @@ if [ "${#py[@]}" -gt 0 ]; then
       echo "pre-commit: ruff check failed on $f" >&2
       exit 1
     }
-    git show ":$f" | "$VENV_PY" -m ruff format --check --stdin-filename "$f" - || {
+    git show ":$f" | "$VENV_PY" -m ruff format --diff --stdin-filename "$f" - || {
       echo "pre-commit: ruff format failed on $f" >&2
       exit 1
     }
