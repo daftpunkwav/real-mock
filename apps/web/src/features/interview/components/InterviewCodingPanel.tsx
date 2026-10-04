@@ -16,7 +16,7 @@
  * sample content, like the code samples it embeds.
  */
 
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Play, Send, Code, Terminal, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { useT } from "@/i18n";
 import { runPython } from "@/lib/code-runner/pythonRunner";

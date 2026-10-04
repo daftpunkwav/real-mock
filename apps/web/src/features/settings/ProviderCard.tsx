@@ -3,7 +3,7 @@
 /** Provider header card: identity only (name / enable state / website / notes / delete).
  * Connection settings live on the per-kind channel cards below. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Save, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { settingsHttp } from "@/lib/api/clients";
@@ -27,6 +27,9 @@ export function ProviderCard({
   const [deleting, setDeleting] = useState(false);
   const t = useT("settings");
   const tc = useT("common");
+  // Cards render in a list: generated ids keep the label associations unique.
+  const websiteInputId = useId();
+  const notesInputId = useId();
 
   useEffect(() => {
     setName(provider.name);
@@ -95,10 +98,11 @@ export function ProviderCard({
       </div>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          <label htmlFor={websiteInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("providerCard.website.label")}
           </label>
           <input
+            id={websiteInputId}
             className="field-input !h-9"
             placeholder={t("providerCard.website.placeholder")}
             value={websiteUrl}
@@ -106,10 +110,11 @@ export function ProviderCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          <label htmlFor={notesInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("providerCard.notes.label")}
           </label>
           <input
+            id={notesInputId}
             className="field-input !h-9"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

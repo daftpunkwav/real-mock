@@ -42,7 +42,7 @@ function asAllowCustom(raw: unknown): boolean {
   if (typeof raw === "string") {
     return !["false", "no", "off", "0"].includes(raw.trim().toLowerCase());
   }
-  return raw === false || raw === 0 ? false : true;
+  return raw !== false && raw !== 0;
 }
 
 /** Clamp a raw SSE ask_user event into a renderable dialog (backend already validates; stay defensive). */

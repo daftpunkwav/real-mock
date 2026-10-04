@@ -137,7 +137,7 @@ function isJunkSeparatorLine(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
   // --- or --- --- --- or |---|---| or | --- | --- |
-  if (/^[\s|:\-]+$/.test(t) && /-/.test(t)) return true;
+  if (/^[\s|:-]+$/.test(t) && /-/.test(t)) return true;
   return false;
 }
 

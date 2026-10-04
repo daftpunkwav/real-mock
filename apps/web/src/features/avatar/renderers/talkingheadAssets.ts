@@ -1,6 +1,6 @@
 /** 3D channel homologous GLB assets and rendering customizations for that channel (baseline pose/lighting/default mood). */
 
-/** Library built-in mood name (no serious; values ​​not listed will fall back to neutral). */
+/** Library built-in mood name (no serious; values not listed will fall back to neutral). */
 export type TalkingMood =
   "neutral" | "happy" | "angry" | "sad" | "fear" | "disgust" | "love" | "sleep";
 

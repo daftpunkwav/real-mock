@@ -121,6 +121,7 @@ export function SkillsSection({
                 <input
                   ref={i === profile.tech_domains.length - 1 ? lastInputRef : undefined}
                   className="w-28 bg-transparent text-[13px] outline-none sm:w-32"
+                  aria-label={t("skills.domains.label")}
                   value={d}
                   maxLength={TECH_DOMAIN_ITEM_MAX}
                   onChange={(e) => {

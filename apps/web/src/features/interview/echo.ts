@@ -2,7 +2,7 @@
 export function normalizeEchoText(s: string): string {
   return s
     .replace(
-      /[\s*#`~\uFF0C\u3002\uFF01\uFF1F\u3001,.!?;:\uFF1A\uFF1B""''\-—…\uFF08\uFF09()\u3010\u3011\[\]]/g,
+      /[\s*#`~\uFF0C\u3002\uFF01\uFF1F\u3001,.!?;:\uFF1A\uFF1B""''\-—…\uFF08\uFF09()\u3010\u3011[\]]/g,
       "",
     )
     .toLowerCase();

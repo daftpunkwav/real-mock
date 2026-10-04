@@ -98,7 +98,9 @@ export default function ReportPage() {
 
       <VerdictBanner verdict={report.verdict} reasoning={report.verdict_reasoning} />
 
-      <nav className="eval-tabs mt-4" role="tablist" aria-label={t("tabs.navAria")}>
+      {/* A tablist is not a navigation landmark: plain div keeps the tab
+          semantics without overriding nav's implicit role. */}
+      <div className="eval-tabs mt-4" role="tablist" aria-label={t("tabs.navAria")}>
         {REPORT_TAB_IDS.filter((id) => tabs.includes(id)).map((id) => (
           <button
             key={id}
@@ -123,7 +125,7 @@ export default function ReportPage() {
             )}
           </button>
         ))}
-      </nav>
+      </div>
 
       {current === "overview" && (
         <div

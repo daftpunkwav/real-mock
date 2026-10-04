@@ -183,8 +183,11 @@ export function SetupFields({
         </div>
         {roleSelectValue === CUSTOM_ROLE_ID && (
           <div className="mt-2.5">
-            <label className="field-label !mb-1 !text-xs">{t("setup.role.custom")}</label>
+            <label htmlFor="interview-setup-custom-role" className="field-label !mb-1 !text-xs">
+              {t("setup.role.custom")}
+            </label>
             <input
+              id="interview-setup-custom-role"
               type="text"
               value={customRoleText}
               placeholder={t("setup.role.customPlaceholder")}
@@ -206,8 +209,11 @@ export function SetupFields({
         </div>
         {companyIsCustom && (
           <div className="mt-2.5">
-            <label className="field-label !mb-1 !text-xs">{t("setup.company.custom")}</label>
+            <label htmlFor="interview-setup-custom-company" className="field-label !mb-1 !text-xs">
+              {t("setup.company.custom")}
+            </label>
             <input
+              id="interview-setup-custom-company"
               type="text"
               value={customCompanyText}
               maxLength={100}

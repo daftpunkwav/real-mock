@@ -236,7 +236,11 @@ export function PrepComposer({
   return (
     <div className="mt-3 flex shrink-0 flex-col gap-2">
       {pendingRefs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5" aria-label={t("composer.refChips")}>
+        <div
+          role="group"
+          className="flex flex-wrap items-center gap-1.5"
+          aria-label={t("composer.refChips")}
+        >
           {pendingRefs.map((ref) => (
             <span
               key={ref.id}
