@@ -16,7 +16,7 @@ export function useTalkingHeadEmotion(
     if (!head) return;
     const mood = EXPRESSION_TO_MOOD[emotion] ?? "neutral";
     try {
-      const names = head.getMoodNames?.() ?? [];
+      const names = head.getMoodNames?.() || [];
       if (names.length === 0 || names.includes(mood)) {
         head.setMood(mood);
       } else {

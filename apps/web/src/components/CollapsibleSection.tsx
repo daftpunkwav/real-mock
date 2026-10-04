@@ -108,12 +108,7 @@ export function CollapsibleSection({
           />
         </button>
         {actions && (
-          <div
-            className="flex shrink-0 items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
+          <div className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {actions}
           </div>
         )}
