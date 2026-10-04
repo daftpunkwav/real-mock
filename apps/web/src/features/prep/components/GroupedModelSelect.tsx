@@ -108,7 +108,13 @@ export function GroupedModelSelect({
       {open && (
         <>
           {/* Click outside the menu to close */}
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => {
+              setOpen(false);
+            }}
+            aria-hidden
+          />
           <div
             role="listbox"
             id={listId}
@@ -126,7 +132,9 @@ export function GroupedModelSelect({
                     role="menuitem"
                     aria-label={g.provider}
                     onMouseEnter={() => setActiveProvider(g.provider)}
-                    onClick={() => setActiveProvider(g.provider)}
+                    onClick={() => {
+                      setActiveProvider(g.provider);
+                    }}
                     className={`flex w-full items-center gap-1 rounded-md px-2.5 py-2 text-left text-[12px] transition-colors ${
                       focused ? "bg-surface-muted font-medium text-ink" : "text-ink-muted"
                     }`}

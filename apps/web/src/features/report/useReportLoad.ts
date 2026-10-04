@@ -190,7 +190,10 @@ export function useReportLoad(sessionId: number) {
     /** Live generation path: SSE progress events, full report on done. */
     const liveStream = () =>
       new Promise<void>((resolve) => {
-        if (ac.signal.aborted) return resolve();
+        if (ac.signal.aborted) {
+          resolve();
+          return;
+        }
         setGenerating(true);
         setLive(emptyReportLiveState());
         const onEvent = (event: ReportStreamEvent) => {

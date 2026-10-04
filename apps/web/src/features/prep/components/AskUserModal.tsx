@@ -64,7 +64,9 @@ export function AskUserModal({ dialog, disabled = false, onAnswer, onClose }: As
       if (e.key === "Escape" && !anyTyping) onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [anyTyping, onClose]);
 
   const answer = (text: string) => {
@@ -227,7 +229,9 @@ export function AskUserModal({ dialog, disabled = false, onAnswer, onClose }: As
             key={opt}
             type="button"
             disabled={disabled}
-            onClick={() => answer(opt)}
+            onClick={() => {
+              answer(opt);
+            }}
             className="flex w-full items-center gap-2.5 rounded-md border border-surface-border bg-surface-alt px-3.5 py-2.5 text-left text-[13px] leading-relaxed text-ink transition-colors hover:border-[var(--primary)] hover:bg-[var(--info-soft)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="h-[16px] w-[16px] shrink-0 rounded-full border-2 border-ink-subtle" />

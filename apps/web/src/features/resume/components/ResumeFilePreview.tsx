@@ -93,7 +93,9 @@ export function ResumeFilePreview() {
         zoom={zoom}
         baseWidth={baseWidth}
         onZoom={(factor) => zoomAt(factor, 0, 0)}
-        onFitWidth={() => setZoom(1)}
+        onFitWidth={() => {
+          setZoom(1);
+        }}
         downloadUrl={downloadUrl}
       />
 

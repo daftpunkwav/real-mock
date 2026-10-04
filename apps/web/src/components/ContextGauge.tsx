@@ -121,7 +121,9 @@ export const ContextGauge = memo(function ContextGauge({
       <button
         type="button"
         className="flex items-center rounded-full p-0.5 transition-colors hover:bg-surface-muted"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+        }}
         aria-label={t("context.usageAria")}
         aria-expanded={open}
       >
@@ -134,7 +136,13 @@ export const ContextGauge = memo(function ContextGauge({
       {open && (
         <>
           {/* Click outside the panel to close */}
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => {
+              setOpen(false);
+            }}
+            aria-hidden
+          />
           <div className="surface-card absolute bottom-full right-0 z-40 mb-2 w-72 !p-3 shadow-lg">
             <div className="flex items-baseline justify-between">
               <p className="text-[12px] font-semibold text-ink">{t("context.panel.title")}</p>

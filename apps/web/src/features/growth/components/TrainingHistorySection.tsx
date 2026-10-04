@@ -27,7 +27,9 @@ export function TrainingHistorySection({
               <button
                 key={r.id}
                 type="button"
-                onClick={() => onSelect(r.id)}
+                onClick={() => {
+                  onSelect(r.id);
+                }}
                 className={`w-full rounded-md border px-4 py-3.5 text-left transition-colors ${
                   active
                     ? "border-[var(--primary)] bg-[var(--info-soft)]"

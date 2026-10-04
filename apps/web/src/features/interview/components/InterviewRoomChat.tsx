@@ -38,7 +38,9 @@ export function InterviewRoomChat({ room }: { room: InterviewRoomModel }) {
     if (!timerVisible) return;
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+    };
   }, [timerVisible]);
 
   const remainingSec =

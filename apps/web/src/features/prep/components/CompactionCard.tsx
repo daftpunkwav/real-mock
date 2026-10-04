@@ -176,7 +176,9 @@ export function CompactionCard({
                   <button
                     type="button"
                     className="btn-secondary text-[12px]"
-                    onClick={() => actions.onOpenBackup(card.backupSessionId as number)}
+                    onClick={() => {
+                      actions.onOpenBackup(card.backupSessionId as number);
+                    }}
                   >
                     {t("compactCard.viewBackup")}
                   </button>

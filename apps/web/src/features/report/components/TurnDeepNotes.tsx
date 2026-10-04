@@ -52,7 +52,9 @@ export function TurnDeepNotes({
                 key={g.phase || "ungrouped"}
                 type="button"
                 aria-pressed={isActive}
-                onClick={() => setActive(g.phase)}
+                onClick={() => {
+                  setActive(g.phase);
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[12px] transition-colors ${
                   isActive
                     ? "border-[var(--primary)] bg-[var(--info-soft)] font-medium text-ink"

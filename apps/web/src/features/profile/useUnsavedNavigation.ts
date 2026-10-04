@@ -45,7 +45,9 @@ export function useUnsavedNavigation(dirty: boolean) {
       setPendingNav(href);
     };
     document.addEventListener("click", handleNavClick, true);
-    return () => document.removeEventListener("click", handleNavClick, true);
+    return () => {
+      document.removeEventListener("click", handleNavClick, true);
+    };
   }, [dirty]);
 
   useEffect(() => {

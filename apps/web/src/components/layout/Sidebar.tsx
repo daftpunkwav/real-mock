@@ -129,7 +129,12 @@ export function Sidebar({
             >
               <X size={16} />
             </button>
-            <NavContent collapsed={false} onNavigate={() => setMobileOpen(false)} />
+            <NavContent
+              collapsed={false}
+              onNavigate={() => {
+                setMobileOpen(false);
+              }}
+            />
           </motion.aside>
         )}
       </AnimatePresence>
@@ -144,7 +149,12 @@ export function Sidebar({
           resizing && !collapsed ? { duration: 0 } : { duration: 0.22, ease: [0.2, 0, 0, 1] }
         }
       >
-        <NavContent collapsed={collapsed} onToggleCollapse={() => setCollapsed((v) => !v)} />
+        <NavContent
+          collapsed={collapsed}
+          onToggleCollapse={() => {
+            setCollapsed((v) => !v);
+          }}
+        />
 
         {/* Drag handle on the right edge to resize; dragging far left collapses */}
         <div

@@ -54,7 +54,9 @@ describe("useDataClear", () => {
   it("marks busy while in flight and resets after failure", async () => {
     let release!: () => void;
     const gate = new Promise<{ ok: boolean; cleared: number }>((res) => {
-      release = () => res({ ok: true, cleared: 1 });
+      release = () => {
+        res({ ok: true, cleared: 1 });
+      };
     });
     clearResultsMock.mockReturnValue(gate);
     const { result } = renderHook(() => useDataClear());

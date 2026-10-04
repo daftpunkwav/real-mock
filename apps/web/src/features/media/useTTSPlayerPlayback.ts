@@ -55,7 +55,9 @@ export function useTTSPlayerPlayback(callbacks: TTSPlayerCallbackRefs): TTSPlaye
   if (levelLoopRef.current === null) {
     levelLoopRef.current = createTTSLevelLoop({
       getAnalyser: () => analyserRef.current,
-      onLevel: (level) => onLevelRef.current(level),
+      onLevel: (level) => {
+        onLevelRef.current(level);
+      },
     });
   }
 

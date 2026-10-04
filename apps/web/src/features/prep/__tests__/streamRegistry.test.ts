@@ -34,7 +34,9 @@ describe("streamRegistry", () => {
   it("aborts and forgets the controller", () => {
     const onAbort = new Promise<void>((resolve) => {
       const controller = new AbortController();
-      controller.signal.addEventListener("abort", () => resolve());
+      controller.signal.addEventListener("abort", () => {
+        resolve();
+      });
       registerStream(7, controller);
     });
     expect(abortStream(7)).toBe(true);

@@ -126,7 +126,7 @@ export function AddProviderPanel({
           value={customName}
           onChange={(e) => setCustomName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") createCustom();
+            if (e.key === "Enter") void createCustom();
           }}
         />
         <button

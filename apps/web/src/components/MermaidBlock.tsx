@@ -317,7 +317,9 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
               type="button"
               role="tab"
               aria-selected={view === "source"}
-              onClick={() => setView("source")}
+              onClick={() => {
+                setView("source");
+              }}
               className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors ${
                 view === "source"
                   ? "bg-surface-muted font-medium text-ink"

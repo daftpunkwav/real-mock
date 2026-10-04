@@ -107,7 +107,9 @@ export const toast = {
       durationMs: opts?.durationMs,
     }),
   dismiss: (id: number) => remove(id),
-  clear: () => clearAll(),
+  clear: () => {
+    clearAll();
+  },
 };
 
 const ICONS: Record<ToastKind, ReactNode> = {
@@ -121,7 +123,9 @@ export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>(_items);
 
   useEffect(() => {
-    const l: Listener = (next) => setItems(next);
+    const l: Listener = (next) => {
+      setItems(next);
+    };
     _listeners.add(l);
     setItems(_items.slice());
     return () => {

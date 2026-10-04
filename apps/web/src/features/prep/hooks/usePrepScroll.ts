@@ -34,7 +34,9 @@ export function usePrepScroll(messagesLength: number) {
       if (el) el.scrollTop = el.scrollHeight;
     });
     observer.observe(content);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [messagesLength]);
 
   const jumpToBottom = useCallback(() => {

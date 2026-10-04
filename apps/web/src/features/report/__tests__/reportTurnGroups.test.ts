@@ -79,8 +79,8 @@ describe("groupNotesByPhase", () => {
     );
     // Ledger order governs within a group; the ungrouped bucket stays last.
     expect(groups.map((g) => g.phase)).toEqual(["self_intro", ""]);
-    expect(groups[0]!.notes.map((n) => n.turn_id)).toEqual(["t2", "t1"]);
-    expect(groups[1]!.notes.map((n) => n.turn_id)).toEqual(["t4", "t3"]);
+    expect(groups[0]?.notes.map((n) => n.turn_id)).toEqual(["t2", "t1"]);
+    expect(groups[1]?.notes.map((n) => n.turn_id)).toEqual(["t4", "t3"]);
   });
 
   it("never ranks a known phase below unknown or ungrouped ones", () => {

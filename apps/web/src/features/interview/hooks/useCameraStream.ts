@@ -24,7 +24,9 @@ export function useCameraStream(
     acquiringRef.current = true;
     try {
       // Stop the old stream before acquiring another one to avoid leaking tracks.
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach((t) => {
+        t.stop();
+      });
       streamRef.current = null;
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       if (!acquiringRef.current) {

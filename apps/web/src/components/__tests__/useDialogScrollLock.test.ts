@@ -33,7 +33,9 @@ describe("useDialogScrollLock", () => {
   it("freezes scrolling and keeps the scrollbar slot when the page scrolls", () => {
     const restore = stubDimensions(2000, 800);
     const root = document.documentElement;
-    const { unmount } = renderHook(() => useDialogScrollLock(true));
+    const { unmount } = renderHook(() => {
+      useDialogScrollLock(true);
+    });
 
     expect(root.style.overflow).toBe("hidden");
     expect(root.style.scrollbarGutter).toBe("stable");

@@ -103,7 +103,9 @@ export function ResumeListItem({
           <button
             key={member.id}
             type="button"
-            onClick={() => onSelect(member.id)}
+            onClick={() => {
+              onSelect(member.id);
+            }}
             className={`chip ${member.id === r.id && selected ? "chip-blue" : "chip-gray"}`}
           >
             {t("item.versionChip", { n: member.version_n })}

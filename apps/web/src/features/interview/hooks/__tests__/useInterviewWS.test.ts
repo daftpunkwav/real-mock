@@ -159,7 +159,9 @@ describe("useInterviewWS contract", () => {
   it("reconnects with backoff after an abnormal disconnect", async () => {
     const { result } = await mount(7, undefined, { maxRetries: 3 });
     act(() => lastSocket().serverOpen());
-    act(() => lastSocket().serverClose(1011, "boom"));
+    act(() => {
+      lastSocket().serverClose(1011, "boom");
+    });
     expect(result.current.connectionState).toBe("reconnecting");
     expect(result.current.reconnectAttempt).toBe(1);
 

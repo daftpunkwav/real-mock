@@ -30,7 +30,9 @@ export function AnalyzeStageProgress({ progress }: { progress?: ReviewLiveState 
   useEffect(() => {
     if (!thinkingOpen) return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+    };
   }, [thinkingOpen]);
 
   const toggle = (id: string) => {
@@ -70,7 +72,9 @@ export function AnalyzeStageProgress({ progress }: { progress?: ReviewLiveState 
                     item={item}
                     now={now}
                     expanded={Boolean(openIds[item.id])}
-                    onToggle={() => toggle(item.id)}
+                    onToggle={() => {
+                      toggle(item.id);
+                    }}
                   />
                 ) : item.kind === "notice" ? (
                   <NoticeRow key={item.id} item={item} />
