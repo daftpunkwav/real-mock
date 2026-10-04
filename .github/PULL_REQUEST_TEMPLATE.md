@@ -29,14 +29,15 @@ the branch ruleset (2 approvals, threads resolved, up to date with main).
      unless noted. -->
 - [ ] Tests added or updated — a bug fix ships a regression test that fails
       before the fix and passes after it
-- [ ] `python -m ruff check apps/api` (repo root)
+- [ ] `python -m ruff check apps/api` · `python -m ruff format --check apps/api` (repo root)
 - [ ] `python -m mypy src` (blocking, must stay at 0 errors)
-- [ ] `python -m pytest` (coverage gate ≥ 90% over the whole `realmock` package)
+- [ ] `python -m pytest` (coverage gate ≥ 90% over the whole `realmock` package; includes the OpenAPI contract-freshness guard)
 - [ ] `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`
 - [ ] `python scripts/ci/check_python_deps_policy.py` (repo root; banned packages)
 - [ ] `node ../../scripts/ci/check_npm_deps_policy.mjs` (apps/web; banned packages)
 - [ ] `npx tsc --noEmit` (apps/web)
-- [ ] `npm run lint` · `npm test` · `npm run build` · `npm run audit` (apps/web)
+- [ ] `npm run lint` · `npm run format:check` · `npm test` · `npm run build` · `npm run audit` (apps/web)
+- [ ] `node scripts/check-i18n-usage.mjs` (apps/web; ghost + dead message keys)
 - [ ] Anything the tests cannot reach was verified manually (describe below)
 
 <!-- Manual steps, before/after output, screenshots. Delete if empty. -->
