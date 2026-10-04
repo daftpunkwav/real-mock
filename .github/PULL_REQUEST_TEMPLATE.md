@@ -33,6 +33,8 @@ the branch ruleset (2 approvals, threads resolved, up to date with main).
 - [ ] `python -m mypy src` (blocking, must stay at 0 errors)
 - [ ] `python -m pytest` (coverage gate ≥ 90% over the whole `realmock` package)
 - [ ] `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`
+- [ ] `python scripts/ci/check_python_deps_policy.py` (repo root; banned packages)
+- [ ] `node ../../scripts/ci/check_npm_deps_policy.mjs` (apps/web; banned packages)
 - [ ] `npx tsc --noEmit` (apps/web)
 - [ ] `npm run lint` · `npm test` · `npm run build` · `npm run audit` (apps/web)
 - [ ] Anything the tests cannot reach was verified manually (describe below)
