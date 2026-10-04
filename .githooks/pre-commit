@@ -31,8 +31,14 @@ while IFS= read -r f; do [ -n "$f" ] && web+=("${f#apps/web/}"); done < <(
 
 if [ "${#py[@]}" -gt 0 ]; then
   for f in "${py[@]}"; do
-    git show ":$f" | "$VENV_PY" -m ruff check --stdin-filename "$f" - >/dev/null
-    git show ":$f" | "$VENV_PY" -m ruff format --check --stdin-filename "$f" - >/dev/null
+    git show ":$f" | "$VENV_PY" -m ruff check --stdin-filename "$f" - || {
+      echo "pre-commit: ruff check failed on $f" >&2
+      exit 1
+    }
+    git show ":$f" | "$VENV_PY" -m ruff format --diff --stdin-filename "$f" - || {
+      echo "pre-commit: ruff format failed on $f" >&2
+      exit 1
+    }
   done
 fi
 
