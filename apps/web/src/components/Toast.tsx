@@ -107,7 +107,9 @@ export const toast = {
       durationMs: opts?.durationMs,
     }),
   dismiss: (id: number) => remove(id),
-  clear: () => clearAll(),
+  clear: () => {
+    clearAll();
+  },
 };
 
 const ICONS: Record<ToastKind, ReactNode> = {

@@ -96,7 +96,9 @@ export function ResumeSelect({
       labels={resumes.map((r) =>
         r.is_active ? t("setup.resume.activeItem", { name: r.filename }) : r.filename,
       )}
-      onChange={(v) => onChange(Number(v))}
+      onChange={(v) => {
+        onChange(Number(v));
+      }}
     />
   );
 }
@@ -266,7 +268,9 @@ export function SetupFields({
                 const voiceName = a.voice ? voiceLabel(a.voice, t) : "";
                 return voiceName ? t("setup.avatar.voiceMatch", { name, voice: voiceName }) : name;
               })}
-              onChange={(v) => onConfig({ avatar_id: v })}
+              onChange={(v) => {
+                onConfig({ avatar_id: v });
+              }}
             />
           )}
           <Select

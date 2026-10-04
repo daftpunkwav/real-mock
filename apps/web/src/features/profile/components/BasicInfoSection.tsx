@@ -33,7 +33,9 @@ export function BasicInfoSection({ profile, patch, requiredError }: ProfileSecti
           label={t("basic.gender.label")}
           value={profile.gender || ""}
           maxLength={PROFILE_FIELD_LIMITS.gender}
-          onChange={(v) => patch("gender", v)}
+          onChange={(v) => {
+            patch("gender", v);
+          }}
         />
         <Field
           label={t("basic.identity.label")}

@@ -25,7 +25,11 @@ describe("validateResumeFile", () => {
   });
 
   it("rejects unsupported extensions as A1002", () => {
-    expect(codeOf(() => validateResumeFile(new File(["x"], "cv.exe")))).toBe("A1002");
+    expect(
+      codeOf(() => {
+        validateResumeFile(new File(["x"], "cv.exe"));
+      }),
+    ).toBe("A1002");
     expect(codeOf(() => validateResumeFile(new File(["x"], "noext")))).toBe("A1002");
   });
 
@@ -42,6 +46,10 @@ describe("validateResumeFile", () => {
     expect(codeOf(() => validateResumeFile(new File(["x"], `${"a".repeat(296)}.pdf`)))).toBe(
       "A0003",
     );
-    expect(codeOf(() => validateResumeFile(new File(["x"], `${"b".repeat(251)}.txt`)))).toBeNull();
+    expect(
+      codeOf(() => {
+        validateResumeFile(new File(["x"], `${"b".repeat(251)}.txt`));
+      }),
+    ).toBeNull();
   });
 });

@@ -66,7 +66,9 @@ export function useRecorderCaptureArm(
       if (!captureEnabledRef.current || !streamRef.current) return;
       startAsrRef.current();
     }, armMs);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+    };
   }, [
     captureEnabled,
     clearCaptureBuffers,

@@ -102,7 +102,9 @@ export function Select<T extends string | number>({
         aria-label={ariaLabel}
         aria-activedescendant={open ? `${listId}-${highlight}` : undefined}
         disabled={disabled}
-        onClick={() => (open ? setOpen(false) : openMenu())}
+        onClick={() => {
+          open ? setOpen(false) : openMenu();
+        }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
@@ -176,7 +178,9 @@ export function Select<T extends string | number>({
                 role="option"
                 aria-selected={active}
                 onClick={() => pick(index)}
-                onMouseEnter={() => setHighlight(index)}
+                onMouseEnter={() => {
+                  setHighlight(index);
+                }}
                 className={cn(
                   "flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-[13px] transition-colors",
                   focused ? "bg-surface-muted" : "bg-transparent",

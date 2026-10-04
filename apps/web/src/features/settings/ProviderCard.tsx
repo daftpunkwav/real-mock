@@ -77,11 +77,19 @@ export function ProviderCard({
           <input
             className="field-input !h-9 w-full"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
           />
         </div>
         <label className="flex items-center gap-1.5 text-[12px] text-ink-muted sm:pb-2.5">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => {
+              setEnabled(e.target.checked);
+            }}
+          />
           {t("providerCard.enabled")}
         </label>
       </div>
@@ -129,7 +137,9 @@ export function ProviderCard({
         cancelLabel={tc("confirm.cancel")}
         busy={deleting}
         onConfirm={remove}
-        onCancel={() => setConfirmingDelete(false)}
+        onCancel={() => {
+          setConfirmingDelete(false);
+        }}
       />
     </div>
   );

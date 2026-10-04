@@ -11,7 +11,7 @@ import { messageCatalog, type MessageKey, type NamespaceId } from "./catalog";
 export type TranslateValues = Record<string, string | number>;
 
 export type Translator<N extends NamespaceId = NamespaceId> = {
-  (key: MessageKey<N> | (string & {}), values?: TranslateValues): string;
+  (key: MessageKey<N> | (string & Record<never, never>), values?: TranslateValues): string;
   has(key: string): boolean;
 };
 

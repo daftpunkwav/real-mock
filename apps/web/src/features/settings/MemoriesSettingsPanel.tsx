@@ -257,7 +257,9 @@ function MemoryEditDialog({
           <input
             className="field-input mt-1 w-24"
             value={scoreText}
-            onChange={(e) => setScoreText(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+            onChange={(e) => {
+              setScoreText(e.target.value.replace(/[^0-9]/g, "").slice(0, 2));
+            }}
             disabled={busy}
             inputMode="numeric"
           />

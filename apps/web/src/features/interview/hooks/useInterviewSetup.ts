@@ -92,12 +92,14 @@ export function useInterviewSetup() {
         });
         markPrefsRestored();
       })
-      .catch((e) =>
+      .catch((e: unknown) =>
         setLoadError(
           e instanceof Error ? e.message : getTranslator("interview")("setup.loadFailed"),
         ),
       )
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   useEffect(() => {

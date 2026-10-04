@@ -105,7 +105,9 @@ export function RateModal({
               key={n}
               type="button"
               disabled={busy}
-              onClick={() => setScore(n)}
+              onClick={() => {
+                setScore(n);
+              }}
               aria-pressed={score === n}
               aria-label={`${n}`}
               className={cn(
@@ -160,7 +162,9 @@ export function RateModal({
               key={key}
               type="button"
               disabled={busy}
-              onClick={() => toggleTag(key)}
+              onClick={() => {
+                toggleTag(key);
+              }}
               aria-pressed={tagActive(key)}
               className={cn(
                 "rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-40",
@@ -214,7 +218,9 @@ export function RateModal({
           <button
             type="button"
             disabled={busy || score === null}
-            onClick={() => onSubmit({ score: score ?? 0, reasons, comment: comment.trim(), tags })}
+            onClick={() => {
+              onSubmit({ score: score ?? 0, reasons, comment: comment.trim(), tags });
+            }}
             className="btn-primary h-9 px-6"
           >
             {t("rate.save")}

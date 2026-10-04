@@ -33,7 +33,9 @@ function isUnreachable(error: unknown): boolean {
 async function isBackendReachable(): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), HEALTH_PROBE_MS);
+    const timer = window.setTimeout(() => {
+      controller.abort();
+    }, HEALTH_PROBE_MS);
     try {
       const res = await fetch(resolveBackendUrl("/health"), { signal: controller.signal });
       return res.ok;

@@ -88,7 +88,9 @@ export function MultiQuestionForm({
                 key={star}
                 type="button"
                 disabled={disabled}
-                onClick={() => onPatch(idx, { rating: star })}
+                onClick={() => {
+                  onPatch(idx, { rating: star });
+                }}
                 aria-label={`${q.question} ${star}/${qMax}`}
                 className={`rounded p-1 transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 ${
                   (a.rating ?? 0) >= star ? "text-[var(--warning)]" : "text-ink-subtle"
@@ -183,7 +185,9 @@ export function MultiQuestionForm({
           <button
             type="button"
             disabled={disabled || idx === 0}
-            onClick={() => setPage(idx - 1)}
+            onClick={() => {
+              setPage(idx - 1);
+            }}
             className="flex items-center gap-0.5 rounded-md border border-surface-border px-2.5 py-1.5 text-[12px] text-ink-muted transition-colors hover:border-[var(--primary)] hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
           >
             <ChevronLeft size={13} />

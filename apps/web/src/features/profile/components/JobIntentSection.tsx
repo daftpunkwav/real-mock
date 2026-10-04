@@ -53,7 +53,9 @@ export function JobIntentSection({ profile, patch, requiredError }: ProfileSecti
           label={t("jobIntent.company.label")}
           value={profile.current_company || ""}
           maxLength={PROFILE_FIELD_LIMITS.current_company}
-          onChange={(v) => patch("current_company", v)}
+          onChange={(v) => {
+            patch("current_company", v);
+          }}
         />
         <Field
           label={t("jobIntent.salary.label")}
@@ -77,7 +79,9 @@ export function JobIntentSection({ profile, patch, requiredError }: ProfileSecti
           label={t("jobIntent.noticePeriod.label")}
           value={profile.notice_period || ""}
           maxLength={PROFILE_FIELD_LIMITS.notice_period}
-          onChange={(v) => patch("notice_period", v)}
+          onChange={(v) => {
+            patch("notice_period", v);
+          }}
         />
         <Field
           label={t("jobIntent.remote.label")}

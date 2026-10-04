@@ -55,7 +55,9 @@ export function ConfirmDialog({
       if (e.key === "Escape" && !busy) onCancel();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open, busy, onCancel]);
 
   if (!open) return null;

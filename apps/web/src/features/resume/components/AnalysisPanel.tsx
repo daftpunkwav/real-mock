@@ -125,7 +125,9 @@ export function AnalysisPanel({
               id={`resume-analysis-tab-${x.id}`}
               aria-controls="resume-analysis-panel"
               aria-selected={activeTab === x.id}
-              onClick={() => setTab(x.id)}
+              onClick={() => {
+                setTab(x.id);
+              }}
               className={`eval-tab ${activeTab === x.id ? "is-active" : ""}`}
             >
               {x.icon}

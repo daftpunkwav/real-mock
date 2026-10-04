@@ -124,7 +124,12 @@ function SessionRow({
       </button>
       <div className="flex shrink-0 items-center pt-0.5">
         {generating && (
-          <RowAction title={t("sessions.stopGeneration")} onClick={() => onStop(session.id)}>
+          <RowAction
+            title={t("sessions.stopGeneration")}
+            onClick={() => {
+              onStop(session.id);
+            }}
+          >
             <Square size={12} fill="currentColor" />
           </RowAction>
         )}
