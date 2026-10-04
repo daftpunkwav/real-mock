@@ -1,0 +1,29 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: "**/*.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/web/package-lock.json"
+          - "apps/web/package.json"
+          - "apps/api/pyproject.toml"
+
+python:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/web/**"
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Dockerfile*"
