@@ -28,7 +28,7 @@ _MAX_INBOUND_FRAMES = 500
 class NativeRealtimeAudioEngine(RealtimeAudioEngine):
     """Native end-to-end full duplex audio engine adapter.
 
-    Prepares the infrastructure for OpenAI Realtime API (ws:// / WebRTC) or Gemini Live API.
+    Prepares the infrastructure for OpenAI Realtime API (wss:// WebSocket / WebRTC) or Gemini Live API.
     """
 
     def __init__(
