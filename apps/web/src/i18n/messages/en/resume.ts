@@ -74,7 +74,6 @@ export const resume = {
   "stage.toolStatus.running": "Running",
   "stage.toolStatus.done": "Done",
   "stage.toolStatus.error": "Failed",
-  "stage.sites": "Sites",
   "stage.args": "Arguments",
   "stage.result": "Result",
 
