@@ -30,6 +30,17 @@ COPY apps/api/src ./apps/api/src
 ARG PIP_INDEX_URL=https://pypi.org/simple
 RUN pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" ./apps/api
 
+# Run as an unprivileged user. The app persists SQLite/Chroma/uploads under its
+# own package dir (platform/data), so that tree must stay writable by this uid.
+# Note: the linux-job snippet sandbox needs root for its strongest plan; as this
+# user it degrades to user-namespace isolation and reports it in run notes.
+RUN groupadd --system --gid 10001 appuser \
+    && useradd --system --uid 10001 --gid appuser --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser \
+        "$(python -c 'import realmock, os; print(os.path.dirname(realmock.__file__))')"
+
+USER appuser
+
 EXPOSE 8081
 
 CMD ["python", "-m", "uvicorn", "realmock.asgi:app", "--host", "0.0.0.0", "--port", "8081"]
