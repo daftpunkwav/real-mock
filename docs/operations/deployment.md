@@ -8,7 +8,7 @@ Triggers: push to `main` and all pull requests. Concurrency group `ci-<ref>` wit
 
 | Job | Runner / toolchain | Steps |
 | --- | --- | --- |
-| `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.12 with pip cache keyed on `apps/api/pyproject.toml` | install `apps/api` editable with the `dev` extra (`pip install -e 'apps/api[dev]'`; the extra carries pytest / pytest-asyncio) plus pinned `ruff==0.15.20`, `mypy==2.1.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`; `ruff check apps/api`; `mypy src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview / growth domains; `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` (chromadb 1.5.9 known issues, no fixed release yet) |
+| `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.14 with pip cache keyed on `apps/api/pyproject.toml` | install `apps/api` editable with the `dev` extra (`pip install -e 'apps/api[dev]'`; the extra carries pytest / pytest-asyncio) plus pinned `ruff==0.16.10`, `mypy==2.4.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`; OpenAPI contract sync check (`export_openapi.py` must leave `openapi.json` unchanged); `ruff check apps/api`; `ruff format --check apps/api`; `mypy src` (blocking); pytest full regression with whole-package coverage gate `--cov=realmock --cov-fail-under=90`; `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` (chromadb 1.5.9 known issues, no fixed release yet) |
 | `frontend` (Frontend (tsc / lint / test / build / audit)) | ubuntu-latest, 20 min cap; Node 24 with npm cache keyed on `apps/web/package-lock.json` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (vitest with coverage thresholds from `apps/web/vitest.config.mts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |
 
 The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, and `CORS_ORIGINS` as job env.
@@ -19,13 +19,14 @@ The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, and 
 
 | Aspect | Value |
 | --- | --- |
-| Base | `python:3.12-slim` |
-| Extra runtime | Node.js installed via apt (Debian bookworm ships Node 18.x) — used by the agent `code_exec` tool for JavaScript snippets |
+| Base | `python:3.14-slim` (Debian trixie) |
+| Extra runtime | Node.js installed via apt (trixie ships Node 20.x) — used by the agent `code_exec` tool for JavaScript snippets |
 | Install | `pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" ./apps/api` (`ARG PIP_INDEX_URL` provides an optional mirror for weak networks; the retries/timeout guard large wheels like opencv) — runtime install without the `dev` extra |
+| Runtime user | `root` — the agent sandbox drops snippets to an unprivileged user via `setpriv` / `runuser`, which requires root |
 | Port / entry | 8081; `uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
 | Runtime data | DB / Chroma / uploads live under `/app/apps/api/src/realmock/platform/data` inside the container — mount a volume there at runtime |
 
-Besides the Node.js row above, the Dockerfile installs no other extra apt packages on purpose: the agent sandbox shells out to `setpriv` / `runuser` / `unshare` (shipped by bookworm's essential util-linux package) and `nobody` (from base-passwd). Full sandbox enforcement additionally needs runtime privileges the image cannot grant itself (e.g. `docker run --cap-add SYS_ADMIN` plus a writable `/sys/fs/cgroup`); without them snippets still run and every unenforced control is reported back as an explicit isolation note.
+Besides the Node.js row above, the Dockerfile installs no other extra apt packages on purpose: the agent sandbox shells out to `setpriv` / `runuser` / `unshare` (shipped by trixie's essential util-linux package) and `nobody` (from base-passwd). Full sandbox enforcement additionally needs runtime privileges the image cannot grant itself (e.g. `docker run --cap-add SYS_ADMIN` plus a writable `/sys/fs/cgroup`); without them snippets still run and every unenforced control is reported back as an explicit isolation note.
 
 ### Web image (`apps/web/Dockerfile`, build context = `apps/web`)
 
@@ -33,4 +34,5 @@ Besides the Node.js row above, the Dockerfile installs no other extra apt packag
 | --- | --- |
 | Base / stages | `node:24-slim`; multi-stage `deps` → `builder` → `runner` |
 | Build args | `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_STREAM_API_BASE` — injected at build time; defaults (`http://localhost:8081`, `ws://localhost:8081`) match a single-host deploy; `env.ts` requires all three in production |
+| Runtime user | `node` (the official image user); the runner-stage `COPY` is chowned so runtime cache writes keep working |
 | Port / entry | 8080; `npm start -- -p 8080` with `NODE_ENV=production` |

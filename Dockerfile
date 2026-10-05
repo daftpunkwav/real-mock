@@ -8,12 +8,12 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 # Node.js runtime for the agent code_exec tool (javascript snippets).
-# Debian bookworm ships a stable Node 18.x, sufficient for snippets.
+# Debian trixie ships a stable Node 20.x, sufficient for snippets.
 # Agent sandbox (Step 2): the linux-job backend shells out to setpriv /
-# runuser / unshare, all shipped by bookworm's essential util-linux package
-# (confirmed in the official bookworm file list), and `nobody` comes from
-# base-passwd — so the nodejs layer below is the only extra apt package; the sandbox
-# itself deliberately pulls in nothing further.
+# runuser / unshare, all shipped by the base distro's essential util-linux
+# package, and `nobody` comes from base-passwd — so the nodejs layer below
+# is the only extra apt package; the sandbox itself deliberately pulls in
+# nothing further.
 # Full enforcement additionally needs runtime privileges the image cannot
 # grant itself: namespace creation and cgroup writes require e.g.
 # `docker run --cap-add SYS_ADMIN` (or a userns-enabled runtime) plus a
