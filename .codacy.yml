@@ -19,7 +19,10 @@
 #
 # markdownlint / CHANGELOG:
 #   MD024 (duplicate headings) fires on the per-release `### Added` / `### Fixed`
-#   sections that the Keep-a-Changelog format requires.
+#   sections that the Keep-a-Changelog format requires. Path exclusion is the
+#   only mechanism this file supports (Codacy's markdownlint engine does not
+#   read a repository .markdownlint.yaml); these two files carry no other
+#   markdownlint findings, so no active check is lost.
 #
 # Tool and pattern enable/disable is UI-only and cannot be expressed in this
 # file; everything not excluded below remains fully active. Codacy's Biome
