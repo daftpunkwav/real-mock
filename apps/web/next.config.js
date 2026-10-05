@@ -102,6 +102,11 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const nextConfig = {
+  // Next 16's cross-origin dev guard only allows `localhost` by default. Pages
+  // served from 127.0.0.1 then get their HMR socket rejected, and a rejected
+  // HMR socket leaves the app router stuck before hydration, so the page stays
+  // frozen on server HTML (entrance animations never run, handlers are dead).
+  allowedDevOrigins: ["127.0.0.1"],
   // Do not switch `next dev` to --turbopack: talkinghead's runtime-built
   // import(moduleName) fails the Turbopack build with "Can't resolve <dynamic>".
   transpilePackages: ["@met4citizen/talkinghead", "three"],
