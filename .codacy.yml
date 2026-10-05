@@ -22,13 +22,14 @@
 #   sections that the Keep-a-Changelog format requires.
 #
 # Tool and pattern enable/disable is UI-only and cannot be expressed in this
-# file; everything not excluded below remains fully active. Biome-specific
-# pattern toggles live in biome.json (Codacy's Biome engine reads the
-# repository's own Biome config, as eslint-9 reads eslint.config.mjs):
-# noReactSpecificProps flags `className`/`htmlFor` — the correct React DOM
-# props — 1,912 times in this React codebase, and useSemanticElements suggests
-# <fieldset> for role="group" regions where fieldset is invalid or wrong
-# (e.g. inside <button> content). Both audited finding-by-finding, 0 real.
+# file; everything not excluded below remains fully active. Codacy's Biome
+# engine ignores the repository's biome.json (verified empirically: the
+# analysis logs mark bandit/ruff/eslint9 as "Configuration file" but not
+# biome), so the two audited misapplied Biome patterns are suppressed with
+# inline biome-ignore comments instead: noReactSpecificProps flags
+# `className`/`htmlFor` — the correct React DOM props — 1,912 times in this
+# React codebase, and useSemanticElements suggests <fieldset> for role="group"
+# regions where fieldset is invalid or wrong (e.g. inside <button> content).
 engines:
   bandit:
     exclude_paths:

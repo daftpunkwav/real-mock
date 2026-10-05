@@ -183,6 +183,7 @@ export function SetupFields({
         </div>
         {roleSelectValue === CUSTOM_ROLE_ID && (
           <div className="mt-2.5">
+            {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
             <label htmlFor="interview-setup-custom-role" className="field-label !mb-1 !text-xs">
               {t("setup.role.custom")}
             </label>
@@ -209,6 +210,7 @@ export function SetupFields({
         </div>
         {companyIsCustom && (
           <div className="mt-2.5">
+            {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
             <label htmlFor="interview-setup-custom-company" className="field-label !mb-1 !text-xs">
               {t("setup.company.custom")}
             </label>

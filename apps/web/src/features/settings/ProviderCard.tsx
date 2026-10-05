@@ -75,6 +75,7 @@ export function ProviderCard({
     <div className="surface-card !p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1 sm:max-w-sm">
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <label htmlFor={nameInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("providerCard.name.label")}
           </label>
@@ -100,6 +101,7 @@ export function ProviderCard({
       </div>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <label htmlFor={websiteInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("providerCard.website.label")}
           </label>
@@ -112,6 +114,7 @@ export function ProviderCard({
           />
         </div>
         <div>
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <label htmlFor={notesInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("providerCard.notes.label")}
           </label>

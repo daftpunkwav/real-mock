@@ -51,6 +51,7 @@ function ReasoningVariantsEditor({
   };
   return (
     <div className="mt-1.5">
+      {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
       <label htmlFor={variantsInputId} className="mb-1 block text-[11px] text-ink-muted">
         {t("modelForm.reasoningVariants.label")}
       </label>
@@ -145,6 +146,7 @@ export function ModelForm({
       <div className="grid grid-cols-1 gap-2.5">
         <div>
           <div className="mb-1 flex items-center justify-between">
+            {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
             <label htmlFor={modelInputId} className="text-[11px] text-ink-muted">
               {t("modelForm.model.label")}
             </label>
@@ -212,6 +214,7 @@ export function ModelForm({
           </div>
         </div>
         <div>
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <label htmlFor={displayNameInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.displayName.label")}
           </label>
@@ -223,6 +226,7 @@ export function ModelForm({
           />
         </div>
         <div>
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <label htmlFor={contextWindowInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.contextWindow.label")}
           </label>
@@ -236,6 +240,7 @@ export function ModelForm({
           />
         </div>
         <div>
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <label htmlFor={maxOutputInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.maxOutput.label")}
           </label>

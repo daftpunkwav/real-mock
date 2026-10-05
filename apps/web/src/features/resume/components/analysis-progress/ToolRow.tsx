@@ -76,16 +76,23 @@ export function ToolRow({
             </span>
           </span>
           {sites.length > 0 ? (
-            <span role="group" className="mt-1 flex flex-wrap gap-1" aria-label={t("stage.sites")}>
-              {sites.map((host) => (
-                <span
-                  key={host}
-                  className="rounded-sm bg-[var(--info-soft)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--info-ink)]"
-                >
-                  {host}
-                </span>
-              ))}
-            </span>
+            <>
+              {/* biome-ignore lint/a11y/useSemanticElements: role group names non-form content; fieldset is invalid inside button */}
+              <span
+                role="group"
+                className="mt-1 flex flex-wrap gap-1"
+                aria-label={t("stage.sites")}
+              >
+                {sites.map((host) => (
+                  <span
+                    key={host}
+                    className="rounded-sm bg-[var(--info-soft)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--info-ink)]"
+                  >
+                    {host}
+                  </span>
+                ))}
+              </span>
+            </>
           ) : null}
         </span>
       </button>

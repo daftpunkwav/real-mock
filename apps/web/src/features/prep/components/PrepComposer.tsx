@@ -236,29 +236,33 @@ export function PrepComposer({
   return (
     <div className="mt-3 flex shrink-0 flex-col gap-2">
       {pendingRefs.length > 0 && (
-        <div
-          role="group"
-          className="flex flex-wrap items-center gap-1.5"
-          aria-label={t("composer.refChips")}
-        >
-          {pendingRefs.map((ref) => (
-            <span
-              key={ref.id}
-              className="flex max-w-[220px] items-center gap-1 rounded-full border border-[var(--primary)] bg-[var(--info-soft)] px-2 py-0.5 text-[11px] text-ink"
-            >
-              <Hash size={11} className="shrink-0 text-[var(--primary)]" />
-              <span className="truncate">{ref.label}</span>
-              <button
-                type="button"
-                onClick={() => onRemoveRef(ref.id)}
-                className="shrink-0 rounded-full p-0.5 text-ink-subtle transition-colors hover:text-ink"
-                aria-label={`${t("composer.refRemove")}: ${ref.label}`}
+        <>
+          {/* biome-ignore lint/a11y/useSemanticElements: role group names non-form content; fieldset is invalid inside button */}
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+          <div
+            role="group"
+            className="flex flex-wrap items-center gap-1.5"
+            aria-label={t("composer.refChips")}
+          >
+            {pendingRefs.map((ref) => (
+              <span
+                key={ref.id}
+                className="flex max-w-[220px] items-center gap-1 rounded-full border border-[var(--primary)] bg-[var(--info-soft)] px-2 py-0.5 text-[11px] text-ink"
               >
-                <X size={11} />
-              </button>
-            </span>
-          ))}
-        </div>
+                <Hash size={11} className="shrink-0 text-[var(--primary)]" />
+                <span className="truncate">{ref.label}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveRef(ref.id)}
+                  className="shrink-0 rounded-full p-0.5 text-ink-subtle transition-colors hover:text-ink"
+                  aria-label={`${t("composer.refRemove")}: ${ref.label}`}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </>
       )}
       {/* Single-box composer: textarea left, controls rail right. The
           container keeps a neutral border in every state (no accent ring),
