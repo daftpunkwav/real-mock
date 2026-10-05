@@ -36,9 +36,10 @@ SESSIONS_TABLES = frozenset(
 )
 
 
-# SQL identifiers (table/column names) cannot be bound as parameters, so
-# every name interpolated into a statement must pass this strict pattern and
-# is additionally wrapped in double quotes by _quote_ident.
+# Table names come from the registered whitelists above, so _quote_ident
+# keeps a strict shape check as defense in depth. Column names are read back
+# from the source schema and may be any SQLite-valid name, so _quote_column
+# only quotes and escapes them (identifiers cannot be bound parameters).
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -47,6 +48,12 @@ def _quote_ident(name: str) -> str:
     if not _IDENTIFIER_RE.fullmatch(name):
         raise ValueError(f"unexpected SQL identifier: {name!r}")
     return f'"{name}"'
+
+
+def _quote_column(name: str) -> str:
+    """Return a column name as a quoted SQL identifier (quotes doubled)."""
+    escaped = name.replace('"', '""')
+    return f'"{escaped}"'
 
 
 def _copy_table(src: sqlite3.Connection, dst: sqlite3.Connection, table: str) -> None:
@@ -62,7 +69,7 @@ def _copy_table(src: sqlite3.Connection, dst: sqlite3.Connection, table: str) ->
     if not row or not row[0]:
         return
     dst.execute(row[0])
-    cols = [_quote_ident(c[1]) for c in src.execute(f"PRAGMA table_info({quoted_table})")]
+    cols = [_quote_column(c[1]) for c in src.execute(f"PRAGMA table_info({quoted_table})")]
     col_list = ", ".join(cols)
     placeholders = ", ".join("?" for _ in cols)
     rows = src.execute(f"SELECT {col_list} FROM {quoted_table}").fetchall()
@@ -127,3 +134,7 @@ def maybe_migrate_legacy_app_db() -> None:
         logger.exception(
             "Legacy app.db failed to dismantle the library and will be initialized as an empty library."
         )
+        # Remove partial outputs so the next startup retries the migration
+        # instead of skipping it forever because the destination files exist.
+        api_path.unlink(missing_ok=True)
+        sessions_path.unlink(missing_ok=True)
