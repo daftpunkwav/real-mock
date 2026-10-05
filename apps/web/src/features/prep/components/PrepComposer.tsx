@@ -238,9 +238,9 @@ export function PrepComposer({
       {pendingRefs.length > 0 && (
         <>
           {/* biome-ignore lint/a11y/useSemanticElements: role group names non-form content; fieldset is invalid inside button */}
-          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
           <div
             role="group"
+            // biome-ignore lint/suspicious/noReactSpecificProps: className is the correct React DOM prop
             className="flex flex-wrap items-center gap-1.5"
             aria-label={t("composer.refChips")}
           >

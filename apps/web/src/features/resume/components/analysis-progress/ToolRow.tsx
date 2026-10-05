@@ -80,6 +80,7 @@ export function ToolRow({
               {/* biome-ignore lint/a11y/useSemanticElements: role group names non-form content; fieldset is invalid inside button */}
               <span
                 role="group"
+                // biome-ignore lint/suspicious/noReactSpecificProps: className is the correct React DOM prop
                 className="mt-1 flex flex-wrap gap-1"
                 aria-label={t("stage.sites")}
               >
