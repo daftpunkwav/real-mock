@@ -1,0 +1,15 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noReactSpecificProps": "off"
+      },
+      "a11y": {
+        "useSemanticElements": "off"
+      }
+    }
+  }
+}
