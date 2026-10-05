@@ -18,7 +18,6 @@ from realmock.platform.core.constants import SessionStatus
 from realmock.platform.database import SessionLocal
 
 if TYPE_CHECKING:
-    import asyncio
     from collections.abc import Callable, Coroutine
 
     from realmock.domains.interview.realtime.core.context import ConnectionContext

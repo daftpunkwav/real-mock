@@ -73,7 +73,6 @@ export const resume = {
   "stage.toolStatus.running": "进行中",
   "stage.toolStatus.done": "完成",
   "stage.toolStatus.error": "失败",
-  "stage.sites": "检索站点",
   "stage.args": "调用参数",
   "stage.result": "调用结果",
 

@@ -77,9 +77,8 @@ function walkTraceMeta(
     total += measure(m.thinking);
   }
   for (const item of m.trace ?? []) {
-    if (item.kind === "thinking") {
-      continue;
-    } else if (item.kind === "tool") {
+    if (item.kind === "thinking") continue;
+    if (item.kind === "tool") {
       total += measure(item.name) + measure(item.query);
       if (item.args) {
         for (const [k, v] of Object.entries(item.args)) total += measure(k) + measure(v);

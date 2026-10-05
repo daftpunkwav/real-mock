@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
     from typing import Any
 
-    from realmock.domains.interview.models import InterviewSession
     from realmock.domains.interview.realtime.core.context import ConnectionContext
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@
 
 | Job | 运行器 / 工具链 | 步骤 |
 | --- | --- | --- |
-| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.12，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api` 并带上 `dev` extra（`pip install -e 'apps/api[dev]'`；该 extra 携带 pytest / pytest-asyncio），再安装锁定版本 `ruff==0.15.20`、`mypy==2.1.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；`ruff check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview / growth 六个域；`pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
+| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.14，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api` 并带上 `dev` extra（`pip install -e 'apps/api[dev]'`；该 extra 携带 pytest / pytest-asyncio），再安装锁定版本 `ruff==0.16.10`、`mypy==2.4.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；OpenAPI 契约同步检查（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；`ruff check apps/api`；`ruff format --check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90`；`pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
 | `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（vitest,阈值由 `apps/web/vitest.config.mts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
 
 backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LLM_API_BASE` 与 `CORS_ORIGINS`。
@@ -19,13 +19,14 @@ backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LL
 
 | 方面 | 值 |
 | --- | --- |
-| 基础镜像 | `python:3.12-slim` |
-| 额外运行时 | 经 apt 安装 Node.js（Debian bookworm 自带 Node 18.x）——供 agent `code_exec` 工具运行 JavaScript 片段 |
+| 基础镜像 | `python:3.14-slim`（Debian trixie） |
+| 额外运行时 | 经 apt 安装 Node.js（trixie 自带 Node 20.x）——供 agent `code_exec` 工具运行 JavaScript 片段 |
 | 安装 | `pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" ./apps/api`（`ARG PIP_INDEX_URL` 可为弱网环境提供镜像源；retries/timeout 防止 opencv 等大 wheel 下载中断）——运行时安装，不带 `dev` extra |
+| 运行用户 | `root`——agent 沙箱需经 `setpriv` / `runuser` 将片段降权到非特权用户，该机制要求 root |
 | 端口 / 入口 | 8081；`uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
 | 运行时数据 | DB / Chroma / 上传文件位于容器内 `/app/apps/api/src/realmock/platform/data`——运行时需在该路径挂载卷 |
 
-除上表 Node.js 一行外，该 Dockerfile 有意不再安装其他 apt 包：agent 沙箱会调用 `setpriv` / `runuser` / `unshare`（bookworm essential 的 util-linux 包自带）与 `nobody` 用户（来自 base-passwd）。完整沙箱强制还需镜像自身无法授予的运行时特权（如 `docker run --cap-add SYS_ADMIN` 加可写的 `/sys/fs/cgroup`）；缺省时片段仍可运行，且每个未强制的控制项都会以明确的隔离说明回报。
+除上表 Node.js 一行外，该 Dockerfile 有意不再安装其他 apt 包：agent 沙箱会调用 `setpriv` / `runuser` / `unshare`（trixie essential 的 util-linux 包自带）与 `nobody` 用户（来自 base-passwd）。完整沙箱强制还需镜像自身无法授予的运行时特权（如 `docker run --cap-add SYS_ADMIN` 加可写的 `/sys/fs/cgroup`）；缺省时片段仍可运行，且每个未强制的控制项都会以明确的隔离说明回报。
 
 ### Web 镜像（`apps/web/Dockerfile`，build context = `apps/web`）
 
@@ -33,4 +34,5 @@ backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LL
 | --- | --- |
 | 基础镜像 / 阶段 | `node:24-slim`；多阶段 `deps` → `builder` → `runner` |
 | 构建参数 | `NEXT_PUBLIC_API_BASE`、`NEXT_PUBLIC_WS_URL`、`NEXT_PUBLIC_STREAM_API_BASE`——构建时注入；默认值（`http://localhost:8081`、`ws://localhost:8081`）对应单机部署；生产构建下 `env.ts` 要求三者齐全 |
+| 运行用户 | `node`（官方镜像自带用户）；runner 阶段的 `COPY` 已 chown，运行期缓存写入不受影响 |
 | 端口 / 入口 | 8080；`npm start -- -p 8080`，`NODE_ENV=production` |

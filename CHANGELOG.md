@@ -23,6 +23,8 @@ and versioning follows Semantic Versioning (SemVer).
 - MiniMax chat: seeded entries request `reasoning_split` so thinking content is actually returned
 - Prep UI: inline code in markdown tables no longer breaks mid-token, the thinking/tool trace uses the full bubble width, the context-ring popover is no longer clipped
 - Prep context: thinking is persisted without the display-only 20k truncation
+- Accessibility: visible form labels are programmatically associated with their inputs (interview setup custom role/company, model form, provider card, skill tag inputs); decorative graphics are hidden from assistive tech; the report tab strip no longer overrides the navigation landmark
+- Deployment: the web image runner stage runs as the image's `node` user instead of root
 
 ## [0.1.0] - 2026-09-21
 

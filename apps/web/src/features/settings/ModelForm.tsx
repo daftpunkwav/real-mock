@@ -11,7 +11,7 @@
  * the form fields (which stay canonical). Unapplied edits are lost when any form
  * field changes — the panel re-derives from the draft on every draft update. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Download, Save, X } from "lucide-react";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
@@ -34,6 +34,7 @@ function ReasoningVariantsEditor({
   setDraft: (d: ModelDraft) => void;
 }) {
   const t = useT("settings");
+  const variantsInputId = useId();
   const { variants, defaultVariant } = capsConfigFromDraft(draft).reasoning;
   const [text, setText] = useState(variants.join(", "));
   // Re-derive when the draft is replaced externally (JSON Apply).
@@ -50,10 +51,12 @@ function ReasoningVariantsEditor({
   };
   return (
     <div className="mt-1.5">
-      <label className="mb-1 block text-[11px] text-ink-muted">
+      {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+      <label htmlFor={variantsInputId} className="mb-1 block text-[11px] text-ink-muted">
         {t("modelForm.reasoningVariants.label")}
       </label>
       <input
+        id={variantsInputId}
         className="field-input !h-8 font-mono text-[11px]"
         value={text}
         placeholder="low, medium, high, max"
@@ -109,6 +112,10 @@ export function ModelForm({
   saving: boolean;
 }) {
   const t = useT("settings");
+  const modelInputId = useId();
+  const displayNameInputId = useId();
+  const contextWindowInputId = useId();
+  const maxOutputInputId = useId();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [capsText, setCapsText] = useState("");
   const query = draft.model.trim().toLowerCase();
@@ -139,7 +146,10 @@ export function ModelForm({
       <div className="grid grid-cols-1 gap-2.5">
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <label className="text-[11px] text-ink-muted">{t("modelForm.model.label")}</label>
+            {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+            <label htmlFor={modelInputId} className="text-[11px] text-ink-muted">
+              {t("modelForm.model.label")}
+            </label>
             <button
               type="button"
               className="flex items-center gap-1 text-[11px] text-[var(--primary)] hover:underline disabled:opacity-50"
@@ -152,6 +162,7 @@ export function ModelForm({
           </div>
           <div className="relative">
             <input
+              id={modelInputId}
               className="field-input !h-9"
               value={draft.model}
               placeholder={t("modelForm.model.placeholder")}
@@ -203,20 +214,24 @@ export function ModelForm({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+          <label htmlFor={displayNameInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.displayName.label")}
           </label>
           <input
+            id={displayNameInputId}
             className="field-input !h-9"
             value={draft.display_name}
             onChange={(e) => setDraft({ ...draft, display_name: e.target.value })}
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+          <label htmlFor={contextWindowInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.contextWindow.label")}
           </label>
           <input
+            id={contextWindowInputId}
             className="field-input !h-9"
             type="number"
             min={0}
@@ -225,10 +240,12 @@ export function ModelForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-ink-muted">
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+          <label htmlFor={maxOutputInputId} className="mb-1 block text-[11px] text-ink-muted">
             {t("modelForm.maxOutput.label")}
           </label>
           <input
+            id={maxOutputInputId}
             className="field-input !h-9"
             type="number"
             min={1}

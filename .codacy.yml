@@ -1,0 +1,48 @@
+---
+# Repository configuration for Codacy (config-as-code).
+#
+# Each exclusion below covers a finding family audited finding-by-finding as a
+# systematic false positive for this codebase (audit date: 2026-10-05):
+#
+# bandit / apps/api/tests:
+#   Bandit B101 flags `assert` because asserts are stripped under `python -O`.
+#   Under pytest the asserts ARE the assertion mechanism; the tests never run
+#   under -O. Production code keeps full Bandit coverage.
+#
+# eslint-8 / apps/web:
+#   The legacy "ESLint" engine runs Codacy's default pattern set without the
+#   repository tsconfig (noUncheckedIndexedAccess, @/* path aliases), which
+#   turns correct code into thousands of findings (e.g. `className` flagged as
+#   a React-specific prop, resolved imports treated as `any`). The repo's real
+#   frontend gate already runs on the same paths via the eslint-9 engine, which
+#   consumes eslint.config.mjs.
+#
+# markdownlint / CHANGELOG:
+#   MD024 (duplicate headings) fires on the per-release `### Added` / `### Fixed`
+#   sections that the Keep-a-Changelog format requires. Path exclusion is the
+#   only mechanism this file supports (Codacy's markdownlint engine does not
+#   read a repository .markdownlint.yaml), and it disables the whole
+#   markdownlint engine on these two files — every current and future check,
+#   not only MD024. The audit found only MD024 on these files; losing any
+#   future markdownlint checks on them is the trade-off this exclusion makes.
+#
+# Tool and pattern enable/disable is UI-only and cannot be expressed in this
+# file; everything not excluded below remains fully active. Codacy's Biome
+# engine ignores the repository's biome.json (verified empirically: the
+# analysis logs mark bandit/ruff/eslint9 as "Configuration file" but not
+# biome), so the two audited misapplied Biome patterns are suppressed with
+# inline biome-ignore comments instead: noReactSpecificProps flags
+# `className`/`htmlFor` — the correct React DOM props — 1,912 times in this
+# React codebase, and useSemanticElements suggests <fieldset> for role="group"
+# regions where fieldset is invalid or wrong (e.g. inside <button> content).
+engines:
+  bandit:
+    exclude_paths:
+      - "apps/api/tests/**"
+  eslint-8:
+    exclude_paths:
+      - "apps/web/**"
+  markdownlint:
+    exclude_paths:
+      - "CHANGELOG.md"
+      - "CHANGELOG.zh.md"

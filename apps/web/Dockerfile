@@ -24,6 +24,7 @@ FROM node:24-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
-COPY --from=builder /app ./
+COPY --from=builder --chown=node:node /app ./
 EXPOSE 8080
+USER node
 CMD ["npm", "start", "--", "-p", "8080"]

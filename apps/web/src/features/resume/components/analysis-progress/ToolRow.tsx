@@ -76,7 +76,7 @@ export function ToolRow({
             </span>
           </span>
           {sites.length > 0 ? (
-            <span className="mt-1 flex flex-wrap gap-1" aria-label={t("stage.sites")}>
+            <span className="mt-1 flex flex-wrap gap-1">
               {sites.map((host) => (
                 <span
                   key={host}

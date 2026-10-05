@@ -27,6 +27,7 @@ function painGraphic(index: number): React.ReactNode {
                 height="9"
                 viewBox="0 0 9 9"
                 className="shrink-0"
+                aria-hidden="true"
                 style={{ opacity: i === 2 ? 1 : 0 }}
               >
                 <path d="M1 1l7 7M8 1L1 8" stroke={ink} strokeWidth="1.6" strokeLinecap="round" />
@@ -43,7 +44,8 @@ function painGraphic(index: number): React.ReactNode {
             <div className="h-1.5 w-full rounded-full" style={{ background: faint }} />
             <div className="h-1.5 w-3/5 rounded-full" style={{ background: soft }} />
           </div>
-          <svg width="14" height="8" viewBox="0 0 14 8" className="shrink-0">
+          {/* biome-ignore lint/suspicious/noReactSpecificProps: className and htmlFor are the correct React DOM props */}
+          <svg width="14" height="8" viewBox="0 0 14 8" className="shrink-0" aria-hidden="true">
             <path
               d="M0 4h11M8 1l3 3-3 3"
               stroke={soft}
