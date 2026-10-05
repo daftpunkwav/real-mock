@@ -147,8 +147,11 @@ def _probe(argv: Sequence[str]) -> bool:
     if cached is not None:
         return cached
     try:
+        # Explicit shell=False: argv elements (helper paths + "true") are
+        # passed verbatim; untrusted values never reach a shell here.
         completed = subprocess.run(
             list(argv),
+            shell=False,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

@@ -125,8 +125,11 @@ def run_child(
     child prints, while draining (not hard-closing at the cap) keeps the
     child unblocked so exit behavior is unchanged.
     """
+    # Explicit shell=False: every argv element is passed verbatim to the
+    # executable, so snippet-controlled strings can never inject shell syntax.
     proc = subprocess.Popen(
         list(argv),
+        shell=False,
         cwd=cwd,
         env=dict(env),
         stdin=subprocess.DEVNULL,
