@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 
 class TestDbSplit:
     def _src(self, tmp_path, tables_sql, rows=None):
@@ -74,6 +76,14 @@ class TestDbSplit:
         ds._copy_table(s, d, "no_such_table_xyz")
         s.close()
         d.close()
+
+    def test_quote_ident_rejects_non_identifiers(self) -> None:
+        from realmock.platform.services.db_split import _quote_ident
+
+        assert _quote_ident("user_profiles") == '"user_profiles"'
+        for bad in ('user"; DROP TABLE x--', "a b", "", "1abc", "col-1"):
+            with pytest.raises(ValueError, match="unexpected SQL identifier"):
+                _quote_ident(bad)
 
     def test_maybe_migrate_branches(self, tmp_path, monkeypatch) -> None:
         import realmock.platform.services.db_split as ds
