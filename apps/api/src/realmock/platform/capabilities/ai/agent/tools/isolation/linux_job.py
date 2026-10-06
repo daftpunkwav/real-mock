@@ -149,7 +149,7 @@ def _probe(argv: Sequence[str]) -> bool:
     try:
         # Explicit shell=False: argv elements (helper paths + "true") are
         # passed verbatim; untrusted values never reach a shell here.
-        completed = subprocess.run(
+        completed = subprocess.run(  # nosec B606
             list(argv),
             shell=False,
             stdin=subprocess.DEVNULL,

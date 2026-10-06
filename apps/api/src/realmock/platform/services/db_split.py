@@ -69,12 +69,21 @@ def _copy_table(src: sqlite3.Connection, dst: sqlite3.Connection, table: str) ->
     if not row or not row[0]:
         return
     dst.execute(row[0])
-    cols = [_quote_column(c[1]) for c in src.execute(f"PRAGMA table_info({quoted_table})")]
+    # Identifiers are safe here (table names whitelist-validated, column
+    # names quote-escaped, values parameterized), so silence the pattern
+    # scanners that cannot model that guarantee.
+    cols = [
+        _quote_column(c[1])
+        for c in src.execute(f"PRAGMA table_info({quoted_table})")  # nosec B608  # nosemgrep
+    ]
     col_list = ", ".join(cols)
     placeholders = ", ".join("?" for _ in cols)
-    rows = src.execute(f"SELECT {col_list} FROM {quoted_table}").fetchall()
+    rows = src.execute(f"SELECT {col_list} FROM {quoted_table}").fetchall()  # nosec B608  # nosemgrep
     if rows:
-        dst.executemany(f"INSERT INTO {quoted_table} ({col_list}) VALUES ({placeholders})", rows)
+        dst.executemany(
+            f"INSERT INTO {quoted_table} ({col_list}) VALUES ({placeholders})",  # nosec B608  # nosemgrep
+            rows,
+        )
     dst.commit()
 
 

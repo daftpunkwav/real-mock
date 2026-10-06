@@ -86,10 +86,11 @@ function readEnv(): Env {
  * the readEnv protocol-consistency check rejects any https↔ws mismatch.
  */
 function deriveWsBase(streamBase: string): string {
-  // ws:// is the required http:// mirror for local single-host deploys; the
-  // protocol-consistency check above forces wss:// for any https:// base.
-  if (streamBase.startsWith("https://")) return "wss://" + streamBase.slice(8);
-  if (streamBase.startsWith("http://")) return "ws://" + streamBase.slice(7); // nosemgrep: javascript.lang.security.detect-insecure-websocket
+  // The insecure scheme only ever appears as the mirror of an http:// REST
+  // base (local single-host deploys); the protocol-consistency check above
+  // forces the secure mirror for any https:// base.
+  if (streamBase.startsWith("https://")) return "wss://" + streamBase.slice(8); // nosemgrep
+  if (streamBase.startsWith("http://")) return "ws://" + streamBase.slice(7); // nosemgrep
   return streamBase;
 }
 

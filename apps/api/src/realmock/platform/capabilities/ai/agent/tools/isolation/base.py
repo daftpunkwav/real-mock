@@ -127,7 +127,7 @@ def run_child(
     """
     # Explicit shell=False: every argv element is passed verbatim to the
     # executable, so snippet-controlled strings can never inject shell syntax.
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # nosec B606
         list(argv),
         shell=False,
         cwd=cwd,

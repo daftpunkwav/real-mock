@@ -30,9 +30,11 @@ COPY apps/api/src ./apps/api/src
 # PIP_INDEX_URL: optional mirror for weak networks (--build-arg PIP_INDEX_URL=...); CI uses the default PyPI index.
 # --retries/--timeout: large wheels (opencv, etc.) often drop on weak/proxy networks.
 # Editable install: PLATFORM_ROOT (= /app/apps/api/src/realmock/platform) then
-# matches the documented volume path in the header comment.
+# matches the documented volume path in the header comment. Version pinning
+# lives in pyproject.toml (every dep is bounded with >=x,<y); a local-dir
+# install has no version to pin inline.
 ARG PIP_INDEX_URL=https://pypi.org/simple
-RUN pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" -e ./apps/api
+RUN pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" -e ./apps/api  # hadolint ignore=DL3013
 
 # Snippet sandbox: pin the linux-job backend. Auto selection only picks
 # linux-job for root, so an unprivileged container would silently fall back
