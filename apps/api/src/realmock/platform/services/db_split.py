@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 from pathlib import Path
 
@@ -35,7 +36,28 @@ SESSIONS_TABLES = frozenset(
 )
 
 
+# Table names come from the registered whitelists above, so _quote_ident
+# keeps a strict shape check as defense in depth. Column names are read back
+# from the source schema and may be any SQLite-valid name, so _quote_column
+# only quotes and escapes them (identifiers cannot be bound parameters).
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _quote_ident(name: str) -> str:
+    """Return ``name`` as a quoted SQL identifier; reject anything unusual."""
+    if not _IDENTIFIER_RE.fullmatch(name):
+        raise ValueError(f"unexpected SQL identifier: {name!r}")
+    return f'"{name}"'
+
+
+def _quote_column(name: str) -> str:
+    """Return a column name as a quoted SQL identifier (quotes doubled)."""
+    escaped = name.replace('"', '""')
+    return f'"{escaped}"'
+
+
 def _copy_table(src: sqlite3.Connection, dst: sqlite3.Connection, table: str) -> None:
+    quoted_table = _quote_ident(table)
     existing = {
         r[0] for r in dst.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     }
@@ -47,12 +69,21 @@ def _copy_table(src: sqlite3.Connection, dst: sqlite3.Connection, table: str) ->
     if not row or not row[0]:
         return
     dst.execute(row[0])
-    cols = [c[1] for c in src.execute(f"PRAGMA table_info({table})")]
+    # Identifiers are safe here (table names whitelist-validated, column
+    # names quote-escaped, values parameterized), so silence the pattern
+    # scanners that cannot model that guarantee.
+    cols = [
+        _quote_column(c[1])
+        for c in src.execute(f"PRAGMA table_info({quoted_table})")  # nosec B608  # nosemgrep
+    ]
     col_list = ", ".join(cols)
     placeholders = ", ".join("?" for _ in cols)
-    rows = src.execute(f"SELECT {col_list} FROM {table}").fetchall()
+    rows = src.execute(f"SELECT {col_list} FROM {quoted_table}").fetchall()  # nosec B608  # nosemgrep
     if rows:
-        dst.executemany(f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", rows)
+        dst.executemany(
+            f"INSERT INTO {quoted_table} ({col_list}) VALUES ({placeholders})",  # nosec B608  # nosemgrep
+            rows,
+        )
     dst.commit()
 
 
@@ -106,9 +137,19 @@ def maybe_migrate_legacy_app_db() -> None:
         return
     if not legacy.is_file():
         return
+    # Only destinations created by this attempt may be cleaned up on
+    # failure: a destination that existed beforehand (possibly just one of
+    # the two, which still enters the migration) may already hold
+    # legitimate data and must survive the failed attempt.
+    pre_existing = {p for p in (api_path, sessions_path) if p.exists()}
     try:
         split_app_db(legacy, api_path, sessions_path)
     except Exception:
         logger.exception(
             "Legacy app.db failed to dismantle the library and will be initialized as an empty library."
         )
+        # Remove partial outputs so the next startup retries the migration
+        # instead of skipping it forever because the destination files exist.
+        for path in (api_path, sessions_path):
+            if path not in pre_existing:
+                path.unlink(missing_ok=True)

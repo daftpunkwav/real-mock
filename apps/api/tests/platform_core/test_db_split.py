@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 
 class TestDbSplit:
     def _src(self, tmp_path, tables_sql, rows=None):
@@ -74,6 +76,77 @@ class TestDbSplit:
         ds._copy_table(s, d, "no_such_table_xyz")
         s.close()
         d.close()
+
+    def test_quote_ident_rejects_non_identifiers(self) -> None:
+        from realmock.platform.services.db_split import _quote_ident
+
+        assert _quote_ident("user_profiles") == '"user_profiles"'
+        for bad in ('user"; DROP TABLE x--', "a b", "", "1abc", "col-1"):
+            with pytest.raises(ValueError, match="unexpected SQL identifier"):
+                _quote_ident(bad)
+
+    def test_copy_copies_unusual_column_names(self, tmp_path) -> None:
+        from realmock.platform.services.db_split import split_app_db
+
+        src = self._src(
+            tmp_path,
+            ['CREATE TABLE user_profiles (id INTEGER PRIMARY KEY, "odd col-name" TEXT)'],
+            [('INSERT INTO user_profiles (id, "odd col-name") VALUES (?, ?)', (1, "v"))],
+        )
+        api_p = tmp_path / "api3.db"
+        ses_p = tmp_path / "ses3.db"
+        assert split_app_db(src, api_p, ses_p) is True
+        assert (
+            sqlite3.connect(str(api_p))
+            .execute('SELECT "odd col-name" FROM user_profiles')
+            .fetchone()[0]
+            == "v"
+        )
+
+    def test_maybe_migrate_cleans_partial_outputs_on_failure(self, tmp_path, monkeypatch) -> None:
+        import realmock.platform.services.db_split as ds
+
+        d = tmp_path / "d3"
+        (d / "data").mkdir(parents=True)
+        (d / "data" / "app.db").write_bytes(b"x")
+        monkeypatch.setattr(ds, "PLATFORM_ROOT", d)
+        api_db = d / "data" / "api.db"
+        ses_db = d / "data" / "sessions.db"
+
+        def fake_split(*args, **kwargs):
+            api_db.write_bytes(b"partial")
+            ses_db.write_bytes(b"partial")
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(ds, "split_app_db", fake_split)
+        ds.maybe_migrate_legacy_app_db()
+        # Partial outputs are removed so the next startup retries the split.
+        assert not api_db.exists()
+        assert not ses_db.exists()
+
+    def test_maybe_migrate_failure_preserves_preexisting_destinations(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import realmock.platform.services.db_split as ds
+
+        d = tmp_path / "d4"
+        (d / "data").mkdir(parents=True)
+        (d / "data" / "app.db").write_bytes(b"x")
+        monkeypatch.setattr(ds, "PLATFORM_ROOT", d)
+        api_db = d / "data" / "api.db"
+        ses_db = d / "data" / "sessions.db"
+        # Exactly one destination pre-exists (the both-exist guard passes);
+        # its data must survive a failed migration untouched.
+        api_db.write_bytes(b"legitimate")
+
+        def fake_split(*args, **kwargs):
+            ses_db.write_bytes(b"partial-this-attempt")
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(ds, "split_app_db", fake_split)
+        ds.maybe_migrate_legacy_app_db()
+        assert api_db.read_bytes() == b"legitimate"
+        assert not ses_db.exists()
 
     def test_maybe_migrate_branches(self, tmp_path, monkeypatch) -> None:
         import realmock.platform.services.db_split as ds
