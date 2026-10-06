@@ -28,7 +28,7 @@ export function EvalNumberedStack({
       <span className="eval-label">{title}</span>
       <div className="eval-q-stack">
         {items.map((q, i) => (
-          <div key={i} className={`eval-q ${q.trim() ? "has-actions" : ""}`}>
+          <div key={`${i}-${q}`} className={`eval-q ${q.trim() ? "has-actions" : ""}`}>
             <span className="eval-q-idx">
               {prefix}
               {i + 1}

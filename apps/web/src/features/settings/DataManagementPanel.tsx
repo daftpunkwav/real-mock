@@ -96,6 +96,9 @@ export function DataManagementPanel() {
 
   const sessionsReady = sessions !== null;
   const resumesReady = resumes !== null;
+  // Null-safe list snapshots for JSX and the export handler (Codacy flags `!`).
+  const sessionList = sessions ?? [];
+  const resumeList = resumes ?? [];
   const itemReady =
     kind === "analysis" ? resumesReady && resumeId != null : sessionsReady && sessionId != null;
 
@@ -107,14 +110,23 @@ export function DataManagementPanel() {
 
   const handleExport = async () => {
     if (exporting) return;
+    // Re-read the selected ids through the state values (never `!`): the
+    // button is gated by itemReady, but late clicks must still be safe.
     setExporting(true);
     try {
-      const file =
-        kind === "report"
-          ? await recordsHttp.exportReport(sessionId!, format)
-          : kind === "record"
-            ? await recordsHttp.exportRecord(sessionId!, format)
-            : await resumeHttp.exportAnalysis(resumeId!, format, includeResume);
+      let file: { filename: string; content: string; mime: string };
+      if (kind === "analysis") {
+        const rid = resumeId;
+        if (rid == null) return;
+        file = await resumeHttp.exportAnalysis(rid, format, includeResume);
+      } else {
+        const sid = sessionId;
+        if (sid == null) return;
+        file =
+          kind === "report"
+            ? await recordsHttp.exportReport(sid, format)
+            : await recordsHttp.exportRecord(sid, format);
+      }
       downloadTextFile(file.filename, file.content, file.mime);
       toast.success(t("data.export.done", { name: file.filename }));
     } catch (err) {
@@ -180,15 +192,15 @@ export function DataManagementPanel() {
               <select
                 className="field-select !h-9 !text-[13px] disabled:opacity-60"
                 value={sessionId ?? ""}
-                disabled={!sessionsReady || sessions!.length === 0}
+                disabled={sessionList.length === 0}
                 onChange={(e) => {
                   setSessionId(e.target.value ? Number(e.target.value) : null);
                 }}
               >
-                {!sessionsReady || sessions!.length === 0 ? (
+                {sessionList.length === 0 ? (
                   <option value="">{t("data.export.noSessions")}</option>
                 ) : (
-                  sessions!.map((s) => (
+                  sessionList.map((s) => (
                     <option key={s.id} value={s.id}>
                       {sessionLabel(s)}
                     </option>
@@ -202,15 +214,15 @@ export function DataManagementPanel() {
                 <select
                   className="field-select !h-9 !text-[13px] disabled:opacity-60"
                   value={resumeId ?? ""}
-                  disabled={!resumesReady || resumes!.length === 0}
+                  disabled={resumeList.length === 0}
                   onChange={(e) => {
                     setResumeId(e.target.value ? Number(e.target.value) : null);
                   }}
                 >
-                  {!resumesReady || resumes!.length === 0 ? (
+                  {resumeList.length === 0 ? (
                     <option value="">{t("data.export.noResumes")}</option>
                   ) : (
-                    resumes!.map((r) => (
+                    resumeList.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.filename}
                       </option>

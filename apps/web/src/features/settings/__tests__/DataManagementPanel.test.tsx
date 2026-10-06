@@ -13,7 +13,11 @@ vi.mock("@/lib/api/clients", () => ({
 vi.mock("@/components/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/ConfirmDialog", () => ({
   ConfirmDialog: ({ open, onConfirm }: { open: boolean; onConfirm: () => void }) =>
-    open ? <button onClick={onConfirm}>confirm wipe</button> : null,
+    open ? (
+      <button type="button" onClick={onConfirm}>
+        confirm wipe
+      </button>
+    ) : null,
 }));
 
 function deferred<T>() {
@@ -60,7 +64,9 @@ it.each([false, true])(
       }
     });
     expect((screen.getAllByRole("combobox")[1] as HTMLSelectElement).value).toBe("2");
-    fireEvent.change(screen.getAllByRole("combobox")[0]!, { target: { value: "analysis" } });
+    const kindSelect = screen.getAllByRole("combobox")[0];
+    if (!kindSelect) throw new Error("kind combobox missing");
+    fireEvent.change(kindSelect, { target: { value: "analysis" } });
     expect((screen.getAllByRole("combobox")[1] as HTMLSelectElement).value).toBe("2");
     expect(screen.queryByText("stale.pdf")).toBeNull();
     expect(screen.getByRole("button", { name: "data.export.formatMd" })).toBeTruthy();

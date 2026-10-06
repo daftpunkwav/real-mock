@@ -31,7 +31,12 @@ export function InterviewTab({
           <span className="eval-label">{t("interview.qaTitle")}</span>
           <div className="space-y-3">
             {qa.map((item, i) => (
-              <InterviewQaCard key={i} item={item} index={i} resumeId={resumeId} />
+              <InterviewQaCard
+                key={`${i}-${item.question ?? ""}`}
+                item={item}
+                index={i}
+                resumeId={resumeId}
+              />
             ))}
           </div>
         </section>

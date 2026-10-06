@@ -96,7 +96,7 @@ function ProjectCardItem({
                   </p>
                   <ul className="eval-pcard-list">
                     {highlights.map((h, i) => (
-                      <li key={i}>
+                      <li key={`${i}-${h}`}>
                         <EvalRichText text={cn(h)} />
                       </li>
                     ))}
@@ -110,7 +110,7 @@ function ProjectCardItem({
                   </p>
                   <ul className="eval-pcard-list">
                     {risks.map((r, i) => (
-                      <li key={i}>
+                      <li key={`${i}-${r}`}>
                         <EvalRichText text={cn(r)} />
                       </li>
                     ))}
@@ -125,9 +125,18 @@ function ProjectCardItem({
                   <div className="eval-pcard-qwrap">
                     {deepQuestions.map((q, i) =>
                       typeof q === "string" ? (
-                        <DeepDiveQuestionRow key={i} question={cn(q)} resumeId={resumeId} />
+                        <DeepDiveQuestionRow
+                          key={`${i}-${q}`}
+                          question={cn(q)}
+                          resumeId={resumeId}
+                        />
                       ) : (
-                        <InterviewQaCard key={i} item={q} index={i} resumeId={resumeId} />
+                        <InterviewQaCard
+                          key={`${i}-${q.question ?? ""}`}
+                          item={q}
+                          index={i}
+                          resumeId={resumeId}
+                        />
                       ),
                     )}
                   </div>
