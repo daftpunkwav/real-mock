@@ -52,13 +52,11 @@ interface DialogActionsProps {
 }
 
 /** Confirm stays locked while in flight and until the acknowledgement box is ticked. */
-function isConfirmLocked(
+const isConfirmLocked = (
   busy: boolean,
   requireAcknowledgement: boolean,
   acknowledged: boolean,
-): boolean {
-  return busy || (requireAcknowledgement && !acknowledged);
-}
+): boolean => busy || (requireAcknowledgement && !acknowledged);
 
 /** Cancel/confirm button row; owns labels, cancel-focus, and the locked logic. */
 const DialogActions = ({
