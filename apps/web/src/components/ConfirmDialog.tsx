@@ -61,7 +61,7 @@ const DialogActions = ({
   onConfirm,
   onCancel,
 }: DialogActionsProps) => {
-  const t = useT("common");
+  const translator = useT("common");
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   // preventScroll: the dialog is a fixed overlay already in view; a plain
   // focus() would yank a scrolled page toward the overlay's document slot.
@@ -80,7 +80,7 @@ const DialogActions = ({
         disabled={busy}
         onClick={onCancel}
       >
-        {cancelLabel ?? t("confirm.cancel")}
+        {cancelLabel ?? translator("confirm.cancel")}
       </button>
       <button
         type="button"
@@ -91,7 +91,7 @@ const DialogActions = ({
         {busy ? (
           <Spinner className="mx-auto h-3.5 w-3.5" />
         ) : (
-          (confirmLabel ?? t("confirm.confirm"))
+          (confirmLabel ?? translator("confirm.confirm"))
         )}
       </button>
     </div>
@@ -99,7 +99,7 @@ const DialogActions = ({
 };
 
 /** Destructive-action dialog that focuses cancel by default and treats Escape as cancel. */
-export function ConfirmDialog({
+export const ConfirmDialog = ({
   open,
   title,
   message,
@@ -124,7 +124,7 @@ export function ConfirmDialog({
   acknowledgementLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
-}) {
+}) => {
   useDialogScrollLock(open);
   const [acknowledged, setAcknowledged] = useState(false);
   // Reset the checkbox whenever the dialog reopens so a previous session's
@@ -193,4 +193,4 @@ export function ConfirmDialog({
     </div>,
     document.body,
   );
-}
+};
