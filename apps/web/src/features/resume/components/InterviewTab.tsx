@@ -7,6 +7,7 @@
  */
 
 import type { ResumeAnalysis } from "../types";
+import { withContentKeys } from "../contentKey";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
 import { EvalList } from "./EvalList";
@@ -30,13 +31,8 @@ export function InterviewTab({
         <section className="eval-section">
           <span className="eval-label">{t("interview.qaTitle")}</span>
           <div className="space-y-3">
-            {qa.map((item, i) => (
-              <InterviewQaCard
-                key={`${i}-${item.question ?? ""}`}
-                item={item}
-                index={i}
-                resumeId={resumeId}
-              />
+            {withContentKeys(qa, (item) => item.question ?? "").map(({ item, key }, i) => (
+              <InterviewQaCard key={key} item={item} index={i} resumeId={resumeId} />
             ))}
           </div>
         </section>

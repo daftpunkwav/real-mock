@@ -9,6 +9,7 @@
  */
 
 import { clsx } from "clsx";
+import { withContentKeys } from "../contentKey";
 import { EvalRichText } from "./EvalRichText";
 import { SendToPrepButton } from "./SendToPrepButton";
 
@@ -28,8 +29,8 @@ export function EvalNumberedStack({
     <section className="eval-section">
       <span className="eval-label">{title}</span>
       <div className="eval-q-stack">
-        {items.map((q, i) => (
-          <div key={`${i}-${q}`} className={clsx("eval-q", { "has-actions": q.trim() })}>
+        {withContentKeys(items, (q) => q).map(({ item: q, key }, i) => (
+          <div key={key} className={clsx("eval-q", { "has-actions": q.trim() })}>
             <span className="eval-q-idx">
               {prefix}
               {i + 1}

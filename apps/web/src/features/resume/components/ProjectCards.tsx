@@ -9,6 +9,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, ChevronDown, CircleAlert, CircleHelp } from "lucide-react";
 import type { ProjectCardData } from "../types";
+import { withContentKeys } from "../contentKey";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
 import { EvalRichText } from "./EvalRichText";
@@ -95,8 +96,8 @@ function ProjectCardItem({
                     <BadgeCheck size={12} /> {t("projects.highlight")}
                   </p>
                   <ul className="eval-pcard-list">
-                    {highlights.map((h, i) => (
-                      <li key={`${i}-${h}`}>
+                    {withContentKeys(highlights, (h) => cn(h)).map(({ item: h, key }) => (
+                      <li key={key}>
                         <EvalRichText text={cn(h)} />
                       </li>
                     ))}
@@ -109,8 +110,8 @@ function ProjectCardItem({
                     <CircleAlert size={12} /> {t("projects.risk")}
                   </p>
                   <ul className="eval-pcard-list">
-                    {risks.map((r, i) => (
-                      <li key={`${i}-${r}`}>
+                    {withContentKeys(risks, (r) => cn(r)).map(({ item: r, key }) => (
+                      <li key={key}>
                         <EvalRichText text={cn(r)} />
                       </li>
                     ))}
@@ -123,20 +124,13 @@ function ProjectCardItem({
                     <CircleHelp size={12} /> {t("projects.mustAsk")}
                   </p>
                   <div className="eval-pcard-qwrap">
-                    {deepQuestions.map((q, i) =>
+                    {withContentKeys(deepQuestions, (q) =>
+                      typeof q === "string" ? q : (q.question ?? ""),
+                    ).map(({ item: q, key }, i) =>
                       typeof q === "string" ? (
-                        <DeepDiveQuestionRow
-                          key={`${i}-${q}`}
-                          question={cn(q)}
-                          resumeId={resumeId}
-                        />
+                        <DeepDiveQuestionRow key={key} question={cn(q)} resumeId={resumeId} />
                       ) : (
-                        <InterviewQaCard
-                          key={`${i}-${q.question ?? ""}`}
-                          item={q}
-                          index={i}
-                          resumeId={resumeId}
-                        />
+                        <InterviewQaCard key={key} item={q} index={i} resumeId={resumeId} />
                       ),
                     )}
                   </div>
@@ -164,8 +158,8 @@ export function ProjectCards({
     <section className="eval-section">
       <span className="eval-label">{t("projects.cardsTitle")}</span>
       <div className="eval-pcard-stack">
-        {cleaned.map((c, i) => (
-          <ProjectCardItem key={`${c.name}-${i}`} card={c} index={i} resumeId={resumeId} />
+        {withContentKeys(cleaned, (c) => c.name).map(({ item: c, key }, i) => (
+          <ProjectCardItem key={key} card={c} index={i} resumeId={resumeId} />
         ))}
       </div>
     </section>
