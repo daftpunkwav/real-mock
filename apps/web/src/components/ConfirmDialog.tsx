@@ -18,6 +18,77 @@ import { useT } from "@/i18n";
 import { Spinner } from "@/components/Spinner";
 import { useDialogScrollLock } from "@/components/useDialogScrollLock";
 
+/** Acknowledgement checkbox gate for extra-destructive confirmations. */
+function AcknowledgementCheckbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-md border border-surface-border bg-surface-alt px-3 py-2.5">
+      <input
+        type="checkbox"
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--danger)]"
+        checked={checked}
+        onChange={(e) => {
+          onChange(e.target.checked);
+        }}
+      />
+      <span className="text-[12px] leading-relaxed text-ink-muted">{label}</span>
+    </label>
+  );
+}
+
+/** Cancel/confirm button row; owns the cancel-focus and locked logic. */
+function DialogActions({
+  okLabel,
+  dismissLabel,
+  locked,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  okLabel: string;
+  dismissLabel: string;
+  /** True when confirm must stay disabled (in flight or unacknowledged). */
+  locked: boolean;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  // preventScroll: the dialog is a fixed overlay already in view; a plain
+  // focus() would yank a scrolled page toward the overlay's document slot.
+  useEffect(() => {
+    cancelButtonRef.current?.focus({ preventScroll: true });
+  }, []);
+  return (
+    <div className="mt-4 flex gap-2">
+      <button
+        ref={cancelButtonRef}
+        type="button"
+        className="btn-primary flex-1 !h-9"
+        disabled={busy}
+        onClick={onCancel}
+      >
+        {dismissLabel}
+      </button>
+      <button
+        type="button"
+        className="btn-danger flex-1 !h-9"
+        disabled={locked}
+        onClick={onConfirm}
+      >
+        {busy ? <Spinner className="mx-auto h-3.5 w-3.5" /> : okLabel}
+      </button>
+    </div>
+  );
+}
+
 /** Destructive-action dialog that focuses cancel by default and treats Escape as cancel. */
 export function ConfirmDialog({
   open,
@@ -50,7 +121,6 @@ export function ConfirmDialog({
   // Explicit labels override the localized defaults.
   const okLabel = confirmLabel ?? t("confirm.confirm");
   const dismissLabel = cancelLabel ?? t("confirm.cancel");
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   // Reset the checkbox whenever the dialog reopens so a previous session's
   // tick cannot silently unlock a fresh confirmation. Render-phase adjust:
@@ -65,9 +135,6 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (!open) return;
-    // preventScroll: the dialog is a fixed overlay already in view; a plain
-    // focus() would yank a scrolled page toward the overlay's document slot.
-    cancelButtonRef.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onCancel();
     };
@@ -102,41 +169,22 @@ export function ConfirmDialog({
           </div>
         </div>
 
-        {requireAcknowledgement && (
-          <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-md border border-surface-border bg-surface-alt px-3 py-2.5">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--danger)]"
-              checked={acknowledged}
-              onChange={(e) => {
-                setAcknowledged(e.target.checked);
-              }}
-            />
-            <span className="text-[12px] leading-relaxed text-ink-muted">
-              {acknowledgementLabel}
-            </span>
-          </label>
-        )}
+        {requireAcknowledgement ? (
+          <AcknowledgementCheckbox
+            label={acknowledgementLabel}
+            checked={acknowledged}
+            onChange={setAcknowledged}
+          />
+        ) : null}
 
-        <div className="mt-4 flex gap-2">
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            className="btn-primary flex-1 !h-9"
-            disabled={busy}
-            onClick={onCancel}
-          >
-            {dismissLabel}
-          </button>
-          <button
-            type="button"
-            className="btn-danger flex-1 !h-9"
-            disabled={confirmLocked}
-            onClick={onConfirm}
-          >
-            {busy ? <Spinner className="mx-auto h-3.5 w-3.5" /> : okLabel}
-          </button>
-        </div>
+        <DialogActions
+          okLabel={okLabel}
+          dismissLabel={dismissLabel}
+          locked={confirmLocked}
+          busy={busy}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
       </div>
     </div>,
     document.body,
