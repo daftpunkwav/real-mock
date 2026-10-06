@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import Depends
+from fastapi import Depends, Query
 from sqlalchemy.orm import Session
 
 from realmock.domains.resume.services import export as export_service
@@ -16,7 +16,7 @@ ExportFormat = Literal["md", "json"]
 
 def export_analysis(
     resume_id: int,
-    format: ExportFormat = "md",
+    export_format: ExportFormat = Query(default="md", alias="format"),
     include_resume: bool = False,
     db: Session = Depends(get_db),
 ) -> DataExportFile:
@@ -24,6 +24,6 @@ def export_analysis(
     return export_service.build_analysis_export(
         db,
         resume_id,
-        fmt=format,
+        fmt=export_format,
         include_resume=include_resume,
     )

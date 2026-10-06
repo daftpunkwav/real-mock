@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-import realmock.domains.records.models  # noqa: F401
 from realmock.asgi import app
 from realmock.domains.records.models.report import InterviewReportRow
 from realmock.domains.records.schemas.report import DebriefReport

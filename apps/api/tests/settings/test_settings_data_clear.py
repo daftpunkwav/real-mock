@@ -12,11 +12,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import realmock.domains.growth.models  # noqa: F401
-import realmock.domains.interview.models  # noqa: F401
-import realmock.domains.prep.models  # noqa: F401
-import realmock.domains.records.models  # noqa: F401
-import realmock.platform.models  # noqa: F401
 from realmock.asgi import app
 from realmock.domains.growth.models import GrowthRecord
 from realmock.domains.prep.models import PrepSession
