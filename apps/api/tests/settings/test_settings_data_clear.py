@@ -24,6 +24,15 @@ from realmock.platform.models import Resume
 from realmock.platform.services.data_reset import clear_all_business_data
 
 
+@pytest.fixture(autouse=True)
+def _wipe_baseline():
+    """The conftest DB files live for the whole pytest session; start every
+    test from a wiped state so absolute-count assertions hold regardless of
+    rows left behind by earlier test files."""
+    clear_all_business_data()
+    yield
+
+
 @pytest.fixture
 def seeded(api_engine, engine, tmp_path):
     """Rows in both databases plus files on disk; returns the settings paths."""
@@ -90,6 +99,7 @@ def test_wipe_preserves_config_tables(api_engine, engine) -> None:
     ApiBase.metadata.create_all(bind=api_engine)
     SessionsBase.metadata.create_all(bind=engine)
     api_session = sessionmaker(bind=api_engine)()
+    before = api_session.execute(text("SELECT COUNT(*) FROM llm_providers")).scalar()
     api_session.add(LlmProvider(name="p1"))
     api_session.commit()
 
@@ -97,7 +107,7 @@ def test_wipe_preserves_config_tables(api_engine, engine) -> None:
 
     assert "llm_providers" not in result["api_tables"]
     remaining = api_session.execute(text("SELECT COUNT(*) FROM llm_providers")).scalar()
-    assert remaining == 1
+    assert remaining == before + 1
 
 
 def test_wipe_is_idempotent_on_empty_databases(api_engine, engine) -> None:
