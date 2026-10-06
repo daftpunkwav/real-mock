@@ -316,60 +316,65 @@ export function usePrepChatSession({
     ],
   );
 
-  const startPrep = useCallback(async () => {
-    const t = getTranslator("prep");
-    // Creating supersedes any in-flight restore/switch: the user's explicit
-    // new-session choice must win, and the superseded op leaves the restoring
-    // flags to us (its finally skips when no longer latest).
-    const seq = ++switchSeqRef.current;
-    setStarting(true);
-    setPrepError("");
-    try {
-      const { id } = await api.createPrepSession({
-        resume_id: resumeId ?? undefined,
-      });
-      if (!aliveRef.current || seq !== switchSeqRef.current) return null;
-      // SQLite reuses freed row ids: a fresh session can inherit the archive
-      // key of a deleted predecessor, which would render its folded turns
-      // above the welcome message. A brand-new session can never have
-      // legitimate folded turns, so any archive under this id is stale.
-      clearArchive(id);
-      setPrepSessionId(id);
-      window.localStorage.setItem(RESTORE_KEY, String(id));
-      setTokenUsage(0);
-      setUsage(null);
-      resetContext();
-      // Absolute reset (not max-merge): a deleted predecessor with the same
-      // reused id must not leave its count behind, or the first turn's
-      // backendIndex/fork/retract math starts above server truth.
-      seedBackendCount(id, 0);
-      setMessages([
-        {
-          id: nextMsgId("a"),
-          role: "assistant",
-          content: t("sessions.welcome"),
-          // Welcome banner is local-only: never persisted, never in context.
-          localOnly: true,
-        },
-      ]);
-      refreshSessions();
-      return id;
-    } catch (e) {
-      // A superseded create's failure must not paint an error over the view
-      // the user has since switched to.
-      if (!aliveRef.current || seq !== switchSeqRef.current) return null;
-      setPrepError(e instanceof Error ? formatApiError(e) : t("sessions.createFailed"));
-      return null;
-    } finally {
-      setStarting(false);
-      // Only the latest op owns the restoring flags; a superseded create left
-      // them to whoever superseded it.
-      if (seq === switchSeqRef.current) {
-        restoringRef.current = false;
-        setRestoring(false);
+  const startPrep = useCallback(
+    async (resumeOverride?: number) => {
+      const t = getTranslator("prep");
+      // Creating supersedes any in-flight restore/switch: the user's explicit
+      // new-session choice must win, and the superseded op leaves the restoring
+      // flags to us (its finally skips when no longer latest). `resumeOverride`
+      // lets cross-page entry (deep link) bind the session immediately, before
+      // the selector state has committed.
+      const seq = ++switchSeqRef.current;
+      setStarting(true);
+      setPrepError("");
+      try {
+        const { id } = await api.createPrepSession({
+          resume_id: resumeOverride ?? resumeId ?? undefined,
+        });
+        if (!aliveRef.current || seq !== switchSeqRef.current) return null;
+        // SQLite reuses freed row ids: a fresh session can inherit the archive
+        // key of a deleted predecessor, which would render its folded turns
+        // above the welcome message. A brand-new session can never have
+        // legitimate folded turns, so any archive under this id is stale.
+        clearArchive(id);
+        setPrepSessionId(id);
+        window.localStorage.setItem(RESTORE_KEY, String(id));
+        setTokenUsage(0);
+        setUsage(null);
+        resetContext();
+        // Absolute reset (not max-merge): a deleted predecessor with the same
+        // reused id must not leave its count behind, or the first turn's
+        // backendIndex/fork/retract math starts above server truth.
+        seedBackendCount(id, 0);
+        setMessages([
+          {
+            id: nextMsgId("a"),
+            role: "assistant",
+            content: t("sessions.welcome"),
+            // Welcome banner is local-only: never persisted, never in context.
+            localOnly: true,
+          },
+        ]);
+        refreshSessions();
+        return id;
+      } catch (e) {
+        // A superseded create's failure must not paint an error over the view
+        // the user has since switched to.
+        if (!aliveRef.current || seq !== switchSeqRef.current) return null;
+        setPrepError(e instanceof Error ? formatApiError(e) : t("sessions.createFailed"));
+        return null;
+      } finally {
+        setStarting(false);
+        // Only the latest op owns the restoring flags; a superseded create left
+        // them to whoever superseded it.
+        if (seq === switchSeqRef.current) {
+          restoringRef.current = false;
+          setRestoring(false);
+        }
       }
-    }
-  }, [nextMsgId, resumeId, refreshSessions, setMessages, seedBackendCount, resetContext]);
+    },
+    [nextMsgId, resumeId, refreshSessions, setMessages, seedBackendCount, resetContext],
+  );
 
   const handleNewSession = async () => {
     if (starting) return;

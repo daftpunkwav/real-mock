@@ -16,7 +16,11 @@ export function usePrepResources() {
   const [resumes, setResumes] = useState<ResumePickerItem[]>([]);
   const [resumeId, setResumeId] = useState<number | null>(null);
   const [resumeLoadError, setResumeLoadError] = useState("");
+  /** Settled flag for the initial resumes fetch (deep-link consumption gate). */
+  const [resumesLoaded, setResumesLoaded] = useState(false);
   const [sessions, setSessions] = useState<PrepSessionSummary[]>([]);
+  /** Settled flag for the initial sessions fetch (deep-link consumption gate). */
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [chatModels, setChatModels] = useState<ModelProfile[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [effort, setEffort] = useState<ReasoningEffort>("medium");
@@ -37,6 +41,9 @@ export function usePrepResources() {
             ? formatApiError(e)
             : getTranslator("prep")("resources.resumeLoadFailed"),
         );
+      })
+      .finally(() => {
+        setResumesLoaded(true);
       });
   }, []);
 
@@ -44,7 +51,10 @@ export function usePrepResources() {
     prepCoachHttp
       .listPrepSessions()
       .then((list) => setSessions(Array.isArray(list) ? list : []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        setSessionsLoaded(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -74,7 +84,9 @@ export function usePrepResources() {
     resumeId,
     setResumeId,
     resumeLoadError,
+    resumesLoaded,
     sessions,
+    sessionsLoaded,
     chatModels,
     selectedModelId,
     setSelectedModelId,

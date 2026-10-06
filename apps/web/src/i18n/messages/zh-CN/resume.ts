@@ -206,6 +206,12 @@ export const resume = {
   "previewCard.projects": "项目",
   "previewCard.projectUnnamed": "未命名项目",
   "previewCard.empty": "上传后显示预览",
+
+  // InterviewQaCard / ProjectCards:发送问题到面试准备
+  "sendToPrep.action": "发送到面试准备",
+  "sendToPrep.template":
+    "这是从我的简历深度评价里发来的面试问题，请对我进行模拟演练：\n\n{question}",
+
   // ResumeOverviewCard / ResumeTipsCard:右侧概览与提示
   "overviewCard.title": "概览",
   "overviewCard.uploaded": "已上传",

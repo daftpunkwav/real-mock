@@ -24,6 +24,7 @@ import { type ArchivedGroup } from "../compactionArchive";
 import type { PendingSessionRef } from "../sessionRefs";
 import { activeStreamIds, subscribeStreams } from "../streamRegistry";
 import { usePrepCompact } from "./usePrepCompact";
+import { usePrepDeepLink } from "./usePrepDeepLink";
 import { usePrepResources } from "./usePrepResources";
 import { usePrepScroll } from "./usePrepScroll";
 import { usePrepSend } from "./usePrepSend";
@@ -98,7 +99,8 @@ interface UsePrepChat {
   reloadMessages: (id: number) => Promise<void>;
   /** Tracked backend message-list length (fork/retract/compact guards). */
   backendCount: (sid: number) => number | undefined;
-  startPrep: () => Promise<number | null>;
+  /** Create a session; the optional argument binds a resume before state commits. */
+  startPrep: (resumeOverride?: number) => Promise<number | null>;
   setAskDialog: React.Dispatch<React.SetStateAction<AskUserDialog | null>>;
   deleteSession: (id: number) => Promise<void>;
   archiveSession: (id: number, archived: boolean) => Promise<void>;
@@ -290,6 +292,18 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     setBackendCount,
     backendCount,
     refreshSessions: resources.refreshSessions,
+  });
+
+  // Resume-review deep link (/prep?resume=&q=): one-shot on mount, after the
+  // send pipeline above exists to create the paired session and seed it.
+  usePrepDeepLink({
+    enabled: true,
+    resumes: resources.resumes,
+    resumesLoaded: resources.resumesLoaded,
+    sessionsLoaded: resources.sessionsLoaded,
+    setResumeId: resources.setResumeId,
+    startPrep: session.startPrep,
+    sendMessage,
   });
 
   const manage = usePrepSessionManage({

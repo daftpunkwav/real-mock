@@ -8,24 +8,51 @@
  * rows persisted before the structured shape (missing list fields).
  */
 
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, SendHorizontal } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { InterviewQa } from "../types";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
+import { buildPrepDeepLink } from "../sendToPrep";
 import { EvalRichText } from "./EvalRichText";
 
-export function InterviewQaCard({ item, index }: { item: InterviewQa; index: number }) {
+export function InterviewQaCard({
+  item,
+  index,
+  resumeId,
+}: {
+  item: InterviewQa;
+  index: number;
+  /** Owning resume id; pairs the seeded prep session with the same resume. */
+  resumeId?: number | null;
+}) {
   const t = useT("resume");
+  const router = useRouter();
   const cn = normalizeCnPunctuation;
   const points = item.answer_points ?? [];
   const followUps = item.follow_ups ?? [];
+  const question = cn(item.question ?? "");
+  const sendToPrep = () => {
+    router.push(buildPrepDeepLink(resumeId ?? null, t("sendToPrep.template", { question })));
+  };
   return (
     <div className="eval-qa-card">
       <div className="mb-1.5 flex items-start gap-2">
         <span className="eval-qa-idx num-tabular">{index + 1}</span>
-        <p className="min-w-0 text-[13px] font-semibold leading-snug text-ink">
-          <EvalRichText text={cn(item.question ?? "")} />
+        <p className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-ink">
+          <EvalRichText text={question} />
         </p>
+        {question.trim() ? (
+          <button
+            type="button"
+            onClick={sendToPrep}
+            title={t("sendToPrep.action")}
+            aria-label={t("sendToPrep.action")}
+            className="shrink-0 rounded-md border border-surface-border p-1.5 text-ink-subtle transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+          >
+            <SendHorizontal size={12} />
+          </button>
+        ) : null}
       </div>
       {item.intent?.trim() ? (
         <p className="eval-qa-row text-[12px] leading-relaxed text-ink-muted">

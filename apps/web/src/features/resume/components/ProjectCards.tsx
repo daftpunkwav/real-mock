@@ -7,16 +7,57 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, ChevronDown, CircleAlert, CircleHelp } from "lucide-react";
+import { BadgeCheck, ChevronDown, CircleAlert, CircleHelp, SendHorizontal } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { ProjectCardData } from "../types";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
+import { buildPrepDeepLink } from "../sendToPrep";
 import { EvalRichText } from "./EvalRichText";
 import { InterviewQaCard } from "./InterviewQaCard";
 import { scoreColor } from "@/lib/scoreColor";
 
+/** Plain-string deep-dive question with a "send to prep" action. */
+function DeepDiveQuestionRow({
+  question,
+  resumeId,
+}: {
+  question: string;
+  resumeId?: number | null;
+}) {
+  const t = useT("resume");
+  const router = useRouter();
+  if (!question.trim()) return null;
+  return (
+    <div className="flex items-start gap-2">
+      <p className="eval-pcard-q min-w-0 flex-1">
+        <EvalRichText text={question} />
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          router.push(buildPrepDeepLink(resumeId ?? null, t("sendToPrep.template", { question })));
+        }}
+        title={t("sendToPrep.action")}
+        aria-label={t("sendToPrep.action")}
+        className="shrink-0 rounded-md border border-surface-border p-1.5 text-ink-subtle transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+      >
+        <SendHorizontal size={12} />
+      </button>
+    </div>
+  );
+}
+
 /** One expandable card; the first card starts open. */
-function ProjectCardItem({ card, index }: { card: ProjectCardData; index: number }) {
+function ProjectCardItem({
+  card,
+  index,
+  resumeId,
+}: {
+  card: ProjectCardData;
+  index: number;
+  resumeId?: number | null;
+}) {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   const [open, setOpen] = useState(index === 0);
@@ -97,11 +138,9 @@ function ProjectCardItem({ card, index }: { card: ProjectCardData; index: number
                   <div className="eval-pcard-qwrap">
                     {deepQuestions.map((q, i) =>
                       typeof q === "string" ? (
-                        <p key={i} className="eval-pcard-q">
-                          <EvalRichText text={cn(q)} />
-                        </p>
+                        <DeepDiveQuestionRow key={i} question={cn(q)} resumeId={resumeId} />
                       ) : (
-                        <InterviewQaCard key={i} item={q} index={i} />
+                        <InterviewQaCard key={i} item={q} index={i} resumeId={resumeId} />
                       ),
                     )}
                   </div>
@@ -115,7 +154,13 @@ function ProjectCardItem({ card, index }: { card: ProjectCardData; index: number
   );
 }
 
-export function ProjectCards({ cards }: { cards: ProjectCardData[] }) {
+export function ProjectCards({
+  cards,
+  resumeId,
+}: {
+  cards: ProjectCardData[];
+  resumeId?: number | null;
+}) {
   const t = useT("resume");
   const cleaned = cards.filter((c) => c.name);
   if (cleaned.length === 0) return null;
@@ -124,7 +169,7 @@ export function ProjectCards({ cards }: { cards: ProjectCardData[] }) {
       <span className="eval-label">{t("projects.cardsTitle")}</span>
       <div className="eval-pcard-stack">
         {cleaned.map((c, i) => (
-          <ProjectCardItem key={`${c.name}-${i}`} card={c} index={i} />
+          <ProjectCardItem key={`${c.name}-${i}`} card={c} index={i} resumeId={resumeId} />
         ))}
       </div>
     </section>

@@ -208,6 +208,12 @@ export const resume = {
   "previewCard.projects": "Projects",
   "previewCard.projectUnnamed": "Untitled project",
   "previewCard.empty": "Upload to see the preview",
+
+  // InterviewQaCard / ProjectCards: send a question to the prep coach
+  "sendToPrep.action": "Send to prep",
+  "sendToPrep.template":
+    "This interview question comes from my resume's deep review. Please run a mock drill with me:\n\n{question}",
+
   // ResumeOverviewCard / ResumeTipsCard: overview and tips
   "overviewCard.title": "Overview",
   "overviewCard.uploaded": "Uploaded",
