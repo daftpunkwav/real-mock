@@ -13,7 +13,7 @@ import { ConfirmDialog } from "../ConfirmDialog";
 
 afterEach(cleanup);
 
-function renderDialog(over: Partial<Parameters<typeof ConfirmDialog>[0]> = {}) {
+const renderDialog = (over: Partial<Parameters<typeof ConfirmDialog>[0]> = {}) => {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
   const props: Parameters<typeof ConfirmDialog>[0] = {
@@ -31,11 +31,9 @@ function renderDialog(over: Partial<Parameters<typeof ConfirmDialog>[0]> = {}) {
     </LocaleProvider>,
   );
   return { onConfirm, onCancel };
-}
+};
 
-function confirmButton() {
-  return screen.getByRole("button", { name: "Wipe it" }) as HTMLButtonElement;
-}
+const confirmButton = () => screen.getByRole("button", { name: "Wipe it" }) as HTMLButtonElement;
 
 describe("ConfirmDialog", () => {
   it("confirms immediately without the acknowledgement mode", () => {

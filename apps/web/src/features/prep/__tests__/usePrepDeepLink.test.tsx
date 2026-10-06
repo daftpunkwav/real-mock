@@ -27,7 +27,7 @@ const setResumeId = vi.fn();
 
 type HookOpts = Parameters<typeof usePrepDeepLink>[0];
 
-function baseOpts(over: Partial<HookOpts> = {}): HookOpts {
+const baseOpts = (over: Partial<HookOpts> = {}): HookOpts => {
   return {
     resumes: [{ id: 7, filename: "cv.pdf", is_active: true }],
     resumesLoaded: true,
@@ -37,14 +37,14 @@ function baseOpts(over: Partial<HookOpts> = {}): HookOpts {
     sendMessage,
     ...over,
   } as HookOpts;
-}
+};
 
-function pushLink(resumeId: number | null, question: string) {
+const pushLink = (resumeId: number | null, question: string): void => {
   const params = new URLSearchParams();
   if (resumeId != null) params.set("resume", String(resumeId));
   params.set("q", question);
   window.history.replaceState(null, "", `/prep?${params.toString()}`);
-}
+};
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/prep");
@@ -68,7 +68,7 @@ describe("usePrepDeepLink", () => {
   it("falls back to the current pairing when the resume id is unknown", async () => {
     pushLink(999, "drill me");
     renderHook(() => usePrepDeepLink(baseOpts()));
-    await waitFor(() => expect(startPrep).toHaveBeenCalledWith(undefined));
+    await waitFor(() => expect(startPrep.mock.calls[0]).toEqual([undefined]));
     expect(setResumeId).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalled();
   });
