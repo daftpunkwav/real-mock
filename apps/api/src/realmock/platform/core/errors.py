@@ -275,6 +275,13 @@ CATALOG: dict[str, ErrorSpec] = {
         "Click retry to parse this resume again",
         True,
     ),
+    "B1003": ErrorSpec(
+        "B1003",
+        500,
+        "Data deletion partially completed. Session data has been cleared; resumes, profile, and files remain.",
+        "Retry deleting all data to finish the cleanup",
+        True,
+    ),
     "B2001": ErrorSpec(
         "B2001",
         200,

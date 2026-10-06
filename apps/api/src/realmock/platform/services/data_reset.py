@@ -27,6 +27,7 @@ from typing import Any
 
 from sqlalchemy import inspect
 
+from realmock.platform.core.errors import raise_error
 from realmock.platform.database import ApiBase, SessionsBase
 
 logger = logging.getLogger(__name__)
@@ -102,10 +103,16 @@ def clear_all_business_data() -> dict[str, Any]:
     from realmock.platform.config import get_settings
 
     settings = get_settings()
-    # Commit both database deletions before removing files so surviving rows
-    # can still access their uploads if either database operation fails.
+    # These databases commit independently. Report a partial wipe explicitly
+    # if the second deletion fails; retain files and allow an idempotent retry.
     sessions_tables = _clear_sessions_db()
-    api_tables = _clear_api_db()
+    try:
+        api_tables = _clear_api_db()
+    except Exception as exc:
+        logger.exception(
+            "Data deletion partially completed; sessions cleared: %s", str(sessions_tables)
+        )
+        raise_error("B1003", cause=exc)
     upload_files = _clear_uploads(Path(settings.upload_dir))
     learning_reset = _clear_learning_sidecar()
     return {

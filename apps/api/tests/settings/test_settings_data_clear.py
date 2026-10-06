@@ -145,22 +145,79 @@ def test_clear_endpoint_returns_summary(seeded, tmp_path, monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("operation", ["_clear_sessions_db", "_clear_api_db"])
-def test_database_failure_preserves_uploads(seeded, monkeypatch, api_engine, operation) -> None:
+def test_database_failure_preserves_uploads(
+    seeded, monkeypatch, api_engine, engine, operation
+) -> None:
     from sqlalchemy import text
 
+    from realmock.platform.core.errors import ApiBusinessError
     from realmock.platform.services import data_reset
 
     def fail():
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(data_reset, operation, fail)
-    with pytest.raises(RuntimeError, match="database unavailable"):
+    message = "partially completed" if operation == "_clear_api_db" else "database unavailable"
+    error_type = ApiBusinessError if operation == "_clear_api_db" else RuntimeError
+    with pytest.raises(error_type, match=message):
         clear_all_business_data()
 
     assert (seeded["uploads"] / "1_a.pdf").read_bytes() == b"%PDF-1.4"
     assert (seeded["data"] / "system_learning.json").read_text() == "{}"
     with api_engine.connect() as conn:
         assert conn.execute(text("SELECT COUNT(*) FROM resumes")).scalar() == 1
+    with engine.connect() as conn:
+        expected = 0 if operation == "_clear_api_db" else 1
+        assert conn.execute(text("SELECT COUNT(*) FROM prep_sessions")).scalar() == expected
+        assert conn.execute(text("SELECT COUNT(*) FROM growth_records")).scalar() == expected
+
+
+def test_api_database_failure_reports_partial_completion_and_can_be_retried(
+    seeded, monkeypatch, api_engine, engine
+) -> None:
+    from sqlalchemy import event, text
+
+    from realmock.platform.config import get_settings
+
+    monkeypatch.setenv("UPLOAD_DIR", str(seeded["uploads"]))
+    get_settings.cache_clear()
+
+    # Fail after resumes have been deleted inside the API transaction, proving
+    # its rollback preserves rows while the sessions deletion is committed.
+    def fail_profile_delete(conn, cursor, statement, parameters, context, executemany):
+        if statement.startswith("DELETE FROM user_profiles"):
+            raise RuntimeError("database unavailable")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        event.listen(api_engine, "before_cursor_execute", fail_profile_delete)
+        try:
+            resp = client.post("/api/v1/settings/data/clear")
+        finally:
+            event.remove(api_engine, "before_cursor_execute", fail_profile_delete)
+
+        assert resp.status_code == 500
+        assert "partially completed" in resp.json()["detail"]
+        assert "Session data has been cleared" in resp.json()["detail"]
+        assert resp.json()["error"]["code"] == "B1003"
+        assert resp.json()["error"]["retryable"] is True
+        assert "Retry" in resp.json()["error"]["hint"]
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM prep_sessions")).scalar() == 0
+            assert conn.execute(text("SELECT COUNT(*) FROM growth_records")).scalar() == 0
+        with api_engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM resumes")).scalar() == 1
+        assert (seeded["uploads"] / "1_a.pdf").exists()
+        assert (seeded["data"] / "system_learning.json").exists()
+
+        retry = client.post("/api/v1/settings/data/clear")
+        assert retry.status_code == 200
+        assert retry.json()["api_tables"]["resumes"] == 1
+        assert all(count == 0 for count in retry.json()["sessions_tables"].values())
+        assert retry.json()["upload_files"] == 1
+        with api_engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM resumes")).scalar() == 0
+        assert not (seeded["uploads"] / "1_a.pdf").exists()
+        assert not (seeded["data"] / "system_learning.json").exists()
 
 
 def test_file_cleanup_failure_can_be_retried(seeded, monkeypatch) -> None:
