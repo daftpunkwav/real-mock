@@ -52,7 +52,10 @@ export function TrainingHistorySection({
                 {r.weak_skills.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-1">
                     {r.weak_skills.map((s) => (
-                      <span key={s} className="chip chip-red !text-[10px]">
+                      <span
+                        key={s}
+                        className="chip chip-red !whitespace-normal !text-[10px] break-words text-left"
+                      >
                         {s}
                       </span>
                     ))}
