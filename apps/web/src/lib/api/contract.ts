@@ -53,3 +53,7 @@ export type ProcessCreateRequest = components["schemas"]["ProcessCreateRequest"]
 export type ProcessCreatedResponse = components["schemas"]["ProcessCreatedResponse"];
 export type ProcessRoundItem = components["schemas"]["ProcessRoundItem"];
 export type PlanStepView = components["schemas"]["PlanStepView"];
+
+/* data export / management */
+export type DataExportFile = components["schemas"]["DataExportFile"];
+export type DataClearResponse = components["schemas"]["DataClearResponse"];

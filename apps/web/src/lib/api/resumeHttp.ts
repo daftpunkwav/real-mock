@@ -205,6 +205,12 @@ export const resumeHttp = {
       }),
       "Failed to delete all resumes: server returned an empty response",
     ),
+  /** Download one resume's deep-review analysis (md / json) as a file payload. */
+  exportAnalysis: (id: number, format: "md" | "json", includeResume: boolean) =>
+    request<import("@/lib/api/contract").DataExportFile>(
+      `/v1/resume/${id}/analysis-export?format=${format}&include_resume=${includeResume}`,
+      { timeoutMs: 120_000 },
+    ),
   /**
    * Persisted analysis for this resume. The page still reloads the list so
    * collection state picks up `score` / `analysis`; callers should not render

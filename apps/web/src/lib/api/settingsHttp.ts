@@ -73,6 +73,11 @@ export const settingsHttp = {
     request<{ configured: boolean; tail: string }>("/v1/settings/integrations/github", {
       method: "DELETE",
     }),
+  clearAllData: () =>
+    request<import("@/lib/api/contract").DataClearResponse>("/v1/settings/data/clear", {
+      method: "POST",
+      timeoutMs: 120_000,
+    }),
   testGithubToken: (token?: string) =>
     request<{
       ok: boolean;

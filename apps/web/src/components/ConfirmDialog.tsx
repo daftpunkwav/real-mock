@@ -11,7 +11,7 @@
  * Profile and resume both use this component; do not fork copies into features.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { TriangleAlert } from "lucide-react";
 import { useT } from "@/i18n";
@@ -26,6 +26,8 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   busy = false,
+  requireAcknowledgement = false,
+  acknowledgementLabel = "",
   onConfirm,
   onCancel,
 }: {
@@ -36,6 +38,10 @@ export function ConfirmDialog({
   cancelLabel?: string;
   /** When true, both actions are disabled and Escape is ignored. */
   busy?: boolean;
+  /** Require ticking a checkbox before confirm unlocks (extra guard against mis-clicks). */
+  requireAcknowledgement?: boolean;
+  /** Label for the acknowledgement checkbox (requires requireAcknowledgement). */
+  acknowledgementLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -45,6 +51,15 @@ export function ConfirmDialog({
   const okLabel = confirmLabel ?? t("confirm.confirm");
   const dismissLabel = cancelLabel ?? t("confirm.cancel");
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  // Reset the checkbox whenever the dialog reopens so a previous session's
+  // tick cannot silently unlock a fresh confirmation.
+  useEffect(() => {
+    if (open) setAcknowledged(false);
+  }, [open]);
+
+  const confirmLocked = busy || (requireAcknowledgement && !acknowledged);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +100,22 @@ export function ConfirmDialog({
           </div>
         </div>
 
+        {requireAcknowledgement && (
+          <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-md border border-surface-border bg-surface-alt px-3 py-2.5">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--danger)]"
+              checked={acknowledged}
+              onChange={(e) => {
+                setAcknowledged(e.target.checked);
+              }}
+            />
+            <span className="text-[12px] leading-relaxed text-ink-muted">
+              {acknowledgementLabel}
+            </span>
+          </label>
+        )}
+
         <div className="mt-4 flex gap-2">
           <button
             ref={cancelButtonRef}
@@ -98,7 +129,7 @@ export function ConfirmDialog({
           <button
             type="button"
             className="btn-danger flex-1 !h-9"
-            disabled={busy}
+            disabled={confirmLocked}
             onClick={onConfirm}
           >
             {busy ? <Spinner className="mx-auto h-3.5 w-3.5" /> : okLabel}

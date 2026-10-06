@@ -2,7 +2,16 @@
 
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Cpu, Database, GraduationCap, Mic, Palette, PlugZap } from "lucide-react";
+import {
+  Cpu,
+  Database,
+  GraduationCap,
+  HardDriveDownload,
+  Mic,
+  Palette,
+  PlugZap,
+} from "lucide-react";
+import { DataManagementPanel } from "./DataManagementPanel";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 import { InterfaceSettingsPanel } from "./InterfaceSettingsPanel";
 import { InterviewSettingsPanel } from "./InterviewSettingsPanel";
@@ -12,7 +21,7 @@ import { ResumeSettingsPanel } from "./ResumeSettingsPanel";
 
 /** Categories group settings by domain: global, resumes, interview prep. */
 export type SettingsCategoryId =
-  "interface" | "models" | "resume" | "prep" | "interview" | "integrations";
+  "interface" | "models" | "resume" | "prep" | "interview" | "integrations" | "data";
 
 export type SettingsCategory = {
   id: SettingsCategoryId;
@@ -35,6 +44,7 @@ export const SETTINGS_CATEGORIES = [
     icon: PlugZap,
     Panel: IntegrationsSettingsPanel,
   },
+  { id: "data", labelKey: "nav.data", icon: HardDriveDownload, Panel: DataManagementPanel },
 ] as const satisfies readonly [SettingsCategory, ...SettingsCategory[]];
 
 /** First listed category is the default; derive it so order and ids stay in sync. */

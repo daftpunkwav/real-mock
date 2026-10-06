@@ -15,4 +15,16 @@ export const recordsHttp = {
       method: "POST",
       timeoutMs: LLM_HEAVY_TIMEOUT_MS,
     }),
+  /** Download one session's debrief report (md / json) as a file payload. */
+  exportReport: (id: number, format: "md" | "json") =>
+    request<import("@/lib/api/contract").DataExportFile>(
+      `/v1/records/export/report/${id}?format=${format}`,
+      { timeoutMs: LLM_HEAVY_TIMEOUT_MS },
+    ),
+  /** Download one session's plain interviewer/candidate transcript. */
+  exportRecord: (id: number, format: "md" | "json") =>
+    request<import("@/lib/api/contract").DataExportFile>(
+      `/v1/records/export/record/${id}?format=${format}`,
+      { timeoutMs: LLM_HEAVY_TIMEOUT_MS },
+    ),
 };
