@@ -110,8 +110,6 @@ export function DataManagementPanel() {
 
   const handleExport = async () => {
     if (exporting) return;
-    // Re-read the selected ids through the state values (never `!`): the
-    // button is gated by itemReady, but late clicks must still be safe.
     setExporting(true);
     try {
       let file: { filename: string; content: string; mime: string };

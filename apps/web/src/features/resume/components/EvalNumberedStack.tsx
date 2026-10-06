@@ -8,6 +8,7 @@
  * action; item text is passed through untouched.
  */
 
+import { clsx } from "clsx";
 import { EvalRichText } from "./EvalRichText";
 import { SendToPrepButton } from "./SendToPrepButton";
 
@@ -28,7 +29,7 @@ export function EvalNumberedStack({
       <span className="eval-label">{title}</span>
       <div className="eval-q-stack">
         {items.map((q, i) => (
-          <div key={`${i}-${q}`} className={`eval-q ${q.trim() ? "has-actions" : ""}`}>
+          <div key={`${i}-${q}`} className={clsx("eval-q", { "has-actions": q.trim() })}>
             <span className="eval-q-idx">
               {prefix}
               {i + 1}

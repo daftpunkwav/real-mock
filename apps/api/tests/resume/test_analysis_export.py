@@ -23,7 +23,41 @@ def _seed(api_db, *, with_analysis: bool = True) -> int:
         filename="cv.txt",
         file_type="txt",
         raw_text="body",
-        parsed=CandidateProfile(name="Ada", summary="Summary text", skills=["Python", "FastAPI"]),
+        parsed=CandidateProfile(
+            name="Ada",
+            summary="Summary text",
+            skills=["Python", "FastAPI"],
+            email="ada@example.test",
+            phone="+1 555 0100",
+            city="London",
+            target_role="Backend engineer",
+            education=[{"school": "Example University", "degree": "BSc", "year": 2020}],
+            work_experience=[
+                {
+                    "company": "Example Corp",
+                    "role": "Developer",
+                    "dates": "2020–2024",
+                    "achievements": ["Reduced latency by 40%", "Mentored five engineers"],
+                }
+            ],
+            projects=[
+                {
+                    "name": "Task queue",
+                    "description": "Reliable background jobs",
+                    "role": "Lead engineer",
+                    "technologies": ["Redis", "PostgreSQL"],
+                    "metrics": {"daily_jobs": 1000, "lost_jobs": 0},
+                    "url": "https://example.test/queue",
+                },
+                {"description": "An unnamed project", "highlights": ["Built solo"]},
+            ],
+            github_urls=["https://github.com/example"],
+            links=["https://example.test/portfolio"],
+            languages=["English"],
+            awards=["Engineering award"],
+            publications=["Queue design paper"],
+            layout_notes="Two-column layout",
+        ),
     )
     if with_analysis:
         row.analysis = json.dumps(
@@ -73,6 +107,9 @@ def test_analysis_export_markdown(api_db) -> None:
     assert "Why hand-rolled instead of LangGraph?" in body["content"]
     # The parsed resume body is only folded in on request.
     assert "Ada" not in body["content"]
+    assert "ada@example.test" not in body["content"]
+    assert "Example University" not in body["content"]
+    assert "Task queue" not in body["content"]
 
 
 def test_analysis_export_markdown_with_resume(api_db) -> None:
@@ -90,6 +127,38 @@ def test_analysis_export_markdown_with_resume(api_db) -> None:
     assert "## Resume" in content
     assert "Ada" in content
     assert "Python, FastAPI" in content
+    for value in (
+        "Summary text",
+        "ada@example.test",
+        "+1 555 0100",
+        "London",
+        "Backend engineer",
+        "Example University",
+        "BSc",
+        "2020",
+        "Example Corp",
+        "Developer",
+        "2020–2024",
+        "Reduced latency by 40%",
+        "Mentored five engineers",
+        "Task queue",
+        "Reliable background jobs",
+        "Lead engineer",
+        "Redis",
+        "PostgreSQL",
+        "1000",
+        "https://example.test/queue",
+        "An unnamed project",
+        "Built solo",
+        "https://github.com/example",
+        "https://example.test/portfolio",
+        "English",
+        "Engineering award",
+        "Queue design paper",
+        "Two-column layout",
+    ):
+        assert value in content
+    assert "**Lost Jobs**: 0" in content
 
 
 def test_analysis_export_json_wraps_payload(api_db) -> None:

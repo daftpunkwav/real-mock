@@ -98,6 +98,29 @@ def _md_project_cards(analysis: ResumeAnalysis) -> list[str]:
     return lines
 
 
+def _md_profile_value(value: Any, *, indent: str = "") -> list[str]:
+    """Render flexible profile fields without dropping nested resume details."""
+    if isinstance(value, dict):
+        lines = []
+        for key, item in value.items():
+            label = str(key).replace("_", " ").title()
+            if isinstance(item, (dict, list)):
+                lines.append(f"{indent}- **{label}**:")
+                lines.extend(_md_profile_value(item, indent=indent + "  "))
+            else:
+                lines.append(f"{indent}- **{label}**: {item}")
+        return lines
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            item_lines = _md_profile_value(item, indent=indent + "  ")
+            if item_lines:
+                lines.append(f"{indent}- {item_lines[0][len(indent) + 2 :]}")
+                lines.extend(item_lines[1:])
+        return lines
+    return [f"{indent}{value}"]
+
+
 def _md_resume_section(row: Any) -> list[str]:
     profile = getattr(row, "parsed_profile", None)
     try:
@@ -116,13 +139,11 @@ def _md_resume_section(row: Any) -> list[str]:
     if skills:
         lines.append("**Skills**: " + ", ".join(str(s) for s in skills))
         lines.append("")
-    projects = profile.get("projects") or []
-    if projects:
-        lines.append("**Projects**:")
-        for p in projects:
-            name = p.get("name") if isinstance(p, dict) else None
-            desc = p.get("description") if isinstance(p, dict) else None
-            lines.append(f"- {name or desc or '-'}")
+    for key, value in profile.items():
+        if key in {"name", "summary", "skills"} or not value:
+            continue
+        lines.append(f"**{key.replace('_', ' ').title()}**:")
+        lines.extend(_md_profile_value(value))
         lines.append("")
     return lines
 
