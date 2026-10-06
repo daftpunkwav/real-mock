@@ -150,8 +150,11 @@ def _md_resume_section(row: Any) -> list[str]:
 
 def analysis_markdown(row: Any, analysis: ResumeAnalysis, *, include_resume: bool) -> str:
     """Render the deep-review analysis as a structured markdown document."""
-    lines = [f"# Resume Deep Review — {row.filename}", ""]
-    lines.append(f"**Overall score**: {analysis.score}")
+    lines = [
+        f"# Resume Deep Review — {row.filename}",
+        "",
+        f"**Overall score**: {analysis.score}",
+    ]
     if analysis.seniority_estimate:
         lines.append(f"**Seniority**: {analysis.seniority_estimate}")
     if analysis.headline:

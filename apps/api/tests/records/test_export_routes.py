@@ -10,6 +10,8 @@ sessions DB; TestClient for HTTP.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -72,6 +74,20 @@ def _unoverride_sessions_db():
     app.dependency_overrides.pop(get_sessions_db, None)
 
 
+@contextmanager
+def export_client(catalog: MagicMock, *, lift_token: bool = True) -> Iterator[TestClient]:
+    """TestClient with the session catalog faked; the capability-token check
+    is lifted unless the test exercises the mismatch path itself."""
+    with (
+        patch.object(export_service, "get_session_catalog", return_value=catalog),
+        patch.object(export_service, "assert_session_token", return_value=None)
+        if lift_token
+        else nullcontext(),
+        TestClient(app) as client,
+    ):
+        yield client
+
+
 def _ready_report(db, session_id: int = 1) -> None:
     report = DebriefReport(
         overall_score=72,
@@ -96,12 +112,8 @@ def test_report_export_markdown(db) -> None:
     _ready_report(db)
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/report/1?format=md")
+        with export_client(_catalog(_snapshot())) as client:
+            resp = client.get("/api/v1/records/export/report/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 200
@@ -117,12 +129,8 @@ def test_report_export_json_carries_full_payload(db) -> None:
     _ready_report(db)
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/report/1?format=json")
+        with export_client(_catalog(_snapshot())) as client:
+            resp = client.get("/api/v1/records/export/report/1?format=json")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 200
@@ -136,12 +144,8 @@ def test_report_export_json_carries_full_payload(db) -> None:
 def test_report_export_without_report_is_404(db) -> None:
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/report/1?format=md")
+        with export_client(_catalog(_snapshot())) as client:
+            resp = client.get("/api/v1/records/export/report/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 404
@@ -151,10 +155,8 @@ def test_report_export_unfinished_session_is_400(db) -> None:
     snap = _snapshot(status="interviewing", ledger_frozen=False)
     _override_sessions_db(db)
     try:
-        with patch.object(export_service, "get_session_catalog", return_value=_catalog(snap)):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/report/1?format=md")
+        with export_client(_catalog(snap)) as client:
+            resp = client.get("/api/v1/records/export/report/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 400
@@ -166,12 +168,8 @@ def test_report_export_pending_report_is_404(db) -> None:
     db.commit()
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/report/1?format=md")
+        with export_client(_catalog(_snapshot())) as client:
+            resp = client.get("/api/v1/records/export/report/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 404
@@ -183,42 +181,18 @@ def test_report_export_failed_report_is_409(db) -> None:
     db.commit()
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/report/1?format=md")
+        with export_client(_catalog(_snapshot())) as client:
+            resp = client.get("/api/v1/records/export/report/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 409
 
 
-def test_record_export_unfinished_session_is_400(db) -> None:
-    snap = _snapshot(status="interviewing", ledger_frozen=False)
-    _override_sessions_db(db)
-    try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(snap, {"turns": []})
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/record/1?format=md")
-    finally:
-        _unoverride_sessions_db()
-    assert resp.status_code == 400
-
-
 def test_export_token_mismatch_is_403(db) -> None:
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service,
-            "get_session_catalog",
-            return_value=_catalog(_snapshot(access_token="secret")),
-        ):
-            with TestClient(app) as client:
-                resp = client.get("/api/v1/records/export/record/1?format=md")
+        with export_client(_catalog(_snapshot(access_token="secret")), lift_token=False) as client:
+            resp = client.get("/api/v1/records/export/record/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 403
@@ -229,9 +203,8 @@ def test_export_missing_session_is_404(db) -> None:
     try:
         cat = MagicMock()
         cat.get_session_snapshot.return_value = None
-        with patch.object(export_service, "get_session_catalog", return_value=cat):
-            with TestClient(app) as client:
-                resp = client.get("/api/v1/records/export/record/99?format=md")
+        with export_client(cat) as client:
+            resp = client.get("/api/v1/records/export/record/99?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 404
@@ -261,12 +234,8 @@ def _ledger() -> dict:
 def test_record_export_markdown_splits_speakers(db) -> None:
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot(), _ledger())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/record/1?format=md")
+        with export_client(_catalog(_snapshot(), _ledger())) as client:
+            resp = client.get("/api/v1/records/export/record/1?format=md")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 200
@@ -280,15 +249,22 @@ def test_record_export_markdown_splits_speakers(db) -> None:
     assert "no AI evaluation" in body["content"]
 
 
+def test_record_export_unfinished_session_is_400(db) -> None:
+    snap = _snapshot(status="interviewing", ledger_frozen=False)
+    _override_sessions_db(db)
+    try:
+        with export_client(_catalog(snap, {"turns": []})) as client:
+            resp = client.get("/api/v1/records/export/record/1?format=md")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 400
+
+
 def test_record_export_json_wraps_turns(db) -> None:
     _override_sessions_db(db)
     try:
-        with patch.object(
-            export_service, "get_session_catalog", return_value=_catalog(_snapshot(), _ledger())
-        ):
-            with patch.object(export_service, "assert_session_token", return_value=None):
-                with TestClient(app) as client:
-                    resp = client.get("/api/v1/records/export/record/1?format=json")
+        with export_client(_catalog(_snapshot(), _ledger())) as client:
+            resp = client.get("/api/v1/records/export/record/1?format=json")
     finally:
         _unoverride_sessions_db()
     assert resp.status_code == 200
