@@ -13,7 +13,7 @@ import { useT } from "@/i18n";
 import type { Resume } from "../types";
 import { buildResumePreviewUrl } from "../previewRoute";
 import { PREVIEW_SKILL_MAX } from "../resumeLimits";
-import { shortSkillLabel } from "../resumePreview";
+import { keyedPreviewProjects, shortSkillLabel } from "../resumePreview";
 
 export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | null }) {
   const t = useT("resume");
@@ -127,14 +127,16 @@ export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | 
                 {t("previewCard.projects")}
               </p>
               <ul className="space-y-1.5">
-                {previewResume.parsed_profile.projects.map((p, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[12px] text-ink-muted">
-                    <CheckCircle size={11} className="mt-0.5 shrink-0 text-[var(--success)]" />
-                    <span className="line-clamp-2">
-                      {p.name || p.description || t("previewCard.projectUnnamed")}
-                    </span>
-                  </li>
-                ))}
+                {keyedPreviewProjects(previewResume.parsed_profile.projects).map(
+                  ({ project: p, key }) => (
+                    <li key={key} className="flex items-start gap-1.5 text-[12px] text-ink-muted">
+                      <CheckCircle size={11} className="mt-0.5 shrink-0 text-[var(--success)]" />
+                      <span className="line-clamp-2">
+                        {p.name || p.description || t("previewCard.projectUnnamed")}
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
             </div>
           )}

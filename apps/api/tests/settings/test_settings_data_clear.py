@@ -142,3 +142,37 @@ def test_clear_endpoint_returns_summary(seeded, tmp_path, monkeypatch) -> None:
     assert "sessions_tables" in body
     assert body["upload_files"] == 1
     assert body["learning_reset"] is True
+
+
+@pytest.mark.parametrize("operation", ["_clear_sessions_db", "_clear_api_db"])
+def test_database_failure_preserves_uploads(seeded, monkeypatch, api_engine, operation) -> None:
+    from sqlalchemy import text
+
+    from realmock.platform.services import data_reset
+
+    def fail():
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(data_reset, operation, fail)
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        clear_all_business_data()
+
+    assert (seeded["uploads"] / "1_a.pdf").read_bytes() == b"%PDF-1.4"
+    assert (seeded["data"] / "system_learning.json").read_text() == "{}"
+    with api_engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM resumes")).scalar() == 1
+
+
+def test_file_cleanup_failure_can_be_retried(seeded, monkeypatch) -> None:
+    from realmock.platform.services import data_reset
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            data_reset, "_clear_uploads", lambda _: (_ for _ in ()).throw(OSError("disk"))
+        )
+        with pytest.raises(OSError, match="disk"):
+            clear_all_business_data()
+    assert (seeded["uploads"] / "1_a.pdf").exists()
+    result = clear_all_business_data()
+    assert all(count == 0 for count in result["api_tables"].values())
+    assert result["upload_files"] == 1

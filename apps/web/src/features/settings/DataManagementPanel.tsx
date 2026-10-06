@@ -11,7 +11,7 @@
  * before the confirm button unlocks.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, HardDriveDownload, TriangleAlert } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Spinner } from "@/components/Spinner";
@@ -50,8 +50,16 @@ export function DataManagementPanel() {
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wiping, setWiping] = useState(false);
 
+  const activeLoadCleanup = useRef<(() => void) | null>(null);
+  const mounted = useRef(false);
+
   const loadItems = useCallback(() => {
+    activeLoadCleanup.current?.();
+    if (!mounted.current) return;
     let alive = true;
+    activeLoadCleanup.current = () => {
+      alive = false;
+    };
     recordsHttp
       .listSessions()
       .then((rows) => {
@@ -74,12 +82,17 @@ export function DataManagementPanel() {
       .catch(() => {
         if (alive) setResumes([]);
       });
-    return () => {
-      alive = false;
-    };
+    return activeLoadCleanup.current;
   }, []);
 
-  useEffect(() => loadItems(), [loadItems]);
+  useEffect(() => {
+    mounted.current = true;
+    loadItems();
+    return () => {
+      mounted.current = false;
+      activeLoadCleanup.current?.();
+    };
+  }, [loadItems]);
 
   const sessionsReady = sessions !== null;
   const resumesReady = resumes !== null;
@@ -235,7 +248,7 @@ export function DataManagementPanel() {
                       : "border-surface-border text-ink-muted hover:border-[var(--primary)] hover:text-ink"
                   }`}
                 >
-                  {f === "md" ? "Markdown" : "JSON"}
+                  {f === "md" ? t("data.export.formatMd") : t("data.export.formatJson")}
                 </button>
               ))}
             </div>

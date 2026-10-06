@@ -6,9 +6,9 @@ bootstrap, so the wipe iterates the shared metadata instead of knowing the
 domains — the same trick ``db_split`` uses with its table whitelist.
 
 Scope (user content, not setup):
-- files first: the upload directory and growth's ``system_learning.json``
-  sidecar (+ lock). Deleting these before the databases means a filesystem
-  failure leaves the databases untouched and the retry is lossless;
+- files last: the upload directory and growth's ``system_learning.json``
+  sidecar (+ lock). Keep files available until both database deletions
+  succeed; a later filesystem failure leaves orphaned files for a retry;
 - sessions database: every table registered in ``SessionsBase`` metadata
   (interview sessions / turns / processes / reports / company research /
   prep / growth / rate-limit buckets / ws leases);
@@ -102,13 +102,15 @@ def clear_all_business_data() -> dict[str, Any]:
     from realmock.platform.config import get_settings
 
     settings = get_settings()
-    # Files before databases: a filesystem failure then leaves the databases
-    # untouched, so a retry completes the wipe without partial-loss risk.
+    # Commit both database deletions before removing files so surviving rows
+    # can still access their uploads if either database operation fails.
+    sessions_tables = _clear_sessions_db()
+    api_tables = _clear_api_db()
     upload_files = _clear_uploads(Path(settings.upload_dir))
     learning_reset = _clear_learning_sidecar()
     return {
-        "sessions_tables": _clear_sessions_db(),
-        "api_tables": _clear_api_db(),
+        "sessions_tables": sessions_tables,
+        "api_tables": api_tables,
         "upload_files": upload_files,
         "learning_reset": learning_reset,
     }

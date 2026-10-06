@@ -93,7 +93,7 @@ export default function ResumePage() {
 
           {/* ===== Right: compact sticky preview ===== */}
           <aside className="space-y-3 xl:sticky xl:top-6">
-            <ResumePreviewCard resume={previewResume} />
+            <ResumePreviewCard key={previewResume?.id ?? "empty"} resume={previewResume} />
             <ResumeOverviewCard resumes={resumes} />
             <ResumeTipsCard />
           </aside>

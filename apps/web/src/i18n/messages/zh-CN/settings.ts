@@ -187,6 +187,8 @@ export const settings = {
   "data.export.noResumes": "暂无简历",
   "data.export.includeResume": "同时包含简历内容",
   "data.export.format": "格式",
+  "data.export.formatMd": "Markdown",
+  "data.export.formatJson": "JSON",
   "data.export.action": "导出",
   "data.export.done": "已导出 {name}",
   "data.export.failed": "导出失败",

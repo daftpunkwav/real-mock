@@ -4,8 +4,8 @@
  * @file EvalNumberedStack.tsx
  * @description Numbered stack of evaluation items (P1 / Q1 prefixes).
  *
- * `onSend` (when provided) renders a per-row "send to prep" action; the item
- * text is passed through untouched so the caller owns any wrapping.
+ * A nonblank item together with `resumeId` enables the per-row "send to prep"
+ * action; item text is passed through untouched.
  */
 
 import { EvalRichText } from "./EvalRichText";

@@ -9413,8 +9413,7 @@
           }
         },
         "type": "object",
-        "title": "DataClearResponse",
-        "description": "Per-area row counts removed by the wipe-all endpoint."
+        "title": "DataClearResponse"
       },
       "DataExportFile": {
         "properties": {

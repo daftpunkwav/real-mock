@@ -5,9 +5,8 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+# Per-area row counts removed by the wipe-all endpoint.
 class DataClearResponse(BaseModel):
-    """Per-area row counts removed by the wipe-all endpoint."""
-
     #: sessions-db rows deleted, keyed by table name.
     sessions_tables: dict[str, int] = Field(default_factory=dict)
     #: api-db content rows deleted, keyed by table name.

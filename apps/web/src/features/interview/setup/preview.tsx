@@ -226,7 +226,7 @@ export function InterviewPreview({
                     {brief.focus_areas.map((area) => (
                       <span
                         key={area}
-                        className="chip chip-blue !whitespace-normal !text-[10px] break-words"
+                        className="chip chip-blue !whitespace-normal !text-[10px] wrap-anywhere"
                       >
                         {area}
                       </span>

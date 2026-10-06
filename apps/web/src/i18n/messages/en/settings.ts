@@ -195,6 +195,8 @@ export const settings = {
   "data.export.noResumes": "No resumes yet",
   "data.export.includeResume": "Include the resume content",
   "data.export.format": "Format",
+  "data.export.formatMd": "Markdown",
+  "data.export.formatJson": "JSON",
   "data.export.action": "Export",
   "data.export.done": "Exported {name}",
   "data.export.failed": "Export failed",

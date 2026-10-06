@@ -54,7 +54,7 @@ export function TrainingHistorySection({
                     {r.weak_skills.map((s) => (
                       <span
                         key={s}
-                        className="chip chip-red !whitespace-normal !text-[10px] break-words text-left"
+                        className="chip chip-red !whitespace-normal !text-[10px] wrap-anywhere text-left"
                       >
                         {s}
                       </span>

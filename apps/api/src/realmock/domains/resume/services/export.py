@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from realmock.domains.resume.schemas.analysis import ResumeAnalysis
@@ -28,7 +29,10 @@ def _load_analysis(row: Any) -> ResumeAnalysis:
         payload = None
     if not isinstance(payload, dict) or not payload:
         raise_error("A1010")
-    return ResumeAnalysis.model_validate(normalize_resume_analysis_payload(payload))
+    try:
+        return ResumeAnalysis.model_validate(normalize_resume_analysis_payload(payload))
+    except ValidationError as exc:
+        raise_error("A1010", cause=exc)
 
 
 def _resume_meta(row: Any) -> dict[str, Any]:

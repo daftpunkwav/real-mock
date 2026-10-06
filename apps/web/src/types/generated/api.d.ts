@@ -3729,10 +3729,7 @@ export interface components {
              */
             pressure_level: string;
         };
-        /**
-         * DataClearResponse
-         * @description Per-area row counts removed by the wipe-all endpoint.
-         */
+        /** DataClearResponse */
         DataClearResponse: {
             /** Sessions Tables */
             sessions_tables?: {

@@ -126,3 +126,29 @@ def test_analysis_export_missing_resume_is_404(api_db) -> None:
     finally:
         _unoverride_api_db()
     assert resp.status_code == 404
+
+
+def test_analysis_export_validation_error_uses_catalog(api_db, monkeypatch) -> None:
+    from pydantic import ValidationError
+
+    from realmock.domains.resume.schemas.analysis import ResumeAnalysis
+
+    resume_id = _seed(api_db)
+
+    # Exercise the validation boundary even when today's tolerant normalizer
+    # can repair the stored payload.
+    def reject(_payload):
+        raise ValidationError.from_exception_data(
+            "ResumeAnalysis", [{"type": "int_parsing", "loc": ("score",), "input": "bad"}]
+        )
+
+    monkeypatch.setattr(ResumeAnalysis, "model_validate", reject)
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            for fmt in ("md", "json"):
+                resp = client.get(f"/api/v1/resume/{resume_id}/analysis-export?format={fmt}")
+                assert resp.status_code == 404
+                assert resp.json()["error"]["code"] == "A1010"
+    finally:
+        _unoverride_api_db()
