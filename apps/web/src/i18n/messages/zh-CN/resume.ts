@@ -202,10 +202,10 @@ export const resume = {
   "previewCard.score": "AI 评分",
   "previewCard.summary": "摘要",
   "previewCard.skills": "技能",
+  "previewCard.skillsCollapse": "收起",
   "previewCard.projects": "项目",
   "previewCard.projectUnnamed": "未命名项目",
   "previewCard.empty": "上传后显示预览",
-
   // ResumeOverviewCard / ResumeTipsCard:右侧概览与提示
   "overviewCard.title": "概览",
   "overviewCard.uploaded": "已上传",

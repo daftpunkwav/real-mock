@@ -204,10 +204,10 @@ export const resume = {
   "previewCard.score": "AI Score",
   "previewCard.summary": "Summary",
   "previewCard.skills": "Skills",
+  "previewCard.skillsCollapse": "Show less",
   "previewCard.projects": "Projects",
   "previewCard.projectUnnamed": "Untitled project",
   "previewCard.empty": "Upload to see the preview",
-
   // ResumeOverviewCard / ResumeTipsCard: overview and tips
   "overviewCard.title": "Overview",
   "overviewCard.uploaded": "Uploaded",
