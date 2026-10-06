@@ -297,7 +297,6 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   // Resume-review deep link (/prep?resume=&q=): one-shot on mount, after the
   // send pipeline above exists to create the paired session and seed it.
   usePrepDeepLink({
-    enabled: true,
     resumes: resources.resumes,
     resumesLoaded: resources.resumesLoaded,
     sessionsLoaded: resources.sessionsLoaded,

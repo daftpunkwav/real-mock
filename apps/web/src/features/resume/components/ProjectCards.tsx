@@ -7,14 +7,13 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, ChevronDown, CircleAlert, CircleHelp, SendHorizontal } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { BadgeCheck, ChevronDown, CircleAlert, CircleHelp } from "lucide-react";
 import type { ProjectCardData } from "../types";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
-import { buildPrepDeepLink } from "../sendToPrep";
 import { EvalRichText } from "./EvalRichText";
 import { InterviewQaCard } from "./InterviewQaCard";
+import { SendToPrepButton } from "./SendToPrepButton";
 import { scoreColor } from "@/lib/scoreColor";
 
 /** Plain-string deep-dive question with a "send to prep" action. */
@@ -25,25 +24,13 @@ function DeepDiveQuestionRow({
   question: string;
   resumeId?: number | null;
 }) {
-  const t = useT("resume");
-  const router = useRouter();
   if (!question.trim()) return null;
   return (
     <div className="flex items-start gap-2">
       <p className="eval-pcard-q min-w-0 flex-1">
         <EvalRichText text={question} />
       </p>
-      <button
-        type="button"
-        onClick={() => {
-          router.push(buildPrepDeepLink(resumeId ?? null, t("sendToPrep.template", { question })));
-        }}
-        title={t("sendToPrep.action")}
-        aria-label={t("sendToPrep.action")}
-        className="shrink-0 rounded-md border border-surface-border p-1.5 text-ink-subtle transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-      >
-        <SendHorizontal size={12} />
-      </button>
+      <SendToPrepButton question={question} resumeId={resumeId ?? null} />
     </div>
   );
 }

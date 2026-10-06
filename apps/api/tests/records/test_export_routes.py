@@ -148,6 +148,68 @@ def test_report_export_without_report_is_404(db) -> None:
     assert resp.status_code == 404
 
 
+def test_report_export_unfinished_session_is_400(db) -> None:
+    snap = _snapshot(status="interviewing", ledger_frozen=False)
+    _override_sessions_db(db)
+    try:
+        with patch.object(export_service, "get_session_catalog", return_value=_catalog(snap)):
+            with patch.object(export_service, "assert_session_token", return_value=None):
+                with TestClient(app) as client:
+                    resp = client.get("/api/v1/records/export/report/1?format=md")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 400
+
+
+def test_report_export_pending_report_is_404(db) -> None:
+    row = InterviewReportRow(session_id=1, status="pending", payload="{}")
+    db.add(row)
+    db.commit()
+    _override_sessions_db(db)
+    try:
+        with patch.object(
+            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
+        ):
+            with patch.object(export_service, "assert_session_token", return_value=None):
+                with TestClient(app) as client:
+                    resp = client.get("/api/v1/records/export/report/1?format=md")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 404
+
+
+def test_report_export_failed_report_is_409(db) -> None:
+    row = InterviewReportRow(session_id=1, status="failed", payload="{}")
+    db.add(row)
+    db.commit()
+    _override_sessions_db(db)
+    try:
+        with patch.object(
+            export_service, "get_session_catalog", return_value=_catalog(_snapshot())
+        ):
+            with patch.object(export_service, "assert_session_token", return_value=None):
+                with TestClient(app) as client:
+                    resp = client.get("/api/v1/records/export/report/1?format=md")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 409
+
+
+def test_record_export_unfinished_session_is_400(db) -> None:
+    snap = _snapshot(status="interviewing", ledger_frozen=False)
+    _override_sessions_db(db)
+    try:
+        with patch.object(
+            export_service, "get_session_catalog", return_value=_catalog(snap, {"turns": []})
+        ):
+            with patch.object(export_service, "assert_session_token", return_value=None):
+                with TestClient(app) as client:
+                    resp = client.get("/api/v1/records/export/record/1?format=md")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 400
+
+
 def test_export_token_mismatch_is_403(db) -> None:
     _override_sessions_db(db)
     try:

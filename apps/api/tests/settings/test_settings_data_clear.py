@@ -25,6 +25,16 @@ from realmock.platform.services.data_reset import clear_all_business_data
 
 
 @pytest.fixture(autouse=True)
+def _isolated_platform_root(monkeypatch, tmp_path):
+    """Point PLATFORM_ROOT at tmp so the wipe's learning-sidecar cleanup (and
+    the wipe-baseline below) never touches the real source-tree data dir."""
+    import realmock.platform.config as config_mod
+
+    monkeypatch.setattr(config_mod, "PLATFORM_ROOT", tmp_path)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _wipe_baseline():
     """The conftest DB files live for the whole pytest session; start every
     test from a wiped state so absolute-count assertions hold regardless of
@@ -62,13 +72,11 @@ def seeded(api_engine, engine, tmp_path):
     upload = Path(tmp_path / "uploads")
     upload.mkdir(parents=True, exist_ok=True)
     (upload / "1_a.pdf").write_bytes(b"%PDF-1.4")
-    from realmock.platform.config import get_settings
-
-    db_dir = Path(str(get_settings().sessions_database_url).replace("sqlite:///", "")).parent
-    db_dir.mkdir(parents=True, exist_ok=True)
-    (db_dir / "system_learning.json").write_text("{}", encoding="utf-8")
-    (db_dir / "system_learning.json.lock").write_text("", encoding="utf-8")
-    return {"uploads": upload, "data": db_dir}
+    data_dir = Path(tmp_path / "data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    (data_dir / "system_learning.json").write_text("{}", encoding="utf-8")
+    (data_dir / "system_learning.json.lock").write_text("", encoding="utf-8")
+    return {"uploads": upload, "data": data_dir}
 
 
 def test_wipe_clears_rows_and_files(seeded, tmp_path, monkeypatch) -> None:

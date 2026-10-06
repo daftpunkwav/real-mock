@@ -9,6 +9,7 @@ locale-bound at generation time.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -31,13 +32,23 @@ from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import assert_session_token
 
+logger = logging.getLogger(__name__)
+
 
 def _require_snapshot(db: Session, session_id: int, access: str | None) -> SessionSnapshot:
-    """Load the session snapshot or 404; enforce the capability token."""
+    """Load the session snapshot or 404; enforce the capability token.
+
+    A malformed catalog dict maps to A2001 like the report routes do instead
+    of surfacing a raw ValidationError as a 500.
+    """
     raw = get_session_catalog().get_session_snapshot(db, session_id)
     if raw is None:
         raise_error("A2001")
-    snap = snapshot_from_catalog_dict(raw)
+    try:
+        snap = snapshot_from_catalog_dict(raw)
+    except Exception:
+        logger.debug("export snapshot invalid sid=%s", session_id, exc_info=True)
+        raise_error("A2001")
     assert_session_token(snap, access)
     return snap
 
@@ -228,7 +239,7 @@ def _ledger_turns(ledger: dict[str, Any] | None) -> list[dict[str, Any]]:
 
 def build_record_export(db: Session, session_id: int, access: str | None) -> DataExportFile:
     """Markdown transcript: interviewer lines vs candidate replies, no AI notes."""
-    snap = _require_snapshot(db, session_id, access)
+    snap = _require_finished_snapshot(db, session_id, access)
     ledger = get_session_catalog().get_ledger(db, session_id)
     turns = _ledger_turns(ledger)
     meta = _meta(snap)
@@ -264,7 +275,7 @@ def build_record_export(db: Session, session_id: int, access: str | None) -> Dat
 
 def build_record_export_json(db: Session, session_id: int, access: str | None) -> DataExportFile:
     """JSON transcript: the ledger document wrapped with session metadata."""
-    snap = _require_snapshot(db, session_id, access)
+    snap = _require_finished_snapshot(db, session_id, access)
     ledger = get_session_catalog().get_ledger(db, session_id)
     payload = {"session": _meta(snap), "record": {"turns": _ledger_turns(ledger)}}
     return DataExportFile(

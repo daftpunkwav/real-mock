@@ -9,6 +9,13 @@
  * own focused thread; the sessions panel groups by resume) and sends the
  * seeded question. The URL params are stripped immediately so a refresh
  * cannot re-send.
+ *
+ * One-shot semantics survive StrictMode's effect → cleanup → effect cycle:
+ * the consumed flag is a ref (not the URL), the async work is disowned
+ * rather than cancelled by cleanup (cancelling there would kill the only
+ * run), and a StrictMode remount re-owns the in-flight work by flipping the
+ * alive flag back on. A real unmount flips it off for good, and every await
+ * checks it before touching state.
  */
 
 import { useEffect, useRef } from "react";
@@ -19,8 +26,6 @@ import type { ResumePickerItem } from "@/lib/api/contract";
 import { parsePrepDeepLink } from "@/features/resume/sendToPrep";
 
 interface UsePrepDeepLinkOptions {
-  /** Gate on mount: the page sets this once the hook's collaborators exist. */
-  enabled: boolean;
   resumes: ResumePickerItem[];
   resumesLoaded: boolean;
   sessionsLoaded: boolean;
@@ -42,7 +47,6 @@ const CATALOG_WAIT_MS = 120;
 const CATALOG_WAIT_TIMEOUT_MS = 10_000;
 
 export function usePrepDeepLink({
-  enabled,
   resumes,
   resumesLoaded,
   sessionsLoaded,
@@ -50,8 +54,8 @@ export function usePrepDeepLink({
   startPrep,
   sendMessage,
 }: UsePrepDeepLinkOptions) {
-  // Hold the latest collaborators in refs so the one-shot effect below can
-  // read them while it waits, without re-arming (a second run would double-send).
+  // Hold the latest collaborators in refs so the disowned async below reads
+  // fresh values while it waits, without re-arming the one-shot effect.
   const stateRef = useRef({
     resumes,
     resumesLoaded,
@@ -70,14 +74,24 @@ export function usePrepDeepLink({
       sendMessage,
     };
   });
+  /** Guard against a second consumption (StrictMode remount included). */
+  const consumedRef = useRef(false);
+  /** False once the host unmounts for real; every await re-checks it. */
+  const aliveRef = useRef(true);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (consumedRef.current) {
+      // StrictMode remount: the first run's async was disowned by our
+      // cleanup; re-own it so it keeps going. (The URL is already stripped,
+      // so this check must come before the param parse.)
+      aliveRef.current = true;
+      return;
+    }
     const link = parsePrepDeepLink(window.location.search);
     if (!link) return;
+    consumedRef.current = true;
     // Consume first: a slow catalog must not leave a re-seedable URL behind.
     window.history.replaceState(null, "", window.location.pathname);
-    let cancelled = false;
     void (async () => {
       const t = getTranslator("prep");
       try {
@@ -88,7 +102,7 @@ export function usePrepDeepLink({
         while (!s.resumesLoaded || !s.sessionsLoaded) {
           if (Date.now() - startedAt > CATALOG_WAIT_TIMEOUT_MS) break;
           await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
-          if (cancelled) return;
+          if (!aliveRef.current) return;
           s = stateRef.current;
         }
         const pairedResumeId =
@@ -97,19 +111,19 @@ export function usePrepDeepLink({
             : null;
         if (pairedResumeId != null) s.setResumeId(pairedResumeId);
         const sid = await s.startPrep(pairedResumeId ?? undefined);
-        if (cancelled) return;
+        if (!aliveRef.current) return;
         if (sid == null) return; // create failed; its error state is already set
         // assumeViewing: startPrep resolved before the re-render committed the
         // new session to viewingRef — same bypass handleQuickPrompt uses.
         await s.sendMessage(link.question, sid, false, { assumeViewing: true });
       } catch (e) {
-        if (!cancelled) {
+        if (aliveRef.current) {
           toast.error(e instanceof Error ? formatApiError(e) : t("chat.sendFailedFallback"));
         }
       }
     })();
     return () => {
-      cancelled = true;
+      aliveRef.current = false;
     };
-  }, [enabled]);
+  }, []);
 }

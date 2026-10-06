@@ -50,7 +50,7 @@ export function DataManagementPanel() {
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wiping, setWiping] = useState(false);
 
-  useEffect(() => {
+  const loadItems = useCallback(() => {
     let alive = true;
     recordsHttp
       .listSessions()
@@ -78,6 +78,8 @@ export function DataManagementPanel() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => loadItems(), [loadItems]);
 
   const sessionsReady = sessions !== null;
   const resumesReady = resumes !== null;
@@ -115,6 +117,9 @@ export function DataManagementPanel() {
       await settingsHttp.clearAllData();
       toast.success(t("data.wipe.done"));
       setWipeOpen(false);
+      // The pickers now point at deleted rows: refetch so a follow-up export
+      // selects from what actually exists.
+      loadItems();
     } catch (err) {
       toast.error(err instanceof Error ? formatApiError(err) : t("data.wipe.failed"));
     } finally {

@@ -6,13 +6,17 @@ bootstrap, so the wipe iterates the shared metadata instead of knowing the
 domains — the same trick ``db_split`` uses with its table whitelist.
 
 Scope (user content, not setup):
+- files first: the upload directory and growth's ``system_learning.json``
+  sidecar (+ lock). Deleting these before the databases means a filesystem
+  failure leaves the databases untouched and the retry is lossless;
 - sessions database: every table registered in ``SessionsBase`` metadata
-  (interview sessions / turns / processes / reports / prep / growth / leases);
+  (interview sessions / turns / processes / reports / company research /
+  prep / growth / rate-limit buckets / ws leases);
 - api database: only the content tables named in ``API_CONTENT_TABLES`` —
-  provider, model, binding, and stage configuration is deliberately kept;
-- upload directory: resume files;
-- data directory: growth's ``system_learning.json`` sidecar (the chroma
-  store is derived cache from the built-in catalog and is left alone).
+  provider, model, binding, and stage configuration is deliberately kept.
+
+The chroma store (built-in catalog cache) and ``.secret.key`` are not
+touched.
 """
 
 from __future__ import annotations
@@ -30,7 +34,8 @@ logger = logging.getLogger(__name__)
 #: Api-database tables that hold user content (everything else stays).
 API_CONTENT_TABLES: tuple[str, ...] = ("resumes", "user_profiles")
 
-#: Growth's JSON sidecar, colocated with the databases under platform/data.
+#: Growth's JSON sidecar, colocated with the databases under platform/data
+#: (same resolution as the growth learning service: PLATFORM_ROOT/data).
 LEARNING_FILE_NAME = "system_learning.json"
 
 
@@ -38,6 +43,31 @@ def _existing_tables(engine: Any, metadata_tables: set[str]) -> list[str]:
     """Tables present both in the live database and the given metadata subset."""
     names = set(inspect(engine).get_table_names())
     return sorted(metadata_tables & names)
+
+
+def _clear_uploads(uploads_dir: Path) -> int:
+    """Delete files inside the upload directory; keep the directory itself."""
+    if not uploads_dir.exists():
+        return 0
+    removed = 0
+    for child in sorted(uploads_dir.iterdir()):
+        if child.is_file():
+            child.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
+def _clear_learning_sidecar() -> bool:
+    """Remove the growth learning JSON (+ lock); the service recreates defaults."""
+    from realmock.platform.config import PLATFORM_ROOT
+
+    data_dir = PLATFORM_ROOT / "data"
+    removed = False
+    for candidate in (data_dir / LEARNING_FILE_NAME, data_dir / f"{LEARNING_FILE_NAME}.lock"):
+        if candidate.is_file():
+            candidate.unlink(missing_ok=True)
+            removed = True
+    return removed
 
 
 def _clear_sessions_db() -> dict[str, int]:
@@ -67,39 +97,18 @@ def _clear_api_db() -> dict[str, int]:
     return cleared
 
 
-def _clear_uploads(uploads_dir: Path) -> int:
-    """Delete files inside the upload directory; keep the directory itself."""
-    if not uploads_dir.exists():
-        return 0
-    removed = 0
-    for child in sorted(uploads_dir.iterdir()):
-        if child.is_file():
-            child.unlink(missing_ok=True)
-            removed += 1
-    return removed
-
-
-def _clear_learning_sidecar(data_dir: Path) -> bool:
-    """Remove the growth learning JSON (+ lock); the service recreates defaults."""
-    removed = False
-    for candidate in (data_dir / LEARNING_FILE_NAME, data_dir / f"{LEARNING_FILE_NAME}.lock"):
-        if candidate.is_file():
-            candidate.unlink(missing_ok=True)
-            removed = True
-    return removed
-
-
 def clear_all_business_data() -> dict[str, Any]:
     """Wipe user content everywhere; returns per-area counts for the response."""
     from realmock.platform.config import get_settings
 
     settings = get_settings()
-    sessions_db_path = Path(str(settings.sessions_database_url).replace("sqlite:///", ""))
-    data_dir = sessions_db_path.parent if not str(sessions_db_path).startswith(":") else None
-
+    # Files before databases: a filesystem failure then leaves the databases
+    # untouched, so a retry completes the wipe without partial-loss risk.
+    upload_files = _clear_uploads(Path(settings.upload_dir))
+    learning_reset = _clear_learning_sidecar()
     return {
         "sessions_tables": _clear_sessions_db(),
         "api_tables": _clear_api_db(),
-        "upload_files": _clear_uploads(Path(settings.upload_dir)),
-        "learning_reset": _clear_learning_sidecar(data_dir) if data_dir is not None else False,
+        "upload_files": upload_files,
+        "learning_reset": learning_reset,
     }

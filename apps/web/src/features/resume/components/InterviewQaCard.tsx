@@ -8,13 +8,12 @@
  * rows persisted before the structured shape (missing list fields).
  */
 
-import { HelpCircle, SendHorizontal } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { HelpCircle } from "lucide-react";
 import type { InterviewQa } from "../types";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
-import { buildPrepDeepLink } from "../sendToPrep";
 import { EvalRichText } from "./EvalRichText";
+import { SendToPrepButton } from "./SendToPrepButton";
 
 export function InterviewQaCard({
   item,
@@ -27,14 +26,10 @@ export function InterviewQaCard({
   resumeId?: number | null;
 }) {
   const t = useT("resume");
-  const router = useRouter();
   const cn = normalizeCnPunctuation;
   const points = item.answer_points ?? [];
   const followUps = item.follow_ups ?? [];
   const question = cn(item.question ?? "");
-  const sendToPrep = () => {
-    router.push(buildPrepDeepLink(resumeId ?? null, t("sendToPrep.template", { question })));
-  };
   return (
     <div className="eval-qa-card">
       <div className="mb-1.5 flex items-start gap-2">
@@ -43,15 +38,7 @@ export function InterviewQaCard({
           <EvalRichText text={question} />
         </p>
         {question.trim() ? (
-          <button
-            type="button"
-            onClick={sendToPrep}
-            title={t("sendToPrep.action")}
-            aria-label={t("sendToPrep.action")}
-            className="shrink-0 rounded-md border border-surface-border p-1.5 text-ink-subtle transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-          >
-            <SendHorizontal size={12} />
-          </button>
+          <SendToPrepButton question={question} resumeId={resumeId ?? null} />
         ) : null}
       </div>
       {item.intent?.trim() ? (
