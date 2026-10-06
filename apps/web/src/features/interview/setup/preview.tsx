@@ -184,7 +184,7 @@ export function InterviewPreview({
       </div>
 
       {companyName && (
-        <div className="surface-card min-h-0 flex-1 overflow-y-auto p-3.5">
+        <div className="surface-card min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3.5">
           <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink">
             <Building2 size={14} className="text-[var(--primary)]" />
             {t("preview.companyQuestions", { name: companyName })}
@@ -215,14 +215,19 @@ export function InterviewPreview({
           {!briefLoading && brief && (
             <>
               <SectionLabel>{t("preview.style")}</SectionLabel>
-              <p className="mb-2.5 text-[11px] leading-snug text-ink-muted">{brief.style}</p>
+              <p className="mb-2.5 break-words text-[11px] leading-snug text-ink-muted">
+                {brief.style}
+              </p>
 
               {brief.focus_areas.length > 0 && (
                 <>
                   <SectionLabel>{t("preview.focus")}</SectionLabel>
                   <div className="mb-1 flex flex-wrap gap-1">
                     {brief.focus_areas.map((area) => (
-                      <span key={area} className="chip chip-blue !text-[10px]">
+                      <span
+                        key={area}
+                        className="chip chip-blue !whitespace-normal !text-[10px] break-words"
+                      >
                         {area}
                       </span>
                     ))}
@@ -233,7 +238,9 @@ export function InterviewPreview({
               <div className="my-2.5 border-t border-surface-border" />
 
               <SectionLabel>{t("preview.process")}</SectionLabel>
-              <p className="mb-2 text-[11px] leading-snug text-ink-muted">{brief.process}</p>
+              <p className="mb-2 break-words text-[11px] leading-snug text-ink-muted">
+                {brief.process}
+              </p>
             </>
           )}
 
