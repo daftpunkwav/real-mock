@@ -128,6 +128,11 @@ def maybe_migrate_legacy_app_db() -> None:
         return
     if not legacy.is_file():
         return
+    # Only destinations created by this attempt may be cleaned up on
+    # failure: a destination that existed beforehand (possibly just one of
+    # the two, which still enters the migration) may already hold
+    # legitimate data and must survive the failed attempt.
+    pre_existing = {p for p in (api_path, sessions_path) if p.exists()}
     try:
         split_app_db(legacy, api_path, sessions_path)
     except Exception:
@@ -136,5 +141,6 @@ def maybe_migrate_legacy_app_db() -> None:
         )
         # Remove partial outputs so the next startup retries the migration
         # instead of skipping it forever because the destination files exist.
-        api_path.unlink(missing_ok=True)
-        sessions_path.unlink(missing_ok=True)
+        for path in (api_path, sessions_path):
+            if path not in pre_existing:
+                path.unlink(missing_ok=True)

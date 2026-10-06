@@ -124,6 +124,30 @@ class TestDbSplit:
         assert not api_db.exists()
         assert not ses_db.exists()
 
+    def test_maybe_migrate_failure_preserves_preexisting_destinations(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import realmock.platform.services.db_split as ds
+
+        d = tmp_path / "d4"
+        (d / "data").mkdir(parents=True)
+        (d / "data" / "app.db").write_bytes(b"x")
+        monkeypatch.setattr(ds, "PLATFORM_ROOT", d)
+        api_db = d / "data" / "api.db"
+        ses_db = d / "data" / "sessions.db"
+        # Exactly one destination pre-exists (the both-exist guard passes);
+        # its data must survive a failed migration untouched.
+        api_db.write_bytes(b"legitimate")
+
+        def fake_split(*args, **kwargs):
+            ses_db.write_bytes(b"partial-this-attempt")
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(ds, "split_app_db", fake_split)
+        ds.maybe_migrate_legacy_app_db()
+        assert api_db.read_bytes() == b"legitimate"
+        assert not ses_db.exists()
+
     def test_maybe_migrate_branches(self, tmp_path, monkeypatch) -> None:
         import realmock.platform.services.db_split as ds
 
