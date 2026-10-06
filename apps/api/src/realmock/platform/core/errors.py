@@ -158,6 +158,12 @@ CATALOG: dict[str, ErrorSpec] = {
         "This resume is already being parsed",
         "Wait for parsing to finish; the list page updates automatically",
     ),
+    "A1010": ErrorSpec(
+        "A1010",
+        404,
+        "Deep review not run yet",
+        "Run AI Deep Review on this resume first, then export the analysis",
+    ),
     # A2 interview
     "A2001": ErrorSpec(
         "A2001",

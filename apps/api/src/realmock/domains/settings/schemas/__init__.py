@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from realmock.domains.settings.schemas.data import DataClearResponse
 from realmock.domains.settings.schemas.providers import (
     BindingFallback,
     BindingsResponse,
@@ -29,6 +30,7 @@ from realmock.domains.settings.schemas.providers import (
 
 __all__ = [
     "BindingFallback",
+    "DataClearResponse",
     "BindingsResponse",
     "ChannelModelCatalogResponse",
     "GithubStatusResponse",
