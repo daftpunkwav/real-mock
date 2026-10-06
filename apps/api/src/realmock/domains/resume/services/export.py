@@ -53,6 +53,80 @@ def _md_list(label: str, items: list[str]) -> list[str]:
     return lines
 
 
+def _md_interview_drills(analysis: ResumeAnalysis) -> list[str]:
+    if not analysis.interview_qa:
+        return []
+    lines = ["## Interview drills", ""]
+    for i, qa in enumerate(analysis.interview_qa, start=1):
+        lines.append(f"### Q{i}. {qa.question}")
+        lines.append("")
+        if qa.intent:
+            lines.append(f"**Intent**: {qa.intent}")
+        if qa.answer_points:
+            lines.append("**Answer points**:")
+            lines.extend(f"- {p}" for p in qa.answer_points)
+        if qa.follow_ups:
+            lines.append("**Follow-ups**:")
+            lines.extend(f"- {q}" for q in qa.follow_ups)
+        lines.append("")
+    return lines
+
+
+def _md_project_cards(analysis: ResumeAnalysis) -> list[str]:
+    if not analysis.project_cards:
+        return []
+    lines = ["## Project cards", ""]
+    for card in analysis.project_cards:
+        lines.extend([f"### {card.name}", ""])
+        if card.one_line:
+            lines.append(card.one_line)
+            lines.append("")
+        for label, values in (
+            ("Highlights", card.highlights),
+            ("Risks", card.risks),
+        ):
+            if values:
+                lines.append(f"**{label}**:")
+                lines.extend(f"- {v}" for v in values)
+        if card.deep_questions:
+            lines.append("**Must-ask questions**:")
+            for q in card.deep_questions:
+                text = q if isinstance(q, str) else (q.question or "")
+                if text.strip():
+                    lines.append(f"- {text}")
+        lines.append("")
+    return lines
+
+
+def _md_resume_section(row: Any) -> list[str]:
+    profile = getattr(row, "parsed_profile", None)
+    try:
+        profile = json.loads(profile) if isinstance(profile, str) else (profile or {})
+    except json.JSONDecodeError:
+        profile = {}
+    lines = ["## Resume", ""]
+    if not isinstance(profile, dict) or not profile:
+        lines.extend(["_(Parsed profile unavailable.)_", ""])
+        return lines
+    lines.append(f"**Name**: {profile.get('name') or '-'}")
+    if profile.get("summary"):
+        lines.append(f"**Summary**: {profile['summary']}")
+    lines.append("")
+    skills = profile.get("skills") or []
+    if skills:
+        lines.append("**Skills**: " + ", ".join(str(s) for s in skills))
+        lines.append("")
+    projects = profile.get("projects") or []
+    if projects:
+        lines.append("**Projects**:")
+        for p in projects:
+            name = p.get("name") if isinstance(p, dict) else None
+            desc = p.get("description") if isinstance(p, dict) else None
+            lines.append(f"- {name or desc or '-'}")
+        lines.append("")
+    return lines
+
+
 def analysis_markdown(row: Any, analysis: ResumeAnalysis, *, include_resume: bool) -> str:
     """Render the deep-review analysis as a structured markdown document."""
     lines = [f"# Resume Deep Review — {row.filename}", ""]
@@ -88,73 +162,15 @@ def analysis_markdown(row: Any, analysis: ResumeAnalysis, *, include_resume: boo
         if values:
             lines.extend(_md_list(label, list(values)))
 
-    if analysis.interview_qa:
-        lines.extend(["## Interview drills", ""])
-        for i, qa in enumerate(analysis.interview_qa, start=1):
-            lines.append(f"### Q{i}. {qa.question}")
-            lines.append("")
-            if qa.intent:
-                lines.append(f"**Intent**: {qa.intent}")
-            if qa.answer_points:
-                lines.append("**Answer points**:")
-                lines.extend(f"- {p}" for p in qa.answer_points)
-            if qa.follow_ups:
-                lines.append("**Follow-ups**:")
-                lines.extend(f"- {q}" for q in qa.follow_ups)
-            lines.append("")
+    lines.extend(_md_interview_drills(analysis))
 
     if analysis.project_deep_dive:
         lines.extend(_md_list("Project deep dive", list(analysis.project_deep_dive)))
 
-    if analysis.project_cards:
-        lines.extend(["## Project cards", ""])
-        for card in analysis.project_cards:
-            lines.extend([f"### {card.name}", ""])
-            if card.one_line:
-                lines.append(card.one_line)
-                lines.append("")
-            for label, values in (
-                ("Highlights", card.highlights),
-                ("Risks", card.risks),
-            ):
-                if values:
-                    lines.append(f"**{label}**:")
-                    lines.extend(f"- {v}" for v in values)
-            if card.deep_questions:
-                lines.append("**Must-ask questions**:")
-                for q in card.deep_questions:
-                    text = q if isinstance(q, str) else (q.question or "")
-                    if text.strip():
-                        lines.append(f"- {text}")
-            lines.append("")
+    lines.extend(_md_project_cards(analysis))
 
     if include_resume:
-        profile = getattr(row, "parsed_profile", None)
-        try:
-            profile = json.loads(profile) if isinstance(profile, str) else (profile or {})
-        except json.JSONDecodeError:
-            profile = {}
-        lines.extend(["## Resume", ""])
-        if isinstance(profile, dict) and profile:
-            lines.append(f"**Name**: {profile.get('name') or '-'}")
-            if profile.get("summary"):
-                lines.append(f"**Summary**: {profile['summary']}")
-            lines.append("")
-            skills = profile.get("skills") or []
-            if skills:
-                lines.append("**Skills**: " + ", ".join(str(s) for s in skills))
-                lines.append("")
-            projects = profile.get("projects") or []
-            if projects:
-                lines.append("**Projects**:")
-                for p in projects:
-                    name = p.get("name") if isinstance(p, dict) else None
-                    desc = p.get("description") if isinstance(p, dict) else None
-                    lines.append(f"- {name or desc or '-'}")
-                lines.append("")
-        else:
-            lines.append("_(Parsed profile unavailable.)_")
-            lines.append("")
+        lines.extend(_md_resume_section(row))
 
     return "\n".join(lines).rstrip() + "\n"
 
