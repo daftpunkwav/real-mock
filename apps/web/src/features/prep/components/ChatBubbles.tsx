@@ -5,7 +5,7 @@
  */
 
 import { memo } from "react";
-import { Bot, OctagonX, User } from "lucide-react";
+import { Bot, OctagonX } from "lucide-react";
 import { useT } from "@/i18n";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import type { PrepChatMessage } from "../types";
@@ -98,7 +98,7 @@ export const AssistantBubble = memo(function AssistantBubble({
   );
 });
 
-/** Plain user message bubble with copy/fork/retract actions. */
+/** Plain user message bubble with copy/fork/retract actions (no avatar row). */
 export function UserBubble({
   msg,
   actions,
@@ -107,10 +107,7 @@ export function UserBubble({
   actions?: UserBubbleActions;
 }) {
   return (
-    <div className="flex flex-row-reverse gap-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-white">
-        <User size={14} />
-      </span>
+    <div className="flex flex-row-reverse">
       <div className="min-w-0 max-w-[88%]">
         <div className="rounded-md rounded-br-sm bg-[var(--primary)] px-3.5 py-2.5 text-[13px] leading-relaxed text-white">
           <MarkdownContent content={msg.content} className="markdown-user" />
