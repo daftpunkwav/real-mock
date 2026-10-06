@@ -51,6 +51,15 @@ interface DialogActionsProps {
   onCancel: () => void;
 }
 
+/** Confirm stays locked while in flight and until the acknowledgement box is ticked. */
+function isConfirmLocked(
+  busy: boolean,
+  requireAcknowledgement: boolean,
+  acknowledged: boolean,
+): boolean {
+  return busy || (requireAcknowledgement && !acknowledged);
+}
+
 /** Cancel/confirm button row; owns labels, cancel-focus, and the locked logic. */
 const DialogActions = ({
   confirmLabel,
@@ -68,9 +77,8 @@ const DialogActions = ({
   useEffect(() => {
     cancelButtonRef.current?.focus({ preventScroll: true });
   }, []);
-  // Explicit labels override the localized defaults. Confirm stays locked
-  // while in flight and until the acknowledgement box is ticked.
-  const locked = busy || (requireAcknowledgement && !acknowledged);
+  // Explicit labels override the localized defaults.
+  const locked = isConfirmLocked(busy, requireAcknowledgement, acknowledged);
   return (
     <div className="mt-4 flex gap-2">
       <button
