@@ -60,14 +60,16 @@ export function usePrepDeepLink({
     startPrep,
     sendMessage,
   });
-  stateRef.current = {
-    resumes,
-    resumesLoaded,
-    sessionsLoaded,
-    setResumeId,
-    startPrep,
-    sendMessage,
-  };
+  useEffect(() => {
+    stateRef.current = {
+      resumes,
+      resumesLoaded,
+      sessionsLoaded,
+      setResumeId,
+      startPrep,
+      sendMessage,
+    };
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -109,6 +111,5 @@ export function usePrepDeepLink({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 }

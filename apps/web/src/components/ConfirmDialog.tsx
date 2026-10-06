@@ -52,12 +52,14 @@ export function ConfirmDialog({
   const dismissLabel = cancelLabel ?? t("confirm.cancel");
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const [acknowledged, setAcknowledged] = useState(false);
-
   // Reset the checkbox whenever the dialog reopens so a previous session's
-  // tick cannot silently unlock a fresh confirmation.
-  useEffect(() => {
+  // tick cannot silently unlock a fresh confirmation. Render-phase adjust:
+  // resetting in an effect would fire a cascading re-render instead.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) setAcknowledged(false);
-  }, [open]);
+  }
 
   const confirmLocked = busy || (requireAcknowledgement && !acknowledged);
 
