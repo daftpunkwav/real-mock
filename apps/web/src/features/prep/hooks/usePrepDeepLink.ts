@@ -46,6 +46,42 @@ const CATALOG_WAIT_MS = 120;
 /** Upper bound on the catalog wait: a hung backend must not spin forever. */
 const CATALOG_WAIT_TIMEOUT_MS = 10_000;
 
+/** Snapshot of the hook collaborators the deep-link runner reads while waiting. */
+interface CatalogState {
+  resumes: ResumePickerItem[];
+  resumesLoaded: boolean;
+  sessionsLoaded: boolean;
+  setResumeId: (id: number | null) => void;
+  startPrep: (resumeOverride?: number) => Promise<number | null>;
+  sendMessage: (
+    text: string,
+    sessionId?: number,
+    skipUserMessage?: boolean,
+    opts?: { assumeViewing?: boolean },
+  ) => Promise<boolean>;
+}
+
+/**
+ * Poll until the resumes/sessions catalogs settle (bounded by the timeout and
+ * cut short by unmount); returns the latest snapshot to run against.
+ */
+const waitForCatalogs = async (
+  stateRef: React.MutableRefObject<CatalogState>,
+  aliveRef: React.MutableRefObject<boolean>,
+): Promise<CatalogState> => {
+  const startedAt = Date.now();
+  let catalogs = stateRef.current;
+  while (
+    aliveRef.current &&
+    (!catalogs.resumesLoaded || !catalogs.sessionsLoaded) &&
+    Date.now() - startedAt <= CATALOG_WAIT_TIMEOUT_MS
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
+    catalogs = stateRef.current;
+  }
+  return catalogs;
+};
+
 export const usePrepDeepLink = ({
   resumes,
   resumesLoaded,
@@ -96,14 +132,7 @@ export const usePrepDeepLink = ({
           try {
             // Wait for the resume catalog the pairing decision depends on; the
             // sessions gate only orders backend traffic (we always create here).
-            const startedAt = Date.now();
-            let catalogs = stateRef.current;
-            while (!catalogs.resumesLoaded || !catalogs.sessionsLoaded) {
-              if (Date.now() - startedAt > CATALOG_WAIT_TIMEOUT_MS) break;
-              await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
-              if (!aliveRef.current) return;
-              catalogs = stateRef.current;
-            }
+            const catalogs = await waitForCatalogs(stateRef, aliveRef);
             const pairedResumeId =
               link.resumeId != null && catalogs.resumes.some((r) => r.id === link.resumeId)
                 ? link.resumeId
@@ -122,7 +151,6 @@ export const usePrepDeepLink = ({
               );
             }
           }
-          return;
         };
         // Fire-and-forget: errors are handled inside; keep the effect sync.
         void run();

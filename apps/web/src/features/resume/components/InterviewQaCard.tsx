@@ -15,7 +15,40 @@ import { useT } from "@/i18n";
 import { EvalRichText } from "./EvalRichText";
 import { SendToPrepButton } from "./SendToPrepButton";
 
-export function InterviewQaCard({
+/** Bulleted subsection of a drill card (answer points or follow-ups). */
+const QaBulletList = ({
+  items,
+  label,
+  icon,
+  muted,
+}: {
+  items: string[];
+  label: string;
+  icon?: React.ReactNode;
+  muted?: boolean;
+}) => {
+  const cn = normalizeCnPunctuation;
+  return (
+    <div className="eval-qa-row">
+      <p className="eval-qa-sublabel">
+        {icon}
+        {label}
+      </p>
+      <ul className="eval-list eval-list-tight">
+        {items.map((item, j) => (
+          <li key={j}>
+            <span className="eval-list-mark">·</span>
+            <span className={muted ? "eval-list-body text-ink-muted" : "eval-list-body"}>
+              <EvalRichText text={cn(item)} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export const InterviewQaCard = ({
   item,
   index,
   resumeId,
@@ -24,7 +57,7 @@ export function InterviewQaCard({
   index: number;
   /** Owning resume id; pairs the seeded prep session with the same resume. */
   resumeId?: number | null;
-}) {
+}) => {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   const points = item.answer_points ?? [];
@@ -49,39 +82,15 @@ export function InterviewQaCard({
           <EvalRichText text={cn(item.intent)} />
         </p>
       ) : null}
-      {points.length > 0 && (
-        <div className="eval-qa-row">
-          <p className="eval-qa-sublabel">{t("interview.qaPoints")}</p>
-          <ul className="eval-list eval-list-tight">
-            {points.map((point, j) => (
-              <li key={j}>
-                <span className="eval-list-mark">·</span>
-                <span className="eval-list-body">
-                  <EvalRichText text={cn(point)} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {points.length > 0 && <QaBulletList items={points} label={t("interview.qaPoints")} />}
       {followUps.length > 0 && (
-        <div className="eval-qa-row">
-          <p className="eval-qa-sublabel">
-            <HelpCircle size={11} />
-            {t("interview.qaFollowUps")}
-          </p>
-          <ul className="eval-list eval-list-tight">
-            {followUps.map((q, j) => (
-              <li key={j}>
-                <span className="eval-list-mark">·</span>
-                <span className="eval-list-body text-ink-muted">
-                  <EvalRichText text={cn(q)} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <QaBulletList
+          items={followUps}
+          label={t("interview.qaFollowUps")}
+          icon={<HelpCircle size={11} />}
+          muted
+        />
       )}
     </div>
   );
-}
+};

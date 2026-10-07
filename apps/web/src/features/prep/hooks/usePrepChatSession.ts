@@ -73,14 +73,42 @@ const loadHistory = async (id: number): Promise<PrepHistoryMessage[]> => {
   }
 };
 
+/** True when the summary reports at least one token count. */
+const hasReportedTokens = (s: PrepSessionSummary): boolean =>
+  Boolean(s.prompt_tokens || s.completion_tokens || s.cached_tokens);
+
 /** Build usage stats; null when the summary carries none. */
 const usageFromSummary = (s: PrepSessionSummary | undefined): PrepUsageStats | null => {
-  if (!s || !(s.prompt_tokens || s.completion_tokens || s.cached_tokens)) return null;
+  if (!s || !hasReportedTokens(s)) return null;
   return {
     prompt_tokens: s.prompt_tokens ?? 0,
     completion_tokens: s.completion_tokens ?? 0,
     cached_tokens: s.cached_tokens ?? 0,
   };
+};
+
+/** True while this op is still the latest create/restore/switch in flight. */
+const isLatestOp = (
+  aliveRef: React.MutableRefObject<boolean>,
+  seq: number,
+  switchSeqRef: React.MutableRefObject<number>,
+): boolean => aliveRef.current && seq === switchSeqRef.current;
+
+/** Localized message for a failed session create. */
+const createSessionError = (e: unknown, translator: (key: string) => string): string =>
+  e instanceof Error ? formatApiError(e) : translator("sessions.createFailed");
+
+/** Only the latest op may clear the shared restoring flags. */
+const releaseRestoringFlags = (
+  seq: number,
+  switchSeqRef: React.MutableRefObject<number>,
+  restoringRef: React.MutableRefObject<boolean>,
+  setRestoring: (v: boolean) => void,
+): void => {
+  if (seq === switchSeqRef.current) {
+    restoringRef.current = false;
+    setRestoring(false);
+  }
 };
 
 interface UsePrepChatSessionOptions {
@@ -356,29 +384,23 @@ export const usePrepChatSession = ({
       // lets cross-page entry (deep link) bind the session immediately, before
       // the selector state has committed.
       const seq = ++switchSeqRef.current;
+      const boundResumeId = resumeOverride ?? resumeId;
       setStarting(true);
       setPrepError("");
       try {
-        const { id } = await api.createPrepSession({
-          resume_id: resumeOverride ?? resumeId ?? undefined,
-        });
-        if (!aliveRef.current || seq !== switchSeqRef.current) return null;
+        const { id } = await api.createPrepSession({ resume_id: boundResumeId ?? undefined });
+        if (!isLatestOp(aliveRef, seq, switchSeqRef)) return null;
         adoptCreatedSession(id);
         return id;
       } catch (e) {
         // A superseded create's failure must not paint an error over the view
         // the user has since switched to.
-        if (!aliveRef.current || seq !== switchSeqRef.current) return null;
-        setPrepError(e instanceof Error ? formatApiError(e) : translator("sessions.createFailed"));
+        if (!isLatestOp(aliveRef, seq, switchSeqRef)) return null;
+        setPrepError(createSessionError(e, translator));
         return null;
       } finally {
         setStarting(false);
-        // Only the latest op owns the restoring flags; a superseded create left
-        // them to whoever superseded it.
-        if (seq === switchSeqRef.current) {
-          restoringRef.current = false;
-          setRestoring(false);
-        }
+        releaseRestoringFlags(seq, switchSeqRef, restoringRef, setRestoring);
       }
     },
     [adoptCreatedSession, resumeId],
