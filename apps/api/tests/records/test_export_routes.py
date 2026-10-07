@@ -51,7 +51,7 @@ def _snapshot(**over) -> dict:
         "status": "completed",
         "current_phase": "summary",
         "overall_score": 72,
-        "access_token": None,
+        "access_token": None,  # nosec B105 - tokenless test snapshot
         "messages": "[]",
         "ledger": {"frozen": True, "turns": []},
     }
@@ -191,7 +191,10 @@ def test_report_export_failed_report_is_409(db) -> None:
 def test_export_token_mismatch_is_403(db) -> None:
     _override_sessions_db(db)
     try:
-        with export_client(_catalog(_snapshot(access_token="secret")), lift_token=False) as client:
+        with export_client(
+            _catalog(_snapshot(access_token="secret")),  # nosec B106 - fake test token
+            lift_token=False,
+        ) as client:
             resp = client.get("/api/v1/records/export/record/1?format=md")
     finally:
         _unoverride_sessions_db()
