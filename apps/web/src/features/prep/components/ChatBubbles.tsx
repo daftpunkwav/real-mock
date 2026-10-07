@@ -99,13 +99,13 @@ export const AssistantBubble = memo(function AssistantBubble({
 });
 
 /** Plain user message bubble with copy/fork/retract actions (no avatar row). */
-export function UserBubble({
+export const UserBubble = ({
   msg,
   actions,
 }: {
   msg: PrepChatMessage;
   actions?: UserBubbleActions;
-}) {
+}) => {
   return (
     <div className="flex flex-row-reverse">
       <div className="min-w-0 max-w-[88%]">
@@ -122,4 +122,4 @@ export function UserBubble({
       </div>
     </div>
   );
-}
+};

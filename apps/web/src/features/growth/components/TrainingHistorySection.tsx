@@ -7,7 +7,7 @@ import { formatDateTime, useT } from "@/i18n";
 import { Section } from "./Section";
 
 /** Training history block: records are listed by session, and the empty state guides the start of the interview. */
-export function TrainingHistorySection({
+export const TrainingHistorySection = ({
   records,
   selectedId,
   onSelect,
@@ -15,7 +15,7 @@ export function TrainingHistorySection({
   records: GrowthRecord[];
   selectedId: number | null;
   onSelect: (id: number) => void;
-}) {
+}) => {
   const t = useT("growth");
   return (
     <Section title={t("history.title")} icon={Award}>
@@ -82,4 +82,4 @@ export function TrainingHistorySection({
       )}
     </Section>
   );
-}
+};

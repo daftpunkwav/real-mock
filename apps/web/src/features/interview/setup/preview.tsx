@@ -34,7 +34,7 @@ import {
 /** Debounce before fetching/generating: merges keystrokes on custom fields. */
 const BRIEF_DEBOUNCE_MS = 600;
 
-export function PreviewRow({
+export const PreviewRow = ({
   icon: Icon,
   label,
   value,
@@ -42,7 +42,7 @@ export function PreviewRow({
   icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
   label: string;
   value: string;
-}) {
+}) => {
   return (
     <div className="flex items-start gap-1.5">
       <Icon size={12} className="mt-0.5 shrink-0 text-ink-subtle" strokeWidth={1.75} />
@@ -52,13 +52,13 @@ export function PreviewRow({
       </div>
     </div>
   );
-}
+};
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+const SectionLabel = ({ children }: { children: React.ReactNode }) => {
   return <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-ink-subtle">{children}</p>;
-}
+};
 
-export function InterviewPreview({
+export const InterviewPreview = ({
   options,
   config,
   resumes,
@@ -66,7 +66,7 @@ export function InterviewPreview({
   options: Options;
   config: InterviewConfig;
   resumes: ResumePickerItem[];
-}) {
+}) => {
   const t = useT("interview");
   const { locale } = useLocale();
   const selectedCompanyRaw = options.companies.find((c) => c.id === config.company);
@@ -253,4 +253,4 @@ export function InterviewPreview({
       )}
     </div>
   );
-}
+};

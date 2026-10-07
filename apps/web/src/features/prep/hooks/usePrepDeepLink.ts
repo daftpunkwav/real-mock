@@ -46,14 +46,14 @@ const CATALOG_WAIT_MS = 120;
 /** Upper bound on the catalog wait: a hung backend must not spin forever. */
 const CATALOG_WAIT_TIMEOUT_MS = 10_000;
 
-export function usePrepDeepLink({
+export const usePrepDeepLink = ({
   resumes,
   resumesLoaded,
   sessionsLoaded,
   setResumeId,
   startPrep,
   sendMessage,
-}: UsePrepDeepLinkOptions) {
+}: UsePrepDeepLinkOptions) => {
   // Hold the latest collaborators in refs so the disowned async below reads
   // fresh values while it waits, without re-arming the one-shot effect.
   const stateRef = useRef({
@@ -80,50 +80,57 @@ export function usePrepDeepLink({
   const aliveRef = useRef(true);
 
   useEffect(() => {
+    // StrictMode remount: the first run's async was disowned by our cleanup;
+    // re-own it so it keeps going. (The URL is already stripped, so the
+    // consumed check must come before the param parse.)
     if (consumedRef.current) {
-      // StrictMode remount: the first run's async was disowned by our
-      // cleanup; re-own it so it keeps going. (The URL is already stripped,
-      // so this check must come before the param parse.)
       aliveRef.current = true;
-      return;
-    }
-    const link = parsePrepDeepLink(window.location.search);
-    if (!link) return;
-    consumedRef.current = true;
-    // Consume first: a slow catalog must not leave a re-seedable URL behind.
-    window.history.replaceState(null, "", window.location.pathname);
-    void (async () => {
-      const t = getTranslator("prep");
-      try {
-        // Wait for the resume catalog the pairing decision depends on; the
-        // sessions gate only orders backend traffic (we always create here).
-        const startedAt = Date.now();
-        let s = stateRef.current;
-        while (!s.resumesLoaded || !s.sessionsLoaded) {
-          if (Date.now() - startedAt > CATALOG_WAIT_TIMEOUT_MS) break;
-          await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
-          if (!aliveRef.current) return;
-          s = stateRef.current;
-        }
-        const pairedResumeId =
-          link.resumeId != null && s.resumes.some((r) => r.id === link.resumeId)
-            ? link.resumeId
-            : null;
-        if (pairedResumeId != null) s.setResumeId(pairedResumeId);
-        const sid = await s.startPrep(pairedResumeId ?? undefined);
-        if (!aliveRef.current) return;
-        if (sid == null) return; // create failed; its error state is already set
-        // assumeViewing: startPrep resolved before the re-render committed the
-        // new session to viewingRef — same bypass handleQuickPrompt uses.
-        await s.sendMessage(link.question, sid, false, { assumeViewing: true });
-      } catch (e) {
-        if (aliveRef.current) {
-          toast.error(e instanceof Error ? formatApiError(e) : t("chat.sendFailedFallback"));
-        }
+    } else {
+      const link = parsePrepDeepLink(window.location.search);
+      if (link) {
+        consumedRef.current = true;
+        // Consume first: a slow catalog must not leave a re-seedable URL.
+        window.history.replaceState(null, "", window.location.pathname);
+        const run = async () => {
+          const translator = getTranslator("prep");
+          try {
+            // Wait for the resume catalog the pairing decision depends on; the
+            // sessions gate only orders backend traffic (we always create here).
+            const startedAt = Date.now();
+            let catalogs = stateRef.current;
+            while (!catalogs.resumesLoaded || !catalogs.sessionsLoaded) {
+              if (Date.now() - startedAt > CATALOG_WAIT_TIMEOUT_MS) break;
+              await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
+              if (!aliveRef.current) return;
+              catalogs = stateRef.current;
+            }
+            const pairedResumeId =
+              link.resumeId != null && catalogs.resumes.some((r) => r.id === link.resumeId)
+                ? link.resumeId
+                : null;
+            if (pairedResumeId != null) catalogs.setResumeId(pairedResumeId);
+            const sid = await catalogs.startPrep(pairedResumeId ?? undefined);
+            if (!aliveRef.current) return;
+            if (sid == null) return; // create failed; its error state is already set
+            // assumeViewing: startPrep resolved before the re-render committed
+            // the new session to viewingRef — same bypass handleQuickPrompt uses.
+            await catalogs.sendMessage(link.question, sid, false, { assumeViewing: true });
+          } catch (e) {
+            if (aliveRef.current) {
+              toast.error(
+                e instanceof Error ? formatApiError(e) : translator("chat.sendFailedFallback"),
+              );
+            }
+          }
+          return;
+        };
+        run();
       }
-    })();
+    }
+    // The cleanup only disowns a run that actually started; for a no-link or
+    // re-own pass the flag flip is harmless.
     return () => {
       aliveRef.current = false;
     };
   }, []);
-}
+};

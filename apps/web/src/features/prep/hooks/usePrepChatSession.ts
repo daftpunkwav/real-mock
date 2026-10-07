@@ -25,12 +25,12 @@ const HISTORY_RETRY_MS = 800;
 const HEALTH_PROBE_MS = 5000;
 
 /** True only for transport-level failures (backend unreachable), not HTTP errors. */
-function isUnreachable(error: unknown): boolean {
+const isUnreachable = (error: unknown): boolean => {
   return error instanceof ApiError && error.code === "NET0000";
-}
+};
 
 /** Backend liveness probe to disambiguate outage from transient blip. */
-async function isBackendReachable(): Promise<boolean> {
+const isBackendReachable = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -45,10 +45,10 @@ async function isBackendReachable(): Promise<boolean> {
   } catch {
     return false;
   }
-}
+};
 
 /** History load with one retry on transport failure, then a probed diagnosis. */
-async function loadHistory(id: number): Promise<PrepHistoryMessage[]> {
+const loadHistory = async (id: number): Promise<PrepHistoryMessage[]> => {
   try {
     return await api.prepMessages(id);
   } catch (error) {
@@ -71,17 +71,17 @@ async function loadHistory(id: number): Promise<PrepHistoryMessage[]> {
       );
     }
   }
-}
+};
 
 /** Build usage stats; null when the summary carries none. */
-function usageFromSummary(s: PrepSessionSummary | undefined): PrepUsageStats | null {
+const usageFromSummary = (s: PrepSessionSummary | undefined): PrepUsageStats | null => {
   if (!s || !(s.prompt_tokens || s.completion_tokens || s.cached_tokens)) return null;
   return {
     prompt_tokens: s.prompt_tokens ?? 0,
     completion_tokens: s.completion_tokens ?? 0,
     cached_tokens: s.cached_tokens ?? 0,
   };
-}
+};
 
 interface UsePrepChatSessionOptions {
   setMessages: React.Dispatch<React.SetStateAction<PrepChatMessage[]>>;
@@ -96,7 +96,7 @@ interface UsePrepChatSessionOptions {
   setBackendCount: (sid: number, n: number) => void;
 }
 
-export function usePrepChatSession({
+export const usePrepChatSession = ({
   setMessages,
   setAskDialog,
   nextMsgId,
@@ -105,7 +105,7 @@ export function usePrepChatSession({
   refreshSessions,
   syncBackendCount,
   setBackendCount,
-}: UsePrepChatSessionOptions) {
+}: UsePrepChatSessionOptions) => {
   /**
    * Seed a session's tracked backend length from a fresh server list.
    *
@@ -465,4 +465,4 @@ export function usePrepChatSession({
     startPrep,
     handleNewSession,
   };
-}
+};

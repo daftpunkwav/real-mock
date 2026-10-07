@@ -13,7 +13,7 @@ import { withContentKeys } from "../contentKey";
 import { EvalRichText } from "./EvalRichText";
 import { SendToPrepButton } from "./SendToPrepButton";
 
-export function EvalNumberedStack({
+export const EvalNumberedStack = ({
   title,
   items,
   prefix,
@@ -24,7 +24,7 @@ export function EvalNumberedStack({
   prefix: string;
   /** Owning resume id; enables the per-row "send to prep" action. */
   resumeId?: number | null;
-}) {
+}) => {
   return (
     <section className="eval-section">
       <span className="eval-label">{title}</span>
@@ -44,4 +44,4 @@ export function EvalNumberedStack({
       </div>
     </section>
   );
-}
+};

@@ -127,7 +127,7 @@ interface UsePrepChat {
   submitRate: (data: RateSubmit) => Promise<void>;
 }
 
-export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat {
+export const usePrepChat = ({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat => {
   const resources = usePrepResources();
   const { locale } = useLocale();
   const [messages, setMessages] = useState<PrepChatMessage[]>([]);
@@ -512,4 +512,4 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     closeRate: actions.closeRate,
     submitRate: actions.submitRate,
   };
-}
+};

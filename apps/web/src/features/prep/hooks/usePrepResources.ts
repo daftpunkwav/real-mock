@@ -12,7 +12,7 @@ import { getTranslator } from "@/i18n/resolve";
 import type { PrepSessionSummary, ResumePickerItem } from "@/lib/api/contract";
 import type { ModelProfile, ReasoningEffort } from "@/types";
 
-export function usePrepResources() {
+export const usePrepResources = () => {
   const [resumes, setResumes] = useState<ResumePickerItem[]>([]);
   const [resumeId, setResumeId] = useState<number | null>(null);
   const [resumeLoadError, setResumeLoadError] = useState("");
@@ -95,4 +95,4 @@ export function usePrepResources() {
     defaultChatProfile,
     refreshSessions,
   };
-}
+};
