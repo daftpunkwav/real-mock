@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { recordsHttp, resumeHttp, settingsHttp } from "@/lib/api/clients";
 import { DataManagementPanel } from "../DataManagementPanel";
@@ -11,14 +11,6 @@ vi.mock("@/lib/api/clients", () => ({
   settingsHttp: { clearAllData: vi.fn() },
 }));
 vi.mock("@/components/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/components/ConfirmDialog", () => ({
-  ConfirmDialog: ({ open, onConfirm }: { open: boolean; onConfirm: () => void }) =>
-    open ? (
-      <button type="button" onClick={onConfirm}>
-        confirm wipe
-      </button>
-    ) : null,
-}));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -37,8 +29,11 @@ afterEach(cleanup);
 
 async function confirmWipe() {
   fireEvent.click(screen.getByRole("button", { name: "data.wipe.action" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "data.wipe.acknowledge" }));
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "confirm wipe" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "data.wipe.action" }),
+    );
   });
 }
 
@@ -110,4 +105,23 @@ it("cancels the post-wipe picker requests on unmount", async () => {
   });
   expect(readSession).not.toHaveBeenCalled();
   expect(readResume).not.toHaveBeenCalled();
+});
+
+it("restores focus to the enabled wipe trigger after a successful wipe", async () => {
+  sessions.mockResolvedValue([]);
+  resumes.mockResolvedValue([]);
+  const pendingWipe = deferred<Awaited<ReturnType<typeof settingsHttp.clearAllData>>>();
+  wipe.mockReturnValue(pendingWipe.promise);
+  render(<DataManagementPanel />);
+  const trigger = screen.getByRole("button", { name: "data.wipe.action" }) as HTMLButtonElement;
+  trigger.focus();
+  await confirmWipe();
+  expect(trigger.disabled).toBe(true);
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await act(async () => {
+    pendingWipe.resolve({} as never);
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(trigger.disabled).toBe(false);
+  expect(document.activeElement).toBe(trigger);
 });

@@ -139,6 +139,7 @@ export function DataManagementPanel() {
     try {
       await settingsHttp.clearAllData();
       toast.success(t("data.wipe.done"));
+      setWiping(false);
       setWipeOpen(false);
       // The pickers now point at deleted rows: refetch so a follow-up export
       // selects from what actually exists.

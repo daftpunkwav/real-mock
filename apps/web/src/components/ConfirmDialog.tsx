@@ -146,6 +146,16 @@ export const ConfirmDialog = ({
 
   useEffect(() => {
     if (!open) return;
+    const activeElement = document.activeElement;
+    return () => {
+      if (activeElement instanceof HTMLElement && activeElement.isConnected) {
+        activeElement.focus({ preventScroll: true });
+      }
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     // Focus the acknowledgement checkbox in that mode (the user must act on
     // it); the cancel button stays the safe default otherwise.
     const focusTarget = requireAcknowledgement
