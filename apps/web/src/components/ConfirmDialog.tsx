@@ -154,6 +154,7 @@ export const ConfirmDialog = ({
     // preventScroll: the dialog is a fixed overlay already in view; a plain
     // focus() would yank a scrolled page toward the overlay's document slot.
     focusTarget?.focus({ preventScroll: true });
+    /** Escape maps to cancel unless a confirmation is in flight. */
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onCancel();
     };

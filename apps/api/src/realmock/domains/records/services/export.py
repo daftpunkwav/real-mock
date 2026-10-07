@@ -98,10 +98,12 @@ def _load_report(db: Session, session_id: int) -> ReportResponse:
 
 
 def _bullet_list(items: list[str], indent: str = "") -> list[str]:
+    """Render items as markdown bullets, flattening embedded newlines."""
     return [f"{indent}- {item.replace(chr(10), ' ')}" for item in items]
 
 
 def _score_table(report: DebriefReport) -> list[str]:
+    """Render the score breakdown as a markdown table."""
     b = report.score_breakdown
     rows = [
         "| Dimension | Score |",
@@ -117,52 +119,49 @@ def _score_table(report: DebriefReport) -> list[str]:
     return rows
 
 
+def _turn_note_fields_md(note: Any) -> list[str]:
+    """Render one turn note's QA summary and guidance fields."""
+    lines: list[str] = []
+    if note.question:
+        lines.append(f"**Question**: {note.question}")
+    if note.question_intent:
+        lines.append(f"**Intent**: {note.question_intent}")
+    if note.answer_summary:
+        lines.append(f"**Answer summary**: {note.answer_summary}")
+    if note.score:
+        lines.append(f"**Score**: {note.score}")
+    for label, values in (
+        ("Problems", note.problems),
+        ("Knowledge points", note.knowledge_points),
+        ("Exercises", note.exercises),
+    ):
+        if values:
+            lines.append(f"**{label}**:")
+            lines.extend(_bullet_list(values))
+    if note.reference_answer:
+        lines.append(f"**Reference answer**: {note.reference_answer}")
+    if note.how_to_answer:
+        lines.append(f"**How to answer**: {note.how_to_answer}")
+    if note.knowledge_brushup:
+        lines.append(f"**Brush-up**: {note.knowledge_brushup}")
+    return lines
+
+
 def _turn_notes_md(report: DebriefReport) -> list[str]:
+    """Render all turn notes as one markdown subsection per turn."""
     lines: list[str] = []
     for i, note in enumerate(report.turn_notes, start=1):
         phase = f" · {note.phase}" if note.phase else ""
         lines.append(f"### Turn {i}{phase}")
         lines.append("")
-        if note.question:
-            lines.append(f"**Question**: {note.question}")
-        if note.question_intent:
-            lines.append(f"**Intent**: {note.question_intent}")
-        if note.answer_summary:
-            lines.append(f"**Answer summary**: {note.answer_summary}")
-        if note.score:
-            lines.append(f"**Score**: {note.score}")
-        for label, values in (
-            ("Problems", note.problems),
-            ("Knowledge points", note.knowledge_points),
-            ("Exercises", note.exercises),
-        ):
-            if values:
-                lines.append(f"**{label}**:")
-                lines.extend(_bullet_list(values))
-        if note.reference_answer:
-            lines.append(f"**Reference answer**: {note.reference_answer}")
-        if note.how_to_answer:
-            lines.append(f"**How to answer**: {note.how_to_answer}")
-        if note.knowledge_brushup:
-            lines.append(f"**Brush-up**: {note.knowledge_brushup}")
+        lines.extend(_turn_note_fields_md(note))
         lines.append("")
     return lines
 
 
-def report_markdown(meta: dict[str, Any], report: DebriefReport) -> str:
-    """Render the debrief report as a structured markdown document."""
-    title = meta.get("role") or "Mock interview"
-    company = meta.get("company") or ""
-    lines = [f"# {title} — Interview Report", ""]
-    if company:
-        lines.append(f"**Company**: {company}")
-    lines.append(f"**Overall score**: {report.overall_score}")
-    if report.verdict:
-        lines.append(f"**Verdict**: {report.verdict}")
-    lines.append("")
-    lines.extend(_score_table(report))
-    lines.append("")
-
+def _report_prose_md(report: DebriefReport) -> list[str]:
+    """Render named prose sections that carry content."""
+    lines: list[str] = []
     prose_blocks = (
         ("Verdict reasoning", report.verdict_reasoning),
         ("Face analysis", report.face_analysis_summary),
@@ -171,7 +170,12 @@ def report_markdown(meta: dict[str, Any], report: DebriefReport) -> str:
     for label, text in prose_blocks:
         if text.strip():
             lines.extend([f"## {label}", "", text, ""])
+    return lines
 
+
+def _report_lists_md(report: DebriefReport) -> list[str]:
+    """Render named bullet-list sections that carry content."""
+    lines: list[str] = []
     list_blocks = (
         ("Highlights", report.highlights),
         ("Key problems", report.key_problems),
@@ -189,6 +193,25 @@ def report_markdown(meta: dict[str, Any], report: DebriefReport) -> str:
             lines.extend([f"## {label}", ""])
             lines.extend(_bullet_list(values))
             lines.append("")
+    return lines
+
+
+def report_markdown(meta: dict[str, Any], report: DebriefReport) -> str:
+    """Render the debrief report as a structured markdown document."""
+    title = meta.get("role") or "Mock interview"
+    company = meta.get("company") or ""
+    lines = [f"# {title} — Interview Report", ""]
+    if company:
+        lines.append(f"**Company**: {company}")
+    lines.append(f"**Overall score**: {report.overall_score}")
+    if report.verdict:
+        lines.append(f"**Verdict**: {report.verdict}")
+    lines.append("")
+    lines.extend(_score_table(report))
+    lines.append("")
+
+    lines.extend(_report_prose_md(report))
+    lines.extend(_report_lists_md(report))
 
     if report.phase_summary:
         lines.extend(["## Phase summary", ""])
@@ -231,18 +254,15 @@ def build_report_export_json(db: Session, session_id: int, access: str | None) -
 
 
 def _ledger_turns(ledger: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Collect dict-shaped turns from a ledger document (empty when absent)."""
     if not ledger:
         return []
     turns = ledger.get("turns")
     return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []
 
 
-def build_record_export(db: Session, session_id: int, access: str | None) -> DataExportFile:
-    """Markdown transcript: interviewer lines vs candidate replies, no AI notes."""
-    snap = _require_finished_snapshot(db, session_id, access)
-    ledger = get_session_catalog().get_ledger(db, session_id)
-    turns = _ledger_turns(ledger)
-    meta = _meta(snap)
+def _record_header_md(meta: dict[str, Any]) -> list[str]:
+    """Render the transcript header block (title, company, date, scope note)."""
     title = meta.get("role") or "Mock interview"
     lines = [f"# {title} — Interview Record", ""]
     company = meta.get("company") or ""
@@ -253,19 +273,33 @@ def build_record_export(db: Session, session_id: int, access: str | None) -> Dat
     lines.extend(
         ["", "_(Interviewer questions and candidate replies only; no AI evaluation.)_", ""]
     )
+    return lines
+
+
+def _record_turn_md(index: int, turn: dict[str, Any]) -> list[str]:
+    """Render one ledger turn as speaker-labelled paragraphs."""
+    lines = [f"## Turn {index}", ""]
+    raw_assistant = turn.get("assistant")
+    assistant = raw_assistant if isinstance(raw_assistant, dict) else {}
+    text = str(assistant.get("text") or "").strip()
+    if text and assistant.get("visible", True):
+        lines.extend(["**Interviewer**:", "", text, ""])
+    raw_user = turn.get("user")
+    user = raw_user if isinstance(raw_user, dict) else {}
+    reply = str(user.get("text") or "").strip()
+    if reply:
+        lines.extend(["**Candidate**:", "", reply, ""])
+    return lines
+
+
+def build_record_export(db: Session, session_id: int, access: str | None) -> DataExportFile:
+    """Markdown transcript: interviewer lines vs candidate replies, no AI notes."""
+    snap = _require_finished_snapshot(db, session_id, access)
+    ledger = get_session_catalog().get_ledger(db, session_id)
+    turns = _ledger_turns(ledger)
+    lines = _record_header_md(_meta(snap))
     for i, turn in enumerate(turns, start=1):
-        lines.append(f"## Turn {i}")
-        lines.append("")
-        raw_assistant = turn.get("assistant")
-        assistant = raw_assistant if isinstance(raw_assistant, dict) else {}
-        text = str(assistant.get("text") or "").strip()
-        if text and assistant.get("visible", True):
-            lines.extend(["**Interviewer**:", "", text, ""])
-        raw_user = turn.get("user")
-        user = raw_user if isinstance(raw_user, dict) else {}
-        reply = str(user.get("text") or "").strip()
-        if reply:
-            lines.extend(["**Candidate**:", "", reply, ""])
+        lines.extend(_record_turn_md(i, turn))
     return DataExportFile(
         filename=f"interview-record-{session_id}.md",
         mime=MIME_MARKDOWN,

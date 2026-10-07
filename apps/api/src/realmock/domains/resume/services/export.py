@@ -47,6 +47,7 @@ def _resume_meta(row: Any) -> dict[str, Any]:
 
 
 def _md_list(label: str, items: list[str]) -> list[str]:
+    """Render a labelled markdown bullet section, skipping blank items."""
     lines = [f"## {label}", ""]
     lines.extend(f"- {item.replace(chr(10), ' ')}" for item in items if str(item).strip())
     lines.append("")
@@ -72,29 +73,36 @@ def _md_interview_drills(analysis: ResumeAnalysis) -> list[str]:
     return lines
 
 
+def _md_project_card(card: Any) -> list[str]:
+    """Render one project card: summary, highlights, risks, must-ask drills."""
+    lines = [f"### {card.name}", ""]
+    if card.one_line:
+        lines.append(card.one_line)
+        lines.append("")
+    for label, values in (
+        ("Highlights", card.highlights),
+        ("Risks", card.risks),
+    ):
+        if values:
+            lines.append(f"**{label}**:")
+            lines.extend(f"- {v}" for v in values)
+    if card.deep_questions:
+        lines.append("**Must-ask questions**:")
+        for q in card.deep_questions:
+            text = q if isinstance(q, str) else (q.question or "")
+            if text.strip():
+                lines.append(f"- {text}")
+    lines.append("")
+    return lines
+
+
 def _md_project_cards(analysis: ResumeAnalysis) -> list[str]:
+    """Render all project deep-dive cards."""
     if not analysis.project_cards:
         return []
     lines = ["## Project cards", ""]
     for card in analysis.project_cards:
-        lines.extend([f"### {card.name}", ""])
-        if card.one_line:
-            lines.append(card.one_line)
-            lines.append("")
-        for label, values in (
-            ("Highlights", card.highlights),
-            ("Risks", card.risks),
-        ):
-            if values:
-                lines.append(f"**{label}**:")
-                lines.extend(f"- {v}" for v in values)
-        if card.deep_questions:
-            lines.append("**Must-ask questions**:")
-            for q in card.deep_questions:
-                text = q if isinstance(q, str) else (q.question or "")
-                if text.strip():
-                    lines.append(f"- {text}")
-        lines.append("")
+        lines.extend(_md_project_card(card))
     return lines
 
 
@@ -121,7 +129,21 @@ def _md_profile_value(value: Any, *, indent: str = "") -> list[str]:
     return [f"{indent}{value}"]
 
 
+def _md_profile_headline(profile: dict[str, Any]) -> list[str]:
+    """Render the profile's name, summary, and skill line."""
+    lines = [f"**Name**: {profile.get('name') or '-'}"]
+    if profile.get("summary"):
+        lines.append(f"**Summary**: {profile['summary']}")
+    lines.append("")
+    skills = profile.get("skills") or []
+    if skills:
+        lines.append("**Skills**: " + ", ".join(str(s) for s in skills))
+        lines.append("")
+    return lines
+
+
 def _md_resume_section(row: Any) -> list[str]:
+    """Fold the parsed resume into the export (all non-empty fields)."""
     profile = getattr(row, "parsed_profile", None)
     try:
         profile = json.loads(profile) if isinstance(profile, str) else (profile or {})
@@ -131,20 +153,31 @@ def _md_resume_section(row: Any) -> list[str]:
     if not isinstance(profile, dict) or not profile:
         lines.extend(["_(Parsed profile unavailable.)_", ""])
         return lines
-    lines.append(f"**Name**: {profile.get('name') or '-'}")
-    if profile.get("summary"):
-        lines.append(f"**Summary**: {profile['summary']}")
-    lines.append("")
-    skills = profile.get("skills") or []
-    if skills:
-        lines.append("**Skills**: " + ", ".join(str(s) for s in skills))
-        lines.append("")
+    lines.extend(_md_profile_headline(profile))
     for key, value in profile.items():
         if key in {"name", "summary", "skills"} or not value:
             continue
         lines.append(f"**{key.replace('_', ' ').title()}**:")
         lines.extend(_md_profile_value(value))
         lines.append("")
+    return lines
+
+
+def _md_analysis_lists(analysis: ResumeAnalysis) -> list[str]:
+    """Render the analysis's named bullet-list sections."""
+    lines: list[str] = []
+    list_blocks = (
+        ("Strengths", analysis.strengths),
+        ("Weaknesses", analysis.weaknesses),
+        ("Red flags", analysis.red_flags),
+        ("Improvement suggestions", analysis.improvement_suggestions),
+        ("Predicted questions", analysis.predicted_questions),
+        ("Interview risk areas", analysis.interview_risk_areas),
+        ("Market insights", analysis.market_insights),
+    )
+    for label, values in list_blocks:
+        if values:
+            lines.extend(_md_list(label, list(values)))
     return lines
 
 
@@ -173,19 +206,7 @@ def analysis_markdown(row: Any, analysis: ResumeAnalysis, *, include_resume: boo
             lines.append(f"| {key} | {score} |")
         lines.append("")
 
-    list_blocks = (
-        ("Strengths", analysis.strengths),
-        ("Weaknesses", analysis.weaknesses),
-        ("Red flags", analysis.red_flags),
-        ("Improvement suggestions", analysis.improvement_suggestions),
-        ("Predicted questions", analysis.predicted_questions),
-        ("Interview risk areas", analysis.interview_risk_areas),
-        ("Market insights", analysis.market_insights),
-    )
-    for label, values in list_blocks:
-        if values:
-            lines.extend(_md_list(label, list(values)))
-
+    lines.extend(_md_analysis_lists(analysis))
     lines.extend(_md_interview_drills(analysis))
 
     if analysis.project_deep_dive:
