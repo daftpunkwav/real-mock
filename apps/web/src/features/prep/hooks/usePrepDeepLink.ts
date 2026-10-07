@@ -124,7 +124,8 @@ export const usePrepDeepLink = ({
           }
           return;
         };
-        run();
+        // Fire-and-forget: errors are handled inside; keep the effect sync.
+        void run();
       }
     }
     // The cleanup only disowns a run that actually started; for a no-link or

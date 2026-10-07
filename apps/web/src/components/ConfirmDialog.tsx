@@ -23,13 +23,16 @@ const AcknowledgementCheckbox = ({
   label,
   checked,
   onChange,
+  inputRef,
 }: {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 }) => (
   <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-md border border-surface-border bg-surface-alt px-3 py-2.5">
     <input
+      ref={inputRef}
       type="checkbox"
       className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--danger)]"
       checked={checked}
@@ -47,6 +50,8 @@ interface DialogActionsProps {
   requireAcknowledgement: boolean;
   acknowledged: boolean;
   busy: boolean;
+  /** Ref to the cancel button; the dialog focuses it on open (safe action). */
+  cancelButtonRef: React.RefObject<HTMLButtonElement | null>;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -58,23 +63,18 @@ const isConfirmLocked = (
   acknowledged: boolean,
 ): boolean => busy || (requireAcknowledgement && !acknowledged);
 
-/** Cancel/confirm button row; owns labels, cancel-focus, and the locked logic. */
+/** Cancel/confirm button row; owns labels and the locked logic. */
 const DialogActions = ({
   confirmLabel,
   cancelLabel,
   requireAcknowledgement,
   acknowledged,
   busy,
+  cancelButtonRef,
   onConfirm,
   onCancel,
 }: DialogActionsProps) => {
   const translator = useT("common");
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  // preventScroll: the dialog is a fixed overlay already in view; a plain
-  // focus() would yank a scrolled page toward the overlay's document slot.
-  useEffect(() => {
-    cancelButtonRef.current?.focus({ preventScroll: true });
-  }, []);
   // Explicit labels override the localized defaults.
   const locked = isConfirmLocked(busy, requireAcknowledgement, acknowledged);
   return (
@@ -133,6 +133,8 @@ export const ConfirmDialog = ({
 }) => {
   useDialogScrollLock(open);
   const [acknowledged, setAcknowledged] = useState(false);
+  const acknowledgementInputRef = useRef<HTMLInputElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   // Reset the checkbox whenever the dialog reopens so a previous session's
   // tick cannot silently unlock a fresh confirmation. Render-phase adjust:
   // resetting in an effect would fire a cascading re-render instead.
@@ -144,6 +146,14 @@ export const ConfirmDialog = ({
 
   useEffect(() => {
     if (!open) return;
+    // Focus the acknowledgement checkbox in that mode (the user must act on
+    // it); the cancel button stays the safe default otherwise.
+    const focusTarget = requireAcknowledgement
+      ? acknowledgementInputRef.current
+      : cancelButtonRef.current;
+    // preventScroll: the dialog is a fixed overlay already in view; a plain
+    // focus() would yank a scrolled page toward the overlay's document slot.
+    focusTarget?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onCancel();
     };
@@ -151,7 +161,7 @@ export const ConfirmDialog = ({
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, busy, onCancel]);
+  }, [open, busy, onCancel, requireAcknowledgement]);
 
   if (!open) return null;
 
@@ -183,6 +193,7 @@ export const ConfirmDialog = ({
             label={acknowledgementLabel}
             checked={acknowledged}
             onChange={setAcknowledged}
+            inputRef={acknowledgementInputRef}
           />
         ) : null}
 
@@ -192,6 +203,7 @@ export const ConfirmDialog = ({
           requireAcknowledgement={requireAcknowledgement}
           acknowledged={acknowledged}
           busy={busy}
+          cancelButtonRef={cancelButtonRef}
           onConfirm={onConfirm}
           onCancel={onCancel}
         />
