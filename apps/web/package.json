@@ -61,6 +61,6 @@
     "@redocly/openapi-core": "1.34.20",
     "undici": "^8.11.2",
     "braces": "^3.0.3",
-    "katex": "^0.16.21"
+    "katex": "^0.18.2"
   }
 }
