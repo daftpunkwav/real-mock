@@ -4,6 +4,11 @@
 # "medium" counts JSX conditional expressions, so every React component in
 # this codebase trips it. Complexity is still guarded locally by review and
 # eslint; raise issues for genuinely high-risk functions only.
+#
+# Python long lines are deliberately tolerated (ruff ignores E501 and the
+# formatter keeps long string literals as-is, e.g. the error-catalog
+# messages a frontend drift guard parses verbatim), so the analyzer limit
+# is raised past the few known long literals.
 
 version = 1
 
@@ -14,3 +19,10 @@ enabled = true
   [analyzers.meta]
   plugins = ["react"]
   cyclomatic_complexity_threshold = "very-high"
+
+[[analyzers]]
+name = "python"
+enabled = true
+
+  [analyzers.meta]
+  max_line_length = 120
