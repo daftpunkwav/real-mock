@@ -30,6 +30,31 @@ export interface UserBubbleActions {
   onRetract?: (msg: PrepChatMessage) => void;
 }
 
+/** Streaming status line shown above the answer while tokens arrive. */
+const StreamingStatus = ({ text }: { text: string }) => (
+  <p className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--primary)]" />
+    {text}
+  </p>
+);
+
+/** Stopped badge: a different label when the stream ended without an answer. */
+const StoppedBadge = ({ empty }: { empty: boolean }) => {
+  const t = useT("prep");
+  return (
+    <p className="flex items-center gap-1.5 text-[11px] text-ink-subtle">
+      <OctagonX size={12} />
+      {empty ? t("chat.stoppedEmpty") : t("chat.stopped")}
+    </p>
+  );
+};
+
+/** Search result cards, rendered only when the message carries groups. */
+const MessageSearchCards = ({ groups }: { groups?: PrepChatMessage["searchGroups"] }) => {
+  if (!groups || groups.length === 0) return null;
+  return <SearchResultCards groups={groups} />;
+};
+
 /** Memoized assistant bubble rendering streamed answer and trace. */
 export const AssistantBubble = memo(function AssistantBubble({
   msg,
@@ -38,7 +63,6 @@ export const AssistantBubble = memo(function AssistantBubble({
   msg: PrepChatMessage;
   actions?: AssistantBubbleActions;
 }) {
-  const t = useT("prep");
   // Width grows with streamed content up to the bubble cap, then locks:
   // expanding/collapsing the timeline must not resize the bubble.
   const { ref: widthRef, minWidth } = useMonotonicWidth<HTMLDivElement>();
@@ -46,6 +70,7 @@ export const AssistantBubble = memo(function AssistantBubble({
   // left the panel narrow with dead space to the right. Plain text replies
   // keep the hugging fit.
   const hasTrace = !!msg.trace && msg.trace.length > 0;
+  const stopped = msg.stopped && !msg.streaming;
   return (
     <div className="flex gap-2.5">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--info-soft)] text-[var(--info-ink)]">
@@ -57,32 +82,14 @@ export const AssistantBubble = memo(function AssistantBubble({
         className={`min-w-0 max-w-[88%] rounded-md rounded-bl-sm border border-surface-border bg-surface-alt px-3.5 py-2.5 text-[13px] leading-relaxed text-ink ${hasTrace ? "w-full" : "w-fit"}`}
       >
         <div className="space-y-2">
-          {msg.streaming && msg.statusText ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-ink-muted">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--primary)]" />
-              {msg.statusText}
-            </p>
-          ) : null}
+          {msg.streaming && msg.statusText ? <StreamingStatus text={msg.statusText} /> : null}
           {hasTrace && msg.trace ? (
             <TraceTimeline trace={msg.trace} streaming={!!msg.streaming} />
           ) : null}
-          {msg.searchGroups && msg.searchGroups.length > 0 ? (
-            <SearchResultCards groups={msg.searchGroups} />
-          ) : null}
+          <MessageSearchCards groups={msg.searchGroups} />
           {msg.ask ? <AskViewCard ask={msg.ask} /> : null}
           <ThinkAnswerMessage content={msg.content} streaming={!!msg.streaming} />
-          {!msg.content && msg.stopped && !msg.streaming ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-ink-subtle">
-              <OctagonX size={12} />
-              {t("chat.stoppedEmpty")}
-            </p>
-          ) : null}
-          {msg.stopped && !msg.streaming && msg.content ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-ink-subtle">
-              <OctagonX size={12} />
-              {t("chat.stopped")}
-            </p>
-          ) : null}
+          {stopped ? <StoppedBadge empty={!msg.content} /> : null}
         </div>
         {actions && msg.backendIndex !== undefined ? (
           <AssistantMessageActions

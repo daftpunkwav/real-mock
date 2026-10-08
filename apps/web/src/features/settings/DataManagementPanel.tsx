@@ -36,6 +36,36 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+/** Label shown for one session row in the item picker. */
+function sessionLabel(s: SessionHistoryItem): string {
+  const date = (s.created_at || s.started_at || "").slice(0, 10);
+  const who = [s.role, s.company].filter(Boolean).join(" · ");
+  return `#${s.id}${who ? ` ${who}` : ""}${date ? ` ${date}` : ""}`;
+}
+
+/** Result of one picker fetch: the rows plus the first id to preselect. */
+interface PickedList<T> {
+  rows: T[];
+  firstId: number | null;
+}
+
+/**
+ * Fetch one picker list under the given alive guard: null-safe rows on
+ * success, an empty list on failure. Returns the snapshot to commit.
+ */
+async function fetchPickerList<T extends { id: number }>(
+  alive: () => boolean,
+  load: () => Promise<T[]>,
+): Promise<PickedList<T>> {
+  try {
+    const fetched = await load();
+    const rows = alive() && Array.isArray(fetched) ? fetched : [];
+    return { rows, firstId: rows[0]?.id ?? null };
+  } catch {
+    return { rows: alive() ? [] : [], firstId: null };
+  }
+}
+
 export function DataManagementPanel() {
   const t = useT("settings");
   const tc = useT("common");
@@ -60,28 +90,17 @@ export function DataManagementPanel() {
     activeLoadCleanup.current = () => {
       alive = false;
     };
-    recordsHttp
-      .listSessions()
-      .then((rows) => {
-        if (!alive) return;
-        const list = Array.isArray(rows) ? rows : [];
-        setSessions(list);
-        setSessionId(list[0]?.id ?? null);
-      })
-      .catch(() => {
-        if (alive) setSessions([]);
-      });
-    resumeHttp
-      .listResumes()
-      .then((rows) => {
-        if (!alive) return;
-        const list = Array.isArray(rows) ? rows : [];
-        setResumes(list);
-        setResumeId(list[0]?.id ?? null);
-      })
-      .catch(() => {
-        if (alive) setResumes([]);
-      });
+    const isAlive = () => alive;
+    fetchPickerList(isAlive, () => recordsHttp.listSessions()).then(({ rows, firstId }) => {
+      if (!alive) return;
+      setSessions(rows);
+      setSessionId(firstId);
+    });
+    fetchPickerList(isAlive, () => resumeHttp.listResumes()).then(({ rows, firstId }) => {
+      if (!alive) return;
+      setResumes(rows);
+      setResumeId(firstId);
+    });
     return activeLoadCleanup.current;
   }, []);
 
@@ -101,12 +120,6 @@ export function DataManagementPanel() {
   const resumeList = resumes ?? [];
   const itemReady =
     kind === "analysis" ? resumesReady && resumeId != null : sessionsReady && sessionId != null;
-
-  const sessionLabel = useCallback((s: SessionHistoryItem) => {
-    const date = (s.created_at || s.started_at || "").slice(0, 10);
-    const who = [s.role, s.company].filter(Boolean).join(" · ");
-    return `#${s.id}${who ? ` ${who}` : ""}${date ? ` ${date}` : ""}`;
-  }, []);
 
   const handleExport = async () => {
     if (exporting) return;

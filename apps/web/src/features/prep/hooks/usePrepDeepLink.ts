@@ -46,20 +46,9 @@ const CATALOG_WAIT_MS = 120;
 /** Upper bound on the catalog wait: a hung backend must not spin forever. */
 const CATALOG_WAIT_TIMEOUT_MS = 10_000;
 
-/** Snapshot of the hook collaborators the deep-link runner reads while waiting. */
-interface CatalogState {
-  resumes: ResumePickerItem[];
-  resumesLoaded: boolean;
-  sessionsLoaded: boolean;
-  setResumeId: (id: number | null) => void;
-  startPrep: (resumeOverride?: number) => Promise<number | null>;
-  sendMessage: (
-    text: string,
-    sessionId?: number,
-    skipUserMessage?: boolean,
-    opts?: { assumeViewing?: boolean },
-  ) => Promise<boolean>;
-}
+/** Snapshot of the hook collaborators the deep-link runner reads while waiting;
+ * carries the exact collaborators declared by the hook options. */
+type CatalogState = UsePrepDeepLinkOptions;
 
 /**
  * Poll until the resumes/sessions catalogs settle (bounded by the timeout and

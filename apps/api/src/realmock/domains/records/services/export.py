@@ -130,6 +130,19 @@ def _turn_note_fields_md(note: Any) -> list[str]:
         lines.append(f"**Answer summary**: {note.answer_summary}")
     if note.score:
         lines.append(f"**Score**: {note.score}")
+    lines.extend(_turn_note_lists_md(note))
+    if note.reference_answer:
+        lines.append(f"**Reference answer**: {note.reference_answer}")
+    if note.how_to_answer:
+        lines.append(f"**How to answer**: {note.how_to_answer}")
+    if note.knowledge_brushup:
+        lines.append(f"**Brush-up**: {note.knowledge_brushup}")
+    return lines
+
+
+def _turn_note_lists_md(note: Any) -> list[str]:
+    """Render a turn note's list-shaped guidance fields."""
+    lines: list[str] = []
     for label, values in (
         ("Problems", note.problems),
         ("Knowledge points", note.knowledge_points),
@@ -138,12 +151,6 @@ def _turn_note_fields_md(note: Any) -> list[str]:
         if values:
             lines.append(f"**{label}**:")
             lines.extend(_bullet_list(values))
-    if note.reference_answer:
-        lines.append(f"**Reference answer**: {note.reference_answer}")
-    if note.how_to_answer:
-        lines.append(f"**How to answer**: {note.how_to_answer}")
-    if note.knowledge_brushup:
-        lines.append(f"**Brush-up**: {note.knowledge_brushup}")
     return lines
 
 

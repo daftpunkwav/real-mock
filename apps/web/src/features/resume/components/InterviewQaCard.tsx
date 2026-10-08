@@ -15,7 +15,8 @@ import { useT } from "@/i18n";
 import { EvalRichText } from "./EvalRichText";
 import { SendToPrepButton } from "./SendToPrepButton";
 
-/** Bulleted subsection of a drill card (answer points or follow-ups). */
+/** Bulleted subsection of a drill card (answer points or follow-ups);
+ * renders nothing when the list is empty. */
 const QaBulletList = ({
   items,
   label,
@@ -28,6 +29,7 @@ const QaBulletList = ({
   muted?: boolean;
 }) => {
   const cn = normalizeCnPunctuation;
+  if (items.length === 0) return null;
   return (
     <div className="eval-qa-row">
       <p className="eval-qa-sublabel">
@@ -79,22 +81,6 @@ const QaIntentLine = ({ intent }: { intent?: string }) => {
   );
 };
 
-/** Optional bullet section that renders only when the list has items. */
-const QaOptionalList = ({
-  items,
-  label,
-  icon,
-  muted,
-}: {
-  items: string[];
-  label: string;
-  icon?: React.ReactNode;
-  muted?: boolean;
-}) => {
-  if (items.length === 0) return null;
-  return <QaBulletList items={items} label={label} icon={icon} muted={muted} />;
-};
-
 export const InterviewQaCard = ({
   item,
   index,
@@ -113,8 +99,8 @@ export const InterviewQaCard = ({
     <div className="eval-qa-card">
       <QaCardHeader index={index} question={question} resumeId={resumeId ?? null} />
       <QaIntentLine intent={item.intent} />
-      <QaOptionalList items={points} label={t("interview.qaPoints")} />
-      <QaOptionalList
+      <QaBulletList items={points} label={t("interview.qaPoints")} />
+      <QaBulletList
         items={followUps}
         label={t("interview.qaFollowUps")}
         icon={<HelpCircle size={11} />}
