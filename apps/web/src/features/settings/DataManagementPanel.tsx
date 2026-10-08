@@ -192,6 +192,27 @@ function SessionPicker({
   );
 }
 
+/** Arguments identifying one export the user asked for. */
+interface ExportRequest {
+  kind: ExportKind;
+  format: ExportFormat;
+  sessionId: number | null;
+  resumeId: number | null;
+  includeResume: boolean;
+}
+
+/** Fetch the export file for one request, or null when its item is unset. */
+async function requestExportFile(req: ExportRequest) {
+  if (req.kind === "analysis") {
+    if (req.resumeId == null) return null;
+    return resumeHttp.exportAnalysis(req.resumeId, req.format, req.includeResume);
+  }
+  if (req.sessionId == null) return null;
+  return req.kind === "report"
+    ? recordsHttp.exportReport(req.sessionId, req.format)
+    : recordsHttp.exportRecord(req.sessionId, req.format);
+}
+
 /** Export card: kind/item/format pickers plus the download action. */
 function ExportCard({
   sessions,
@@ -217,22 +238,14 @@ function ExportCard({
     if (exporting) return;
     setExporting(true);
     try {
-      let file: { filename: string; content: string; mime: string };
-      if (kind === "analysis") {
-        const rid = resumeId;
-        if (rid == null) return;
-        file = await resumeHttp.exportAnalysis(rid, format, includeResume);
-      } else {
-        const sid = sessionId;
-        if (sid == null) return;
-        file =
-          kind === "report"
-            ? await recordsHttp.exportReport(sid, format)
-            : await recordsHttp.exportRecord(sid, format);
+      const file = await requestExportFile({ kind, format, sessionId, resumeId, includeResume });
+      // A null file means the kind's picker lost its selection mid-flight;
+      // the item is simply not exported.
+      if (file) {
+        downloadTextFile(file.filename, file.content, file.mime);
+        toast.success(t("data.export.done", { name: file.filename }));
+        onExported();
       }
-      downloadTextFile(file.filename, file.content, file.mime);
-      toast.success(t("data.export.done", { name: file.filename }));
-      onExported();
     } catch (err) {
       toast.error(err instanceof Error ? formatApiError(err) : t("data.export.failed"));
     } finally {
