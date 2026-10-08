@@ -50,6 +50,9 @@ const CATALOG_WAIT_TIMEOUT_MS = 10_000;
  * carries the exact collaborators declared by the hook options. */
 type CatalogState = UsePrepDeepLinkOptions;
 
+type CatalogWaitOutcome =
+  { status: "loaded" | "timeout"; catalogs: CatalogState } | { status: "canceled" };
+
 /** True when either catalog is still loading. */
 const catalogsPending = (c: CatalogState): boolean => !c.resumesLoaded || !c.sessionsLoaded;
 /** True once the bounded wait has expired. */
@@ -58,19 +61,20 @@ const waitExpired = (startedAt: number): boolean =>
 
 /**
  * Poll until the resumes/sessions catalogs settle (bounded by the timeout and
- * cut short by unmount); returns the latest snapshot to run against.
+ * cut short by unmount); distinguishes loaded catalogs, timeout, and cancellation.
  */
 const waitForCatalogs = async (
   stateRef: React.MutableRefObject<CatalogState>,
   aliveRef: React.MutableRefObject<boolean>,
-): Promise<CatalogState> => {
+): Promise<CatalogWaitOutcome> => {
   const startedAt = Date.now();
   let catalogs = stateRef.current;
   while (aliveRef.current && catalogsPending(catalogs) && !waitExpired(startedAt)) {
     await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
     catalogs = stateRef.current;
   }
-  return catalogs;
+  if (!aliveRef.current) return { status: "canceled" };
+  return { status: catalogsPending(catalogs) ? "timeout" : "loaded", catalogs };
 };
 
 /** Linked resume id when it exists in the loaded catalog; null otherwise. */
@@ -130,11 +134,16 @@ export const usePrepDeepLink = ({
           try {
             // Wait for the resume catalog the pairing decision depends on; the
             // sessions gate only orders backend traffic (we always create here).
-            const catalogs = await waitForCatalogs(stateRef, aliveRef);
+            const outcome = await waitForCatalogs(stateRef, aliveRef);
             // The wait also exits on a real unmount; creating the session then
             // would leave a stray backend row the user never asked for.
-            if (!aliveRef.current) return;
-            const pairedResumeId = resolvePairedResumeId(link, catalogs.resumes);
+            if (outcome.status === "canceled" || !aliveRef.current) return;
+            const catalogs = outcome.catalogs;
+            // An unfinished catalog cannot tell us the linked resume is missing.
+            const pairedResumeId =
+              outcome.status === "timeout"
+                ? link.resumeId
+                : resolvePairedResumeId(link, catalogs.resumes);
             if (pairedResumeId != null) catalogs.setResumeId(pairedResumeId);
             const sid = await catalogs.startPrep(pairedResumeId ?? undefined);
             if (!aliveRef.current) return;

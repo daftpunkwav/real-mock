@@ -7,8 +7,8 @@
  */
 
 import { StrictMode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { parsePrepDeepLink } from "@/features/resume/sendToPrep";
 import { usePrepDeepLink } from "../hooks/usePrepDeepLink";
@@ -53,6 +53,10 @@ beforeEach(() => {
   sendMessage.mockResolvedValue(true);
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("usePrepDeepLink", () => {
   it("creates a paired session and sends the seeded question", async () => {
     pushLink(7, "drill me");
@@ -91,12 +95,62 @@ describe("usePrepDeepLink", () => {
   it("waits for the catalogs before consuming the pairing", async () => {
     pushLink(7, "drill me");
     const { rerender } = renderHook((opts: HookOpts) => usePrepDeepLink(opts), {
-      initialProps: baseOpts({ resumesLoaded: false, sessionsLoaded: false }),
+      initialProps: baseOpts({ resumes: [], resumesLoaded: false, sessionsLoaded: false }),
     });
     await new Promise((r) => setTimeout(r, 10));
     expect(startPrep).not.toHaveBeenCalled();
     rerender(baseOpts());
-    await waitFor(() => expect(startPrep).toHaveBeenCalled());
+    await waitFor(() => expect(startPrep).toHaveBeenCalledWith(7));
+    expect(setResumeId).toHaveBeenCalledWith(7);
+  });
+
+  it("preserves the linked resume when the catalog wait times out", async () => {
+    vi.useFakeTimers();
+    pushLink(999, "drill me");
+    renderHook(() => usePrepDeepLink(baseOpts({ resumesLoaded: false })));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9960);
+    });
+    expect(startPrep).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+
+    expect(setResumeId).toHaveBeenCalledWith(999);
+    expect(startPrep).toHaveBeenCalledExactlyOnceWith(999);
+    expect(sendMessage).toHaveBeenCalledWith("drill me", 42, false, { assumeViewing: true });
+  });
+
+  it("does not select a resume or start a session after unmounting during the wait", async () => {
+    vi.useFakeTimers();
+    pushLink(7, "drill me");
+    const { unmount } = renderHook(() => usePrepDeepLink(baseOpts({ sessionsLoaded: false })));
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_080);
+    });
+
+    expect(setResumeId).not.toHaveBeenCalled();
+    expect(startPrep).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("keeps waiting through StrictMode cleanup and starts once the catalogs load", async () => {
+    vi.useFakeTimers();
+    pushLink(7, "drill me");
+    const { rerender } = renderHook((opts: HookOpts) => usePrepDeepLink(opts), {
+      initialProps: baseOpts({ resumes: [], resumesLoaded: false, sessionsLoaded: false }),
+      wrapper: StrictMode,
+    });
+    expect(startPrep).not.toHaveBeenCalled();
+    rerender(baseOpts());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+
+    expect(startPrep).toHaveBeenCalledExactlyOnceWith(7);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
   it("survives StrictMode double-mount without cancelling or double-sending", async () => {
