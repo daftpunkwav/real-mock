@@ -79,20 +79,31 @@ def _md_project_card(card: Any) -> list[str]:
     if card.one_line:
         lines.append(card.one_line)
         lines.append("")
-    for label, values in (
-        ("Highlights", card.highlights),
-        ("Risks", card.risks),
-    ):
-        if values:
-            lines.append(f"**{label}**:")
-            lines.extend(f"- {v}" for v in values)
-    if card.deep_questions:
-        lines.append("**Must-ask questions**:")
-        for q in card.deep_questions:
-            text = q if isinstance(q, str) else (q.question or "")
-            if text.strip():
-                lines.append(f"- {text}")
+    lines.extend(_md_card_bullets("Highlights", card.highlights))
+    lines.extend(_md_card_bullets("Risks", card.risks))
+    lines.extend(_md_card_questions(card.deep_questions))
     lines.append("")
+    return lines
+
+
+def _md_card_bullets(label: str, values: Any) -> list[str]:
+    """Render a titled bullet block, or nothing when the list is empty."""
+    if not values:
+        return []
+    lines = [f"**{label}**:"]
+    lines.extend(f"- {v}" for v in values)
+    return lines
+
+
+def _md_card_questions(questions: Any) -> list[str]:
+    """Render the must-ask drill questions, dropping blank entries."""
+    if not questions:
+        return []
+    lines = ["**Must-ask questions**:"]
+    for q in questions:
+        text = q if isinstance(q, str) else (q.question or "")
+        if text.strip():
+            lines.append(f"- {text}")
     return lines
 
 
@@ -106,26 +117,36 @@ def _md_project_cards(analysis: ResumeAnalysis) -> list[str]:
     return lines
 
 
+def _md_profile_dict(profile: dict[str, Any], *, indent: str) -> list[str]:
+    """Render one level of profile keys, recursing into nested containers."""
+    lines = []
+    for key, item in profile.items():
+        label = str(key).replace("_", " ").title()
+        if isinstance(item, (dict, list)):
+            lines.append(f"{indent}- **{label}**:")
+            lines.extend(_md_profile_value(item, indent=indent + "  "))
+        else:
+            lines.append(f"{indent}- **{label}**: {item}")
+    return lines
+
+
+def _md_profile_list(items: list[Any], *, indent: str) -> list[str]:
+    """Render list items, joining each item's own lines under one bullet."""
+    lines = []
+    for item in items:
+        item_lines = _md_profile_value(item, indent=indent + "  ")
+        if item_lines:
+            lines.append(f"{indent}- {item_lines[0][len(indent) + 2 :]}")
+            lines.extend(item_lines[1:])
+    return lines
+
+
 def _md_profile_value(value: Any, *, indent: str = "") -> list[str]:
     """Render flexible profile fields without dropping nested resume details."""
     if isinstance(value, dict):
-        lines = []
-        for key, item in value.items():
-            label = str(key).replace("_", " ").title()
-            if isinstance(item, (dict, list)):
-                lines.append(f"{indent}- **{label}**:")
-                lines.extend(_md_profile_value(item, indent=indent + "  "))
-            else:
-                lines.append(f"{indent}- **{label}**: {item}")
-        return lines
+        return _md_profile_dict(value, indent=indent)
     if isinstance(value, list):
-        lines = []
-        for item in value:
-            item_lines = _md_profile_value(item, indent=indent + "  ")
-            if item_lines:
-                lines.append(f"{indent}- {item_lines[0][len(indent) + 2 :]}")
-                lines.extend(item_lines[1:])
-        return lines
+        return _md_profile_list(list(value), indent=indent)
     return [f"{indent}{value}"]
 
 

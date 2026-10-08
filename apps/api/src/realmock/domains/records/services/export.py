@@ -268,6 +268,15 @@ def _ledger_turns(ledger: dict[str, Any] | None) -> list[dict[str, Any]]:
     return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []
 
 
+def _record_source(
+    db: Session, session_id: int, access: str | None
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Session meta plus its ledger turns, shared by the record exporters."""
+    snap = _require_finished_snapshot(db, session_id, access)
+    ledger = get_session_catalog().get_ledger(db, session_id)
+    return _meta(snap), _ledger_turns(ledger)
+
+
 def _record_header_md(meta: dict[str, Any]) -> list[str]:
     """Render the transcript header block (title, company, date, scope note)."""
     title = meta.get("role") or "Mock interview"
@@ -301,10 +310,8 @@ def _record_turn_md(index: int, turn: dict[str, Any]) -> list[str]:
 
 def build_record_export(db: Session, session_id: int, access: str | None) -> DataExportFile:
     """Markdown transcript: interviewer lines vs candidate replies, no AI notes."""
-    snap = _require_finished_snapshot(db, session_id, access)
-    ledger = get_session_catalog().get_ledger(db, session_id)
-    turns = _ledger_turns(ledger)
-    lines = _record_header_md(_meta(snap))
+    meta, turns = _record_source(db, session_id, access)
+    lines = _record_header_md(meta)
     for i, turn in enumerate(turns, start=1):
         lines.extend(_record_turn_md(i, turn))
     return DataExportFile(
@@ -316,9 +323,8 @@ def build_record_export(db: Session, session_id: int, access: str | None) -> Dat
 
 def build_record_export_json(db: Session, session_id: int, access: str | None) -> DataExportFile:
     """JSON transcript: the ledger document wrapped with session metadata."""
-    snap = _require_finished_snapshot(db, session_id, access)
-    ledger = get_session_catalog().get_ledger(db, session_id)
-    payload = {"session": _meta(snap), "record": {"turns": _ledger_turns(ledger)}}
+    meta, turns = _record_source(db, session_id, access)
+    payload = {"session": meta, "record": {"turns": turns}}
     return DataExportFile(
         filename=f"interview-record-{session_id}.json",
         mime=MIME_JSON,

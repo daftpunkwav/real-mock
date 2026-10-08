@@ -50,6 +50,12 @@ const CATALOG_WAIT_TIMEOUT_MS = 10_000;
  * carries the exact collaborators declared by the hook options. */
 type CatalogState = UsePrepDeepLinkOptions;
 
+/** True when either catalog is still loading. */
+const catalogsPending = (c: CatalogState): boolean => !c.resumesLoaded || !c.sessionsLoaded;
+/** True once the bounded wait has expired. */
+const waitExpired = (startedAt: number): boolean =>
+  Date.now() - startedAt > CATALOG_WAIT_TIMEOUT_MS;
+
 /**
  * Poll until the resumes/sessions catalogs settle (bounded by the timeout and
  * cut short by unmount); returns the latest snapshot to run against.
@@ -60,11 +66,7 @@ const waitForCatalogs = async (
 ): Promise<CatalogState> => {
   const startedAt = Date.now();
   let catalogs = stateRef.current;
-  while (
-    aliveRef.current &&
-    (!catalogs.resumesLoaded || !catalogs.sessionsLoaded) &&
-    Date.now() - startedAt <= CATALOG_WAIT_TIMEOUT_MS
-  ) {
+  while (aliveRef.current && catalogsPending(catalogs) && !waitExpired(startedAt)) {
     await new Promise((resolve) => setTimeout(resolve, CATALOG_WAIT_MS));
     catalogs = stateRef.current;
   }
