@@ -102,6 +102,96 @@ function PickerOption({
   );
 }
 
+/** One option row of a picker select (or a placeholder when empty). */
+function PickerSelect<T extends { id: number }>({
+  value,
+  items,
+  disabled,
+  emptyLabel,
+  label,
+  renderLabel,
+  onChange,
+}: {
+  value: number | null;
+  items: T[];
+  disabled: boolean;
+  emptyLabel: string;
+  label: string;
+  renderLabel: (item: T) => string;
+  onChange: (id: number | null) => void;
+}) {
+  return (
+    <FieldRow label={label}>
+      <select
+        className="field-select !h-9 !text-[13px] disabled:opacity-60"
+        value={value ?? ""}
+        disabled={disabled}
+        onChange={(e) => {
+          onChange(e.target.value ? Number(e.target.value) : null);
+        }}
+      >
+        {items.length === 0 ? (
+          <option value="">{emptyLabel}</option>
+        ) : (
+          items.map((item) => (
+            <option key={item.id} value={item.id}>
+              {renderLabel(item)}
+            </option>
+          ))
+        )}
+      </select>
+    </FieldRow>
+  );
+}
+
+/** Resume picker shown when the analysis kind is selected. */
+function ResumePicker({
+  resumes,
+  resumeId,
+  onChange,
+}: {
+  resumes: ResumeResponse[];
+  resumeId: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  const t = useT("settings");
+  return (
+    <PickerSelect
+      label={t("data.export.item")}
+      value={resumeId}
+      items={resumes}
+      disabled={resumes.length === 0}
+      emptyLabel={t("data.export.noResumes")}
+      renderLabel={(r) => r.filename}
+      onChange={onChange}
+    />
+  );
+}
+
+/** Session picker shown for the report/record kinds. */
+function SessionPicker({
+  sessions,
+  sessionId,
+  onChange,
+}: {
+  sessions: SessionHistoryItem[];
+  sessionId: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  const t = useT("settings");
+  return (
+    <PickerSelect
+      label={t("data.export.item")}
+      value={sessionId}
+      items={sessions}
+      disabled={sessions.length === 0}
+      emptyLabel={t("data.export.noSessions")}
+      renderLabel={sessionLabel}
+      onChange={onChange}
+    />
+  );
+}
+
 /** Export card: kind/item/format pickers plus the download action. */
 function ExportCard({
   sessions,
@@ -176,47 +266,9 @@ function ExportCard({
         </FieldRow>
 
         {isAnalysis ? (
-          <FieldRow label={t("data.export.item")}>
-            <select
-              className="field-select !h-9 !text-[13px] disabled:opacity-60"
-              value={resumeId ?? ""}
-              disabled={resumes.length === 0}
-              onChange={(e) => {
-                setResumeId(e.target.value ? Number(e.target.value) : null);
-              }}
-            >
-              {resumes.length === 0 ? (
-                <option value="">{t("data.export.noResumes")}</option>
-              ) : (
-                resumes.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.filename}
-                  </option>
-                ))
-              )}
-            </select>
-          </FieldRow>
+          <ResumePicker resumes={resumes} resumeId={resumeId} onChange={setResumeId} />
         ) : (
-          <FieldRow label={t("data.export.item")}>
-            <select
-              className="field-select !h-9 !text-[13px] disabled:opacity-60"
-              value={sessionId ?? ""}
-              disabled={sessions.length === 0}
-              onChange={(e) => {
-                setSessionId(e.target.value ? Number(e.target.value) : null);
-              }}
-            >
-              {sessions.length === 0 ? (
-                <option value="">{t("data.export.noSessions")}</option>
-              ) : (
-                sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {sessionLabel(s)}
-                  </option>
-                ))
-              )}
-            </select>
-          </FieldRow>
+          <SessionPicker sessions={sessions} sessionId={sessionId} onChange={setSessionId} />
         )}
 
         {isAnalysis && (
