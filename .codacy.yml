@@ -61,13 +61,17 @@ engines:
       - "CHANGELOG.md"
       - "CHANGELOG.zh.md"
 exclude_paths:
-  # Test suites (backend pytest tree + frontend vitest tree).
+  # Test suites: the backend pytest tree, frontend __tests__ dirs, and any
+  # test-named file or directory regardless of extension.
   - "apps/api/tests/**"
   - "apps/web/src/**/__tests__/**"
-  - "**/*.test.ts"
-  - "**/*.test.tsx"
-  - "**/*.test.js"
-  - "**/*.test.jsx"
+  - "**/tests/**"
+  - "**/test/**"
+  - "**/__tests__/**"
+  - "**/*.test.*"
+  - "**/*_test.*"
+  - "**/*.spec.*"
+  - "**/test_*.py"
   # Generated files: OpenAPI contract, its generated TS types, lockfiles.
   - "openapi.json"
   - "apps/web/src/types/generated/**"

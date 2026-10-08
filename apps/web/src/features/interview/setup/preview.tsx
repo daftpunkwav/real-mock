@@ -89,15 +89,6 @@ function useCompanyBrief(scope: BriefScope) {
   // Only the latest request may update state; StrictMode double-mounts (and any
   // retry while one is in flight) would otherwise interleave stale outcomes.
   const briefReqSeq = useRef(0);
-  // One stable string key so the fetch callback depends on the joined scope
-  // rather than reopening on every render of the parent.
-  const scopeKey = [
-    scope.companyName,
-    scope.roleDisplay,
-    scope.levelDisplay,
-    scope.workflowType,
-    scope.locale,
-  ].join("|");
 
   const loadBrief = useCallback(
     async (signal?: AbortSignal) => {
@@ -125,8 +116,8 @@ function useCompanyBrief(scope: BriefScope) {
         if (seq === briefReqSeq.current) setBriefLoading(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- scopeKey covers the five fields read below
-    [scopeKey],
+    // Any setup field (or UI language) that scopes the brief re-triggers the fetch.
+    [scope.companyName, scope.roleDisplay, scope.levelDisplay, scope.workflowType, scope.locale],
   );
 
   useEffect(() => {

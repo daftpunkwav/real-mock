@@ -36,6 +36,67 @@ function DeepDiveQuestionRow({
   );
 }
 
+/** Shared layout for a labelled card section (highlights or risks). */
+function CardListSection({
+  label,
+  icon,
+  labelClass,
+  items,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  labelClass: string;
+  items: string[];
+}) {
+  if (items.length === 0) return null;
+  const cn = normalizeCnPunctuation;
+  return (
+    <div className="eval-pcard-col">
+      <p className={`eval-pcard-label ${labelClass}`}>
+        {icon} {label}
+      </p>
+      <ul className="eval-pcard-list">
+        {withContentKeys(items, (item) => cn(item)).map(({ item, key }) => (
+          <li key={key}>
+            <EvalRichText text={cn(item)} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Must-ask drill questions: plain strings get a send-to-prep row, structured
+ * rows render as full interview QA cards. */
+function CardDeepQuestions({
+  questions,
+  resumeId,
+}: {
+  questions: NonNullable<ProjectCardData["deep_questions"]>;
+  resumeId?: number | null;
+}) {
+  const t = useT("resume");
+  if (questions.length === 0) return null;
+  const cn = normalizeCnPunctuation;
+  return (
+    <div className="eval-pcard-questions">
+      <p className="eval-pcard-label text-[var(--primary-ink)]">
+        <CircleHelp size={12} /> {t("projects.mustAsk")}
+      </p>
+      <div className="eval-pcard-qwrap">
+        {withContentKeys(questions, (q) => (typeof q === "string" ? q : (q.question ?? ""))).map(
+          ({ item: q, key }, i) =>
+            typeof q === "string" ? (
+              <DeepDiveQuestionRow key={key} question={cn(q)} resumeId={resumeId} />
+            ) : (
+              <InterviewQaCard key={key} item={q} index={i} resumeId={resumeId} />
+            ),
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** One expandable card; the first card starts open. */
 function ProjectCardItem({
   card,
@@ -90,52 +151,19 @@ function ProjectCardItem({
             className="overflow-hidden"
           >
             <div className="eval-pcard-body">
-              {highlights.length > 0 && (
-                <div className="eval-pcard-col">
-                  <p className="eval-pcard-label text-[var(--success)]">
-                    <BadgeCheck size={12} /> {t("projects.highlight")}
-                  </p>
-                  <ul className="eval-pcard-list">
-                    {withContentKeys(highlights, (h) => cn(h)).map(({ item: h, key }) => (
-                      <li key={key}>
-                        <EvalRichText text={cn(h)} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {risks.length > 0 && (
-                <div className="eval-pcard-col">
-                  <p className="eval-pcard-label text-[var(--warning-ink)]">
-                    <CircleAlert size={12} /> {t("projects.risk")}
-                  </p>
-                  <ul className="eval-pcard-list">
-                    {withContentKeys(risks, (r) => cn(r)).map(({ item: r, key }) => (
-                      <li key={key}>
-                        <EvalRichText text={cn(r)} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {deepQuestions.length > 0 && (
-                <div className="eval-pcard-questions">
-                  <p className="eval-pcard-label text-[var(--primary-ink)]">
-                    <CircleHelp size={12} /> {t("projects.mustAsk")}
-                  </p>
-                  <div className="eval-pcard-qwrap">
-                    {withContentKeys(deepQuestions, (q) =>
-                      typeof q === "string" ? q : (q.question ?? ""),
-                    ).map(({ item: q, key }, i) =>
-                      typeof q === "string" ? (
-                        <DeepDiveQuestionRow key={key} question={cn(q)} resumeId={resumeId} />
-                      ) : (
-                        <InterviewQaCard key={key} item={q} index={i} resumeId={resumeId} />
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
+              <CardListSection
+                label={t("projects.highlight")}
+                icon={<BadgeCheck size={12} />}
+                labelClass="text-[var(--success)]"
+                items={highlights}
+              />
+              <CardListSection
+                label={t("projects.risk")}
+                icon={<CircleAlert size={12} />}
+                labelClass="text-[var(--warning-ink)]"
+                items={risks}
+              />
+              <CardDeepQuestions questions={deepQuestions} resumeId={resumeId} />
             </div>
           </motion.div>
         )}
