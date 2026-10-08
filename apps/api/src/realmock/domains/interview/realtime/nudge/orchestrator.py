@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import random
+# secrets rather than random: nudge variety needs no crypto, but the
+# shared Mersenne Twister is what the PRNG scanners (bandit B311) flag.
+import secrets
 
 from realmock.domains.interview.realtime.nudge.snapshot import SessionSnapshot
 
@@ -22,7 +24,7 @@ class InterviewOrchestrator:
         """Pick random template from matching tier for phase/persona/strictness."""
         phase_id = (phase or "").strip().lower()
         if phase_id in {"identity_check", "identity", "identity_confirm"}:
-            return random.choice(  # prompt variety, not crypto  # nosec B311
+            return secrets.choice(
                 [
                     "If it's convenient, just confirm whether the information just now is true.",
                     'You can simply say "OK," or point out areas that need correction.',
@@ -31,7 +33,7 @@ class InterviewOrchestrator:
                 ]
             )
         if phase_id in {"self_intro", "introduction"}:
-            return random.choice(  # prompt variety, not crypto  # nosec B311
+            return secrets.choice(
                 [
                     "You can start with a recent experience or an item you want to highlight the most.",
                     "It doesn’t need to be complete, just introduce yourself for two minutes.",
@@ -75,4 +77,4 @@ class InterviewOrchestrator:
         idx = max(0, min((strictness - 1) // 4, len(tiers) - 1))
         if personality in ("pressure", "expert"):
             idx = max(idx, 1)
-        return random.choice(tiers[idx])  # prompt variety, not crypto  # nosec B311
+        return secrets.choice(tiers[idx])
