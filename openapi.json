@@ -9413,7 +9413,8 @@
           }
         },
         "type": "object",
-        "title": "DataClearResponse"
+        "title": "DataClearResponse",
+        "description": "Summary of what the wipe-all endpoint removed, per storage area."
       },
       "DataExportFile": {
         "properties": {

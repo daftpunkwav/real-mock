@@ -3729,7 +3729,10 @@ export interface components {
              */
             pressure_level: string;
         };
-        /** DataClearResponse */
+        /**
+         * DataClearResponse
+         * @description Summary of what the wipe-all endpoint removed, per storage area.
+         */
         DataClearResponse: {
             /** Sessions Tables */
             sessions_tables?: {

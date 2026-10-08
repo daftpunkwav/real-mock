@@ -28,6 +28,7 @@ from realmock.platform.database import get_sessions_db
 
 @pytest.fixture(autouse=True)
 def _clean_limits():
+    """Reset the in-memory rate-limit buckets around each test."""
     reset_rate_limit()
     yield
     reset_rate_limit()
@@ -43,6 +44,7 @@ def _clean_report_rows(db):
 
 
 def _snapshot(**over) -> dict:
+    """A completed session snapshot dict; keyword overrides adjust fields."""
     base = {
         "id": 1,
         "role": "AI Engineer",
@@ -60,6 +62,7 @@ def _snapshot(**over) -> dict:
 
 
 def _catalog(snap: dict, ledger: dict | None = None) -> MagicMock:
+    """A session-catalog double returning the given snapshot and ledger."""
     cat = MagicMock()
     cat.get_session_snapshot.return_value = snap
     cat.get_ledger.return_value = ledger if ledger is not None else snap.get("ledger")
@@ -67,10 +70,12 @@ def _catalog(snap: dict, ledger: dict | None = None) -> MagicMock:
 
 
 def _override_sessions_db(db):
+    """Route the records routes' sessions-db dependency at the test DB."""
     app.dependency_overrides[get_sessions_db] = lambda: db
 
 
 def _unoverride_sessions_db():
+    """Drop the sessions-db dependency override."""
     app.dependency_overrides.pop(get_sessions_db, None)
 
 
@@ -89,6 +94,7 @@ def export_client(catalog: MagicMock, *, lift_token: bool = True) -> Iterator[Te
 
 
 def _ready_report(db, session_id: int = 1) -> None:
+    """Persist one ready debrief report for the given session."""
     report = DebriefReport(
         overall_score=72,
         verdict="failed",
@@ -109,6 +115,7 @@ def _ready_report(db, session_id: int = 1) -> None:
 
 
 def test_report_export_markdown(db) -> None:
+    """The md export renders title, score, and bullet highlights."""
     _ready_report(db)
     _override_sessions_db(db)
     try:
@@ -126,6 +133,7 @@ def test_report_export_markdown(db) -> None:
 
 
 def test_report_export_json_carries_full_payload(db) -> None:
+    """The json export wraps the full report payload with session meta."""
     _ready_report(db)
     _override_sessions_db(db)
     try:
@@ -142,6 +150,7 @@ def test_report_export_json_carries_full_payload(db) -> None:
 
 
 def test_report_export_without_report_is_404(db) -> None:
+    """A session with no stored report exports nothing: 404."""
     _override_sessions_db(db)
     try:
         with export_client(_catalog(_snapshot())) as client:
@@ -152,6 +161,7 @@ def test_report_export_without_report_is_404(db) -> None:
 
 
 def test_report_export_unfinished_session_is_400(db) -> None:
+    """Exports require a completed (or ledger-frozen) session: 400."""
     snap = _snapshot(status="interviewing", ledger_frozen=False)
     _override_sessions_db(db)
     try:
@@ -163,6 +173,7 @@ def test_report_export_unfinished_session_is_400(db) -> None:
 
 
 def test_report_export_pending_report_is_404(db) -> None:
+    """A pending report row is not yet exportable: 404."""
     row = InterviewReportRow(session_id=1, status="pending", payload="{}")
     db.add(row)
     db.commit()
@@ -176,6 +187,7 @@ def test_report_export_pending_report_is_404(db) -> None:
 
 
 def test_report_export_failed_report_is_409(db) -> None:
+    """A failed report generation surfaces as a conflict: 409."""
     row = InterviewReportRow(session_id=1, status="failed", payload="{}")
     db.add(row)
     db.commit()
@@ -189,6 +201,7 @@ def test_report_export_failed_report_is_409(db) -> None:
 
 
 def test_export_token_mismatch_is_403(db) -> None:
+    """A wrong capability token is rejected: 403."""
     _override_sessions_db(db)
     try:
         with export_client(
@@ -202,6 +215,7 @@ def test_export_token_mismatch_is_403(db) -> None:
 
 
 def test_export_missing_session_is_404(db) -> None:
+    """An unknown session id exports nothing: 404."""
     _override_sessions_db(db)
     try:
         cat = MagicMock()
@@ -217,6 +231,7 @@ def test_export_missing_session_is_404(db) -> None:
 
 
 def _ledger() -> dict:
+    """A frozen ledger with one visible and one hidden assistant turn."""
     return {
         "frozen": True,
         "turns": [
@@ -235,6 +250,7 @@ def _ledger() -> dict:
 
 
 def test_record_export_markdown_splits_speakers(db) -> None:
+    """The md transcript labels speakers and drops invisible lines."""
     _override_sessions_db(db)
     try:
         with export_client(_catalog(_snapshot(), _ledger())) as client:
@@ -253,6 +269,7 @@ def test_record_export_markdown_splits_speakers(db) -> None:
 
 
 def test_record_export_unfinished_session_is_400(db) -> None:
+    """The record export also requires a finished session: 400."""
     snap = _snapshot(status="interviewing", ledger_frozen=False)
     _override_sessions_db(db)
     try:
@@ -264,6 +281,7 @@ def test_record_export_unfinished_session_is_400(db) -> None:
 
 
 def test_record_export_json_wraps_turns(db) -> None:
+    """The json record wraps the raw ledger turns with session meta."""
     _override_sessions_db(db)
     try:
         with export_client(_catalog(_snapshot(), _ledger())) as client:

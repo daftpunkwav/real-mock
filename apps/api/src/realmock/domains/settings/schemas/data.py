@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 # Per-area row counts removed by the wipe-all endpoint.
 class DataClearResponse(BaseModel):
+    """Summary of what the wipe-all endpoint removed, per storage area."""
+
     #: sessions-db rows deleted, keyed by table name.
     sessions_tables: dict[str, int] = Field(default_factory=dict)
     #: api-db content rows deleted, keyed by table name.

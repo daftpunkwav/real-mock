@@ -18,6 +18,7 @@ from realmock.platform.schemas import CandidateProfile
 
 
 def _seed(api_db, *, with_analysis: bool = True) -> int:
+    """Insert one resume (and optionally its analysis payload); return its id."""
     row = store.insert_upload(
         api_db,
         filename="cv.txt",
@@ -83,14 +84,17 @@ def _seed(api_db, *, with_analysis: bool = True) -> int:
 
 
 def _override_api_db(db):
+    """Route the resume routes' api-db dependency at the test DB."""
     app.dependency_overrides[get_db] = lambda: db
 
 
 def _unoverride_api_db():
+    """Drop the api-db dependency override."""
     app.dependency_overrides.pop(get_db, None)
 
 
 def test_analysis_export_markdown(api_db) -> None:
+    """The md export renders the review without the folded resume."""
     resume_id = _seed(api_db)
     _override_api_db(api_db)
     try:
@@ -113,6 +117,7 @@ def test_analysis_export_markdown(api_db) -> None:
 
 
 def test_analysis_export_markdown_with_resume(api_db) -> None:
+    """include_resume folds every parsed profile field into the md."""
     resume_id = _seed(api_db)
     _override_api_db(api_db)
     try:
@@ -162,6 +167,7 @@ def test_analysis_export_markdown_with_resume(api_db) -> None:
 
 
 def test_analysis_export_json_wraps_payload(api_db) -> None:
+    """The json export wraps the stored analysis with resume meta."""
     resume_id = _seed(api_db)
     _override_api_db(api_db)
     try:
@@ -177,6 +183,7 @@ def test_analysis_export_json_wraps_payload(api_db) -> None:
 
 
 def test_analysis_export_without_review_is_404(api_db) -> None:
+    """A resume whose review never ran exports nothing: 404 (A1010)."""
     resume_id = _seed(api_db, with_analysis=False)
     _override_api_db(api_db)
     try:
@@ -188,6 +195,7 @@ def test_analysis_export_without_review_is_404(api_db) -> None:
 
 
 def test_analysis_export_missing_resume_is_404(api_db) -> None:
+    """An unknown resume id exports nothing: 404."""
     _override_api_db(api_db)
     try:
         with TestClient(app) as client:
@@ -198,6 +206,7 @@ def test_analysis_export_missing_resume_is_404(api_db) -> None:
 
 
 def test_analysis_export_validation_error_uses_catalog(api_db, monkeypatch) -> None:
+    """A payload failing schema validation maps to the catalog error A1010."""
     from pydantic import ValidationError
 
     from realmock.domains.resume.schemas.analysis import ResumeAnalysis
@@ -207,6 +216,7 @@ def test_analysis_export_validation_error_uses_catalog(api_db, monkeypatch) -> N
     # Exercise the validation boundary even when today's tolerant normalizer
     # can repair the stored payload.
     def reject(_payload):
+        """Always raise the validation error the catalog boundary must map."""
         raise ValidationError.from_exception_data(
             "ResumeAnalysis", [{"type": "int_parsing", "loc": ("score",), "input": "bad"}]
         )

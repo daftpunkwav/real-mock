@@ -72,6 +72,7 @@ def _clear_learning_sidecar() -> bool:
 
 
 def _clear_sessions_db() -> dict[str, int]:
+    """Delete every row of each live sessions-db table; return per-table counts."""
     from realmock.platform.database import get_sessions_engine
 
     engine = get_sessions_engine()
@@ -85,6 +86,7 @@ def _clear_sessions_db() -> dict[str, int]:
 
 
 def _clear_api_db() -> dict[str, int]:
+    """Delete rows from the api-db content tables; return per-table counts."""
     from realmock.platform.database import get_api_engine
 
     engine = get_api_engine()

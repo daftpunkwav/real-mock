@@ -75,6 +75,7 @@ def seeded(api_engine, engine, tmp_path):
 
 
 def test_wipe_clears_rows_and_files(seeded, tmp_path, monkeypatch) -> None:
+    """The wipe removes seeded rows, uploads, and the learning sidecar."""
     monkeypatch.setenv("UPLOAD_DIR", str(seeded["uploads"]))
     from realmock.platform.config import get_settings
 
@@ -93,6 +94,7 @@ def test_wipe_clears_rows_and_files(seeded, tmp_path, monkeypatch) -> None:
 
 
 def test_wipe_preserves_config_tables(api_engine, engine) -> None:
+    """Config tables (providers etc.) survive the content wipe."""
     from sqlalchemy import text
     from sqlalchemy.orm import sessionmaker
 
@@ -114,6 +116,7 @@ def test_wipe_preserves_config_tables(api_engine, engine) -> None:
 
 
 def test_wipe_is_idempotent_on_empty_databases(api_engine, engine) -> None:
+    """A second wipe on empty databases succeeds with zero counts."""
     from realmock.platform.database import ApiBase, SessionsBase
 
     ApiBase.metadata.create_all(bind=api_engine)
@@ -124,6 +127,7 @@ def test_wipe_is_idempotent_on_empty_databases(api_engine, engine) -> None:
 
 
 def test_clear_endpoint_returns_summary(seeded, tmp_path, monkeypatch) -> None:
+    """The HTTP endpoint returns the per-area removal summary."""
     monkeypatch.setenv("UPLOAD_DIR", str(seeded["uploads"]))
     from realmock.platform.config import get_settings
 
@@ -143,12 +147,14 @@ def test_clear_endpoint_returns_summary(seeded, tmp_path, monkeypatch) -> None:
 def test_database_failure_preserves_uploads(
     seeded, monkeypatch, api_engine, engine, operation
 ) -> None:
+    """A db failure aborts before any file removal; uploads survive."""
     from sqlalchemy import text
 
     from realmock.platform.core.errors import ApiBusinessError
     from realmock.platform.services import data_reset
 
     def fail():
+        """Stub replacement that simulates an unavailable database."""
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(data_reset, operation, fail)
@@ -170,6 +176,7 @@ def test_database_failure_preserves_uploads(
 def test_api_database_failure_reports_partial_completion_and_can_be_retried(
     seeded, monkeypatch, api_engine, engine
 ) -> None:
+    """A partial api-db wipe reports B1003 and retries to completion."""
     from sqlalchemy import event, text
 
     from realmock.platform.config import get_settings
@@ -180,6 +187,7 @@ def test_api_database_failure_reports_partial_completion_and_can_be_retried(
     # Fail after resumes have been deleted inside the API transaction, proving
     # its rollback preserves rows while the sessions deletion is committed.
     def fail_profile_delete(conn, cursor, statement, parameters, context, executemany):
+        """Fail only the user_profiles delete, after resumes were removed."""
         if statement.startswith("DELETE FROM user_profiles"):
             raise RuntimeError("database unavailable")
 
@@ -216,6 +224,7 @@ def test_api_database_failure_reports_partial_completion_and_can_be_retried(
 
 
 def test_file_cleanup_failure_can_be_retried(seeded, monkeypatch) -> None:
+    """An upload-cleanup failure leaves files for an idempotent retry."""
     from realmock.platform.services import data_reset
 
     with monkeypatch.context() as patch:
