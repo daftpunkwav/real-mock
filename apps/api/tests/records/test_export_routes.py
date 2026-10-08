@@ -299,3 +299,48 @@ def test_record_export_json_projects_visible_turns(db) -> None:
     # structured export either; the candidate reply still rides along.
     assert payload["record"]["turns"][1] == {"user": {"text": "Answer two."}}
     assert "hidden" not in resp.json()["content"]
+
+
+@pytest.mark.parametrize("speaker", ["assistant", "user"])
+@pytest.mark.parametrize(
+    "text", [None, {}, {"internal": "notes"}, [], ["notes"], 0, 42, True, 1.5, "", " \n\t"]
+)
+def test_record_turn_json_omits_invalid_text(speaker, text) -> None:
+    assert export_service._record_turn_json({speaker: {"text": text}}) == {}
+
+
+@pytest.mark.parametrize("speaker", ["assistant", "user"])
+def test_record_turn_json_preserves_valid_text(speaker) -> None:
+    text = "  A valid question or reply.\n"
+    assert export_service._record_turn_json({speaker: {"text": text}}) == {speaker: {"text": text}}
+
+
+@pytest.mark.parametrize("include_visible_turns", [False, True])
+def test_record_export_json_omits_empty_turns(db, include_visible_turns) -> None:
+    turns = [
+        {},
+        {"assistant": {"text": "hidden", "visible": False}},
+        {"assistant": {"text": " "}, "user": {"text": "\n"}},
+        {"assistant": {"text": {"internal": "notes"}}, "user": {"text": ["notes"]}},
+    ]
+    expected = []
+    if include_visible_turns:
+        turns.insert(1, _ledger()["turns"][0])
+        turns.append(_ledger()["turns"][1])
+        turns.append({"assistant": {"text": "Next question."}, "user": {"text": 42}})
+        expected = [
+            {
+                "assistant": {"text": "Introduce yourself."},
+                "user": {"text": "Hi, I am the candidate."},
+            },
+            {"user": {"text": "Answer two."}},
+            {"assistant": {"text": "Next question."}},
+        ]
+    _override_sessions_db(db)
+    try:
+        with export_client(_catalog(_snapshot(), {"turns": turns})) as client:
+            resp = client.get("/api/v1/records/export/record/1?format=json")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 200
+    assert json.loads(resp.json()["content"])["record"]["turns"] == expected

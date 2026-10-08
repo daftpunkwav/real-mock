@@ -319,14 +319,14 @@ def _record_turn_json(turn: dict[str, Any]) -> dict[str, Any]:
     raw_assistant = turn.get("assistant")
     assistant = raw_assistant if isinstance(raw_assistant, dict) else {}
     exported: dict[str, Any] = {}
-    text = str(assistant.get("text") or "").strip()
-    if text and assistant.get("visible", True):
-        exported["assistant"] = {"text": assistant.get("text")}
+    text = assistant.get("text")
+    if isinstance(text, str) and text.strip() and assistant.get("visible", True):
+        exported["assistant"] = {"text": text}
     raw_user = turn.get("user")
     user = raw_user if isinstance(raw_user, dict) else {}
-    reply = str(user.get("text") or "").strip()
-    if reply:
-        exported["user"] = {"text": user.get("text")}
+    reply = user.get("text")
+    if isinstance(reply, str) and reply.strip():
+        exported["user"] = {"text": reply}
     return exported
 
 
@@ -346,7 +346,8 @@ def build_record_export(db: Session, session_id: int, access: str | None) -> Dat
 def build_record_export_json(db: Session, session_id: int, access: str | None) -> DataExportFile:
     """JSON transcript: the visible Q&A turns wrapped with session metadata."""
     meta, turns = _record_source(db, session_id, access)
-    payload = {"session": meta, "record": {"turns": [_record_turn_json(t) for t in turns]}}
+    exported_turns = [projected for t in turns if (projected := _record_turn_json(t))]
+    payload = {"session": meta, "record": {"turns": exported_turns}}
     return DataExportFile(
         filename=f"interview-record-{session_id}.json",
         mime=MIME_JSON,
