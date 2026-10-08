@@ -280,8 +280,8 @@ def test_record_export_unfinished_session_is_400(db) -> None:
     assert resp.status_code == 400
 
 
-def test_record_export_json_wraps_turns(db) -> None:
-    """The json record wraps the raw ledger turns with session meta."""
+def test_record_export_json_projects_visible_turns(db) -> None:
+    """The json record carries only the visible Q&A turns, like the md one."""
     _override_sessions_db(db)
     try:
         with export_client(_catalog(_snapshot(), _ledger())) as client:
@@ -291,4 +291,11 @@ def test_record_export_json_wraps_turns(db) -> None:
     assert resp.status_code == 200
     payload = json.loads(resp.json()["content"])
     assert len(payload["record"]["turns"]) == 2
-    assert payload["record"]["turns"][0]["assistant"]["text"] == "Introduce yourself."
+    assert payload["record"]["turns"][0] == {
+        "assistant": {"text": "Introduce yourself."},
+        "user": {"text": "Hi, I am the candidate."},
+    }
+    # Invisible assistant text is internal state and must not leak into the
+    # structured export either; the candidate reply still rides along.
+    assert payload["record"]["turns"][1] == {"user": {"text": "Answer two."}}
+    assert "hidden" not in resp.json()["content"]

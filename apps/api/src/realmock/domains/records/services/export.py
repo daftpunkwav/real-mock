@@ -1,7 +1,8 @@
 """Export one interview session as a self-contained file (report or record).
 
-Markdown is the human-readable rendering; JSON wraps the stored payload with
-session metadata for full-fidelity reuse. Phase ids are printed as stored —
+Markdown is the human-readable rendering; JSON carries the same visible Q&A
+turns (plus the full report payload) with session metadata for structured
+reuse. Phase ids are printed as stored —
 the label catalog is frontend SSOT and the payloads' own text is already
 locale-bound at generation time.
 """
@@ -308,6 +309,27 @@ def _record_turn_md(index: int, turn: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _record_turn_json(turn: dict[str, Any]) -> dict[str, Any]:
+    """Project one ledger turn to its exportable Q&A fields.
+
+    Mirrors the Markdown transcript's visibility rule: assistant text marked
+    ``visible=False`` is interviewer scaffolding the UI never showed, so it
+    stays out of the export; only the spoken question and reply are kept.
+    """
+    raw_assistant = turn.get("assistant")
+    assistant = raw_assistant if isinstance(raw_assistant, dict) else {}
+    exported: dict[str, Any] = {}
+    text = str(assistant.get("text") or "").strip()
+    if text and assistant.get("visible", True):
+        exported["assistant"] = {"text": assistant.get("text")}
+    raw_user = turn.get("user")
+    user = raw_user if isinstance(raw_user, dict) else {}
+    reply = str(user.get("text") or "").strip()
+    if reply:
+        exported["user"] = {"text": user.get("text")}
+    return exported
+
+
 def build_record_export(db: Session, session_id: int, access: str | None) -> DataExportFile:
     """Markdown transcript: interviewer lines vs candidate replies, no AI notes."""
     meta, turns = _record_source(db, session_id, access)
@@ -322,9 +344,9 @@ def build_record_export(db: Session, session_id: int, access: str | None) -> Dat
 
 
 def build_record_export_json(db: Session, session_id: int, access: str | None) -> DataExportFile:
-    """JSON transcript: the ledger document wrapped with session metadata."""
+    """JSON transcript: the visible Q&A turns wrapped with session metadata."""
     meta, turns = _record_source(db, session_id, access)
-    payload = {"session": meta, "record": {"turns": turns}}
+    payload = {"session": meta, "record": {"turns": [_record_turn_json(t) for t in turns]}}
     return DataExportFile(
         filename=f"interview-record-{session_id}.json",
         mime=MIME_JSON,
