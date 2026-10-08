@@ -80,7 +80,7 @@ class RedactFilter(logging.Filter):
             exc_text = getattr(record, "exc_text", None)
             if isinstance(exc_text, str):
                 record.exc_text = _redact(exc_text)
-        except Exception:  # pragma: no cover - fail open
+        except Exception:  # pragma: no cover - fail open  # nosec B110
             # Intentionally silent and cannot be changed to log: this filter runs in the logging pipeline,
             # Posting logs here again will enter this filter again, causing recursion; if desensitization fails, the original
             # Records have documented fail-open semantics

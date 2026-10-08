@@ -32,7 +32,7 @@ import os
 import re
 import secrets
 import shutil
-import subprocess
+import subprocess  # subprocess is this module's purpose  # nosec B404
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -149,7 +149,7 @@ def _probe(argv: Sequence[str]) -> bool:
     try:
         # Explicit shell=False: argv elements (helper paths + "true") are
         # passed verbatim; untrusted values never reach a shell here.
-        completed = subprocess.run(  # nosec B606  # nosemgrep
+        completed = subprocess.run(  # nosec B603 B606  # nosemgrep
             list(argv),
             shell=False,
             stdin=subprocess.DEVNULL,

@@ -229,7 +229,9 @@ def _legacy_flat_columns(db: Session) -> dict[int, dict[str, object]]:
     if not legacy_cols:
         return {}
     columns_sql = ", ".join(legacy_cols)
-    rows = db.execute(text(f"SELECT id, {columns_sql} FROM llm_providers")).mappings().all()
+    # Column names come from schema introspection (physical columns only), never input.
+    query = f"SELECT id, {columns_sql} FROM llm_providers"  # nosec B608
+    rows = db.execute(text(query)).mappings().all()
     return {row["id"]: dict(row) for row in rows}
 
 

@@ -41,7 +41,7 @@ class TurnStreamingMixin:
         arm_turn_timers: Callable[..., None]
 
     async def _consume_runner_opening(self, db: Session):
-        assert self.ctx.runner is not None
+        assert self.ctx.runner is not None  # session invariant, also narrows types  # nosec B101
         async for event in self.ctx.runner.stream_opening(db):
             yield event
 
@@ -51,7 +51,7 @@ class TurnStreamingMixin:
         data: dict[str, Any],
         db: Session,
     ):
-        assert self.ctx.runner is not None
+        assert self.ctx.runner is not None  # session invariant, also narrows types  # nosec B101
         face = data.get("face_analysis") or self.ctx.orchestrator.snapshot.face_analysis
         image_b64 = data.get("image_base64")
         if isinstance(image_b64, str) and len(image_b64) > _IMAGE_BASE64_MAX_LEN:

@@ -12,7 +12,7 @@ from enum import Enum
 class EventKind(str, Enum):
     """All event types pushed to the upper layer by the runner."""
 
-    TOKEN = "token"  # Streaming token
+    TOKEN = "token"  # Streaming token, an event type literal - not a secret  # nosec B105
     TURN_COMPLETE = (
         "turn_done"  # Completed in a single round (with complete text and stage information)
     )

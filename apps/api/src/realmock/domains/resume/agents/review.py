@@ -288,7 +288,7 @@ def _restore_max_tokens(llm: LLMClient, value: Any) -> None:
     try:
         llm.max_tokens = value
     except Exception:
-        pass
+        pass  # best-effort restore, never masks the real error  # nosec B110
 
 
 def _merge_search_queries_used(existing: Any, tracked: list[str]) -> list[str]:

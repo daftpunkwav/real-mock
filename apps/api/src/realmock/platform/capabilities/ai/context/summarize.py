@@ -358,7 +358,7 @@ async def _summarize_transcript(
                     for key, value in _usage_delta(llm, usage_before).items():
                         report[key] = report.get(key, 0) + value
                 except Exception:
-                    pass
+                    pass  # usage accounting is best-effort  # nosec B110
         summary = str(text or "").strip()
         if not summary:
             break
@@ -495,7 +495,7 @@ async def compact_with_summary(
                 kept_from = len(messages)
             report["kept_from"] = kept_from
         except Exception:
-            pass
+            pass  # report metadata is best-effort  # nosec B110
     if not omitted:
         # Token estimate can exceed the threshold because of large pinned messages
         # (e.g. vision page images) without any older turns to summarize.

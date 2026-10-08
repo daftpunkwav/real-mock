@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
+import subprocess  # subprocess is this module's purpose  # nosec B404
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -127,7 +127,7 @@ def run_child(
     """
     # Explicit shell=False: every argv element is passed verbatim to the
     # executable, so snippet-controlled strings can never inject shell syntax.
-    proc = subprocess.Popen(  # nosec B606  # nosemgrep
+    proc = subprocess.Popen(  # nosec B603 B606  # nosemgrep
         list(argv),
         shell=False,
         cwd=cwd,

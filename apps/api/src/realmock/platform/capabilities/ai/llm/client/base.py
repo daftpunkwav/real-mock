@@ -129,7 +129,7 @@ async def _retry_request(
                 continue
             resp.raise_for_status()
         return resp
-    assert last_exc is not None
+    assert last_exc is not None  # loop invariant: at least one attempt ran  # nosec B101
     raise last_exc
 
 

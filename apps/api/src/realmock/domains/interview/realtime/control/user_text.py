@@ -40,7 +40,7 @@ class UserTextControlMixin:
     async def _process_user_text(
         self, text: str, data: dict[str, Any], db: Session, session: InterviewSession
     ) -> None:
-        assert self.ctx.runner is not None
+        assert self.ctx.runner is not None  # session invariant, also narrows types  # nosec B101
         # The candidate may reply while the previous turn's TTS audio is still
         # playing (the mic opens at text-complete now): stop the stale audio so
         # the new turn's audio does not overlap it.

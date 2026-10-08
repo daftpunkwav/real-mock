@@ -11,7 +11,7 @@ from typing import Any
 
 from realmock.platform.core.secrets import decrypt_secret, encrypt_secret
 
-SECRET_KEEP = "keep"
+SECRET_KEEP = "keep"  # storage-mode literal, not a secret  # nosec B105
 SECRET_EXTRA_KEYS = frozenset({"asr_api_secret", "asr_access_key", "asr_app_key"})
 
 

@@ -197,7 +197,7 @@ def _session_from_process(process: InterviewProcess, round_no: int) -> Interview
         reference_detail=process.reference_detail or "outline",
         status="pending",
         current_phase="identity_check",
-        access_token="",
+        access_token="",  # starts empty; issued at session start  # nosec B106
         ai_overrides=process.ai_overrides or "{}",
         process_id=process.id,
         round_no=round_no,

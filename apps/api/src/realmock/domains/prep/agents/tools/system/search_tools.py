@@ -57,7 +57,7 @@ def search_specs(query: str, limit: int = _SEARCH_MAX_RESULTS) -> list[ToolSpec]
             elif needle in spec.description.lower():
                 score = 1
         except Exception:
-            continue
+            continue  # skip specs that cannot be ranked  # nosec B112
         if score:
             ranked.append((score, order, spec))
     ranked.sort(key=lambda item: (-item[0], item[1]))

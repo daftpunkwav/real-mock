@@ -14,7 +14,7 @@ from realmock.platform.core.security import make_pinned_async_client
 
 logger = logging.getLogger(__name__)
 
-_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
+_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"  # OAuth endpoint URL  # nosec B105
 _ASR_URL = "https://vop.baidu.com/server_api"
 
 
