@@ -67,15 +67,32 @@ const QaCardHeader = ({
   </div>
 );
 
-/** The interviewer-intent line under the question. */
-const QaIntentLine = ({ intent }: { intent: string }) => {
+/** The interviewer-intent line under the question (nothing renders without one). */
+const QaIntentLine = ({ intent }: { intent?: string }) => {
   const t = useT("resume");
+  if (!intent?.trim()) return null;
   return (
     <p className="eval-qa-row text-[12px] leading-relaxed text-ink-muted">
       <span className="mr-1 shrink-0 font-medium text-ink-subtle">{t("interview.qaIntent")}:</span>
       <EvalRichText text={normalizeCnPunctuation(intent)} />
     </p>
   );
+};
+
+/** Optional bullet section that renders only when the list has items. */
+const QaOptionalList = ({
+  items,
+  label,
+  icon,
+  muted,
+}: {
+  items: string[];
+  label: string;
+  icon?: React.ReactNode;
+  muted?: boolean;
+}) => {
+  if (items.length === 0) return null;
+  return <QaBulletList items={items} label={label} icon={icon} muted={muted} />;
 };
 
 export const InterviewQaCard = ({
@@ -95,16 +112,14 @@ export const InterviewQaCard = ({
   return (
     <div className="eval-qa-card">
       <QaCardHeader index={index} question={question} resumeId={resumeId ?? null} />
-      {item.intent?.trim() ? <QaIntentLine intent={item.intent} /> : null}
-      {points.length > 0 && <QaBulletList items={points} label={t("interview.qaPoints")} />}
-      {followUps.length > 0 && (
-        <QaBulletList
-          items={followUps}
-          label={t("interview.qaFollowUps")}
-          icon={<HelpCircle size={11} />}
-          muted
-        />
-      )}
+      <QaIntentLine intent={item.intent} />
+      <QaOptionalList items={points} label={t("interview.qaPoints")} />
+      <QaOptionalList
+        items={followUps}
+        label={t("interview.qaFollowUps")}
+        icon={<HelpCircle size={11} />}
+        muted
+      />
     </div>
   );
 };
