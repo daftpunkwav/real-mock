@@ -108,7 +108,6 @@ function PickerSelect<T extends { id: number }>({
   items,
   disabled,
   emptyLabel,
-  label,
   renderLabel,
   onChange,
 }: {
@@ -116,12 +115,12 @@ function PickerSelect<T extends { id: number }>({
   items: T[];
   disabled: boolean;
   emptyLabel: string;
-  label: string;
   renderLabel: (item: T) => string;
   onChange: (id: number | null) => void;
 }) {
+  const t = useT("settings");
   return (
-    <FieldRow label={label}>
+    <FieldRow label={t("data.export.item")}>
       <select
         className="field-select !h-9 !text-[13px] disabled:opacity-60"
         value={value ?? ""}
@@ -141,54 +140,6 @@ function PickerSelect<T extends { id: number }>({
         )}
       </select>
     </FieldRow>
-  );
-}
-
-/** Resume picker shown when the analysis kind is selected. */
-function ResumePicker({
-  resumes,
-  resumeId,
-  onChange,
-}: {
-  resumes: ResumeResponse[];
-  resumeId: number | null;
-  onChange: (id: number | null) => void;
-}) {
-  const t = useT("settings");
-  return (
-    <PickerSelect
-      label={t("data.export.item")}
-      value={resumeId}
-      items={resumes}
-      disabled={resumes.length === 0}
-      emptyLabel={t("data.export.noResumes")}
-      renderLabel={(r) => r.filename}
-      onChange={onChange}
-    />
-  );
-}
-
-/** Session picker shown for the report/record kinds. */
-function SessionPicker({
-  sessions,
-  sessionId,
-  onChange,
-}: {
-  sessions: SessionHistoryItem[];
-  sessionId: number | null;
-  onChange: (id: number | null) => void;
-}) {
-  const t = useT("settings");
-  return (
-    <PickerSelect
-      label={t("data.export.item")}
-      value={sessionId}
-      items={sessions}
-      disabled={sessions.length === 0}
-      emptyLabel={t("data.export.noSessions")}
-      renderLabel={sessionLabel}
-      onChange={onChange}
-    />
   );
 }
 
@@ -279,9 +230,23 @@ function ExportCard({
         </FieldRow>
 
         {isAnalysis ? (
-          <ResumePicker resumes={resumes} resumeId={resumeId} onChange={setResumeId} />
+          <PickerSelect
+            value={resumeId}
+            items={resumes}
+            disabled={resumes.length === 0}
+            emptyLabel={t("data.export.noResumes")}
+            renderLabel={(r) => r.filename}
+            onChange={setResumeId}
+          />
         ) : (
-          <SessionPicker sessions={sessions} sessionId={sessionId} onChange={setSessionId} />
+          <PickerSelect
+            value={sessionId}
+            items={sessions}
+            disabled={sessions.length === 0}
+            emptyLabel={t("data.export.noSessions")}
+            renderLabel={sessionLabel}
+            onChange={setSessionId}
+          />
         )}
 
         {isAnalysis && (
