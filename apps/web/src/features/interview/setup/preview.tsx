@@ -89,10 +89,17 @@ const useCompanyBrief = (scope: BriefScope) => {
   // Only the latest request may update state; StrictMode double-mounts (and any
   // retry while one is in flight) would otherwise interleave stale outcomes.
   const briefReqSeq = useRef(0);
+  // The in-flight request's controller: scope changes and unmounts abort
+  // through it, so a superseded request never keeps streaming.
+  const briefControllerRef = useRef<AbortController | null>(null);
 
   const loadBrief = useCallback(
-    async (signal?: AbortSignal) => {
+    async () => {
       const seq = ++briefReqSeq.current;
+      // Each run owns a fresh controller, so a retry started after an abort
+      // (or a scope change) is cancellable in its own right.
+      const controller = new AbortController();
+      briefControllerRef.current = controller;
       setBriefLoading(true);
       setBriefError(false);
       try {
@@ -101,7 +108,7 @@ const useCompanyBrief = (scope: BriefScope) => {
           scope.roleDisplay,
           scope.levelDisplay,
           scope.workflowType,
-          { signal, locale: scope.locale },
+          { signal: controller.signal, locale: scope.locale },
         );
         if (seq !== briefReqSeq.current) return;
         setBrief(res);
@@ -125,14 +132,13 @@ const useCompanyBrief = (scope: BriefScope) => {
     setBriefError(false);
     // Debounce + cancel: custom company/role inputs fire per keystroke and every
     // keystroke is a cache miss that would otherwise start a full LLM research.
-    const controller = new AbortController();
     const timer = setTimeout(() => {
-      void loadBrief(controller.signal);
+      void loadBrief();
     }, BRIEF_DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       briefReqSeq.current += 1; // invalidate any late outcome, aborted or not
-      controller.abort();
+      briefControllerRef.current?.abort();
     };
   }, [loadBrief]);
 

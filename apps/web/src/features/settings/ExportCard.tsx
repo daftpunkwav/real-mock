@@ -7,7 +7,7 @@
  * downloadTextFile helper.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { Spinner } from "@/components/Spinner";
 import { toast } from "@/components/Toast";
@@ -156,6 +156,20 @@ export const ExportCard = ({
 
   const isAnalysis = kind === "analysis";
   const itemReady = isAnalysis ? resumeId != null : sessionId != null;
+
+  // Preselect the first row and re-point at a live row after reloads: a
+  // select whose value matches no option renders as blank, and picking the
+  // shown item would not fire onChange — with one item the export button
+  // could never be enabled, and a wiped-away id would silently unselect.
+  useEffect(() => {
+    if (isAnalysis) {
+      if (resumeId == null || !resumes.some((r) => r.id === resumeId)) {
+        setResumeId(resumes[0]?.id ?? null);
+      }
+    } else if (sessionId == null || !sessions.some((s) => s.id === sessionId)) {
+      setSessionId(sessions[0]?.id ?? null);
+    }
+  }, [isAnalysis, resumeId, resumes, sessionId, sessions]);
 
   const handleExport = async () => {
     if (exporting) return;

@@ -131,6 +131,9 @@ export const usePrepDeepLink = ({
             // Wait for the resume catalog the pairing decision depends on; the
             // sessions gate only orders backend traffic (we always create here).
             const catalogs = await waitForCatalogs(stateRef, aliveRef);
+            // The wait also exits on a real unmount; creating the session then
+            // would leave a stray backend row the user never asked for.
+            if (!aliveRef.current) return;
             const pairedResumeId = resolvePairedResumeId(link, catalogs.resumes);
             if (pairedResumeId != null) catalogs.setResumeId(pairedResumeId);
             const sid = await catalogs.startPrep(pairedResumeId ?? undefined);
