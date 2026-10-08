@@ -21,7 +21,7 @@ vi.mock("@/features/resume", async () => ({
 }));
 afterEach(cleanup);
 
-function resume(id: number): Resume {
+const resume = (id: number): Resume => {
   return {
     id,
     filename: `cv-${id}.pdf`,
@@ -43,7 +43,7 @@ function resume(id: number): Resume {
       skills: Array.from({ length: PREVIEW_SKILL_MAX + 1 }, (_, i) => `skill${i}`),
     },
   };
-}
+};
 
 it("caps skills when selecting another resume, including returning to the first", () => {
   state.previewResume = resume(1);

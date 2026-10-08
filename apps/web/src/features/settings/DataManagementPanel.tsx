@@ -13,13 +13,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, HardDriveDownload, TriangleAlert } from "lucide-react";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Spinner } from "@/components/Spinner";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import { downloadTextFile } from "@/lib/download";
 import { formatApiError } from "@/lib/api/base";
 import { recordsHttp, resumeHttp, settingsHttp } from "@/lib/api/clients";
+import { DangerActionCard } from "./DangerActionCard";
 import type { ResumeResponse } from "@/lib/api/contract";
 import type { SessionHistoryItem } from "@/types/domains/records";
 
@@ -27,21 +27,21 @@ type ExportKind = "report" | "record" | "analysis";
 type ExportFormat = "md" | "json";
 
 /** Item picker row shared by the kind-dependent selects. */
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+const FieldRow = ({ label, children }: { label: string; children: React.ReactNode }) => {
   return (
     <div className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[120px_minmax(0,1fr)]">
       <span className="text-[12px] text-ink-subtle">{label}</span>
       {children}
     </div>
   );
-}
+};
 
 /** Label shown for one session row in the item picker. */
-function sessionLabel(s: SessionHistoryItem): string {
+const sessionLabel = (s: SessionHistoryItem): string => {
   const date = (s.created_at || s.started_at || "").slice(0, 10);
   const who = [s.role, s.company].filter(Boolean).join(" · ");
   return `#${s.id}${who ? ` ${who}` : ""}${date ? ` ${date}` : ""}`;
-}
+};
 
 /** Result of one picker fetch: the rows plus the first id to preselect. */
 interface PickedList<T> {
@@ -53,10 +53,10 @@ interface PickedList<T> {
  * Fetch one picker list under the given alive guard: null-safe rows on
  * success, an empty list on failure. Returns the snapshot to commit.
  */
-async function fetchPickerList<T extends { id: number }>(
+const fetchPickerList = async <T extends { id: number }>(
   alive: () => boolean,
   load: () => Promise<T[]>,
-): Promise<PickedList<T>> {
+): Promise<PickedList<T>> => {
   try {
     const fetched = await load();
     const rows = alive() && Array.isArray(fetched) ? fetched : [];
@@ -64,7 +64,7 @@ async function fetchPickerList<T extends { id: number }>(
   } catch {
     return { rows: alive() ? [] : [], firstId: null };
   }
-}
+};
 
 /** The three export kinds with their picker wiring and fetch call. */
 const EXPORT_KINDS: readonly {
@@ -77,7 +77,7 @@ const EXPORT_KINDS: readonly {
 ];
 
 /** One item of the kind or format segmented pickers. */
-function PickerOption({
+const PickerOption = ({
   selected,
   onClick,
   children,
@@ -85,7 +85,7 @@ function PickerOption({
   selected: boolean;
   onClick: () => void;
   children: React.ReactNode;
-}) {
+}) => {
   return (
     <button
       type="button"
@@ -100,10 +100,10 @@ function PickerOption({
       {children}
     </button>
   );
-}
+};
 
 /** One option row of a picker select (or a placeholder when empty). */
-function PickerSelect<T extends { id: number }>({
+const PickerSelect = <T extends { id: number }>({
   value,
   items,
   disabled,
@@ -117,7 +117,7 @@ function PickerSelect<T extends { id: number }>({
   emptyLabel: string;
   renderLabel: (item: T) => string;
   onChange: (id: number | null) => void;
-}) {
+}) => {
   const t = useT("settings");
   return (
     <FieldRow label={t("data.export.item")}>
@@ -141,7 +141,7 @@ function PickerSelect<T extends { id: number }>({
       </select>
     </FieldRow>
   );
-}
+};
 
 /** Arguments identifying one export the user asked for. */
 interface ExportRequest {
@@ -153,7 +153,7 @@ interface ExportRequest {
 }
 
 /** Fetch the export file for one request, or null when its item is unset. */
-async function requestExportFile(req: ExportRequest) {
+const requestExportFile = async (req: ExportRequest) => {
   if (req.kind === "analysis") {
     if (req.resumeId == null) return null;
     return resumeHttp.exportAnalysis(req.resumeId, req.format, req.includeResume);
@@ -162,10 +162,10 @@ async function requestExportFile(req: ExportRequest) {
   return req.kind === "report"
     ? recordsHttp.exportReport(req.sessionId, req.format)
     : recordsHttp.exportRecord(req.sessionId, req.format);
-}
+};
 
 /** Export card: kind/item/format pickers plus the download action. */
-function ExportCard({
+const ExportCard = ({
   sessions,
   resumes,
   onExported,
@@ -173,7 +173,7 @@ function ExportCard({
   sessions: SessionHistoryItem[];
   resumes: ResumeResponse[];
   onExported: () => void;
-}) {
+}) => {
   const t = useT("settings");
   const [kind, setKind] = useState<ExportKind>("report");
   const [format, setFormat] = useState<ExportFormat>("md");
@@ -289,66 +289,38 @@ function ExportCard({
       </button>
     </div>
   );
-}
+};
 
 /** Destructive wipe card with its two-step confirmation dialog. */
-function WipeCard({ onWiped }: { onWiped: () => void }) {
+const WipeCard = ({ onWiped }: { onWiped: () => void }) => {
   const t = useT("settings");
-  const tc = useT("common");
-  const [wipeOpen, setWipeOpen] = useState(false);
-  const [wiping, setWiping] = useState(false);
-
-  const handleWipe = async () => {
-    setWiping(true);
-    try {
-      await settingsHttp.clearAllData();
-      toast.success(t("data.wipe.done"));
-      // Clear busy before closing: the dialog restores focus to the wipe
-      // trigger on close, and a disabled trigger would swallow it.
-      setWiping(false);
-      setWipeOpen(false);
-      onWiped();
-    } catch (err) {
-      toast.error(err instanceof Error ? formatApiError(err) : t("data.wipe.failed"));
-      setWiping(false);
-    }
-  };
-
   return (
-    <div className="surface-card p-4">
-      <div className="mb-1 flex items-center gap-2">
-        <TriangleAlert size={16} className="text-[var(--danger)]" />
-        <h2 className="text-[14px] font-semibold">{t("data.wipe.title")}</h2>
-      </div>
-      <p className="text-[13px] leading-relaxed text-ink-muted">{t("data.wipe.desc")}</p>
-      <button
-        type="button"
-        className="btn-danger mt-3 text-[13px]"
-        disabled={wiping}
-        onClick={() => setWipeOpen(true)}
-      >
-        <HardDriveDownload size={13} className="rotate-180" />
-        {t("data.wipe.action")}
-      </button>
-
-      <ConfirmDialog
-        open={wipeOpen}
-        title={t("data.wipe.confirmTitle")}
-        message={t("data.wipe.confirmBody")}
-        confirmLabel={t("data.wipe.action")}
-        cancelLabel={tc("confirm.cancel")}
-        busy={wiping}
-        requireAcknowledgement
-        acknowledgementLabel={t("data.wipe.acknowledge")}
-        onConfirm={() => void handleWipe()}
-        onCancel={() => setWipeOpen(false)}
-      />
-    </div>
+    <DangerActionCard
+      icon={<TriangleAlert size={16} className="text-[var(--danger)]" />}
+      title={t("data.wipe.title")}
+      description={t("data.wipe.desc")}
+      actionLabel={t("data.wipe.action")}
+      confirmTitle={t("data.wipe.confirmTitle")}
+      confirmBody={t("data.wipe.confirmBody")}
+      acknowledgementLabel={t("data.wipe.acknowledge")}
+      actionIcon={<HardDriveDownload size={13} className="rotate-180" />}
+      onConfirm={async () => {
+        // Thrown errors keep the dialog open; the toast already fired.
+        try {
+          await settingsHttp.clearAllData();
+          toast.success(t("data.wipe.done"));
+          onWiped();
+        } catch (err) {
+          toast.error(err instanceof Error ? formatApiError(err) : t("data.wipe.failed"));
+          throw err;
+        }
+      }}
+    />
   );
-}
+};
 
 /** Panel root: loads the picker catalogs once and lays out the two cards. */
-export function DataManagementPanel() {
+export const DataManagementPanel = () => {
   const [sessions, setSessions] = useState<SessionHistoryItem[] | null>(null);
   const [resumes, setResumes] = useState<ResumeResponse[] | null>(null);
   const [reloadSeq, setReloadSeq] = useState(0);
@@ -404,4 +376,4 @@ export function DataManagementPanel() {
       <WipeCard onWiped={() => setReloadSeq((n) => n + 1)} />
     </div>
   );
-}
+};

@@ -82,7 +82,7 @@ interface BriefScope {
  * Debounced company-brief loader: owns the fetch state machine (loading,
  * error, stale-response guards) and re-runs whenever a scope field changes.
  */
-function useCompanyBrief(scope: BriefScope) {
+const useCompanyBrief = (scope: BriefScope) => {
   const [brief, setBrief] = useState<CompanyBrief | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState(false);
@@ -137,10 +137,10 @@ function useCompanyBrief(scope: BriefScope) {
   }, [loadBrief]);
 
   return { brief, briefLoading, briefError, loadBrief };
-}
+};
 
 /** The researched brief body: style, focus areas, and process sections. */
-function BriefContent({ brief }: { brief: CompanyBrief }) {
+const BriefContent = ({ brief }: { brief: CompanyBrief }) => {
   const t = useT("interview");
   return (
     <>
@@ -169,10 +169,10 @@ function BriefContent({ brief }: { brief: CompanyBrief }) {
       <p className="mb-2 break-words text-[11px] leading-snug text-ink-muted">{brief.process}</p>
     </>
   );
-}
+};
 
 /** Loading/error/retry states shown above (or instead of) the brief body. */
-function BriefState({
+const BriefState = ({
   companyName,
   loading,
   error,
@@ -182,7 +182,7 @@ function BriefState({
   loading: boolean;
   error: boolean;
   onRetry: () => void;
-}) {
+}) => {
   const t = useT("interview");
   if (loading) {
     return (
@@ -207,10 +207,10 @@ function BriefState({
       </button>
     </div>
   );
-}
+};
 
 /** Researched company brief card: fetch wiring plus status and content. */
-function CompanyBriefCard(scope: BriefScope & { hasResume: boolean }) {
+const CompanyBriefCard = (scope: BriefScope & { hasResume: boolean }) => {
   const { companyName, hasResume } = scope;
   const t = useT("interview");
   const { brief, briefLoading, briefError, loadBrief } = useCompanyBrief(scope);
@@ -239,7 +239,7 @@ function CompanyBriefCard(scope: BriefScope & { hasResume: boolean }) {
       )}
     </div>
   );
-}
+};
 
 /** Setup summary card: config rows plus the researched company brief. */
 export const InterviewPreview = ({

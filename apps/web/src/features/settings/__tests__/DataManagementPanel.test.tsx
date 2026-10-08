@@ -12,7 +12,7 @@ vi.mock("@/lib/api/clients", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-function deferred<T>() {
+const deferred = <T,>() => {
   let resolve!: (value: T) => void;
   let reject!: (reason: Error) => void;
   const promise = new Promise<T>((res, rej) => {
@@ -20,14 +20,14 @@ function deferred<T>() {
     reject = rej;
   });
   return { promise, resolve, reject };
-}
+};
 const sessions = vi.mocked(recordsHttp.listSessions);
 const resumes = vi.mocked(resumeHttp.listResumes);
 const wipe = vi.mocked(settingsHttp.clearAllData);
 beforeEach(() => vi.resetAllMocks());
 afterEach(cleanup);
 
-async function confirmWipe() {
+const confirmWipe = async () => {
   fireEvent.click(screen.getByRole("button", { name: "data.wipe.action" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "data.wipe.acknowledge" }));
   await act(async () => {
@@ -35,7 +35,7 @@ async function confirmWipe() {
       within(screen.getByRole("dialog")).getByRole("button", { name: "data.wipe.action" }),
     );
   });
-}
+};
 
 it.each([false, true])(
   "ignores earlier picker requests after a wipe reload (reject=%s)",

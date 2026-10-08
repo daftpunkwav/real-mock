@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/i18n";
 import { buildPrepDeepLink } from "../sendToPrep";
 
-export function SendToPrepButton({
+export const SendToPrepButton = ({
   question,
   resumeId,
 }: {
@@ -20,7 +20,7 @@ export function SendToPrepButton({
   question: string;
   /** Owning resume id; pairs the seeded prep session with the same resume. */
   resumeId: number | null;
-}) {
+}) => {
   const t = useT("resume");
   const router = useRouter();
   return (
@@ -36,4 +36,4 @@ export function SendToPrepButton({
       <SendHorizontal size={12} />
     </button>
   );
-}
+};

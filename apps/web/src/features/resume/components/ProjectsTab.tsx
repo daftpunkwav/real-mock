@@ -91,14 +91,14 @@ function RepoVerificationCards({ items }: { items: RepoVerification[] }) {
   );
 }
 
-export function ProjectsTab({
+export const ProjectsTab = ({
   analysis,
   resumeId,
 }: {
   analysis: ResumeAnalysis;
   /** Owning resume id; seeds the prep session pairing on "send to prep". */
   resumeId?: number | null;
-}) {
+}) => {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   return (
@@ -125,4 +125,4 @@ export function ProjectsTab({
       )}
     </>
   );
-}
+};

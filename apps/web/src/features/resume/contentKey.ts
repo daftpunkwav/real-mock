@@ -8,10 +8,10 @@
  */
 
 /** Pair each item with a unique, content-derived React key. */
-export function withContentKeys<T>(
+export const withContentKeys = <T>(
   items: readonly T[],
   content: (item: T) => string,
-): { item: T; key: string }[] {
+): { item: T; key: string }[] => {
   const seen = new Map<string, number>();
   return items.map((item) => {
     const base = content(item);
@@ -19,4 +19,4 @@ export function withContentKeys<T>(
     seen.set(base, occurrence + 1);
     return { item, key: JSON.stringify([base, occurrence]) };
   });
-}
+};

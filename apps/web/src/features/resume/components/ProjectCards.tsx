@@ -18,13 +18,13 @@ import { SendToPrepButton } from "./SendToPrepButton";
 import { scoreColor } from "@/lib/scoreColor";
 
 /** Plain-string deep-dive question with a "send to prep" action. */
-function DeepDiveQuestionRow({
+const DeepDiveQuestionRow = ({
   question,
   resumeId,
 }: {
   question: string;
   resumeId?: number | null;
-}) {
+}) => {
   if (!question.trim()) return null;
   return (
     <div className="flex items-start gap-2">
@@ -34,10 +34,10 @@ function DeepDiveQuestionRow({
       <SendToPrepButton question={question} resumeId={resumeId ?? null} />
     </div>
   );
-}
+};
 
 /** Shared layout for a labelled card section (highlights or risks). */
-function CardListSection({
+const CardListSection = ({
   label,
   icon,
   labelClass,
@@ -47,7 +47,7 @@ function CardListSection({
   icon: React.ReactNode;
   labelClass: string;
   items: string[];
-}) {
+}) => {
   if (items.length === 0) return null;
   const cn = normalizeCnPunctuation;
   return (
@@ -64,17 +64,17 @@ function CardListSection({
       </ul>
     </div>
   );
-}
+};
 
 /** Must-ask drill questions: plain strings get a send-to-prep row, structured
  * rows render as full interview QA cards. */
-function CardDeepQuestions({
+const CardDeepQuestions = ({
   questions,
   resumeId,
 }: {
   questions: NonNullable<ProjectCardData["deep_questions"]>;
   resumeId?: number | null;
-}) {
+}) => {
   const t = useT("resume");
   if (questions.length === 0) return null;
   const cn = normalizeCnPunctuation;
@@ -95,10 +95,10 @@ function CardDeepQuestions({
       </div>
     </div>
   );
-}
+};
 
 /** One expandable card; the first card starts open. */
-function ProjectCardItem({
+const ProjectCardItem = ({
   card,
   index,
   resumeId,
@@ -106,7 +106,7 @@ function ProjectCardItem({
   card: ProjectCardData;
   index: number;
   resumeId?: number | null;
-}) {
+}) => {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   const [open, setOpen] = useState(index === 0);
@@ -170,15 +170,15 @@ function ProjectCardItem({
       </AnimatePresence>
     </div>
   );
-}
+};
 
-export function ProjectCards({
+export const ProjectCards = ({
   cards,
   resumeId,
 }: {
   cards: ProjectCardData[];
   resumeId?: number | null;
-}) {
+}) => {
   const t = useT("resume");
   const cleaned = cards.filter((c) => c.name);
   if (cleaned.length === 0) return null;
@@ -192,4 +192,4 @@ export function ProjectCards({
       </div>
     </section>
   );
-}
+};

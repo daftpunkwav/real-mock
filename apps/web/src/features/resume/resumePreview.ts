@@ -19,7 +19,7 @@ export function shortSkillLabel(skill: string, maxChars = PREVIEW_SKILL_CHARS): 
 }
 
 /** Content keys survive reordering; a per-content count distinguishes exact duplicates. */
-export function keyedPreviewProjects(projects: ParsedProject[]) {
+export const keyedPreviewProjects = (projects: ParsedProject[]) => {
   const occurrences = new Map<string, number>();
   return projects.map((project) => {
     const content = JSON.stringify(Object.entries(project).sort(([a], [b]) => a.localeCompare(b)));
@@ -27,4 +27,4 @@ export function keyedPreviewProjects(projects: ParsedProject[]) {
     occurrences.set(content, occurrence + 1);
     return { project, key: JSON.stringify([content, occurrence]) };
   });
-}
+};

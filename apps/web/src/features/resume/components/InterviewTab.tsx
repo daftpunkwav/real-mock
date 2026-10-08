@@ -14,14 +14,14 @@ import { EvalList } from "./EvalList";
 import { EvalNumberedStack } from "./EvalNumberedStack";
 import { InterviewQaCard } from "./InterviewQaCard";
 
-export function InterviewTab({
+export const InterviewTab = ({
   analysis,
   resumeId,
 }: {
   analysis: ResumeAnalysis;
   /** Owning resume id; seeds the prep session pairing on "send to prep". */
   resumeId?: number | null;
-}) {
+}) => {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   const qa = analysis.interview_qa ?? [];
@@ -52,4 +52,4 @@ export function InterviewTab({
       )}
     </>
   );
-}
+};

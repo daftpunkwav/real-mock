@@ -6,75 +6,11 @@
  */
 
 import { TriangleAlert } from "lucide-react";
-import { useState } from "react";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import { formatApiError } from "@/lib/api/base";
+import { DangerActionCard } from "./DangerActionCard";
 import { useDataClear, type DataClearKind } from "./useDataClear";
-
-function DangerCard({
-  title,
-  desc,
-  action,
-  confirmTitle,
-  confirmBody,
-  kind,
-  disabled,
-  onRun,
-}: {
-  title: string;
-  desc: string;
-  action: string;
-  confirmTitle: string;
-  confirmBody: string;
-  kind: DataClearKind;
-  disabled: boolean;
-  /** Runs the mutation; must throw on failure so the dialog stays open. */
-  onRun: (kind: DataClearKind) => Promise<void>;
-}) {
-  const tc = useT("common");
-  const [confirming, setConfirming] = useState(false);
-  const [running, setRunning] = useState(false);
-
-  const handleConfirm = async () => {
-    setRunning(true);
-    try {
-      await onRun(kind);
-      setConfirming(false);
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <div className="surface-card p-4">
-      <div className="mb-1 flex items-center gap-2">
-        <TriangleAlert size={16} className="text-[var(--danger)]" />
-        <h2 className="text-[14px] font-semibold">{title}</h2>
-      </div>
-      <p className="text-[13px] leading-relaxed text-ink-muted">{desc}</p>
-      <button
-        type="button"
-        disabled={disabled || running}
-        onClick={() => setConfirming(true)}
-        className="btn-danger mt-3 text-[13px]"
-      >
-        {action}
-      </button>
-      <ConfirmDialog
-        open={confirming}
-        title={confirmTitle}
-        message={confirmBody}
-        confirmLabel={action}
-        cancelLabel={tc("confirm.cancel")}
-        busy={running}
-        onConfirm={() => void handleConfirm()}
-        onCancel={() => setConfirming(false)}
-      />
-    </div>
-  );
-}
 
 export function ResumeSettingsPanel() {
   const t = useT("settings");
@@ -97,25 +33,25 @@ export function ResumeSettingsPanel() {
 
   return (
     <div className="space-y-4">
-      <DangerCard
+      <DangerActionCard
+        icon={<TriangleAlert size={16} className="text-[var(--danger)]" />}
         title={t("data.clearResults.title")}
-        desc={t("data.clearResults.desc")}
-        action={t("data.clearResults.action")}
+        description={t("data.clearResults.desc")}
+        actionLabel={t("data.clearResults.action")}
         confirmTitle={t("data.clearResults.confirmTitle")}
         confirmBody={t("data.clearResults.confirmBody")}
-        kind="results"
         disabled={busy !== null}
-        onRun={handleRun}
+        onConfirm={() => handleRun("results")}
       />
-      <DangerCard
+      <DangerActionCard
+        icon={<TriangleAlert size={16} className="text-[var(--danger)]" />}
         title={t("data.clearAll.title")}
-        desc={t("data.clearAll.desc")}
-        action={t("data.clearAll.action")}
+        description={t("data.clearAll.desc")}
+        actionLabel={t("data.clearAll.action")}
         confirmTitle={t("data.clearAll.confirmTitle")}
         confirmBody={t("data.clearAll.confirmBody")}
-        kind="collection"
         disabled={busy !== null}
-        onRun={handleRun}
+        onConfirm={() => handleRun("collection")}
       />
     </div>
   );
