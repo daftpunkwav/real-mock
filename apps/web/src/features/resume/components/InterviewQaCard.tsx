@@ -48,6 +48,36 @@ const QaBulletList = ({
   );
 };
 
+/** Card header: numbered question with its send-to-prep action. */
+const QaCardHeader = ({
+  index,
+  question,
+  resumeId,
+}: {
+  index: number;
+  question: string;
+  resumeId: number | null;
+}) => (
+  <div className="mb-1.5 flex items-start gap-2">
+    <span className="eval-qa-idx num-tabular">{index + 1}</span>
+    <p className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-ink">
+      <EvalRichText text={question} />
+    </p>
+    {question.trim() ? <SendToPrepButton question={question} resumeId={resumeId} /> : null}
+  </div>
+);
+
+/** The interviewer-intent line under the question. */
+const QaIntentLine = ({ intent }: { intent: string }) => {
+  const t = useT("resume");
+  return (
+    <p className="eval-qa-row text-[12px] leading-relaxed text-ink-muted">
+      <span className="mr-1 shrink-0 font-medium text-ink-subtle">{t("interview.qaIntent")}:</span>
+      <EvalRichText text={normalizeCnPunctuation(intent)} />
+    </p>
+  );
+};
+
 export const InterviewQaCard = ({
   item,
   index,
@@ -59,29 +89,13 @@ export const InterviewQaCard = ({
   resumeId?: number | null;
 }) => {
   const t = useT("resume");
-  const cn = normalizeCnPunctuation;
   const points = item.answer_points ?? [];
   const followUps = item.follow_ups ?? [];
-  const question = cn(item.question ?? "");
+  const question = normalizeCnPunctuation(item.question ?? "");
   return (
     <div className="eval-qa-card">
-      <div className="mb-1.5 flex items-start gap-2">
-        <span className="eval-qa-idx num-tabular">{index + 1}</span>
-        <p className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-ink">
-          <EvalRichText text={question} />
-        </p>
-        {question.trim() ? (
-          <SendToPrepButton question={question} resumeId={resumeId ?? null} />
-        ) : null}
-      </div>
-      {item.intent?.trim() ? (
-        <p className="eval-qa-row text-[12px] leading-relaxed text-ink-muted">
-          <span className="mr-1 shrink-0 font-medium text-ink-subtle">
-            {t("interview.qaIntent")}:
-          </span>
-          <EvalRichText text={cn(item.intent)} />
-        </p>
-      ) : null}
+      <QaCardHeader index={index} question={question} resumeId={resumeId ?? null} />
+      {item.intent?.trim() ? <QaIntentLine intent={item.intent} /> : null}
       {points.length > 0 && <QaBulletList items={points} label={t("interview.qaPoints")} />}
       {followUps.length > 0 && (
         <QaBulletList

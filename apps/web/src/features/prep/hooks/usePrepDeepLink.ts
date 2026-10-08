@@ -82,6 +82,13 @@ const waitForCatalogs = async (
   return catalogs;
 };
 
+/** Linked resume id when it exists in the loaded catalog; null otherwise. */
+const resolvePairedResumeId = (
+  link: { resumeId: number | null },
+  resumes: ResumePickerItem[],
+): number | null =>
+  link.resumeId != null && resumes.some((r) => r.id === link.resumeId) ? link.resumeId : null;
+
 export const usePrepDeepLink = ({
   resumes,
   resumesLoaded,
@@ -133,10 +140,7 @@ export const usePrepDeepLink = ({
             // Wait for the resume catalog the pairing decision depends on; the
             // sessions gate only orders backend traffic (we always create here).
             const catalogs = await waitForCatalogs(stateRef, aliveRef);
-            const pairedResumeId =
-              link.resumeId != null && catalogs.resumes.some((r) => r.id === link.resumeId)
-                ? link.resumeId
-                : null;
+            const pairedResumeId = resolvePairedResumeId(link, catalogs.resumes);
             if (pairedResumeId != null) catalogs.setResumeId(pairedResumeId);
             const sid = await catalogs.startPrep(pairedResumeId ?? undefined);
             if (!aliveRef.current) return;
