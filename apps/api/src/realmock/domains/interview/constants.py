@@ -110,7 +110,7 @@ class WSServerEvent(StrEnum):
     """WebSocket server event type (front-end ``ServerEvent`` union type one-to-one correspondence)."""
 
     TURN_STATE = "turn_state"
-    ASSISTANT_TOKEN = "assistant_token"
+    ASSISTANT_TOKEN = "assistant_token"  # event field name, not a secret  # nosec B105
     ASSISTANT_DONE = "assistant_done"
     STT_PARTIAL = "stt_partial"
     STT_FINAL = "stt_final"

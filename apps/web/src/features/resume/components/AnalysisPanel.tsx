@@ -160,8 +160,8 @@ export function AnalysisPanel({
           />
         )}
         {activeTab === "document" && <DocumentTab analysis={analysis} />}
-        {activeTab === "projects" && <ProjectsTab analysis={analysis} />}
-        {activeTab === "interview" && <InterviewTab analysis={analysis} />}
+        {activeTab === "projects" && <ProjectsTab analysis={analysis} resumeId={currentId} />}
+        {activeTab === "interview" && <InterviewTab analysis={analysis} resumeId={currentId} />}
         {activeTab === "advice" && <AdviceTab analysis={analysis} />}
         {activeTab === "career" && <CareerTab analysis={analysis} />}
       </div>

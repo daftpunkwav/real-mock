@@ -77,9 +77,11 @@ def assert_profile_contract_aligned() -> None:
     response_only = {"id", "updated_at"}
     update_keys = set(UserProfileUpdate.model_fields)
     response_keys = set(UserProfileResponse.model_fields)
+    # "UserProfileUpdate" contains the SQL keyword "update" as a substring, so
+    # bandit B608 flags this static drift message as SQL construction.
     if response_keys - response_only != update_keys:
         raise RuntimeError(
-            "UserProfileResponse / UserProfileUpdate field-set drift: "
+            "UserProfileResponse / UserProfileUpdate field-set drift: "  # nosec B608
             f"response_extra={sorted(response_keys - response_only - update_keys)} "
             f"update_extra={sorted(update_keys - (response_keys - response_only))}"
         )

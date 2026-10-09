@@ -197,7 +197,7 @@ class ReferenceHintMixin:
 
     async def _generate_reference_hint(self, question: str) -> str:
         """Generate a reference outline; only use in-memory dialogue and LLM, without RAG/DB access."""
-        assert self.ctx.llm and self.ctx.agent
+        assert self.ctx.llm and self.ctx.agent  # session invariant  # nosec B101
         lang = self._hint_language()
         system_ctx = self._hint_background()
         from realmock.platform.core.prompts import with_agent_output_rules
@@ -232,7 +232,7 @@ class ReferenceHintMixin:
         caller degrades to the fast outline. The session row is only read
         (tool findings accumulate in the in-memory agent_state).
         """
-        assert self.ctx.llm and self.ctx.agent
+        assert self.ctx.llm and self.ctx.agent  # session invariant  # nosec B101
         db = SessionLocal()
         try:
             session = self._load_session(db)
@@ -240,7 +240,7 @@ class ReferenceHintMixin:
                 return None
             # Working state reaches the hint generator only through the
             # runner facade (same seam as every other realtime reader).
-            assert self.ctx.runner is not None
+            assert self.ctx.runner is not None  # session invariant  # nosec B101
             return await generate_full_reference_hint(
                 llm=self.ctx.llm,
                 db=db,

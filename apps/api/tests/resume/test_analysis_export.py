@@ -1,0 +1,233 @@
+"""Deep-review analysis export tests (md / json).
+
+Covers: happy paths with and without the folded resume, missing analysis
+(A1010), missing resume (A1005), and the score/section rendering.
+Conventions: real store seeding against the temp api DB; TestClient for HTTP.
+"""
+
+from __future__ import annotations
+
+import json
+
+from fastapi.testclient import TestClient
+
+from realmock.asgi import app
+from realmock.domains.resume.services import store
+from realmock.platform.database import get_db
+from realmock.platform.schemas import CandidateProfile
+
+
+def _seed(api_db, *, with_analysis: bool = True) -> int:
+    """Insert one resume (and optionally its analysis payload); return its id."""
+    row = store.insert_upload(
+        api_db,
+        filename="cv.txt",
+        file_type="txt",
+        raw_text="body",
+        parsed=CandidateProfile(
+            name="Ada",
+            summary="Summary text",
+            skills=["Python", "FastAPI"],
+            email="ada@example.test",
+            phone="+1 555 0100",
+            city="London",
+            target_role="Backend engineer",
+            education=[{"school": "Example University", "degree": "BSc", "year": 2020}],
+            work_experience=[
+                {
+                    "company": "Example Corp",
+                    "role": "Developer",
+                    "dates": "2020–2024",
+                    "achievements": ["Reduced latency by 40%", "Mentored five engineers"],
+                }
+            ],
+            projects=[
+                {
+                    "name": "Task queue",
+                    "description": "Reliable background jobs",
+                    "role": "Lead engineer",
+                    "technologies": ["Redis", "PostgreSQL"],
+                    "metrics": {"daily_jobs": 1000, "lost_jobs": 0},
+                    "url": "https://example.test/queue",
+                },
+                {"description": "An unnamed project", "highlights": ["Built solo"]},
+            ],
+            github_urls=["https://github.com/example"],
+            links=["https://example.test/portfolio"],
+            languages=["English"],
+            awards=["Engineering award"],
+            publications=["Queue design paper"],
+            layout_notes="Two-column layout",
+        ),
+    )
+    if with_analysis:
+        row.analysis = json.dumps(
+            {
+                "score": 70,
+                "strengths": ["clear structure"],
+                "weaknesses": ["thin metrics"],
+                "interview_qa": [
+                    {
+                        "question": "Explain the Agent Loop.",
+                        "intent": "Depth check",
+                        "answer_points": ["ReAct cycle"],
+                        "follow_ups": ["How do you recover state?"],
+                    }
+                ],
+                "project_deep_dive": ["Why hand-rolled instead of LangGraph?"],
+                "dimension_scores": {f"d{i}": {"score": 70, "comment": ""} for i in range(5)},
+            }
+        )
+        row.score = 70
+    api_db.commit()
+    return row.id
+
+
+def _override_api_db(db):
+    """Route the resume routes' api-db dependency at the test DB."""
+    app.dependency_overrides[get_db] = lambda: db
+
+
+def _unoverride_api_db():
+    """Drop the api-db dependency override."""
+    app.dependency_overrides.pop(get_db, None)
+
+
+def test_analysis_export_markdown(api_db) -> None:
+    """The md export renders the review without the folded resume."""
+    resume_id = _seed(api_db)
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            resp = client.get(f"/api/v1/resume/{resume_id}/analysis-export?format=md")
+    finally:
+        _unoverride_api_db()
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["filename"] == f"resume-analysis-{resume_id}.md"
+    assert "# Resume Deep Review — cv.txt" in body["content"]
+    assert "**Overall score**: 70" in body["content"]
+    assert "### Q1. Explain the Agent Loop." in body["content"]
+    assert "Why hand-rolled instead of LangGraph?" in body["content"]
+    # The parsed resume body is only folded in on request.
+    assert "Ada" not in body["content"]
+    assert "ada@example.test" not in body["content"]
+    assert "Example University" not in body["content"]
+    assert "Task queue" not in body["content"]
+
+
+def test_analysis_export_markdown_with_resume(api_db) -> None:
+    """include_resume folds every parsed profile field into the md."""
+    resume_id = _seed(api_db)
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/resume/{resume_id}/analysis-export?format=md&include_resume=true"
+            )
+    finally:
+        _unoverride_api_db()
+    assert resp.status_code == 200
+    content = resp.json()["content"]
+    assert "## Resume" in content
+    assert "Ada" in content
+    assert "Python, FastAPI" in content
+    for value in (
+        "Summary text",
+        "ada@example.test",
+        "+1 555 0100",
+        "London",
+        "Backend engineer",
+        "Example University",
+        "BSc",
+        "2020",
+        "Example Corp",
+        "Developer",
+        "2020–2024",
+        "Reduced latency by 40%",
+        "Mentored five engineers",
+        "Task queue",
+        "Reliable background jobs",
+        "Lead engineer",
+        "Redis",
+        "PostgreSQL",
+        "1000",
+        "https://example.test/queue",
+        "An unnamed project",
+        "Built solo",
+        "https://github.com/example",
+        "https://example.test/portfolio",
+        "English",
+        "Engineering award",
+        "Queue design paper",
+        "Two-column layout",
+    ):
+        assert value in content
+    assert "**Lost Jobs**: 0" in content
+
+
+def test_analysis_export_json_wraps_payload(api_db) -> None:
+    """The json export wraps the stored analysis with resume meta."""
+    resume_id = _seed(api_db)
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            resp = client.get(f"/api/v1/resume/{resume_id}/analysis-export?format=json")
+    finally:
+        _unoverride_api_db()
+    assert resp.status_code == 200
+    payload = json.loads(resp.json()["content"])
+    assert payload["resume"]["filename"] == "cv.txt"
+    assert payload["analysis"]["score"] == 70
+    assert payload["analysis"]["interview_qa"][0]["question"] == "Explain the Agent Loop."
+
+
+def test_analysis_export_without_review_is_404(api_db) -> None:
+    """A resume whose review never ran exports nothing: 404 (A1010)."""
+    resume_id = _seed(api_db, with_analysis=False)
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            resp = client.get(f"/api/v1/resume/{resume_id}/analysis-export?format=md")
+    finally:
+        _unoverride_api_db()
+    assert resp.status_code == 404
+
+
+def test_analysis_export_missing_resume_is_404(api_db) -> None:
+    """An unknown resume id exports nothing: 404."""
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            resp = client.get("/api/v1/resume/999/analysis-export?format=md")
+    finally:
+        _unoverride_api_db()
+    assert resp.status_code == 404
+
+
+def test_analysis_export_validation_error_uses_catalog(api_db, monkeypatch) -> None:
+    """A payload failing schema validation maps to the catalog error A1010."""
+    from pydantic import ValidationError
+
+    from realmock.domains.resume.schemas.analysis import ResumeAnalysis
+
+    resume_id = _seed(api_db)
+
+    # Exercise the validation boundary even when today's tolerant normalizer
+    # can repair the stored payload.
+    def reject(_payload):
+        """Always raise the validation error the catalog boundary must map."""
+        raise ValidationError.from_exception_data(
+            "ResumeAnalysis", [{"type": "int_parsing", "loc": ("score",), "input": "bad"}]
+        )
+
+    monkeypatch.setattr(ResumeAnalysis, "model_validate", reject)
+    _override_api_db(api_db)
+    try:
+        with TestClient(app) as client:
+            for fmt in ("md", "json"):
+                resp = client.get(f"/api/v1/resume/{resume_id}/analysis-export?format={fmt}")
+                assert resp.status_code == 404
+                assert resp.json()["error"]["code"] == "A1010"
+    finally:
+        _unoverride_api_db()

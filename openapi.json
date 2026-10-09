@@ -200,6 +200,73 @@
         }
       }
     },
+    "/api/v1/resume/{resume_id}/analysis-export": {
+      "get": {
+        "tags": [
+          "resume"
+        ],
+        "summary": "Export Analysis",
+        "description": "Download one resume's deep-review analysis; optionally fold in the resume.",
+        "operationId": "export_analysis_api_v1_resume__resume_id__analysis_export_get",
+        "parameters": [
+          {
+            "name": "resume_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Resume Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "md",
+                "json"
+              ],
+              "type": "string",
+              "default": "md",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "include_resume",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Resume"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/resume/collection": {
       "delete": {
         "tags": [
@@ -1537,6 +1604,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/data/clear": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Clear All Data",
+        "description": "Wipe every user-content store: sessions, resumes, profile, uploads, growth.\n\nDeliberately destructive and deliberately unscoped: the settings page gates\nthis behind a two-step dialog (typed acknowledgement checkbox), so the\nendpoint itself stays parameter-free.",
+        "operationId": "clear_all_data_api_v1_settings_data_clear_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataClearResponse"
                 }
               }
             }
@@ -3930,6 +4019,188 @@
         }
       }
     },
+    "/api/v1/records/export/report/{session_id}": {
+      "get": {
+        "tags": [
+          "records"
+        ],
+        "summary": "Export Report",
+        "description": "Download the debrief report for one session (finished sessions only).",
+        "operationId": "export_report_api_v1_records_export_report__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "md",
+                "json"
+              ],
+              "type": "string",
+              "default": "md",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session Capability Token (compatible; prod disabled)",
+              "title": "Token"
+            },
+            "description": "Session Capability Token (compatible; prod disabled)"
+          },
+          {
+            "name": "X-Interview-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Interview-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/records/export/record/{session_id}": {
+      "get": {
+        "tags": [
+          "records"
+        ],
+        "summary": "Export Record",
+        "description": "Download the plain interviewer/candidate transcript for one session.",
+        "operationId": "export_record_api_v1_records_export_record__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "md",
+                "json"
+              ],
+              "type": "string",
+              "default": "md",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session Capability Token (compatible; prod disabled)",
+              "title": "Token"
+            },
+            "description": "Session Capability Token (compatible; prod disabled)"
+          },
+          {
+            "name": "X-Interview-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Interview-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/growth/history": {
       "get": {
         "tags": [
@@ -4254,6 +4525,73 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resume/{resume_id}/analysis-export": {
+      "get": {
+        "tags": [
+          "resume"
+        ],
+        "summary": "Export Analysis",
+        "description": "Download one resume's deep-review analysis; optionally fold in the resume.",
+        "operationId": "export_analysis_api_resume__resume_id__analysis_export_get",
+        "parameters": [
+          {
+            "name": "resume_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Resume Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "md",
+                "json"
+              ],
+              "type": "string",
+              "default": "md",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "include_resume",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Resume"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -5597,6 +5935,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/data/clear": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Clear All Data",
+        "description": "Wipe every user-content store: sessions, resumes, profile, uploads, growth.\n\nDeliberately destructive and deliberately unscoped: the settings page gates\nthis behind a two-step dialog (typed acknowledgement checkbox), so the\nendpoint itself stays parameter-free.",
+        "operationId": "clear_all_data_api_settings_data_clear_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataClearResponse"
                 }
               }
             }
@@ -7990,6 +8350,188 @@
         }
       }
     },
+    "/api/records/export/report/{session_id}": {
+      "get": {
+        "tags": [
+          "records"
+        ],
+        "summary": "Export Report",
+        "description": "Download the debrief report for one session (finished sessions only).",
+        "operationId": "export_report_api_records_export_report__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "md",
+                "json"
+              ],
+              "type": "string",
+              "default": "md",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session Capability Token (compatible; prod disabled)",
+              "title": "Token"
+            },
+            "description": "Session Capability Token (compatible; prod disabled)"
+          },
+          {
+            "name": "X-Interview-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Interview-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/records/export/record/{session_id}": {
+      "get": {
+        "tags": [
+          "records"
+        ],
+        "summary": "Export Record",
+        "description": "Download the plain interviewer/candidate transcript for one session.",
+        "operationId": "export_record_api_records_export_record__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "md",
+                "json"
+              ],
+              "type": "string",
+              "default": "md",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session Capability Token (compatible; prod disabled)",
+              "title": "Token"
+            },
+            "description": "Session Capability Token (compatible; prod disabled)"
+          },
+          {
+            "name": "X-Interview-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Interview-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/growth/history": {
       "get": {
         "tags": [
@@ -8842,6 +9384,61 @@
           "sample_questions"
         ],
         "title": "CompanyInfo"
+      },
+      "DataClearResponse": {
+        "properties": {
+          "sessions_tables": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Sessions Tables"
+          },
+          "api_tables": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Api Tables"
+          },
+          "upload_files": {
+            "type": "integer",
+            "title": "Upload Files",
+            "default": 0
+          },
+          "learning_reset": {
+            "type": "boolean",
+            "title": "Learning Reset",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "DataClearResponse",
+        "description": "Summary of what the wipe-all endpoint removed, per storage area."
+      },
+      "DataExportFile": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "mime": {
+            "type": "string",
+            "title": "Mime"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "mime",
+          "content"
+        ],
+        "title": "DataExportFile",
+        "description": "A single exported file, ready to be saved by the client."
       },
       "DebriefReport": {
         "properties": {

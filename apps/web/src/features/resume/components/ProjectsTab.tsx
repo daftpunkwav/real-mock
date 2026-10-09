@@ -91,7 +91,14 @@ function RepoVerificationCards({ items }: { items: RepoVerification[] }) {
   );
 }
 
-export function ProjectsTab({ analysis }: { analysis: ResumeAnalysis }) {
+export const ProjectsTab = ({
+  analysis,
+  resumeId,
+}: {
+  analysis: ResumeAnalysis;
+  /** Owning resume id; seeds the prep session pairing on "send to prep". */
+  resumeId?: number | null;
+}) => {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   return (
@@ -105,7 +112,7 @@ export function ProjectsTab({ analysis }: { analysis: ResumeAnalysis }) {
       )}
 
       {analysis.project_cards && analysis.project_cards.length > 0 && (
-        <ProjectCards cards={analysis.project_cards} />
+        <ProjectCards cards={analysis.project_cards} resumeId={resumeId} />
       )}
 
       {analysis.project_deep_dive && analysis.project_deep_dive.length > 0 && (
@@ -113,8 +120,9 @@ export function ProjectsTab({ analysis }: { analysis: ResumeAnalysis }) {
           title={t("projects.deepDive")}
           prefix="P"
           items={analysis.project_deep_dive.map(cn)}
+          resumeId={resumeId}
         />
       )}
     </>
   );
-}
+};

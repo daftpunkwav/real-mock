@@ -52,6 +52,8 @@ export const errors = {
   "A1008.hint": "Delete an older version or upload it as a new resume",
   A1009: "This resume is already being parsed",
   "A1009.hint": "Wait for parsing to finish; the list page updates automatically",
+  A1010: "Deep review not run yet",
+  "A1010.hint": "Run AI Deep Review on this resume first, then export the analysis",
   B1002: "Resume parsing was interrupted by a restart",
   "B1002.hint": "Click retry to parse this resume again",
   B2001: "Interview room hit an internal error; the room stays open",
@@ -102,6 +104,9 @@ export const errors = {
   B1001: "Failed to persist the result, please try again later",
   "B1001.hint":
     "Local write error (file/database); if it persists, check disk space and file permissions",
+  B1003:
+    "Data deletion partially completed. Session data has been cleared; resumes, profile, and files remain.",
+  "B1003.hint": "Retry deleting all data to finish the cleanup",
   // C third-party
   C0001: "AI service temporarily unavailable, please try again later",
   "C0001.hint":

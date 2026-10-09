@@ -13,7 +13,7 @@ import { useLocale } from "@/i18n";
 import { getTranslator } from "@/i18n/resolve";
 import { prepCoachHttp } from "@/lib/api/clients";
 import type { PrepSessionSummary } from "@/lib/api/contract";
-import type { AskUserDialog, PrepUsageStats } from "@/types";
+import type { AskUserDialog, ModelProfile, PrepUsageStats } from "@/types";
 import type { PrepChatMessage } from "../types";
 import type { RateSubmit } from "../components/RateModal";
 import type { SlashName } from "../slashCommands";
@@ -24,6 +24,7 @@ import { type ArchivedGroup } from "../compactionArchive";
 import type { PendingSessionRef } from "../sessionRefs";
 import { activeStreamIds, subscribeStreams } from "../streamRegistry";
 import { usePrepCompact } from "./usePrepCompact";
+import { usePrepDeepLink } from "./usePrepDeepLink";
 import { usePrepResources } from "./usePrepResources";
 import { usePrepScroll } from "./usePrepScroll";
 import { usePrepSend } from "./usePrepSend";
@@ -98,7 +99,8 @@ interface UsePrepChat {
   reloadMessages: (id: number) => Promise<void>;
   /** Tracked backend message-list length (fork/retract/compact guards). */
   backendCount: (sid: number) => number | undefined;
-  startPrep: () => Promise<number | null>;
+  /** Create a session; the optional argument binds a resume before state commits. */
+  startPrep: (resumeOverride?: number) => Promise<number | null>;
   setAskDialog: React.Dispatch<React.SetStateAction<AskUserDialog | null>>;
   deleteSession: (id: number) => Promise<void>;
   archiveSession: (id: number, archived: boolean) => Promise<void>;
@@ -125,7 +127,113 @@ interface UsePrepChat {
   submitRate: (data: RateSubmit) => Promise<void>;
 }
 
-export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat {
+/** Prep chat composition root: session state, streaming, and actions in one view-model. */
+/** AI quick-prompt suggestions for the viewed session (null = static defaults). */
+const usePrepQuickSuggestions = ({
+  viewingRef,
+  chatModels,
+  selectedModelId,
+  defaultChatProfile,
+  locale,
+  prepSessionId,
+}: {
+  viewingRef: React.MutableRefObject<number | null>;
+  chatModels: ModelProfile[];
+  selectedModelId: number | null;
+  defaultChatProfile: ModelProfile | null;
+  locale: string;
+  prepSessionId: number | null;
+}): { quickSuggestions: string[] | null; refreshSuggestions: (sid: number) => void } => {
+  const [quickSuggestions, setQuickSuggestions] = useState<string[] | null>(null);
+  const refreshSuggestions = useCallback(
+    (sid: number) => {
+      if (sid !== viewingRef.current) return;
+      const model = resolveSelectedModel(chatModels, selectedModelId, defaultChatProfile);
+      prepCoachHttp
+        .suggestFollowups(sid, { modelProfileId: model?.id ?? null, uiLocale: locale })
+        .then((res) => {
+          if (sid !== viewingRef.current) return;
+          const list = (res.suggestions ?? []).filter((st) => typeof st === "string" && st.trim());
+          // A nicety never downgrades the card: an empty refresh (LLM timed
+          // out or failed server-side) keeps the previous suggestions rather
+          // than snapping back to the static defaults.
+          if (list.length > 0) setQuickSuggestions(list);
+        })
+        .catch(() => {
+          /* Keep the current card (defaults on first failure). */
+        });
+    },
+    [viewingRef, chatModels, selectedModelId, defaultChatProfile, locale],
+  );
+  useEffect(() => {
+    setQuickSuggestions(null);
+  }, [prepSessionId]);
+  return { quickSuggestions, refreshSuggestions };
+};
+
+/** Slash-command dispatch plus the /clear confirmation dialog state. */
+const usePrepSlashCommands = ({
+  setInput,
+  pushNotice,
+  prepSessionId,
+  runCompact,
+  clearSession,
+}: {
+  setInput: (v: string) => void;
+  pushNotice: (text: string) => void;
+  prepSessionId: number | null;
+  runCompact: ReturnType<typeof usePrepCompact>["runCompact"];
+  clearSession: ReturnType<typeof usePrepSessionManage>["clearSession"];
+}): {
+  slashClearOpen: boolean;
+  handleSlashCommand: (cmd: SlashName, rawArgs: string) => Promise<void>;
+  confirmSlashClear: () => void;
+  cancelSlashClear: () => void;
+} => {
+  const t = getTranslator("prep");
+  const [slashClearOpen, setSlashClearOpen] = useState(false);
+  const handleSlashCommand = useCallback(
+    async (cmd: SlashName, rawArgs: string) => {
+      setInput("");
+      if (cmd === "help") {
+        pushNotice(t("slash.helpBody"));
+        return;
+      }
+      if (!prepSessionId) {
+        pushNotice(t("slash.noSession"));
+        return;
+      }
+      if (cmd === "clear") {
+        setSlashClearOpen(true);
+        return;
+      }
+      // Slash args override settings for this run only: an intensity
+      // keyword selects the amplitude, the rest is the directive.
+      const slashArgs = parseCompactArgs(rawArgs);
+      const settings = resolveCompactParams();
+      await runCompact(prepSessionId, {
+        intensity: slashArgs.intensity ?? settings.intensity,
+        ...(slashArgs.directive !== undefined
+          ? { directive: slashArgs.directive }
+          : settings.directive
+            ? { directive: settings.directive }
+            : {}),
+        retain: settings.retain,
+      });
+    },
+    [pushNotice, prepSessionId, runCompact, setInput, t],
+  );
+  const confirmSlashClear = useCallback(() => {
+    setSlashClearOpen(false);
+    if (prepSessionId !== null) void clearSession(prepSessionId);
+  }, [clearSession, prepSessionId]);
+  const cancelSlashClear = useCallback(() => {
+    setSlashClearOpen(false);
+  }, []);
+  return { slashClearOpen, handleSlashCommand, confirmSlashClear, cancelSlashClear };
+};
+
+export const usePrepChat = ({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat => {
   const resources = usePrepResources();
   const { locale } = useLocale();
   const [messages, setMessages] = useState<PrepChatMessage[]>([]);
@@ -136,8 +244,6 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   const [busySids, setBusySids] = useState<number[]>(() => activeStreamIds());
   useEffect(() => subscribeStreams(setBusySids), []);
   const [askDialog, setAskDialog] = useState<AskUserDialog | null>(null);
-  /** Slash-/clear confirmation dialog owned by the page. */
-  const [slashClearOpen, setSlashClearOpen] = useState(false);
 
   const msgSeqRef = useRef(0);
   /** Backend message-list lengths per session, for fork/retract indices. */
@@ -194,41 +300,16 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
   viewingRef.current = session.prepSessionId;
   const loading = busySid !== null && busySid === session.prepSessionId;
 
-  // AI quick-prompt suggestions: null shows the static defaults. Refreshed
-  // after each settled turn of the viewed session — background turns settling
-  // while another session is viewed must not leak their suggestions here —
-  // and a switch falls back to defaults until that session's next turn lands.
-  const [quickSuggestions, setQuickSuggestions] = useState<string[] | null>(null);
-  const refreshSuggestions = useCallback(
-    (sid: number) => {
-      if (sid !== viewingRef.current) return;
-      const model = resolveSelectedModel(
-        resources.chatModels,
-        resources.selectedModelId,
-        resources.defaultChatProfile,
-      );
-      prepCoachHttp
-        .suggestFollowups(sid, {
-          modelProfileId: model?.id ?? null,
-          uiLocale: locale,
-        })
-        .then((res) => {
-          if (sid !== viewingRef.current) return;
-          const list = (res.suggestions ?? []).filter((s) => typeof s === "string" && s.trim());
-          // A nicety never downgrades the card: an empty refresh (LLM timed
-          // out or failed server-side) keeps the previous suggestions rather
-          // than snapping back to the static defaults.
-          if (list.length > 0) setQuickSuggestions(list);
-        })
-        .catch(() => {
-          /* Keep the current card (defaults on first failure). */
-        });
-    },
-    [resources.chatModels, resources.selectedModelId, resources.defaultChatProfile, locale],
-  );
-  useEffect(() => {
-    setQuickSuggestions(null);
-  }, [session.prepSessionId]);
+  // AI quick-prompt suggestions live in their own hook; `refreshSuggestions`
+  // rides along as the send pipeline's turn-settled callback.
+  const { quickSuggestions, refreshSuggestions } = usePrepQuickSuggestions({
+    viewingRef,
+    chatModels: resources.chatModels,
+    selectedModelId: resources.selectedModelId,
+    defaultChatProfile: resources.defaultChatProfile,
+    locale,
+    prepSessionId: session.prepSessionId,
+  });
 
   const {
     archiveGroups,
@@ -292,6 +373,17 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     refreshSessions: resources.refreshSessions,
   });
 
+  // Resume-review deep link (/prep?resume=&q=): one-shot on mount, after the
+  // send pipeline above exists to create the paired session and seed it.
+  usePrepDeepLink({
+    resumes: resources.resumes,
+    resumesLoaded: resources.resumesLoaded,
+    sessionsLoaded: resources.sessionsLoaded,
+    setResumeId: resources.setResumeId,
+    startPrep: session.startPrep,
+    sendMessage,
+  });
+
   const manage = usePrepSessionManage({
     prepSessionId: session.prepSessionId,
     setMessages,
@@ -344,48 +436,14 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewedId]);
 
-  const handleSlashCommand = useCallback(
-    async (cmd: SlashName, rawArgs: string) => {
-      const t = getTranslator("prep");
-      setInput("");
-      if (cmd === "help") {
-        pushNotice(t("slash.helpBody"));
-        return;
-      }
-      const sid = session.prepSessionId;
-      if (!sid) {
-        pushNotice(t("slash.noSession"));
-        return;
-      }
-      if (cmd === "clear") {
-        setSlashClearOpen(true);
-        return;
-      }
-      // Slash args override settings for this run only: an intensity
-      // keyword selects the amplitude, the rest is the directive.
-      const slashArgs = parseCompactArgs(rawArgs);
-      const settings = resolveCompactParams();
-      await runCompact(sid, {
-        intensity: slashArgs.intensity ?? settings.intensity,
-        ...(slashArgs.directive !== undefined
-          ? { directive: slashArgs.directive }
-          : settings.directive
-            ? { directive: settings.directive }
-            : {}),
-        retain: settings.retain,
-      });
-    },
-    [pushNotice, runCompact, session],
-  );
-
-  const confirmSlashClear = useCallback(() => {
-    setSlashClearOpen(false);
-    if (session.prepSessionId !== null) void manage.clearSession(session.prepSessionId);
-  }, [manage, session.prepSessionId]);
-
-  const cancelSlashClear = useCallback(() => {
-    setSlashClearOpen(false);
-  }, []);
+  const { handleSlashCommand, slashClearOpen, confirmSlashClear, cancelSlashClear } =
+    usePrepSlashCommands({
+      setInput,
+      pushNotice,
+      prepSessionId: session.prepSessionId,
+      runCompact,
+      clearSession: manage.clearSession,
+    });
 
   // Stable action objects: memoized chat bubbles compare props shallowly, so
   // rebuilt-per-render handlers would re-render every message on each token.
@@ -499,4 +557,4 @@ export function usePrepChat({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat
     closeRate: actions.closeRate,
     submitRate: actions.submitRate,
   };
-}
+};

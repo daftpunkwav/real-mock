@@ -145,7 +145,7 @@ export function ContinueProcesses({
   const tCommon = useT("common");
   if (!loadError && processes.length === 0) return null;
   return (
-    <section className="surface-card shrink-0 p-3.5">
+    <section className="surface-card mb-3 shrink-0 p-3.5">
       <div className="mb-2 flex items-center gap-2">
         <span className="icon-badge icon-badge-brand !h-7 !w-7">
           <GitBranch size={14} strokeWidth={1.75} />

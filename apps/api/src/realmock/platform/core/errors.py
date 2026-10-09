@@ -158,6 +158,12 @@ CATALOG: dict[str, ErrorSpec] = {
         "This resume is already being parsed",
         "Wait for parsing to finish; the list page updates automatically",
     ),
+    "A1010": ErrorSpec(
+        "A1010",
+        404,
+        "Deep review not run yet",
+        "Run AI Deep Review on this resume first, then export the analysis",
+    ),
     # A2 interview
     "A2001": ErrorSpec(
         "A2001",
@@ -267,6 +273,13 @@ CATALOG: dict[str, ErrorSpec] = {
         409,
         "Resume parsing was interrupted by a restart",
         "Click retry to parse this resume again",
+        True,
+    ),
+    "B1003": ErrorSpec(
+        "B1003",
+        500,
+        "Data deletion partially completed. Session data has been cleared; resumes, profile, and files remain.",
+        "Retry deleting all data to finish the cleanup",
         True,
     ),
     "B2001": ErrorSpec(

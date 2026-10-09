@@ -50,7 +50,7 @@ def _extract_json_dict(text: str) -> dict | None:
         if isinstance(data, dict):
             return data
     except Exception:
-        pass
+        pass  # try the next parse strategy  # nosec B110
 
     # 2. Strip markdown code fence e.g. ```json ... ```
     if s.startswith("```"):
@@ -65,7 +65,7 @@ def _extract_json_dict(text: str) -> dict | None:
             if isinstance(data, dict):
                 return data
         except Exception:
-            pass
+            pass  # try the next parse strategy  # nosec B110
 
     # 3. Find outermost { ... }
     first_brace = s.find("{")
@@ -77,7 +77,7 @@ def _extract_json_dict(text: str) -> dict | None:
             if isinstance(data, dict):
                 return data
         except Exception:
-            pass
+            pass  # try the next parse strategy  # nosec B110
 
     return None
 

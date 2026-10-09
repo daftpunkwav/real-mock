@@ -19,14 +19,14 @@ Run from the repository root:
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # CI script drives git  # nosec B404
 import sys
 from collections import defaultdict
 
 
 def tracked_paths() -> list[str]:
     # -z: NUL-separated, so paths containing spaces or quotes survive intact.
-    out = subprocess.run(
+    out = subprocess.run(  # fixed git argv, no shell  # nosec B603 B607
         ["git", "ls-files", "-z"],
         check=True,
         capture_output=True,
@@ -47,7 +47,9 @@ def main() -> int:
         print(f"ok - no case collisions among {len(groups)} tracked paths")
         return 0
 
-    print(f"error - {len(collisions)} case-insensitive path collision(s) in the index:\n")
+    print(
+        f"error - {len(collisions)} case-insensitive path collision(s) in the index:\n"
+    )
     for key, paths in sorted(collisions.items()):
         print(f"  {key}")
         for path in sorted(paths):

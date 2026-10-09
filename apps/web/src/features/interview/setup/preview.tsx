@@ -14,6 +14,7 @@ import {
   UserCircle,
   Video,
 } from "lucide-react";
+import type { ComponentType } from "react";
 import type { InterviewConfig, Options, ResumePickerItem } from "@/lib/api/contract";
 import type { CompanyBrief } from "@/types";
 import { interviewHttp } from "@/lib/api/interviewHttp";
@@ -34,15 +35,24 @@ import {
 /** Debounce before fetching/generating: merges keystrokes on custom fields. */
 const BRIEF_DEBOUNCE_MS = 600;
 
-export function PreviewRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+/** Icon props subset used by the setup summary rows. */
+interface RowIconProps {
+  size?: number;
+  className?: string;
+  strokeWidth?: number;
+}
+
+type RowIcon = ComponentType<RowIconProps>;
+
+/** Props of one icon + label + value row of the setup summary card. */
+interface PreviewRowProps {
+  icon: RowIcon;
   label: string;
   value: string;
-}) {
+}
+
+/** One icon + label + value row of the setup summary card. */
+export const PreviewRow = ({ icon: Icon, label, value }: PreviewRowProps) => {
   return (
     <div className="flex items-start gap-1.5">
       <Icon size={12} className="mt-0.5 shrink-0 text-ink-subtle" strokeWidth={1.75} />
@@ -52,13 +62,193 @@ export function PreviewRow({
       </div>
     </div>
   );
-}
+};
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/** Small uppercase caption above a brief section. */
+const SectionLabel = ({ children }: { children: React.ReactNode }) => {
   return <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-ink-subtle">{children}</p>;
+};
+
+/** Input fields that scope the researched brief (any change re-fetches it). */
+interface BriefScope {
+  companyName: string;
+  roleDisplay: string;
+  levelDisplay: string;
+  workflowType: string;
+  locale: string;
 }
 
-export function InterviewPreview({
+/**
+ * Debounced company-brief loader: owns the fetch state machine (loading,
+ * error, stale-response guards) and re-runs whenever a scope field changes.
+ */
+const useCompanyBrief = (scope: BriefScope) => {
+  const [brief, setBrief] = useState<CompanyBrief | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState(false);
+  // Only the latest request may update state; StrictMode double-mounts (and any
+  // retry while one is in flight) would otherwise interleave stale outcomes.
+  const briefReqSeq = useRef(0);
+  // The in-flight request's controller: scope changes and unmounts abort
+  // through it, so a superseded request never keeps streaming.
+  const briefControllerRef = useRef<AbortController | null>(null);
+
+  const loadBrief = useCallback(
+    async () => {
+      const seq = ++briefReqSeq.current;
+      // Each run owns a fresh controller, so a retry started after an abort
+      // (or a scope change) is cancellable in its own right.
+      const controller = new AbortController();
+      briefControllerRef.current = controller;
+      setBriefLoading(true);
+      setBriefError(false);
+      try {
+        const res = await interviewHttp.fetchCompanyBrief(
+          scope.companyName,
+          scope.roleDisplay,
+          scope.levelDisplay,
+          scope.workflowType,
+          { signal: controller.signal, locale: scope.locale },
+        );
+        if (seq !== briefReqSeq.current) return;
+        setBrief(res);
+        setBriefError(false);
+      } catch {
+        // The seq guard also covers aborts: a cancelled request is always
+        // superseded by a newer one (or by unmount), so it never touches state.
+        if (seq !== briefReqSeq.current) return;
+        setBrief(null);
+        setBriefError(true);
+      } finally {
+        if (seq === briefReqSeq.current) setBriefLoading(false);
+      }
+    },
+    // Any setup field (or UI language) that scopes the brief re-triggers the fetch.
+    [scope.companyName, scope.roleDisplay, scope.levelDisplay, scope.workflowType, scope.locale],
+  );
+
+  useEffect(() => {
+    setBrief(null);
+    setBriefError(false);
+    // Debounce + cancel: custom company/role inputs fire per keystroke and every
+    // keystroke is a cache miss that would otherwise start a full LLM research.
+    const timer = setTimeout(() => {
+      void loadBrief();
+    }, BRIEF_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      briefReqSeq.current += 1; // invalidate any late outcome, aborted or not
+      briefControllerRef.current?.abort();
+    };
+  }, [loadBrief]);
+
+  return { brief, briefLoading, briefError, loadBrief };
+};
+
+/** The researched brief body: style, focus areas, and process sections. */
+const BriefContent = ({ brief }: { brief: CompanyBrief }) => {
+  const t = useT("interview");
+  return (
+    <>
+      <SectionLabel>{t("preview.style")}</SectionLabel>
+      <p className="mb-2.5 break-words text-[11px] leading-snug text-ink-muted">{brief.style}</p>
+
+      {brief.focus_areas.length > 0 && (
+        <>
+          <SectionLabel>{t("preview.focus")}</SectionLabel>
+          <div className="mb-1 flex flex-wrap gap-1">
+            {brief.focus_areas.map((area) => (
+              <span
+                key={area}
+                className="chip chip-blue !whitespace-normal !text-[10px] wrap-anywhere"
+              >
+                {area}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="my-2.5 border-t border-surface-border" />
+
+      <SectionLabel>{t("preview.process")}</SectionLabel>
+      <p className="mb-2 break-words text-[11px] leading-snug text-ink-muted">{brief.process}</p>
+    </>
+  );
+};
+
+/** Loading/error/retry states shown above (or instead of) the brief body. */
+const BriefState = ({
+  companyName,
+  loading,
+  error,
+  onRetry,
+}: {
+  companyName: string;
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+}) => {
+  const t = useT("interview");
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-4 text-[11px] text-ink-muted">
+        <RefreshCw size={13} className="anim-spin text-[var(--primary)]" />
+        {t("preview.brief.loading", { name: companyName })}
+      </p>
+    );
+  }
+  if (!error) return null;
+  return (
+    <div className="py-3 text-center">
+      <p className="mb-2 text-[11px] leading-snug text-[var(--warning-ink)]">
+        {t("preview.brief.error")}
+      </p>
+      <button
+        type="button"
+        className="rounded-md border border-surface-border px-3 py-1.5 text-[11px] text-ink-muted transition-colors hover:border-[var(--primary)] hover:text-ink"
+        onClick={onRetry}
+      >
+        {t("preview.brief.retry")}
+      </button>
+    </div>
+  );
+};
+
+/** Researched company brief card: fetch wiring plus status and content. */
+const CompanyBriefCard = (scope: BriefScope & { hasResume: boolean }) => {
+  const { companyName, hasResume } = scope;
+  const t = useT("interview");
+  const { brief, briefLoading, briefError, loadBrief } = useCompanyBrief(scope);
+  return (
+    <div className="surface-card min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3.5">
+      <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink">
+        <Building2 size={14} className="text-[var(--primary)]" />
+        {t("preview.companyQuestions", { name: companyName })}
+      </h2>
+
+      <BriefState
+        companyName={companyName}
+        loading={briefLoading}
+        error={briefError}
+        onRetry={() => {
+          void loadBrief();
+        }}
+      />
+
+      {!briefLoading && brief && <BriefContent brief={brief} />}
+
+      {!hasResume && (
+        <p className="rounded-md border border-[var(--warning)]/30 bg-[var(--warning-soft)] px-2 py-1.5 text-[11px] leading-snug text-[var(--warning-ink)]">
+          {t("preview.flow.noResume")}
+        </p>
+      )}
+    </div>
+  );
+};
+
+/** Setup summary card: config rows plus the researched company brief. */
+export const InterviewPreview = ({
   options,
   config,
   resumes,
@@ -66,7 +256,7 @@ export function InterviewPreview({
   options: Options;
   config: InterviewConfig;
   resumes: ResumePickerItem[];
-}) {
+}) => {
   const t = useT("interview");
   const { locale } = useLocale();
   const selectedCompanyRaw = options.companies.find((c) => c.id === config.company);
@@ -91,58 +281,6 @@ export function InterviewPreview({
   ]
     .filter(Boolean)
     .join(" · ");
-
-  const [brief, setBrief] = useState<CompanyBrief | null>(null);
-  const [briefLoading, setBriefLoading] = useState(false);
-  const [briefError, setBriefError] = useState(false);
-  // Only the latest request may update state; StrictMode double-mounts (and any
-  // retry while one is in flight) would otherwise interleave stale outcomes.
-  const briefReqSeq = useRef(0);
-
-  const loadBrief = useCallback(
-    async (signal?: AbortSignal) => {
-      if (!companyName) return;
-      const seq = ++briefReqSeq.current;
-      setBriefLoading(true);
-      setBriefError(false);
-      try {
-        const res = await interviewHttp.fetchCompanyBrief(
-          companyName,
-          roleDisplay,
-          levelDisplay,
-          config.workflow_type,
-          { signal, locale },
-        );
-        if (seq !== briefReqSeq.current) return;
-        setBrief(res);
-        setBriefError(false);
-      } catch {
-        // The seq guard also covers aborts: a cancelled request is always
-        // superseded by a newer one (or by unmount), so it never touches state.
-        if (seq !== briefReqSeq.current) return;
-        setBrief(null);
-        setBriefError(true);
-      } finally {
-        if (seq === briefReqSeq.current) setBriefLoading(false);
-      }
-    },
-    // Any setup field (or UI language) that scopes the brief must re-trigger the fetch.
-    [companyName, roleDisplay, levelDisplay, config.workflow_type, locale],
-  );
-
-  useEffect(() => {
-    setBrief(null);
-    setBriefError(false);
-    // Debounce + cancel: custom company/role inputs fire per keystroke and every
-    // keystroke is a cache miss that would otherwise start a full LLM research.
-    const controller = new AbortController();
-    const timer = setTimeout(() => void loadBrief(controller.signal), BRIEF_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timer);
-      briefReqSeq.current += 1; // invalidate any late outcome, aborted or not
-      controller.abort();
-    };
-  }, [loadBrief]);
 
   return (
     <div className="flex h-full flex-col gap-2.5 overflow-hidden">
@@ -184,66 +322,15 @@ export function InterviewPreview({
       </div>
 
       {companyName && (
-        <div className="surface-card min-h-0 flex-1 overflow-y-auto p-3.5">
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink">
-            <Building2 size={14} className="text-[var(--primary)]" />
-            {t("preview.companyQuestions", { name: companyName })}
-          </h2>
-
-          {briefLoading && (
-            <p className="flex items-center gap-2 py-4 text-[11px] text-ink-muted">
-              <RefreshCw size={13} className="anim-spin text-[var(--primary)]" />
-              {t("preview.brief.loading", { name: companyName })}
-            </p>
-          )}
-
-          {!briefLoading && briefError && (
-            <div className="py-3 text-center">
-              <p className="mb-2 text-[11px] leading-snug text-[var(--warning-ink)]">
-                {t("preview.brief.error")}
-              </p>
-              <button
-                type="button"
-                className="rounded-md border border-surface-border px-3 py-1.5 text-[11px] text-ink-muted transition-colors hover:border-[var(--primary)] hover:text-ink"
-                onClick={() => void loadBrief()}
-              >
-                {t("preview.brief.retry")}
-              </button>
-            </div>
-          )}
-
-          {!briefLoading && brief && (
-            <>
-              <SectionLabel>{t("preview.style")}</SectionLabel>
-              <p className="mb-2.5 text-[11px] leading-snug text-ink-muted">{brief.style}</p>
-
-              {brief.focus_areas.length > 0 && (
-                <>
-                  <SectionLabel>{t("preview.focus")}</SectionLabel>
-                  <div className="mb-1 flex flex-wrap gap-1">
-                    {brief.focus_areas.map((area) => (
-                      <span key={area} className="chip chip-blue !text-[10px]">
-                        {area}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="my-2.5 border-t border-surface-border" />
-
-              <SectionLabel>{t("preview.process")}</SectionLabel>
-              <p className="mb-2 text-[11px] leading-snug text-ink-muted">{brief.process}</p>
-            </>
-          )}
-
-          {!selectedResume && (
-            <p className="rounded-md border border-[var(--warning)]/30 bg-[var(--warning-soft)] px-2 py-1.5 text-[11px] leading-snug text-[var(--warning-ink)]">
-              {t("preview.flow.noResume")}
-            </p>
-          )}
-        </div>
+        <CompanyBriefCard
+          companyName={companyName}
+          roleDisplay={roleDisplay}
+          levelDisplay={levelDisplay}
+          workflowType={config.workflow_type}
+          locale={locale}
+          hasResume={Boolean(selectedResume)}
+        />
       )}
     </div>
   );
-}
+};

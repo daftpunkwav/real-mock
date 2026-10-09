@@ -88,7 +88,7 @@ async def _open_stream_with_retry(
             await sleep_retry(attempt, headers=getattr(resp, "headers", None))
             continue
         return ctx, resp
-    assert last_exc is not None
+    assert last_exc is not None  # loop invariant: at least one attempt ran  # nosec B101
     raise last_exc
 
 

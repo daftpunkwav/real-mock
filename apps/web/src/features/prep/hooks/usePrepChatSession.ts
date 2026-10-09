@@ -25,12 +25,12 @@ const HISTORY_RETRY_MS = 800;
 const HEALTH_PROBE_MS = 5000;
 
 /** True only for transport-level failures (backend unreachable), not HTTP errors. */
-function isUnreachable(error: unknown): boolean {
+const isUnreachable = (error: unknown): boolean => {
   return error instanceof ApiError && error.code === "NET0000";
-}
+};
 
 /** Backend liveness probe to disambiguate outage from transient blip. */
-async function isBackendReachable(): Promise<boolean> {
+const isBackendReachable = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -45,10 +45,10 @@ async function isBackendReachable(): Promise<boolean> {
   } catch {
     return false;
   }
-}
+};
 
 /** History load with one retry on transport failure, then a probed diagnosis. */
-async function loadHistory(id: number): Promise<PrepHistoryMessage[]> {
+const loadHistory = async (id: number): Promise<PrepHistoryMessage[]> => {
   try {
     return await api.prepMessages(id);
   } catch (error) {
@@ -71,17 +71,45 @@ async function loadHistory(id: number): Promise<PrepHistoryMessage[]> {
       );
     }
   }
-}
+};
+
+/** True when the summary reports at least one token count. */
+const hasReportedTokens = (s: PrepSessionSummary): boolean =>
+  Boolean(s.prompt_tokens || s.completion_tokens || s.cached_tokens);
 
 /** Build usage stats; null when the summary carries none. */
-function usageFromSummary(s: PrepSessionSummary | undefined): PrepUsageStats | null {
-  if (!s || !(s.prompt_tokens || s.completion_tokens || s.cached_tokens)) return null;
+const usageFromSummary = (s: PrepSessionSummary | undefined): PrepUsageStats | null => {
+  if (!s || !hasReportedTokens(s)) return null;
   return {
     prompt_tokens: s.prompt_tokens ?? 0,
     completion_tokens: s.completion_tokens ?? 0,
     cached_tokens: s.cached_tokens ?? 0,
   };
-}
+};
+
+/** True while this op is still the latest create/restore/switch in flight. */
+const isLatestOp = (
+  aliveRef: React.MutableRefObject<boolean>,
+  seq: number,
+  switchSeqRef: React.MutableRefObject<number>,
+): boolean => aliveRef.current && seq === switchSeqRef.current;
+
+/** Localized message for a failed session create. */
+const createSessionError = (e: unknown, translator: (key: string) => string): string =>
+  e instanceof Error ? formatApiError(e) : translator("sessions.createFailed");
+
+/** Only the latest op may clear the shared restoring flags. */
+const releaseRestoringFlags = (
+  seq: number,
+  switchSeqRef: React.MutableRefObject<number>,
+  restoringRef: React.MutableRefObject<boolean>,
+  setRestoring: (v: boolean) => void,
+): void => {
+  if (seq === switchSeqRef.current) {
+    restoringRef.current = false;
+    setRestoring(false);
+  }
+};
 
 interface UsePrepChatSessionOptions {
   setMessages: React.Dispatch<React.SetStateAction<PrepChatMessage[]>>;
@@ -96,7 +124,7 @@ interface UsePrepChatSessionOptions {
   setBackendCount: (sid: number, n: number) => void;
 }
 
-export function usePrepChatSession({
+export const usePrepChatSession = ({
   setMessages,
   setAskDialog,
   nextMsgId,
@@ -105,7 +133,7 @@ export function usePrepChatSession({
   refreshSessions,
   syncBackendCount,
   setBackendCount,
-}: UsePrepChatSessionOptions) {
+}: UsePrepChatSessionOptions) => {
   /**
    * Seed a session's tracked backend length from a fresh server list.
    *
@@ -316,19 +344,9 @@ export function usePrepChatSession({
     ],
   );
 
-  const startPrep = useCallback(async () => {
-    const t = getTranslator("prep");
-    // Creating supersedes any in-flight restore/switch: the user's explicit
-    // new-session choice must win, and the superseded op leaves the restoring
-    // flags to us (its finally skips when no longer latest).
-    const seq = ++switchSeqRef.current;
-    setStarting(true);
-    setPrepError("");
-    try {
-      const { id } = await api.createPrepSession({
-        resume_id: resumeId ?? undefined,
-      });
-      if (!aliveRef.current || seq !== switchSeqRef.current) return null;
+  /** Point the view at a freshly created session (state resets + welcome). */
+  const adoptCreatedSession = useCallback(
+    (id: number) => {
       // SQLite reuses freed row ids: a fresh session can inherit the archive
       // key of a deleted predecessor, which would render its folded turns
       // above the welcome message. A brand-new session can never have
@@ -347,29 +365,46 @@ export function usePrepChatSession({
         {
           id: nextMsgId("a"),
           role: "assistant",
-          content: t("sessions.welcome"),
+          content: getTranslator("prep")("sessions.welcome"),
           // Welcome banner is local-only: never persisted, never in context.
           localOnly: true,
         },
       ]);
       refreshSessions();
-      return id;
-    } catch (e) {
-      // A superseded create's failure must not paint an error over the view
-      // the user has since switched to.
-      if (!aliveRef.current || seq !== switchSeqRef.current) return null;
-      setPrepError(e instanceof Error ? formatApiError(e) : t("sessions.createFailed"));
-      return null;
-    } finally {
-      setStarting(false);
-      // Only the latest op owns the restoring flags; a superseded create left
-      // them to whoever superseded it.
-      if (seq === switchSeqRef.current) {
-        restoringRef.current = false;
-        setRestoring(false);
+    },
+    [nextMsgId, refreshSessions, resetContext, seedBackendCount, setMessages],
+  );
+
+  const startPrep = useCallback(
+    async (resumeOverride?: number) => {
+      const translator = getTranslator("prep");
+      // Creating supersedes any in-flight restore/switch: the user's explicit
+      // new-session choice must win, and the superseded op leaves the restoring
+      // flags to us (its finally skips when no longer latest). `resumeOverride`
+      // lets cross-page entry (deep link) bind the session immediately, before
+      // the selector state has committed.
+      const seq = ++switchSeqRef.current;
+      const boundResumeId = resumeOverride ?? resumeId;
+      setStarting(true);
+      setPrepError("");
+      try {
+        const { id } = await api.createPrepSession({ resume_id: boundResumeId ?? undefined });
+        if (!isLatestOp(aliveRef, seq, switchSeqRef)) return null;
+        adoptCreatedSession(id);
+        return id;
+      } catch (e) {
+        // A superseded create's failure must not paint an error over the view
+        // the user has since switched to.
+        if (!isLatestOp(aliveRef, seq, switchSeqRef)) return null;
+        setPrepError(createSessionError(e, translator));
+        return null;
+      } finally {
+        setStarting(false);
+        releaseRestoringFlags(seq, switchSeqRef, restoringRef, setRestoring);
       }
-    }
-  }, [nextMsgId, resumeId, refreshSessions, setMessages, seedBackendCount, resetContext]);
+    },
+    [adoptCreatedSession, resumeId],
+  );
 
   const handleNewSession = async () => {
     if (starting) return;
@@ -452,4 +487,4 @@ export function usePrepChatSession({
     startPrep,
     handleNewSession,
   };
-}
+};

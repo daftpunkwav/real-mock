@@ -105,7 +105,7 @@ def _scope_digest(role: str, level: str, interview_type: str, lang: str) -> str:
             (lang or "").strip() or "en",
         )
     )
-    return hashlib.sha1(scope.encode("utf-8")).hexdigest()[:10]
+    return hashlib.sha256(scope.encode("utf-8")).hexdigest()[:10]
 
 
 def company_cache_key(

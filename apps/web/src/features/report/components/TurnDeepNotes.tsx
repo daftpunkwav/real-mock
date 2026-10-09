@@ -16,13 +16,13 @@ import type { LedgerDocument } from "@/types/domains/records";
 import { groupNotesByPhase } from "../turnGroups";
 import { DeepQaCard } from "./DeepQaCard";
 
-export function TurnDeepNotes({
+export const TurnDeepNotes = ({
   notes,
   ledger,
 }: {
   notes?: TurnNote[];
   ledger: LedgerDocument | null;
-}) {
+}) => {
   const t = useT("report");
   const { locale } = useLocale();
   const labels = useMemo(() => resolvePhaseLabels(null, locale), [locale]);
@@ -38,7 +38,6 @@ export function TurnDeepNotes({
   const paginated = groups.length > 1;
   return (
     <section className="eval-section">
-      <h3 className="eval-label">{t("tabs.turns")}</h3>
       {paginated && (
         <div
           className="mb-4 flex flex-wrap gap-1.5"
@@ -86,4 +85,4 @@ export function TurnDeepNotes({
       })}
     </section>
   );
-}
+};

@@ -128,6 +128,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/resume/{resume_id}/analysis-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Analysis
+         * @description Download one resume's deep-review analysis; optionally fold in the resume.
+         */
+        get: operations["export_analysis_api_v1_resume__resume_id__analysis_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/resume/collection": {
         parameters: {
             query?: never;
@@ -690,6 +710,30 @@ export interface paths {
          *     Accepts an unsaved candidate so Test works before saving; never echoes tokens.
          */
         post: operations["test_github_api_v1_settings_integrations_github_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/data/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear All Data
+         * @description Wipe every user-content store: sessions, resumes, profile, uploads, growth.
+         *
+         *     Deliberately destructive and deliberately unscoped: the settings page gates
+         *     this behind a two-step dialog (typed acknowledgement checkbox), so the
+         *     endpoint itself stays parameter-free.
+         */
+        post: operations["clear_all_data_api_v1_settings_data_clear_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1516,6 +1560,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/records/export/report/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Report
+         * @description Download the debrief report for one session (finished sessions only).
+         */
+        get: operations["export_report_api_v1_records_export_report__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/export/record/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Record
+         * @description Download the plain interviewer/candidate transcript for one session.
+         */
+        get: operations["export_record_api_v1_records_export_record__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/growth/history": {
         parameters: {
             query?: never;
@@ -1732,6 +1816,26 @@ export interface paths {
          * @description Wipe deep-review JSON + scores for all resumes; files and rows stay.
          */
         delete: operations["clear_review_results_api_resume_analyses_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resume/{resume_id}/analysis-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Analysis
+         * @description Download one resume's deep-review analysis; optionally fold in the resume.
+         */
+        get: operations["export_analysis_api_resume__resume_id__analysis_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2299,6 +2403,30 @@ export interface paths {
          *     Accepts an unsaved candidate so Test works before saving; never echoes tokens.
          */
         post: operations["test_github_api_settings_integrations_github_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/data/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear All Data
+         * @description Wipe every user-content store: sessions, resumes, profile, uploads, growth.
+         *
+         *     Deliberately destructive and deliberately unscoped: the settings page gates
+         *     this behind a two-step dialog (typed acknowledgement checkbox), so the
+         *     endpoint itself stays parameter-free.
+         */
+        post: operations["clear_all_data_api_settings_data_clear_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3125,6 +3253,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/records/export/report/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Report
+         * @description Download the debrief report for one session (finished sessions only).
+         */
+        get: operations["export_report_api_records_export_report__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records/export/record/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Record
+         * @description Download the plain interviewer/candidate transcript for one session.
+         */
+        get: operations["export_record_api_records_export_record__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/growth/history": {
         parameters: {
             query?: never;
@@ -3560,6 +3728,42 @@ export interface components {
              * @default
              */
             pressure_level: string;
+        };
+        /**
+         * DataClearResponse
+         * @description Summary of what the wipe-all endpoint removed, per storage area.
+         */
+        DataClearResponse: {
+            /** Sessions Tables */
+            sessions_tables?: {
+                [key: string]: number;
+            };
+            /** Api Tables */
+            api_tables?: {
+                [key: string]: number;
+            };
+            /**
+             * Upload Files
+             * @default 0
+             */
+            upload_files: number;
+            /**
+             * Learning Reset
+             * @default false
+             */
+            learning_reset: boolean;
+        };
+        /**
+         * DataExportFile
+         * @description A single exported file, ready to be saved by the client.
+         */
+        DataExportFile: {
+            /** Filename */
+            filename: string;
+            /** Mime */
+            mime: string;
+            /** Content */
+            content: string;
         };
         /** DebriefReport */
         DebriefReport: {
@@ -6377,6 +6581,40 @@ export interface operations {
             };
         };
     };
+    export_analysis_api_v1_resume__resume_id__analysis_export_get: {
+        parameters: {
+            query?: {
+                format?: "md" | "json";
+                include_resume?: boolean;
+            };
+            header?: never;
+            path: {
+                resume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_all_resumes_api_v1_resume_collection_delete: {
         parameters: {
             query?: never;
@@ -7367,6 +7605,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_all_data_api_v1_settings_data_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataClearResponse"];
                 };
             };
         };
@@ -8790,6 +9048,80 @@ export interface operations {
             };
         };
     };
+    export_report_api_v1_records_export_report__session_id__get: {
+        parameters: {
+            query?: {
+                format?: "md" | "json";
+                /** @description Session Capability Token (compatible; prod disabled) */
+                token?: string | null;
+            };
+            header?: {
+                "X-Interview-Token"?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_record_api_v1_records_export_record__session_id__get: {
+        parameters: {
+            query?: {
+                format?: "md" | "json";
+                /** @description Session Capability Token (compatible; prod disabled) */
+                token?: string | null;
+            };
+            header?: {
+                "X-Interview-Token"?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_growth_history_api_v1_growth_history_get: {
         parameters: {
             query?: never;
@@ -9063,6 +9395,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    export_analysis_api_resume__resume_id__analysis_export_get: {
+        parameters: {
+            query?: {
+                format?: "md" | "json";
+                include_resume?: boolean;
+            };
+            header?: never;
+            path: {
+                resume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10057,6 +10423,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_all_data_api_settings_data_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataClearResponse"];
                 };
             };
         };
@@ -11467,6 +11853,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_report_api_records_export_report__session_id__get: {
+        parameters: {
+            query?: {
+                format?: "md" | "json";
+                /** @description Session Capability Token (compatible; prod disabled) */
+                token?: string | null;
+            };
+            header?: {
+                "X-Interview-Token"?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_record_api_records_export_record__session_id__get: {
+        parameters: {
+            query?: {
+                format?: "md" | "json";
+                /** @description Session Capability Token (compatible; prod disabled) */
+                token?: string | null;
+            };
+            header?: {
+                "X-Interview-Token"?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportFile"];
                 };
             };
             /** @description Validation Error */

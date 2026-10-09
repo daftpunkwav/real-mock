@@ -17,7 +17,7 @@
  *   Content-Type and parses a JSON body).
  */
 
-import type { ResumeAnalysis, ResumeResponse } from "@/lib/api/contract";
+import type { DataExportFile, ResumeAnalysis, ResumeResponse } from "@/lib/api/contract";
 import { getLocale } from "@/i18n/resolve";
 import {
   ANALYZE_TIMEOUT_MS,
@@ -204,6 +204,12 @@ export const resumeHttp = {
         method: "DELETE",
       }),
       "Failed to delete all resumes: server returned an empty response",
+    ),
+  /** Download one resume's deep-review analysis (md / json) as a file payload. */
+  exportAnalysis: (id: number, format: "md" | "json", includeResume: boolean) =>
+    request<DataExportFile>(
+      `/v1/resume/${id}/analysis-export?format=${format}&include_resume=${includeResume}`,
+      { timeoutMs: 120_000 },
     ),
   /**
    * Persisted analysis for this resume. The page still reloads the list so

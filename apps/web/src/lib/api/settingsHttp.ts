@@ -1,6 +1,6 @@
 /** Provider / model-entry REST client. */
 
-import type { LLMTestResponse } from "@/lib/api/contract";
+import type { DataClearResponse, LLMTestResponse } from "@/lib/api/contract";
 import { request } from "@/lib/api/base";
 
 export const settingsHttp = {
@@ -72,6 +72,11 @@ export const settingsHttp = {
   clearGithubToken: () =>
     request<{ configured: boolean; tail: string }>("/v1/settings/integrations/github", {
       method: "DELETE",
+    }),
+  clearAllData: () =>
+    request<DataClearResponse>("/v1/settings/data/clear", {
+      method: "POST",
+      timeoutMs: 120_000,
     }),
   testGithubToken: (token?: string) =>
     request<{

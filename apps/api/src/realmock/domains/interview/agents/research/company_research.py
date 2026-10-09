@@ -115,7 +115,7 @@ def digest_cache_key(company: str, role: str, ui_locale: str | None) -> str:
     The language rides the key because the digest text follows the UI locale.
     """
     scope = f"{_normalize(role)}|{(ui_locale or '').strip() or 'en'}"
-    return f"{_normalize(company)}:{hashlib.sha1(scope.encode('utf-8')).hexdigest()[:10]}"
+    return f"{_normalize(company)}:{hashlib.sha256(scope.encode('utf-8')).hexdigest()[:10]}"
 
 
 def get_cached_digest(company: str, role: str, ui_locale: str | None) -> str | None:

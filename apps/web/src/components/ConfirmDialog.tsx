@@ -11,21 +11,109 @@
  * Profile and resume both use this component; do not fork copies into features.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { TriangleAlert } from "lucide-react";
 import { useT } from "@/i18n";
 import { Spinner } from "@/components/Spinner";
 import { useDialogScrollLock } from "@/components/useDialogScrollLock";
 
+/** Acknowledgement checkbox gate for extra-destructive confirmations. */
+const AcknowledgementCheckbox = ({
+  label,
+  checked,
+  onChange,
+  inputRef,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) => (
+  <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-md border border-surface-border bg-surface-alt px-3 py-2.5">
+    <input
+      ref={inputRef}
+      type="checkbox"
+      className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--danger)]"
+      checked={checked}
+      onChange={(e) => {
+        onChange(e.target.checked);
+      }}
+    />
+    <span className="text-[12px] leading-relaxed text-ink-muted">{label}</span>
+  </label>
+);
+
+interface DialogActionsProps {
+  confirmLabel?: string;
+  cancelLabel?: string;
+  requireAcknowledgement: boolean;
+  acknowledged: boolean;
+  busy: boolean;
+  /** Ref to the cancel button; the dialog focuses it on open (safe action). */
+  cancelButtonRef: React.RefObject<HTMLButtonElement | null>;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+/** Confirm stays locked while in flight and until the acknowledgement box is ticked. */
+const isConfirmLocked = (
+  busy: boolean,
+  requireAcknowledgement: boolean,
+  acknowledged: boolean,
+): boolean => busy || (requireAcknowledgement && !acknowledged);
+
+/** Cancel/confirm button row; owns labels and the locked logic. */
+const DialogActions = ({
+  confirmLabel,
+  cancelLabel,
+  requireAcknowledgement,
+  acknowledged,
+  busy,
+  cancelButtonRef,
+  onConfirm,
+  onCancel,
+}: DialogActionsProps) => {
+  const translator = useT("common");
+  // Explicit labels override the localized defaults.
+  const locked = isConfirmLocked(busy, requireAcknowledgement, acknowledged);
+  return (
+    <div className="mt-4 flex gap-2">
+      <button
+        ref={cancelButtonRef}
+        type="button"
+        className="btn-primary flex-1 !h-9"
+        disabled={busy}
+        onClick={onCancel}
+      >
+        {cancelLabel ?? translator("confirm.cancel")}
+      </button>
+      <button
+        type="button"
+        className="btn-danger flex-1 !h-9"
+        disabled={locked}
+        onClick={onConfirm}
+      >
+        {busy ? (
+          <Spinner className="mx-auto h-3.5 w-3.5" />
+        ) : (
+          (confirmLabel ?? translator("confirm.confirm"))
+        )}
+      </button>
+    </div>
+  );
+};
+
 /** Destructive-action dialog that focuses cancel by default and treats Escape as cancel. */
-export function ConfirmDialog({
+export const ConfirmDialog = ({
   open,
   title,
   message,
   confirmLabel,
   cancelLabel,
   busy = false,
+  requireAcknowledgement = false,
+  acknowledgementLabel = "",
   onConfirm,
   onCancel,
 }: {
@@ -36,21 +124,47 @@ export function ConfirmDialog({
   cancelLabel?: string;
   /** When true, both actions are disabled and Escape is ignored. */
   busy?: boolean;
+  /** Require ticking a checkbox before confirm unlocks (extra guard against mis-clicks). */
+  requireAcknowledgement?: boolean;
+  /** Label for the acknowledgement checkbox (requires requireAcknowledgement). */
+  acknowledgementLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
-}) {
-  const t = useT("common");
+}) => {
   useDialogScrollLock(open);
-  // Explicit labels override the localized defaults.
-  const okLabel = confirmLabel ?? t("confirm.confirm");
-  const dismissLabel = cancelLabel ?? t("confirm.cancel");
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const acknowledgementInputRef = useRef<HTMLInputElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Reset the checkbox whenever the dialog reopens so a previous session's
+  // tick cannot silently unlock a fresh confirmation. Render-phase adjust:
+  // resetting in an effect would fire a cascading re-render instead.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setAcknowledged(false);
+  }
 
   useEffect(() => {
     if (!open) return;
+    const activeElement = document.activeElement;
+    return () => {
+      if (activeElement instanceof HTMLElement && activeElement.isConnected) {
+        activeElement.focus({ preventScroll: true });
+      }
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Focus the acknowledgement checkbox in that mode (the user must act on
+    // it); the cancel button stays the safe default otherwise.
+    const focusTarget = requireAcknowledgement
+      ? acknowledgementInputRef.current
+      : cancelButtonRef.current;
     // preventScroll: the dialog is a fixed overlay already in view; a plain
     // focus() would yank a scrolled page toward the overlay's document slot.
-    cancelButtonRef.current?.focus({ preventScroll: true });
+    focusTarget?.focus({ preventScroll: true });
+    /** Escape maps to cancel unless a confirmation is in flight. */
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onCancel();
     };
@@ -58,7 +172,7 @@ export function ConfirmDialog({
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, busy, onCancel]);
+  }, [open, busy, onCancel, requireAcknowledgement]);
 
   if (!open) return null;
 
@@ -85,27 +199,27 @@ export function ConfirmDialog({
           </div>
         </div>
 
-        <div className="mt-4 flex gap-2">
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            className="btn-primary flex-1 !h-9"
-            disabled={busy}
-            onClick={onCancel}
-          >
-            {dismissLabel}
-          </button>
-          <button
-            type="button"
-            className="btn-danger flex-1 !h-9"
-            disabled={busy}
-            onClick={onConfirm}
-          >
-            {busy ? <Spinner className="mx-auto h-3.5 w-3.5" /> : okLabel}
-          </button>
-        </div>
+        {requireAcknowledgement ? (
+          <AcknowledgementCheckbox
+            label={acknowledgementLabel}
+            checked={acknowledged}
+            onChange={setAcknowledged}
+            inputRef={acknowledgementInputRef}
+          />
+        ) : null}
+
+        <DialogActions
+          confirmLabel={confirmLabel}
+          cancelLabel={cancelLabel}
+          requireAcknowledgement={requireAcknowledgement}
+          acknowledged={acknowledged}
+          busy={busy}
+          cancelButtonRef={cancelButtonRef}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
       </div>
     </div>,
     document.body,
   );
-}
+};

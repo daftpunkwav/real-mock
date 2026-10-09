@@ -25,25 +25,73 @@ Run from the repository root:
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # CI script drives git  # nosec B404
 import sys
 from collections import defaultdict
 
 SKIP_SUFFIXES = {
-    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".avif", ".pdf", ".zip",
-    ".gz", ".tar", ".whl", ".so", ".dll", ".dylib", ".exe", ".bin", ".wasm",
-    ".woff", ".woff2", ".ttf", ".otf", ".eot", ".mp4", ".mp3", ".wav", ".db",
-    ".sqlite", ".sqlite3", ".pack", ".idx", ".onnx", ".safetensors", ".pt",
-    ".pyc", ".pyo",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".avif",
+    ".pdf",
+    ".zip",
+    ".gz",
+    ".tar",
+    ".whl",
+    ".so",
+    ".dll",
+    ".dylib",
+    ".exe",
+    ".bin",
+    ".wasm",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".eot",
+    ".mp4",
+    ".mp3",
+    ".wav",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    ".pack",
+    ".idx",
+    ".onnx",
+    ".safetensors",
+    ".pt",
+    ".pyc",
+    ".pyo",
 }
-SKIP_DIR_PARTS = {"node_modules", ".next", ".venv", "venv", "target", "dist",
-                  "build", "coverage", ".git", "__pycache__", ".pytest_cache",
-                  ".ruff_cache", ".mypy_cache", ".idea"}
+SKIP_DIR_PARTS = {
+    "node_modules",
+    ".next",
+    ".venv",
+    "venv",
+    "target",
+    "dist",
+    "build",
+    "coverage",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".idea",
+}
 
 
 def index_blobs() -> list[tuple[str, str]]:
     """(sha, path) for every staged/tracked file, from the index itself."""
-    out = subprocess.run(["git", "ls-files", "-s", "-z"], check=True, capture_output=True)
+    out = subprocess.run(  # fixed git argv, no shell  # nosec B603 B607
+        ["git", "ls-files", "-s", "-z"],
+        check=True,
+        capture_output=True,
+    )
     entries = []
     for rec in out.stdout.decode("utf-8", "surrogateescape").split("\0"):
         if not rec:
@@ -58,8 +106,12 @@ def index_blobs() -> list[tuple[str, str]]:
 
 def read_blobs(shas: list[str]) -> dict[str, bytes]:
     """Batch-read blob contents; one git process instead of one per file."""
-    proc = subprocess.run(["git", "cat-file", "--batch"], input="\n".join(shas).encode(),
-                          check=True, capture_output=True)
+    proc = subprocess.run(  # fixed git argv, no shell  # nosec B603 B607
+        ["git", "cat-file", "--batch"],
+        input="\n".join(shas).encode(),
+        check=True,
+        capture_output=True,
+    )
     out = proc.stdout
     blobs: dict[str, bytes] = {}
     pos = 0
@@ -72,7 +124,7 @@ def read_blobs(shas: list[str]) -> dict[str, bytes]:
         if len(header) < 3:
             continue
         sha, size = header[0].decode(), int(header[2])
-        blobs[sha] = out[pos:pos + size]
+        blobs[sha] = out[pos : pos + size]
         pos += size + 1  # trailing newline after the payload
     return blobs
 
@@ -82,10 +134,13 @@ def main() -> int:
     if not entries:
         raise SystemExit("no tracked files found - refusing to pass on an empty scan")
 
-    wanted = [(sha, p) for sha, p in entries
-              if not any(part in SKIP_DIR_PARTS for part in p.split("/"))
-              and "." + p.rsplit(".", 1)[-1].lower() not in SKIP_SUFFIXES
-              if "." in p.rsplit("/", 1)[-1]]
+    wanted = [
+        (sha, p)
+        for sha, p in entries
+        if not any(part in SKIP_DIR_PARTS for part in p.split("/"))
+        and "." + p.rsplit(".", 1)[-1].lower() not in SKIP_SUFFIXES
+        if "." in p.rsplit("/", 1)[-1]
+    ]
     blobs = read_blobs([sha for sha, _ in wanted])
 
     problems: dict[str, list[str]] = defaultdict(list)
@@ -113,7 +168,9 @@ def main() -> int:
                 if line != line.rstrip():
                     problems["trailing whitespace"].append(f"{rel}:{i}")
                 if line.startswith("\t"):
-                    problems["tab indentation (indent_style = space)"].append(f"{rel}:{i}")
+                    problems["tab indentation (indent_style = space)"].append(
+                        f"{rel}:{i}"
+                    )
 
     if not problems:
         print(f"ok - {checked} committed text blobs satisfy .editorconfig")

@@ -1,0 +1,4 @@
+[bandit]
+# Unit tests assert on fake tokens and use `assert` as the assertion
+# mechanism; production code keeps full Bandit coverage.
+exclude: apps/api/tests

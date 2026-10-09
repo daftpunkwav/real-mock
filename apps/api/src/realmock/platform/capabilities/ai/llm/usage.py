@@ -119,7 +119,7 @@ class UsageAccumulator:
             if started is not None:
                 self.last_latency_ms = round((monotonic() - started) * 1000, 1)
         except Exception:
-            pass
+            pass  # telemetry timing is best-effort  # nosec B110
         if headers is None:
             return
         for name in ("x-request-id", "request-id", "cf-ray", "x-amzn-requestid"):

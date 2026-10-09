@@ -174,6 +174,35 @@ export const settings = {
   "data.clearAll.done": "已删除 {count} 份简历",
   "data.clearAll.failed": "删除失败",
 
+  // DataManagementPanel:数据导出与全量清除
+  "nav.data": "数据管理",
+  "data.export.title": "导出数据",
+  "data.export.desc": "将面试报告、面试记录或简历深度评价导出为文件，保存在本地。",
+  "data.export.kind": "导出对象",
+  "data.export.kindReport": "面试报告（含 AI 评价）",
+  "data.export.kindRecord": "面试记录（仅问答）",
+  "data.export.kindAnalysis": "简历深度评价",
+  "data.export.item": "选择条目",
+  "data.export.noSessions": "暂无面试记录",
+  "data.export.noResumes": "暂无简历",
+  "data.export.includeResume": "同时包含简历内容",
+  "data.export.format": "格式",
+  "data.export.formatMd": "Markdown",
+  "data.export.formatJson": "JSON",
+  "data.export.action": "导出",
+  "data.export.done": "已导出 {name}",
+  "data.export.failed": "导出失败",
+  "data.wipe.title": "清除所有数据",
+  "data.wipe.desc":
+    "删除全部本地数据：面试记录与报告、简历与深度评价、面试准备会话、成长追踪、个人档案与上传文件。模型与处理器等设置保留。此操作不可恢复。",
+  "data.wipe.action": "清除所有数据",
+  "data.wipe.confirmTitle": "清除所有数据",
+  "data.wipe.confirmBody":
+    "即将删除全部业务数据（面试、简历、面试准备、成长追踪、个人档案），设置保留。此操作不可恢复，请谨慎确认。",
+  "data.wipe.acknowledge": "我已了解此操作会永久删除上述全部数据，且无法恢复",
+  "data.wipe.done": "已清除所有数据",
+  "data.wipe.failed": "清除失败",
+
   // Prep 长期记忆(只能编辑 agent 记下的记忆,不能新建)
   "memories.title": "Prep 长期记忆",
   "memories.desc":

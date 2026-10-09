@@ -35,6 +35,20 @@
 # `className`/`htmlFor` — the correct React DOM props — 1,912 times in this
 # React codebase, and useSemanticElements suggests <fieldset> for role="group"
 # regions where fieldset is invalid or wrong (e.g. inside <button> content).
+#
+# Global exclude_paths (top level, Java glob syntax per the Codacy docs) keeps
+# files OUT of every analysis pass — engines, PR annotations, duplication, and
+# complexity — unlike engines.<tool>.exclude_paths, which only filters one
+# tool. Excluded here:
+# - Test code: pytest asserts (B101) and vitest suites are the assertion
+#   mechanism themselves; auditing them as production security findings is
+#   noise. Per-tool bandit exclusion above never reached the PR annotation
+#   pipeline (verified across PR #42 and #43), so the global exclusion is the
+#   one that counts.
+# - Generated artifacts: the OpenAPI contract and the openapi-typescript
+#   output are regenerated from the backend routes by scripts/export_openapi.py
+#   (contract-sync tests fail on manual edits); lockfiles are machine-written.
+# - Minified bundles, which no source pattern applies to meaningfully.
 engines:
   bandit:
     exclude_paths:
@@ -46,3 +60,25 @@ engines:
     exclude_paths:
       - "CHANGELOG.md"
       - "CHANGELOG.zh.md"
+exclude_paths:
+  # Test suites: the backend pytest tree, frontend __tests__ dirs, and any
+  # test-named file or directory regardless of extension.
+  - "apps/api/tests/**"
+  - "apps/web/src/**/__tests__/**"
+  - "**/tests/**"
+  - "**/test/**"
+  - "**/__tests__/**"
+  - "**/*.test.*"
+  - "**/*_test.*"
+  - "**/*.spec.*"
+  - "**/test_*.py"
+  # Generated files: OpenAPI contract, its generated TS types, lockfiles.
+  - "openapi.json"
+  - "apps/web/src/types/generated/**"
+  - "**/package-lock.json"
+  - "**/npm-shrinkwrap.json"
+  - "**/yarn.lock"
+  - "**/pnpm-lock.yaml"
+  # Minified bundles.
+  - "**/*.min.js"
+  - "**/*.min.css"

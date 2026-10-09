@@ -8,7 +8,6 @@
 
 import { Eraser, GraduationCap, Shrink, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Select } from "@/components/Select";
 import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
@@ -43,11 +42,11 @@ import {
   type CompactThresholdSetting,
   type CompactionIntensity,
 } from "@/lib/compactThreshold";
+import { DangerActionCard } from "./DangerActionCard";
 import { MemoriesSettingsPanel } from "./MemoriesSettingsPanel";
 
 export function PrepSettingsPanel() {
   const t = useT("settings");
-  const tc = useT("common");
   const [seconds, setSeconds] = useState<number>(() => readAskTimeoutSec());
   const [compactThreshold, setCompactThreshold] = useState<CompactThresholdSetting>(() =>
     readCompactThreshold(),
@@ -58,10 +57,6 @@ export function PrepSettingsPanel() {
   const [compactDirective, setCompactDirective] = useState<string>(() => readCompactDirective());
   const [compactRetain, setCompactRetain] = useState<number>(() => readCompactRetain());
   const [memoryIndexLimit, setMemoryIndexLimit] = useState<number>(() => readMemoryIndexLimit());
-  const [confirmingPurge, setConfirmingPurge] = useState(false);
-  const [purging, setPurging] = useState(false);
-  const [confirmingPurgeAll, setConfirmingPurgeAll] = useState(false);
-  const [purgingAll, setPurgingAll] = useState(false);
 
   const change = (next: number) => {
     const valid = ASK_TIMEOUT_OPTIONS.includes(next) ? next : ASK_TIMEOUT_DEFAULT_SEC;
@@ -109,31 +104,24 @@ export function PrepSettingsPanel() {
     writeCompactRetain(valid);
   };
 
+  // Thrown errors keep the DangerActionCard dialog open; the toast already fired.
   const handlePurge = async () => {
-    setPurging(true);
     try {
       const { deleted } = await prepCoachHttp.purgeEmptySessions();
       toast.success(t("prep.purge.done", { count: deleted }));
-      setConfirmingPurge(false);
     } catch (err) {
       toast.error(err instanceof Error ? formatApiError(err) : t("prep.purge.failed"));
       throw err;
-    } finally {
-      setPurging(false);
     }
   };
 
   const handlePurgeAll = async () => {
-    setPurgingAll(true);
     try {
       const { deleted } = await prepCoachHttp.purgeAllSessions();
       toast.success(t("prep.purgeAll.done", { count: deleted }));
-      setConfirmingPurgeAll(false);
     } catch (err) {
       toast.error(err instanceof Error ? formatApiError(err) : t("prep.purgeAll.failed"));
       throw err;
-    } finally {
-      setPurgingAll(false);
     }
   };
 
@@ -277,57 +265,25 @@ export function PrepSettingsPanel() {
           </p>
         </div>
       </div>
-      <div className="surface-card p-4">
-        <div className="mb-1 flex items-center gap-2">
-          <Eraser size={16} className="text-[var(--primary)]" />
-          <h2 className="text-[14px] font-semibold">{t("prep.purge.title")}</h2>
-        </div>
-        <p className="text-[13px] leading-relaxed text-ink-muted">{t("prep.purge.desc")}</p>
-        <button
-          type="button"
-          onClick={() => setConfirmingPurge(true)}
-          disabled={purging}
-          className="btn-danger mt-3 text-[13px]"
-        >
-          {t("prep.purge.action")}
-        </button>
-      </div>
-      <div className="surface-card p-4">
-        <div className="mb-1 flex items-center gap-2">
-          <Trash2 size={16} className="text-[var(--danger)]" />
-          <h2 className="text-[14px] font-semibold">{t("prep.purgeAll.title")}</h2>
-        </div>
-        <p className="text-[13px] leading-relaxed text-ink-muted">{t("prep.purgeAll.desc")}</p>
-        <button
-          type="button"
-          onClick={() => setConfirmingPurgeAll(true)}
-          disabled={purgingAll}
-          className="btn-danger mt-3 text-[13px]"
-        >
-          {t("prep.purgeAll.action")}
-        </button>
-      </div>
+      <DangerActionCard
+        icon={<Eraser size={16} className="text-[var(--primary)]" />}
+        title={t("prep.purge.title")}
+        description={t("prep.purge.desc")}
+        actionLabel={t("prep.purge.action")}
+        confirmTitle={t("prep.purge.confirmTitle")}
+        confirmBody={t("prep.purge.confirmBody")}
+        onConfirm={() => handlePurge()}
+      />
+      <DangerActionCard
+        icon={<Trash2 size={16} className="text-[var(--danger)]" />}
+        title={t("prep.purgeAll.title")}
+        description={t("prep.purgeAll.desc")}
+        actionLabel={t("prep.purgeAll.action")}
+        confirmTitle={t("prep.purgeAll.confirmTitle")}
+        confirmBody={t("prep.purgeAll.confirmBody")}
+        onConfirm={() => handlePurgeAll()}
+      />
       <MemoriesSettingsPanel />
-      <ConfirmDialog
-        open={confirmingPurge}
-        title={t("prep.purge.confirmTitle")}
-        message={t("prep.purge.confirmBody")}
-        confirmLabel={t("prep.purge.action")}
-        cancelLabel={tc("confirm.cancel")}
-        busy={purging}
-        onConfirm={() => void handlePurge()}
-        onCancel={() => setConfirmingPurge(false)}
-      />
-      <ConfirmDialog
-        open={confirmingPurgeAll}
-        title={t("prep.purgeAll.confirmTitle")}
-        message={t("prep.purgeAll.confirmBody")}
-        confirmLabel={t("prep.purgeAll.action")}
-        cancelLabel={tc("confirm.cancel")}
-        busy={purgingAll}
-        onConfirm={() => void handlePurgeAll()}
-        onCancel={() => setConfirmingPurgeAll(false)}
-      />
     </div>
   );
 }

@@ -49,8 +49,6 @@ export const PREVIEW_SKILL_MAX = 12;
 
 export const PREVIEW_SKILL_CHARS = 24;
 
-export const PREVIEW_PROJECT_MAX = 3;
-
 export const PREVIEW_MIN_ZOOM = 0.5;
 
 export const PREVIEW_MAX_ZOOM = 4;

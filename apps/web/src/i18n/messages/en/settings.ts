@@ -181,6 +181,37 @@ export const settings = {
   "data.clearAll.done": "Deleted {count} resumes",
   "data.clearAll.failed": "Failed to delete",
 
+  // DataManagementPanel: data export and full wipe
+  "nav.data": "Data",
+  "data.export.title": "Export data",
+  "data.export.desc":
+    "Export interview reports, interview records, or resume deep reviews as files saved locally.",
+  "data.export.kind": "Export",
+  "data.export.kindReport": "Interview report (with AI evaluation)",
+  "data.export.kindRecord": "Interview record (Q&A only)",
+  "data.export.kindAnalysis": "Resume deep review",
+  "data.export.item": "Item",
+  "data.export.noSessions": "No interviews yet",
+  "data.export.noResumes": "No resumes yet",
+  "data.export.includeResume": "Include the resume content",
+  "data.export.format": "Format",
+  "data.export.formatMd": "Markdown",
+  "data.export.formatJson": "JSON",
+  "data.export.action": "Export",
+  "data.export.done": "Exported {name}",
+  "data.export.failed": "Export failed",
+  "data.wipe.title": "Clear all data",
+  "data.wipe.desc":
+    "Delete every piece of local data: interviews and reports, resumes and deep reviews, prep sessions, growth tracking, your profile, and uploaded files. Model and processor settings are kept. This cannot be undone.",
+  "data.wipe.action": "Clear all data",
+  "data.wipe.confirmTitle": "Clear all data",
+  "data.wipe.confirmBody":
+    "About to delete all business data (interviews, resumes, prep, growth, profile). Settings are kept. This cannot be undone — confirm carefully.",
+  "data.wipe.acknowledge":
+    "I understand this permanently deletes all of the data above and cannot be undone",
+  "data.wipe.done": "All data cleared",
+  "data.wipe.failed": "Failed to clear",
+
   // Prep long-term memories (only agent-recorded memories can be edited, never created)
   "memories.title": "Prep long-term memories",
   "memories.desc":

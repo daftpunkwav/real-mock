@@ -8,14 +8,16 @@
  */
 
 import { CheckCircle, Eye, FileText, FolderOpen } from "lucide-react";
+import { useState } from "react";
 import { useT } from "@/i18n";
 import type { Resume } from "../types";
 import { buildResumePreviewUrl } from "../previewRoute";
-import { PREVIEW_PROJECT_MAX, PREVIEW_SKILL_MAX } from "../resumeLimits";
-import { shortSkillLabel } from "../resumePreview";
+import { PREVIEW_SKILL_MAX } from "../resumeLimits";
+import { keyedPreviewProjects, shortSkillLabel } from "../resumePreview";
 
 export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | null }) {
   const t = useT("resume");
+  const [skillsExpanded, setSkillsExpanded] = useState(false);
   return (
     <div className="surface-card p-4 sm:p-5">
       <h2 className="mb-3.5 flex items-center gap-2 text-[13px] font-semibold tracking-tight text-ink">
@@ -93,15 +95,27 @@ export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | 
                 {t("previewCard.skills")}
               </p>
               <div className="flex flex-wrap gap-1">
-                {previewResume.parsed_profile.skills.slice(0, PREVIEW_SKILL_MAX).map((s) => (
+                {(skillsExpanded
+                  ? previewResume.parsed_profile.skills
+                  : previewResume.parsed_profile.skills.slice(0, PREVIEW_SKILL_MAX)
+                ).map((s) => (
                   <span key={s} className="chip chip-blue !text-[10px]" title={s}>
                     {shortSkillLabel(s)}
                   </span>
                 ))}
                 {previewResume.parsed_profile.skills.length > PREVIEW_SKILL_MAX && (
-                  <span className="chip chip-gray !text-[10px]">
-                    +{previewResume.parsed_profile.skills.length - PREVIEW_SKILL_MAX}
-                  </span>
+                  <button
+                    type="button"
+                    className="chip chip-gray !text-[10px] cursor-pointer transition-colors hover:bg-surface-strong"
+                    onClick={() => {
+                      setSkillsExpanded((v) => !v);
+                    }}
+                    aria-expanded={skillsExpanded}
+                  >
+                    {skillsExpanded
+                      ? t("previewCard.skillsCollapse")
+                      : `+${previewResume.parsed_profile.skills.length - PREVIEW_SKILL_MAX}`}
+                  </button>
                 )}
               </div>
             </div>
@@ -113,14 +127,16 @@ export function ResumePreviewCard({ resume: previewResume }: { resume: Resume | 
                 {t("previewCard.projects")}
               </p>
               <ul className="space-y-1.5">
-                {previewResume.parsed_profile.projects.slice(0, PREVIEW_PROJECT_MAX).map((p, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[12px] text-ink-muted">
-                    <CheckCircle size={11} className="mt-0.5 shrink-0 text-[var(--success)]" />
-                    <span className="line-clamp-2">
-                      {p.name || p.description || t("previewCard.projectUnnamed")}
-                    </span>
-                  </li>
-                ))}
+                {keyedPreviewProjects(previewResume.parsed_profile.projects).map(
+                  ({ project: p, key }) => (
+                    <li key={key} className="flex items-start gap-1.5 text-[12px] text-ink-muted">
+                      <CheckCircle size={11} className="mt-0.5 shrink-0 text-[var(--success)]" />
+                      <span className="line-clamp-2">
+                        {p.name || p.description || t("previewCard.projectUnnamed")}
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
             </div>
           )}

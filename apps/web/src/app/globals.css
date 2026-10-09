@@ -1784,6 +1784,9 @@ button:active:not(:disabled),
     background: var(--background-alt);
     border: 1px solid var(--border);
   }
+  .eval-q.has-actions {
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  }
   .eval-q-idx {
     font-family: var(--font-jetbrains), ui-monospace, monospace;
     font-size: var(--text-xs);

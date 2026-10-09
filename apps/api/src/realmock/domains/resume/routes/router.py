@@ -22,6 +22,7 @@ from realmock.domains.resume.routes.crud import (
     get_resume_limits,
     list_resumes,
 )
+from realmock.domains.resume.routes.export import export_analysis
 from realmock.domains.resume.routes.file import (
     get_resume_file,
     get_resume_page_image,
@@ -31,6 +32,7 @@ from realmock.domains.resume.routes.parse_retry import retry_resume_parse
 from realmock.domains.resume.routes.upload import upload_resume, upload_resume_version
 from realmock.domains.resume.schemas import ResumeAnalysis, ResumeDomainLimits, ResumeResponse
 from realmock.domains.resume.services import contract_guard
+from realmock.platform.contracts.data_export import DataExportFile
 from realmock.platform.core.constants import (
     DEFAULT_LLM_RATE_LIMIT_PER_MINUTE,
     DEFAULT_RATE_LIMIT_PER_MINUTE,
@@ -73,6 +75,12 @@ router.add_api_route(
     "/analyses",
     clear_review_results,
     methods=["DELETE"],
+)
+router.add_api_route(
+    "/{resume_id}/analysis-export",
+    export_analysis,
+    methods=["GET"],
+    response_model=DataExportFile,
 )
 router.add_api_route(
     "/collection",

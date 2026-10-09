@@ -7,13 +7,21 @@
  */
 
 import type { ResumeAnalysis } from "../types";
+import { withContentKeys } from "../contentKey";
 import { normalizeCnPunctuation } from "@/lib/cnText";
 import { useT } from "@/i18n";
 import { EvalList } from "./EvalList";
 import { EvalNumberedStack } from "./EvalNumberedStack";
 import { InterviewQaCard } from "./InterviewQaCard";
 
-export function InterviewTab({ analysis }: { analysis: ResumeAnalysis }) {
+export const InterviewTab = ({
+  analysis,
+  resumeId,
+}: {
+  analysis: ResumeAnalysis;
+  /** Owning resume id; seeds the prep session pairing on "send to prep". */
+  resumeId?: number | null;
+}) => {
   const t = useT("resume");
   const cn = normalizeCnPunctuation;
   const qa = analysis.interview_qa ?? [];
@@ -23,8 +31,8 @@ export function InterviewTab({ analysis }: { analysis: ResumeAnalysis }) {
         <section className="eval-section">
           <span className="eval-label">{t("interview.qaTitle")}</span>
           <div className="space-y-3">
-            {qa.map((item, i) => (
-              <InterviewQaCard key={i} item={item} index={i} />
+            {withContentKeys(qa, (item) => item.question ?? "").map(({ item, key }, i) => (
+              <InterviewQaCard key={key} item={item} index={i} resumeId={resumeId} />
             ))}
           </div>
         </section>
@@ -35,6 +43,7 @@ export function InterviewTab({ analysis }: { analysis: ResumeAnalysis }) {
           title={t("interview.predicted")}
           prefix="Q"
           items={analysis.predicted_questions.map(cn)}
+          resumeId={resumeId}
         />
       )}
 
@@ -43,4 +52,4 @@ export function InterviewTab({ analysis }: { analysis: ResumeAnalysis }) {
       )}
     </>
   );
-}
+};
