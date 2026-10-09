@@ -122,6 +122,28 @@ describe("usePrepDeepLink", () => {
     expect(sendMessage).toHaveBeenCalledWith("drill me", 42, false, { assumeViewing: true });
   });
 
+  it.each([7, 999])("resolves linked resume %i when only sessions time out", async (resumeId) => {
+    vi.useFakeTimers();
+    pushLink(resumeId, "drill me");
+    const { rerender } = renderHook((opts: HookOpts) => usePrepDeepLink(opts), {
+      initialProps: baseOpts({ resumes: [], resumesLoaded: false, sessionsLoaded: false }),
+    });
+    rerender(baseOpts({ sessionsLoaded: false }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_080);
+    });
+
+    if (resumeId === 7) {
+      expect(setResumeId).toHaveBeenCalledExactlyOnceWith(7);
+    } else {
+      expect(setResumeId).not.toHaveBeenCalled();
+    }
+    expect(startPrep).toHaveBeenCalledExactlyOnceWith(resumeId === 7 ? 7 : undefined);
+    expect(sendMessage).toHaveBeenCalledExactlyOnceWith("drill me", 42, false, {
+      assumeViewing: true,
+    });
+  });
+
   it("does not select a resume or start a session after unmounting during the wait", async () => {
     vi.useFakeTimers();
     pushLink(7, "drill me");

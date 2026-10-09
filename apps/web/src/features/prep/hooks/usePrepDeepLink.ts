@@ -140,10 +140,9 @@ export const usePrepDeepLink = ({
             if (outcome.status === "canceled" || !aliveRef.current) return;
             const catalogs = outcome.catalogs;
             // An unfinished catalog cannot tell us the linked resume is missing.
-            const pairedResumeId =
-              outcome.status === "timeout"
-                ? link.resumeId
-                : resolvePairedResumeId(link, catalogs.resumes);
+            const pairedResumeId = catalogs.resumesLoaded
+              ? resolvePairedResumeId(link, catalogs.resumes)
+              : link.resumeId;
             if (pairedResumeId != null) catalogs.setResumeId(pairedResumeId);
             const sid = await catalogs.startPrep(pairedResumeId ?? undefined);
             if (!aliveRef.current) return;
