@@ -80,12 +80,13 @@ def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     working-memory block finalize re-appends) are skipped first, so the drop
     below can reach the real exchange.
 
-    The user pop is content-guarded: the trailing user row is the question
-    being replayed only when its text matches. A mismatch means the previous
+    The exchange drop is content-guarded: the trailing user row owns it only
+    when its text matches the replayed question. A mismatch means the previous
     turn never finished (a cancel inside the prepare window can persist
-    nothing, leaving an older exchange as the tail) — popping would delete a
-    turn the rerun does not replace, so the replayed text is appended as a
-    fresh turn instead.
+    nothing, leaving an older exchange as the tail) — or the exchange is a
+    finished turn the rerun does not replace. Either way nothing is dropped:
+    stripping the reply or tool evidence of an exchange the rerun does not
+    re-append would corrupt it, so the replay is appended as a fresh turn.
     """
     # Trailing system rows are regenerable prompt material, not conversation:
     # every finalize re-appends the working-memory block at the tail, and a
@@ -96,24 +97,21 @@ def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
         and agent.messages[-1].get("role") == "system"
     ):
         agent.messages.pop()
+    # Locate the trailing user row and drop the whole exchange it owns —
+    # reply, tool rounds, paused-dialog declarations — only when the question
+    # matches the replayed text, so the rerun replaces rather than duplicates.
+    owner = None
+    for index in range(len(agent.messages) - 1, -1, -1):
+        message = agent.messages[index]
+        if isinstance(message, dict) and message.get("role") == "user":
+            owner = index
+            break
     if (
-        agent.messages
-        and isinstance(agent.messages[-1], dict)
-        and agent.messages[-1].get("role") in ("assistant", "tool")
+        owner is not None
+        and isinstance(agent.messages[owner], dict)
+        and agent.messages[owner].get("content") == user_text
     ):
-        while (
-            agent.messages
-            and isinstance(agent.messages[-1], dict)
-            and agent.messages[-1].get("role") != "user"
-        ):
-            agent.messages.pop()
-    if (
-        agent.messages
-        and isinstance(agent.messages[-1], dict)
-        and agent.messages[-1].get("role") == "user"
-        and agent.messages[-1].get("content") == user_text
-    ):
-        agent.messages.pop()
+        del agent.messages[owner:]
 
 
 async def _inject_refs(

@@ -144,14 +144,15 @@ class LoopResult:
     final_content: str | None
     tool_used: bool
     halted: bool = False
-    # True when a tool raised AgentPause: the raised tool_call stays OPEN (no
-    # tool result appended) and the caller resumes it with an out-of-band
-    # result (e.g. the user's dialog answer).
-    paused: bool = False
     # Reasoning from every round, joined for display only; empty when the
     # provider does not return any.
     thinking: str = ""
     extras: dict[str, Any] = field(default_factory=dict)
+    # True when a tool raised AgentPause: the raised tool_call stays OPEN (no
+    # tool result appended) and the caller resumes it with an out-of-band
+    # result (e.g. the user's dialog answer). Kept last so positional
+    # construction by external callers stays stable.
+    paused: bool = False
 
 
 def _land_tool_result(

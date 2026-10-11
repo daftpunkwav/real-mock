@@ -14,7 +14,11 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.prep.agents.ask_user import mark_paused_ask
+from realmock.domains.prep.agents.ask_user import (
+    ASK_PENDING_KEY,
+    KEEP_TOOL_PAIR_KEY,
+    mark_paused_ask,
+)
 from realmock.domains.prep.agents.context import strip_ref_blocks
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
@@ -189,6 +193,23 @@ def _accumulate_usage(agent: "PrepAgent") -> None:
         agent.session.last_round_completion_tokens = int(last_round.get("completion_tokens") or 0)
 
 
+def _unprotect_resolved_dialogs(messages: list[dict[str, Any]]) -> None:
+    """Drop keep_tool_pair from dialog exchanges that already got their answer.
+
+    The protection only matters while the call is open (its pair must reach
+    the resume turn's model context verbatim); once the pointer result exists
+    (ask_pending cleared) the exchange folds like any old tool round. Keeping
+    the flag forever would pin the declaration and possibly large parallel
+    sibling results in every later compaction. Rows still awaiting an answer
+    keep the flag; mark_paused_ask re-stamps new open calls after this sweep.
+    """
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        if message.get(KEEP_TOOL_PAIR_KEY) and not message.get(ASK_PENDING_KEY):
+            message.pop(KEEP_TOOL_PAIR_KEY, None)
+
+
 def finalize(
     agent: "PrepAgent",
     working: list[dict[str, Any]],
@@ -235,7 +256,13 @@ def finalize(
     if pause_event is not None:
         # Mark the open call BEFORE the display row is appended, so the
         # next input can complete it and re-enter the same turn.
-        mark_paused_ask(agent.messages, pause_event)
+        open_call_id = mark_paused_ask(agent.messages, pause_event)
+        if not open_call_id:
+            logger.warning(
+                "Prep pause persist found no open ask_user call to mark sid=%s",
+                getattr(agent.session, "id", ""),
+            )
+    _unprotect_resolved_dialogs(agent.messages)
     agent.messages.append(
         _build_assistant_message(
             final,

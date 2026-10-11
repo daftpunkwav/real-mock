@@ -341,14 +341,13 @@ def test_run_chat_drop_last_assistant_skips_memory_tail() -> None:
 
 
 def test_run_chat_drop_last_assistant_keeps_unrelated_exchange() -> None:
-    """A trailing user row that is not the replayed question stays put.
+    """A trailing user row that is not the replayed question keeps its exchange.
 
     A cancel inside the prepare window persists nothing, leaving an older
     exchange as the tail; regenerating then replays different text. Popping
-    that older user row would delete a turn the rerun does not replace, so
-    the guard keeps it and appends the replay as a fresh turn. The trailing
-    assistant reply is still dropped (role-guarded pop, same as the
-    pre-pairing behavior) — only the question row is protected.
+    that exchange would delete a turn the rerun does not replace — its answer
+    and tool evidence included — so nothing is dropped and the replay appends
+    as a fresh turn.
     """
     from realmock.domains.prep.agents.chat import run_chat
 
@@ -369,7 +368,7 @@ def test_run_chat_drop_last_assistant_keeps_unrelated_exchange() -> None:
     users = [m.get("content") for m in agent.messages if m.get("role") == "user"]
     assert users == ["older question", "new question"]
     assistants = [m.get("content") for m in agent.messages if m.get("role") == "assistant"]
-    assert assistants == ["fresh"]
+    assert assistants == ["older answer", "fresh"]
 
 
 def test_chat_stream_ask_user_keeps_search_groups(monkeypatch) -> None:

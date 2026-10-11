@@ -92,7 +92,8 @@ def test_drop_trailing_exchange() -> None:
     _drop_trailing_exchange(agent4, "q")  # type: ignore[arg-type]
     assert agent4.messages == [{"role": "system", "content": "s"}]
     # Content guard: a trailing user row holding different text (an older
-    # exchange left behind by a cancelled turn) is never popped.
+    # exchange left behind by a cancelled turn) keeps its whole exchange —
+    # stripping the reply of a turn the rerun does not replace would corrupt it.
     agent5 = SimpleNamespace(
         messages=[
             {"role": "user", "content": "older question"},
@@ -100,7 +101,10 @@ def test_drop_trailing_exchange() -> None:
         ]
     )
     _drop_trailing_exchange(agent5, "new question")  # type: ignore[arg-type]
-    assert agent5.messages == [{"role": "user", "content": "older question"}]
+    assert agent5.messages == [
+        {"role": "user", "content": "older question"},
+        {"role": "assistant", "content": "older answer"},
+    ]
 
 
 @pytest.mark.asyncio

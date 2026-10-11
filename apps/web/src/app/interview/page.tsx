@@ -64,7 +64,20 @@ export default function InterviewSetupPage() {
       {loading ? (
         <SetupLoading />
       ) : loadError ? (
-        <LoadError message={loadError} onRetry={reload} />
+        // Setup options failed, but resuming an existing interview must stay
+        // available: the continuation card renders here (full-width error
+        // layout) instead of being gated behind the options-success branch.
+        <>
+          <ContinueProcesses
+            processes={continuation.processes}
+            loading={continuation.loading}
+            loadError={continuation.loadError}
+            startingId={continuation.startingId}
+            onStart={continuation.startNext}
+            onRetry={continuation.reload}
+          />
+          <LoadError message={loadError} onRetry={reload} />
+        </>
       ) : options ? (
         <SetupMain
           left={

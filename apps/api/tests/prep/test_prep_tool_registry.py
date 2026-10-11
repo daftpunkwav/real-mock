@@ -466,7 +466,7 @@ async def test_ask_dispatch_emits_full_event() -> None:
         events=events,
         asked_user=asked_user,
     )
-    try:
+    with pytest.raises(AgentPause):
         await execute(
             "ask_user",
             {
@@ -477,8 +477,6 @@ async def test_ask_dispatch_emits_full_event() -> None:
                 "allow_custom": False,
             },
         )
-    except AgentPause:
-        pass
     assert asked_user["on"] is True
     # The dialog payload also rides the gate dict for event-less channels.
     assert asked_user["event"]["question"] == "Which areas?"
@@ -497,7 +495,7 @@ async def test_ask_dispatch_slider_without_options() -> None:
         lambda name, args, db: (_ for _ in ()).throw(AssertionError("must not run")),
         events=events,
     )
-    try:
+    with pytest.raises(AgentPause):
         await execute(
             "ask_user",
             {
@@ -507,8 +505,6 @@ async def test_ask_dispatch_slider_without_options() -> None:
                 "scale": {"min": 0, "max": 20, "unit": "h"},
             },
         )
-    except AgentPause:
-        pass
     event = await events.get()
     assert event["widget"] == "slider"
     assert event["scale"]["max"] == 20

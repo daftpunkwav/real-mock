@@ -120,6 +120,9 @@ def test_paused_dialog_resumes_on_next_input() -> None:
     # The model saw the pointer observation completing its own call, with the
     # answer as the latest user message — same turn, task still live.
     model_input = llm2.seen_inputs[0]
+    assert any(
+        m.get("role") == "user" and "Test these tools" in str(m.get("content")) for m in model_input
+    ), "the original task is still in the resumed model input"
     pointer = [m for m in model_input if m.get("role") == "tool"]
     assert len(pointer) == 1 and "[ask_user]" in pointer[0]["content"]
     open_call_id = pending[0]["tool_calls"][0]["id"]
@@ -128,12 +131,12 @@ def test_paused_dialog_resumes_on_next_input() -> None:
 
     stored = _stored(session)
     assert not [m for m in stored if m.get("ask_pending")], "exchange closed on resume"
-    assert any(m.get("role") == "tool" and m.get("tool_call_id") == open_call_id for m in stored), (
-        "pointer result persisted"
-    )
-    assert any(m.get("role") == "user" and m.get("content") == "A" for m in stored), (
-        "the answer is a real user row (display/retract semantics unchanged)"
-    )
+    # Once answered, the protection flag drops (finalize sweeps it) and the
+    # exchange folds like any old tool round; the answer itself survives as a
+    # real user row (display/retract semantics unchanged).
+    assert not [m for m in stored if m.get("role") == "tool"]
+    assert not [m for m in stored if m.get("keep_tool_pair")]
+    assert any(m.get("role") == "user" and m.get("content") == "A" for m in stored)
     final_rows = [m for m in stored if m.get("role") == "assistant"]
     assert "Continuing the tool test" in final_rows[-1]["content"]
 
@@ -153,6 +156,9 @@ def test_free_typed_text_answers_the_dialog_too() -> None:
 
     model_input = llm2.seen_inputs[0]
     assert _last_user_row(model_input) == {"role": "user", "content": "let us do the quiz"}
+    assert any(
+        m.get("role") == "user" and "Test these tools" in str(m.get("content")) for m in model_input
+    ), "the original task is still in the resumed model input"
     assert any(
         m.get("role") == "tool" and "[ask_user]" in str(m.get("content")) for m in model_input
     )
@@ -176,6 +182,11 @@ def test_regenerate_discards_paused_dialog() -> None:
     stored = _stored(session)
     assert not [m for m in stored if m.get("ask_pending")]
     assert not [m for m in stored if m.get("role") == "tool"]
+    assert not any(
+        m.get("tool_calls")
+        and any(tc.get("function", {}).get("name") == "ask_user" for tc in m["tool_calls"])
+        for m in stored
+    ), "no ask_user declaration survives nested in tool_calls"
     assert not any("ask" in m for m in stored), "paused structure discarded whole"
     # The replayed task runs as a normal turn: user row + final answer.
     assert [m for m in stored if m.get("role") == "user"] == [{"role": "user", "content": task}]
@@ -220,17 +231,20 @@ def test_resume_with_sibling_tool_result_keeps_pairing() -> None:
     asyncio.run(_drain(agent2.chat_stream("A", db)))  # type: ignore[arg-type]
 
     model_input = llm2.seen_inputs[0]
+    declaration = next(
+        m for m in model_input if m.get("tool_calls") and m.get("role") == "assistant"
+    )
+    declared_ids = [tc.get("id") for tc in declaration["tool_calls"]]
+    assert declared_ids == ["c1", "sib"], "the declaration keeps both calls"
     pointer_index = next(
         i
         for i, m in enumerate(model_input)
         if m.get("role") == "tool" and "[ask_user]" in str(m.get("content"))
     )
-    declaration_index = next(
-        i for i, m in enumerate(model_input) if m.get("tool_calls") and m.get("role") == "assistant"
-    )
+    declaration_index = model_input.index(declaration)
     assert pointer_index == declaration_index + 1, "pointer directly follows the declaration"
     assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in model_input), (
-        "sibling result still paired"
+        "sibling result still paired with its declared call"
     )
 
 
