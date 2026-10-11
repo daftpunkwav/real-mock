@@ -154,6 +154,46 @@ class LoopResult:
     extras: dict[str, Any] = field(default_factory=dict)
 
 
+async def _apply_tool_outcome(
+    working: list[dict[str, Any]],
+    tc: dict[str, Any],
+    outcome: tuple[str, str],
+    position: int,
+    round_i: int,
+    on_tool: OnToolFn | None,
+) -> str:
+    """Land one executed call's outcome and fire the display callback; returns the status.
+
+    ``ok``/``halt`` append the tool result (protocol pairing). ``pause`` keeps
+    the call open — no result is appended here; the caller resumes it with the
+    out-of-band result paired by ``tc_id``, so an id-less declaration is
+    normalized in place.
+    """
+    result, status = outcome
+    fn = tc.get("function") or {}
+    name = str(fn.get("name") or "")
+    args = parse_tool_arguments(fn.get("arguments"))
+    # Position suffix keeps fallback ids collision-free even when the model
+    # emitted several id-less calls of the same name in one round.
+    tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
+    if status == "pause":
+        if not str(tc.get("id") or ""):
+            tc["id"] = tc_id
+    else:
+        working.append(
+            {
+                "role": "tool",
+                "tool_call_id": tc_id,
+                "content": result,
+            }
+        )
+    if on_tool is not None:
+        maybe = on_tool(name, args, result, tc_id)
+        if maybe is not None and inspect.isawaitable(maybe):
+            await maybe
+    return status
+
+
 async def run_agent_loop(
     llm: Any,
     messages: list[dict[str, Any]],
@@ -521,35 +561,10 @@ async def run_agent_loop(
         tool_calls_so_far += len(limited)
         halted = False
         paused = False
-        # Position suffix keeps fallback ids collision-free even when the model
-        # emitted several id-less calls of the same name in one round.
-        for position, (tc, (result, status)) in enumerate(zip(limited, outcomes)):
-            fn = tc.get("function") or {}
-            name = str(fn.get("name") or "")
-            args = parse_tool_arguments(fn.get("arguments"))
-            tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
-            if status == "pause":
-                # The call stays open: no tool result is appended here. The
-                # caller resumes it with the out-of-band result paired by
-                # ``tc_id``, so normalize the declaration's id in place.
-                if not str(tc.get("id") or ""):
-                    tc["id"] = tc_id
-            else:
-                working.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc_id,
-                        "content": result,
-                    }
-                )
-            if on_tool is not None:
-                maybe = on_tool(name, args, result, tc_id)
-                if maybe is not None and inspect.isawaitable(maybe):
-                    await maybe
-            if status == "halt":
-                halted = True
-            elif status == "pause":
-                paused = True
+        for position, (tc, outcome) in enumerate(zip(limited, outcomes)):
+            status = await _apply_tool_outcome(working, tc, outcome, position, round_i, on_tool)
+            halted = halted or status == "halt"
+            paused = paused or status == "pause"
         # Position suffix keeps synthetic ids collision-free even when the
         # model emitted several id-less calls of the same name this round.
         for position, tc in enumerate(dropped):

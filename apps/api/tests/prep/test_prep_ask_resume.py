@@ -19,6 +19,7 @@ class _CapturingLLM:
         self.seen_inputs: list[list[dict]] = []
 
     async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
+        """Record the model input, then return the next scripted reply."""
         del temperature, tools, kwargs
         self.seen_inputs.append([dict(m) for m in messages])
         idx = min(self.calls, len(self.replies) - 1)
@@ -27,6 +28,8 @@ class _CapturingLLM:
 
 
 class _FakeSession:
+    """Minimal PrepSession stand-in whose messages column persists in memory."""
+
     messages = "[]"
     resume_id = None
     target_company = ""
@@ -37,6 +40,8 @@ class _FakeSession:
 
 
 class _FakeDB:
+    """No-op DB session: commits land nowhere, queries resolve to nothing."""
+
     def commit(self):
         pass
 
@@ -51,6 +56,7 @@ class _FakeDB:
 
 
 def _ask_call(question: str, options: list[str], call_id: str = "c1") -> dict:
+    """One assistant round whose only tool_call opens an ask_user dialog."""
     return {
         "role": "assistant",
         "content": None,
@@ -69,14 +75,18 @@ def _ask_call(question: str, options: list[str], call_id: str = "c1") -> dict:
 
 
 def _stored(session: _FakeSession) -> list[dict]:
+    """The session's persisted history as a message list."""
     return json.loads(session.messages)
 
 
 def _last_user_row(model_input: list[dict]) -> dict:
+    """The latest user row of a captured model input (hints trail after it)."""
     return next(m for m in reversed(model_input) if m.get("role") == "user")
 
 
 def test_paused_dialog_resumes_on_next_input() -> None:
+    """Turn 1 pauses on an open dialog; turn 2's answer completes the call and
+    the same turn continues — the model sees its own question answered."""
     session = _FakeSession()
     db = _FakeDB()
     # Turn 1: the model opens a dialog mid-task; the turn pauses on the open call.
@@ -224,5 +234,37 @@ def test_resume_with_sibling_tool_result_keeps_pairing() -> None:
     )
 
 
+def test_regenerate_tool_turn_drops_whole_exchange() -> None:
+    """Regenerating a normal tool turn pops the declarations together with
+    their results — stopping at a declaration would leave it unpaired and
+    duplicate the question row."""
+    session = _FakeSession()
+    db = _FakeDB()
+    task = "run the numbers"
+    llm1 = _CapturingLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{"id": "t1", "function": {"name": "take_note", "arguments": "{}"}}],
+            },
+            {"role": "assistant", "content": "answer with tools", "tool_calls": None},
+        ]
+    )
+    agent1 = PrepAgent(session, llm1)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent1.chat_stream(task, db)))  # type: ignore[arg-type]
+    assert [m for m in _stored(session) if m.get("role") == "tool"], "tool turn stored"
+
+    llm2 = _CapturingLLM([{"role": "assistant", "content": "fresh", "tool_calls": None}])  # type: ignore[arg-type]
+    agent2 = PrepAgent(session, llm2)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent2.chat_stream(task, db, drop_last_assistant=True)))  # type: ignore[arg-type]
+
+    stored = _stored(session)
+    assert not [m for m in stored if m.get("role") == "tool"], "results popped with owner"
+    assert not [m for m in stored if m.get("tool_calls")], "no unpaired declaration stays"
+    assert [m.get("content") for m in stored if m.get("role") == "user"] == [task]
+
+
 async def _drain(agen):
+    """Collect an async iterator into a list."""
     return [item async for item in agen]

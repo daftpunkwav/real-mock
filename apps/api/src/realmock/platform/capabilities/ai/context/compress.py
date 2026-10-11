@@ -46,26 +46,43 @@ def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
             out.append(m)
             continue
         role = m.get("role")
-        if role == "assistant":
-            protected_pair = bool(m.get("keep_tool_pair"))
-            if protected_pair:
-                out.append(m)
-                continue
-            if m.get("tool_calls"):
-                if m.get("content"):
-                    out.append({"role": "assistant", "content": m["content"]})
-                continue
-            out.append(m)
-            continue
         if role == "tool":
             if protected_pair:
                 out.append(m)
             continue
-        # A user row ends any protected run: tool rows after it belong to a
-        # later pair, not to the protected assistant.
-        protected_pair = False
-        out.append(m)
+        if role != "assistant":
+            # A user row ends any protected run: tool rows after it belong to
+            # a later pair, not to the protected assistant.
+            protected_pair = False
+            out.append(m)
+            continue
+        protected_pair = bool(m.get("keep_tool_pair"))
+        if protected_pair or not m.get("tool_calls"):
+            out.append(m)
+        elif m.get("content"):
+            out.append({"role": "assistant", "content": m["content"]})
     return out
+
+
+def _snap_start_to_protected_pair(rest: list[dict[str, Any]], start: int) -> int:
+    """Pull the fold boundary back so a ``keep_tool_pair`` pair stays in the verbatim tail.
+
+    The boundary must not fall inside or immediately after a protected pair's
+    result run: folding it would either erase the exchange or drop the pending
+    marker of an open call — the next input would then start a new turn
+    instead of resuming the paused one (an open call has no results, so its
+    run ends right after the declaration itself). The pairs are tiny, so
+    keeping them verbatim is cheap.
+    """
+    for i, m in enumerate(rest[:start]):
+        if m.get("role") != "assistant" or not m.get("keep_tool_pair"):
+            continue
+        run_end = i + 1
+        while run_end < len(rest) and rest[run_end].get("role") == "tool":
+            run_end += 1
+        if run_end >= start:
+            return i
+    return start
 
 
 def _align_split_start(rest: list[dict[str, Any]], start: int) -> int:
@@ -108,6 +125,7 @@ def compress_messages(
         return system + rest
 
     start = _align_split_start(rest, max(0, len(rest) - keep_recent))
+    start = _snap_start_to_protected_pair(rest, start)
     trimmed = rest[start:]
     omitted = rest[:start]
     if memory is not None and omitted:

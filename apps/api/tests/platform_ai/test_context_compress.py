@@ -219,6 +219,42 @@ def test_compress_protected_pair_ends_at_user_row() -> None:
     assert ids == ["c1"], "the protected result survives; the stray one does not"
 
 
+def test_compress_snap_keeps_pending_pair_in_tail() -> None:
+    """The fold boundary must not strand a keep_tool_pair declaration (open
+    call) in the omitted head: losing the pending marker would make the next
+    input start a new turn instead of resuming the paused dialog."""
+    big = "Content" * 3000
+    msgs = (
+        [{"role": "system", "content": "Rules"}]
+        + [
+            {"role": "user", "content": "old question" + big},
+            {"role": "assistant", "content": "old answer" + big},
+        ]
+        + [
+            {"role": "user", "content": "task"},
+            {
+                "role": "assistant",
+                "content": "",
+                "keep_tool_pair": True,
+                "ask_pending": True,
+                "tool_calls": [
+                    {"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}},
+                    {"id": "sib", "function": {"name": "take_note", "arguments": "{}"}},
+                ],
+            },
+            {"role": "tool", "tool_call_id": "sib", "content": "sibling result"},
+            {"role": "assistant", "content": "waiting line"},
+        ]
+    )
+    out = compress_messages(msgs, max_tokens=500, keep_recent=2)
+    assert len([m for m in out if m.get("ask_pending")]) == 1, (
+        "the open declaration stays in the verbatim tail"
+    )
+    assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in out), (
+        "the sibling result stays paired with it"
+    )
+
+
 # ── LLM summary compression ──────────────────────────────────────────────
 
 

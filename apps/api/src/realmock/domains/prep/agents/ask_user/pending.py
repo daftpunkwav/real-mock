@@ -50,18 +50,34 @@ def find_pending_ask(messages: list[dict[str, Any]] | None) -> int | None:
     return None
 
 
-def _open_dialog_call_id(message: dict[str, Any]) -> str:
-    """tool_call_id of the open ask_user call on a pending row ("" when absent)."""
+def _first_open_ask_call(
+    message: dict[str, Any], answered: set[str]
+) -> tuple[dict[str, Any], str, int] | None:
+    """First ask_user call on the row without a stored result.
+
+    Returns ``(call, call_id, position)``, or None when every ask_user call
+    already carries a tool result (or the row declares none).
+    """
     calls = message.get("tool_calls")
     if not isinstance(calls, list):
-        return ""
-    for call in calls:
+        return None
+    for position, call in enumerate(calls):
         if not isinstance(call, dict):
             continue
         function = call.get("function") or {}
-        if str(function.get("name") or "") == "ask_user":
-            return str(call.get("id") or "")
-    return ""
+        if str(function.get("name") or "") != "ask_user":
+            continue
+        call_id = str(call.get("id") or "")
+        if call_id and call_id in answered:
+            continue
+        return call, call_id, position
+    return None
+
+
+def _open_dialog_call_id(message: dict[str, Any]) -> str:
+    """tool_call_id of the open ask_user call on a pending row ("" when absent)."""
+    found = _first_open_ask_call(message, set())
+    return found[1] if found else ""
 
 
 def mark_paused_ask(messages: list[dict[str, Any]], event: dict[str, Any] | None) -> str:
@@ -78,29 +94,23 @@ def mark_paused_ask(messages: list[dict[str, Any]], event: dict[str, Any] | None
         message = messages[index]
         if not isinstance(message, dict) or message.get("role") != "assistant":
             continue
-        calls = message.get("tool_calls")
-        if not isinstance(calls, list) or not calls:
+        if not isinstance(message.get("tool_calls"), list) or not message["tool_calls"]:
             continue
         answered = {
             str(row.get("tool_call_id") or "")
             for row in messages[index + 1 :]
             if isinstance(row, dict) and row.get("role") == "tool"
         }
-        for position, call in enumerate(calls):
-            if not isinstance(call, dict):
-                continue
-            function = call.get("function") or {}
-            if str(function.get("name") or "") != "ask_user":
-                continue
-            call_id = str(call.get("id") or "")
-            if call_id and call_id in answered:
-                continue
-            if not call_id:
-                call_id = f"call_{index}_ask_user_{position}"
-                call["id"] = call_id
-            message[ASK_PENDING_KEY] = True
-            message[KEEP_TOOL_PAIR_KEY] = True
-            return call_id
+        found = _first_open_ask_call(message, answered)
+        if found is None:
+            continue
+        call, call_id, position = found
+        if not call_id:
+            call_id = f"call_{index}_ask_user_{position}"
+            call["id"] = call_id
+        message[ASK_PENDING_KEY] = True
+        message[KEEP_TOOL_PAIR_KEY] = True
+        return call_id
     return ""
 
 

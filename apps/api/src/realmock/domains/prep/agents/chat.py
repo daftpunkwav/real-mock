@@ -69,18 +69,16 @@ def sanitize_final_reply(text: str) -> tuple[str, dict[str, Any] | None]:
 def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     """Regenerate support: remove the last exchange so the turn can rerun.
 
-    Pops the trailing assistant reply and the trailing user question it
-    answers; the rerun then re-appends its content, so stored history never
-    holds two consecutive identical user rows (which a refresh would render
-    as duplicate bubbles). A user-only tail (a previously failed turn that
-    persisted just the question) is popped too, so regenerating it does not
-    duplicate the question either. Regenerable trailing system rows (the
-    working-memory block finalize re-appends) are skipped first, so the guard
+    Drops the whole trailing exchange back to the question that owns it: the
+    final reply, any tool results, and the tool_call declarations that own
+    those results — paused-dialog and normal tool rounds alike. Stopping at a
+    declaration would leave it on history without its result (the provider
+    rejects that) and the content guard would then keep the old question,
+    duplicating it on the rerun. A user-only tail (a previously failed turn
+    that persisted just the question) is popped too, so regenerating it does
+    not duplicate the question either. Regenerable trailing system rows (the
+    working-memory block finalize re-appends) are skipped first, so the drop
     below can reach the real exchange.
-
-    A paused dialog (open ask_user call + its waiting-line row) is discarded
-    whole: the dialog never got its answer, so regenerating replays the task
-    as a fresh turn without it.
 
     The user pop is content-guarded: the trailing user row is the question
     being replayed only when its text matches. A mismatch means the previous
@@ -101,19 +99,14 @@ def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     if (
         agent.messages
         and isinstance(agent.messages[-1], dict)
-        and agent.messages[-1].get("role") == "assistant"
+        and agent.messages[-1].get("role") in ("assistant", "tool")
     ):
-        agent.messages.pop()
-        # Discard the paused-dialog tail behind the waiting-line row: sibling
-        # tool results and the open ask_user declaration itself.
-        while agent.messages and isinstance(agent.messages[-1], dict):
-            tail = agent.messages[-1]
-            if tail.get("role") == "tool" or (
-                tail.get("role") == "assistant" and tail.get("ask_pending")
-            ):
-                agent.messages.pop()
-            else:
-                break
+        while (
+            agent.messages
+            and isinstance(agent.messages[-1], dict)
+            and agent.messages[-1].get("role") != "user"
+        ):
+            agent.messages.pop()
     if (
         agent.messages
         and isinstance(agent.messages[-1], dict)
@@ -371,6 +364,15 @@ async def run_chat(
         raise
 
 
+async def _stream_waiting_line(agent: "PrepAgent") -> AsyncIterator[str | dict[str, Any]]:
+    """Close a dialog-paused turn visually: clear the status line, then stream
+    the waiting line. Pop-up events and search cards were already pushed when
+    the tool executed, so nothing else is re-emitted here."""
+    yield {"type": "status", "text": ""}
+    async for piece in slice_stream(agent.pending_reply_text()):
+        yield piece
+
+
 def _new_content_state() -> dict[str, Any]:
     """Fresh speculative-streaming state (caller-owned; flushed after the loop)."""
     return {
@@ -533,16 +535,14 @@ async def run_chat_stream(
             yield mid_event
 
         if asked_user["on"]:
-            # Pop-up events and search cards have been pushed immediately when the tool is executed; here only the status line is cleared at the end
-            yield {"type": "status", "text": ""}
-            final = agent.pending_reply_text()
-            async for piece in slice_stream(final):
+            async for piece in _stream_waiting_line(agent):
                 yield piece
             gate_event = asked_user.get("event")
+            ask_event = gate_event if isinstance(gate_event, dict) else None
             delta = finalize_with_delta(
                 agent,
                 working,
-                final,
+                agent.pending_reply_text(),
                 db,
                 tool_steps=tool_steps,
                 search_groups=search_groups,
@@ -550,8 +550,8 @@ async def run_chat_stream(
                 compact_threshold=compact_threshold,
                 compact_options=policy,
                 turn_id=turn_id,
-                ask=gate_event if isinstance(gate_event, dict) else None,
-                pause_event=gate_event if isinstance(gate_event, dict) else None,
+                ask=ask_event,
+                pause_event=ask_event,
             )
             finalized = True
             if delta:
