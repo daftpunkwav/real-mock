@@ -35,7 +35,10 @@ export function SetupLoading() {
 export function SetupMain({ left, preview }: { left: ReactNode; preview: ReactNode }) {
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_260px]">
-      {left}
+      {/* One flex column per grid cell: extra left content (the continue-process
+          card) stacks above the form while the preview column spans the full
+          board height from the very top of the grid. */}
+      <div className="flex min-h-0 min-w-0 flex-col gap-3">{left}</div>
       <div className="hidden min-h-0 min-w-0 flex-col gap-2.5 overflow-hidden lg:flex">
         {preview}
       </div>
