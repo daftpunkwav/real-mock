@@ -171,6 +171,54 @@ def test_compress_keeps_current_turn_tool_pairs() -> None:
     )
 
 
+def test_compress_keeps_protected_tool_pairs() -> None:
+    """``keep_tool_pair`` assistants keep their declaration + tool rows verbatim
+    even before the latest user message (paused-dialog contract)."""
+    big = "Observation" * 2000
+    msgs = (
+        [{"role": "system", "content": "Rules"}]
+        + _turn_with_tools("Previous question", big, "Previous answer" + "Supplement" * 1000)
+        + [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
+                "ask_pending": True,
+                "keep_tool_pair": True,
+            },
+            {"role": "tool", "tool_call_id": "c1", "content": "pointer observation"},
+            {"role": "assistant", "content": "waiting line"},
+            {"role": "user", "content": "the answer"},
+        ]
+    )
+    out = compress_messages(msgs, max_tokens=10000)
+    assert any(m.get("keep_tool_pair") for m in out), "protected declaration survives"
+    assert any(m.get("role") == "tool" and m.get("tool_call_id") == "c1" for m in out), (
+        "protected pair's tool result survives"
+    )
+    assert "tool" in [m["role"] for m in out]
+
+
+def test_compress_protected_pair_ends_at_user_row() -> None:
+    """The protection run ends at a user row: a stray tool row after it is
+    still collapsed (state-machine hygiene for malformed histories)."""
+    msgs = [
+        {
+            "role": "assistant",
+            "content": "",
+            "keep_tool_pair": True,
+            "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "pointer"},
+        {"role": "user", "content": "answer"},
+        {"role": "tool", "tool_call_id": "orphan", "content": "stray"},
+        {"role": "user", "content": "latest"},
+    ]
+    out = compress_messages(msgs, max_tokens=10000)
+    ids = [m.get("tool_call_id") for m in out if m.get("role") == "tool"]
+    assert ids == ["c1"], "the protected result survives; the stray one does not"
+
+
 # ── LLM summary compression ──────────────────────────────────────────────
 
 

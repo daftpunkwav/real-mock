@@ -7,7 +7,8 @@ without introducing Cordis, MCP, shell, or sub-Agents.
 Layered by responsibility:
 - ``loop.py``: main ``run_agent_loop`` orchestration and result structures;
 - ``llm_round.py``: one LLM round (streaming preferred) and tool-result truncation;
-- ``hints.py``: closing/correction/countdown hints; ``halt.py``: the ``AgentHalt`` termination signal.
+- ``hints.py``: closing/correction/countdown hints;
+- ``halt.py``: the ``AgentHalt`` terminate and ``AgentPause`` pause signals.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from realmock.platform.core.agent_error_log import error_scope, log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.core.security import redact_secrets_in_text
 
-from .halt import AgentHalt
+from .halt import AgentHalt, AgentPause
 from .hints import _DRIFT_HINT, _DRIFT_MAX_CHARS, _WRAP_UP_HINT, countdown_hint
 from .llm_round import (
     ExecuteFn,
@@ -143,6 +144,10 @@ class LoopResult:
     final_content: str | None
     tool_used: bool
     halted: bool = False
+    # True when a tool raised AgentPause: the raised tool_call stays OPEN (no
+    # tool result appended) and the caller resumes it with an out-of-band
+    # result (e.g. the user's dialog answer).
+    paused: bool = False
     # Reasoning from every round, joined for display only; empty when the
     # provider does not return any.
     thinking: str = ""
@@ -218,6 +223,8 @@ async def run_agent_loop(
     stating round/max-rounds/per-round width/calls spent. Never persisted.
 
     Error contract: :class:`AgentHalt` ends the loop with its observation;
+    :class:`AgentPause` ends the loop with the raised tool_call left OPEN (no
+    tool result appended — the caller completes it out-of-band and resumes);
     :class:`ApiBusinessError` raised by ``execute`` propagates to the caller
     (business failures must not be disguised as model observations); any other
     tool exception becomes a ``"Tool execution failed: ..."`` observation.
@@ -229,6 +236,7 @@ async def run_agent_loop(
     working = list(messages)
     tool_used = False
     halted = False
+    paused = False
     thinking_parts: list[str] = []
     thinking_emitted = False
     drift_corrected = False
@@ -466,7 +474,8 @@ async def run_agent_loop(
             assistant_turn["thinking_blocks"] = thinking_blocks
         working.append(assistant_turn)
 
-        async def _run_one(tc: dict[str, Any]) -> tuple[str, bool]:
+        async def _run_one(tc: dict[str, Any]) -> tuple[str, str]:
+            """Run one call; returns ``(result, status)`` with status ``ok``/``halt``/``pause``."""
             fn = tc.get("function") or {}
             name = str(fn.get("name") or "")
             args = parse_tool_arguments(fn.get("arguments"))
@@ -476,14 +485,18 @@ async def run_agent_loop(
                     result = await compact_observation(str(result or ""))
                 else:
                     result = _truncate_tool_result(str(result or ""))
-                return result, False
+                return result, "ok"
+            except AgentPause as pause:
+                # Display-only card text; the model-facing result arrives
+                # out-of-band when the caller resumes the open call.
+                return pause.observation, "pause"
             except AgentHalt as halt:
                 observation = halt.observation
                 if compact_observation is not None:
                     observation = await compact_observation(observation)
                 else:
                     observation = _truncate_tool_result(observation)
-                return observation, True
+                return observation, "halt"
             except ApiBusinessError:
                 raise
             except Exception as tool_exc:
@@ -502,30 +515,41 @@ async def run_agent_loop(
                         kind=getattr(tool_exc, "error_kind", "tool_failed"),
                         message=str(tool_exc),
                     )
-                return f"Tool execution failed: {redact_secrets_in_text(str(tool_exc))}", False
+                return f"Tool execution failed: {redact_secrets_in_text(str(tool_exc))}", "ok"
 
         outcomes = await asyncio.gather(*(_run_one(tc) for tc in limited))
         tool_calls_so_far += len(limited)
         halted = False
+        paused = False
         # Position suffix keeps fallback ids collision-free even when the model
         # emitted several id-less calls of the same name in one round.
-        for position, (tc, (result, did_halt)) in enumerate(zip(limited, outcomes)):
+        for position, (tc, (result, status)) in enumerate(zip(limited, outcomes)):
             fn = tc.get("function") or {}
             name = str(fn.get("name") or "")
             args = parse_tool_arguments(fn.get("arguments"))
             tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
-            working.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tc_id,
-                    "content": result,
-                }
-            )
+            if status == "pause":
+                # The call stays open: no tool result is appended here. The
+                # caller resumes it with the out-of-band result paired by
+                # ``tc_id``, so normalize the declaration's id in place.
+                if not str(tc.get("id") or ""):
+                    tc["id"] = tc_id
+            else:
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": result,
+                    }
+                )
             if on_tool is not None:
                 maybe = on_tool(name, args, result, tc_id)
                 if maybe is not None and inspect.isawaitable(maybe):
                     await maybe
-            halted = halted or did_halt
+            if status == "halt":
+                halted = True
+            elif status == "pause":
+                paused = True
         # Position suffix keeps synthetic ids collision-free even when the
         # model emitted several id-less calls of the same name this round.
         for position, tc in enumerate(dropped):
@@ -543,7 +567,7 @@ async def run_agent_loop(
                     ),
                 }
             )
-        if halted:
+        if halted or paused:
             break
 
     return LoopResult(
@@ -551,6 +575,7 @@ async def run_agent_loop(
         final_content=None,
         tool_used=tool_used,
         halted=halted,
+        paused=paused,
         thinking=_join_thinking(thinking_parts),
         extras={"last_round_usage": last_round_usage} if last_round_usage else {},
     )

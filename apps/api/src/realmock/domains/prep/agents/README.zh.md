@@ -18,5 +18,5 @@ Prep agent 机制:think-then-act 循环与一个 prep 轮次触及的一切。
 | 子包 | 用途 |
 | --- | --- |
 | `context/` | 上下文装配:`seed.py`(稳定优先的种子块)、`working.py`、`linked.py`(# 引用的会话)、`hints.py`、`markers.py` |
-| `ask_user/` | 用户提问控制流:`dispatch.py`、`inline.py`、`normalize.py`、`schema.py` |
+| `ask_user/` | 用户提问控制流:`dispatch.py`、`inline.py`、`normalize.py`、`schema.py`、`pending.py`(暂停态对话:悬挂调用在下一输入到达时恢复) |
 | [`tools/`](tools/README.zh.md) | 工具注册表(`registry.py`、`spec.py`)与五个工具族:`basic/`(code_exec、company_info、quiz、take_note、web_search、web_fetch)、`candidate/`(profile、resume、shared)、`memory/`(write、list_summaries、get_detail、list_tags)、`repo/`(github)、`system/`(availability、compact、search_tools) |

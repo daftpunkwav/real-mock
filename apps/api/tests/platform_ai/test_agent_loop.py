@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
-from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+from realmock.platform.capabilities.ai.agent.loop import AgentHalt, AgentPause
 from realmock.platform.capabilities.ai.context.manager import prepare_llm_context
 
 
@@ -353,6 +353,53 @@ async def test_agent_halt_appends_observation_and_stops() -> None:
     tool_msgs = [m for m in result.messages if m.get("role") == "tool"]
     assert tool_msgs and "Asked the user" in tool_msgs[0]["content"]
     # Do not enter another LLM round after halt
+    assert llm.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_pause_leaves_call_open_and_stops() -> None:
+    """AgentPause: the raised call stays OPEN (no tool result), sibling results
+    are kept, the id-less declaration is normalized in place, and the loop
+    stops without another LLM round."""
+    llm = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"function": {"name": "ask_user", "arguments": "{}"}},
+                    {"id": "sib", "function": {"name": "search", "arguments": "{}"}},
+                ],
+            },
+            {"role": "assistant", "content": "Should not be reached", "tool_calls": None},
+        ]
+    )
+
+    async def execute(name: str, args: dict) -> str:
+        if name == "ask_user":
+            raise AgentPause("Dialog shown; waiting for the answer")
+        return "search results"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[
+            {"type": "function", "function": {"name": "ask_user"}},
+            {"type": "function", "function": {"name": "search"}},
+        ],
+        execute=execute,
+        max_rounds=3,
+    )
+    assert result.paused is True
+    assert result.halted is False
+    assert result.final_content is None
+    # The sibling keeps its result; the paused call has none.
+    tool_msgs = [m for m in result.messages if m.get("role") == "tool"]
+    assert [m["tool_call_id"] for m in tool_msgs] == ["sib"]
+    assistant = next(m for m in result.messages if m.get("tool_calls"))
+    paused_call = assistant["tool_calls"][0]
+    assert paused_call["id"], "id-less pause call is normalized for resume pairing"
+    # Do not enter another LLM round after pause
     assert llm.calls == 1
 
 

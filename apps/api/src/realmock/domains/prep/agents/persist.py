@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.prep.agents.ask_user import mark_paused_ask
 from realmock.domains.prep.agents.context import strip_ref_blocks
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
@@ -202,11 +203,12 @@ def finalize(
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
     ask: dict[str, Any] | None = None,
+    pause_event: dict[str, Any] | None = None,
 ) -> None:
     """Persist one turn: strip transient refs, append the assistant message, and update counters.
 
     Args:
-        agent: Live PrepAgent (messages/memory/counters mutated in place).
+        agent: Live PrepAgent (messages/working memory/counters mutated in place).
         working: Loop-end working copy (may include transient #ref blocks).
         final: Sanitized reply body ("", non-str coerced to "").
         db: Session committed via PrepAgent._save (rollback on failure).
@@ -218,6 +220,9 @@ def finalize(
         compact_options: Verbatim-tail policy (retain raised by intensity floor).
         turn_id: Correlation id stamped on the assistant message (or None).
         ask: ask_user dialog payload to persist on the message (or None).
+        pause_event: Dialog payload when the turn ends PAUSED on an open
+            ask_user call: stamps ``ask_pending``/``keep_tool_pair`` on the
+            dangling declaration so the next input resumes it (or None).
 
     Returns:
         None; sets agent.last_prompt_estimate/last_message_count and commits.
@@ -227,6 +232,10 @@ def finalize(
     agent.last_prompt_estimate = estimate_messages_tokens(working)
     options = compact_options or CompactionOptions()
     agent.messages = _merge_mid_turn(agent, working)
+    if pause_event is not None:
+        # Mark the open call BEFORE the display row is appended, so the
+        # next input can complete it and re-enter the same turn.
+        mark_paused_ask(agent.messages, pause_event)
     agent.messages.append(
         _build_assistant_message(
             final,
@@ -300,6 +309,7 @@ def finalize_with_delta(
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
     ask: dict[str, Any] | None = None,
+    pause_event: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Capture the usage delta BEFORE persisting, then finalize; returns the delta event.
 
@@ -311,7 +321,7 @@ def finalize_with_delta(
     Args:
         agent: Live PrepAgent (messages/memory/counters mutated in place).
         working: Loop-end working copy (may include transient #ref blocks).
-        final: Sanitized reply body.
+        final: Sanitized reply body ("", non-str coerced to "").
         db: Session committed via PrepAgent._save (rollback on failure).
         tool_steps: Display/persist tool progress cards (or None).
         search_groups: Retrieval cards for the search_results event (or None).
@@ -320,6 +330,7 @@ def finalize_with_delta(
         compact_options: Verbatim-tail policy (or None for defaults).
         turn_id: Correlation id stamped on the assistant message (or None).
         ask: ask_user dialog payload to persist on the message (or None).
+        pause_event: Dialog payload when the turn ends paused (see :func:`finalize`).
 
     Returns:
         The usage-delta event, or None when the provider reported nothing.
@@ -337,6 +348,7 @@ def finalize_with_delta(
         compact_options=compact_options,
         turn_id=turn_id,
         ask=ask,
+        pause_event=pause_event,
     )
     return delta
 
@@ -355,6 +367,7 @@ def persist_cancel(
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
     ask: dict[str, Any] | None = None,
+    pause_event: dict[str, Any] | None = None,
 ) -> None:
     """Best-effort cancel-time persist (never raises; never yields)."""
     try:
@@ -371,6 +384,7 @@ def persist_cancel(
             compact_options=compact_options,
             turn_id=turn_id,
             ask=ask,
+            pause_event=pause_event,
         )
     except Exception as persist_exc:
         logger.warning("Prep cancel-time persist failed: %s", persist_exc)

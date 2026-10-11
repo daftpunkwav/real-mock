@@ -8,10 +8,12 @@ and execution remain in :mod:`agents.tools`. Failures are persisted via ``log_ag
 
 Error contract (mirrors :func:`run_agent_loop`): :class:`ApiBusinessError`
 propagates to the caller so routes can render business HTTP errors; every other
-failure becomes a model observation. Only one dialog (1–8 questions) per turn:
-after ``ask_user`` fires, further tool calls in the same turn are refused without
-executing (same-round parallel siblings still run to completion and their
-results are discarded; the dialog gate only stops later rounds).
+failure becomes a model observation. ask_user pauses the turn (:class:`AgentPause`):
+one dialog open at a time — while a dialog awaits its answer the turn is over,
+so the gate here only refuses same-round duplicate/parallel calls after the
+dialog fired (they run to completion; a later sequential round never happens
+because the pause ends the segment). The turn resumes with the user's reply
+completing the open call (see :mod:`.pending`).
 
 Resilience contract: every tool declares its own default timeout (a memory
 lookup is instant, a web search scrapes live pages); the model may override it
@@ -170,9 +172,9 @@ def build_execute_callback(
         if not isinstance(args, dict):
             args = {}
         if _dialog_already_shown():
-            # One dialog per turn: refuse further calls without side effects.
-            # Same-round parallel siblings may still race (the loop only stops
-            # them after the round); sequential rounds are fully covered.
+            # One dialog at a time: refuse further calls without side effects.
+            # Same-round parallel siblings may still race (the pause ends the
+            # segment after the round, so later sequential rounds never run).
             if name == "ask_user":
                 return (
                     "Duplicate dialog skipped (ask_user already shown this turn). "

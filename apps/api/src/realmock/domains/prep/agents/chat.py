@@ -30,7 +30,7 @@ from realmock.platform.capabilities.ai.context.options import (
 from realmock.platform.capabilities.ai.llm.provider_errors import is_context_overflow
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
-from .ask_user import extract_inline_ask_user
+from .ask_user import extract_inline_ask_user, find_pending_ask, insert_dialog_answer
 from .context import format_linked_sessions
 from .memory_precipitate import schedule_turn_memory_precipitation
 from .persist import (
@@ -74,8 +74,13 @@ def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     holds two consecutive identical user rows (which a refresh would render
     as duplicate bubbles). A user-only tail (a previously failed turn that
     persisted just the question) is popped too, so regenerating it does not
-    duplicate the question either. Role-guarded: a trailing system block or
-    a non-user message before the reply is left in place.
+    duplicate the question either. Regenerable trailing system rows (the
+    working-memory block finalize re-appends) are skipped first, so the guard
+    below can reach the real exchange.
+
+    A paused dialog (open ask_user call + its waiting-line row) is discarded
+    whole: the dialog never got its answer, so regenerating replays the task
+    as a fresh turn without it.
 
     The user pop is content-guarded: the trailing user row is the question
     being replayed only when its text matches. A mismatch means the previous
@@ -84,12 +89,31 @@ def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     turn the rerun does not replace, so the replayed text is appended as a
     fresh turn instead.
     """
+    # Trailing system rows are regenerable prompt material, not conversation:
+    # every finalize re-appends the working-memory block at the tail, and a
+    # regenerate that stops at it would never reach the exchange below.
+    while (
+        agent.messages
+        and isinstance(agent.messages[-1], dict)
+        and agent.messages[-1].get("role") == "system"
+    ):
+        agent.messages.pop()
     if (
         agent.messages
         and isinstance(agent.messages[-1], dict)
         and agent.messages[-1].get("role") == "assistant"
     ):
         agent.messages.pop()
+        # Discard the paused-dialog tail behind the waiting-line row: sibling
+        # tool results and the open ask_user declaration itself.
+        while agent.messages and isinstance(agent.messages[-1], dict):
+            tail = agent.messages[-1]
+            if tail.get("role") == "tool" or (
+                tail.get("role") == "assistant" and tail.get("ask_pending")
+            ):
+                agent.messages.pop()
+            else:
+                break
     if (
         agent.messages
         and isinstance(agent.messages[-1], dict)
@@ -217,6 +241,15 @@ async def _prepare_turn(
     if drop_last_assistant:
         _drop_trailing_exchange(agent, user_text)
     agent.messages.append({"role": "user", "content": user_text})
+    # A paused dialog turns this input into its answer: complete the open
+    # ask_user call with a pointer observation (the answer itself stays in
+    # the user message just appended) and re-enter the SAME turn, so the
+    # interrupted task remains the live task instead of the reply reading
+    # like a new topic (see ask_user.pending). Popup answers and free-typed
+    # text arrive through the same channel — both are the dialog's reply.
+    pending_index = find_pending_ask(agent.messages)
+    if pending_index is not None:
+        insert_dialog_answer(agent.messages, pending_index)
     pre_build = list(agent.messages)
     build_report: dict[str, Any] = {}
     working = await agent._build_context(
@@ -321,6 +354,9 @@ async def run_chat(
             compact_options=policy,
             turn_id=turn_id,
             ask=ask_event,
+            # A tool-invoked dialog ends the turn PAUSED on its open call;
+            # inline-rescued dialogs have no tool_call to resume.
+            pause_event=ask_event if asked_user["on"] else None,
         )
         # End-of-turn curation runs detached: the reply returns immediately.
         schedule_turn_memory_precipitation(
@@ -515,6 +551,7 @@ async def run_chat_stream(
                 compact_options=policy,
                 turn_id=turn_id,
                 ask=gate_event if isinstance(gate_event, dict) else None,
+                pause_event=gate_event if isinstance(gate_event, dict) else None,
             )
             finalized = True
             if delta:
@@ -618,6 +655,7 @@ async def run_chat_stream(
                 compact_options=policy,
                 turn_id=turn_id,
                 ask=gate_event if isinstance(gate_event, dict) else None,
+                pause_event=gate_event if asked_user.get("on") else None,
             )
         raise
     except Exception:
