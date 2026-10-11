@@ -373,6 +373,41 @@ async def _stream_waiting_line(agent: "PrepAgent") -> AsyncIterator[str | dict[s
         yield piece
 
 
+def _finalize_paused_turn(
+    agent: "PrepAgent",
+    working: list[dict[str, Any]],
+    db: Session,
+    *,
+    tool_steps: list[dict[str, Any]] | None,
+    search_groups: list[dict[str, Any]] | None,
+    thinking: str,
+    compact_threshold: float | None,
+    policy: CompactionOptions,
+    turn_id: str,
+    asked_user: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Persist a dialog-paused turn (the open call marked for resume).
+
+    Returns the usage-delta event for the stream envelope (or None).
+    """
+    gate_event = asked_user.get("event")
+    ask_event = gate_event if isinstance(gate_event, dict) else None
+    return finalize_with_delta(
+        agent,
+        working,
+        agent.pending_reply_text(),
+        db,
+        tool_steps=tool_steps,
+        search_groups=search_groups,
+        thinking=thinking,
+        compact_threshold=compact_threshold,
+        compact_options=policy,
+        turn_id=turn_id,
+        ask=ask_event,
+        pause_event=ask_event,
+    )
+
+
 def _new_content_state() -> dict[str, Any]:
     """Fresh speculative-streaming state (caller-owned; flushed after the loop)."""
     return {
@@ -537,21 +572,17 @@ async def run_chat_stream(
         if asked_user["on"]:
             async for piece in _stream_waiting_line(agent):
                 yield piece
-            gate_event = asked_user.get("event")
-            ask_event = gate_event if isinstance(gate_event, dict) else None
-            delta = finalize_with_delta(
+            delta = _finalize_paused_turn(
                 agent,
                 working,
-                agent.pending_reply_text(),
                 db,
                 tool_steps=tool_steps,
                 search_groups=search_groups,
                 thinking=thinking,
                 compact_threshold=compact_threshold,
-                compact_options=policy,
+                policy=policy,
                 turn_id=turn_id,
-                ask=ask_event,
-                pause_event=ask_event,
+                asked_user=asked_user,
             )
             finalized = True
             if delta:
@@ -642,6 +673,7 @@ async def run_chat_stream(
         # before the generator closes, or the question is lost on refresh.
         if not finalized:
             gate_event = asked_user.get("event")
+            ask_event = gate_event if isinstance(gate_event, dict) else None
             persist_cancel(
                 agent,
                 working,
@@ -654,8 +686,10 @@ async def run_chat_stream(
                 compact_threshold=compact_threshold,
                 compact_options=policy,
                 turn_id=turn_id,
-                ask=gate_event if isinstance(gate_event, dict) else None,
-                pause_event=gate_event if asked_user.get("on") else None,
+                ask=ask_event,
+                # mark_paused_ask tolerates non-dict payloads; a dialog that
+                # never fired leaves ask_event None and nothing is marked.
+                pause_event=ask_event,
             )
         raise
     except Exception:

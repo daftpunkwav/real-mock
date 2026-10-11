@@ -154,32 +154,20 @@ class LoopResult:
     extras: dict[str, Any] = field(default_factory=dict)
 
 
-async def _apply_tool_outcome(
+def _land_tool_result(
     working: list[dict[str, Any]],
     tc: dict[str, Any],
-    outcome: tuple[str, str],
-    position: int,
-    round_i: int,
-    on_tool: OnToolFn | None,
-) -> str:
-    """Land one executed call's outcome and fire the display callback; returns the status.
+    result: str,
+    status: str,
+    tc_id: str,
+) -> None:
+    """Pair one call's result with its declaration on the working copy.
 
-    ``ok``/``halt`` append the tool result (protocol pairing). ``pause`` keeps
-    the call open — no result is appended here; the caller resumes it with the
-    out-of-band result paired by ``tc_id``, so an id-less declaration is
-    normalized in place.
+    A paused call stays open: no result is appended; the caller resumes it
+    with the out-of-band result paired by ``tc_id``, so an id-less declaration
+    is normalized in place.
     """
-    result, status = outcome
-    fn = tc.get("function") or {}
-    name = str(fn.get("name") or "")
-    args = parse_tool_arguments(fn.get("arguments"))
-    # Position suffix keeps fallback ids collision-free even when the model
-    # emitted several id-less calls of the same name in one round.
-    tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
-    if status == "pause":
-        if not str(tc.get("id") or ""):
-            tc["id"] = tc_id
-    else:
+    if status != "pause":
         working.append(
             {
                 "role": "tool",
@@ -187,11 +175,23 @@ async def _apply_tool_outcome(
                 "content": result,
             }
         )
-    if on_tool is not None:
-        maybe = on_tool(name, args, result, tc_id)
-        if maybe is not None and inspect.isawaitable(maybe):
-            await maybe
-    return status
+    elif not tc.get("id"):
+        tc["id"] = tc_id
+
+
+async def _notify_tool(
+    on_tool: OnToolFn | None,
+    name: str,
+    args: dict[str, Any],
+    result: str,
+    tc_id: str,
+) -> None:
+    """Fire the tool-step display callback; awaits awaitable returns."""
+    if on_tool is None:
+        return
+    maybe = on_tool(name, args, result, tc_id)
+    if maybe is not None and inspect.isawaitable(maybe):
+        await maybe
 
 
 async def run_agent_loop(
@@ -561,8 +561,16 @@ async def run_agent_loop(
         tool_calls_so_far += len(limited)
         halted = False
         paused = False
-        for position, (tc, outcome) in enumerate(zip(limited, outcomes)):
-            status = await _apply_tool_outcome(working, tc, outcome, position, round_i, on_tool)
+        # Position suffix keeps fallback ids collision-free even when the model
+        # emitted several id-less calls of the same name in one round.
+        for position, (tc, (result, status)) in enumerate(zip(limited, outcomes)):
+            fn = tc.get("function") or {}
+            name = str(fn.get("name") or "")
+            tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
+            _land_tool_result(working, tc, result, status, tc_id)
+            await _notify_tool(
+                on_tool, name, parse_tool_arguments(fn.get("arguments")), result, tc_id
+            )
             halted = halted or status == "halt"
             paused = paused or status == "pause"
         # Position suffix keeps synthetic ids collision-free even when the
