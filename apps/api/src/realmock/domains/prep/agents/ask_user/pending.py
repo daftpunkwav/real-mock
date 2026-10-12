@@ -8,11 +8,15 @@ only; the answer itself stays in the user message) directly after the open
 call and re-enters the loop on the SAME turn, so the interrupted task remains
 the live task instead of the reply reading like a new topic.
 
-Marker keys (persisted on history rows; display consumers ignore them):
+Marker keys (persisted on history rows; display consumers ignore them,
+and the LLM payload builder strips them before a request leaves):
 - ``ask_pending`` on the assistant row: its dialog call awaits the answer.
 - ``keep_tool_pair`` on the assistant row: platform rule-based compaction
   must keep this declaration and its tool rows verbatim (the rows are tiny,
   and collapsing them would orphan the open call or erase the exchange).
+- ``resume_task_text`` on the assistant row: the ORIGINAL task text frozen
+  at pause time, so a sequential dialog's resume still gates text-gated
+  tools after earlier dialog exchanges have folded away.
 
 The ``ask`` dialog payload keeps riding the display (waiting-line) row exactly
 as before, so history rendering is unchanged.
