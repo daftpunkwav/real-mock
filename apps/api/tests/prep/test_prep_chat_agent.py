@@ -745,10 +745,10 @@ def test_trim_unpaired_tail_cuts_partial_round_only() -> None:
         {"role": "tool", "tool_call_id": "a", "content": "ok"},
         {"role": "assistant", "content": "answer"},
     ]
-    assert agent_mod._trim_unpaired_tail(paired) is paired
+    assert agent_mod._trim_unpaired_tail(paired) == paired
 
     user_tail = [{"role": "user", "content": "q"}]
-    assert agent_mod._trim_unpaired_tail(user_tail) is user_tail
+    assert agent_mod._trim_unpaired_tail(user_tail) == user_tail
 
 
 def test_drop_trailing_exchange_keeps_compaction_summary() -> None:

@@ -79,6 +79,12 @@ async def dispatch_ask_user(
                 }
             )
         await events.put({"type": "ask_user", **event})
+        if asked_user is not None:
+            # Delivered marker: only a dialog the stream actually queued may
+            # persist a resumable pending state on cancellation — a put
+            # interrupted by a client disconnect never reached the user, and
+            # marking it would consume their next input as an unseen answer.
+            asked_user["emitted"] = True
     raise AgentPause(
         "Dialog shown to the user; waiting for their answer. "
         "The turn pauses here and resumes with their reply."

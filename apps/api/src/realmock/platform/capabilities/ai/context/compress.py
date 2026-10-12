@@ -72,11 +72,15 @@ def _snap_start_to_protected_pair(rest: list[dict[str, Any]], start: int) -> int
     marker of an open call — the next input would then start a new turn
     instead of resuming the paused one (an open call has no results, so its
     run ends right after the declaration itself). The pairs are tiny, so
-    keeping them verbatim is cheap.
+    keeping them verbatim is cheap. An ``ask_pending`` declaration is pulled
+    back wherever the cutoff sits: its marker must never fold away, or the
+    paused dialog silently becomes a new task on the next input.
     """
     for i, m in enumerate(rest[:start]):
         if m.get("role") != "assistant" or not m.get("keep_tool_pair"):
             continue
+        if m.get("ask_pending"):
+            return i
         run_end = i + 1
         while run_end < len(rest) and rest[run_end].get("role") == "tool":
             run_end += 1

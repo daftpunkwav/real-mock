@@ -223,7 +223,12 @@ def _abandon_resumed_turn(
         if not (isinstance(pointer, dict) and pointer.get("content") == DIALOG_ANSWER_OBSERVATION):
             index = None
     if index is None:
-        for position, message in enumerate(messages):
+        # The caller's list was rebuilt (turn-start compaction) and the row
+        # shifted: locate this turn's pointer by content instead. Scanning
+        # from the end picks the NEWEST pointer — earlier, already-answered
+        # dialogs carry the same observation text and must not win.
+        for position in range(len(messages) - 1, -1, -1):
+            message = messages[position]
             if (
                 isinstance(message, dict)
                 and message.get("role") == "tool"
@@ -238,11 +243,13 @@ def _abandon_resumed_turn(
     # The just-typed answer is the first user row AFTER the pointer: prepare
     # appends it to the tail before inserting the pointer, and the rows in
     # between belong to the paused turn (waiting line, working memory). On a
-    # cancel path the loop may have appended further rows behind the answer.
+    # cancel path the loop may have appended further rows behind the answer —
+    # everything from the answer on goes, so persistence lands the exact
+    # paused snapshot and a retry cannot see half-generated rounds.
     for scan in range(index + 1, len(messages)):
         row = messages[scan]
         if isinstance(row, dict) and row.get("role") == "user":
-            messages.pop(scan)
+            del messages[scan:]
             break
     return messages
 
@@ -427,6 +434,7 @@ async def run_chat(
     turn_id = ""
     policy: CompactionOptions | None = None
     working: list[dict[str, Any]] = []
+    committed = False
     try:
         policy, turn_id, working, _, _ = await _prepare_turn(
             agent,
@@ -492,12 +500,18 @@ async def run_chat(
             # inline-rescued dialogs have no tool_call to resume.
             pause_event=ask_event if asked_user["on"] else None,
         )
+        committed = True
         # End-of-turn curation runs detached: the reply returns immediately.
         schedule_turn_memory_precipitation(
             agent, user_text, final if isinstance(final, str) else ""
         )
         return final if isinstance(final, str) else ""
     except Exception:
+        if committed:
+            # finalize already landed the turn (a detached curation task or a
+            # late stream glitch raised afterwards): the saved history must
+            # not be rolled back or persisted a second time.
+            raise
         if not _persist_failure_state(
             agent,
             asked_user,
@@ -843,6 +857,23 @@ async def run_chat_stream(
             # force-compacted list); mid-loop, the loop's copy is — the
             # dialog round's open call exists only there.
             context = working if loop_done else (loop_working.get("working") or working)
+            if not context:
+                # Defensive: the stream cannot reach the cancel handler
+                # before prepare produced a working list (prepare failures
+                # re-raise past the main try), so an empty context means an
+                # unexpected state — persisting one would clobber the whole
+                # session history with a bare reply row.
+                logger.error("Prep cancel persist skipped: empty working list")
+                raise
+            delivered = not events or bool(asked_user.get("emitted"))
+            if not delivered:
+                # The dialog event never reached the queue (client gone while
+                # the bounded put was blocked): the user has seen nothing, so
+                # no resume marker is persisted — the round's declarations
+                # (including the undelivered dialog call) are completed as
+                # interrupted instead, and the next input runs a fresh turn.
+                ask_event = None
+                complete_interrupted_tool_calls(context)
             if ask_event is None:
                 # A resume turn cancelled before its dialog fired must not
                 # persist the consumed pointer: roll back to the pause
@@ -867,6 +898,10 @@ async def run_chat_stream(
             )
         raise
     except Exception:
+        if finalized:
+            # finalize already landed the turn: nothing to roll back or
+            # re-persist for exceptions raised after the commit.
+            raise
         if not _persist_failure_state(
             agent,
             asked_user,

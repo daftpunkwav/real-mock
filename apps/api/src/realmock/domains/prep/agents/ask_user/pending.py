@@ -20,6 +20,7 @@ as before, so history rendering is unchanged.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 #: Assistant-row marker: this message's dialog tool_call awaits its result.
@@ -78,6 +79,27 @@ def _first_open_ask_call(
     return None
 
 
+def _open_ask_calls(
+    message: dict[str, Any], answered: set[str]
+) -> list[tuple[dict[str, Any], str, int]]:
+    """Every ask_user call on the row without a stored result, in order."""
+    calls = message.get("tool_calls")
+    if not isinstance(calls, list):
+        return []
+    found: list[tuple[dict[str, Any], str, int]] = []
+    for position, call in enumerate(calls):
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function") or {}
+        if str(function.get("name") or "") != "ask_user":
+            continue
+        call_id = str(call.get("id") or "")
+        if call_id and call_id in answered:
+            continue
+        found.append((call, call_id, position))
+    return found
+
+
 def original_task_text(messages: list[dict[str, Any]], pending_index: int) -> str:
     """Content of the user row that owns the live task behind a pending dialog.
 
@@ -130,16 +152,31 @@ def _open_dialog_call_id(message: dict[str, Any], answered: set[str]) -> str:
     return found[1] if found else ""
 
 
+def _arguments_question(call: dict[str, Any]) -> str:
+    """The question text inside a dialog call's arguments ("" when unreadable)."""
+    try:
+        payload = json.loads(str((call.get("function") or {}).get("arguments") or "{}"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return ""
+    question = payload.get("question") if isinstance(payload, dict) else None
+    return str(question) if isinstance(question, str) else ""
+
+
 def mark_paused_ask(messages: list[dict[str, Any]], event: dict[str, Any] | None) -> str:
     """Stamp the open dialog call on the loop tail (pause-time persist).
 
     Finds the last assistant whose ``ask_user`` call has no tool result after
     it, normalizes the call id in place (the resume path pairs by it), and
-    sets the marker keys. Returns the open call id, or "" when no open call
-    exists (the caller still persists the dialog payload on the display row).
+    sets the marker keys. When a round carries several unanswered dialog
+    calls (a cancelled round can leave the invalid one's result unlanded),
+    the call whose arguments carry the EVENT's question wins — the displayed
+    dialog is the one awaiting the answer. Returns the open call id, or ""
+    when no open call exists (the caller still persists the dialog payload
+    on the display row).
     """
     if not isinstance(event, dict) or not event:
         return ""
+    asked_question = str(event.get("question") or "")
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         if not isinstance(message, dict) or message.get("role") != "assistant":
@@ -151,6 +188,13 @@ def mark_paused_ask(messages: list[dict[str, Any]], event: dict[str, Any] | None
         if found is None:
             continue
         call, call_id, position = found
+        if asked_question:
+            # Prefer the call that actually emitted this dialog over an
+            # earlier unanswered (e.g. invalid-args) sibling.
+            for other_call, other_id, other_position in _open_ask_calls(message, answered):
+                if other_id and _arguments_question(other_call) == asked_question:
+                    call, call_id, position = other_call, other_id, other_position
+                    break
         if not call_id:
             call_id = f"call_{index}_ask_user_{position}"
             call["id"] = call_id
@@ -211,15 +255,21 @@ def stamp_resume_task(messages: list[dict[str, Any]], task_text: str | None) -> 
 
     Read back by the next resume: after earlier dialog exchanges fold away,
     text-based answer detection can no longer reach the original task, so the
-    pause row itself carries the authoritative value. Display consumers and
-    the LLM client ignore unknown row keys.
+    pause row itself carries the authoritative value. When the caller has no
+    explicit value (the FIRST pause of a task — its resume text was never
+    computed), the user row behind the pending declaration is used: folding
+    may later remove it, but the stamp has already captured it. Display
+    consumers and the LLM client ignore unknown row keys.
     """
-    if not isinstance(task_text, str) or not task_text:
+    for index, message in enumerate(messages):
+        if not (isinstance(message, dict) and message.get(ASK_PENDING_KEY)):
+            continue
+        value = task_text if isinstance(task_text, str) and task_text else None
+        if value is None:
+            value = original_task_text(messages, index)
+        if value:
+            message[RESUME_TASK_KEY] = value
         return
-    for message in messages:
-        if isinstance(message, dict) and message.get(ASK_PENDING_KEY):
-            message[RESUME_TASK_KEY] = task_text
-            return
 
 
 __all__ = [

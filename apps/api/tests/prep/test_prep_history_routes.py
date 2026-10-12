@@ -247,6 +247,7 @@ async def test_compact_serializes_with_session_turn_lock(db, monkeypatch) -> Non
         headers: dict = {}
 
     lock_held = asyncio.Event()
+    entered = asyncio.Event()
     release = asyncio.Event()
 
     async def _hold():
@@ -282,8 +283,17 @@ async def test_compact_serializes_with_session_turn_lock(db, monkeypatch) -> Non
     holder = asyncio.create_task(_hold())
     await lock_held.wait()
 
+    # Signal from inside the compact coroutine BEFORE it reaches the lock, so
+    # the blocked assertion below cannot pass on a scheduling delay alone (a
+    # compact that never acquired the lock would slip past both checks).
+    compact_route = history_mod.compact_prep_session
+
+    async def _traced(session_id, request, db_, api_db_, body):
+        entered.set()
+        return await compact_route(session_id, request, db_, api_db_, body)
+
     compact_task = asyncio.create_task(
-        history_mod.compact_prep_session(
+        _traced(
             row.id,
             _Req(),
             db,
@@ -291,8 +301,7 @@ async def test_compact_serializes_with_session_turn_lock(db, monkeypatch) -> Non
             history_mod.PrepCompactRequest(),  # type: ignore[arg-type]
         )
     )
-    for _ in range(5):
-        await asyncio.sleep(0.01)
+    await entered.wait()
     assert not compact_task.done(), "compact waits for the session turn lock"
 
     # Hand the lock over: _hold writes the answer turn's history on release.

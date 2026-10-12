@@ -350,6 +350,19 @@ async def update_prep_summary(
 ):
     """Replace the current compaction summary text (user-edited correction)."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Summary edits rewrite stored history: serialize with chat turns on the
+    # same per-session lock, loading the session inside it (same rationale as
+    # the compact route — a stale snapshot would clobber a concurrent turn).
+    async with session_turn_lock(session_id):
+        return await _run_summary_update(session_id, db, body)
+
+
+async def _run_summary_update(
+    session_id: int,
+    db: Session,
+    body: PrepSummaryUpdateRequest,
+):
+    """Summary-edit body, executed under the session turn lock."""
     session = _require_existing_writable_session(session_id, db)
     messages = _load_session_messages(session)
     if body.expected_message_count is not None and body.expected_message_count != len(messages):
@@ -431,6 +444,18 @@ async def truncate_prep_messages(
 ):
     """Retract a user message: drop backend history from ``from_index`` on."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Truncation rewrites stored history: same per-session lock as compact
+    # and summary edits (see the compact route for the stale-snapshot race).
+    async with session_turn_lock(session_id):
+        return await _run_truncate(session_id, db, body)
+
+
+async def _run_truncate(
+    session_id: int,
+    db: Session,
+    body: PrepTruncateRequest,
+):
+    """Truncate body, executed under the session turn lock."""
     session = _require_existing_writable_session(session_id, db)
     messages = _load_session_messages(session)
     if body.expected_message_count is not None and body.expected_message_count != len(messages):

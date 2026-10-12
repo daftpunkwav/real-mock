@@ -165,8 +165,11 @@ def _land_tool_result(
     """Pair one call's result with its declaration on the working copy.
 
     A paused call stays open: no result is appended; the caller resumes it
-    with the out-of-band result paired by ``tc_id``, so an id-less declaration
-    is normalized in place.
+    with the out-of-band result paired by ``tc_id``. An id-less declaration
+    is normalized in place in BOTH cases — a landed result records ``tc_id``
+    as its ``tool_call_id``, so the declaration must carry the same id or
+    downstream pairing scans (pause marking, repair) would treat the call as
+    still open and mint a second, conflicting id.
     """
     if status != "pause":
         working.append(
@@ -176,7 +179,7 @@ def _land_tool_result(
                 "content": result,
             }
         )
-    elif not tc.get("id"):
+    if not tc.get("id"):
         tc["id"] = tc_id
 
 
@@ -587,6 +590,8 @@ async def run_agent_loop(
             fn = tc.get("function") or {}
             name = str(fn.get("name") or "")
             tc_id = str(tc.get("id") or f"call_{round_i}_{name}_budget_{position}")
+            if not tc.get("id"):
+                tc["id"] = tc_id
             working.append(
                 {
                     "role": "tool",

@@ -635,8 +635,10 @@ def _trim_unpaired_tail(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     A loop copy interrupted mid-round (timeout injected while its tools were
     still gathering) can end with an assistant declaration followed by fewer
     results than it declared — sending that to the provider is a hard 400.
-    Finished rounds and a trailing user/system row are left untouched; the
-    partial round's declarations and any partial results go together.
+    Pairing is checked by ID, not just count: duplicate or unrelated result
+    ids count as missing. Finished rounds and a trailing user/system row are
+    left untouched; the partial round's declarations and any partial results
+    go together.
     """
     if not messages:
         return messages
@@ -650,6 +652,12 @@ def _trim_unpaired_tail(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     declared = head.get("tool_calls")
     if not isinstance(declared, list):
         return messages
-    if tool_end - (i + 1) >= len(declared):
+    declared_ids = [str(tc.get("id") or "") for tc in declared if isinstance(tc, dict)]
+    landed_ids = [
+        str(row.get("tool_call_id") or "")
+        for row in messages[i + 1 : tool_end]
+        if isinstance(row, dict)
+    ]
+    if declared_ids and landed_ids and sorted(declared_ids) == sorted(landed_ids):
         return messages
     return messages[:i]
