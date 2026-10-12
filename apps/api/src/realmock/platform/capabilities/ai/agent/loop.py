@@ -279,7 +279,9 @@ async def run_agent_loop(
 
     Error contract: :class:`AgentHalt` ends the loop with its observation;
     :class:`AgentPause` ends the loop with the raised tool_call left OPEN (no
-    tool result appended — the caller completes it out-of-band and resumes);
+    tool result appended — the caller completes it out-of-band and resumes)
+    when ``allow_pause`` is set; without it the pause text lands as a plain
+    observation and the loop continues, keeping the history protocol-complete.
     :class:`ApiBusinessError` raised by ``execute`` propagates to the caller
     (business failures must not be disguised as model observations); any other
     tool exception becomes a ``"Tool execution failed: ..."`` observation.
