@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession, commit_session, utcnow
 from realmock.domains.prep.schemas import PrepArchiveRequest, PrepLinkRequest, PrepPurgeAllRequest
-from realmock.domains.prep.services import refresh_linked_block
+from realmock.domains.prep.services import apply_session_link
 from realmock.domains.prep.services.maintenance import (
     purge_empty_sessions as purge_empty_session_rows,
 )
@@ -146,17 +146,7 @@ async def _run_link(
 ):
     """Link body, executed under the session turn lock."""
     session = _require_existing_session(session_id, db)
-    target = body.linked_session_id
-    if target is not None:
-        if target == session_id:
-            raise_error("A0001")
-        linked = db.query(PrepSession).filter(PrepSession.id == target).first()
-        if linked is None:
-            raise_error("A3001")
-    session.linked_session_id = target
-    session.updated_at = utcnow()
-    commit_session(db)
-    refresh_linked_block(session, db)
+    target = apply_session_link(session, db, body.linked_session_id)
     return {"id": session_id, "linked_session_id": target}
 
 
