@@ -26,6 +26,10 @@ from typing import Any
 ASK_PENDING_KEY = "ask_pending"
 #: Assistant-row marker: platform compaction keeps this call pair verbatim.
 KEEP_TOOL_PAIR_KEY = "keep_tool_pair"
+#: Assistant-row marker: the ORIGINAL task text frozen at pause time, so a
+#: later resume of a SEQUENTIAL dialog still gates text-gated tools from the
+#: task even after earlier dialog exchanges (pointer included) have folded.
+RESUME_TASK_KEY = "resume_task_text"
 
 #: Pointer observation completing the open call at resume time. Facts only —
 #: the answer itself is the following user message (one copy, in the
@@ -72,6 +76,33 @@ def _first_open_ask_call(
             continue
         return call, call_id, position
     return None
+
+
+def original_task_text(messages: list[dict[str, Any]], pending_index: int) -> str:
+    """Content of the user row that owns the live task behind a pending dialog.
+
+    Scans backwards from the pending row and skips dialog answers (a user row
+    directly following its pointer result), so a SECOND dialog pause in the
+    same task freezes the toolset from the original task text instead of the
+    previous answer (whose text carries none of the task's gating signals).
+    Returns "" when history has no plain task row.
+    """
+    for index in range(pending_index - 1, -1, -1):
+        message = messages[index]
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        pointer = messages[index - 1] if index else None
+        owner = messages[index - 2] if index > 1 else None
+        if (
+            isinstance(pointer, dict)
+            and pointer.get("role") == "tool"
+            and pointer.get("content") == DIALOG_ANSWER_OBSERVATION
+            and isinstance(owner, dict)
+            and owner.get("role") == "assistant"
+        ):
+            continue  # an answered dialog's reply, not the task
+        return str(message.get("content") or "")
+    return ""
 
 
 def _answered_call_ids(messages: list[dict[str, Any]], from_index: int) -> set[str]:
@@ -175,12 +206,31 @@ def undo_dialog_answer(messages: list[dict[str, Any]], index: int) -> None:
     message[ASK_PENDING_KEY] = True
 
 
+def stamp_resume_task(messages: list[dict[str, Any]], task_text: str | None) -> None:
+    """Record the frozen task text on the pending row (pause-time persist).
+
+    Read back by the next resume: after earlier dialog exchanges fold away,
+    text-based answer detection can no longer reach the original task, so the
+    pause row itself carries the authoritative value. Display consumers and
+    the LLM client ignore unknown row keys.
+    """
+    if not isinstance(task_text, str) or not task_text:
+        return
+    for message in messages:
+        if isinstance(message, dict) and message.get(ASK_PENDING_KEY):
+            message[RESUME_TASK_KEY] = task_text
+            return
+
+
 __all__ = [
     "ASK_PENDING_KEY",
     "DIALOG_ANSWER_OBSERVATION",
     "KEEP_TOOL_PAIR_KEY",
+    "RESUME_TASK_KEY",
     "find_pending_ask",
     "insert_dialog_answer",
     "mark_paused_ask",
+    "original_task_text",
+    "stamp_resume_task",
     "undo_dialog_answer",
 ]

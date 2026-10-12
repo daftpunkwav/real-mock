@@ -723,3 +723,62 @@ async def test_run_chat_stream_error_persists_question(monkeypatch) -> None:
         async for _ in chat_mod.run_chat_stream(agent, "typed question", _FakeDB()):  # type: ignore[arg-type]
             pass
     assert saved["last"][-1]["content"] == "typed question"
+
+
+def test_trim_unpaired_tail_cuts_partial_round_only() -> None:
+    """The timeout path lands the loop copy trimmed to the last fully paired
+    round: a partial tail (declaration + fewer results) is a hard provider
+    rejection, finished rounds and user tails stay untouched."""
+    import realmock.domains.prep.agents.agent as agent_mod
+
+    partial = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "a"}, {"id": "b"}]},
+        {"role": "tool", "tool_call_id": "a", "content": "ok"},
+    ]
+    trimmed = agent_mod._trim_unpaired_tail(partial)
+    assert trimmed == [partial[0]], "the partial round went declaration and results together"
+
+    paired = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "a"}]},
+        {"role": "tool", "tool_call_id": "a", "content": "ok"},
+        {"role": "assistant", "content": "answer"},
+    ]
+    assert agent_mod._trim_unpaired_tail(paired) is paired
+
+    user_tail = [{"role": "user", "content": "q"}]
+    assert agent_mod._trim_unpaired_tail(user_tail) is user_tail
+
+
+def test_drop_trailing_exchange_keeps_compaction_summary() -> None:
+    """Regenerating after a forced fold must not delete the summary block or
+    the seed system prompt — only the re-appendable working-memory row is
+    popped, otherwise the folded history would be lost with no user row left
+    to match."""
+    import realmock.domains.prep.agents.chat as chat_mod
+
+    holder = SimpleNamespace(
+        messages=[
+            {"role": "system", "content": "seed system prompt"},
+            {"role": "system", "content": "[Conversation Minutes] folded history"},
+            {"role": "system", "content": "[Working memory] facts"},
+        ]
+    )
+    chat_mod._drop_trailing_exchange(holder, "q")  # type: ignore[arg-type]
+    contents = [m["content"] for m in holder.messages]
+    assert "seed system prompt" in contents
+    assert "[Conversation Minutes] folded history" in contents, "the summary survived"
+    assert not any(c.startswith("[Working memory]") for c in contents), "only that row popped"
+
+    tail_holder = SimpleNamespace(
+        messages=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "a"},
+            {"role": "system", "content": "[Working memory] facts"},
+        ]
+    )
+    chat_mod._drop_trailing_exchange(tail_holder, "q")  # type: ignore[arg-type]
+    # The working-memory row is skipped first, then the matching exchange
+    # (question + reply) drops whole so the rerun replaces it.
+    assert tail_holder.messages == []

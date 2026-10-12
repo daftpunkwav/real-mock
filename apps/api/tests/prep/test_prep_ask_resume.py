@@ -6,11 +6,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from realmock.domains.prep.agents.agent import PrepAgent
+from realmock.domains.prep.agents.chat import _persist_failure_state
 from realmock.domains.prep.agents.tools.repo.github import GITHUB_TOOL_NAMES
+from realmock.platform.core.errors import CATALOG, ApiBusinessError
 
 
 class _CapturingLLM:
@@ -349,8 +352,8 @@ def test_failed_prepare_keeps_the_dialog_resumable() -> None:
     stored = _stored(session)
     assert [m for m in stored if m.get("ask_pending")], "the marker was restored for the retry"
     assert not [m for m in stored if m.get("role") == "tool"], "no pointer result landed"
-    assert any(m.get("role") == "user" and m.get("content") == "A" for m in stored), (
-        "the typed answer survives the failed turn"
+    assert not any(m.get("role") == "user" and m.get("content") == "A" for m in stored), (
+        "the just-typed answer is dropped with the failed turn (a retry would duplicate it)"
     )
 
     llm3 = _CapturingLLM([{"role": "assistant", "content": "resumed", "tool_calls": None}])  # type: ignore[arg-type]
@@ -360,6 +363,155 @@ def test_failed_prepare_keeps_the_dialog_resumable() -> None:
         m.get("role") == "tool" and "[ask_user]" in str(m.get("content"))
         for m in llm3.seen_inputs[0]
     ), "the retry after the failed prepare resumes the dialog"
+
+
+def test_failed_resume_turn_rolls_back_to_paused_snapshot() -> None:
+    """A resume turn that dies mid-loop (business error from a domain tool)
+    persists the exact paused snapshot: the pointer, the answer row, and the
+    consumed marker are all rolled back, so a retry resumes cleanly."""
+    session = _FakeSession()
+    db = _FakeDB()
+    agent1 = PrepAgent(session, _CapturingLLM([_ask_call("Which?", ["A", "B"])]))  # type: ignore[arg-type]
+    asyncio.run(_drain(agent1.chat_stream("Test these tools", db)))  # type: ignore[arg-type]
+    snapshot = _stored(session)
+    assert [m for m in snapshot if m.get("ask_pending")]
+
+    agent2 = PrepAgent(
+        session,
+        _CapturingLLM(
+            [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {"id": "t1", "function": {"name": "take_note", "arguments": "{}"}}
+                    ],
+                }
+            ]
+        ),  # type: ignore[arg-type]
+    )
+
+    async def _boom(name, args, db):
+        raise ApiBusinessError(CATALOG["A3001"], message="quota gone")
+
+    agent2._run_named_tool = _boom  # type: ignore[method-assign]
+
+    with pytest.raises(ApiBusinessError):
+        asyncio.run(_drain(agent2.chat_stream("A", db)))  # type: ignore[arg-type]
+
+    assert _stored(session) == snapshot, "the failed resume rolled back to the pause snapshot"
+
+
+def test_persist_failure_state_lands_pause_from_loop_copy(monkeypatch) -> None:
+    """A turn failure after the dialog fired lands the pause state from the
+    loop's working copy (defense for the dialog-shown window; the engine's
+    sibling gate makes the parallel-error race itself unreachable today)."""
+    import realmock.domains.prep.agents.chat as chat_mod
+
+    agent = SimpleNamespace(
+        pending_reply_text=lambda: "waiting-line",
+        messages=[{"role": "user", "content": "task"}],
+        session=SimpleNamespace(id=1),
+    )
+    captured: dict = {}
+
+    def _fake_cancel(agent_, working, final, content_state, db, **kwargs):
+        captured["working"] = working
+        captured["final"] = final
+        captured.update(kwargs)
+
+    monkeypatch.setattr(chat_mod, "persist_cancel", _fake_cancel)
+
+    dialog = {"question": "Q?", "options": ["A", "B"]}
+    handled = _persist_failure_state(
+        agent,  # type: ignore[arg-type]
+        {"on": True, "event": dialog},
+        {"working": [{"role": "assistant", "tool_calls": []}]},
+        [{"role": "user", "content": "task"}],
+        "turn-1",
+        None,
+        _FakeDB(),  # type: ignore[arg-type]
+    )
+    assert handled is True
+    assert captured["working"] == [{"role": "assistant", "tool_calls": []}], (
+        "the loop's working copy is landed, not the loop-entry list"
+    )
+    assert captured["pause_event"] == dialog and captured["ask"] == dialog
+    assert captured["final"] == "waiting-line"
+
+    handled_off = _persist_failure_state(
+        agent,  # type: ignore[arg-type]
+        {"on": False},
+        {},
+        [],
+        "turn-1",
+        None,
+        _FakeDB(),  # type: ignore[arg-type]
+    )
+    assert handled_off is False, "no fired dialog falls through to the plain failed-turn path"
+
+
+def test_second_resume_freezes_toolset_from_original_task() -> None:
+    """A task that opens a second dialog keeps its text-gated tools across
+    BOTH resumes: the first answer carries no repo signal, so freezing from
+    it would drop the github tools the task still needs."""
+    session = _FakeSession()
+    db = _FakeDB()
+    llm1 = _CapturingLLM([_ask_call("Which repo part?", ["Perf", "API"])])  # type: ignore[arg-type]
+    agent1 = PrepAgent(session, llm1)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent1.chat_stream("Review github.com/owner/repo for me", db)))  # type: ignore[arg-type]
+
+    llm2 = _CapturingLLM([_ask_call("And which depth?", ["Quick", "Deep"])])  # type: ignore[arg-type]
+    agent2 = PrepAgent(session, llm2)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent2.chat_stream("Perf", db)))  # type: ignore[arg-type]
+
+    llm3 = _CapturingLLM([{"role": "assistant", "content": "done", "tool_calls": None}])  # type: ignore[arg-type]
+    agent3 = PrepAgent(session, llm3)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent3.chat_stream("Deep", db)))  # type: ignore[arg-type]
+
+    assert any(name in llm3.seen_tool_names[0] for name in GITHUB_TOOL_NAMES), (
+        "the second resume still freezes the toolset from the original task text"
+    )
+
+
+def test_corrupt_pending_marker_degrades_to_normal_turn() -> None:
+    """A stored ``ask_pending`` row whose open call cannot be resolved no
+    longer strands a dangling declaration: the marker is dropped, the
+    declaration gets a synthesized result, and the input runs as a normal
+    turn instead of a guaranteed provider rejection."""
+    session = _FakeSession()
+    session.messages = json.dumps(
+        [
+            {"role": "user", "content": "earlier task"},
+            {
+                "role": "assistant",
+                "content": None,
+                "ask_pending": True,
+                "keep_tool_pair": True,
+                "tool_calls": [{"function": {"name": "ask_user", "arguments": "{}"}}],
+            },
+        ]
+    )
+    db = _FakeDB()
+    llm = _CapturingLLM([{"role": "assistant", "content": "fresh turn", "tool_calls": None}])  # type: ignore[arg-type]
+    agent = PrepAgent(session, llm)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent.chat_stream("A", db)))  # type: ignore[arg-type]
+
+    stored = _stored(session)
+    assert not [m for m in stored if m.get("ask_pending")], "the corrupt marker was dropped"
+    # The model request must be protocol-clean: every declared call carries a
+    # result (the unresolvable declaration got a synthesized one; finalize may
+    # legitimately fold the completed pair away afterwards).
+    model_input = llm.seen_inputs[0]
+    declared = {
+        tc.get("id")
+        for m in model_input
+        if isinstance(m.get("tool_calls"), list)
+        for tc in m["tool_calls"]
+    }
+    answered = {m.get("tool_call_id") for m in model_input if m.get("role") == "tool"}
+    assert declared and declared <= answered, "no dangling declaration reached the model"
+    assert any(m.get("role") == "user" and m.get("content") == "A" for m in stored)
 
 
 def test_resume_pairs_the_open_call_not_an_answered_sibling() -> None:

@@ -43,6 +43,11 @@ class TurnState:
     #: activated (repo talk) stay declared across the pause. None on normal
     #: turns (the latest user input drives the gates).
     resume_task_text: str | None = None
+    #: Index of the pending assistant row this turn resumed from (set after
+    #: the pointer result is inserted). A resume turn that dies before
+    #: finalize rolls back to the paused snapshot through it; None on normal
+    #: turns.
+    resumed_dialog_index: int | None = None
 
     def reset(self, options: CompactionOptions | None = None) -> None:
         """Reset all fields for a new turn; preserve nothing from the previous turn.
@@ -59,6 +64,7 @@ class TurnState:
         self.pre_loop_len = None
         self.memory_writes = 0
         self.resume_task_text = None
+        self.resumed_dialog_index = None
 
 
 __all__ = ["TurnState"]

@@ -26,9 +26,12 @@ from realmock.domains.prep.agents.ask_user.pending import (
     ASK_PENDING_KEY,
     DIALOG_ANSWER_OBSERVATION,
     KEEP_TOOL_PAIR_KEY,
+    RESUME_TASK_KEY,
     find_pending_ask,
     insert_dialog_answer,
     mark_paused_ask,
+    original_task_text,
+    stamp_resume_task,
     undo_dialog_answer,
 )
 from realmock.domains.prep.agents.ask_user.schema import (
@@ -58,8 +61,11 @@ __all__ = [
     "ASK_PENDING_KEY",
     "KEEP_TOOL_PAIR_KEY",
     "DIALOG_ANSWER_OBSERVATION",
+    "RESUME_TASK_KEY",
     "find_pending_ask",
     "insert_dialog_answer",
     "mark_paused_ask",
+    "original_task_text",
+    "stamp_resume_task",
     "undo_dialog_answer",
 ]

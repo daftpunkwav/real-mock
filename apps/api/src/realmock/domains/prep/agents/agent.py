@@ -520,15 +520,22 @@ class PrepAgent:
                 kind="turn_timeout",
                 message=f"Tool rounds exceeded {_TURN_TIMEOUT_SECONDS:.0f}s",
             )
-            # The loop ran on its own copy; the timeout path must land that
-            # copy — a dialog round's open call lives only there, and landing
-            # the loop-entry list would persist the turn without it.
+            # The loop ran on its own copy; land it when a dialog round is in
+            # flight (the open call exists only there, and the pause persist
+            # completes its dangling siblings). Without a dialog, a copy cut
+            # mid-round can hold declarations without results — trim it to
+            # the last fully paired round instead of handing the provider a
+            # dangling declaration.
             landed = working_out.get("working") if isinstance(working_out, dict) else None
-            return landed or working, None, search_groups, tool_steps, ""
+            if asked_user is not None and asked_user.get("on") and landed is not None:
+                return landed, None, search_groups, tool_steps, ""
+            return _trim_unpaired_tail(landed or working), None, search_groups, tool_steps, ""
         except Exception as e:
             logger.warning("Prep tool round failed: %s", e)
             landed = working_out.get("working") if isinstance(working_out, dict) else None
-            return landed or working, None, search_groups, tool_steps, ""
+            if asked_user is not None and asked_user.get("on") and landed is not None:
+                return landed, None, search_groups, tool_steps, ""
+            return _trim_unpaired_tail(landed or working), None, search_groups, tool_steps, ""
         finally:
             # Loop extras carry the provider-reported usage of the loop's final
             # round; a closing stream call afterwards overwrites it (chat.py).
@@ -620,3 +627,29 @@ class PrepAgent:
             memory_index_limit=memory_index_limit,
         ):
             yield item
+
+
+def _trim_unpaired_tail(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Cut a trailing round whose tool results never fully landed.
+
+    A loop copy interrupted mid-round (timeout injected while its tools were
+    still gathering) can end with an assistant declaration followed by fewer
+    results than it declared — sending that to the provider is a hard 400.
+    Finished rounds and a trailing user/system row are left untouched; the
+    partial round's declarations and any partial results go together.
+    """
+    if not messages:
+        return messages
+    tool_end = len(messages)
+    i = len(messages) - 1
+    while i >= 0 and isinstance(messages[i], dict) and messages[i].get("role") == "tool":
+        i -= 1
+    head = messages[i] if i >= 0 else None
+    if not isinstance(head, dict) or head.get("role") != "assistant":
+        return messages
+    declared = head.get("tool_calls")
+    if not isinstance(declared, list):
+        return messages
+    if tool_end - (i + 1) >= len(declared):
+        return messages
+    return messages[:i]

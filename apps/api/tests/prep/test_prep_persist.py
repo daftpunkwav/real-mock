@@ -130,3 +130,48 @@ def test_finalize_persists_last_round_usage(monkeypatch) -> None:
     persist_mod.finalize(agent2, [{"role": "user", "content": "hi"}], "answer", object())  # type: ignore[arg-type]
     assert sess2.last_round_prompt_tokens == 0
     assert sess2.last_round_completion_tokens == 0
+
+
+def test_complete_interrupted_adopts_landed_fallback_id() -> None:
+    """An id-less declaration whose result already landed under the loop's
+    fallback id adopts that id instead of minting a new one — minting would
+    orphan the recorded result and add a second one for the declaration."""
+    from realmock.domains.prep.agents.persist import complete_interrupted_tool_calls
+
+    messages = [
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"function": {"name": "web_search", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "call_1_web_search_0", "content": "results"},
+    ]
+    complete_interrupted_tool_calls(messages, keep_open="")
+
+    declaration = messages[1]["tool_calls"][0]
+    assert declaration["id"] == "call_1_web_search_0", "the landed fallback id was adopted"
+    tool_rows = [m for m in messages if m.get("role") == "tool"]
+    assert tool_rows == [messages[2]], "no duplicate result was synthesized"
+
+
+def test_complete_interrupted_synthesizes_loop_style_id() -> None:
+    """A dangling id-less declaration with no recorded result gets a
+    synthesized result under the loop's fallback id shape."""
+    from realmock.domains.prep.agents.persist import complete_interrupted_tool_calls
+
+    messages = [
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"function": {"name": "take_note", "arguments": "{}"}}],
+        },
+    ]
+    complete_interrupted_tool_calls(messages, keep_open="")
+
+    declaration = messages[1]["tool_calls"][0]
+    assert declaration["id"] == "call_1_take_note_0"
+    tool_rows = [m for m in messages if m.get("role") == "tool"]
+    assert len(tool_rows) == 1 and "Interrupted" in tool_rows[0]["content"]
+    assert tool_rows[0]["tool_call_id"] == declaration["id"]

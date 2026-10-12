@@ -10,6 +10,7 @@ so a stop or an error never loses the typed question.
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from realmock.domains.prep.agents.ask_user import (
     ASK_PENDING_KEY,
     KEEP_TOOL_PAIR_KEY,
     mark_paused_ask,
+    stamp_resume_task,
 )
 from realmock.domains.prep.agents.context import strip_ref_blocks
 from realmock.platform.capabilities.ai.context.compress import (
@@ -210,16 +212,40 @@ def _unprotect_resolved_dialogs(messages: list[dict[str, Any]]) -> None:
             message.pop(KEEP_TOOL_PAIR_KEY, None)
 
 
-def _complete_interrupted_tool_calls(messages: list[dict[str, Any]], keep_open: str) -> None:
-    """Synthesize results for declarations a cancelled/timeout round left dangling.
+_FALLBACK_ID_RE = re.compile(r"^call_(\d+)_(.+?)_(\d+)$")
 
-    A turn interrupted mid-round (stop, timeout) may hold declarations whose
-    parallel results never landed — the loop copy died before the pairing
-    pass. Providers reject a dangling declaration on every later request, so
-    each one gets an explicit interruption observation. ``keep_open`` is the
-    marked dialog call awaiting its resume pointer; a second dialog call from
-    the same round gets a superseded observation instead (one dialog at a
-    time). Runs only on the pause persist path (pause_event set).
+
+def _adopt_landed_fallback_id(
+    messages: list[dict[str, Any]], from_index: int, name: str, position: int
+) -> str:
+    """The fallback id an already-landed result recorded for an id-less call.
+
+    The loop stores results for id-less declarations under
+    ``call_{round}_{name}_{position}`` without rewriting the declaration, so
+    repair must adopt that recorded id — minting a different one would
+    orphan the recorded result and add a second one for the declaration.
+    Returns "" when no matching result row exists.
+    """
+    for row in messages[from_index + 1 :]:
+        if not isinstance(row, dict) or row.get("role") != "tool":
+            continue
+        row_id = str(row.get("tool_call_id") or "")
+        match = _FALLBACK_ID_RE.match(row_id)
+        if match and match.group(2) == name and match.group(3) == str(position):
+            return row_id
+    return ""
+
+
+def complete_interrupted_tool_calls(messages: list[dict[str, Any]], keep_open: str = "") -> None:
+    """Synthesize results for declarations left without any paired result.
+
+    Covers a pause round interrupted mid-flight (stop, timeout, business
+    error — parallel siblings whose results never landed) and a corrupt
+    pending row whose declaration can no longer be resolved. Providers
+    reject a dangling declaration on every later request, so each one gets
+    an explicit observation. ``keep_open`` is the marked dialog call
+    awaiting its resume pointer; a second dialog call from the same round
+    gets a superseded observation instead (one dialog at a time).
     """
     for index, message in enumerate(messages):
         if not isinstance(message, dict) or message.get("role") != "assistant":
@@ -236,13 +262,17 @@ def _complete_interrupted_tool_calls(messages: list[dict[str, Any]], keep_open: 
         for position, call in enumerate(calls):
             if not isinstance(call, dict):
                 continue
+            name = str((call.get("function") or {}).get("name") or "")
             call_id = str(call.get("id") or "")
             if not call_id:
-                call_id = f"call_{index}_ask_user_{position}"
+                call_id = _adopt_landed_fallback_id(messages, index, name, position)
+                if call_id:
+                    call["id"] = call_id
+            if not call_id:
+                call_id = f"call_{index}_{name or 'call'}_{position}"
                 call["id"] = call_id
             if call_id in answered or call_id == keep_open:
                 continue
-            name = str((call.get("function") or {}).get("name") or "")
             observation = (
                 "[ask_user] Not answered: another dialog opened in this round was "
                 "answered instead. Ask again in a later turn if still needed."
@@ -312,7 +342,11 @@ def finalize(
             # A cancelled/timeout round may hold sibling declarations whose
             # results never landed (or a second dialog call); synthesize
             # their observations so the stored history stays protocol-clean.
-            _complete_interrupted_tool_calls(agent.messages, keep_open=open_call_id)
+            complete_interrupted_tool_calls(agent.messages, keep_open=open_call_id)
+            # Freeze this turn's task text onto the pending row: after earlier
+            # dialog exchanges fold away, the next resume (a sequential
+            # dialog) reads the task from here instead of guessing from text.
+            stamp_resume_task(agent.messages, getattr(agent._turn_state, "resume_task_text", None))
     _unprotect_resolved_dialogs(agent.messages)
     agent.messages.append(
         _build_assistant_message(
@@ -484,6 +518,7 @@ def persist_failed_turn(agent: "PrepAgent", db: Session) -> None:
 
 __all__ = [
     "compaction_event",
+    "complete_interrupted_tool_calls",
     "finalize",
     "finalize_with_delta",
     "persist_cancel",
