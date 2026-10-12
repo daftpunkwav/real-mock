@@ -325,13 +325,33 @@ def test_build_payload_strips_non_protocol_message_keys() -> None:
             "thinking": "reasoned",
         },
     ]
+    messages.append(
+        {
+            "role": "assistant",
+            "content": "kept",
+            "function_call": {"name": "legacy", "arguments": "{}"},
+            "refusal": None,
+            "audio": {"id": "a1"},
+        }
+    )
     payload = build_payload("m", messages, 0.7, 100, None)
     wire = payload["messages"]
     assert wire is not messages, "the input list is never mutated"
+    allowed = {
+        "role",
+        "content",
+        "tool_calls",
+        "tool_call_id",
+        "name",
+        "function_call",
+        "refusal",
+        "audio",
+    }
     for row in wire:
-        assert set(row) <= {"role", "content", "tool_calls", "tool_call_id", "name"}, (
-            f"non-protocol keys leaked: {sorted(set(row) - {'role', 'content', 'tool_calls', 'tool_call_id', 'name'})}"
-        )
+        assert set(row) <= allowed, f"non-protocol keys leaked: {sorted(set(row) - allowed)}"
+    assert wire[-1]["function_call"] == {"name": "legacy", "arguments": "{}"}, (
+        "declared schema fields are retained"
+    )
     # The stored rows keep their metadata.
     assert messages[1]["ask_pending"] is True and messages[3]["steps"] == [{"name": "x"}]
 

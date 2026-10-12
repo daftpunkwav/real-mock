@@ -25,7 +25,20 @@ logger = logging.getLogger(__name__)
 #: history rows carry display and orchestration bookkeeping beyond these
 #: (tool-step cards, dialog pause markers, compaction stamps), and strict
 #: providers reject undeclared fields outright.
-_PROTOCOL_MESSAGE_KEYS = frozenset({"role", "content", "tool_calls", "tool_call_id", "name"})
+# function_call/refusal/audio are Chat Completions schema fields too (legacy
+# calling, assistant audio and refusal echo), so they stay on the wire.
+_PROTOCOL_MESSAGE_KEYS = frozenset(
+    {
+        "role",
+        "content",
+        "tool_calls",
+        "tool_call_id",
+        "name",
+        "function_call",
+        "refusal",
+        "audio",
+    }
+)
 
 
 def _protocol_clean_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
