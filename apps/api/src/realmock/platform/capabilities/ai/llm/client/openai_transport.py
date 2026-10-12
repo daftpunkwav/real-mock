@@ -21,6 +21,31 @@ from .base import _is_local_allowed, _require_https, _retry_request
 logger = logging.getLogger(__name__)
 
 
+#: The only keys the Chat Completions message protocol declares. Persisted
+#: history rows carry display and orchestration bookkeeping beyond these
+#: (tool-step cards, dialog pause markers, compaction stamps), and strict
+#: providers reject undeclared fields outright.
+_PROTOCOL_MESSAGE_KEYS = frozenset({"role", "content", "tool_calls", "tool_call_id", "name"})
+
+
+def _protocol_clean_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Message copies holding only protocol keys; the input list untouched.
+
+    Rows already carrying exactly the protocol keys are passed through by
+    reference (the common case), so the clean-up costs nothing on plain
+    histories. Nested tool_calls entries are shared, never mutated.
+    """
+    cleaned: list[dict[str, Any]] = []
+    changed = False
+    for message in messages:
+        if isinstance(message, dict) and not _PROTOCOL_MESSAGE_KEYS.issuperset(message):
+            cleaned.append({k: v for k, v in message.items() if k in _PROTOCOL_MESSAGE_KEYS})
+            changed = True
+        else:
+            cleaned.append(message)
+    return cleaned if changed else messages
+
+
 def build_payload(
     model: str,
     messages: list[dict[str, Any]],
@@ -35,7 +60,7 @@ def build_payload(
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model,
-        "messages": messages,
+        "messages": _protocol_clean_messages(messages),
         "max_tokens": max_tokens_override if max_tokens_override is not None else max_tokens,
         "temperature": temperature,
         "stream": stream,
