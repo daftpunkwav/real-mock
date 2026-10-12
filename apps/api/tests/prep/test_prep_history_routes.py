@@ -197,6 +197,65 @@ async def test_compact_reason_tool_pairs_only_and_nothing(db, monkeypatch) -> No
     assert out2.reason == "nothing_to_fold"
 
 
+@pytest.mark.asyncio
+async def test_compact_serializes_with_session_turn_lock(db, monkeypatch) -> None:
+    """Manual /compact holds the per-session turn lock.
+
+    A compact that read a pending-dialog snapshot and saved after a concurrent
+    answer turn committed would resurrect the answered dialog and drop the
+    answer's history — the route body must run inside session_turn_lock."""
+    import asyncio
+
+    import realmock.domains.prep.routes.history as history_mod
+    from realmock.domains.prep.services.turn_lock import session_turn_lock
+    from realmock.platform.capabilities.ai.llm.client import LLMClient
+
+    class _LLM:
+        context_window = 8000
+
+    monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, *a, **k: _LLM()))
+    monkeypatch.setattr(history_mod, "assert_csrf_if_cookie_only", lambda *a, **k: None)
+
+    async def _same(self, **kwargs):
+        return list(self.messages)
+
+    monkeypatch.setattr(history_mod.PrepAgent, "_build_context", _same)
+    row = _session(db, messages=[{"role": "user", "content": "q1"}])
+
+    class _Req:
+        method = "POST"
+        headers: dict = {}
+
+    lock_held = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _hold():
+        async with session_turn_lock(row.id):
+            lock_held.set()
+            await release.wait()
+
+    holder = asyncio.create_task(_hold())
+    await lock_held.wait()
+
+    compact_task = asyncio.create_task(
+        history_mod.compact_prep_session(
+            row.id,
+            _Req(),
+            db,
+            db,
+            history_mod.PrepCompactRequest(),  # type: ignore[arg-type]
+        )
+    )
+    for _ in range(5):
+        await asyncio.sleep(0.01)
+    assert not compact_task.done(), "compact waits for the session turn lock"
+
+    release.set()
+    await holder
+    out = await compact_task
+    assert out.message_count >= 1
+
+
 def test_update_summary_expected_count_mismatch(db) -> None:
     row = _session(db, messages=[{"role": "user", "content": "hi"}])
     with TestClient(app) as client:

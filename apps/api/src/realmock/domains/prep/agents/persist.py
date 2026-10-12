@@ -210,6 +210,52 @@ def _unprotect_resolved_dialogs(messages: list[dict[str, Any]]) -> None:
             message.pop(KEEP_TOOL_PAIR_KEY, None)
 
 
+def _complete_interrupted_tool_calls(messages: list[dict[str, Any]], keep_open: str) -> None:
+    """Synthesize results for declarations a cancelled/timeout round left dangling.
+
+    A turn interrupted mid-round (stop, timeout) may hold declarations whose
+    parallel results never landed — the loop copy died before the pairing
+    pass. Providers reject a dangling declaration on every later request, so
+    each one gets an explicit interruption observation. ``keep_open`` is the
+    marked dialog call awaiting its resume pointer; a second dialog call from
+    the same round gets a superseded observation instead (one dialog at a
+    time). Runs only on the pause persist path (pause_event set).
+    """
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list) or not calls:
+            continue
+        answered = {
+            str(row.get("tool_call_id") or "")
+            for row in messages[index + 1 :]
+            if isinstance(row, dict) and row.get("role") == "tool"
+        }
+        insert_at = index + 1
+        for position, call in enumerate(calls):
+            if not isinstance(call, dict):
+                continue
+            call_id = str(call.get("id") or "")
+            if not call_id:
+                call_id = f"call_{index}_ask_user_{position}"
+                call["id"] = call_id
+            if call_id in answered or call_id == keep_open:
+                continue
+            name = str((call.get("function") or {}).get("name") or "")
+            observation = (
+                "[ask_user] Not answered: another dialog opened in this round was "
+                "answered instead. Ask again in a later turn if still needed."
+                if name == "ask_user"
+                else f"[{name or 'tool'}] Interrupted before its result was recorded."
+            )
+            messages.insert(
+                insert_at,
+                {"role": "tool", "tool_call_id": call_id, "content": observation},
+            )
+            insert_at += 1
+
+
 def finalize(
     agent: "PrepAgent",
     working: list[dict[str, Any]],
@@ -262,6 +308,11 @@ def finalize(
                 "Prep pause persist found no open ask_user call to mark sid=%s",
                 getattr(agent.session, "id", ""),
             )
+        else:
+            # A cancelled/timeout round may hold sibling declarations whose
+            # results never landed (or a second dialog call); synthesize
+            # their observations so the stored history stays protocol-clean.
+            _complete_interrupted_tool_calls(agent.messages, keep_open=open_call_id)
     _unprotect_resolved_dialogs(agent.messages)
     agent.messages.append(
         _build_assistant_message(

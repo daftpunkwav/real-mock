@@ -38,6 +38,11 @@ class TurnState:
     pre_loop_len: int | None = None
     #: Successful memory_write dispatches this turn (budget guard against spam).
     memory_writes: int = 0
+    #: Original task text of a resumed dialog turn: the toolset freezes from
+    #: this instead of the dialog reply, so text-gated tools the original task
+    #: activated (repo talk) stay declared across the pause. None on normal
+    #: turns (the latest user input drives the gates).
+    resume_task_text: str | None = None
 
     def reset(self, options: CompactionOptions | None = None) -> None:
         """Reset all fields for a new turn; preserve nothing from the previous turn.
@@ -53,6 +58,7 @@ class TurnState:
         self.mid_turn_report = None
         self.pre_loop_len = None
         self.memory_writes = 0
+        self.resume_task_text = None
 
 
 __all__ = ["TurnState"]

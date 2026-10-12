@@ -29,6 +29,7 @@ from realmock.domains.prep.agents.ask_user.pending import (
     find_pending_ask,
     insert_dialog_answer,
     mark_paused_ask,
+    undo_dialog_answer,
 )
 from realmock.domains.prep.agents.ask_user.schema import (
     _ASK_USER_FALLBACK_REPLY,
@@ -60,4 +61,5 @@ __all__ = [
     "find_pending_ask",
     "insert_dialog_answer",
     "mark_paused_ask",
+    "undo_dialog_answer",
 ]

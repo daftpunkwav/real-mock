@@ -7,7 +7,10 @@ from __future__ import annotations
 import asyncio
 import json
 
+import pytest
+
 from realmock.domains.prep.agents.agent import PrepAgent
+from realmock.domains.prep.agents.tools.repo.github import GITHUB_TOOL_NAMES
 
 
 class _CapturingLLM:
@@ -17,11 +20,15 @@ class _CapturingLLM:
         self.replies = list(replies)
         self.calls = 0
         self.seen_inputs: list[list[dict]] = []
+        self.seen_tool_names: list[list[str]] = []
 
     async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
         """Record the model input, then return the next scripted reply."""
-        del temperature, tools, kwargs
+        del temperature, kwargs
         self.seen_inputs.append([dict(m) for m in messages])
+        self.seen_tool_names.append(
+            [str((t.get("function") or {}).get("name") or "") for t in (tools or [])]
+        )
         idx = min(self.calls, len(self.replies) - 1)
         self.calls += 1
         return self.replies[idx]
@@ -282,3 +289,152 @@ def test_regenerate_tool_turn_drops_whole_exchange() -> None:
 async def _drain(agen):
     """Collect an async iterator into a list."""
     return [item async for item in agen]
+
+
+def test_cancel_during_pause_persists_the_resume_marker() -> None:
+    """Stopping the stream after the dialog event still lands the pause state.
+
+    The loop runs on its own copy of the working list, so the cancel path must
+    persist that copy: the open call's declaration exists only there, and
+    landing the loop-entry list would save the dialog without ``ask_pending``
+    — the user's next answer would start a new task."""
+    session = _FakeSession()
+    db = _FakeDB()
+    agent1 = PrepAgent(session, _CapturingLLM([_ask_call("Which?", ["A", "B"])]))  # type: ignore[arg-type]
+
+    async def run_and_stop():
+        agen = agent1.chat_stream("Test these tools", db)  # type: ignore[arg-type]
+        async for item in agen:
+            if isinstance(item, dict) and item.get("type") == "ask_user":
+                break
+        await agen.aclose()
+
+    asyncio.run(run_and_stop())
+
+    stored = _stored(session)
+    pending = [m for m in stored if m.get("ask_pending")]
+    assert len(pending) == 1, "the cancel persist marked the open call from the loop copy"
+    assert pending[0]["keep_tool_pair"] is True
+    assert not [m for m in stored if m.get("role") == "tool"], "no result for the open call"
+
+    llm2 = _CapturingLLM([{"role": "assistant", "content": "resumed", "tool_calls": None}])  # type: ignore[arg-type]
+    agent2 = PrepAgent(session, llm2)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent2.chat_stream("A", db)))  # type: ignore[arg-type]
+    assert any(
+        m.get("role") == "tool" and "[ask_user]" in str(m.get("content"))
+        for m in llm2.seen_inputs[0]
+    ), "the next input resumes the paused dialog"
+
+
+def test_failed_prepare_keeps_the_dialog_resumable() -> None:
+    """A context-build failure after the answer was appended must not consume
+    the dialog: the failed-turn persist keeps ``ask_pending`` (no pointer row),
+    so the retry resumes the same dialog instead of starting a new task."""
+    session = _FakeSession()
+    db = _FakeDB()
+    agent1 = PrepAgent(session, _CapturingLLM([_ask_call("Which?", ["A", "B"])]))  # type: ignore[arg-type]
+    asyncio.run(_drain(agent1.chat_stream("Test these tools", db)))  # type: ignore[arg-type]
+    assert [m for m in _stored(session) if m.get("ask_pending")]
+
+    agent2 = PrepAgent(session, _CapturingLLM([{"role": "assistant", "content": "ok"}]))  # type: ignore[arg-type]
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("context-build-down")
+
+    agent2._build_context = _boom  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="context-build-down"):
+        asyncio.run(_drain(agent2.chat_stream("A", db)))  # type: ignore[arg-type]
+
+    stored = _stored(session)
+    assert [m for m in stored if m.get("ask_pending")], "the marker was restored for the retry"
+    assert not [m for m in stored if m.get("role") == "tool"], "no pointer result landed"
+    assert any(m.get("role") == "user" and m.get("content") == "A" for m in stored), (
+        "the typed answer survives the failed turn"
+    )
+
+    llm3 = _CapturingLLM([{"role": "assistant", "content": "resumed", "tool_calls": None}])  # type: ignore[arg-type]
+    agent3 = PrepAgent(session, llm3)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent3.chat_stream("A", db)))  # type: ignore[arg-type]
+    assert any(
+        m.get("role") == "tool" and "[ask_user]" in str(m.get("content"))
+        for m in llm3.seen_inputs[0]
+    ), "the retry after the failed prepare resumes the dialog"
+
+
+def test_resume_pairs_the_open_call_not_an_answered_sibling() -> None:
+    """One round with two dialog calls — the first invalid (its guidance text
+    becomes the stored result), the second open. The resume pointer must
+    complete the OPEN call, not reuse the answered sibling's id (a duplicate
+    result plus a dangling call is a hard provider rejection)."""
+    session = _FakeSession()
+    db = _FakeDB()
+    ask_llm = _CapturingLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "bad1",
+                        "function": {
+                            "name": "ask_user",
+                            "arguments": json.dumps({"question": ""}),
+                        },
+                    },
+                    {
+                        "id": "ok2",
+                        "function": {
+                            "name": "ask_user",
+                            "arguments": json.dumps({"question": "Which?", "options": ["A", "B"]}),
+                        },
+                    },
+                ],
+            }
+        ]
+    )
+    agent1 = PrepAgent(session, ask_llm)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent1.chat_stream("Test these tools", db)))  # type: ignore[arg-type]
+
+    stored = _stored(session)
+    results = {m["tool_call_id"] for m in stored if m.get("role") == "tool"}
+    assert results == {"bad1"}, "the invalid call stored its guidance; the valid one stays open"
+    pending = next(m for m in stored if m.get("ask_pending"))
+    assert any(tc.get("id") == "ok2" for tc in pending["tool_calls"]), (
+        "the marker sits on the declaration owning the open call"
+    )
+
+    llm2 = _CapturingLLM([{"role": "assistant", "content": "resumed", "tool_calls": None}])  # type: ignore[arg-type]
+    agent2 = PrepAgent(session, llm2)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent2.chat_stream("A", db)))  # type: ignore[arg-type]
+
+    pointers = {
+        m["tool_call_id"]: str(m.get("content") or "")
+        for m in llm2.seen_inputs[0]
+        if m.get("role") == "tool"
+    }
+    assert "[ask_user]" in pointers.get("ok2", ""), "the pointer completes the open call"
+    assert "[ask_user]" not in pointers.get("bad1", ""), "the answered sibling keeps its own result"
+
+
+def test_resume_freezes_toolset_from_the_original_task_text() -> None:
+    """A resumed dialog turn keeps the ORIGINAL task's text-gated tools: the
+    reply carries no repo signal, but the paused task named a repository."""
+    session = _FakeSession()
+    db = _FakeDB()
+    ask_llm = _CapturingLLM([_ask_call("Which part?", ["Perf", "API"])])  # type: ignore[arg-type]
+    agent1 = PrepAgent(session, ask_llm)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent1.chat_stream("Review github.com/owner/repo for me", db)))  # type: ignore[arg-type]
+
+    llm2 = _CapturingLLM([{"role": "assistant", "content": "resumed", "tool_calls": None}])  # type: ignore[arg-type]
+    agent2 = PrepAgent(session, llm2)  # type: ignore[arg-type]
+    asyncio.run(_drain(agent2.chat_stream("性能", db)))  # type: ignore[arg-type]
+
+    turn1_names = ask_llm.seen_tool_names[0]
+    turn2_names = llm2.seen_tool_names[0]
+    assert any(name in turn1_names for name in GITHUB_TOOL_NAMES), (
+        "the task text gated the github tools into turn one"
+    )
+    assert any(name in turn2_names for name in GITHUB_TOOL_NAMES), (
+        "the resumed turn keeps them via the original task text, not the reply"
+    )

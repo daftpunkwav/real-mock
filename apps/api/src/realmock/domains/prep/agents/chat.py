@@ -30,7 +30,12 @@ from realmock.platform.capabilities.ai.context.options import (
 from realmock.platform.capabilities.ai.llm.provider_errors import is_context_overflow
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
-from .ask_user import extract_inline_ask_user, find_pending_ask, insert_dialog_answer
+from .ask_user import (
+    extract_inline_ask_user,
+    find_pending_ask,
+    insert_dialog_answer,
+    undo_dialog_answer,
+)
 from .context import format_linked_sessions
 from .memory_precipitate import schedule_turn_memory_precipitation
 from .persist import (
@@ -42,6 +47,7 @@ from .persist import (
     usage_event,
 )
 from .quiz_render import prep_quiz_renderer
+from .round_compaction import latest_user_text
 from .streaming import make_display_filter, slice_stream, stream_background_events
 
 if TYPE_CHECKING:
@@ -240,15 +246,28 @@ async def _prepare_turn(
     # text arrive through the same channel — both are the dialog's reply.
     pending_index = find_pending_ask(agent.messages)
     if pending_index is not None:
+        # The resumed turn freezes its toolset from the ORIGINAL task text,
+        # not the dialog reply: the reply is the channel, not the task, and
+        # text-gated tools the task activated (repo talk) must stay declared
+        # across the pause (see TurnState.resume_task_text).
+        agent._turn_state.resume_task_text = latest_user_text(agent.messages, before=pending_index)
         insert_dialog_answer(agent.messages, pending_index)
     pre_build = list(agent.messages)
     build_report: dict[str, Any] = {}
-    working = await agent._build_context(
-        threshold=compact_threshold,
-        options=policy,
-        report=build_report,
-    )
-    working = await _inject_refs(agent, working, db, context_session_ids)
+    try:
+        working = await agent._build_context(
+            threshold=compact_threshold,
+            options=policy,
+            report=build_report,
+        )
+        working = await _inject_refs(agent, working, db, context_session_ids)
+    except Exception:
+        # A failed prepare must not consume the dialog: restore the open-call
+        # state so the failed-turn persist still resumes on the next input
+        # instead of converting the answer into a fresh task.
+        if pending_index is not None:
+            undo_dialog_answer(agent.messages, pending_index)
+        raise
     agent._turn_state.pre_loop_len = len(working)
     return policy, turn_id, working, pre_build, build_report
 
@@ -297,8 +316,9 @@ async def run_chat(
         )
 
         asked_user: dict[str, Any] = {"on": False}
+        loop_working: dict[str, Any] = {}
         working, early, groups, steps, thinking = await agent._run_tool_rounds(
-            working, db, asked_user=asked_user
+            working, db, asked_user=asked_user, working_out=loop_working
         )
         ask_event: dict[str, Any] | None = None
         final: str | None = None
@@ -506,6 +526,10 @@ async def run_chat_stream(
     # unbounded memory growth on slow connections.
     events: asyncio.Queue = asyncio.Queue(maxsize=_EVENT_QUEUE_MAXSIZE)
     asked_user: dict[str, Any] = {"on": False}
+    # The loop runs on its own copy of ``working`` (see run_agent_loop); the
+    # out-dict tracks it so a cancel mid-round can still land the pause
+    # round's open call — the loop-entry list never sees loop appends.
+    loop_working: dict[str, Any] = {}
     # Speculative content-streaming state: one display filter held across rounds
     # so its rules (the display mirror of sanitize_final_reply) apply across chunk and
     # round boundaries; the loop-end flush releases any held-back tail.
@@ -532,6 +556,7 @@ async def run_chat_stream(
             db,
             asked_user=asked_user,
             content_state=content_state,
+            working_out=loop_working,
         ):
             if isinstance(item, dict):
                 kind = item.get("type")
@@ -674,7 +699,10 @@ async def run_chat_stream(
             ask_event = gate_event if isinstance(gate_event, dict) else None
             persist_cancel(
                 agent,
-                working,
+                # Land the loop's copy when available: a dialog round's open
+                # call exists only there, and persisting the loop-entry list
+                # would save the dialog without its resume marker.
+                loop_working.get("working") or working,
                 final,
                 content_state,
                 db,

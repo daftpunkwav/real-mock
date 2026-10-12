@@ -218,6 +218,7 @@ async def run_agent_loop(
     round_retries: int = 0,
     final_round_tool_free: bool = False,
     budget_hint_enabled: bool = True,
+    working_out: dict[str, Any] | None = None,
 ) -> LoopResult:
     """Execute the tool loop until the model stops requesting tools or ``max_rounds`` is reached.
 
@@ -262,6 +263,10 @@ async def run_agent_loop(
     ``budget_hint_enabled``: when True (default), every round after the first
     carries a transient ``[Budget]`` system line (see :func:`budget_hint`)
     stating round/max-rounds/per-round width/calls spent. Never persisted.
+    ``working_out``: optional dict receiving the loop's working copy under
+    ``"working"``. The loop appends to its own ``list(messages)`` copy, so a
+    caller that must persist mid-loop (cancel/timeout landing a paused round)
+    reads the copy here instead of the loop-entry list it passed in.
 
     Error contract: :class:`AgentHalt` ends the loop with its observation;
     :class:`AgentPause` ends the loop with the raised tool_call left OPEN (no
@@ -275,6 +280,8 @@ async def run_agent_loop(
 
     closing_hint = wrap_up_hint if wrap_up_hint is not None else _WRAP_UP_HINT
     working = list(messages)
+    if working_out is not None:
+        working_out["working"] = working
     tool_used = False
     halted = False
     paused = False

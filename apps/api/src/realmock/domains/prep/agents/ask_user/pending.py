@@ -74,9 +74,28 @@ def _first_open_ask_call(
     return None
 
 
-def _open_dialog_call_id(message: dict[str, Any]) -> str:
-    """tool_call_id of the open ask_user call on a pending row ("" when absent)."""
-    found = _first_open_ask_call(message, set())
+def _answered_call_ids(messages: list[dict[str, Any]], from_index: int) -> set[str]:
+    """tool_call_ids of results stored after ``messages[from_index]``.
+
+    Shared pairing scan for the pause-time marker and the resume-time pointer:
+    an ask_user call whose id is in this set already carries its result and
+    must never be picked as the open dialog.
+    """
+    return {
+        str(row.get("tool_call_id") or "")
+        for row in messages[from_index + 1 :]
+        if isinstance(row, dict) and row.get("role") == "tool"
+    }
+
+
+def _open_dialog_call_id(message: dict[str, Any], answered: set[str]) -> str:
+    """tool_call_id of the open ask_user call on a pending row ("" when absent).
+
+    ``answered`` must carry the ids of the results following the pending row:
+    resolving against an empty set would pair an earlier, already-answered
+    dialog call and leave the real open call dangling.
+    """
+    found = _first_open_ask_call(message, answered)
     return found[1] if found else ""
 
 
@@ -96,11 +115,7 @@ def mark_paused_ask(messages: list[dict[str, Any]], event: dict[str, Any] | None
             continue
         if not isinstance(message.get("tool_calls"), list) or not message["tool_calls"]:
             continue
-        answered = {
-            str(row.get("tool_call_id") or "")
-            for row in messages[index + 1 :]
-            if isinstance(row, dict) and row.get("role") == "tool"
-        }
+        answered = _answered_call_ids(messages, index)
         found = _first_open_ask_call(message, answered)
         if found is None:
             continue
@@ -126,7 +141,7 @@ def insert_dialog_answer(messages: list[dict[str, Any]], index: int) -> bool:
     if not 0 <= index < len(messages):
         return False
     message = messages[index]
-    call_id = _open_dialog_call_id(message)
+    call_id = _open_dialog_call_id(message, _answered_call_ids(messages, index))
     if not call_id:
         message.pop(ASK_PENDING_KEY, None)
         return False
@@ -138,6 +153,28 @@ def insert_dialog_answer(messages: list[dict[str, Any]], index: int) -> bool:
     return True
 
 
+def undo_dialog_answer(messages: list[dict[str, Any]], index: int) -> None:
+    """Restore the pre-resume pending state after a failed turn preparation.
+
+    Inverse of :func:`insert_dialog_answer`: removes the pointer result and
+    re-stamps ``ask_pending``, so a failed prepare persists history that still
+    resumes on the next input instead of silently converting the answer into a
+    new task (see ``chat._prepare_turn``). Best-effort: a missing pointer row
+    (never inserted, or already folded) still gets its marker back.
+    """
+    if not 0 <= index < len(messages):
+        return
+    message = messages[index]
+    pointer = messages[index + 1] if index + 1 < len(messages) else None
+    if (
+        isinstance(pointer, dict)
+        and pointer.get("role") == "tool"
+        and pointer.get("content") == DIALOG_ANSWER_OBSERVATION
+    ):
+        messages.pop(index + 1)
+    message[ASK_PENDING_KEY] = True
+
+
 __all__ = [
     "ASK_PENDING_KEY",
     "DIALOG_ANSWER_OBSERVATION",
@@ -145,4 +182,5 @@ __all__ = [
     "find_pending_ask",
     "insert_dialog_answer",
     "mark_paused_ask",
+    "undo_dialog_answer",
 ]

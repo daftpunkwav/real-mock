@@ -282,7 +282,10 @@ class PrepAgent:
         """Frozen turn toolset (delegates to :mod:`turn_tools`)."""
         return freeze_turn_tools(
             resume_id=getattr(self.session, "resume_id", None),
-            user_text=user_text,
+            # A resumed dialog turn freezes from the ORIGINAL task text (see
+            # TurnState.resume_task_text): the dialog reply is the channel,
+            # not the task, so text-gated tools stay declared across the pause.
+            user_text=self._turn_state.resume_task_text or user_text,
             turn_state=self._turn_state,
         )
 
@@ -417,6 +420,7 @@ class PrepAgent:
         events: asyncio.Queue | None = None,
         asked_user: dict[str, Any] | None = None,
         content_state: dict[str, Any] | None = None,
+        working_out: dict[str, Any] | None = None,
     ) -> tuple[
         list[dict[str, Any]],
         str | None,
@@ -434,6 +438,9 @@ class PrepAgent:
             content_state: Optional caller-owned speculative-streaming state
                 (streaming path only); the caller flushes the sanitizer's
                 held-back tail afterwards.
+            working_out: Optional dict receiving the loop's working copy (see
+                ``run_agent_loop``): the timeout path lands the copy — it holds
+                the pause round's open call — instead of the loop-entry list.
 
         Returns:
             ``(messages, early_content, search_groups, tool_steps, thinking)``.
@@ -494,6 +501,7 @@ class PrepAgent:
                     error_context=error_scope,
                     final_round_tool_free=True,
                     wrap_up_hint=PREP_CLOSING_HINT,
+                    working_out=working_out,
                 ),
                 timeout=_TURN_TIMEOUT_SECONDS,
             )
@@ -512,10 +520,15 @@ class PrepAgent:
                 kind="turn_timeout",
                 message=f"Tool rounds exceeded {_TURN_TIMEOUT_SECONDS:.0f}s",
             )
-            return working, None, search_groups, tool_steps, ""
+            # The loop ran on its own copy; the timeout path must land that
+            # copy — a dialog round's open call lives only there, and landing
+            # the loop-entry list would persist the turn without it.
+            landed = working_out.get("working") if isinstance(working_out, dict) else None
+            return landed or working, None, search_groups, tool_steps, ""
         except Exception as e:
             logger.warning("Prep tool round failed: %s", e)
-            return working, None, search_groups, tool_steps, ""
+            landed = working_out.get("working") if isinstance(working_out, dict) else None
+            return landed or working, None, search_groups, tool_steps, ""
         finally:
             # Loop extras carry the provider-reported usage of the loop's final
             # round; a closing stream call afterwards overwrites it (chat.py).
