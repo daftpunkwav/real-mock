@@ -222,6 +222,7 @@ async def run_agent_loop(
     final_round_tool_free: bool = False,
     budget_hint_enabled: bool = True,
     working_out: dict[str, Any] | None = None,
+    allow_pause: bool = False,
 ) -> LoopResult:
     """Execute the tool loop until the model stops requesting tools or ``max_rounds`` is reached.
 
@@ -270,6 +271,11 @@ async def run_agent_loop(
     ``"working"``. The loop appends to its own ``list(messages)`` copy, so a
     caller that must persist mid-loop (cancel/timeout landing a paused round)
     reads the copy here instead of the loop-entry list it passed in.
+    ``allow_pause``: opt-in for callers that implement the pause contract
+    (an OPEN tool call plus :attr:`LoopResult.paused`, resumed out-of-band —
+    the prep dialog flow). Off by default: a shared caller whose execute
+    raises :class:`AgentPause` gets the pause text as a plain observation
+    instead, keeping its history protocol-complete.
 
     Error contract: :class:`AgentHalt` ends the loop with its observation;
     :class:`AgentPause` ends the loop with the raised tool_call left OPEN (no
@@ -538,6 +544,11 @@ async def run_agent_loop(
                     result = _truncate_tool_result(str(result or ""))
                 return result, "ok"
             except AgentPause as pause:
+                if not allow_pause:
+                    # The caller cannot resume an open call: land the pause
+                    # text as a plain observation so the history stays
+                    # protocol-complete for providers.
+                    return pause.observation, "ok"
                 # Display-only card text; the model-facing result arrives
                 # out-of-band when the caller resumes the open call.
                 return pause.observation, "pause"

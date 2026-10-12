@@ -529,7 +529,6 @@ async def run_chat(
             _abandon_resumed_turn(agent, agent.messages)
             persist_failed_turn(agent, db)
         raise
-        raise
 
 
 async def _stream_waiting_line(agent: "PrepAgent") -> AsyncIterator[str | dict[str, Any]]:

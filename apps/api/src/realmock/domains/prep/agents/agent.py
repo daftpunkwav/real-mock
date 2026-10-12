@@ -502,6 +502,9 @@ class PrepAgent:
                     final_round_tool_free=True,
                     wrap_up_hint=PREP_CLOSING_HINT,
                     working_out=working_out,
+                    # The dialog pause contract lives here: open call + out-
+                    # of-band resume on the next input (see ask_user.pending).
+                    allow_pause=True,
                 ),
                 timeout=_TURN_TIMEOUT_SECONDS,
             )

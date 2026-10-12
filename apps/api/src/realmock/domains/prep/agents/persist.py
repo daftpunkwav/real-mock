@@ -226,9 +226,14 @@ def _adopt_landed_fallback_id(
     orphan the recorded result and add a second one for the declaration.
     Returns "" when no matching result row exists.
     """
+    # Only the declaration's own result run is scanned: the loop lands
+    # results directly after their assistant block, and a later round's
+    # same-name same-position fallback must never answer this call.
     for row in messages[from_index + 1 :]:
-        if not isinstance(row, dict) or row.get("role") != "tool":
+        if not isinstance(row, dict):
             continue
+        if row.get("role") != "tool":
+            break
         row_id = str(row.get("tool_call_id") or "")
         match = _FALLBACK_ID_RE.match(row_id)
         if match and match.group(2) == name and match.group(3) == str(position):

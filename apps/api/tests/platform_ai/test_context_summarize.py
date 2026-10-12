@@ -159,7 +159,12 @@ async def test_compact_force_snaps_to_protected_pair() -> None:
     ]
     llm = _FakeLLM(["[Conversation Minutes] folded"])
     out = await sum_mod.compact_with_summary(msgs, 100, llm=llm, force=True, keep_recent=2)
-    assert len([m for m in out if m.get("ask_pending")]) == 1, "open call survives manual fold"
+    pending_rows = [m for m in out if m.get("ask_pending")]
+    assert len(pending_rows) == 1, "open call survives manual fold"
+    assert any(
+        isinstance(tc, dict) and tc.get("id") == "c1"
+        for tc in pending_rows[0].get("tool_calls") or []
+    ), "the surviving declaration keeps its open call id"
     assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in out), (
         "sibling result stays paired"
     )

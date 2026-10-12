@@ -192,7 +192,7 @@ def mark_paused_ask(messages: list[dict[str, Any]], event: dict[str, Any] | None
             # Prefer the call that actually emitted this dialog over an
             # earlier unanswered (e.g. invalid-args) sibling.
             for other_call, other_id, other_position in _open_ask_calls(message, answered):
-                if other_id and _arguments_question(other_call) == asked_question:
+                if _arguments_question(other_call) == asked_question:
                     call, call_id, position = other_call, other_id, other_position
                     break
         if not call_id:

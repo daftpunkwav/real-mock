@@ -192,7 +192,13 @@ def test_compress_keeps_protected_tool_pairs() -> None:
         ]
     )
     out = compress_messages(msgs, max_tokens=10000)
-    assert any(m.get("keep_tool_pair") for m in out), "protected declaration survives"
+    declarations = [
+        m for m in out if m.get("keep_tool_pair") and isinstance(m.get("tool_calls"), list)
+    ]
+    assert declarations, "protected declaration survives with its tool_calls"
+    assert any(
+        tc.get("id") == "c1" for m in declarations for tc in m["tool_calls"] if isinstance(tc, dict)
+    ), "the declaration keeps its call id"
     assert any(m.get("role") == "tool" and m.get("tool_call_id") == "c1" for m in out), (
         "protected pair's tool result survives"
     )
@@ -247,9 +253,12 @@ def test_compress_snap_keeps_pending_pair_in_tail() -> None:
         ]
     )
     out = compress_messages(msgs, max_tokens=500, keep_recent=2)
-    assert len([m for m in out if m.get("ask_pending")]) == 1, (
-        "the open declaration stays in the verbatim tail"
-    )
+    pending_rows = [m for m in out if m.get("ask_pending")]
+    assert len(pending_rows) == 1, "the open declaration stays in the verbatim tail"
+    assert any(
+        isinstance(tc, dict) and tc.get("id") == "c1"
+        for tc in pending_rows[0].get("tool_calls") or []
+    ), "the surviving declaration keeps its open call id"
     assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in out), (
         "the sibling result stays paired with it"
     )

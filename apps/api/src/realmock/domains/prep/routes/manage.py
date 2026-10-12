@@ -25,6 +25,7 @@ from realmock.domains.prep.services import refresh_linked_block
 from realmock.domains.prep.services.maintenance import (
     purge_empty_sessions as purge_empty_session_rows,
 )
+from realmock.domains.prep.services.turn_lock import session_turn_lock
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
@@ -131,6 +132,19 @@ async def link_prep_session(
 ):
     """Link another session's summary + recent turns into this session's context."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Linking rewrites stored history (the linked-context system block):
+    # serialize with chat turns on the session lock, loading the session
+    # inside it — a stale snapshot would clobber a concurrent turn.
+    async with session_turn_lock(session_id):
+        return await _run_link(session_id, db, body)
+
+
+async def _run_link(
+    session_id: int,
+    db: Session,
+    body: PrepLinkRequest,
+):
+    """Link body, executed under the session turn lock."""
     session = _require_existing_session(session_id, db)
     target = body.linked_session_id
     if target is not None:
