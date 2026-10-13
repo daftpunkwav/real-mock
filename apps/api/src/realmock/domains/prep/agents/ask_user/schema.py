@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-# Control-flow tool: requires agent-layer intervention (dialog + loop halt), so it
+# Control-flow tool: requires agent-layer intervention (dialog + loop pause), so it
 # does not enter the domain-tool registry. ASK_USER_TOOL is the public schema;
 # _ASK_USER_TOOL remains as a backward-compatible alias.
 ASK_USER_TOOL: dict[str, Any] = {
@@ -16,7 +16,12 @@ ASK_USER_TOOL: dict[str, Any] = {
             "question(s) (e.g. target role/company/direction undecided, A vs B next step). "
             "Ask 1–8 questions in ONE dialog via the questions array — batch several only "
             "when the decision genuinely needs multiple inputs, and prefer one question "
-            "when that suffices. At most one dialog per reply. You decide the shape per "
+            "when that suffices. The dialog PAUSES the turn: it resumes with the user's "
+            "reply (the tool result plus their message), and the task you were working on "
+            "stays the live task — continue it after the answer (e.g. work through the "
+            "remaining items of their request) instead of pivoting to the reply as a new "
+            "topic. One dialog at a time; open another later in the turn only for a "
+            "genuinely new decision. You decide the shape per "
             "question: selection=single (radio list) or multi (checkbox list, answers are "
             "joined); widget=options, slider, or rating. Options are OPTIONAL: omit them "
             "for questions about the user's own facts you cannot know (experience, "

@@ -21,10 +21,11 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession, commit_session, utcnow
 from realmock.domains.prep.schemas import PrepArchiveRequest, PrepLinkRequest, PrepPurgeAllRequest
-from realmock.domains.prep.services import refresh_linked_block
+from realmock.domains.prep.services import apply_session_link
 from realmock.domains.prep.services.maintenance import (
     purge_empty_sessions as purge_empty_session_rows,
 )
+from realmock.domains.prep.services.turn_lock import session_turn_lock
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
@@ -131,18 +132,21 @@ async def link_prep_session(
 ):
     """Link another session's summary + recent turns into this session's context."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Linking rewrites stored history (the linked-context system block):
+    # serialize with chat turns on the session lock, loading the session
+    # inside it — a stale snapshot would clobber a concurrent turn.
+    async with session_turn_lock(session_id):
+        return await _run_link(session_id, db, body)
+
+
+async def _run_link(
+    session_id: int,
+    db: Session,
+    body: PrepLinkRequest,
+):
+    """Link body, executed under the session turn lock."""
     session = _require_existing_session(session_id, db)
-    target = body.linked_session_id
-    if target is not None:
-        if target == session_id:
-            raise_error("A0001")
-        linked = db.query(PrepSession).filter(PrepSession.id == target).first()
-        if linked is None:
-            raise_error("A3001")
-    session.linked_session_id = target
-    session.updated_at = utcnow()
-    commit_session(db)
-    refresh_linked_block(session, db)
+    target = apply_session_link(session, db, body.linked_session_id)
     return {"id": session_id, "linked_session_id": target}
 
 

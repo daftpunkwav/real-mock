@@ -171,6 +171,99 @@ def test_compress_keeps_current_turn_tool_pairs() -> None:
     )
 
 
+def test_compress_keeps_protected_tool_pairs() -> None:
+    """``keep_tool_pair`` assistants keep their declaration + tool rows verbatim
+    even before the latest user message (paused-dialog contract)."""
+    big = "Observation" * 2000
+    msgs = (
+        [{"role": "system", "content": "Rules"}]
+        + _turn_with_tools("Previous question", big, "Previous answer" + "Supplement" * 1000)
+        + [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
+                "ask_pending": True,
+                "keep_tool_pair": True,
+            },
+            {"role": "tool", "tool_call_id": "c1", "content": "pointer observation"},
+            {"role": "assistant", "content": "waiting line"},
+            {"role": "user", "content": "the answer"},
+        ]
+    )
+    out = compress_messages(msgs, max_tokens=10000)
+    declarations = [
+        m for m in out if m.get("keep_tool_pair") and isinstance(m.get("tool_calls"), list)
+    ]
+    assert declarations, "protected declaration survives with its tool_calls"
+    assert any(
+        tc.get("id") == "c1" for m in declarations for tc in m["tool_calls"] if isinstance(tc, dict)
+    ), "the declaration keeps its call id"
+    assert any(m.get("role") == "tool" and m.get("tool_call_id") == "c1" for m in out), (
+        "protected pair's tool result survives"
+    )
+    assert "tool" in [m["role"] for m in out]
+
+
+def test_compress_protected_pair_ends_at_user_row() -> None:
+    """The protection run ends at a user row: a stray tool row after it is
+    still collapsed (state-machine hygiene for malformed histories)."""
+    msgs = [
+        {
+            "role": "assistant",
+            "content": "",
+            "keep_tool_pair": True,
+            "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "pointer"},
+        {"role": "user", "content": "answer"},
+        {"role": "tool", "tool_call_id": "orphan", "content": "stray"},
+        {"role": "user", "content": "latest"},
+    ]
+    out = compress_messages(msgs, max_tokens=10000)
+    ids = [m.get("tool_call_id") for m in out if m.get("role") == "tool"]
+    assert ids == ["c1"], "the protected result survives; the stray one does not"
+
+
+def test_compress_snap_keeps_pending_pair_in_tail() -> None:
+    """The fold boundary must not strand a keep_tool_pair declaration (open
+    call) in the omitted head: losing the pending marker would make the next
+    input start a new turn instead of resuming the paused dialog."""
+    big = "Content" * 3000
+    msgs = (
+        [{"role": "system", "content": "Rules"}]
+        + [
+            {"role": "user", "content": "old question" + big},
+            {"role": "assistant", "content": "old answer" + big},
+        ]
+        + [
+            {"role": "user", "content": "task"},
+            {
+                "role": "assistant",
+                "content": "",
+                "keep_tool_pair": True,
+                "ask_pending": True,
+                "tool_calls": [
+                    {"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}},
+                    {"id": "sib", "function": {"name": "take_note", "arguments": "{}"}},
+                ],
+            },
+            {"role": "tool", "tool_call_id": "sib", "content": "sibling result"},
+            {"role": "assistant", "content": "waiting line"},
+        ]
+    )
+    out = compress_messages(msgs, max_tokens=500, keep_recent=2)
+    pending_rows = [m for m in out if m.get("ask_pending")]
+    assert len(pending_rows) == 1, "the open declaration stays in the verbatim tail"
+    assert any(
+        isinstance(tc, dict) and tc.get("id") == "c1"
+        for tc in pending_rows[0].get("tool_calls") or []
+    ), "the surviving declaration keeps its open call id"
+    assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in out), (
+        "the sibling result stays paired with it"
+    )
+
+
 # ── LLM summary compression ──────────────────────────────────────────────
 
 

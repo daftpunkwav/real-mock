@@ -299,3 +299,62 @@ def test_unified_client_extra_headers_survive_protocol_delegation():
     delegated = client._delegate()
     assert delegated.extra_headers == {"X-Custom": "v"}
     assert delegated.extra_body == {"max_tokens": 999}
+
+
+def test_build_payload_strips_non_protocol_message_keys() -> None:
+    """Persisted history bookkeeping (pause markers, display metadata) never
+    enters the wire payload: strict providers reject undeclared fields."""
+    from realmock.platform.capabilities.ai.llm.client.openai_transport import build_payload
+
+    messages = [
+        {"role": "system", "content": "rules"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
+            "ask_pending": True,
+            "keep_tool_pair": True,
+            "resume_task_text": "review the repo",
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "[ask_user] answered"},
+        {
+            "role": "assistant",
+            "content": "answer",
+            "steps": [{"name": "x"}],
+            "ask": {"question": "Q?"},
+            "thinking": "reasoned",
+        },
+    ]
+    messages.append(
+        {
+            "role": "assistant",
+            "content": "kept",
+            "function_call": {"name": "legacy", "arguments": "{}"},
+            "refusal": None,
+            "audio": {"id": "a1"},
+        }
+    )
+    payload = build_payload("m", messages, 0.7, 100, None)
+    wire = payload["messages"]
+    assert wire is not messages, "the input list is never mutated"
+    allowed = {
+        "role",
+        "content",
+        "tool_calls",
+        "tool_call_id",
+        "name",
+        "function_call",
+        "refusal",
+        "audio",
+    }
+    for row in wire:
+        assert set(row) <= allowed, f"non-protocol keys leaked: {sorted(set(row) - allowed)}"
+    assert wire[-1]["function_call"] == {"name": "legacy", "arguments": "{}"}, (
+        "declared schema fields are retained"
+    )
+    # The stored rows keep their metadata.
+    assert messages[1]["ask_pending"] is True and messages[3]["steps"] == [{"name": "x"}]
+
+    plain = [{"role": "user", "content": "hi"}]
+    payload2 = build_payload("m", plain, 0.7, 100, None)
+    assert payload2["messages"] is plain, "protocol-clean rows pass through by reference"

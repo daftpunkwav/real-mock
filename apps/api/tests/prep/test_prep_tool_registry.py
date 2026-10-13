@@ -457,7 +457,7 @@ def test_ask_options_less_question_becomes_free_text() -> None:
 
 
 async def test_ask_dispatch_emits_full_event() -> None:
-    from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+    from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
     events: asyncio.Queue = asyncio.Queue()
     asked_user: dict[str, bool] = {"on": False}
@@ -466,7 +466,7 @@ async def test_ask_dispatch_emits_full_event() -> None:
         events=events,
         asked_user=asked_user,
     )
-    try:
+    with pytest.raises(AgentPause):
         await execute(
             "ask_user",
             {
@@ -477,8 +477,6 @@ async def test_ask_dispatch_emits_full_event() -> None:
                 "allow_custom": False,
             },
         )
-    except AgentHalt:
-        pass
     assert asked_user["on"] is True
     # The dialog payload also rides the gate dict for event-less channels.
     assert asked_user["event"]["question"] == "Which areas?"
@@ -490,14 +488,14 @@ async def test_ask_dispatch_emits_full_event() -> None:
 
 
 async def test_ask_dispatch_slider_without_options() -> None:
-    from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+    from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
     events: asyncio.Queue = asyncio.Queue()
     execute = _callback(
         lambda name, args, db: (_ for _ in ()).throw(AssertionError("must not run")),
         events=events,
     )
-    try:
+    with pytest.raises(AgentPause):
         await execute(
             "ask_user",
             {
@@ -507,8 +505,6 @@ async def test_ask_dispatch_slider_without_options() -> None:
                 "scale": {"min": 0, "max": 20, "unit": "h"},
             },
         )
-    except AgentHalt:
-        pass
     event = await events.get()
     assert event["widget"] == "slider"
     assert event["scale"]["max"] == 20

@@ -1,4 +1,4 @@
-"""Ask-user dispatch: validate, emit the dialog event, and halt the turn loop."""
+"""Ask-user dispatch: validate, emit the dialog event, and pause the turn loop."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 from realmock.domains.prep.agents.ask_user.normalize import normalize_ask_questions
 from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
 
 async def dispatch_ask_user(
@@ -18,29 +18,35 @@ async def dispatch_ask_user(
     search_groups: list[dict[str, Any]] | None = None,
     asked_user: dict[str, Any] | None = None,
 ) -> str:
-    """Execute the ask_user tool: validate, write memory, emit a dialog event, and terminate the loop.
+    """Execute the ask_user tool: validate, write memory, emit a dialog event, and pause the loop.
 
     Accepts the raw tool arguments (``questions`` array of 1–8 items, or the flat
     single-question shorthand). When no question survives validation, return
     explanatory text (as the tool observation, prompting the model to ask in the
     response body instead); otherwise, write to working memory, emit the
-    ``ask_user`` event, and raise :class:`AgentHalt`. The event carries the flat
+    ``ask_user`` event, and raise :class:`AgentPause`. The event carries the flat
     fields of the FIRST question plus a ``questions`` list only when several
     survived, so the single-question contract stays unchanged.
+
+    The pause leaves the ask_user tool_call OPEN (no tool result); the user's
+    reply — popup answer or free-typed text — completes it as a pointer
+    observation plus their own message, and the SAME turn resumes (see
+    :mod:`.pending`). One dialog at a time; sequential dialogs in one turn are
+    fine.
 
     Args:
         args: Raw tool arguments (``questions`` array or flat shorthand).
         memory: Working memory receiving the asked-questions note.
         events: Optional event queue for the ``ask_user`` event (None emits nothing).
         search_groups: Optional search cards re-emitted before the dialog for ordering.
-        asked_user: Optional one-dialog gate flag; set to True on fire and given
+        asked_user: Optional gate flag; set to True on fire and given
             the dialog payload under ``asked_user["event"]`` for event-less channels.
 
     Returns:
         Observation text (only when validation fails; otherwise raises).
 
     Raises:
-        AgentHalt: Always on a valid dialog — ends the turn to await user input.
+        AgentPause: Always on a valid dialog — pauses the turn to await user input.
     """
     dialog_events = normalize_ask_questions(args)
     if not dialog_events:
@@ -73,7 +79,13 @@ async def dispatch_ask_user(
                 }
             )
         await events.put({"type": "ask_user", **event})
-    raise AgentHalt(
+        if asked_user is not None:
+            # Delivered marker: only a dialog the stream actually queued may
+            # persist a resumable pending state on cancellation — a put
+            # interrupted by a client disconnect never reached the user, and
+            # marking it would consume their next input as an unseen answer.
+            asked_user["emitted"] = True
+    raise AgentPause(
         "Dialog shown to the user; waiting for their answer. "
-        "This turn ends here: do not call more tools; wait for the next user input."
+        "The turn pauses here and resumes with their reply."
     )

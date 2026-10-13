@@ -26,6 +26,7 @@ from realmock.domains.prep.schemas import (
     PrepTruncateRequest,
 )
 from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
+from realmock.domains.prep.services.turn_lock import session_turn_lock
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
     COMPACTION_SUMMARY_MARKER,
@@ -225,6 +226,22 @@ async def compact_prep_session(
 ):
     """Run turn-start compaction now (the ``/compact`` slash command)."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Manual compaction rewrites history, so it serializes with chat turns on
+    # the same per-session lock: a compact that read a pending-dialog snapshot
+    # and saved after a concurrent answer turn committed would resurrect the
+    # answered dialog and drop the answer's history. Loading the session
+    # inside the lock sees the latest committed history.
+    async with session_turn_lock(session_id):
+        return await _run_compact(session_id, db, api_db, body)
+
+
+async def _run_compact(
+    session_id: int,
+    db: Session,
+    api_db: Session,
+    body: PrepCompactRequest | None,
+):
+    """Compact body, executed under the session turn lock (see the route shell)."""
     session = _require_existing_writable_session(session_id, db)
     params = body or PrepCompactRequest()
     llm = LLMClient.from_db(api_db)
@@ -333,6 +350,19 @@ async def update_prep_summary(
 ):
     """Replace the current compaction summary text (user-edited correction)."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Summary edits rewrite stored history: serialize with chat turns on the
+    # same per-session lock, loading the session inside it (same rationale as
+    # the compact route — a stale snapshot would clobber a concurrent turn).
+    async with session_turn_lock(session_id):
+        return await _run_summary_update(session_id, db, body)
+
+
+async def _run_summary_update(
+    session_id: int,
+    db: Session,
+    body: PrepSummaryUpdateRequest,
+):
+    """Summary-edit body, executed under the session turn lock."""
     session = _require_existing_writable_session(session_id, db)
     messages = _load_session_messages(session)
     if body.expected_message_count is not None and body.expected_message_count != len(messages):
@@ -414,6 +444,18 @@ async def truncate_prep_messages(
 ):
     """Retract a user message: drop backend history from ``from_index`` on."""
     assert_csrf_if_cookie_only(request, used_header=False)
+    # Truncation rewrites stored history: same per-session lock as compact
+    # and summary edits (see the compact route for the stale-snapshot race).
+    async with session_turn_lock(session_id):
+        return await _run_truncate(session_id, db, body)
+
+
+async def _run_truncate(
+    session_id: int,
+    db: Session,
+    body: PrepTruncateRequest,
+):
+    """Truncate body, executed under the session turn lock."""
     session = _require_existing_writable_session(session_id, db)
     messages = _load_session_messages(session)
     if body.expected_message_count is not None and body.expected_message_count != len(messages):

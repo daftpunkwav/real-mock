@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+from realmock.platform.capabilities.ai.agent.working_memory import MEMORY_MARKER
 from realmock.platform.capabilities.ai.context.options import (
     DEFAULT_AUTO_COMPACT_THRESHOLD,
     CompactionOptions,
@@ -30,11 +31,20 @@ from realmock.platform.capabilities.ai.context.options import (
 from realmock.platform.capabilities.ai.llm.provider_errors import is_context_overflow
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
 
-from .ask_user import extract_inline_ask_user
+from .ask_user import (
+    DIALOG_ANSWER_OBSERVATION,
+    RESUME_TASK_KEY,
+    extract_inline_ask_user,
+    find_pending_ask,
+    insert_dialog_answer,
+    original_task_text,
+    undo_dialog_answer,
+)
 from .context import format_linked_sessions
 from .memory_precipitate import schedule_turn_memory_precipitation
 from .persist import (
     compaction_event,
+    complete_interrupted_tool_calls,
     finalize,
     finalize_with_delta,
     persist_cancel,
@@ -69,34 +79,53 @@ def sanitize_final_reply(text: str) -> tuple[str, dict[str, Any] | None]:
 def _drop_trailing_exchange(agent: "PrepAgent", user_text: str) -> None:
     """Regenerate support: remove the last exchange so the turn can rerun.
 
-    Pops the trailing assistant reply and the trailing user question it
-    answers; the rerun then re-appends its content, so stored history never
-    holds two consecutive identical user rows (which a refresh would render
-    as duplicate bubbles). A user-only tail (a previously failed turn that
-    persisted just the question) is popped too, so regenerating it does not
-    duplicate the question either. Role-guarded: a trailing system block or
-    a non-user message before the reply is left in place.
+    Drops the whole trailing exchange back to the question that owns it: the
+    final reply, any tool results, and the tool_call declarations that own
+    those results — paused-dialog and normal tool rounds alike. Stopping at a
+    declaration would leave it on history without its result (the provider
+    rejects that) and the content guard would then keep the old question,
+    duplicating it on the rerun. A user-only tail (a previously failed turn
+    that persisted just the question) is popped too, so regenerating it does
+    not duplicate the question either. Regenerable trailing system rows (the
+    working-memory block finalize re-appends) are skipped first, so the drop
+    below can reach the real exchange.
 
-    The user pop is content-guarded: the trailing user row is the question
-    being replayed only when its text matches. A mismatch means the previous
+    The exchange drop is content-guarded: the trailing user row owns it only
+    when its text matches the replayed question. A mismatch means the previous
     turn never finished (a cancel inside the prepare window can persist
-    nothing, leaving an older exchange as the tail) — popping would delete a
-    turn the rerun does not replace, so the replayed text is appended as a
-    fresh turn instead.
+    nothing, leaving an older exchange as the tail) — or the exchange is a
+    finished turn the rerun does not replace. Either way nothing is dropped:
+    stripping the reply or tool evidence of an exchange the rerun does not
+    re-append would corrupt it, so the replay is appended as a fresh turn.
     """
-    if (
+    # Only the working-memory block is regenerable prompt material: every
+    # finalize re-appends it at the tail, and a regenerate that stops at it
+    # would never reach the exchange below. Compaction records and the seed
+    # system prompt are NOT regenerable — a forced fold can leave its summary
+    # block as the tail (the folded exchange has no user row left to match),
+    # and popping it would destroy the only copy of the folded history.
+    while (
         agent.messages
         and isinstance(agent.messages[-1], dict)
-        and agent.messages[-1].get("role") == "assistant"
+        and agent.messages[-1].get("role") == "system"
+        and str(agent.messages[-1].get("content") or "").startswith(MEMORY_MARKER)
     ):
         agent.messages.pop()
+    # Locate the trailing user row and drop the whole exchange it owns —
+    # reply, tool rounds, paused-dialog declarations — only when the question
+    # matches the replayed text, so the rerun replaces rather than duplicates.
+    owner = None
+    for index in range(len(agent.messages) - 1, -1, -1):
+        message = agent.messages[index]
+        if isinstance(message, dict) and message.get("role") == "user":
+            owner = index
+            break
     if (
-        agent.messages
-        and isinstance(agent.messages[-1], dict)
-        and agent.messages[-1].get("role") == "user"
-        and agent.messages[-1].get("content") == user_text
+        owner is not None
+        and isinstance(agent.messages[owner], dict)
+        and agent.messages[owner].get("content") == user_text
     ):
-        agent.messages.pop()
+        del agent.messages[owner:]
 
 
 async def _inject_refs(
@@ -176,6 +205,102 @@ async def _final_answer_with_overflow_retry(
         return answer
 
 
+def _abandon_resumed_turn(
+    agent: "PrepAgent", messages: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Roll a failed resume back to the exact paused snapshot.
+
+    The resume turn consumed the dialog in place (pointer inserted, marker
+    cleared, answer appended). When the turn dies before finalize, that state
+    must not persist: the retry would append the answer a second time and
+    the dialog could never resume. Repairs the list the caller is about to
+    persist — ``agent.messages``, or the loop's working copy on a cancel
+    path (located by pointer content, since a rebuilt list shifts indexes).
+    """
+    index = agent._turn_state.resumed_dialog_index
+    if index is not None:
+        pointer = messages[index + 1] if index + 1 < len(messages) else None
+        if not (isinstance(pointer, dict) and pointer.get("content") == DIALOG_ANSWER_OBSERVATION):
+            index = None
+    if index is None:
+        # The caller's list was rebuilt (turn-start compaction) and the row
+        # shifted: locate this turn's pointer by content instead. Scanning
+        # from the end picks the NEWEST pointer — earlier, already-answered
+        # dialogs carry the same observation text and must not win.
+        for position in range(len(messages) - 1, -1, -1):
+            message = messages[position]
+            if (
+                isinstance(message, dict)
+                and message.get("role") == "tool"
+                and message.get("content") == DIALOG_ANSWER_OBSERVATION
+            ):
+                index = position - 1
+                break
+    if index is None or index < 0:
+        return messages
+    agent._turn_state.resumed_dialog_index = None
+    undo_dialog_answer(messages, index)
+    # The just-typed answer is the first user row AFTER the pointer: prepare
+    # appends it to the tail before inserting the pointer, and the rows in
+    # between belong to the paused turn (waiting line, working memory). On a
+    # cancel path the loop may have appended further rows behind the answer —
+    # everything from the answer on goes, so persistence lands the exact
+    # paused snapshot and a retry cannot see half-generated rounds.
+    for scan in range(index + 1, len(messages)):
+        row = messages[scan]
+        if isinstance(row, dict) and row.get("role") == "user":
+            del messages[scan:]
+            break
+    return messages
+
+
+def _persist_failure_state(
+    agent: "PrepAgent",
+    asked_user: dict[str, Any],
+    loop_working: dict[str, Any],
+    working: list[dict[str, Any]],
+    turn_id: str,
+    policy: CompactionOptions | None,
+    db: Session,
+    *,
+    compact_threshold: float | None = None,
+    compact_options: CompactionOptions | None = None,
+    tool_steps: list[dict[str, Any]] | None = None,
+    search_groups: list[dict[str, Any]] | None = None,
+    thinking: str = "",
+) -> bool:
+    """Land the pause state when a turn with a fired dialog dies before finalize.
+
+    A business/LLM error raised after ``ask_user`` emitted its event still
+    owes the user an answerable dialog: persist the loop's working copy with
+    the open call marked (and its dangling siblings completed) instead of
+    dropping the turn to a bare question persist, or the answer would start a
+    new task. Returns True when the pause state was persisted; False means
+    the caller should run the plain failed-turn path.
+    """
+    gate_event = asked_user.get("event")
+    ask_event = gate_event if isinstance(gate_event, dict) else None
+    if ask_event is None:
+        return False
+    persist_cancel(
+        agent,
+        # The dialog's open call exists only on the loop's working copy.
+        loop_working.get("working") or working,
+        agent.pending_reply_text(),
+        {},  # no speculative-stream state on the sync failure path
+        db,
+        tool_steps=tool_steps,
+        search_groups=search_groups,
+        thinking=thinking,
+        compact_threshold=compact_threshold,
+        compact_options=compact_options,
+        turn_id=turn_id,
+        ask=ask_event,
+        pause_event=ask_event,
+    )
+    return True
+
+
 async def _prepare_turn(
     agent: "PrepAgent",
     user_text: str,
@@ -217,14 +342,57 @@ async def _prepare_turn(
     if drop_last_assistant:
         _drop_trailing_exchange(agent, user_text)
     agent.messages.append({"role": "user", "content": user_text})
+    # A paused dialog turns this input into its answer: complete the open
+    # ask_user call with a pointer observation (the answer itself stays in
+    # the user message just appended) and re-enter the SAME turn, so the
+    # interrupted task remains the live task instead of the reply reading
+    # like a new topic (see ask_user.pending). Popup answers and free-typed
+    # text arrive through the same channel — both are the dialog's reply.
+    pending_index = find_pending_ask(agent.messages)
+    if pending_index is not None:
+        # The resumed turn freezes its toolset from the ORIGINAL task text,
+        # not the dialog reply: the reply is the channel, not the task, and
+        # text-gated tools the task activated (repo talk) must stay declared
+        # across the pause. A pause-time stamp on the pending row is
+        # authoritative (earlier dialog exchanges may already have folded);
+        # otherwise skip prior dialog answers text-wise.
+        pending_message = agent.messages[pending_index]
+        stored_task = (
+            pending_message.get(RESUME_TASK_KEY) if isinstance(pending_message, dict) else None
+        )
+        agent._turn_state.resume_task_text = (
+            stored_task
+            if isinstance(stored_task, str) and stored_task
+            else original_task_text(agent.messages, pending_index)
+        )
+        if insert_dialog_answer(agent.messages, pending_index):
+            agent._turn_state.resumed_dialog_index = pending_index
+        else:
+            # A stored marker without a resolvable open call would leave a
+            # dangling declaration the provider rejects on every request.
+            # Complete it and run this input as a normal turn instead.
+            logger.warning(
+                "Prep resume found an unresolvable pending marker sid=%s",
+                getattr(agent.session, "id", ""),
+            )
+            complete_interrupted_tool_calls(agent.messages)
+            agent._turn_state.resume_task_text = None
     pre_build = list(agent.messages)
     build_report: dict[str, Any] = {}
-    working = await agent._build_context(
-        threshold=compact_threshold,
-        options=policy,
-        report=build_report,
-    )
-    working = await _inject_refs(agent, working, db, context_session_ids)
+    try:
+        working = await agent._build_context(
+            threshold=compact_threshold,
+            options=policy,
+            report=build_report,
+        )
+        working = await _inject_refs(agent, working, db, context_session_ids)
+    except Exception:
+        # A failed prepare must not consume the dialog: roll the history back
+        # to the exact paused snapshot (pointer removed, marker restored, the
+        # just-typed answer dropped) so the failed-turn persist still resumes
+        # and a retry does not duplicate the answer.
+        _abandon_resumed_turn(agent, agent.messages)
+        raise
     agent._turn_state.pre_loop_len = len(working)
     return policy, turn_id, working, pre_build, build_report
 
@@ -259,6 +427,14 @@ async def run_chat(
     Returns:
         The sanitized final reply text.
     """
+    # Hoisted so the failure handler below can read the dialog gate and the
+    # loop's working copy even when the turn dies before the loop starts.
+    asked_user: dict[str, Any] = {"on": False}
+    loop_working: dict[str, Any] = {}
+    turn_id = ""
+    policy: CompactionOptions | None = None
+    working: list[dict[str, Any]] = []
+    committed = False
     try:
         policy, turn_id, working, _, _ = await _prepare_turn(
             agent,
@@ -272,9 +448,8 @@ async def run_chat(
             memory_index_limit=memory_index_limit,
         )
 
-        asked_user: dict[str, Any] = {"on": False}
         working, early, groups, steps, thinking = await agent._run_tool_rounds(
-            working, db, asked_user=asked_user
+            working, db, asked_user=asked_user, working_out=loop_working
         )
         ask_event: dict[str, Any] | None = None
         final: str | None = None
@@ -321,18 +496,83 @@ async def run_chat(
             compact_options=policy,
             turn_id=turn_id,
             ask=ask_event,
+            # A tool-invoked dialog ends the turn PAUSED on its open call;
+            # inline-rescued dialogs have no tool_call to resume.
+            pause_event=ask_event if asked_user["on"] else None,
         )
+        committed = True
         # End-of-turn curation runs detached: the reply returns immediately.
         schedule_turn_memory_precipitation(
             agent, user_text, final if isinstance(final, str) else ""
         )
         return final if isinstance(final, str) else ""
     except Exception:
-        # The turn died before finalize (LLM quota/auth errors, closing-stream
-        # failures): persist the just-typed question so it survives a refresh,
-        # then let the error surface.
-        persist_failed_turn(agent, db)
+        if committed:
+            # finalize already landed the turn (a detached curation task or a
+            # late stream glitch raised afterwards): the saved history must
+            # not be rolled back or persisted a second time.
+            raise
+        if not _persist_failure_state(
+            agent,
+            asked_user,
+            loop_working,
+            working,
+            turn_id,
+            policy,
+            db,
+            compact_threshold=compact_threshold,
+            compact_options=compact_options,
+        ):
+            # The turn died before finalize (LLM quota/auth errors,
+            # closing-stream failures): persist the just-typed question so it
+            # survives a refresh, then let the error surface.
+            _abandon_resumed_turn(agent, agent.messages)
+            persist_failed_turn(agent, db)
         raise
+
+
+async def _stream_waiting_line(agent: "PrepAgent") -> AsyncIterator[str | dict[str, Any]]:
+    """Close a dialog-paused turn visually: clear the status line, then stream
+    the waiting line. Pop-up events and search cards were already pushed when
+    the tool executed, so nothing else is re-emitted here."""
+    yield {"type": "status", "text": ""}
+    async for piece in slice_stream(agent.pending_reply_text()):
+        yield piece
+
+
+def _finalize_paused_turn(
+    agent: "PrepAgent",
+    working: list[dict[str, Any]],
+    db: Session,
+    *,
+    tool_steps: list[dict[str, Any]] | None,
+    search_groups: list[dict[str, Any]] | None,
+    thinking: str,
+    compact_threshold: float | None,
+    policy: CompactionOptions,
+    turn_id: str,
+    asked_user: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Persist a dialog-paused turn (the open call marked for resume).
+
+    Returns the usage-delta event for the stream envelope (or None).
+    """
+    gate_event = asked_user.get("event")
+    ask_event = gate_event if isinstance(gate_event, dict) else None
+    return finalize_with_delta(
+        agent,
+        working,
+        agent.pending_reply_text(),
+        db,
+        tool_steps=tool_steps,
+        search_groups=search_groups,
+        thinking=thinking,
+        compact_threshold=compact_threshold,
+        compact_options=policy,
+        turn_id=turn_id,
+        ask=ask_event,
+        pause_event=ask_event,
+    )
 
 
 def _new_content_state() -> dict[str, Any]:
@@ -435,6 +675,10 @@ async def run_chat_stream(
     # unbounded memory growth on slow connections.
     events: asyncio.Queue = asyncio.Queue(maxsize=_EVENT_QUEUE_MAXSIZE)
     asked_user: dict[str, Any] = {"on": False}
+    # The loop runs on its own copy of ``working`` (see run_agent_loop); the
+    # out-dict tracks it so a cancel mid-round can still land the pause
+    # round's open call — the loop-entry list never sees loop appends.
+    loop_working: dict[str, Any] = {}
     # Speculative content-streaming state: one display filter held across rounds
     # so its rules (the display mirror of sanitize_final_reply) apply across chunk and
     # round boundaries; the loop-end flush releases any held-back tail.
@@ -452,6 +696,10 @@ async def run_chat_stream(
     streamed_thinking: list[str] = []
     final: str = ""
     finalized = False
+    # False until the loop's outcome lands: before it, the loop's working
+    # copy is authoritative; after, the (possibly overflow-replaced) local
+    # `working` is.
+    loop_done = False
     try:
         async for item in stream_background_events(
             agent._run_tool_rounds,
@@ -461,6 +709,7 @@ async def run_chat_stream(
             db,
             asked_user=asked_user,
             content_state=content_state,
+            working_out=loop_working,
         ):
             if isinstance(item, dict):
                 kind = item.get("type")
@@ -480,6 +729,7 @@ async def run_chat_stream(
         value = outcome.get("value")
         if isinstance(value, tuple) and len(value) == 5:
             working, early, search_groups, tool_steps, thinking = value
+            loop_done = True
         elif value is not None:
             logger.warning("Prep unexpected tool outcome shape: %r", type(value))
 
@@ -497,24 +747,19 @@ async def run_chat_stream(
             yield mid_event
 
         if asked_user["on"]:
-            # Pop-up events and search cards have been pushed immediately when the tool is executed; here only the status line is cleared at the end
-            yield {"type": "status", "text": ""}
-            final = agent.pending_reply_text()
-            async for piece in slice_stream(final):
+            async for piece in _stream_waiting_line(agent):
                 yield piece
-            gate_event = asked_user.get("event")
-            delta = finalize_with_delta(
+            delta = _finalize_paused_turn(
                 agent,
                 working,
-                final,
                 db,
                 tool_steps=tool_steps,
                 search_groups=search_groups,
                 thinking=thinking,
                 compact_threshold=compact_threshold,
-                compact_options=policy,
+                policy=policy,
                 turn_id=turn_id,
-                ask=gate_event if isinstance(gate_event, dict) else None,
+                asked_user=asked_user,
             )
             finalized = True
             if delta:
@@ -605,9 +850,37 @@ async def run_chat_stream(
         # before the generator closes, or the question is lost on refresh.
         if not finalized:
             gate_event = asked_user.get("event")
+            ask_event = gate_event if isinstance(gate_event, dict) else None
+            # After the loop returns, the local `working` is authoritative
+            # (the closing overflow path may have replaced it with a
+            # force-compacted list); mid-loop, the loop's copy is — the
+            # dialog round's open call exists only there.
+            context = working if loop_done else (loop_working.get("working") or working)
+            if not context:
+                # Defensive: the stream cannot reach the cancel handler
+                # before prepare produced a working list (prepare failures
+                # re-raise past the main try), so an empty context means an
+                # unexpected state — persisting one would clobber the whole
+                # session history with a bare reply row.
+                logger.error("Prep cancel persist skipped: empty working list")
+                raise
+            delivered = not events or bool(asked_user.get("emitted"))
+            if not delivered:
+                # The dialog event never reached the queue (client gone while
+                # the bounded put was blocked): the user has seen nothing, so
+                # no resume marker is persisted — the round's declarations
+                # (including the undelivered dialog call) are completed as
+                # interrupted instead, and the next input runs a fresh turn.
+                ask_event = None
+                complete_interrupted_tool_calls(context)
+            if ask_event is None:
+                # A resume turn cancelled before its dialog fired must not
+                # persist the consumed pointer: roll back to the pause
+                # snapshot so the answer can still resume on retry.
+                _abandon_resumed_turn(agent, context)
             persist_cancel(
                 agent,
-                working,
+                context,
                 final,
                 content_state,
                 db,
@@ -617,14 +890,36 @@ async def run_chat_stream(
                 compact_threshold=compact_threshold,
                 compact_options=policy,
                 turn_id=turn_id,
-                ask=gate_event if isinstance(gate_event, dict) else None,
+                ask=ask_event,
+                # mark_paused_ask tolerates non-dict payloads; a dialog that
+                # never fired leaves ask_event None and nothing is marked.
+                pause_event=ask_event,
             )
         raise
     except Exception:
-        # The turn died before finalize (LLM quota/auth errors, closing-stream
-        # failures): persist the just-typed question so it survives a refresh,
-        # then let the route render the error event.
-        persist_failed_turn(agent, db)
+        if finalized:
+            # finalize already landed the turn: nothing to roll back or
+            # re-persist for exceptions raised after the commit.
+            raise
+        if not _persist_failure_state(
+            agent,
+            asked_user,
+            loop_working,
+            working,
+            turn_id,
+            policy,
+            db,
+            compact_threshold=compact_threshold,
+            compact_options=compact_options,
+            tool_steps=tool_steps or streamed_steps,
+            search_groups=search_groups,
+            thinking=thinking or "".join(streamed_thinking),
+        ):
+            # The turn died before finalize (LLM quota/auth errors,
+            # closing-stream failures): persist the just-typed question so it
+            # survives a refresh, then let the route render the error event.
+            _abandon_resumed_turn(agent, agent.messages)
+            persist_failed_turn(agent, db)
         raise
 
 

@@ -197,6 +197,123 @@ async def test_compact_reason_tool_pairs_only_and_nothing(db, monkeypatch) -> No
     assert out2.reason == "nothing_to_fold"
 
 
+@pytest.mark.asyncio
+async def test_compact_serializes_with_session_turn_lock(db, monkeypatch) -> None:
+    """Manual /compact holds the per-session turn lock and reloads inside it.
+
+    A compact that read a pending-dialog snapshot and saved after a concurrent
+    answer turn committed would resurrect the answered dialog and drop the
+    answer's history. The route must both wait for the lock AND load the
+    session under it — the answer turn commits while compact waits, and the
+    compact result must reflect that committed history, not the stale one."""
+    import asyncio
+    import json
+
+    import realmock.domains.prep.routes.history as history_mod
+    from realmock.domains.prep.services.turn_lock import session_turn_lock
+    from realmock.platform.capabilities.ai.llm.client import LLMClient
+
+    class _LLM:
+        context_window = 8000
+
+    monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, *a, **k: _LLM()))
+    monkeypatch.setattr(history_mod, "assert_csrf_if_cookie_only", lambda *a, **k: None)
+
+    async def _same(self, **kwargs):
+        return list(self.messages)
+
+    monkeypatch.setattr(history_mod.PrepAgent, "_build_context", _same)
+    row = _session(
+        db,
+        messages=[
+            {"role": "user", "content": "task"},
+            {
+                "role": "assistant",
+                "content": None,
+                "ask_pending": True,
+                "keep_tool_pair": True,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "function": {"name": "ask_user", "arguments": '{"question": "Which?"}'},
+                    }
+                ],
+            },
+        ],
+    )
+
+    class _Req:
+        method = "POST"
+        headers: dict = {}
+
+    lock_held = asyncio.Event()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _hold():
+        async with session_turn_lock(row.id):
+            lock_held.set()
+            await release.wait()
+            # The concurrent answer turn commits while compact is still
+            # waiting: the lock-internal session load must see it.
+            row.messages = json.dumps(
+                [
+                    {"role": "user", "content": "task"},
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "c1",
+                                "function": {
+                                    "name": "ask_user",
+                                    "arguments": '{"question": "Which?"}',
+                                },
+                            }
+                        ],
+                    },
+                    {"role": "tool", "tool_call_id": "c1", "content": "[ask_user] answered"},
+                    {"role": "user", "content": "A"},
+                    {"role": "assistant", "content": "resumed"},
+                ],
+                ensure_ascii=False,
+            )
+            db.commit()
+
+    holder = asyncio.create_task(_hold())
+    await lock_held.wait()
+
+    # Signal from inside the compact coroutine BEFORE it reaches the lock, so
+    # the blocked assertion below cannot pass on a scheduling delay alone (a
+    # compact that never acquired the lock would slip past both checks).
+    compact_route = history_mod.compact_prep_session
+
+    async def _traced(session_id, request, db_, api_db_, body):
+        entered.set()
+        return await compact_route(session_id, request, db_, api_db_, body)
+
+    compact_task = asyncio.create_task(
+        _traced(
+            row.id,
+            _Req(),
+            db,
+            db,
+            history_mod.PrepCompactRequest(),  # type: ignore[arg-type]
+        )
+    )
+    await entered.wait()
+    assert not compact_task.done(), "compact waits for the session turn lock"
+
+    # Hand the lock over: _hold writes the answer turn's history on release.
+    release.set()
+    await holder
+    out = await compact_task
+    assert out.message_count == 5, "compact consumed the history the answer turn committed"
+
+    db.refresh(row)
+    assert "ask_pending" not in (row.messages or ""), "the answered dialog was not resurrected"
+
+
 def test_update_summary_expected_count_mismatch(db) -> None:
     row = _session(db, messages=[{"role": "user", "content": "hi"}])
     with TestClient(app) as client:

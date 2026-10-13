@@ -5,6 +5,7 @@ from __future__ import annotations
 from realmock.domains.prep.services.linking import (
     LINKED_BLOCK_MARKER,
     REF_BLOCK_MARKER,
+    apply_session_link,
     format_linked_session,
     format_linked_sessions,
     refresh_linked_block,
@@ -45,6 +46,7 @@ __all__ = [
     "REF_BLOCK_MARKER",
     "format_linked_session",
     "format_linked_sessions",
+    "apply_session_link",
     "refresh_linked_block",
     "strip_ref_blocks",
     "purge_empty_sessions",
