@@ -64,7 +64,10 @@ export function PrepEmptyState({
 
         <button
           type="button"
-          onClick={onStart}
+          // Shims the DOM event: callers may pass a handler whose optional
+          // first arg means something else (e.g. a resume id), and a passed
+          // through MouseEvent would be serialized as that value.
+          onClick={() => onStart()}
           disabled={starting}
           className="btn-primary !h-10 w-full"
         >
