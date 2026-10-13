@@ -10,10 +10,17 @@ so a stop or an error never loses the typed question.
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+from realmock.domains.prep.agents.ask_user import (
+    ASK_PENDING_KEY,
+    KEEP_TOOL_PAIR_KEY,
+    mark_paused_ask,
+    stamp_resume_task,
+)
 from realmock.domains.prep.agents.context import strip_ref_blocks
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
@@ -188,6 +195,102 @@ def _accumulate_usage(agent: "PrepAgent") -> None:
         agent.session.last_round_completion_tokens = int(last_round.get("completion_tokens") or 0)
 
 
+def _unprotect_resolved_dialogs(messages: list[dict[str, Any]]) -> None:
+    """Drop keep_tool_pair from dialog exchanges that already got their answer.
+
+    The protection only matters while the call is open (its pair must reach
+    the resume turn's model context verbatim); once the pointer result exists
+    (ask_pending cleared) the exchange folds like any old tool round. Keeping
+    the flag forever would pin the declaration and possibly large parallel
+    sibling results in every later compaction. Rows still awaiting an answer
+    keep the flag; mark_paused_ask re-stamps new open calls after this sweep.
+    """
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        if message.get(KEEP_TOOL_PAIR_KEY) and not message.get(ASK_PENDING_KEY):
+            message.pop(KEEP_TOOL_PAIR_KEY, None)
+
+
+_FALLBACK_ID_RE = re.compile(r"^call_(\d+)_(.+?)_(\d+)$")
+
+
+def _adopt_landed_fallback_id(
+    messages: list[dict[str, Any]], from_index: int, name: str, position: int
+) -> str:
+    """The fallback id an already-landed result recorded for an id-less call.
+
+    The loop stores results for id-less declarations under
+    ``call_{round}_{name}_{position}`` without rewriting the declaration, so
+    repair must adopt that recorded id — minting a different one would
+    orphan the recorded result and add a second one for the declaration.
+    Returns "" when no matching result row exists.
+    """
+    # Only the declaration's own result run is scanned: the loop lands
+    # results directly after their assistant block, and a later round's
+    # same-name same-position fallback must never answer this call.
+    for row in messages[from_index + 1 :]:
+        if not isinstance(row, dict):
+            continue
+        if row.get("role") != "tool":
+            break
+        row_id = str(row.get("tool_call_id") or "")
+        match = _FALLBACK_ID_RE.match(row_id)
+        if match and match.group(2) == name and match.group(3) == str(position):
+            return row_id
+    return ""
+
+
+def complete_interrupted_tool_calls(messages: list[dict[str, Any]], keep_open: str = "") -> None:
+    """Synthesize results for declarations left without any paired result.
+
+    Covers a pause round interrupted mid-flight (stop, timeout, business
+    error — parallel siblings whose results never landed) and a corrupt
+    pending row whose declaration can no longer be resolved. Providers
+    reject a dangling declaration on every later request, so each one gets
+    an explicit observation. ``keep_open`` is the marked dialog call
+    awaiting its resume pointer; a second dialog call from the same round
+    gets a superseded observation instead (one dialog at a time).
+    """
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list) or not calls:
+            continue
+        answered = {
+            str(row.get("tool_call_id") or "")
+            for row in messages[index + 1 :]
+            if isinstance(row, dict) and row.get("role") == "tool"
+        }
+        insert_at = index + 1
+        for position, call in enumerate(calls):
+            if not isinstance(call, dict):
+                continue
+            name = str((call.get("function") or {}).get("name") or "")
+            call_id = str(call.get("id") or "")
+            if not call_id:
+                call_id = _adopt_landed_fallback_id(messages, index, name, position)
+                if call_id:
+                    call["id"] = call_id
+            if not call_id:
+                call_id = f"call_{index}_{name or 'call'}_{position}"
+                call["id"] = call_id
+            if call_id in answered or call_id == keep_open:
+                continue
+            observation = (
+                "[ask_user] Not answered: another dialog opened in this round was "
+                "answered instead. Ask again in a later turn if still needed."
+                if name == "ask_user"
+                else f"[{name or 'tool'}] Interrupted before its result was recorded."
+            )
+            messages.insert(
+                insert_at,
+                {"role": "tool", "tool_call_id": call_id, "content": observation},
+            )
+            insert_at += 1
+
+
 def finalize(
     agent: "PrepAgent",
     working: list[dict[str, Any]],
@@ -202,11 +305,12 @@ def finalize(
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
     ask: dict[str, Any] | None = None,
+    pause_event: dict[str, Any] | None = None,
 ) -> None:
     """Persist one turn: strip transient refs, append the assistant message, and update counters.
 
     Args:
-        agent: Live PrepAgent (messages/memory/counters mutated in place).
+        agent: Live PrepAgent (messages/working memory/counters mutated in place).
         working: Loop-end working copy (may include transient #ref blocks).
         final: Sanitized reply body ("", non-str coerced to "").
         db: Session committed via PrepAgent._save (rollback on failure).
@@ -218,6 +322,9 @@ def finalize(
         compact_options: Verbatim-tail policy (retain raised by intensity floor).
         turn_id: Correlation id stamped on the assistant message (or None).
         ask: ask_user dialog payload to persist on the message (or None).
+        pause_event: Dialog payload when the turn ends PAUSED on an open
+            ask_user call: stamps ``ask_pending``/``keep_tool_pair`` on the
+            dangling declaration so the next input resumes it (or None).
 
     Returns:
         None; sets agent.last_prompt_estimate/last_message_count and commits.
@@ -227,6 +334,25 @@ def finalize(
     agent.last_prompt_estimate = estimate_messages_tokens(working)
     options = compact_options or CompactionOptions()
     agent.messages = _merge_mid_turn(agent, working)
+    if pause_event is not None:
+        # Mark the open call BEFORE the display row is appended, so the
+        # next input can complete it and re-enter the same turn.
+        open_call_id = mark_paused_ask(agent.messages, pause_event)
+        if not open_call_id:
+            logger.warning(
+                "Prep pause persist found no open ask_user call to mark sid=%s",
+                getattr(agent.session, "id", ""),
+            )
+        else:
+            # A cancelled/timeout round may hold sibling declarations whose
+            # results never landed (or a second dialog call); synthesize
+            # their observations so the stored history stays protocol-clean.
+            complete_interrupted_tool_calls(agent.messages, keep_open=open_call_id)
+            # Freeze this turn's task text onto the pending row: after earlier
+            # dialog exchanges fold away, the next resume (a sequential
+            # dialog) reads the task from here instead of guessing from text.
+            stamp_resume_task(agent.messages, getattr(agent._turn_state, "resume_task_text", None))
+    _unprotect_resolved_dialogs(agent.messages)
     agent.messages.append(
         _build_assistant_message(
             final,
@@ -300,6 +426,7 @@ def finalize_with_delta(
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
     ask: dict[str, Any] | None = None,
+    pause_event: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Capture the usage delta BEFORE persisting, then finalize; returns the delta event.
 
@@ -311,7 +438,7 @@ def finalize_with_delta(
     Args:
         agent: Live PrepAgent (messages/memory/counters mutated in place).
         working: Loop-end working copy (may include transient #ref blocks).
-        final: Sanitized reply body.
+        final: Sanitized reply body ("", non-str coerced to "").
         db: Session committed via PrepAgent._save (rollback on failure).
         tool_steps: Display/persist tool progress cards (or None).
         search_groups: Retrieval cards for the search_results event (or None).
@@ -320,6 +447,7 @@ def finalize_with_delta(
         compact_options: Verbatim-tail policy (or None for defaults).
         turn_id: Correlation id stamped on the assistant message (or None).
         ask: ask_user dialog payload to persist on the message (or None).
+        pause_event: Dialog payload when the turn ends paused (see :func:`finalize`).
 
     Returns:
         The usage-delta event, or None when the provider reported nothing.
@@ -337,6 +465,7 @@ def finalize_with_delta(
         compact_options=compact_options,
         turn_id=turn_id,
         ask=ask,
+        pause_event=pause_event,
     )
     return delta
 
@@ -355,6 +484,7 @@ def persist_cancel(
     compact_options: CompactionOptions | None = None,
     turn_id: str | None = None,
     ask: dict[str, Any] | None = None,
+    pause_event: dict[str, Any] | None = None,
 ) -> None:
     """Best-effort cancel-time persist (never raises; never yields)."""
     try:
@@ -371,6 +501,7 @@ def persist_cancel(
             compact_options=compact_options,
             turn_id=turn_id,
             ask=ask,
+            pause_event=pause_event,
         )
     except Exception as persist_exc:
         logger.warning("Prep cancel-time persist failed: %s", persist_exc)
@@ -392,6 +523,7 @@ def persist_failed_turn(agent: "PrepAgent", db: Session) -> None:
 
 __all__ = [
     "compaction_event",
+    "complete_interrupted_tool_calls",
     "finalize",
     "finalize_with_delta",
     "persist_cancel",

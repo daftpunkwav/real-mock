@@ -28,25 +28,65 @@ def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Preserve the latest round verbatim so tool_calls and tool results remain fully paired under
     the OpenAI protocol; for earlier rounds, retain only assistant messages with response text
     (discard the tool_calls structure).
+
+    Exception: an assistant flagged ``keep_tool_pair`` keeps its declaration and every directly
+    following tool result verbatim — the escape hatch for calls whose result arrives
+    asynchronously (dialog-style tools that pause the turn). The rows are tiny, and collapsing
+    them would orphan the open call or erase the exchange.
     """
     last_user = -1
     for i, m in enumerate(rest):
         if m.get("role") == "user":
             last_user = i
     out: list[dict[str, Any]] = []
+    # True while walking the tool-result run that follows a keep_tool_pair assistant.
+    protected_pair = False
     for i, m in enumerate(rest):
         if i >= last_user:
             out.append(m)
             continue
         role = m.get("role")
         if role == "tool":
+            if protected_pair:
+                out.append(m)
             continue
-        if role == "assistant" and m.get("tool_calls"):
-            if m.get("content"):
-                out.append({"role": "assistant", "content": m["content"]})
+        if role != "assistant":
+            # A user row ends any protected run: tool rows after it belong to
+            # a later pair, not to the protected assistant.
+            protected_pair = False
+            out.append(m)
             continue
-        out.append(m)
+        protected_pair = bool(m.get("keep_tool_pair"))
+        if protected_pair or not m.get("tool_calls"):
+            out.append(m)
+        elif m.get("content"):
+            out.append({"role": "assistant", "content": m["content"]})
     return out
+
+
+def _snap_start_to_protected_pair(rest: list[dict[str, Any]], start: int) -> int:
+    """Pull the fold boundary back so a ``keep_tool_pair`` pair stays in the verbatim tail.
+
+    The boundary must not fall inside or immediately after a protected pair's
+    result run: folding it would either erase the exchange or drop the pending
+    marker of an open call — the next input would then start a new turn
+    instead of resuming the paused one (an open call has no results, so its
+    run ends right after the declaration itself). The pairs are tiny, so
+    keeping them verbatim is cheap. An ``ask_pending`` declaration is pulled
+    back wherever the cutoff sits: its marker must never fold away, or the
+    paused dialog silently becomes a new task on the next input.
+    """
+    for i, m in enumerate(rest[:start]):
+        if m.get("role") != "assistant" or not m.get("keep_tool_pair"):
+            continue
+        if m.get("ask_pending"):
+            return i
+        run_end = i + 1
+        while run_end < len(rest) and rest[run_end].get("role") == "tool":
+            run_end += 1
+        if run_end >= start:
+            return i
+    return start
 
 
 def _align_split_start(rest: list[dict[str, Any]], start: int) -> int:
@@ -89,6 +129,7 @@ def compress_messages(
         return system + rest
 
     start = _align_split_start(rest, max(0, len(rest) - keep_recent))
+    start = _snap_start_to_protected_pair(rest, start)
     trimmed = rest[start:]
     omitted = rest[:start]
     if memory is not None and omitted:

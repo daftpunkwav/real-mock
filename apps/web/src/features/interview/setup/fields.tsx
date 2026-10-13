@@ -159,7 +159,7 @@ export function SetupFields({
   const customCompanyText = companyIsCustom ? config.company : "";
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pb-2 pr-0.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
       <div className="surface-card p-3.5">
         <CardTitle icon={Briefcase} text={t("setup.section.goal")} />
         <div className="grid grid-cols-2 gap-2.5">

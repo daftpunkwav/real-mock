@@ -92,7 +92,8 @@ def test_drop_trailing_exchange() -> None:
     _drop_trailing_exchange(agent4, "q")  # type: ignore[arg-type]
     assert agent4.messages == [{"role": "system", "content": "s"}]
     # Content guard: a trailing user row holding different text (an older
-    # exchange left behind by a cancelled turn) is never popped.
+    # exchange left behind by a cancelled turn) keeps its whole exchange —
+    # stripping the reply of a turn the rerun does not replace would corrupt it.
     agent5 = SimpleNamespace(
         messages=[
             {"role": "user", "content": "older question"},
@@ -100,7 +101,10 @@ def test_drop_trailing_exchange() -> None:
         ]
     )
     _drop_trailing_exchange(agent5, "new question")  # type: ignore[arg-type]
-    assert agent5.messages == [{"role": "user", "content": "older question"}]
+    assert agent5.messages == [
+        {"role": "user", "content": "older question"},
+        {"role": "assistant", "content": "older answer"},
+    ]
 
 
 @pytest.mark.asyncio
@@ -248,7 +252,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     agent = _make_agent()
     agent.pending_reply_text = lambda: "waiting-line"  # type: ignore[method-assign]
 
-    async def _rounds_asked(working, db, asked_user=None):
+    async def _rounds_asked(working, db, asked_user=None, **kwargs):
         asked_user["on"] = True
         asked_user["event"] = {"question": "Which?", "options": ["A", "B"]}
         return working, None, [], [], ""
@@ -259,7 +263,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     assert agent.last_ask_event == {"question": "Which?", "options": ["A", "B"]}
 
     # early branch polishes model tail text
-    async def _rounds_early(working, db, asked_user=None):
+    async def _rounds_early(working, db, asked_user=None, **kwargs):
         return working, "early answer <|im_end|>", [], [{"name": "x"}], "think"
 
     monkeypatch.setattr(agent, "_run_tool_rounds", _rounds_early)
@@ -269,7 +273,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
 
     # an inline ask_user rescued from the body becomes the dialog payload;
     # surrounding prose stays as the reply body (mirrors the stream channel)
-    async def _rounds_inline(working, db, asked_user=None):
+    async def _rounds_inline(working, db, asked_user=None, **kwargs):
         return (
             working,
             (
@@ -289,7 +293,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     assert agent.last_ask_event["question"] == "Q?"
 
     # a dialog rescued from an otherwise-empty body keeps the waiting line
-    async def _rounds_inline_bare(working, db, asked_user=None):
+    async def _rounds_inline_bare(working, db, asked_user=None, **kwargs):
         return (
             working,
             (
@@ -308,7 +312,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
 
     # early empty (no dialog) falls through to the closing answer, never the
     # waiting line — that copy would be misleading without a dialog
-    async def _rounds_empty(working, db, asked_user=None):
+    async def _rounds_empty(working, db, asked_user=None, **kwargs):
         return working, "<|im_start|>", [], [], ""
 
     async def _fake_closing(agent_, working, policy, db, ids):
@@ -321,7 +325,7 @@ async def test_run_chat_asked_user_and_early_paths(monkeypatch) -> None:
     assert agent.last_ask_event is None
 
     # non-string final coerced to empty
-    async def _rounds_none(working, db, asked_user=None):
+    async def _rounds_none(working, db, asked_user=None, **kwargs):
         return working, None, [], [], ""
 
     async def _fake_final(agent_, working, policy, db, ids):
@@ -357,7 +361,7 @@ async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeyp
     agent.pending_reply_text = lambda: "wait-line"  # type: ignore[method-assign]
 
     async def _fake_rounds(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         outcome["value"] = ("unexpected-shape",)
         if False:
@@ -395,7 +399,7 @@ async def test_run_chat_stream_start_event_unexpected_tail_mid_and_asked(monkeyp
     agent._turn_state.mid_turn_report = {"before": 5, "after": 2}
 
     async def _fake_rounds2(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         asked_user["on"] = True
         content_state["filter"] = SimpleNamespace(flush=lambda: "tail-tok")
@@ -432,7 +436,7 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
     agent = _make_agent()
 
     async def _boom_rounds(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         outcome["error"] = RuntimeError("loop-boom")
         if False:
@@ -444,7 +448,9 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
             pass
 
     # search_groups branch + streamed-finish + overflow retry in closing stream
-    async def _ok_rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _ok_rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
+    ):
         outcome["value"] = ([{"role": "user", "content": "hi"}], None, [{"query": "q"}], [], "")
         if False:
             yield "x"
@@ -472,7 +478,7 @@ async def test_run_chat_stream_error_and_overflow_and_cancel(monkeypatch) -> Non
 
     # streamed content finishes without regeneration (polish path)
     async def _streamed_rounds(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         content_state["streamed"] = True
         content_state["filtered_text"] = "already heard"
@@ -503,7 +509,7 @@ async def test_run_chat_stream_cancel_persists(monkeypatch) -> None:
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
     async def _cancel_rounds(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         raise asyncio.CancelledError()
         if False:
@@ -538,7 +544,7 @@ async def test_run_chat_stream_cancel_persists_streamed_trace(monkeypatch) -> No
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
     async def _partial_rounds(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         content_state["filtered_text"] = "partial answer so far"
         yield {"type": "thinking", "content": "first thought"}
@@ -588,7 +594,7 @@ async def test_run_chat_stream_cancel_prefers_outcome_trace(monkeypatch) -> None
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
     async def _done_rounds(
-        runner, outcome, events, working, db, asked_user=None, content_state=None
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
     ):
         yield {"type": "thinking", "content": "streamed mirror"}
         outcome["value"] = (
@@ -633,7 +639,9 @@ def test_run_chat_stream_inline_ask_empty_body_uses_waiting(monkeypatch) -> None
     monkeypatch.setattr(chat_mod, "_prepare_turn", _prep)
     monkeypatch.setattr(chat_mod, "compaction_event", lambda *a, **k: None)
 
-    async def _rounds(runner, outcome, events, working, db, asked_user=None, content_state=None):
+    async def _rounds(
+        runner, outcome, events, working, db, asked_user=None, content_state=None, **kwargs
+    ):
         outcome["value"] = (
             working,
             '<tool_call>{"name":"ask_user","arguments":{"question":"Q?","options":["A","B"]}}</tool_call>',
@@ -677,7 +685,7 @@ async def test_run_chat_persists_question_when_turn_fails(monkeypatch) -> None:
 
     agent = _make_agent()
 
-    async def _boom(working, db, asked_user=None):
+    async def _boom(working, db, asked_user=None, **kwargs):
         raise ApiBusinessError(CATALOG["A3001"], message="quota gone")
 
     monkeypatch.setattr(agent, "_run_tool_rounds", _boom)
@@ -715,3 +723,62 @@ async def test_run_chat_stream_error_persists_question(monkeypatch) -> None:
         async for _ in chat_mod.run_chat_stream(agent, "typed question", _FakeDB()):  # type: ignore[arg-type]
             pass
     assert saved["last"][-1]["content"] == "typed question"
+
+
+def test_trim_unpaired_tail_cuts_partial_round_only() -> None:
+    """The timeout path lands the loop copy trimmed to the last fully paired
+    round: a partial tail (declaration + fewer results) is a hard provider
+    rejection, finished rounds and user tails stay untouched."""
+    import realmock.domains.prep.agents.agent as agent_mod
+
+    partial = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "a"}, {"id": "b"}]},
+        {"role": "tool", "tool_call_id": "a", "content": "ok"},
+    ]
+    trimmed = agent_mod._trim_unpaired_tail(partial)
+    assert trimmed == [partial[0]], "the partial round went declaration and results together"
+
+    paired = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "a"}]},
+        {"role": "tool", "tool_call_id": "a", "content": "ok"},
+        {"role": "assistant", "content": "answer"},
+    ]
+    assert agent_mod._trim_unpaired_tail(paired) == paired
+
+    user_tail = [{"role": "user", "content": "q"}]
+    assert agent_mod._trim_unpaired_tail(user_tail) == user_tail
+
+
+def test_drop_trailing_exchange_keeps_compaction_summary() -> None:
+    """Regenerating after a forced fold must not delete the summary block or
+    the seed system prompt — only the re-appendable working-memory row is
+    popped, otherwise the folded history would be lost with no user row left
+    to match."""
+    import realmock.domains.prep.agents.chat as chat_mod
+
+    holder = SimpleNamespace(
+        messages=[
+            {"role": "system", "content": "seed system prompt"},
+            {"role": "system", "content": "[Conversation Minutes] folded history"},
+            {"role": "system", "content": "[Working memory] facts"},
+        ]
+    )
+    chat_mod._drop_trailing_exchange(holder, "q")  # type: ignore[arg-type]
+    contents = [m["content"] for m in holder.messages]
+    assert "seed system prompt" in contents
+    assert "[Conversation Minutes] folded history" in contents, "the summary survived"
+    assert not any(c.startswith("[Working memory]") for c in contents), "only that row popped"
+
+    tail_holder = SimpleNamespace(
+        messages=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "a"},
+            {"role": "system", "content": "[Working memory] facts"},
+        ]
+    )
+    chat_mod._drop_trailing_exchange(tail_holder, "q")  # type: ignore[arg-type]
+    # The working-memory row is skipped first, then the matching exchange
+    # (question + reply) drops whole so the rerun replaces it.
+    assert tail_holder.messages == []

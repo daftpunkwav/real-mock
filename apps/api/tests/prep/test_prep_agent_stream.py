@@ -139,9 +139,16 @@ def test_chat_stream_ask_user_halts_with_event() -> None:
     # Default reply locale is zh-CN (product default) without an explicit ui_locale.
     texts = [i for i in items if isinstance(i, str)]
     assert "".join(texts) == fallback_reply("zh-CN")
-    # Tool message is filled back so the message sequence stays paired
-    tool_msgs = [m for m in agent.messages if m.get("role") == "tool"]
-    assert tool_msgs and "Dialog shown to the user" in tool_msgs[0]["content"]
+    # Tool message is NOT filled back: the ask_user call stays open (paused)
+    # until the user's answer completes it on resume.
+    assert not [m for m in agent.messages if m.get("role") == "tool"]
+    pending_rows = [m for m in agent.messages if m.get("ask_pending")]
+    assert len(pending_rows) == 1
+    assert pending_rows[0]["keep_tool_pair"] is True
+    assert any(
+        tc["function"]["name"] == "ask_user" and tc.get("id")
+        for tc in pending_rows[0]["tool_calls"]
+    )
     # Persisted guidance message should include steps (with ask_user) for refresh recovery
     assistant_msgs = [m for m in agent.messages if m.get("role") == "assistant"]
     last = assistant_msgs[-1]
@@ -307,15 +314,40 @@ def test_run_chat_drop_last_assistant_user_only_tail() -> None:
     assert [m.get("content") for m in users] == ["q"]
 
 
+def test_run_chat_drop_last_assistant_skips_memory_tail() -> None:
+    """Real finalize shapes re-append the working-memory system row at the tail:
+    regenerate must skip it to reach the exchange, or the replayed question
+    would duplicate the old user row (regression for real stored history)."""
+    from realmock.domains.prep.agents.chat import run_chat
+
+    llm = _FakeLLM(messages_reply={"role": "assistant", "content": "fresh", "tool_calls": None})
+    session = _FakeSession()
+    session.messages = json.dumps(
+        [
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "stale"},
+            {"role": "system", "content": "[Working memory] body"},
+        ]
+    )
+    agent = PrepAgent(session, llm)  # type: ignore[arg-type]
+
+    async def run():
+        return await run_chat(agent, "q", _FakeDB(), drop_last_assistant=True)  # type: ignore[arg-type]
+
+    assert asyncio.run(run()) == "fresh"
+    users = [m.get("content") for m in agent.messages if m.get("role") == "user"]
+    assert users == ["q"], "old question popped, no duplicate"
+    assert "stale" not in json.dumps(agent.messages, ensure_ascii=False)
+
+
 def test_run_chat_drop_last_assistant_keeps_unrelated_exchange() -> None:
-    """A trailing user row that is not the replayed question stays put.
+    """A trailing user row that is not the replayed question keeps its exchange.
 
     A cancel inside the prepare window persists nothing, leaving an older
     exchange as the tail; regenerating then replays different text. Popping
-    that older user row would delete a turn the rerun does not replace, so
-    the guard keeps it and appends the replay as a fresh turn. The trailing
-    assistant reply is still dropped (role-guarded pop, same as the
-    pre-pairing behavior) — only the question row is protected.
+    that exchange would delete a turn the rerun does not replace — its answer
+    and tool evidence included — so nothing is dropped and the replay appends
+    as a fresh turn.
     """
     from realmock.domains.prep.agents.chat import run_chat
 
@@ -336,7 +368,7 @@ def test_run_chat_drop_last_assistant_keeps_unrelated_exchange() -> None:
     users = [m.get("content") for m in agent.messages if m.get("role") == "user"]
     assert users == ["older question", "new question"]
     assistants = [m.get("content") for m in agent.messages if m.get("role") == "assistant"]
-    assert assistants == ["fresh"]
+    assert assistants == ["older answer", "fresh"]
 
 
 def test_chat_stream_ask_user_keeps_search_groups(monkeypatch) -> None:
@@ -1094,13 +1126,13 @@ def test_chat_stream_speculative_keeps_emojis_like_persistence() -> None:
 @pytest.mark.asyncio
 async def test_dispatch_multi_question_event_shape() -> None:
     """Two questions in one call: flat fields mirror the FIRST question and the
-    questions array carries every dialog; the loop still halts."""
+    questions array carries every dialog; the loop still pauses."""
     from realmock.domains.prep.agents.ask_user import dispatch_ask_user
-    from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+    from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
     memory = WorkingMemory()
     queue: asyncio.Queue = asyncio.Queue()
-    with pytest.raises(AgentHalt):
+    with pytest.raises(AgentPause):
         await dispatch_ask_user(
             args={
                 "questions": [
@@ -1128,10 +1160,10 @@ async def test_dispatch_multi_question_event_shape() -> None:
 async def test_dispatch_single_question_event_unchanged() -> None:
     """Flat shorthand stays byte-compatible: no questions key on single-question dialogs."""
     from realmock.domains.prep.agents.ask_user import dispatch_ask_user
-    from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+    from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
     queue: asyncio.Queue = asyncio.Queue()
-    with pytest.raises(AgentHalt):
+    with pytest.raises(AgentPause):
         await dispatch_ask_user(
             args={"question": "Which one?", "options": ["A", "B"]},
             memory=WorkingMemory(),
@@ -1147,13 +1179,13 @@ async def test_dispatch_clamps_and_skips_invalid_questions() -> None:
     """Beyond 8 questions only the first 8 survive; invalid ones are skipped;
     all-invalid arguments answer with the args-incomplete observation."""
     from realmock.domains.prep.agents.ask_user import dispatch_ask_user
-    from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+    from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
     memory = WorkingMemory()
     many = [{"question": f"Q{i}?", "options": ["A", "B"]} for i in range(9)]
     many.insert(3, {"not": "a question"})
     queue: asyncio.Queue = asyncio.Queue()
-    with pytest.raises(AgentHalt):
+    with pytest.raises(AgentPause):
         await dispatch_ask_user(args={"questions": many}, memory=memory, events=queue)
     event = queue.get_nowait()
     assert len(event["questions"]) == 8

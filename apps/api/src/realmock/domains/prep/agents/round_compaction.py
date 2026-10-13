@@ -128,13 +128,17 @@ async def build_turn_context(
     )
 
 
-def latest_user_text(messages: list[dict[str, Any]] | None) -> str:
+def latest_user_text(messages: list[dict[str, Any]] | None, before: int | None = None) -> str:
     """Content of the most recent user message ("" when history has none).
 
-    Shared by the turn toolset freeze (turn-relevant availability gates) and
-    the cache-prefix fingerprint so both see the same declaration set.
+    ``before`` limits the scan to messages strictly before that index — the
+    resumed-dialog path uses it to reach the ORIGINAL task text behind the
+    pending row. Shared by the turn toolset freeze (turn-relevant availability
+    gates) and the cache-prefix fingerprint so both see the same declaration
+    set.
     """
-    for m in reversed(messages or []):
+    scan = (messages or [])[:before] if before is not None else messages
+    for m in reversed(scan or []):
         if isinstance(m, dict) and m.get("role") == "user":
             content = m.get("content")
             return content if isinstance(content, str) else ""

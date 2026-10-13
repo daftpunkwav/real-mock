@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession, commit_session, utcnow
+from realmock.platform.core.errors import raise_error
 from realmock.platform.core.security import redact_api_key
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,25 @@ def strip_ref_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             and str(m.get("content")).startswith(REF_BLOCK_MARKER)
         )
     ]
+
+
+def apply_session_link(session: PrepSession, db: Session, target: int | None) -> int | None:
+    """Validate and persist a session link, then refresh the linked block.
+
+    Raises the catalog error for self-links (A0001) and unknown targets
+    (A3001). Returns the linked session id (None unlinks).
+    """
+    if target is not None:
+        if target == session.id:
+            raise_error("A0001")
+        linked = db.query(PrepSession).filter(PrepSession.id == target).first()
+        if linked is None:
+            raise_error("A3001")
+    session.linked_session_id = target
+    session.updated_at = utcnow()
+    commit_session(db)
+    refresh_linked_block(session, db)
+    return target
 
 
 def refresh_linked_block(session: PrepSession, db: Session) -> None:

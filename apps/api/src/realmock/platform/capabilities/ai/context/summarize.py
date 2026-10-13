@@ -26,6 +26,7 @@ from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_SUMMARY_MARKER,
     _align_split_start,
     _prune_stale_tool_pairs,
+    _snap_start_to_protected_pair,
 )
 from realmock.platform.capabilities.ai.context.estimation import (
     _omitted_digest,
@@ -459,9 +460,13 @@ async def compact_with_summary(
     # Protocol safety: the verbatim tail must not open with an orphan tool
     # result whose assistant(tool_calls) partner was folded into the summary —
     # providers reject that shape with a hard 400 the loop cannot recover from.
+    # A keep_tool_pair boundary (an open paused-dialog call) pulls the split
+    # back too: folding the declaration would drop its ask_pending marker and
+    # the next answer would start a new turn instead of resuming.
     # An explicit keep_from pin keeps priority (min below), so pinned callers
     # stay responsible for their own index as documented.
     start = _align_split_start(rest, start)
+    start = _snap_start_to_protected_pair(rest, start)
     if keep_from is not None:
         # Pin semantics: everything from keep_from on stays verbatim, while
         # the retain window still holds — hence the minimum of both cutoffs.

@@ -132,6 +132,45 @@ class _FakeLLM:
         return item
 
 
+@pytest.mark.asyncio
+async def test_compact_force_snaps_to_protected_pair() -> None:
+    """Manual /compact folds to the latest turn, but a keep_tool_pair boundary
+    (an open paused-dialog call awaiting its answer) pulls the split back so
+    the declaration and its sibling result stay in the verbatim tail instead
+    of being folded into the summary."""
+    big = "w" * 150
+    msgs = [
+        {"role": "user", "content": "old question " + big},
+        {"role": "assistant", "content": "old answer " + big},
+        {"role": "user", "content": "task"},
+    ] + [
+        {
+            "role": "assistant",
+            "content": "",
+            "keep_tool_pair": True,
+            "ask_pending": True,
+            "tool_calls": [
+                {"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}},
+                {"id": "sib", "function": {"name": "take_note", "arguments": "{}"}},
+            ],
+        },
+        {"role": "tool", "tool_call_id": "sib", "content": "sibling result"},
+        {"role": "assistant", "content": "waiting line"},
+    ]
+    llm = _FakeLLM(["[Conversation Minutes] folded"])
+    out = await sum_mod.compact_with_summary(msgs, 100, llm=llm, force=True, keep_recent=2)
+    pending_rows = [m for m in out if m.get("ask_pending")]
+    assert len(pending_rows) == 1, "open call survives manual fold"
+    assert any(
+        isinstance(tc, dict) and tc.get("id") == "c1"
+        for tc in pending_rows[0].get("tool_calls") or []
+    ), "the surviving declaration keeps its open call id"
+    assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in out), (
+        "sibling result stays paired"
+    )
+    assert any("Minutes" in str(m.get("content")) for m in out), "the summary itself lands"
+
+
 def _long_messages(n: int, size: int = 150) -> list[dict[str, Any]]:
     return [
         {"role": "user" if i % 2 == 0 else "assistant", "content": f"turn {i} " + "w" * size}

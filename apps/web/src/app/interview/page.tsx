@@ -61,49 +61,64 @@ export default function InterviewSetupPage() {
   return (
     <div className="page-shell flex h-full min-h-0 flex-col overflow-hidden !pb-4 anim-rise">
       <SetupHeader action={!loading && !loadError && options ? startButton(false) : undefined} />
-      <ContinueProcesses
-        processes={continuation.processes}
-        loading={continuation.loading}
-        loadError={continuation.loadError}
-        startingId={continuation.startingId}
-        onStart={continuation.startNext}
-        onRetry={continuation.reload}
-      />
       {loading ? (
         <SetupLoading />
       ) : loadError ? (
-        <LoadError message={loadError} onRetry={reload} />
+        // Setup options failed, but resuming an existing interview must stay
+        // available: the continuation card renders here (full-width error
+        // layout) instead of being gated behind the options-success branch.
+        <>
+          <ContinueProcesses
+            processes={continuation.processes}
+            loading={continuation.loading}
+            loadError={continuation.loadError}
+            startingId={continuation.startingId}
+            onStart={continuation.startNext}
+            onRetry={continuation.reload}
+          />
+          <LoadError message={loadError} onRetry={reload} />
+        </>
       ) : options ? (
         <SetupMain
           left={
-            <SetupFields
-              options={options}
-              config={config}
-              resumes={resumes}
-              creating={creating}
-              multiRound={multiRound}
-              onMultiRound={setMultiRound}
-              chatModels={chatModels}
-              sttModels={sttModels}
-              ttsModels={ttsModels}
-              chatModelId={chatModelId}
-              sttModelId={sttModelId}
-              ttsModelId={ttsModelId}
-              effort={effort}
-              referenceDetail={referenceDetail}
-              defaultBindings={defaultBindings}
-              onConfig={set}
-              setChatModelId={setChatModelId}
-              setSttModelId={setSttModelId}
-              setTtsModelId={setTtsModelId}
-              setEffort={setEffort}
-              setReferenceDetail={setReferenceDetail}
-              footer={
-                <div className="sticky bottom-0 shrink-0 bg-[var(--background)]/90 pb-1 pt-1 backdrop-blur-sm sm:hidden">
-                  {startButton(true)}
-                </div>
-              }
-            />
+            <>
+              <ContinueProcesses
+                processes={continuation.processes}
+                loading={continuation.loading}
+                loadError={continuation.loadError}
+                startingId={continuation.startingId}
+                onStart={continuation.startNext}
+                onRetry={continuation.reload}
+              />
+              <SetupFields
+                options={options}
+                config={config}
+                resumes={resumes}
+                creating={creating}
+                multiRound={multiRound}
+                onMultiRound={setMultiRound}
+                chatModels={chatModels}
+                sttModels={sttModels}
+                ttsModels={ttsModels}
+                chatModelId={chatModelId}
+                sttModelId={sttModelId}
+                ttsModelId={ttsModelId}
+                effort={effort}
+                referenceDetail={referenceDetail}
+                defaultBindings={defaultBindings}
+                onConfig={set}
+                setChatModelId={setChatModelId}
+                setSttModelId={setSttModelId}
+                setTtsModelId={setTtsModelId}
+                setEffort={setEffort}
+                setReferenceDetail={setReferenceDetail}
+                footer={
+                  <div className="sticky bottom-0 shrink-0 bg-[var(--background)]/90 pb-1 pt-1 backdrop-blur-sm sm:hidden">
+                    {startButton(true)}
+                  </div>
+                }
+              />
+            </>
           }
           preview={<InterviewPreview options={options} config={config} resumes={resumes} />}
         />

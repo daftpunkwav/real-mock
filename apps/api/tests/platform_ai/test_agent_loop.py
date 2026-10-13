@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
-from realmock.platform.capabilities.ai.agent.loop import AgentHalt
+from realmock.platform.capabilities.ai.agent.loop import AgentHalt, AgentPause
 from realmock.platform.capabilities.ai.context.manager import prepare_llm_context
 
 
@@ -354,6 +354,93 @@ async def test_agent_halt_appends_observation_and_stops() -> None:
     assert tool_msgs and "Asked the user" in tool_msgs[0]["content"]
     # Do not enter another LLM round after halt
     assert llm.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_pause_leaves_call_open_and_stops() -> None:
+    """AgentPause: the raised call stays OPEN (no tool result), sibling results
+    are kept, the id-less declaration is normalized in place, and the loop
+    stops without another LLM round."""
+    llm = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"function": {"name": "ask_user", "arguments": "{}"}},
+                    {"id": "sib", "function": {"name": "search", "arguments": "{}"}},
+                ],
+            },
+            {"role": "assistant", "content": "Should not be reached", "tool_calls": None},
+        ]
+    )
+
+    async def execute(name: str, args: dict) -> str:
+        if name == "ask_user":
+            raise AgentPause("Dialog shown; waiting for the answer")
+        return "search results"
+
+    result = await run_agent_loop(
+        llm,
+        [{"role": "user", "content": "hi"}],
+        tools=[
+            {"type": "function", "function": {"name": "ask_user"}},
+            {"type": "function", "function": {"name": "search"}},
+        ],
+        execute=execute,
+        max_rounds=3,
+        allow_pause=True,
+    )
+    assert result.paused is True
+    assert result.halted is False
+    assert result.final_content is None
+    # The sibling keeps its result; the paused call has none.
+    tool_msgs = [m for m in result.messages if m.get("role") == "tool"]
+    assert [m["tool_call_id"] for m in tool_msgs] == ["sib"]
+    assistant = next(m for m in result.messages if m.get("tool_calls"))
+    paused_call = assistant["tool_calls"][0]
+    assert paused_call["id"], "id-less pause call is normalized for resume pairing"
+    # Do not enter another LLM round after pause
+    assert llm.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_pause_without_opt_in_lands_observation() -> None:
+    """Shared callers that never opted into the pause contract receive a
+    protocol-complete history: the pause text lands as a plain observation
+    and no call is left open."""
+
+    class _OnceLLM:
+        def __init__(self):
+            self.calls = 0
+
+        async def chat_message(self, messages, temperature=0.7, tools=None, **kwargs):
+            del messages, temperature, tools, kwargs
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{"function": {"name": "ask_user", "arguments": "{}"}}],
+                }
+            return {"role": "assistant", "content": "done", "tool_calls": None}
+
+    async def execute(name: str, args: dict) -> str:
+        del name, args
+        raise AgentPause("Dialog shown; waiting for the answer")
+
+    result = await run_agent_loop(
+        _OnceLLM(),
+        [{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": {"name": "ask_user"}}],
+        execute=execute,
+        max_rounds=3,
+    )
+    assert result.paused is False
+    tool_rows = [m for m in result.messages if m.get("role") == "tool"]
+    assert len(tool_rows) == 1 and "Dialog shown" in tool_rows[0]["content"], (
+        "the pause text landed as a plain observation"
+    )
 
 
 @pytest.mark.asyncio
