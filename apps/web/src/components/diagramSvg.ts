@@ -99,6 +99,25 @@ export function repairMermaidSubgraphs(source: string): string {
 }
 
 /**
+ * Repair a flowchart header that packs the direction and the first node
+ * statement onto a single line (`flowchart TB A["..."] --> B["..."]`). The
+ * flowchart grammar requires a NEWLINE right after the direction, so mermaid
+ * lexes the trailing statement as NODE_STRING and rejects the chart with
+ * "Expecting 'NEWLINE', got 'NODE_STRING'". Models emit this form routinely;
+ * moving the statement to its own line is the only change required — label
+ * contents (CJK, `@`, `<br/>`) are never the trigger. Headers already followed
+ * by a newline, direction-only headers, and non-flowchart sources (lowercase
+ * directions are a separate lexical error mermaid rejects on its own) pass
+ * through untouched.
+ */
+export function repairMermaidFlowHeader(source: string): string {
+  const lines = source.split("\n");
+  const match = (lines[0] ?? "").match(/^(\s*(?:flowchart|graph)\s+(?:TB|TD|BT|RL|LR))\s+(\S.*)$/);
+  if (!match) return source;
+  return [`${match[1] ?? ""}`, match[2] ?? ""].concat(lines.slice(1)).join("\n");
+}
+
+/**
  * Make the diagram fluid: strip fixed width/height attributes mermaid emits
  * so the SVG scales with its container (zoom is applied by the wrapper).
  * Inputs without an svg root tag pass through untouched.
