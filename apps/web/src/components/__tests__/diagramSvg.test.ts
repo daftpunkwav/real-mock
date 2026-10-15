@@ -183,6 +183,33 @@ describe("repairMermaidFlowHeader", () => {
     expect(repairMermaidFlowHeader(src)).toBe(src);
     const unterminated = '---\ntitle: "t"\nflowchart TD A["a"] --> B["b"]';
     expect(repairMermaidFlowHeader(unterminated)).toBe(unterminated);
+    const unclosedDirective = '%%{init: {"a":1}\nflowchart TD A["a"] --> B["b"]';
+    expect(repairMermaidFlowHeader(unclosedDirective)).toBe(unclosedDirective);
+  });
+
+  it("skips a multi-line directive, whose interior lines are not a declaration", () => {
+    const src = ["%%{init: {", '  "theme": "dark"', "}}%%", 'flowchart TD A["a"] --> B["b"]'].join(
+      "\n",
+    );
+    expect(repairMermaidFlowHeader(src)).toBe(
+      ["%%{init: {", '  "theme": "dark"', "}}%%", "flowchart TD", 'A["a"] --> B["b"]'].join("\n"),
+    );
+  });
+
+  it("keeps frontmatter open across an indented YAML block-scalar fence", () => {
+    // mermaid closes the block on a `---` at the opening indent only, so an
+    // indented `---` belonging to `title: |` is scalar content.
+    const src = [
+      "---",
+      "title: |",
+      "  ---",
+      "  body",
+      "---",
+      'flowchart TD A["a"] --> B["b"]',
+    ].join("\n");
+    expect(repairMermaidFlowHeader(src)).toBe(
+      ["---", "title: |", "  ---", "  body", "---", "flowchart TD", 'A["a"] --> B["b"]'].join("\n"),
+    );
   });
 });
 
@@ -243,6 +270,57 @@ describe("repairMermaidSource", () => {
         '%%{init: {"theme":"dark"}}%%',
         "flowchart TD",
         'A["开场"]',
+        '  subgraph sg1["收束"]',
+        '    Z["结束"]',
+        "  end",
+      ].join("\n"),
+    );
+  });
+
+  it("rewrites a CJK subgraph behind a multi-line directive", () => {
+    const src = [
+      "%%{init: {",
+      '  "theme": "dark"',
+      "}}%%",
+      'flowchart TD A["开场"]',
+      "  subgraph 收束",
+      '    Z["结束"]',
+      "  end",
+    ].join("\n");
+    expect(repairMermaidSource(src)).toBe(
+      [
+        "%%{init: {",
+        '  "theme": "dark"',
+        "}}%%",
+        "flowchart TD",
+        'A["开场"]',
+        '  subgraph sg1["收束"]',
+        '    Z["结束"]',
+        "  end",
+      ].join("\n"),
+    );
+  });
+
+  it("leaves the frontmatter alone, including subgraph-like scalar content", () => {
+    // The block scalar holds a line that looks like a subgraph header; it is
+    // YAML metadata and must keep its wording (and its numbering).
+    const src = [
+      "---",
+      "title: |",
+      "  subgraph 收束",
+      "---",
+      "flowchart TD",
+      "  subgraph 收束",
+      '    Z["结束"]',
+      "  end",
+    ].join("\n");
+    expect(repairMermaidSource(src)).toBe(
+      [
+        "---",
+        "title: |",
+        "  subgraph 收束",
+        "---",
+        "flowchart TD",
         '  subgraph sg1["收束"]',
         '    Z["结束"]',
         "  end",

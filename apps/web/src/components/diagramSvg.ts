@@ -62,22 +62,57 @@ export function sanitizeDiagramSvg(svg: string): string {
 }
 
 /**
+ * Drop a trailing CR so a CRLF line can be matched against the LF-only
+ * patterns below. Mermaid normalizes line endings before lexing.
+ */
+function stripLineTerminator(line: string): string {
+  return line.endsWith("\r") ? line.slice(0, -1) : line;
+}
+
+/**
+ * A YAML frontmatter fence: `---` alone on its line, keeping its indent.
+ * mermaid matches the closing fence at the indent of the opening one.
+ */
+const FRONTMATTER_FENCE = /^([^\S\r\n]*)---[^\S\r\n]*$/;
+
+/**
+ * Index of the last line of the `%%{ ... }%%` directive opening at `from`.
+ * mermaid lexes a directive as everything up to the first `}%%`, so the
+ * interior lines are directive text and never a diagram declaration. An
+ * unclosed directive consumes the rest of the source, as mermaid's own
+ * directive pattern does.
+ */
+function directiveEnd(lines: string[], from: number): number {
+  for (let index = from; index < lines.length; index += 1) {
+    if ((lines[index] ?? "").includes("}%%")) return index;
+  }
+  return lines.length - 1;
+}
+
+/**
  * Index of the line holding the diagram declaration, skipping the preamble
- * mermaid accepts in front of it: blank lines, `%%` directives and comments,
- * and a leading YAML frontmatter block. Returns -1 when the source declares no
- * diagram. Stopping at the first other line keeps the body of a non-flowchart
- * chart — where arbitrary prose may appear — out of the repair path.
+ * mermaid accepts in front of it: blank lines, `%%` comments, single- and
+ * multi-line `%%{ ... }%%` directives, and a leading YAML frontmatter block.
+ * Returns -1 when the source declares no diagram. Stopping at the first other
+ * line keeps the body of a non-flowchart chart — where arbitrary prose may
+ * appear — out of the repair path.
  */
 function diagramDeclarationIndex(lines: string[]): number {
-  let inFrontmatter = false;
+  let frontmatterIndent: string | null = null;
   for (let index = 0; index < lines.length; index += 1) {
-    const trimmed = (lines[index] ?? "").trim();
-    if (inFrontmatter) {
-      if (trimmed === "---") inFrontmatter = false;
+    const text = stripLineTerminator(lines[index] ?? "");
+    const trimmed = text.trim();
+    const fence = text.match(FRONTMATTER_FENCE);
+    if (frontmatterIndent !== null) {
+      // Only a fence at the opening indent closes the block, so an indented
+      // `---` inside a YAML block scalar cannot end it early.
+      if (fence?.[1] === frontmatterIndent) frontmatterIndent = null;
       continue;
     }
-    if (trimmed === "---") {
-      inFrontmatter = true;
+    if (fence) {
+      frontmatterIndent = fence[1] ?? "";
+    } else if (trimmed.startsWith("%%{")) {
+      index = directiveEnd(lines, index);
     } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
       return index;
     }
@@ -91,18 +126,21 @@ function diagramDeclarationIndex(lines: string[]): number {
  * grammar only accepts a single ASCII id: `subgraph <id>["title"]`. Rewrite
  * invalid headers to generated ids while preserving the original wording as
  * the quoted title. The flowchart is located past any preamble, so a leading
- * directive, comment, or frontmatter block does not skip the whole repair.
- * Non-flowchart sources pass through untouched.
+ * directive, comment, or frontmatter block does not skip the whole repair; the
+ * preamble itself is left untouched because `%%` comments and YAML metadata
+ * are never flowchart body. Non-flowchart sources pass through untouched.
  */
 export function repairMermaidSubgraphs(source: string): string {
   const lines = source.split("\n");
-  const declaration = (lines[diagramDeclarationIndex(lines)] ?? "").trim().toLowerCase();
-  if (!declaration.startsWith("flowchart") && !declaration.startsWith("graph")) {
+  const declaration = diagramDeclarationIndex(lines);
+  const head = (lines[declaration] ?? "").trim().toLowerCase();
+  if (!head.startsWith("flowchart") && !head.startsWith("graph")) {
     return source;
   }
   let counter = 0;
   let changed = false;
-  const out = lines.map((line) => {
+  const out = lines.map((line, index) => {
+    if (index < declaration) return line;
     const match = line.match(/^(\s*)subgraph\s+(.+?)\s*$/);
     if (!match) return line;
     const indent = match[1] ?? "";
@@ -154,7 +192,7 @@ export function repairMermaidFlowHeader(source: string): string {
   // A CRLF source carries its terminator on the line itself; match the text
   // without it so both halves of the split can carry it again.
   const terminator = raw.endsWith("\r") ? "\r" : "";
-  const match = (terminator ? raw.slice(0, -1) : raw).match(PACKED_FLOW_HEADER);
+  const match = stripLineTerminator(raw).match(PACKED_FLOW_HEADER);
   if (!match) return source;
   return [
     ...lines.slice(0, index),
