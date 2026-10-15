@@ -22,12 +22,8 @@ import {
 } from "lucide-react";
 import { useT } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import {
-  fitDiagramSvg,
-  isErrorDiagramSvg,
-  repairMermaidSource,
-  sanitizeDiagramSvg,
-} from "./diagramSvg";
+import { fitDiagramSvg, isErrorDiagramSvg, sanitizeDiagramSvg } from "./diagramSvg";
+import { repairMermaidSource } from "./diagramSource";
 
 /** Debounce re-renders while the chart streams in. */
 const RENDER_DEBOUNCE_MS = 300;
