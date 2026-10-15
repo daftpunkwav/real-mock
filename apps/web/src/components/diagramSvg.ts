@@ -62,16 +62,42 @@ export function sanitizeDiagramSvg(svg: string): string {
 }
 
 /**
+ * Index of the line holding the diagram declaration, skipping the preamble
+ * mermaid accepts in front of it: blank lines, `%%` directives and comments,
+ * and a leading YAML frontmatter block. Returns -1 when the source declares no
+ * diagram. Stopping at the first other line keeps the body of a non-flowchart
+ * chart — where arbitrary prose may appear — out of the repair path.
+ */
+function diagramDeclarationIndex(lines: string[]): number {
+  let inFrontmatter = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const trimmed = (lines[index] ?? "").trim();
+    if (inFrontmatter) {
+      if (trimmed === "---") inFrontmatter = false;
+      continue;
+    }
+    if (trimmed === "---") {
+      inFrontmatter = true;
+    } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
  * Repair LLM-generated flowchart `subgraph` headers that mermaid rejects.
  * Models often emit `subgraph 准备层 R["..."]` (bare CJK ids, spaces), but the
  * grammar only accepts a single ASCII id: `subgraph <id>["title"]`. Rewrite
  * invalid headers to generated ids while preserving the original wording as
- * the quoted title. Non-flowchart sources pass through untouched.
+ * the quoted title. The flowchart is located past any preamble, so a leading
+ * directive, comment, or frontmatter block does not skip the whole repair.
+ * Non-flowchart sources pass through untouched.
  */
 export function repairMermaidSubgraphs(source: string): string {
   const lines = source.split("\n");
-  const first = (lines[0] ?? "").trim().toLowerCase();
-  if (!first.startsWith("flowchart") && !first.startsWith("graph")) {
+  const declaration = (lines[diagramDeclarationIndex(lines)] ?? "").trim().toLowerCase();
+  if (!declaration.startsWith("flowchart") && !declaration.startsWith("graph")) {
     return source;
   }
   let counter = 0;
@@ -103,30 +129,6 @@ export function repairMermaidSubgraphs(source: string): string {
  * statement (`flowchart TB A["..."] --> B["..."]`).
  */
 const PACKED_FLOW_HEADER = /^(\s*(?:flowchart|graph)\s+(?:TB|TD|BT|RL|LR))\s+(\S.*)$/;
-
-/**
- * Index of the line holding the diagram declaration, skipping the preamble
- * mermaid accepts in front of it: blank lines, `%%` directives and comments,
- * and a leading YAML frontmatter block. Returns -1 when the source declares no
- * diagram. Stopping at the first other line keeps the body of a non-flowchart
- * chart — where arbitrary prose may appear — out of the repair path.
- */
-function diagramDeclarationIndex(lines: string[]): number {
-  let inFrontmatter = false;
-  for (let index = 0; index < lines.length; index += 1) {
-    const trimmed = (lines[index] ?? "").trim();
-    if (inFrontmatter) {
-      if (trimmed === "---") inFrontmatter = false;
-      continue;
-    }
-    if (trimmed === "---") {
-      inFrontmatter = true;
-    } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
-      return index;
-    }
-  }
-  return -1;
-}
 
 /**
  * Repair a flowchart header that packs the direction and the first node

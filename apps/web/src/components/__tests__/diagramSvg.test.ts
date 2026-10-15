@@ -214,6 +214,41 @@ describe("repairMermaidSource", () => {
     const src = "sequenceDiagram\n  A->>B: hi\n";
     expect(repairMermaidSource(src)).toBe(src);
   });
+
+  it("rewrites a CJK subgraph when a preamble precedes the declaration", () => {
+    const cases = [
+      '%%{init: {"theme":"dark"}}%%\n',
+      "%% prep chart\n",
+      '---\ntitle: "t"\n---\n',
+      "\n",
+    ];
+    for (const preamble of cases) {
+      const src = `${preamble}flowchart TD\n  subgraph 收束\n    Z["结束"]\n  end`;
+      expect(repairMermaidSource(src)).toBe(
+        `${preamble}flowchart TD\n  subgraph sg1["收束"]\n    Z["结束"]\n  end`,
+      );
+    }
+  });
+
+  it("rewrites both a packed header and a CJK subgraph behind a preamble", () => {
+    const src = [
+      '%%{init: {"theme":"dark"}}%%',
+      'flowchart TD A["开场"]',
+      "  subgraph 收束",
+      '    Z["结束"]',
+      "  end",
+    ].join("\n");
+    expect(repairMermaidSource(src)).toBe(
+      [
+        '%%{init: {"theme":"dark"}}%%',
+        "flowchart TD",
+        'A["开场"]',
+        '  subgraph sg1["收束"]',
+        '    Z["结束"]',
+        "  end",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("repairMermaidSubgraphs", () => {
