@@ -6,6 +6,7 @@ import {
   fitDiagramSvg,
   isErrorDiagramSvg,
   repairMermaidFlowHeader,
+  repairMermaidSource,
   repairMermaidSubgraphs,
   sanitizeDiagramSvg,
 } from "../diagramSvg";
@@ -139,14 +140,79 @@ describe("repairMermaidFlowHeader", () => {
     expect(repairMermaidFlowHeader(once)).toBe(once);
   });
 
-  it("leaves direction-only headers, non-flowcharts, and CRLF input alone", () => {
+  it("leaves direction-only headers and non-flowcharts alone", () => {
     expect(repairMermaidFlowHeader("flowchart TB\n")).toBe("flowchart TB\n");
     expect(repairMermaidFlowHeader("sequenceDiagram\n  A->>B: hi")).toBe(
       "sequenceDiagram\n  A->>B: hi",
     );
-    expect(repairMermaidFlowHeader('flowchart TB A["a"]\r\nB --> C')).toBe(
-      'flowchart TB A["a"]\r\nB --> C',
+  });
+
+  it("repairs a packed header on a CRLF source and keeps the CRLF line endings", () => {
+    const src = 'flowchart TB A["a"] --> B["b"]\r\nB --> C["c"]\r\n';
+    expect(repairMermaidFlowHeader(src)).toBe(
+      'flowchart TB\r\nA["a"] --> B["b"]\r\nB --> C["c"]\r\n',
     );
+  });
+
+  it("repairs a packed header that follows a preamble, preserving the preamble", () => {
+    const cases = [
+      {
+        src: '%%{init: {"theme":"dark"}}%%\nflowchart TD A["a"] --> B["b"]',
+        expected: '%%{init: {"theme":"dark"}}%%\nflowchart TD\nA["a"] --> B["b"]',
+      },
+      {
+        src: '%% prep chart\nflowchart TD A["a"] --> B["b"]',
+        expected: '%% prep chart\nflowchart TD\nA["a"] --> B["b"]',
+      },
+      {
+        src: '---\ntitle: "t"\n---\nflowchart TD A["a"] --> B["b"]',
+        expected: '---\ntitle: "t"\n---\nflowchart TD\nA["a"] --> B["b"]',
+      },
+      {
+        src: '\n\nflowchart TD A["a"] --> B["b"]',
+        expected: '\n\nflowchart TD\nA["a"] --> B["b"]',
+      },
+    ];
+    for (const { src, expected } of cases) {
+      expect(repairMermaidFlowHeader(src)).toBe(expected);
+    }
+  });
+
+  it("does not reach past the declaration into the body of another diagram", () => {
+    const src = "%% c\nsequenceDiagram\n  Note over A: graph LR is only prose here";
+    expect(repairMermaidFlowHeader(src)).toBe(src);
+    const unterminated = '---\ntitle: "t"\nflowchart TD A["a"] --> B["b"]';
+    expect(repairMermaidFlowHeader(unterminated)).toBe(unterminated);
+  });
+});
+
+describe("repairMermaidSource", () => {
+  it("repairs a CJK subgraph packed onto the header line", () => {
+    const src = [
+      'flowchart TD subgraph 准备层 R["简历结构化档案"]',
+      '    A["开场"] --> B["收束"]',
+      "  end",
+    ].join("\n");
+    expect(repairMermaidSource(src)).toBe(
+      [
+        "flowchart TD",
+        'subgraph sg1["准备层 R 简历结构化档案"]',
+        '    A["开场"] --> B["收束"]',
+        "  end",
+      ].join("\n"),
+    );
+  });
+
+  it("still repairs an unpacked chart exactly as before", () => {
+    const src = ["flowchart TB", "  subgraph 收束", '    Z["结束"]', "  end"].join("\n");
+    expect(repairMermaidSource(src)).toBe(
+      ["flowchart TB", '  subgraph sg1["收束"]', '    Z["结束"]', "  end"].join("\n"),
+    );
+  });
+
+  it("returns the source untouched when neither repair applies", () => {
+    const src = "sequenceDiagram\n  A->>B: hi\n";
+    expect(repairMermaidSource(src)).toBe(src);
   });
 });
 

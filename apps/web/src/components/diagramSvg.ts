@@ -99,22 +99,81 @@ export function repairMermaidSubgraphs(source: string): string {
 }
 
 /**
+ * A flowchart header whose direction shares its line with the first node
+ * statement (`flowchart TB A["..."] --> B["..."]`).
+ */
+const PACKED_FLOW_HEADER = /^(\s*(?:flowchart|graph)\s+(?:TB|TD|BT|RL|LR))\s+(\S.*)$/;
+
+/**
+ * Index of the line holding the diagram declaration, skipping the preamble
+ * mermaid accepts in front of it: blank lines, `%%` directives and comments,
+ * and a leading YAML frontmatter block. Returns -1 when the source declares no
+ * diagram. Stopping at the first other line keeps the body of a non-flowchart
+ * chart — where arbitrary prose may appear — out of the repair path.
+ */
+function diagramDeclarationIndex(lines: string[]): number {
+  let inFrontmatter = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const trimmed = (lines[index] ?? "").trim();
+    if (inFrontmatter) {
+      if (trimmed === "---") inFrontmatter = false;
+      continue;
+    }
+    if (trimmed === "---") {
+      inFrontmatter = true;
+    } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
  * Repair a flowchart header that packs the direction and the first node
  * statement onto a single line (`flowchart TB A["..."] --> B["..."]`). The
  * flowchart grammar requires a NEWLINE right after the direction, so mermaid
  * lexes the trailing statement as NODE_STRING and rejects the chart with
  * "Expecting 'NEWLINE', got 'NODE_STRING'". Models emit this form routinely;
  * moving the statement to its own line is the only change required — label
- * contents (CJK, `@`, `<br/>`) are never the trigger. Headers already followed
- * by a newline, direction-only headers, and non-flowchart sources (lowercase
- * directions are a separate lexical error mermaid rejects on its own) pass
- * through untouched.
+ * contents (CJK, `@`, `<br/>`) are never the trigger. Lowercase directions
+ * are a separate lexical error mermaid rejects on its own.
+ *
+ * The declaration is located past any preamble, and the split re-attaches the
+ * line's own terminator, so the source's line endings and its leading
+ * directive, comment, or frontmatter block survive the repair unchanged.
+ * Sources without a packed header are returned untouched, which keeps the
+ * caller's no-op retry guard meaningful.
  */
 export function repairMermaidFlowHeader(source: string): string {
   const lines = source.split("\n");
-  const match = (lines[0] ?? "").match(/^(\s*(?:flowchart|graph)\s+(?:TB|TD|BT|RL|LR))\s+(\S.*)$/);
+  const index = diagramDeclarationIndex(lines);
+  if (index < 0) return source;
+  const raw = lines[index] ?? "";
+  // A CRLF source carries its terminator on the line itself; match the text
+  // without it so both halves of the split can carry it again.
+  const terminator = raw.endsWith("\r") ? "\r" : "";
+  const match = (terminator ? raw.slice(0, -1) : raw).match(PACKED_FLOW_HEADER);
   if (!match) return source;
-  return [`${match[1] ?? ""}`, match[2] ?? ""].concat(lines.slice(1)).join("\n");
+  return [
+    ...lines.slice(0, index),
+    `${match[1] ?? ""}${terminator}`,
+    `${match[2] ?? ""}${terminator}`,
+    ...lines.slice(index + 1),
+  ].join("\n");
+}
+
+/**
+ * Every syntax repair applied to a chart before it is re-rendered.
+ *
+ * The order is load-bearing: the packed header must be split first, because
+ * both repairs only recognise a declaration on the first non-preamble line, and
+ * a CJK subgraph header sitting on the packed header line is invisible to
+ * repairMermaidSubgraphs until the split has moved it onto its own line.
+ * Applying them the other way round leaves such a chart unrepaired, and the
+ * caller falls back to the source view.
+ */
+export function repairMermaidSource(source: string): string {
+  return repairMermaidSubgraphs(repairMermaidFlowHeader(source));
 }
 
 /**

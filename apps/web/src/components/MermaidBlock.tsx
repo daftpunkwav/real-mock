@@ -25,8 +25,7 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   fitDiagramSvg,
   isErrorDiagramSvg,
-  repairMermaidFlowHeader,
-  repairMermaidSubgraphs,
+  repairMermaidSource,
   sanitizeDiagramSvg,
 } from "./diagramSvg";
 
@@ -118,8 +117,8 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
               : { fontFamily: "inherit" },
             flowchart: { htmlLabels: true },
           });
-          // Models sometimes emit invalid `subgraph` headers (bare CJK ids) or
-          // pack the flowchart direction and the first node onto one line.
+          // Models sometimes pack the flowchart direction and the first node
+          // onto one line, or emit invalid `subgraph` headers (bare CJK ids).
           // mermaid.parse() may still resolve while render() rejects (or
           // resolves with the error placeholder), so retry the whole
           // parse+render once with repaired syntax before degrading.
@@ -135,7 +134,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
           try {
             rendered = await renderText(source);
           } catch (firstErr) {
-            const fixed = repairMermaidFlowHeader(repairMermaidSubgraphs(source));
+            const fixed = repairMermaidSource(source);
             if (fixed === source) throw firstErr;
             rendered = await renderText(fixed);
           }
