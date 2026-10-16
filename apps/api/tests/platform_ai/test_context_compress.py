@@ -5,13 +5,17 @@ from __future__ import annotations
 import pytest
 
 from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
-from realmock.platform.capabilities.ai.context.compress import protected_run_budget
+from realmock.platform.capabilities.ai.context.compress import (
+    PROTECTED_ROW_MIN_CHARS,
+    protected_run_budget,
+)
 from realmock.platform.capabilities.ai.context.manager import (
     compact_with_summary,
     compress_messages,
     estimate_messages_tokens,
     estimate_tokens,
 )
+from realmock.platform.capabilities.ai.llm.json_extract import truncate_chunk
 
 
 def test_estimate_tokens_empty() -> None:
@@ -320,6 +324,59 @@ def test_compress_bounds_aggregate_of_protected_run() -> None:
     kept = sum(estimate_tokens(str(results[cid]["content"])) for cid in sorted(results))
     assert kept <= budget, f"protected run must fit the budget ({kept} > {budget})"
     assert before > budget, "the fixture starts over budget, so the bound is what fixed it"
+
+
+@pytest.mark.parametrize("sibling_chars", [1_001, 1_500, 5_000])
+def test_compress_protected_fold_respects_feasible_floor(sibling_chars: int) -> None:
+    msgs = _parallel_dialog_round(sibling_chars=sibling_chars)
+
+    out = compress_messages(msgs, max_tokens=14_700)
+
+    results = [m for m in out if m.get("role") == "tool"]
+    assert len(results) == 3
+    for result, original in zip(results, msgs[2:5], strict=True):
+        assert result["content"] == truncate_chunk(
+            original["content"], limit=PROTECTED_ROW_MIN_CHARS
+        )
+    assert sum(estimate_tokens(m["content"]) for m in results) <= protected_run_budget(14_700)
+
+
+@pytest.mark.parametrize(
+    ("content", "row_count"),
+    [
+        ("B" * PROTECTED_ROW_MIN_CHARS, 3),
+        ("观" * PROTECTED_ROW_MIN_CHARS, 3),
+        ("观" * 40_000, 3),
+        ("B" * 40_000, 12),
+        ("观" * 180, 8),
+    ],
+    ids=["latin-at-floor", "cjk-at-floor", "cjk-large", "many-rows", "short-rows"],
+)
+def test_compress_protected_fold_below_infeasible_floor(content: str, row_count: int) -> None:
+    declaration = {
+        "role": "assistant",
+        "content": "",
+        "keep_tool_pair": True,
+        "ask_pending": True,
+        "tool_calls": [
+            {"id": str(i), "function": {"name": "search", "arguments": "{}"}}
+            for i in range(row_count)
+        ],
+    }
+    rows = [{"role": "tool", "tool_call_id": str(i), "content": content} for i in range(row_count)]
+    msgs = [declaration, *rows, {"role": "user", "content": "the answer"}]
+
+    out = compress_messages(msgs, max_tokens=5_000)
+
+    assert declaration in out
+    results = [m for m in out if m.get("role") == "tool"]
+    assert [m["tool_call_id"] for m in results] == [m["tool_call_id"] for m in rows]
+    assert sum(estimate_tokens(m["content"]) for m in results) <= protected_run_budget(5_000)
+    for result, original in zip(results, rows, strict=True):
+        assert original["content"] == content, "stored history must stay intact"
+        if result["content"] != content:
+            assert "chunk truncated" in result["content"]
+            assert len(result["content"]) < len(content)
 
 
 def test_compress_protected_fold_keeps_small_rows_and_marks_the_cut() -> None:

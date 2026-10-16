@@ -32,9 +32,8 @@ PROTECTED_RUN_TOKEN_RATIO = 0.1
 #: Floor for the derived ceiling, so a small window does not squeeze the run
 #: down to an excerpt that carries no signal.
 PROTECTED_RUN_MIN_TOKENS = 500
-#: Floor for one protected tool row. Below this the excerpt stops being usable,
-#: and the leftover overflow is one no later fold can reach either — the row is
-#: never dropped, because an unpaired ``tool_calls`` entry is a hard 400.
+#: Preferred floor for one protected tool row. If the aggregate cannot fit at
+#: this floor, shrink further while keeping every result and marking each cut.
 PROTECTED_ROW_MIN_CHARS = 2_000
 
 
@@ -66,18 +65,24 @@ def _fold_protected_run(out: list[dict[str, Any]], positions: list[int], budget:
     }
     costs = {position: estimate_tokens(str(row["content"])) for position, row in rows.items()}
     total = sum(costs.values())
-    for position in sorted(costs, key=lambda item: -costs[item]):
-        if total <= budget:
-            return
-        text = str(rows[position]["content"])
-        limit = len(text)
-        while limit > PROTECTED_ROW_MIN_CHARS and total > budget:
-            limit //= 2
-            folded = truncate_chunk(text, limit=limit)
-            folded_cost = estimate_tokens(folded)
-            total -= costs[position] - folded_cost
-            costs[position] = folded_cost
-            out[position] = {**rows[position], "content": folded}
+    # Exhaust the preferred floor across all rows before going below it.
+    for floor in (PROTECTED_ROW_MIN_CHARS, 0):
+        for position in sorted(costs, key=lambda item: -costs[item]):
+            if total <= budget:
+                return
+            text = str(rows[position]["content"])
+            limit = len(str(out[position]["content"]))
+            while limit > floor and total > budget:
+                limit = max(floor, limit // 2)
+                # truncate_chunk keeps at least 80 characters at each end;
+                # a marker alone lets even many short rows fit a tight budget.
+                folded = truncate_chunk(text, limit=limit) if limit else "[chunk truncated]"
+                folded_cost = estimate_tokens(folded)
+                if folded_cost >= costs[position] or len(folded) >= len(out[position]["content"]):
+                    continue
+                total -= costs[position] - folded_cost
+                costs[position] = folded_cost
+                out[position] = {**rows[position], "content": folded}
 
 
 def _prune_stale_tool_pairs(
