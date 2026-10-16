@@ -546,6 +546,24 @@ async def _stream_waiting_line(agent: "PrepAgent") -> AsyncIterator[str | dict[s
         yield piece
 
 
+async def _stream_paused_tail(
+    agent: "PrepAgent",
+    search_groups: list[dict[str, Any]],
+    ask_event: dict[str, Any] | None,
+) -> AsyncIterator[str | dict[str, Any]]:
+    """Close a dialog-paused turn visually, once its state is committed.
+
+    The round's search cards lead, so the dialog still follows the results
+    that produced it; the waiting line then holds the turn open.
+    """
+    if search_groups:
+        yield {"type": "search_results", "groups": search_groups}
+    if ask_event is not None:
+        yield {"type": "ask_user", **ask_event}
+    async for piece in _stream_waiting_line(agent):
+        yield piece
+
+
 def _finalize_paused_turn(
     agent: "PrepAgent",
     working: list[dict[str, Any]],
@@ -772,13 +790,7 @@ async def run_chat_stream(
                 asked_user=asked_user,
             )
             finalized = True
-            # The paused branch returns before the non-paused card emission, so
-            # the round's cards ride here, still ahead of the dialog.
-            if search_groups:
-                yield {"type": "search_results", "groups": search_groups}
-            if ask_event is not None:
-                yield {"type": "ask_user", **ask_event}
-            async for piece in _stream_waiting_line(agent):
+            async for piece in _stream_paused_tail(agent, search_groups, ask_event):
                 yield piece
             if delta:
                 yield delta

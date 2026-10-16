@@ -50,10 +50,21 @@ class _FakeSession:
 
 
 class _FakeDB:
-    """No-op DB session: commits land nowhere, queries resolve to nothing."""
+    """Fake DB session: queries resolve to nothing; commit snapshots the bound
+    session when one is supplied.
+
+    ``PrepAgent._save`` assigns ``session.messages`` before it commits, so the
+    in-memory column alone proves nothing about what reached the database —
+    only the snapshot taken inside ``commit()`` is committed history.
+    """
+
+    def __init__(self, session: "_FakeSession | None" = None) -> None:
+        self.session = session
+        self.committed_messages: list[dict] = []
 
     def commit(self):
-        pass
+        if self.session is not None:
+            self.committed_messages = _stored(self.session)
 
     def rollback(self):
         pass
@@ -294,31 +305,34 @@ async def _drain(agen):
     return [item async for item in agen]
 
 
-def test_dialog_reaches_the_client_only_after_the_pause_state_is_persisted() -> None:
+def test_dialog_reaches_the_client_only_after_the_pause_state_is_committed() -> None:
     """The dialog event is emitted after the pause state is committed.
 
     The user must never hold a dialog whose resume state history cannot serve:
     a turn lost between the emit and the save leaves their answer starting a
-    new task instead of resuming the interrupted one. Asserting on the stored
-    history at the moment the event is yielded is the only place the ordering
-    is observable.
+    new task instead of resuming the interrupted one. The snapshot the fake DB
+    takes inside ``commit()`` is the only place the ordering is observable —
+    the in-memory column is assigned before the commit.
     """
     session = _FakeSession()
-    db = _FakeDB()
+    db = _FakeDB(session)
     agent = PrepAgent(session, _CapturingLLM([_ask_call("Which?", ["A", "B"])]))  # type: ignore[arg-type]
 
-    async def stored_at_dialog() -> list[dict]:
+    async def committed_at_dialog() -> list[dict]:
         agen = agent.chat_stream("Test these tools", db)  # type: ignore[arg-type]
         async for item in agen:
             if isinstance(item, dict) and item.get("type") == "ask_user":
-                return _stored(session)
+                return db.committed_messages
         return []
 
-    stored = asyncio.run(stored_at_dialog())
-    assert [m for m in stored if m.get("ask_pending")], (
-        "the open call was still unpersisted when the dialog reached the client"
+    committed = asyncio.run(committed_at_dialog())
+    assert committed, "the turn never committed before the dialog"
+    assert [m for m in committed if m.get("ask_pending")], (
+        "the open call was still uncommitted when the dialog reached the client"
     )
-    assert not [m for m in stored if m.get("role") == "tool"], "the dialog call has no result yet"
+    assert not [m for m in committed if m.get("role") == "tool"], (
+        "the dialog call has no result yet"
+    )
 
 
 def test_cancel_during_pause_persists_the_resume_marker() -> None:
