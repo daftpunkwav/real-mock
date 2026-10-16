@@ -103,10 +103,15 @@ function usedDiagramIds(lines: string[], from: number): Set<string> {
  *
  * The trailing whitespace is left in the capture and trimmed by the caller:
  * requiring it here with a lazy `(.+?)\s*$` lets both groups match the same
- * run of whitespace, which backtracks across the line. Capturing one
- * whitespace and the rest of the line leaves a single split point.
+ * run of whitespace, which backtracks across the line. Capturing the separator
+ * and the rest of the line leaves a single split point.
+ *
+ * The `\s+\S` pair requires a real id or title after the keyword, so a `subgraph`
+ * line followed by nothing but whitespace carries no header to rewrite and keeps
+ * the whole source untouched. A whitespace run then backtracks onto its own
+ * single non-whitespace character, never across the line.
  */
-const SUBGRAPH_HEADER = /^(\s*)subgraph(\s.*)$/;
+const SUBGRAPH_HEADER = /^(\s*)subgraph(\s+\S.*)$/;
 
 /**
  * Repair LLM-generated flowchart `subgraph` headers that mermaid rejects.

@@ -275,6 +275,16 @@ describe("repairMermaidSubgraphs", () => {
     expect(repairMermaidSubgraphs(src)).toBe(src);
   });
 
+  it("leaves a header with no id or title untouched", () => {
+    // Nothing follows the keyword, so there is no header to rewrite: the
+    // source must come back whole for the caller's no-op guard to hold.
+    const src = ["flowchart TB", "  subgraph ", '    K["x"]', "  end"].join("\n");
+    expect(repairMermaidSubgraphs(src)).toBe(src);
+    const spaced = ["flowchart TB", "  subgraph   ", '    K["x"]', "  end"].join("\n");
+    expect(repairMermaidSubgraphs(spaced)).toBe(spaced);
+    expect(repairMermaidSource(spaced)).toBe(spaced);
+  });
+
   it("ignores non-flowchart diagrams", () => {
     const src = "sequenceDiagram\n  A->>B: hi\n";
     expect(repairMermaidSubgraphs(src)).toBe(src);
