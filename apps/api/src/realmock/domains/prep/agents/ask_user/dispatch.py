@@ -1,8 +1,7 @@
-"""Ask-user dispatch: validate, emit the dialog event, and pause the turn loop."""
+"""Ask-user dispatch: validate, hand the dialog payload to the gate, and pause the turn loop."""
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from realmock.domains.prep.agents.ask_user.normalize import normalize_ask_questions
@@ -14,19 +13,23 @@ async def dispatch_ask_user(
     *,
     args: Any,
     memory: WorkingMemory,
-    events: asyncio.Queue | None = None,
-    search_groups: list[dict[str, Any]] | None = None,
     asked_user: dict[str, Any] | None = None,
 ) -> str:
-    """Execute the ask_user tool: validate, write memory, emit a dialog event, and pause the loop.
+    """Execute the ask_user tool: validate, write memory, hand over the dialog, and pause the loop.
 
     Accepts the raw tool arguments (``questions`` array of 1–8 items, or the flat
     single-question shorthand). When no question survives validation, return
     explanatory text (as the tool observation, prompting the model to ask in the
-    response body instead); otherwise, write to working memory, emit the
-    ``ask_user`` event, and raise :class:`AgentPause`. The event carries the flat
-    fields of the FIRST question plus a ``questions`` list only when several
+    response body instead); otherwise, write to working memory, hand the dialog
+    payload to the gate, and raise :class:`AgentPause`. The payload carries the
+    flat fields of the FIRST question plus a ``questions`` list only when several
     survived, so the single-question contract stays unchanged.
+
+    The tool never emits the dialog itself: the channel that owns persistence
+    sends it, and only after the pause state has been committed (see
+    ``chat.run_chat_stream``). Emitting from here would put the dialog in front
+    of the user while its open call is still unpersisted, and a turn lost in
+    that window leaves an answerable-looking dialog with no state to resume.
 
     The pause leaves the ask_user tool_call OPEN (no tool result); the user's
     reply — popup answer or free-typed text — completes it as a pointer
@@ -37,10 +40,9 @@ async def dispatch_ask_user(
     Args:
         args: Raw tool arguments (``questions`` array or flat shorthand).
         memory: Working memory receiving the asked-questions note.
-        events: Optional event queue for the ``ask_user`` event (None emits nothing).
-        search_groups: Optional search cards re-emitted before the dialog for ordering.
         asked_user: Optional gate flag; set to True on fire and given
-            the dialog payload under ``asked_user["event"]`` for event-less channels.
+            the dialog payload under ``asked_user["event"]`` for the caller
+            to emit once the pause state is persisted.
 
     Returns:
         Observation text (only when validation fails; otherwise raises).
@@ -66,25 +68,10 @@ async def dispatch_ask_user(
         event["questions"] = dialog_events
     if asked_user is not None:
         asked_user["on"] = True
-        # The dialog payload rides the gate dict so channels without an event
-        # queue (sync `/message`) can surface it in their response body.
+        # The dialog payload rides the gate dict; the streaming channel emits it
+        # after committing the pause state, and the sync `/message` channel
+        # surfaces it in the response body it persists the same way.
         asked_user["event"] = dict(event)
-    if events is not None:
-        # Re-emit the previously generated search cards first so card events keep their order before the ask-user dialog.
-        if search_groups:
-            await events.put(
-                {
-                    "type": "search_results",
-                    "groups": list(search_groups),
-                }
-            )
-        await events.put({"type": "ask_user", **event})
-        if asked_user is not None:
-            # Delivered marker: only a dialog the stream actually queued may
-            # persist a resumable pending state on cancellation — a put
-            # interrupted by a client disconnect never reached the user, and
-            # marking it would consume their next input as an unseen answer.
-            asked_user["emitted"] = True
     raise AgentPause(
         "Dialog shown to the user; waiting for their answer. "
         "The turn pauses here and resumes with their reply."

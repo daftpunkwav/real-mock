@@ -773,7 +773,7 @@ async def test_execute_short_circuits_duplicate_tool_calls(monkeypatch) -> None:
     agent = PrepAgent(
         _FakeSession(), _FakeLLM(messages_reply={"role": "assistant", "content": "x"})
     )  # type: ignore[arg-type]
-    execute = agent._build_execute(_FakeDB(), [], None, None)
+    execute = agent._build_execute(_FakeDB(), [], None)
 
     first = await execute("web_search", {"query": "Interview notes"})
     second = await execute("web_search", {"query": "Interview notes"})
@@ -806,7 +806,7 @@ async def test_execute_failed_call_not_cached(monkeypatch) -> None:
     agent = PrepAgent(
         _FakeSession(), _FakeLLM(messages_reply={"role": "assistant", "content": "x"})
     )  # type: ignore[arg-type]
-    execute = agent._build_execute(_FakeDB(), [], None, None)
+    execute = agent._build_execute(_FakeDB(), [], None)
 
     first = await execute("web_search", {"query": "Interview notes"})
     second = await execute("web_search", {"query": "Interview notes"})
@@ -1131,7 +1131,7 @@ async def test_dispatch_multi_question_event_shape() -> None:
     from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
     memory = WorkingMemory()
-    queue: asyncio.Queue = asyncio.Queue()
+    asked_user: dict = {"on": False}
     with pytest.raises(AgentPause):
         await dispatch_ask_user(
             args={
@@ -1145,10 +1145,9 @@ async def test_dispatch_multi_question_event_shape() -> None:
                 ],
             },
             memory=memory,
-            events=queue,
+            asked_user=asked_user,
         )
-    event = queue.get_nowait()
-    assert event["type"] == "ask_user"
+    event = asked_user["event"]
     assert event["question"] == "Target role?", "flat fields mirror the first question"
     assert event["options"] == ["Backend", "Algorithm"]
     assert [q["question"] for q in event["questions"]] == ["Target role?", "Weekly hours?"]
@@ -1162,14 +1161,14 @@ async def test_dispatch_single_question_event_unchanged() -> None:
     from realmock.domains.prep.agents.ask_user import dispatch_ask_user
     from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
-    queue: asyncio.Queue = asyncio.Queue()
+    asked_user: dict = {"on": False}
     with pytest.raises(AgentPause):
         await dispatch_ask_user(
             args={"question": "Which one?", "options": ["A", "B"]},
             memory=WorkingMemory(),
-            events=queue,
+            asked_user=asked_user,
         )
-    event = queue.get_nowait()
+    event = asked_user["event"]
     assert event["question"] == "Which one?"
     assert "questions" not in event
 
@@ -1184,10 +1183,10 @@ async def test_dispatch_clamps_and_skips_invalid_questions() -> None:
     memory = WorkingMemory()
     many = [{"question": f"Q{i}?", "options": ["A", "B"]} for i in range(9)]
     many.insert(3, {"not": "a question"})
-    queue: asyncio.Queue = asyncio.Queue()
+    asked_user: dict = {"on": False}
     with pytest.raises(AgentPause):
-        await dispatch_ask_user(args={"questions": many}, memory=memory, events=queue)
-    event = queue.get_nowait()
+        await dispatch_ask_user(args={"questions": many}, memory=memory, asked_user=asked_user)
+    event = asked_user["event"]
     assert len(event["questions"]) == 8
     assert [q["question"] for q in event["questions"]] == [f"Q{i}?" for i in range(8)]
 

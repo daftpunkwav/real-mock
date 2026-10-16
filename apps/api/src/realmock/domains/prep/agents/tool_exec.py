@@ -90,11 +90,10 @@ def build_execute_callback(
     memory: WorkingMemory,
     db: Session,
     search_groups: list[dict[str, Any]],
-    events: asyncio.Queue | None,
     asked_user: dict[str, Any] | None,
-    error_context: dict[str, Any] | None = None,
+    error_context: dict[str, str] | None = None,
 ) -> ToolExecutor:
-    """Build the tool execution callback; ``events``/``asked_user`` enable immediate reporting through the streaming channel.
+    """Build the tool execution callback; ``asked_user`` enables immediate reporting through the streaming channel.
 
     Duplicate calls with identical arguments within the same turn are short-circuited (prevents think-then-act spinning);
     failed/timed-out calls are not cached, allowing retries with different arguments, but a tool failing
@@ -106,10 +105,9 @@ def build_execute_callback(
         memory: Working memory handed to ask_user and domain handlers.
         db: Sessions database session handed to the dispatcher.
         search_groups: Mutable list collecting web-search cards for display.
-        events: Optional event queue for live thinking/tool/dialog callbacks
-            (None disables emission; the non-streaming channel passes None).
         asked_user: Optional gate dict (None disables the gate); on fire it
-            carries the dialog payload under ``event`` for event-less channels.
+            carries the dialog payload under ``event`` for the channel to emit
+            once the pause state is persisted.
         error_context: Optional ``{"domain": ..., "session": ...}`` scoping
             persisted error records.
 
@@ -188,8 +186,6 @@ def build_execute_callback(
             return await dispatch_ask_user(
                 args=args,
                 memory=memory,
-                events=events,
-                search_groups=search_groups,
                 asked_user=asked_user,
             )
         query = args.get("query") or args.get("company") or args.get("repo") or ""

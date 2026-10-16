@@ -376,7 +376,6 @@ class PrepAgent:
         self,
         db: Session,
         search_groups: list[dict[str, Any]],
-        events: asyncio.Queue | None,
         asked_user: dict[str, Any] | None,
     ):
         """Tool execution callback: ask_user dispatch, same-args dedup, circuit breaker, and timeout/retrieval-failure handling (see :mod:`tool_exec`)."""
@@ -385,7 +384,6 @@ class PrepAgent:
             memory=self.memory,
             db=db,
             search_groups=search_groups,
-            events=events,
             asked_user=asked_user,
             error_context={"domain": "prep", "session": str(getattr(self.session, "id", "") or "")},
         )
@@ -489,7 +487,7 @@ class PrepAgent:
                     self.llm,
                     working,
                     tools=turn_tools,
-                    execute=self._build_execute(db, search_groups, events, asked_user),
+                    execute=self._build_execute(db, search_groups, asked_user),
                     max_rounds=_MAX_TOOL_ROUNDS,
                     max_tools_per_round=_MAX_TOOLS_PER_ROUND,
                     temperature=0.7,
