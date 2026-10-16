@@ -32,9 +32,14 @@ PROTECTED_RUN_TOKEN_RATIO = 0.1
 #: Floor for the derived ceiling, so a small window does not squeeze the run
 #: down to an excerpt that carries no signal.
 PROTECTED_RUN_MIN_TOKENS = 500
-#: Preferred floor for one protected tool row. If the aggregate cannot fit at
-#: this floor, shrink further while keeping every result and marking each cut.
+#: Preferred floor for one protected tool row, spent across the whole run
+#: before any row is cut below it. A floor is not a pairing constraint, so
+#: going under it costs signal, not correctness.
 PROTECTED_ROW_MIN_CHARS = 2_000
+#: Body left when a row is cut below every floor: the run still has to land
+#: inside the budget, and staying outside it is the rejected request this whole
+#: path exists to prevent.
+TRUNCATED_MARKER = "[chunk truncated]"
 
 
 def protected_run_budget(max_tokens: int) -> int:
@@ -42,6 +47,66 @@ def protected_run_budget(max_tokens: int) -> int:
     if max_tokens <= 0:
         return 0
     return max(PROTECTED_RUN_MIN_TOKENS, int(max_tokens * PROTECTED_RUN_TOKEN_RATIO))
+
+
+def _foldable_rows(
+    out: list[dict[str, Any]], positions: list[int]
+) -> list[tuple[int, dict[str, Any]]]:
+    """``(index, row)`` for the run's tool rows that carry a foldable text body."""
+    return [
+        (position, out[position])
+        for position in positions
+        if isinstance(out[position].get("content"), str)
+    ]
+
+
+def _run_cost(out: list[dict[str, Any]], positions: list[int]) -> int:
+    """Token cost of the protected run's tool rows."""
+    return sum(estimate_tokens(row["content"]) for _, row in _foldable_rows(out, positions))
+
+
+def _largest_first(
+    rows: list[tuple[int, dict[str, Any]]],
+) -> list[tuple[int, dict[str, Any]]]:
+    """Rows ordered by descending body cost, so the biggest ones fold first."""
+    return sorted(rows, key=lambda pair: -estimate_tokens(pair[1]["content"]))
+
+
+def _fold_row(
+    row: dict[str, Any], total: int, *, floor: int, budget: int
+) -> tuple[dict[str, Any], int]:
+    """Replacement for ``row``, plus the run total once it is in place.
+
+    Halves toward ``floor`` while the run is over ``budget``. A candidate that
+    does not actually shrink the row is skipped rather than applied, so the
+    halving always makes progress instead of stalling on the same cut.
+    """
+    text = str(row["content"])
+    folded = text
+    limit = len(text)
+    while limit > floor and total > budget:
+        limit = max(floor, limit // 2)
+        # truncate_chunk keeps at least 80 characters at each end, so a bare
+        # marker is the only thing below that.
+        candidate = truncate_chunk(text, limit=limit) if limit else TRUNCATED_MARKER
+        cost = estimate_tokens(candidate)
+        if cost >= estimate_tokens(folded) or len(candidate) >= len(folded):
+            continue
+        total -= estimate_tokens(folded) - cost
+        folded = candidate
+    return {**row, "content": folded}, total
+
+
+def _fold_sweep(
+    out: list[dict[str, Any]], positions: list[int], budget: int, *, floor: int
+) -> bool:
+    """One largest-first pass at ``floor``; True once the run fits ``budget``."""
+    total = _run_cost(out, positions)
+    for position, row in _largest_first(_foldable_rows(out, positions)):
+        if total <= budget:
+            return True
+        out[position], total = _fold_row(row, total, floor=floor, budget=budget)
+    return total <= budget
 
 
 def _fold_protected_run(out: list[dict[str, Any]], positions: list[int], budget: int) -> None:
@@ -52,37 +117,17 @@ def _fold_protected_run(out: list[dict[str, Any]], positions: list[int], budget:
     sibling results into the run. Each one is individually bounded upstream, but
     nothing bounded their aggregate — the sum is what overflows the window.
 
-    Folding is largest-first, so the small rows of the run (a dialog's own
-    pointer result among them) survive untouched, and head+tail behind an
-    explicit marker, so no cut is silent. The assistant declaration is never
-    touched. Rows are replaced rather than mutated: ``out`` shares dicts with
-    the caller's live session history.
+    Two passes: spend the preferred per-row floor across every row first, so a
+    run that can fit keeps a usable excerpt everywhere, and only then cut below
+    it. Folding is largest-first either way, so the small rows of the run (a
+    dialog's own pointer result among them) survive untouched, and head+tail
+    behind an explicit marker, so no cut is silent. The assistant declaration is
+    never touched. Rows are replaced rather than mutated: ``out`` shares dicts
+    with the caller's live session history.
     """
-    rows = {
-        position: out[position]
-        for position in positions
-        if isinstance(out[position].get("content"), str)
-    }
-    costs = {position: estimate_tokens(str(row["content"])) for position, row in rows.items()}
-    total = sum(costs.values())
-    # Exhaust the preferred floor across all rows before going below it.
-    for floor in (PROTECTED_ROW_MIN_CHARS, 0):
-        for position in sorted(costs, key=lambda item: -costs[item]):
-            if total <= budget:
-                return
-            text = str(rows[position]["content"])
-            limit = len(str(out[position]["content"]))
-            while limit > floor and total > budget:
-                limit = max(floor, limit // 2)
-                # truncate_chunk keeps at least 80 characters at each end;
-                # a marker alone lets even many short rows fit a tight budget.
-                folded = truncate_chunk(text, limit=limit) if limit else "[chunk truncated]"
-                folded_cost = estimate_tokens(folded)
-                if folded_cost >= costs[position] or len(folded) >= len(out[position]["content"]):
-                    continue
-                total -= costs[position] - folded_cost
-                costs[position] = folded_cost
-                out[position] = {**rows[position], "content": folded}
+    if _fold_sweep(out, positions, budget, floor=PROTECTED_ROW_MIN_CHARS):
+        return
+    _fold_sweep(out, positions, budget, floor=0)
 
 
 def _prune_stale_tool_pairs(
