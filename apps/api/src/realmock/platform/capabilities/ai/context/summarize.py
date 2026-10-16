@@ -27,6 +27,7 @@ from realmock.platform.capabilities.ai.context.compress import (
     _align_split_start,
     _prune_stale_tool_pairs,
     _snap_start_to_protected_pair,
+    protected_run_budget,
 )
 from realmock.platform.capabilities.ai.context.estimation import (
     _omitted_digest,
@@ -425,7 +426,10 @@ async def compact_with_summary(
     """
     opts = options or CompactionOptions()
     system = [m for m in messages if m.get("role") == "system"]
-    rest = _prune_stale_tool_pairs([m for m in messages if m.get("role") != "system"])
+    rest = _prune_stale_tool_pairs(
+        [m for m in messages if m.get("role") != "system"],
+        protected_token_budget=protected_run_budget(max_tokens),
+    )
     if not isinstance(threshold, (int, float)) or not 0 < threshold < 1:
         threshold = 0.3
     # The old tool takes effect unconditionally on folding (micro-compression); LLM records are only generated when the threshold is exceeded

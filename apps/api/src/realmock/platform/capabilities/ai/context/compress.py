@@ -3,6 +3,7 @@
 - ``_prune_stale_tool_pairs``: collapse tool-call pairs before the most recent user message
   (remove assistant.tool_calls + tool results from context; old tool observations can consume thousands of
   tokens, while their conclusions are already carried by working memory/summaries; preserve the latest round unchanged to maintain protocol pairing);
+- ``_fold_protected_run``: bound the aggregate size of the tool rows a protected pair keeps;
 - ``compress_messages``: retain all system messages + the latest N messages + a summary line.
 """
 
@@ -14,15 +15,74 @@ from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
 from realmock.platform.capabilities.ai.context.estimation import (
     _omitted_digest,
     estimate_messages_tokens,
+    estimate_tokens,
 )
+from realmock.platform.capabilities.ai.llm.json_extract import truncate_chunk
 
 # Compression product mark (system message prefix); old mark messages are replaced after new records are generated.
 # Public: prep routes/agents match and rebuild these prefixes across the domain boundary.
 COMPACTION_SUMMARY_MARKER = "[Conversation Minutes]"
 COMPACTION_DIGEST_MARKER = "[Context compression]"
 
+#: Share of the context window one protected tool run may occupy. A
+#: ``keep_tool_pair`` run stays verbatim so its open call remains paired, which
+#: makes this the only ceiling that reaches it: while it is over budget, folds
+#: elsewhere cannot bring the request back inside the window.
+PROTECTED_RUN_TOKEN_RATIO = 0.1
+#: Floor for the derived ceiling, so a small window does not squeeze the run
+#: down to an excerpt that carries no signal.
+PROTECTED_RUN_MIN_TOKENS = 500
+#: Floor for one protected tool row. Below this the excerpt stops being usable,
+#: and the leftover overflow is one no later fold can reach either — the row is
+#: never dropped, because an unpaired ``tool_calls`` entry is a hard 400.
+PROTECTED_ROW_MIN_CHARS = 2_000
 
-def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
+
+def protected_run_budget(max_tokens: int) -> int:
+    """Token ceiling for one protected tool run; 0 when the window is unknown."""
+    if max_tokens <= 0:
+        return 0
+    return max(PROTECTED_RUN_MIN_TOKENS, int(max_tokens * PROTECTED_RUN_TOKEN_RATIO))
+
+
+def _fold_protected_run(out: list[dict[str, Any]], positions: list[int], budget: int) -> None:
+    """Fold the largest tool rows of a protected run until the run fits ``budget``.
+
+    A ``keep_tool_pair`` assistant keeps every directly following tool result
+    verbatim, so a dialog that ran in parallel with other tools drags those
+    sibling results into the run. Each one is individually bounded upstream, but
+    nothing bounded their aggregate — the sum is what overflows the window.
+
+    Folding is largest-first, so the small rows of the run (a dialog's own
+    pointer result among them) survive untouched, and head+tail behind an
+    explicit marker, so no cut is silent. The assistant declaration is never
+    touched. Rows are replaced rather than mutated: ``out`` shares dicts with
+    the caller's live session history.
+    """
+    rows = {
+        position: out[position]
+        for position in positions
+        if isinstance(out[position].get("content"), str)
+    }
+    costs = {position: estimate_tokens(str(row["content"])) for position, row in rows.items()}
+    total = sum(costs.values())
+    for position in sorted(costs, key=lambda item: -costs[item]):
+        if total <= budget:
+            return
+        text = str(rows[position]["content"])
+        limit = len(text)
+        while limit > PROTECTED_ROW_MIN_CHARS and total > budget:
+            limit //= 2
+            folded = truncate_chunk(text, limit=limit)
+            folded_cost = estimate_tokens(folded)
+            total -= costs[position] - folded_cost
+            costs[position] = folded_cost
+            out[position] = {**rows[position], "content": folded}
+
+
+def _prune_stale_tool_pairs(
+    rest: list[dict[str, Any]], *, protected_token_budget: int = 0
+) -> list[dict[str, Any]]:
     """Collapse tool-call pairs (assistant.tool_calls + tool results) before the latest user message.
 
     Preserve the latest round verbatim so tool_calls and tool results remain fully paired under
@@ -31,14 +91,19 @@ def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     Exception: an assistant flagged ``keep_tool_pair`` keeps its declaration and every directly
     following tool result verbatim — the escape hatch for calls whose result arrives
-    asynchronously (dialog-style tools that pause the turn). The rows are tiny, and collapsing
-    them would orphan the open call or erase the exchange.
+    asynchronously (dialog-style tools that pause the turn). Collapsing them would orphan the open
+    call or erase the exchange.
+
+    ``protected_token_budget`` caps what that exemption costs: when the protected run exceeds it,
+    the largest of its tool rows are folded to fit (see :func:`_fold_protected_run`). The pairing
+    and the declaration always survive; only the oversized bodies shrink.
     """
     last_user = -1
     for i, m in enumerate(rest):
         if m.get("role") == "user":
             last_user = i
     out: list[dict[str, Any]] = []
+    protected_rows: list[int] = []
     # True while walking the tool-result run that follows a keep_tool_pair assistant.
     protected_pair = False
     for i, m in enumerate(rest):
@@ -48,6 +113,7 @@ def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
         role = m.get("role")
         if role == "tool":
             if protected_pair:
+                protected_rows.append(len(out))
                 out.append(m)
             continue
         if role != "assistant":
@@ -61,6 +127,8 @@ def _prune_stale_tool_pairs(rest: list[dict[str, Any]]) -> list[dict[str, Any]]:
             out.append(m)
         elif m.get("content"):
             out.append({"role": "assistant", "content": m["content"]})
+    if protected_token_budget:
+        _fold_protected_run(out, protected_rows, protected_token_budget)
     return out
 
 
@@ -123,7 +191,10 @@ def compress_messages(
     - Write omitted user/assistant messages into a summary line; when ``memory`` is supplied, absorb them into working memory as well.
     """
     system = [m for m in messages if m.get("role") == "system"]
-    rest = _prune_stale_tool_pairs([m for m in messages if m.get("role") != "system"])
+    rest = _prune_stale_tool_pairs(
+        [m for m in messages if m.get("role") != "system"],
+        protected_token_budget=protected_run_budget(max_tokens),
+    )
     # The old tool took unconditional effect on folding (micro-compression); further compression was only performed when a threshold was exceeded
     if max_tokens > 0 and estimate_messages_tokens(system + rest) <= max_tokens * threshold:
         return system + rest
