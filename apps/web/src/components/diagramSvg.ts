@@ -1,8 +1,12 @@
 /**
  * @file diagramSvg.ts
- * @description Pure helpers for rendering mermaid SVG output: error-diagram
+ * @description Pure helpers for processed mermaid SVG output: error-diagram
  * detection, XSS defense-in-depth, and fluid sizing. Framework-free so the
  * diagram component stays thin and the logic is unit-testable in Node.
+ *
+ * Constraints:
+ * - This module must not parse or repair mermaid source text; that boundary
+ *   belongs to diagramSource.ts.
  */
 
 /**
@@ -59,43 +63,6 @@ export function sanitizeDiagramSvg(svg: string): string {
       .replace(strayOpen, "&lt;$1");
   }
   return out;
-}
-
-/**
- * Repair LLM-generated flowchart `subgraph` headers that mermaid rejects.
- * Models often emit `subgraph 准备层 R["..."]` (bare CJK ids, spaces), but the
- * grammar only accepts a single ASCII id: `subgraph <id>["title"]`. Rewrite
- * invalid headers to generated ids while preserving the original wording as
- * the quoted title. Non-flowchart sources pass through untouched.
- */
-export function repairMermaidSubgraphs(source: string): string {
-  const lines = source.split("\n");
-  const first = (lines[0] ?? "").trim().toLowerCase();
-  if (!first.startsWith("flowchart") && !first.startsWith("graph")) {
-    return source;
-  }
-  let counter = 0;
-  let changed = false;
-  const out = lines.map((line) => {
-    const match = line.match(/^(\s*)subgraph\s+(.+?)\s*$/);
-    if (!match) return line;
-    const indent = match[1] ?? "";
-    const header = (match[2] ?? "").trim();
-    // Already valid: single ASCII id with an optional [title].
-    if (/^[A-Za-z][A-Za-z0-9_]*(\[[^\n]*\])?$/.test(header)) return line;
-    counter += 1;
-    changed = true;
-    // Split a trailing ["title"]: `准备层 R["简历结构化档案"]` keeps both
-    // parts; same for unquoted `工作流A[工作流 A：技术深挖]`.
-    const titled =
-      header.match(/^(.*?)\[\s*"([^"\n]*)"\s*\]$/) ?? header.match(/^(.*?)\[([^\[\]"\n]+)\]$/);
-    const title = titled
-      ? [titled[1]?.trim(), titled[2]?.trim()].filter(Boolean).join(" ")
-      : header;
-    const safe = title.replace(/"/g, "'").replace(/[\[\]]/g, "");
-    return `${indent}subgraph sg${counter}["${safe}"]`;
-  });
-  return changed ? out.join("\n") : source;
 }
 
 /**

@@ -2,12 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  fitDiagramSvg,
-  isErrorDiagramSvg,
-  repairMermaidSubgraphs,
-  sanitizeDiagramSvg,
-} from "../diagramSvg";
+import { fitDiagramSvg, isErrorDiagramSvg, sanitizeDiagramSvg } from "../diagramSvg";
 
 describe("isErrorDiagramSvg", () => {
   it("flags mermaid's error placeholder", () => {
@@ -92,46 +87,5 @@ describe("fitDiagramSvg", () => {
 
   it("leaves non-svg input untouched", () => {
     expect(fitDiagramSvg("not svg")).toBe("not svg");
-  });
-});
-
-describe("repairMermaidSubgraphs", () => {
-  it("rewrites CJK subgraph headers to ascii ids with quoted titles", () => {
-    const src = [
-      "flowchart TB",
-      '  subgraph 准备层 R["简历结构化档案"]',
-      '    K["企业知识库 RAG"]',
-      "  end",
-      "  subgraph 工作流A[工作流 A：技术深挖]",
-      '    A1["A1 开场暖场"]',
-      "  end",
-      "  subgraph 收束",
-      '    Z["结束"]',
-      "  end",
-    ].join("\n");
-    expect(repairMermaidSubgraphs(src)).toBe(
-      [
-        "flowchart TB",
-        '  subgraph sg1["准备层 R 简历结构化档案"]',
-        '    K["企业知识库 RAG"]',
-        "  end",
-        '  subgraph sg2["工作流A 工作流 A：技术深挖"]',
-        '    A1["A1 开场暖场"]',
-        "  end",
-        '  subgraph sg3["收束"]',
-        '    Z["结束"]',
-        "  end",
-      ].join("\n"),
-    );
-  });
-
-  it("leaves valid subgraph headers untouched", () => {
-    const src = 'flowchart TB\n  subgraph prep["准备层"]\n    K["x"]\n  end\n';
-    expect(repairMermaidSubgraphs(src)).toBe(src);
-  });
-
-  it("ignores non-flowchart diagrams", () => {
-    const src = "sequenceDiagram\n  A->>B: hi\n";
-    expect(repairMermaidSubgraphs(src)).toBe(src);
   });
 });
