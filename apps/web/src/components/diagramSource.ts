@@ -46,6 +46,21 @@ function directiveEnd(lines: string[], from: number): number {
 }
 
 /**
+ * Index of the line after the YAML frontmatter block opening at `from`.
+ * mermaid matches the closing fence at the indent of the opening one, so an
+ * indented `---` inside a block scalar cannot end the block early. An
+ * unclosed block consumes the rest of the source.
+ */
+function frontmatterEnd(lines: string[], from: number): number {
+  const indent = stripLineTerminator(lines[from] ?? "").match(FRONTMATTER_FENCE)?.[1] ?? "";
+  for (let index = from + 1; index < lines.length; index += 1) {
+    const fence = stripLineTerminator(lines[index] ?? "").match(FRONTMATTER_FENCE);
+    if (fence?.[1] === indent) return index + 1;
+  }
+  return lines.length;
+}
+
+/**
  * Index of the line holding the diagram declaration, skipping the preamble
  * mermaid accepts in front of it: blank lines, `%%` comments, single- and
  * multi-line `%%{ ... }%%` directives, and a leading YAML frontmatter block.
@@ -54,25 +69,20 @@ function directiveEnd(lines: string[], from: number): number {
  * appear — out of the repair path.
  */
 function diagramDeclarationIndex(lines: string[]): number {
-  let frontmatterIndent: string | null = null;
   let skipUntil = -1;
   for (let index = 0; index < lines.length; index += 1) {
-    // A directive spans lines; its interior is directive text, not a
-    // declaration. Tracked as a horizon rather than by moving the loop
-    // counter, so the skip stays a separate concern from the scan.
+    // A directive or a frontmatter block spans lines; its interior is
+    // preamble text, never a declaration. Both are tracked as a horizon
+    // rather than by moving the loop counter, so each skip stays a separate
+    // concern from the scan and a block never opens inside another one.
     if (index <= skipUntil) continue;
     const text = stripLineTerminator(lines[index] ?? "");
-    const trimmed = text.trim();
-    const fence = text.match(FRONTMATTER_FENCE);
-    if (frontmatterIndent !== null) {
-      // Only a fence at the opening indent closes the block, so an indented
-      // `---` inside a YAML block scalar cannot end it early.
-      if (fence?.[1] === frontmatterIndent) frontmatterIndent = null;
+    if (text.match(FRONTMATTER_FENCE)) {
+      skipUntil = frontmatterEnd(lines, index) - 1;
       continue;
     }
-    if (fence) {
-      frontmatterIndent = fence[1] ?? "";
-    } else if (trimmed.startsWith("%%{")) {
+    const trimmed = text.trim();
+    if (trimmed.startsWith("%%{")) {
       skipUntil = directiveEnd(lines, index);
     } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
       return index;

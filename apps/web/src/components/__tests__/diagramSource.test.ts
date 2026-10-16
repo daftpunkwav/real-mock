@@ -83,6 +83,10 @@ describe("repairMermaidFlowHeader", () => {
         src: '\n\nflowchart TD A["a"] --> B["b"]',
         expected: '\n\nflowchart TD\nA["a"] --> B["b"]',
       },
+      {
+        src: '%% prep chart\n---\ntitle: "t"\n---\nflowchart TD A["a"] --> B["b"]',
+        expected: '%% prep chart\n---\ntitle: "t"\n---\nflowchart TD\nA["a"] --> B["b"]',
+      },
     ];
     for (const { src, expected } of cases) {
       expect(repairMermaidFlowHeader(src)).toBe(expected);
