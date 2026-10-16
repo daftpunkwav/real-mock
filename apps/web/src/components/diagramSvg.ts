@@ -1,8 +1,9 @@
 /**
  * @file diagramSvg.ts
  * @description Pure helpers for processed mermaid SVG output: error-diagram
- * detection, XSS defense-in-depth, and fluid sizing. Framework-free so the
- * diagram component stays thin and the logic is unit-testable in Node.
+ * detection, XSS defense-in-depth, intrinsic-size extraction, and handing the
+ * rendered size over to the viewport. Framework-free so the diagram component
+ * stays thin and the logic is unit-testable in Node.
  *
  * Constraints:
  * - This module must not parse or repair mermaid source text; that boundary
@@ -66,13 +67,58 @@ export function sanitizeDiagramSvg(svg: string): string {
 }
 
 /**
- * Make the diagram fluid: strip fixed width/height attributes mermaid emits
- * so the SVG scales with its container (zoom is applied by the wrapper).
- * Inputs without an svg root tag pass through untouched.
+ * The diagram's intrinsic pixel size, taken from the root viewBox.
+ *
+ * The wrapper needs it to scale the diagram without measuring a laid-out SVG:
+ * the viewBox is what mermaid lays the diagram out against, so it is the only
+ * size that is stable before the element is in the document. Returns null when
+ * the root carries no usable viewBox (no intrinsic ratio to scale against).
+ */
+export function readSvgViewBox(svg: string): { width: number; height: number } | null {
+  // The grammar allows comma or whitespace separated values.
+  const captured = /<svg\b[^>]*\bviewBox\s*=\s*"([^"]*)"/i.exec(svg)?.[1];
+  if (captured === undefined) return null;
+  const parts = captured
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+  const width = parts[2];
+  const height = parts[3];
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isFinite(part)) ||
+    width === undefined ||
+    height === undefined ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
+  }
+  return { width, height };
+}
+
+/**
+ * Hand the rendered size over to the wrapper: drop the fixed width/height and
+ * the inline `style="max-width:Npx"` mermaid emits, then install exactly ONE
+ * style attribute.
+ *
+ * Two details are load-bearing:
+ * - The inline `max-width` mermaid adds caps the diagram at its natural size,
+ *   which defeats any wrapper-driven scaling.
+ * - A duplicate attribute is dropped by the HTML parser, so appending a second
+ *   `style` next to mermaid's own leaves the original in force. The previous
+ *   version did exactly that and its sizing never took effect.
+ *
+ * A root without a viewBox keeps its authored pixel size: without one there is
+ * no intrinsic ratio to stretch into the wrapper box.
  */
 export function fitDiagramSvg(svg: string): string {
-  return svg.replace(/<svg\b([^>]*)>/, (_tag, attrs: string) => {
-    const cleaned = String(attrs).replace(/\s+(width|height)="[^"]*"/gi, "");
-    return `<svg${cleaned} width="100%" style="height:auto;max-width:100%;display:block;">`;
+  return svg.replace(/<svg\b([^>]*)>/i, (_tag, attrs: string) => {
+    const raw = String(attrs);
+    if (!/\bviewBox\s*=\s*"[^"]*"/i.test(raw)) return _tag;
+    const cleaned = raw
+      .replace(/\s+(?:width|height)\s*=\s*"[^"]*"/gi, "")
+      .replace(/\s+style\s*=\s*"[^"]*"/gi, "");
+    return `<svg${cleaned} style="display:block;width:100%;height:100%">`;
   });
 }

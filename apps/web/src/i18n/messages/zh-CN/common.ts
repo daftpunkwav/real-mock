@@ -115,7 +115,7 @@ export const common = {
   "code.source": "源码",
   "code.zoomIn": "放大",
   "code.zoomOut": "缩小",
-  "code.zoomReset": "重置为 100%",
+  "code.fitToScreen": "适应窗口（显示全部内容）",
   "code.fullscreen": "全屏查看",
   "code.diagramFailed": "图表解析失败，已显示源码",
   "code.errorDetail": "技术细节",

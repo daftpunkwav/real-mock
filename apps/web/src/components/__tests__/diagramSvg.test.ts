@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { fitDiagramSvg, isErrorDiagramSvg, sanitizeDiagramSvg } from "../diagramSvg";
+import {
+  fitDiagramSvg,
+  isErrorDiagramSvg,
+  readSvgViewBox,
+  sanitizeDiagramSvg,
+} from "../diagramSvg";
 
 describe("isErrorDiagramSvg", () => {
   it("flags mermaid's error placeholder", () => {
@@ -77,12 +82,52 @@ describe("sanitizeDiagramSvg", () => {
   });
 });
 
+describe("readSvgViewBox", () => {
+  it("reads the intrinsic size from the root viewBox", () => {
+    expect(readSvgViewBox('<svg viewBox="-8 -8 640 480"><g/></svg>')).toEqual({
+      width: 640,
+      height: 480,
+    });
+  });
+
+  it("accepts the comma separated form and a viewBox on any attribute order", () => {
+    expect(
+      readSvgViewBox('<svg id="a" style="max-width:10px" viewBox="0,0,120,60"></svg>'),
+    ).toEqual({
+      width: 120,
+      height: 60,
+    });
+  });
+
+  it("returns null when there is no usable viewBox", () => {
+    expect(readSvgViewBox('<svg width="10"></svg>')).toBeNull();
+    expect(readSvgViewBox('<svg viewBox="0 0 0 480"></svg>')).toBeNull();
+    expect(readSvgViewBox('<svg viewBox="a b c d"></svg>')).toBeNull();
+    expect(readSvgViewBox('<svg viewBox="0 0 10"></svg>')).toBeNull();
+    expect(readSvgViewBox("not svg")).toBeNull();
+  });
+});
+
 describe("fitDiagramSvg", () => {
-  it("replaces fixed dimensions with fluid sizing", () => {
+  it("hands the rendered size to the wrapper box", () => {
     const out = fitDiagramSvg('<svg width="640" height="480" viewBox="0 0 64 48"><g/></svg>');
-    expect(out).toContain('width="100%"');
-    expect(out).not.toMatch(/\sheight="/);
+    expect(out).toContain('style="display:block;width:100%;height:100%"');
+    expect(out).not.toMatch(/\s(?:width|height)="/);
     expect(out).toContain("viewBox");
+  });
+
+  it("replaces mermaid's own style instead of appending a duplicate", () => {
+    // A duplicate attribute is dropped by the HTML parser, so the original
+    // max-width would keep capping the diagram and the new style would never
+    // apply.
+    const out = fitDiagramSvg('<svg style="max-width: 640px;" viewBox="0 0 64 48"><g/></svg>');
+    expect(out).not.toContain("max-width");
+    expect(out.match(/style="/g)).toHaveLength(1);
+  });
+
+  it("keeps the authored pixel size when there is no viewBox to scale into", () => {
+    const input = '<svg width="640" height="480" style="max-width:640px;"><g/></svg>';
+    expect(fitDiagramSvg(input)).toBe(input);
   });
 
   it("leaves non-svg input untouched", () => {
