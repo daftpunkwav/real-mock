@@ -5,12 +5,17 @@ from __future__ import annotations
 import pytest
 
 from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
+from realmock.platform.capabilities.ai.context.compress import (
+    PROTECTED_ROW_MIN_CHARS,
+    protected_run_budget,
+)
 from realmock.platform.capabilities.ai.context.manager import (
     compact_with_summary,
     compress_messages,
     estimate_messages_tokens,
     estimate_tokens,
 )
+from realmock.platform.capabilities.ai.llm.json_extract import truncate_chunk
 
 
 def test_estimate_tokens_empty() -> None:
@@ -262,6 +267,171 @@ def test_compress_snap_keeps_pending_pair_in_tail() -> None:
     assert any(m.get("role") == "tool" and m.get("tool_call_id") == "sib" for m in out), (
         "the sibling result stays paired with it"
     )
+
+
+def _parallel_dialog_round(*, sibling_chars: int) -> list[dict]:
+    """A paused dialog that ran in parallel with three large sibling tools.
+
+    Each sibling result is individually bounded (the loop caps a single
+    observation), but the protected run keeps all of them verbatim — this is the
+    shape whose AGGREGATE overflows the window.
+    """
+    return [
+        {"role": "user", "content": "task"},
+        {
+            "role": "assistant",
+            "content": "",
+            "keep_tool_pair": True,
+            "ask_pending": True,
+            "tool_calls": [
+                {"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}},
+                {"id": "s1", "function": {"name": "search", "arguments": "{}"}},
+                {"id": "s2", "function": {"name": "fetch", "arguments": "{}"}},
+                {"id": "s3", "function": {"name": "read", "arguments": "{}"}},
+            ],
+        },
+        {"role": "tool", "tool_call_id": "s1", "content": "S1" * sibling_chars},
+        {"role": "tool", "tool_call_id": "s2", "content": "S2" * sibling_chars},
+        {"role": "tool", "tool_call_id": "s3", "content": "S3" * sibling_chars},
+        {"role": "assistant", "content": "waiting line"},
+        {"role": "user", "content": "the answer"},
+    ]
+
+
+def test_compress_bounds_aggregate_of_protected_run() -> None:
+    """A parallel round must not smuggle its whole sibling run past the budget.
+
+    Every sibling result is individually bounded upstream, so nothing folds them
+    once the declaration is protected — the sum is what overflows. The run is
+    folded to fit the budget instead, keeping every tool row paired with its
+    declaration.
+    """
+    max_tokens = 20_000
+    budget = protected_run_budget(max_tokens)
+    msgs = [{"role": "system", "content": "Rules"}] + _parallel_dialog_round(sibling_chars=20_000)
+    before = estimate_tokens("S1" * 20_000) * 3
+
+    out = compress_messages(msgs, max_tokens=max_tokens)
+
+    protected = [m for m in out if m.get("keep_tool_pair")]
+    assert protected, "the declaration survives"
+    declared = {tc["id"] for tc in protected[0]["tool_calls"]}
+    results = {m.get("tool_call_id"): m for m in out if m.get("role") == "tool"}
+    assert set(results) <= declared, "no result is left unpaired"
+    assert set(results) == declared - {"c1"}, (
+        "every sibling keeps its result while the open call stays open"
+    )
+    kept = sum(estimate_tokens(str(results[cid]["content"])) for cid in sorted(results))
+    assert kept <= budget, f"protected run must fit the budget ({kept} > {budget})"
+    assert before > budget, "the fixture starts over budget, so the bound is what fixed it"
+
+
+@pytest.mark.parametrize("sibling_chars", [1_001, 1_500, 5_000])
+def test_compress_protected_fold_respects_feasible_floor(sibling_chars: int) -> None:
+    msgs = _parallel_dialog_round(sibling_chars=sibling_chars)
+
+    out = compress_messages(msgs, max_tokens=14_700)
+
+    results = [m for m in out if m.get("role") == "tool"]
+    assert len(results) == 3
+    for result, original in zip(results, msgs[2:5], strict=True):
+        assert result["content"] == truncate_chunk(
+            original["content"], limit=PROTECTED_ROW_MIN_CHARS
+        )
+    assert sum(estimate_tokens(m["content"]) for m in results) <= protected_run_budget(14_700)
+
+
+@pytest.mark.parametrize(
+    ("content", "row_count"),
+    [
+        ("B" * PROTECTED_ROW_MIN_CHARS, 3),
+        ("观" * PROTECTED_ROW_MIN_CHARS, 3),
+        ("观" * 40_000, 3),
+        ("B" * 40_000, 12),
+        ("观" * 180, 8),
+    ],
+    ids=["latin-at-floor", "cjk-at-floor", "cjk-large", "many-rows", "short-rows"],
+)
+def test_compress_protected_fold_below_infeasible_floor(content: str, row_count: int) -> None:
+    declaration = {
+        "role": "assistant",
+        "content": "",
+        "keep_tool_pair": True,
+        "ask_pending": True,
+        "tool_calls": [
+            {"id": str(i), "function": {"name": "search", "arguments": "{}"}}
+            for i in range(row_count)
+        ],
+    }
+    rows = [{"role": "tool", "tool_call_id": str(i), "content": content} for i in range(row_count)]
+    msgs = [declaration, *rows, {"role": "user", "content": "the answer"}]
+
+    out = compress_messages(msgs, max_tokens=5_000)
+
+    assert declaration in out
+    results = [m for m in out if m.get("role") == "tool"]
+    assert [m["tool_call_id"] for m in results] == [m["tool_call_id"] for m in rows]
+    assert sum(estimate_tokens(m["content"]) for m in results) <= protected_run_budget(5_000)
+    for result, original in zip(results, rows, strict=True):
+        assert original["content"] == content, "stored history must stay intact"
+        if result["content"] != content:
+            assert "chunk truncated" in result["content"]
+            assert len(result["content"]) < len(content)
+
+
+def test_compress_protected_fold_keeps_small_rows_and_marks_the_cut() -> None:
+    """Folding is largest-first and never silent: a small sibling row keeps its
+    full body, a large one keeps head+tail behind an explicit marker."""
+    max_tokens = 20_000
+    msgs = [
+        {"role": "user", "content": "task"},
+        {
+            "role": "assistant",
+            "content": "",
+            "keep_tool_pair": True,
+            "ask_pending": True,
+            "tool_calls": [
+                {"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}},
+                {"id": "big", "function": {"name": "search", "arguments": "{}"}},
+                {"id": "small", "function": {"name": "ping", "arguments": "{}"}},
+            ],
+        },
+        {"role": "tool", "tool_call_id": "big", "content": "B" * 40_000},
+        {"role": "tool", "tool_call_id": "small", "content": "short sibling"},
+        {"role": "user", "content": "the answer"},
+    ]
+    out = compress_messages(msgs, max_tokens=max_tokens)
+    results = {m.get("tool_call_id"): str(m.get("content")) for m in out if m.get("role") == "tool"}
+
+    assert results["small"] == "short sibling", "the small row is not touched"
+    assert len(results["big"]) < 40_000, "the large row folded"
+    assert "chunk truncated" in results["big"], "the cut is marked, never silent"
+    assert results["big"].startswith("B") and results["big"].endswith("B"), (
+        "head and tail both survive the fold"
+    )
+
+
+def test_compress_protected_fold_does_not_mutate_input_history() -> None:
+    """``compress_messages`` shares dicts with the live session history, so a
+    folded row must be a replacement — mutating it would shrink stored history
+    irreversibly."""
+    msgs = [
+        {"role": "user", "content": "task"},
+        {
+            "role": "assistant",
+            "content": "",
+            "keep_tool_pair": True,
+            "ask_pending": True,
+            "tool_calls": [{"id": "c1", "function": {"name": "ask_user", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "C" * 40_000},
+        {"role": "user", "content": "the answer"},
+    ]
+    original = "C" * 40_000
+
+    compress_messages(msgs, max_tokens=20_000)
+
+    assert msgs[2]["content"] == original, "the caller's history row is untouched"
 
 
 # ── LLM summary compression ──────────────────────────────────────────────
