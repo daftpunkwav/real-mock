@@ -77,6 +77,23 @@ function diagramDeclarationIndex(lines: string[]): number {
 }
 
 /**
+ * Every ASCII identifier the chart body already contains. mermaid keys nodes
+ * and subgraphs alike by id, so a generated id that repeats one merges
+ * unrelated content instead of adding a subgraph. The scan is deliberately
+ * coarse — it also collects keywords and label words — because a collected
+ * name that turns out to be free only costs a higher number, while a missed
+ * one costs a collision.
+ */
+function usedDiagramIds(lines: string[], from: number): Set<string> {
+  const used = new Set<string>();
+  for (let index = from; index < lines.length; index += 1) {
+    const words = stripLineTerminator(lines[index] ?? "").match(/[A-Za-z][A-Za-z0-9_]*/g);
+    for (const word of words ?? []) used.add(word);
+  }
+  return used;
+}
+
+/**
  * Repair LLM-generated flowchart `subgraph` headers that mermaid rejects.
  * Models often emit `subgraph 准备层 R["..."]` (bare CJK ids, spaces), but the
  * grammar only accepts a single ASCII id: `subgraph <id>["title"]`. Rewrite
@@ -84,7 +101,8 @@ function diagramDeclarationIndex(lines: string[]): number {
  * the quoted title. The flowchart is located past any preamble, so a leading
  * directive, comment, or frontmatter block does not skip the whole repair; the
  * preamble itself is left untouched because `%%` comments and YAML metadata
- * are never flowchart body. Non-flowchart sources pass through untouched.
+ * are never flowchart body. Generated ids skip the ones the chart already
+ * binds. Non-flowchart sources pass through untouched.
  */
 export function repairMermaidSubgraphs(source: string): string {
   const lines = source.split("\n");
@@ -93,6 +111,7 @@ export function repairMermaidSubgraphs(source: string): string {
   if (!head.startsWith("flowchart") && !head.startsWith("graph")) {
     return source;
   }
+  const used = usedDiagramIds(lines, declaration);
   let counter = 0;
   let changed = false;
   const out = lines.map((line, index) => {
@@ -103,7 +122,12 @@ export function repairMermaidSubgraphs(source: string): string {
     const header = (match[2] ?? "").trim();
     // Already valid: single ASCII id with an optional [title].
     if (/^[A-Za-z][A-Za-z0-9_]*(\[[^\n]*\])?$/.test(header)) return line;
-    counter += 1;
+    let id = "";
+    do {
+      counter += 1;
+      id = `sg${counter}`;
+    } while (used.has(id));
+    used.add(id);
     changed = true;
     // Split a trailing ["title"]: `准备层 R["简历结构化档案"]` keeps both
     // parts; same for unquoted `工作流A[工作流 A：技术深挖]`.
@@ -113,7 +137,7 @@ export function repairMermaidSubgraphs(source: string): string {
       ? [titled[1]?.trim(), titled[2]?.trim()].filter(Boolean).join(" ")
       : header;
     const safe = title.replace(/"/g, "'").replaceAll("[", "").replaceAll("]", "");
-    return `${indent}subgraph sg${counter}["${safe}"]`;
+    return `${indent}subgraph ${id}["${safe}"]`;
   });
   return changed ? out.join("\n") : source;
 }

@@ -279,4 +279,52 @@ describe("repairMermaidSubgraphs", () => {
     const src = "sequenceDiagram\n  A->>B: hi\n";
     expect(repairMermaidSubgraphs(src)).toBe(src);
   });
+
+  it("skips ids the chart already binds to a node", () => {
+    const src = [
+      "flowchart TB",
+      "  subgraph 收束",
+      '    Z["结束"]',
+      "  end",
+      '  sg1["已有节点"] --> Z["结束"]',
+    ].join("\n");
+    expect(repairMermaidSubgraphs(src)).toBe(
+      [
+        "flowchart TB",
+        '  subgraph sg2["收束"]',
+        '    Z["结束"]',
+        "  end",
+        '  sg1["已有节点"] --> Z["结束"]',
+      ].join("\n"),
+    );
+  });
+
+  it("skips ids the chart already binds to a valid subgraph", () => {
+    const src = [
+      "flowchart TB",
+      "  subgraph 准备层",
+      '    A["a"]',
+      "  end",
+      '  subgraph sg2["已有子图"]',
+      '    B["b"]',
+      "  end",
+      "  subgraph 收束",
+      '    Z["结束"]',
+      "  end",
+    ].join("\n");
+    expect(repairMermaidSubgraphs(src)).toBe(
+      [
+        "flowchart TB",
+        '  subgraph sg1["准备层"]',
+        '    A["a"]',
+        "  end",
+        '  subgraph sg2["已有子图"]',
+        '    B["b"]',
+        "  end",
+        '  subgraph sg3["收束"]',
+        '    Z["结束"]',
+        "  end",
+      ].join("\n"),
+    );
+  });
 });
