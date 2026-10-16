@@ -46,6 +46,21 @@ function directiveEnd(lines: string[], from: number): number {
 }
 
 /**
+ * Index of the line after the YAML frontmatter block opening at `from`.
+ * mermaid matches the closing fence at the indent of the opening one, so an
+ * indented `---` inside a block scalar cannot end the block early. An
+ * unclosed block consumes the rest of the source.
+ */
+function frontmatterEnd(lines: string[], from: number): number {
+  const indent = stripLineTerminator(lines[from] ?? "").match(FRONTMATTER_FENCE)?.[1] ?? "";
+  for (let index = from + 1; index < lines.length; index += 1) {
+    const fence = stripLineTerminator(lines[index] ?? "").match(FRONTMATTER_FENCE);
+    if (fence?.[1] === indent) return index + 1;
+  }
+  return lines.length;
+}
+
+/**
  * Index of the line holding the diagram declaration, skipping the preamble
  * mermaid accepts in front of it: blank lines, `%%` comments, single- and
  * multi-line `%%{ ... }%%` directives, and a leading YAML frontmatter block.
@@ -54,21 +69,21 @@ function directiveEnd(lines: string[], from: number): number {
  * appear — out of the repair path.
  */
 function diagramDeclarationIndex(lines: string[]): number {
-  let frontmatterIndent: string | null = null;
+  let skipUntil = -1;
   for (let index = 0; index < lines.length; index += 1) {
+    // A directive or a frontmatter block spans lines; its interior is
+    // preamble text, never a declaration. Both are tracked as a horizon
+    // rather than by moving the loop counter, so each skip stays a separate
+    // concern from the scan and a block never opens inside another one.
+    if (index <= skipUntil) continue;
     const text = stripLineTerminator(lines[index] ?? "");
-    const trimmed = text.trim();
-    const fence = text.match(FRONTMATTER_FENCE);
-    if (frontmatterIndent !== null) {
-      // Only a fence at the opening indent closes the block, so an indented
-      // `---` inside a YAML block scalar cannot end it early.
-      if (fence?.[1] === frontmatterIndent) frontmatterIndent = null;
+    if (text.match(FRONTMATTER_FENCE)) {
+      skipUntil = frontmatterEnd(lines, index) - 1;
       continue;
     }
-    if (fence) {
-      frontmatterIndent = fence[1] ?? "";
-    } else if (trimmed.startsWith("%%{")) {
-      index = directiveEnd(lines, index);
+    const trimmed = text.trim();
+    if (trimmed.startsWith("%%{")) {
+      skipUntil = directiveEnd(lines, index);
     } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
       return index;
     }
@@ -94,6 +109,21 @@ function usedDiagramIds(lines: string[], from: number): Set<string> {
 }
 
 /**
+ * A `subgraph` header line: the indent, and everything after the keyword.
+ *
+ * The trailing whitespace is left in the capture and trimmed by the caller:
+ * requiring it here with a lazy `(.+?)\s*$` lets both groups match the same
+ * run of whitespace, which backtracks across the line. Capturing the separator
+ * and the rest of the line leaves a single split point.
+ *
+ * The `\s+\S` pair requires a real id or title after the keyword, so a `subgraph`
+ * line followed by nothing but whitespace carries no header to rewrite and keeps
+ * the whole source untouched. A whitespace run then backtracks onto its own
+ * single non-whitespace character, never across the line.
+ */
+const SUBGRAPH_HEADER = /^(\s*)subgraph(\s+\S.*)$/;
+
+/**
  * Repair LLM-generated flowchart `subgraph` headers that mermaid rejects.
  * Models often emit `subgraph 准备层 R["..."]` (bare CJK ids, spaces), but the
  * grammar only accepts a single ASCII id: `subgraph <id>["title"]`. Rewrite
@@ -116,7 +146,7 @@ export function repairMermaidSubgraphs(source: string): string {
   let changed = false;
   const out = lines.map((line, index) => {
     if (index < declaration) return line;
-    const match = line.match(/^(\s*)subgraph\s+(.+?)\s*$/);
+    const match = line.match(SUBGRAPH_HEADER);
     if (!match) return line;
     const indent = match[1] ?? "";
     const header = (match[2] ?? "").trim();

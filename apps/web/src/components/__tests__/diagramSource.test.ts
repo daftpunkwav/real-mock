@@ -83,6 +83,10 @@ describe("repairMermaidFlowHeader", () => {
         src: '\n\nflowchart TD A["a"] --> B["b"]',
         expected: '\n\nflowchart TD\nA["a"] --> B["b"]',
       },
+      {
+        src: '%% prep chart\n---\ntitle: "t"\n---\nflowchart TD A["a"] --> B["b"]',
+        expected: '%% prep chart\n---\ntitle: "t"\n---\nflowchart TD\nA["a"] --> B["b"]',
+      },
     ];
     for (const { src, expected } of cases) {
       expect(repairMermaidFlowHeader(src)).toBe(expected);
@@ -273,6 +277,16 @@ describe("repairMermaidSubgraphs", () => {
   it("leaves valid subgraph headers untouched", () => {
     const src = 'flowchart TB\n  subgraph prep["准备层"]\n    K["x"]\n  end\n';
     expect(repairMermaidSubgraphs(src)).toBe(src);
+  });
+
+  it("leaves a header with no id or title untouched", () => {
+    // Nothing follows the keyword, so there is no header to rewrite: the
+    // source must come back whole for the caller's no-op guard to hold.
+    const src = ["flowchart TB", "  subgraph ", '    K["x"]', "  end"].join("\n");
+    expect(repairMermaidSubgraphs(src)).toBe(src);
+    const spaced = ["flowchart TB", "  subgraph   ", '    K["x"]', "  end"].join("\n");
+    expect(repairMermaidSubgraphs(spaced)).toBe(spaced);
+    expect(repairMermaidSource(spaced)).toBe(spaced);
   });
 
   it("ignores non-flowchart diagrams", () => {
