@@ -55,7 +55,12 @@ function directiveEnd(lines: string[], from: number): number {
  */
 function diagramDeclarationIndex(lines: string[]): number {
   let frontmatterIndent: string | null = null;
+  let skipUntil = -1;
   for (let index = 0; index < lines.length; index += 1) {
+    // A directive spans lines; its interior is directive text, not a
+    // declaration. Tracked as a horizon rather than by moving the loop
+    // counter, so the skip stays a separate concern from the scan.
+    if (index <= skipUntil) continue;
     const text = stripLineTerminator(lines[index] ?? "");
     const trimmed = text.trim();
     const fence = text.match(FRONTMATTER_FENCE);
@@ -68,7 +73,7 @@ function diagramDeclarationIndex(lines: string[]): number {
     if (fence) {
       frontmatterIndent = fence[1] ?? "";
     } else if (trimmed.startsWith("%%{")) {
-      index = directiveEnd(lines, index);
+      skipUntil = directiveEnd(lines, index);
     } else if (trimmed !== "" && !trimmed.startsWith("%%")) {
       return index;
     }
@@ -94,6 +99,16 @@ function usedDiagramIds(lines: string[], from: number): Set<string> {
 }
 
 /**
+ * A `subgraph` header line: the indent, and everything after the keyword.
+ *
+ * The trailing whitespace is left in the capture and trimmed by the caller:
+ * requiring it here with a lazy `(.+?)\s*$` lets both groups match the same
+ * run of whitespace, which backtracks across the line. Capturing one
+ * whitespace and the rest of the line leaves a single split point.
+ */
+const SUBGRAPH_HEADER = /^(\s*)subgraph(\s.*)$/;
+
+/**
  * Repair LLM-generated flowchart `subgraph` headers that mermaid rejects.
  * Models often emit `subgraph 准备层 R["..."]` (bare CJK ids, spaces), but the
  * grammar only accepts a single ASCII id: `subgraph <id>["title"]`. Rewrite
@@ -116,7 +131,7 @@ export function repairMermaidSubgraphs(source: string): string {
   let changed = false;
   const out = lines.map((line, index) => {
     if (index < declaration) return line;
-    const match = line.match(/^(\s*)subgraph\s+(.+?)\s*$/);
+    const match = line.match(SUBGRAPH_HEADER);
     if (!match) return line;
     const indent = match[1] ?? "";
     const header = (match[2] ?? "").trim();
