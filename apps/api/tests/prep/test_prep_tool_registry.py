@@ -215,7 +215,6 @@ def _callback(run_named_tool, **kwargs):
         memory=kwargs.get("memory", _memory()),
         db=kwargs.get("db"),
         search_groups=kwargs.get("search_groups", []),
-        events=kwargs.get("events"),
         asked_user=kwargs.get("asked_user"),
         error_context=kwargs.get("error_context"),
     )
@@ -456,14 +455,18 @@ def test_ask_options_less_question_becomes_free_text() -> None:
     assert _build_ask_event("Q?", [], widget="options", suggested_index=0)["suggested"] is None
 
 
-async def test_ask_dispatch_emits_full_event() -> None:
+async def test_ask_dispatch_hands_full_payload_to_the_gate() -> None:
+    """The tool hands the whole dialog to the gate and emits nothing itself.
+
+    The channel that persists the pause state sends the dialog, so the payload
+    must survive intact on the gate dict for the streaming and sync channels
+    alike.
+    """
     from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
-    events: asyncio.Queue = asyncio.Queue()
     asked_user: dict[str, bool] = {"on": False}
     execute = _callback(
         lambda name, args, db: (_ for _ in ()).throw(AssertionError("must not run")),
-        events=events,
         asked_user=asked_user,
     )
     with pytest.raises(AgentPause):
@@ -478,11 +481,8 @@ async def test_ask_dispatch_emits_full_event() -> None:
             },
         )
     assert asked_user["on"] is True
-    # The dialog payload also rides the gate dict for event-less channels.
-    assert asked_user["event"]["question"] == "Which areas?"
-    assert asked_user["event"]["selection"] == "multi"
-    event = await events.get()
-    assert event["type"] == "ask_user"
+    event = asked_user["event"]
+    assert event["question"] == "Which areas?"
     assert event["selection"] == "multi"
     assert event["allow_custom"] is False
 
@@ -490,10 +490,10 @@ async def test_ask_dispatch_emits_full_event() -> None:
 async def test_ask_dispatch_slider_without_options() -> None:
     from realmock.platform.capabilities.ai.agent.loop import AgentPause
 
-    events: asyncio.Queue = asyncio.Queue()
+    asked_user: dict[str, bool] = {"on": False}
     execute = _callback(
         lambda name, args, db: (_ for _ in ()).throw(AssertionError("must not run")),
-        events=events,
+        asked_user=asked_user,
     )
     with pytest.raises(AgentPause):
         await execute(
@@ -505,7 +505,7 @@ async def test_ask_dispatch_slider_without_options() -> None:
                 "scale": {"min": 0, "max": 20, "unit": "h"},
             },
         )
-    event = await events.get()
+    event = asked_user["event"]
     assert event["widget"] == "slider"
     assert event["scale"]["max"] == 20
 

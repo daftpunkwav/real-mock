@@ -11,6 +11,11 @@ Usage contract (frontend depends on this): the ``usage`` event carries this turn
 provider-reported DELTA (the per-request LLM client's accumulator, including turn
 compression); session columns (``prompt/completion/cached_tokens``) accumulate
 those deltas across turns. The ``done`` envelope carries session-level totals.
+
+Paused-dialog contract: ``ask_user`` hands its payload to the turn and pauses the
+loop, so this module — which owns persistence — sends the ``ask_user`` event. It
+commits the pause state first, so a dialog on screen is always resumable from
+stored history.
 """
 
 from __future__ import annotations
@@ -271,12 +276,13 @@ def _persist_failure_state(
 ) -> bool:
     """Land the pause state when a turn with a fired dialog dies before finalize.
 
-    A business/LLM error raised after ``ask_user`` emitted its event still
-    owes the user an answerable dialog: persist the loop's working copy with
-    the open call marked (and its dangling siblings completed) instead of
-    dropping the turn to a bare question persist, or the answer would start a
-    new task. Returns True when the pause state was persisted; False means
-    the caller should run the plain failed-turn path.
+    The dialog itself is emitted only after a successful pause persist, so the
+    user has not seen it yet — but the round already ran its tools and the
+    interrupted task is worth keeping. Persisting the loop's working copy with
+    the open call marked (and its dangling siblings completed) lets the next
+    input resume that task instead of dropping the turn to a bare question
+    persist and starting over. Returns True when the pause state was persisted;
+    False means the caller should run the plain failed-turn path.
     """
     gate_event = asked_user.get("event")
     ask_event = gate_event if isinstance(gate_event, dict) else None
@@ -533,10 +539,28 @@ async def run_chat(
 
 async def _stream_waiting_line(agent: "PrepAgent") -> AsyncIterator[str | dict[str, Any]]:
     """Close a dialog-paused turn visually: clear the status line, then stream
-    the waiting line. Pop-up events and search cards were already pushed when
-    the tool executed, so nothing else is re-emitted here."""
+    the waiting line. The round's cards and the dialog were pushed just before
+    this call, so nothing else is re-emitted here."""
     yield {"type": "status", "text": ""}
     async for piece in slice_stream(agent.pending_reply_text()):
+        yield piece
+
+
+async def _stream_paused_tail(
+    agent: "PrepAgent",
+    search_groups: list[dict[str, Any]],
+    ask_event: dict[str, Any] | None,
+) -> AsyncIterator[str | dict[str, Any]]:
+    """Close a dialog-paused turn visually, once its state is committed.
+
+    The round's search cards lead, so the dialog still follows the results
+    that produced it; the waiting line then holds the turn open.
+    """
+    if search_groups:
+        yield {"type": "search_results", "groups": search_groups}
+    if ask_event is not None:
+        yield {"type": "ask_user", **ask_event}
+    async for piece in _stream_waiting_line(agent):
         yield piece
 
 
@@ -747,8 +771,12 @@ async def run_chat_stream(
             yield mid_event
 
         if asked_user["on"]:
-            async for piece in _stream_waiting_line(agent):
-                yield piece
+            gate_event = asked_user.get("event")
+            ask_event = gate_event if isinstance(gate_event, dict) else None
+            # Commit first, emit second: the dialog leaves the server only once
+            # its open call is persisted, so a user can never hold a dialog that
+            # history cannot resume. A turn lost between the two leaves the
+            # session paused without a dialog — the next input simply resumes it.
             delta = _finalize_paused_turn(
                 agent,
                 working,
@@ -762,6 +790,8 @@ async def run_chat_stream(
                 asked_user=asked_user,
             )
             finalized = True
+            async for piece in _stream_paused_tail(agent, search_groups, ask_event):
+                yield piece
             if delta:
                 yield delta
             return
@@ -864,15 +894,14 @@ async def run_chat_stream(
                 # session history with a bare reply row.
                 logger.error("Prep cancel persist skipped: empty working list")
                 raise
-            delivered = not events or bool(asked_user.get("emitted"))
-            if not delivered:
-                # The dialog event never reached the queue (client gone while
-                # the bounded put was blocked): the user has seen nothing, so
-                # no resume marker is persisted — the round's declarations
-                # (including the undelivered dialog call) are completed as
-                # interrupted instead, and the next input runs a fresh turn.
-                ask_event = None
+            if ask_event is not None:
+                # The dialog is emitted only after its pause state is
+                # committed, so a round reaching this handler unfinalized never
+                # reached the client: complete its declarations as interrupted
+                # rather than stranding a marker whose answer the user was never
+                # asked for — that marker would consume their next input.
                 complete_interrupted_tool_calls(context)
+                ask_event = None
             if ask_event is None:
                 # A resume turn cancelled before its dialog fired must not
                 # persist the consumed pointer: roll back to the pause
