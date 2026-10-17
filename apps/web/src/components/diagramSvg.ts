@@ -66,6 +66,13 @@ export function sanitizeDiagramSvg(svg: string): string {
   return out;
 }
 
+/** True when both dimensions are real numbers and strictly positive. */
+function isPositiveSize(size: { width: number; height: number }): boolean {
+  return (
+    Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0
+  );
+}
+
 /**
  * The diagram's intrinsic pixel size, taken from the root viewBox.
  *
@@ -75,26 +82,16 @@ export function sanitizeDiagramSvg(svg: string): string {
  * the root carries no usable viewBox (no intrinsic ratio to scale against).
  */
 export function readSvgViewBox(svg: string): { width: number; height: number } | null {
-  // The grammar allows comma or whitespace separated values.
-  const captured = /<svg\b[^>]*\bviewBox\s*=\s*"([^"]*)"/i.exec(svg)?.[1];
-  if (captured === undefined) return null;
-  const parts = captured
+  const match = /<svg\b[^>]*\bviewBox\s*=\s*"([^"]*)"/i.exec(svg);
+  if (match === null) return null;
+  // The grammar allows comma or whitespace separated values. A short or
+  // unparsable list leaves zeros behind, which isPositiveSize then rejects.
+  const parts = (match[1] ?? "")
     .trim()
     .split(/[\s,]+/)
     .map(Number);
-  const width = parts[2];
-  const height = parts[3];
-  if (
-    parts.length !== 4 ||
-    parts.some((part) => !Number.isFinite(part)) ||
-    width === undefined ||
-    height === undefined ||
-    width <= 0 ||
-    height <= 0
-  ) {
-    return null;
-  }
-  return { width, height };
+  const size = { width: parts[2] ?? 0, height: parts[3] ?? 0 };
+  return isPositiveSize(size) ? size : null;
 }
 
 /**
@@ -126,6 +123,14 @@ function hasViewBox(attrs: string): boolean {
   return /\bviewBox\s*=\s*"[^"]*"/i.test(attrs);
 }
 
+/** A positive numeric attribute of the root tag, or null when unusable. */
+function numericAttribute(attrs: string, name: string): number | null {
+  const match = new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`, "i").exec(attrs);
+  if (match === null) return null;
+  const value = Number.parseFloat(match[1] ?? "");
+  return value > 0 && Number.isFinite(value) ? value : null;
+}
+
 /**
  * State as a viewBox the intrinsic ratio of a root that gives a pixel size
  * without one.
@@ -134,13 +139,9 @@ function hasViewBox(attrs: string): boolean {
  * that mapping exact while giving the wrapper the ratio it needs. Without it
  * the diagram stays a fixed-size image that no zoom level can scale, and the
  * viewport has no choice but to let it overflow its box.
- *
- * Returns null when there is no usable pixel size to derive it from.
  */
 function synthesizeViewBox(attrs: string): string | null {
-  const width = Number.parseFloat(/\swidth\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? "");
-  const height = Number.parseFloat(/\sheight\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? "");
-  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-  if (width <= 0 || height <= 0) return null;
-  return `${attrs} viewBox="0 0 ${width} ${height}"`;
+  const width = numericAttribute(attrs, "width");
+  const height = numericAttribute(attrs, "height");
+  return width === null || height === null ? null : `${attrs} viewBox="0 0 ${width} ${height}"`;
 }
