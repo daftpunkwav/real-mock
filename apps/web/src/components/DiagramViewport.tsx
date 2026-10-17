@@ -59,7 +59,6 @@ export const DiagramViewport = memo(function DiagramViewport({
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
-  const [overflowing, setOverflowing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -71,27 +70,36 @@ export const DiagramViewport = memo(function DiagramViewport({
   }, []);
 
   const clampedZoom = clampZoom(zoom);
-  const fit = natural
-    ? fitScale(natural, { width: availableWidth, height: maxHeight - PADDING_PX * 2 })
-    : 1;
+  // The stage is padded on both axes and spans at least the viewport width, so
+  // the padding comes out of the space the diagram may occupy on BOTH axes.
+  // Leaving it out on the width side lets a width-bound chart overflow its own
+  // fit by the padding and scroll at the zoom level that is supposed to fit.
+  const available: DiagramSize = {
+    width: Math.max(0, availableWidth - PADDING_PX * 2),
+    height: maxHeight - PADDING_PX * 2,
+  };
+  const fit = natural ? fitScale(natural, available) : 1;
   const content = natural ? scaleSize(natural, fit * clampedZoom) : null;
+
+  // Overflow follows from the known geometry, so it is derived rather than
+  // measured: the stage is padded on both sides and spans at least the
+  // viewport width, so the diagram overflows exactly when it outgrows either
+  // axis. Deriving keeps the pan affordance in step with the current zoom
+  // without a second DOM read that would lag one paint behind.
+  const overflowing =
+    content !== null && (content.width > available.width || content.height > available.height);
 
   // useLayoutEffect is safe here and needed for correctness: this component is
   // only mounted once a diagram has rendered, which never happens during SSR,
   // and measuring before paint avoids a flash of the un-fitted natural size.
-  // It re-runs when the content resizes so the overflow affordances follow a
-  // zoom, not just a window resize.
   useLayoutEffect(() => {
     if (!element) return;
-    const read = () => {
-      setAvailableWidth(Math.round(element.clientWidth));
-      setOverflowing(overflows(element));
-    };
+    const read = () => setAvailableWidth(Math.round(element.clientWidth));
     read();
     const observer = new ResizeObserver(read);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [element, content?.width, content?.height]);
+  }, [element]);
 
   // ctrl/cmd + wheel zooms; a plain wheel keeps scrolling the page so a diagram
   // can never trap the scroll of a long conversation.
@@ -153,6 +161,19 @@ export const DiagramViewport = memo(function DiagramViewport({
         className={`flex items-center justify-center ${dragging ? "select-none" : ""}`}
         style={{ minWidth: "100%", padding: PADDING_PX }}
       >
+        {/*
+          The one HTML sink in the app, and it is deliberate: a mermaid chart is
+          only ever available as a markup string, and the chart itself is
+          LLM-authored. The trust boundary is closed upstream, not here:
+          renderDiagramSvg runs mermaid under securityLevel "strict" (labels
+          through DOMPurify, no click handlers, no navigation) and then passes
+          the output through sanitizeDiagramSvg, which strips script,
+          foreignObject, embed, object, iframe, link and meta elements, inline
+          event handlers and javascript:/data:text/html URLs. Only that
+          sanitized string ever reaches this prop, and it lands in a
+          role="img" container that offers no navigation target. diagramRender
+          test.ts asserts the sanitizer and the label path together.
+        */}
         <div
           role="img"
           aria-label={label}
