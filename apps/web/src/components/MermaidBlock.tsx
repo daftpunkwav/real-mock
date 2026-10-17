@@ -323,7 +323,12 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
       {fullscreen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setFullscreen(false)}
+          // Closing on a backdrop click is decided here rather than by stopping
+          // propagation on the panel: one handler, and no click handler bolted
+          // onto the non-interactive panel element.
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setFullscreen(false);
+          }}
           role="dialog"
           aria-modal="true"
           aria-label={t("code.diagram")}
@@ -335,7 +340,6 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
             // replaces the old window-height fraction, which ignored the header
             // and the overlay padding and so overflowed a short window.
             className="flex h-full max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-surface-border bg-surface"
-            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
               <span className="truncate text-[13px] font-medium text-ink">{t("code.diagram")}</span>
