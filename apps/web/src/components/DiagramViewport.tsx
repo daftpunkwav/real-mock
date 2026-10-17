@@ -2,16 +2,25 @@
 
 /**
  * @file DiagramViewport.tsx
- * @description The scroll surface a rendered diagram lives in: measures its own
- * width, scales the diagram to fit that width and the height budget so the
- * whole chart is visible without scrolling, and layers drag-to-pan and
- * ctrl/cmd-wheel zoom on top. Owns no zoom state — it reports the factor and
- * the caller decides how to present it.
+ * @description The surface a rendered diagram lives in: measures its own width,
+ * scales the diagram to fit that width and the height budget so the whole chart
+ * is visible without scrolling, and layers drag-to-pan and ctrl/cmd-wheel zoom
+ * on top. Owns no zoom state — it reports the factor and the caller decides how
+ * to present it.
+ *
+ * Two layout decisions are load-bearing:
  *
  * The height budget is a CONSTANT handed in by the caller, never a measured
  * height. A measured height would track the rendered content, so a short
- * diagram would keep shrinking itself to fit its own box. The width is safe to
- * measure because the element is a block that fills its parent.
+ * diagram would keep shrinking itself to fit its own box.
+ *
+ * The vertical axis is deliberately NOT a scroll container (overflow-y is
+ * clip). The block grows with the diagram instead, which keeps the fit's
+ * "whole chart visible" promise without a nested scrollbar and lets a plain
+ * wheel over a diagram scroll the conversation rather than the chart. The
+ * horizontal axis stays scrollable because a zoomed diagram is wider than the
+ * column. Any fullscreen scroll container belongs to the modal around this,
+ * where trapping the scroll is correct because the page behind is locked.
  */
 
 import {
@@ -21,12 +30,14 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type Dispatch,
   type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
 } from "react";
 
 import { ZOOM_STEP, clampZoom, fitScale, scaleSize, type DiagramSize } from "./diagramZoom";
 
-/** Breathing room between the diagram and the viewport edge. */
+/** Breathing room between the diagram and the stage edge. */
 const PADDING_PX = 12;
 
 export interface DiagramViewportProps {
@@ -36,16 +47,21 @@ export interface DiagramViewportProps {
   natural: DiagramSize | null;
   /** Multiple of the fit scale; 1 shows the whole diagram. */
   zoom: number;
-  onZoomChange: (zoom: number) => void;
+  /**
+   * Accepts an updater so burst input — several wheel events inside a single
+   * React commit — steps from the latest zoom rather than the last rendered
+   * one.
+   */
+  onZoomChange: Dispatch<SetStateAction<number>>;
   /** Height budget in px the diagram is fitted into. */
   maxHeight: number;
   /** Accessible name for the rendered diagram. */
   label: string;
 }
 
-/** Whether the scroll area has anything to scroll to. */
-function overflows(element: HTMLElement): boolean {
-  return element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight;
+/** Whether the stage has anything to pan horizontally. */
+function overflowsX(element: HTMLElement): boolean {
+  return element.scrollWidth > element.clientWidth;
 }
 
 export const DiagramViewport = memo(function DiagramViewport({
@@ -60,10 +76,10 @@ export const DiagramViewport = memo(function DiagramViewport({
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const dragRef = useRef<{ x: number; y: number; left: number } | null>(null);
 
-  // A callback ref (not useRef) so the measurement effect re-runs once the
-  // node exists; useRef.current is still null on the first render.
+  // A callback ref (not useRef) so the measurement effect re-runs once the node
+  // exists; useRef.current is still null on the first render.
   const attachRef = useCallback((node: HTMLDivElement | null) => {
     nodeRef.current = node;
     setElement(node);
@@ -81,13 +97,12 @@ export const DiagramViewport = memo(function DiagramViewport({
   const fit = natural ? fitScale(natural, available) : 1;
   const content = natural ? scaleSize(natural, fit * clampedZoom) : null;
 
-  // Overflow follows from the known geometry, so it is derived rather than
-  // measured: the stage is padded on both sides and spans at least the
-  // viewport width, so the diagram overflows exactly when it outgrows either
-  // axis. Deriving keeps the pan affordance in step with the current zoom
-  // without a second DOM read that would lag one paint behind.
-  const overflowing =
-    content !== null && (content.width > available.width || content.height > available.height);
+  // Horizontal overflow follows from the known geometry, so it is derived rather
+  // than measured: the stage is padded and spans at least the viewport width,
+  // so the diagram outgrows it exactly when it is wider than the usable box.
+  // Deriving keeps the pan affordance in step with the current zoom without a
+  // DOM read that would lag one paint behind.
+  const overflowing = content !== null && content.width > available.width;
 
   // useLayoutEffect is safe here and needed for correctness: this component is
   // only mounted once a diagram has rendered, which never happens during SSR,
@@ -101,30 +116,27 @@ export const DiagramViewport = memo(function DiagramViewport({
     return () => observer.disconnect();
   }, [element]);
 
-  // ctrl/cmd + wheel zooms; a plain wheel keeps scrolling the page so a diagram
-  // can never trap the scroll of a long conversation.
+  // ctrl/cmd + wheel zooms, stepped through an updater so a burst of events
+  // within one React commit still registers every step. A plain wheel is left
+  // entirely alone: the vertical axis is not a scroll container, so it reaches
+  // the conversation, and a horizontal wheel pans the zoomed chart natively.
   useEffect(() => {
     if (!element) return;
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const step = event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-      onZoomChange(clampZoom(clampedZoom * step));
+      onZoomChange((current) => clampZoom(clampZoom(current) * step));
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [element, clampedZoom, onZoomChange]);
+  }, [element, onZoomChange]);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     const node = nodeRef.current;
-    if (!node || !overflows(node)) return;
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      left: node.scrollLeft,
-      top: node.scrollTop,
-    };
+    if (!node || !overflowsX(node)) return;
+    dragRef.current = { x: event.clientX, y: event.clientY, left: node.scrollLeft };
     node.setPointerCapture(event.pointerId);
     setDragging(true);
   }, []);
@@ -134,7 +146,6 @@ export const DiagramViewport = memo(function DiagramViewport({
     const node = nodeRef.current;
     if (!drag || !node) return;
     node.scrollLeft = drag.left - (event.clientX - drag.x);
-    node.scrollTop = drag.top - (event.clientY - drag.y);
   }, []);
 
   const endDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -147,10 +158,10 @@ export const DiagramViewport = memo(function DiagramViewport({
   return (
     <div
       ref={attachRef}
-      className={`w-full overflow-auto bg-surface-alt ${
-        dragging ? "cursor-grabbing" : overflowing ? "cursor-grab" : ""
-      }`}
-      style={{ maxHeight }}
+      className={`w-full bg-surface-alt ${dragging ? "cursor-grabbing" : overflowing ? "cursor-grab" : ""}`}
+      // overflow-y stays clip so the block grows with the diagram and a plain
+      // wheel reaches the page; only the horizontal axis pans.
+      style={{ overflowX: "auto", overflowY: "clip" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -158,7 +169,7 @@ export const DiagramViewport = memo(function DiagramViewport({
       onDoubleClick={() => onZoomChange(1)}
     >
       <div
-        className={`flex items-center justify-center ${dragging ? "select-none" : ""}`}
+        className={`flex items-center ${dragging ? "select-none" : ""}`}
         style={{ minWidth: "100%", padding: PADDING_PX }}
       >
         {/*
@@ -180,8 +191,11 @@ export const DiagramViewport = memo(function DiagramViewport({
           className="shrink-0"
           style={
             content
-              ? { width: content.width, height: content.height }
-              : { width: `${clampedZoom * 100}%` }
+              ? // Centering an oversized box puts its left edge before the
+                // scroll origin, where scrollLeft can never reach. Auto margins
+                // centre it while it fits and collapse to zero once it does not.
+                { width: content.width, height: content.height, margin: "0 auto" }
+              : { width: "100%" }
           }
           dangerouslySetInnerHTML={{ __html: svg }}
         />

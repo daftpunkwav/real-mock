@@ -108,17 +108,39 @@ export function readSvgViewBox(svg: string): { width: number; height: number } |
  * - A duplicate attribute is dropped by the HTML parser, so appending a second
  *   `style` next to mermaid's own leaves the original in force. The previous
  *   version did exactly that and its sizing never took effect.
- *
- * A root without a viewBox keeps its authored pixel size: without one there is
- * no intrinsic ratio to stretch into the wrapper box.
  */
 export function fitDiagramSvg(svg: string): string {
   return svg.replace(/<svg\b([^>]*)>/i, (_tag, attrs: string) => {
     const raw = String(attrs);
-    if (!/\bviewBox\s*=\s*"[^"]*"/i.test(raw)) return _tag;
-    const cleaned = raw
+    const boxable = hasViewBox(raw) ? raw : synthesizeViewBox(raw);
+    if (!boxable) return _tag;
+    const cleaned = boxable
       .replace(/\s+(?:width|height)\s*=\s*"[^"]*"/gi, "")
       .replace(/\s+style\s*=\s*"[^"]*"/gi, "");
     return `<svg${cleaned} style="display:block;width:100%;height:100%">`;
   });
+}
+
+/** Whether the root already declares the ratio the wrapper scales against. */
+function hasViewBox(attrs: string): boolean {
+  return /\bviewBox\s*=\s*"[^"]*"/i.test(attrs);
+}
+
+/**
+ * State as a viewBox the intrinsic ratio of a root that gives a pixel size
+ * without one.
+ *
+ * Such an SVG is already one user unit per pixel, so `viewBox="0 0 w h"` keeps
+ * that mapping exact while giving the wrapper the ratio it needs. Without it
+ * the diagram stays a fixed-size image that no zoom level can scale, and the
+ * viewport has no choice but to let it overflow its box.
+ *
+ * Returns null when there is no usable pixel size to derive it from.
+ */
+function synthesizeViewBox(attrs: string): string | null {
+  const width = Number.parseFloat(/\swidth\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? "");
+  const height = Number.parseFloat(/\sheight\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? "");
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  if (width <= 0 || height <= 0) return null;
+  return `${attrs} viewBox="0 0 ${width} ${height}"`;
 }

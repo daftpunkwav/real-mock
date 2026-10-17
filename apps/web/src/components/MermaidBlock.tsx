@@ -13,7 +13,16 @@
  * changes and follow the light/dark palette.
  */
 
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertTriangle,
   Check,
@@ -41,9 +50,6 @@ const ERROR_NOTICE_DELAY_MS = 1200;
 /** Height budget for the inline diagram, in px. */
 const INLINE_MAX_HEIGHT_PX = 480;
 
-/** Smallest fullscreen budget, so a tiny window still shows a usable stage. */
-const MIN_FULLSCREEN_HEIGHT_PX = 240;
-
 /** Feedback duration for the copied state. */
 const COPIED_RESET_MS = 1500;
 
@@ -64,12 +70,6 @@ function readDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-/** Fullscreen stage height, read on open so server rendering stays untouched. */
-function fullscreenHeight(): number {
-  if (typeof window === "undefined") return MIN_FULLSCREEN_HEIGHT_PX;
-  return Math.max(MIN_FULLSCREEN_HEIGHT_PX, Math.round(window.innerHeight * 0.76));
-}
-
 export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: string }) {
   const t = useT("common");
   const [svg, setSvg] = useState<string | null>(null);
@@ -78,12 +78,27 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const [view, setView] = useState<"diagram" | "source">("diagram");
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
-  const [fullscreenMaxHeight, setFullscreenMaxHeight] = useState(MIN_FULLSCREEN_HEIGHT_PX);
+  const [fullscreenMaxHeight, setFullscreenMaxHeight] = useState(INLINE_MAX_HEIGHT_PX);
   const [copied, setCopied] = useState(false);
   const [dark, setDark] = useState(false);
+  const fullscreenStageRef = useRef<HTMLDivElement | null>(null);
   // mermaid keys its stylesheet, gradients and node ids on this id, so it has to
   // be unique per block and stay valid inside a CSS selector.
   const diagramId = `md-diagram-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+
+  // Measure the fullscreen stage rather than deriving a budget from the window
+  // height: the modal header and the overlay padding both come out of the same
+  // space, and a resize while the viewer is open changes the answer. Measuring
+  // the stage is exact for a short window and for a resize at the same time.
+  useLayoutEffect(() => {
+    const stage = fullscreenStageRef.current;
+    if (!stage) return;
+    const read = () => setFullscreenMaxHeight(Math.round(stage.clientHeight));
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [fullscreen]);
 
   // Track the app theme (class-based dark mode) so diagrams match the palette.
   useEffect(() => {
@@ -156,11 +171,6 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
     });
   }, [chart]);
 
-  const onOpenFullscreen = useCallback(() => {
-    setFullscreenMaxHeight(fullscreenHeight());
-    setFullscreen(true);
-  }, []);
-
   const natural = useMemo(() => (svg ? readSvgViewBox(svg) : null), [svg]);
   const source = chart.trimEnd();
   const canZoom = view === "diagram" && svg !== null;
@@ -168,13 +178,9 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
 
   /** Diagram or source, at the given height budget. */
   const body = (maxHeight: number) => {
-    if (!svg) {
-      return (
-        <p className="bg-surface-alt p-6 text-center text-[13px] text-ink-subtle">
-          {failure && showNotice ? t("code.diagramFailed") : t("state.loading")}
-        </p>
-      );
-    }
+    // Source first: when a chart never rendered, or failed, the source is the
+    // only thing left to show, so the Source tab must not fall back to the
+    // loading paragraph just because there is no svg.
     if (view === "source") {
       return (
         <div className="overflow-auto" style={{ maxHeight }}>
@@ -200,6 +206,13 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
             </code>
           </pre>
         </div>
+      );
+    }
+    if (!svg) {
+      return (
+        <p className="bg-surface-alt p-6 text-center text-[13px] text-ink-subtle">
+          {failure && showNotice ? t("code.diagramFailed") : t("state.loading")}
+        </p>
       );
     }
     return (
@@ -278,7 +291,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
       </button>
       <button
         type="button"
-        onClick={onOpenFullscreen}
+        onClick={() => setFullscreen(true)}
         disabled={svg === null}
         className={ICON_BUTTON}
         aria-label={t("code.fullscreen")}
@@ -316,10 +329,15 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
           aria-label={t("code.diagram")}
         >
           <div
-            className="flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-surface-border bg-surface"
+            // h-full makes the panel a definite height so the stage below it is
+            // sized by the leftover space, not by the diagram it contains; that
+            // is what lets the stage be measured for the fit budget. It also
+            // replaces the old window-height fraction, which ignored the header
+            // and the overlay padding and so overflowed a short window.
+            className="flex h-full max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-surface-border bg-surface"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
               <span className="truncate text-[13px] font-medium text-ink">{t("code.diagram")}</span>
               <div className="flex items-center gap-2">
                 {tabs}
@@ -334,7 +352,12 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
                 </button>
               </div>
             </div>
-            {body(fullscreenMaxHeight)}
+            {/* min-h-0 lets the flex child shrink below its content; overflow
+                auto scrolls the zoomed diagram here, where trapping the scroll
+                is correct because the page behind is locked. */}
+            <div ref={fullscreenStageRef} className="min-h-0 flex-1 overflow-auto">
+              {body(fullscreenMaxHeight)}
+            </div>
           </div>
         </div>
       )}

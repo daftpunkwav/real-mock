@@ -125,9 +125,28 @@ describe("fitDiagramSvg", () => {
     expect(out.match(/style="/g)).toHaveLength(1);
   });
 
-  it("keeps the authored pixel size when there is no viewBox to scale into", () => {
-    const input = '<svg width="640" height="480" style="max-width:640px;"><g/></svg>';
-    expect(fitDiagramSvg(input)).toBe(input);
+  it("states the intrinsic ratio when a root gives pixels but no viewBox", () => {
+    // Such an SVG is already one user unit per pixel, so this keeps that
+    // mapping exact while giving the wrapper a ratio to scale against. Without
+    // it the diagram stays a fixed-size image no zoom level can scale.
+    const out = fitDiagramSvg('<svg width="640" height="480"><g/></svg>');
+    expect(out).toContain('viewBox="0 0 640 480"');
+    expect(out).toContain('style="display:block;width:100%;height:100%"');
+    expect(out).not.toMatch(/\s(?:width|height)="/);
+    expect(readSvgViewBox(out)).toEqual({ width: 640, height: 480 });
+  });
+
+  it("accepts unit suffixes on the synthesized viewBox", () => {
+    expect(fitDiagramSvg('<svg width="640px" height="480px"><g/></svg>')).toContain(
+      'viewBox="0 0 640 480"',
+    );
+  });
+
+  it("leaves a root untouched when there is neither viewBox nor a usable size", () => {
+    const degenerate = '<svg width="640" height="0"><g/></svg>';
+    expect(fitDiagramSvg(degenerate)).toBe(degenerate);
+    const bare = "<svg><g/></svg>";
+    expect(fitDiagramSvg(bare)).toBe(bare);
   });
 
   it("leaves non-svg input untouched", () => {
