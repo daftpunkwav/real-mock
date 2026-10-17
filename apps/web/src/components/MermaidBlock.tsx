@@ -1,14 +1,19 @@
+"use client";
+
 /**
  * @file MermaidBlock.tsx
- * @description Render ```mermaid fences as SVG diagrams with a diagram/source
- * dual view, zoom controls, and a fullscreen viewer. Parse failures degrade to
- * the source view with a calm notice — mermaid's own error diagram is
- * suppressed (suppressErrorRendering) so a broken chart can never inject the
- * giant red "Syntax error in text" banner into the page. Diagrams re-render on
- * app theme changes and follow the light/dark palette.
+ * @description Render ```mermaid fences with a diagram/source dual view, zoom
+ * controls and a fullscreen viewer. Owns UI state only — rendering lives in
+ * diagramRender.ts, sizing in DiagramViewport.tsx, the palette in
+ * diagramTheme.ts.
+ *
+ * Parse failures degrade to the source view with a calm notice; mermaid's own
+ * error diagram is suppressed so a broken chart can never inject the giant red
+ * "Syntax error in text" banner into the page. Diagrams re-render on app theme
+ * changes and follow the light/dark palette.
  */
 
-import { memo, useCallback, useEffect, useId, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -22,8 +27,10 @@ import {
 } from "lucide-react";
 import { useT } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { fitDiagramSvg, isErrorDiagramSvg, sanitizeDiagramSvg } from "./diagramSvg";
-import { repairMermaidSource } from "./diagramSource";
+import { DiagramViewport } from "./DiagramViewport";
+import { readSvgViewBox } from "./diagramSvg";
+import { renderDiagramSvg } from "./diagramRender";
+import { ZOOM_MAX, ZOOM_MIN, clampZoom, zoomIn, zoomOut } from "./diagramZoom";
 
 /** Debounce re-renders while the chart streams in. */
 const RENDER_DEBOUNCE_MS = 300;
@@ -31,12 +38,14 @@ const RENDER_DEBOUNCE_MS = 300;
 /** Delay before a render failure surfaces its notice (lets streams settle). */
 const ERROR_NOTICE_DELAY_MS = 1200;
 
-/** Zoom steps in percent; index 2 (100%) is the default fit width. */
-const ZOOM_STEPS = [50, 75, 100, 150, 200, 300] as const;
-const DEFAULT_ZOOM_INDEX = 2;
+/** Height budget for the inline diagram, in px. */
+const INLINE_MAX_HEIGHT_PX = 480;
 
 /** Feedback duration for the copied state. */
 const COPIED_RESET_MS = 1500;
+
+const ICON_BUTTON =
+  "rounded p-1.5 text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
 
 function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
@@ -58,21 +67,19 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const [failure, setFailure] = useState<string | null>(null);
   const [showNotice, setShowNotice] = useState(false);
   const [view, setView] = useState<"diagram" | "source">("diagram");
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dark, setDark] = useState(false);
-  const rawId = useId();
-  const diagramId = `md-diagram-${rawId.replace(/[^a-zA-Z0-9]/g, "")}`;
+  // mermaid keys its stylesheet, gradients and node ids on this id, so it has to
+  // be unique per block and stay valid inside a CSS selector.
+  const diagramId = `md-diagram-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   // Track the app theme (class-based dark mode) so diagrams match the palette.
   useEffect(() => {
     setDark(readDarkMode());
     const observer = new MutationObserver(() => setDark(readDarkMode()));
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
 
@@ -84,67 +91,19 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
     const source = chart.trim();
     if (!source) return;
     const timer = window.setTimeout(() => {
-      void import("mermaid")
-        .then(async ({ default: mermaid }) => {
-          mermaid.initialize({
-            startOnLoad: false,
-            securityLevel: "strict",
-            // Best-effort: reject on parse errors instead of resolving with
-            // the red error-diagram SVG that used to flood the page. The
-            // isErrorDiagramSvg content check below is the real guard and
-            // works regardless of this flag.
-            suppressErrorRendering: true,
-            theme: readDarkMode() ? "dark" : "default",
-            themeVariables: readDarkMode()
-              ? {
-                  fontFamily: "inherit",
-                  primaryColor: "#1c2b3a",
-                  primaryTextColor: "#e6edf3",
-                  primaryBorderColor: "#6b93b8",
-                  lineColor: "#8ba9c7",
-                  secondaryColor: "#243447",
-                  tertiaryColor: "#0d1117",
-                  textColor: "#e6edf3",
-                  mainBkg: "#16283f",
-                  nodeBorder: "#6b93b8",
-                  clusterBkg: "rgba(107,147,184,0.10)",
-                  edgeLabelBackground: "#0d1117",
-                }
-              : { fontFamily: "inherit" },
-            flowchart: { htmlLabels: true },
-          });
-          // Models sometimes pack the flowchart direction and the first node
-          // onto one line, or emit invalid `subgraph` headers (bare CJK ids).
-          // mermaid.parse() may still resolve while render() rejects (or
-          // resolves with the error placeholder), so retry the whole
-          // parse+render once with repaired syntax before degrading.
-          const renderText = async (text: string): Promise<string> => {
-            await mermaid.parse(text);
-            const { svg: rendered } = await mermaid.render(diagramId, text);
-            if (isErrorDiagramSvg(rendered)) {
-              throw new Error("Diagram engine returned its error placeholder.");
-            }
-            return rendered;
-          };
-          let rendered: string;
-          try {
-            rendered = await renderText(source);
-          } catch (firstErr) {
-            const fixed = repairMermaidSource(source);
-            if (fixed === source) throw firstErr;
-            rendered = await renderText(fixed);
-          }
-          if (!cancelled) {
-            setSvg(fitDiagramSvg(sanitizeDiagramSvg(rendered)));
-            setFailure(null);
-          }
+      void renderDiagramSvg({ chart: source, id: diagramId, dark })
+        .then((rendered) => {
+          if (cancelled) return;
+          setSvg(rendered);
+          setFailure(null);
+          // A re-rendered chart gets a clean stage instead of the old zoom.
+          setZoom(1);
         })
         .catch((err: unknown) => {
           // Parse/render failure (often a partial stream): stay on source.
-          if (!cancelled) {
-            setSvg(null);
-            setFailure(errorMessage(err));
-          }
+          if (cancelled) return;
+          setSvg(null);
+          setFailure(errorMessage(err));
         });
     }, RENDER_DEBOUNCE_MS);
     return () => {
@@ -187,79 +146,127 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
     });
   }, [chart]);
 
-  const zoomPct = ZOOM_STEPS[Math.min(zoomIndex, ZOOM_STEPS.length - 1)] ?? 100;
-  const canZoom = view === "diagram" && svg !== null;
+  const natural = useMemo(() => (svg ? readSvgViewBox(svg) : null), [svg]);
   const source = chart.trimEnd();
+  const canZoom = view === "diagram" && svg !== null;
+  const diagramLabel = `${t("code.diagram")}: ${chart.slice(0, 120)}`;
 
-  const diagramPane = (tall: boolean) => (
-    <div className={`overflow-auto bg-surface-alt ${tall ? "max-h-[76vh]" : "max-h-[480px]"}`}>
-      {svg ? (
+  /** Diagram or source, at the given height budget. */
+  const body = () => {
+    // Source first: when a chart never rendered, or failed, the source is the
+    // only thing left to show, so the Source tab must not fall back to the
+    // loading paragraph just because there is no svg.
+    if (view === "source") {
+      return (
+        // The fullscreen stage already scrolls, so it needs no cap of its own.
         <div
-          className={zoomPct <= 100 ? "mx-auto" : undefined}
-          style={{ width: `${zoomPct}%`, minWidth: zoomPct <= 100 ? undefined : "100%" }}
-          role="img"
-          aria-label={`${t("code.diagram")}: ${chart.slice(0, 120)}`}
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
-      ) : (
-        <p className="p-6 text-center text-[13px] text-ink-subtle">
+          className="overflow-auto"
+          style={{ maxHeight: fullscreen ? undefined : INLINE_MAX_HEIGHT_PX }}
+        >
+          {failure && showNotice && (
+            <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p>{t("code.diagramFailed")}</p>
+                <details className="mt-1">
+                  <summary className="cursor-pointer underline underline-offset-2">
+                    {t("code.errorDetail")}
+                  </summary>
+                  <p className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap">
+                    {failure}
+                  </p>
+                </details>
+              </div>
+            </div>
+          )}
+          <pre className="overflow-x-auto bg-surface-alt p-3">
+            <code className="block font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink">
+              {source}
+            </code>
+          </pre>
+        </div>
+      );
+    }
+    if (!svg) {
+      return (
+        <p className="bg-surface-alt p-6 text-center text-[13px] text-ink-subtle">
           {failure && showNotice ? t("code.diagramFailed") : t("state.loading")}
         </p>
-      )}
-    </div>
-  );
+      );
+    }
+    return (
+      <DiagramViewport
+        svg={svg}
+        natural={natural}
+        zoom={zoom}
+        onZoomChange={setZoom}
+        // The inline block has a constant budget; the fullscreen stage is sized
+        // by the modal layout, so the viewport measures it directly. Doing that
+        // in the viewport rather than here also keeps the layout hook out of a
+        // component that is server rendered.
+        maxHeight={fullscreen ? "parent" : INLINE_MAX_HEIGHT_PX}
+        label={diagramLabel}
+      />
+    );
+  };
 
-  const sourcePane = (tall: boolean) => (
-    <div className={tall ? "max-h-[76vh] overflow-auto" : undefined}>
-      {failure && showNotice && (
-        <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <div className="min-w-0">
-            <p>{t("code.diagramFailed")}</p>
-            <details className="mt-1">
-              <summary className="cursor-pointer underline underline-offset-2">
-                {t("code.errorDetail")}
-              </summary>
-              <p className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap">{failure}</p>
-            </details>
-          </div>
-        </div>
-      )}
-      <pre className="overflow-x-auto bg-surface-alt p-3">
-        <code className="block font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink">
-          {source}
-        </code>
-      </pre>
+  const tabs = (
+    <div
+      className="flex items-center rounded bg-surface-alt p-0.5"
+      role="tablist"
+      aria-label={t("code.diagram")}
+    >
+      {(
+        [
+          { id: "diagram", label: t("code.diagram"), Icon: ImageIcon },
+          { id: "source", label: t("code.source"), Icon: Code },
+        ] as const
+      ).map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={view === id}
+          onClick={() => setView(id)}
+          className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors ${
+            view === id ? "bg-surface-muted font-medium text-ink" : "text-ink-subtle hover:text-ink"
+          }`}
+        >
+          <Icon size={12} />
+          {label}
+        </button>
+      ))}
     </div>
   );
 
   const controls = (
-    <div className="flex items-center gap-0.5">
+    <>
       <button
         type="button"
-        onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
-        disabled={!canZoom || zoomIndex <= 0}
-        className="rounded p-1.5 text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        onClick={() => setZoom(zoomOut)}
+        disabled={!canZoom || zoom <= ZOOM_MIN}
+        className={ICON_BUTTON}
         aria-label={t("code.zoomOut")}
         title={t("code.zoomOut")}
       >
         <ZoomOut size={14} />
       </button>
+      {/* Readout doubles as the fit control: 100% means "whole diagram visible". */}
       <button
         type="button"
-        onClick={() => setZoomIndex(DEFAULT_ZOOM_INDEX)}
+        onClick={() => setZoom(1)}
         disabled={!canZoom}
         className="min-w-[2.75rem] rounded px-1 py-1 font-mono text-[11px] text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label={t("code.zoomReset")}
-        title={t("code.zoomReset")}
+        aria-label={t("code.fitToScreen")}
+        title={t("code.fitToScreen")}
       >
-        {zoomPct}%
+        {Math.round(clampZoom(zoom) * 100)}%
       </button>
       <button
         type="button"
-        onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
-        disabled={!canZoom || zoomIndex >= ZOOM_STEPS.length - 1}
-        className="rounded p-1.5 text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        onClick={() => setZoom(zoomIn)}
+        disabled={!canZoom || zoom >= ZOOM_MAX}
+        className={ICON_BUTTON}
         aria-label={t("code.zoomIn")}
         title={t("code.zoomIn")}
       >
@@ -269,7 +276,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
         type="button"
         onClick={() => setFullscreen(true)}
         disabled={svg === null}
-        className="rounded p-1.5 text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        className={ICON_BUTTON}
         aria-label={t("code.fullscreen")}
         title={t("code.fullscreen")}
       >
@@ -284,82 +291,58 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
       >
         {copied ? <Check size={12} /> : <Copy size={12} />}
       </button>
-    </div>
+    </>
   );
 
   return (
     <>
       <div className="my-2 overflow-hidden rounded-md border border-surface-border">
         <div className="flex items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-2 py-1">
-          <div
-            className="flex items-center rounded bg-surface-alt p-0.5"
-            role="tablist"
-            aria-label={t("code.diagram")}
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === "diagram"}
-              onClick={() => setView("diagram")}
-              className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors ${
-                view === "diagram"
-                  ? "bg-surface-muted font-medium text-ink"
-                  : "text-ink-subtle hover:text-ink"
-              }`}
-            >
-              <ImageIcon size={12} />
-              {t("code.diagram")}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === "source"}
-              onClick={() => {
-                setView("source");
-              }}
-              className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors ${
-                view === "source"
-                  ? "bg-surface-muted font-medium text-ink"
-                  : "text-ink-subtle hover:text-ink"
-              }`}
-            >
-              <Code size={12} />
-              {t("code.source")}
-            </button>
-          </div>
-          {controls}
+          {tabs}
+          <div className="flex items-center gap-0.5">{controls}</div>
         </div>
-        {view === "diagram" ? diagramPane(false) : sourcePane(false)}
+        {body()}
       </div>
       {fullscreen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setFullscreen(false)}
+          // Closing on a backdrop click is decided here rather than by stopping
+          // propagation on the panel: one handler, and no click handler bolted
+          // onto the non-interactive panel element.
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setFullscreen(false);
+          }}
           role="dialog"
           aria-modal="true"
           aria-label={t("code.diagram")}
         >
           <div
-            className="flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-surface-border bg-surface"
-            onClick={(event) => event.stopPropagation()}
+            // h-full makes the panel a definite height so the stage below it is
+            // sized by the leftover space, not by the diagram it contains; that
+            // is what lets the stage be measured for the fit budget. It also
+            // replaces the old window-height fraction, which ignored the header
+            // and the overlay padding and so overflowed a short window.
+            className="flex h-full max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-surface-border bg-surface"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
               <span className="truncate text-[13px] font-medium text-ink">{t("code.diagram")}</span>
-              <div className="flex items-center gap-0.5">
-                {controls}
+              <div className="flex items-center gap-2">
+                {tabs}
+                <div className="flex items-center gap-0.5">{controls}</div>
                 <button
                   type="button"
                   onClick={() => setFullscreen(false)}
-                  className="rounded p-1.5 text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink"
+                  className={ICON_BUTTON}
                   aria-label={t("action.close")}
                 >
                   <X size={14} />
                 </button>
               </div>
             </div>
-            <div className="overflow-auto bg-surface-alt">
-              {view === "diagram" ? diagramPane(true) : sourcePane(true)}
-            </div>
+            {/* min-h-0 lets the flex child shrink below its content; overflow
+                auto scrolls the zoomed diagram here, where trapping the scroll
+                is correct because the page behind is locked. */}
+            <div className="min-h-0 flex-1 overflow-auto">{body()}</div>
           </div>
         </div>
       )}

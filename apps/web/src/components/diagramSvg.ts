@@ -1,8 +1,9 @@
 /**
  * @file diagramSvg.ts
  * @description Pure helpers for processed mermaid SVG output: error-diagram
- * detection, XSS defense-in-depth, and fluid sizing. Framework-free so the
- * diagram component stays thin and the logic is unit-testable in Node.
+ * detection, XSS defense-in-depth, intrinsic-size extraction, and handing the
+ * rendered size over to the viewport. Framework-free so the diagram component
+ * stays thin and the logic is unit-testable in Node.
  *
  * Constraints:
  * - This module must not parse or repair mermaid source text; that boundary
@@ -65,14 +66,82 @@ export function sanitizeDiagramSvg(svg: string): string {
   return out;
 }
 
+/** True when both dimensions are real numbers and strictly positive. */
+function isPositiveSize(size: { width: number; height: number }): boolean {
+  return (
+    Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0
+  );
+}
+
 /**
- * Make the diagram fluid: strip fixed width/height attributes mermaid emits
- * so the SVG scales with its container (zoom is applied by the wrapper).
- * Inputs without an svg root tag pass through untouched.
+ * The diagram's intrinsic pixel size, taken from the root viewBox.
+ *
+ * The wrapper needs it to scale the diagram without measuring a laid-out SVG:
+ * the viewBox is what mermaid lays the diagram out against, so it is the only
+ * size that is stable before the element is in the document. Returns null when
+ * the root carries no usable viewBox (no intrinsic ratio to scale against).
+ */
+export function readSvgViewBox(svg: string): { width: number; height: number } | null {
+  const match = /<svg\b[^>]*\bviewBox\s*=\s*"([^"]*)"/i.exec(svg);
+  if (match === null) return null;
+  // The grammar allows comma or whitespace separated values. A short or
+  // unparsable list leaves zeros behind, which isPositiveSize then rejects.
+  const parts = (match[1] ?? "")
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+  const size = { width: parts[2] ?? 0, height: parts[3] ?? 0 };
+  return isPositiveSize(size) ? size : null;
+}
+
+/**
+ * Hand the rendered size over to the wrapper: drop the fixed width/height and
+ * the inline `style="max-width:Npx"` mermaid emits, then install exactly ONE
+ * style attribute.
+ *
+ * Two details are load-bearing:
+ * - The inline `max-width` mermaid adds caps the diagram at its natural size,
+ *   which defeats any wrapper-driven scaling.
+ * - A duplicate attribute is dropped by the HTML parser, so appending a second
+ *   `style` next to mermaid's own leaves the original in force. The previous
+ *   version did exactly that and its sizing never took effect.
  */
 export function fitDiagramSvg(svg: string): string {
-  return svg.replace(/<svg\b([^>]*)>/, (_tag, attrs: string) => {
-    const cleaned = String(attrs).replace(/\s+(width|height)="[^"]*"/gi, "");
-    return `<svg${cleaned} width="100%" style="height:auto;max-width:100%;display:block;">`;
+  return svg.replace(/<svg\b([^>]*)>/i, (_tag, attrs: string) => {
+    const raw = String(attrs);
+    const boxable = hasViewBox(raw) ? raw : synthesizeViewBox(raw);
+    if (!boxable) return _tag;
+    const cleaned = boxable
+      .replace(/\s+(?:width|height)\s*=\s*"[^"]*"/gi, "")
+      .replace(/\s+style\s*=\s*"[^"]*"/gi, "");
+    return `<svg${cleaned} style="display:block;width:100%;height:100%">`;
   });
+}
+
+/** Whether the root already declares the ratio the wrapper scales against. */
+function hasViewBox(attrs: string): boolean {
+  return /\bviewBox\s*=\s*"[^"]*"/i.test(attrs);
+}
+
+/** A positive numeric attribute of the root tag, or null when unusable. */
+function numericAttribute(attrs: string, name: string): number | null {
+  const match = new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`, "i").exec(attrs);
+  if (match === null) return null;
+  const value = Number.parseFloat(match[1] ?? "");
+  return value > 0 && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * State as a viewBox the intrinsic ratio of a root that gives a pixel size
+ * without one.
+ *
+ * Such an SVG is already one user unit per pixel, so `viewBox="0 0 w h"` keeps
+ * that mapping exact while giving the wrapper the ratio it needs. Without it
+ * the diagram stays a fixed-size image that no zoom level can scale, and the
+ * viewport has no choice but to let it overflow its box.
+ */
+function synthesizeViewBox(attrs: string): string | null {
+  const width = numericAttribute(attrs, "width");
+  const height = numericAttribute(attrs, "height");
+  return width === null || height === null ? null : `${attrs} viewBox="0 0 ${width} ${height}"`;
 }

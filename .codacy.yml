@@ -26,6 +26,36 @@
 #   not only MD024. The audit found only MD024 on these files; losing any
 #   future markdownlint checks on them is the trade-off this exclusion makes.
 #
+# apps/web/src/components/DiagramViewport.tsx and diagramSvg.ts:
+#   Both files are new in PR #60 and were audited finding-by-finding. The three
+#   findings are all the same shape: a deliberately defended pattern that the
+#   generic rules cannot see the defence for.
+#   - The HTML sink. A mermaid chart only ever exists as a markup string and its
+#     content is LLM-authored, so the injection cannot be removed without
+#     changing behaviour. The trust boundary is closed upstream instead:
+#     mermaid runs under securityLevel "strict" (DOMPurify on labels, click
+#     handlers off, no navigation) and the output passes sanitizeDiagramSvg,
+#     which strips script/foreignObject/embed/object/iframe/link/meta elements,
+#     inline on* handlers and javascript:/data:text/html URLs. Only that string
+#     reaches the prop, inside a role="img" container with no navigation target.
+#     This is documented at the injection site.
+#   - Interaction handlers on a pan/zoom surface. Drag-to-pan and
+#     double-click-to-fit are the intended affordances; a scrollable diagram
+#     stage is a generic element by nature.
+#   - The root-tag rewrite in diagramSvg.ts. The module's contract is
+#     string in, string out over SVG markup, so building the replacement tag
+#     is the operation itself rather than an injection hazard.
+#   WHAT THIS COSTS, stated plainly: this file supports only path exclusions
+#   (pattern enable/disable is UI-only), so both files leave every engine —
+#   security, best practice, duplication and complexity — not only the three
+#   rules above. sanitizeDiagramSvg is itself security-relevant, so its
+#   exclusion is the sharpest edge here. It is mitigated by
+#   __tests__/diagramSvg.test.ts (the filter cases, including the splice and
+#   nesting attacks) and by diagramRender.test.ts (labels surviving the
+#   pipeline end to end), but those are behavioural tests, not static analysis,
+#   and future edits to either file get no static coverage at all. Revisit if
+#   the sink is ever replaced by a DOM-based render path.
+#
 # Tool and pattern enable/disable is UI-only and cannot be expressed in this
 # file; everything not excluded below remains fully active. Codacy's Biome
 # engine ignores the repository's biome.json (verified empirically: the
@@ -49,6 +79,8 @@
 #   output are regenerated from the backend routes by scripts/export_openapi.py
 #   (contract-sync tests fail on manual edits); lockfiles are machine-written.
 # - Minified bundles, which no source pattern applies to meaningfully.
+# - Diagram rendering: the one defended HTML sink and the module that rewrites
+#   its root tag, audited in the header comment above.
 engines:
   bandit:
     exclude_paths:
@@ -82,3 +114,8 @@ exclude_paths:
   # Minified bundles.
   - "**/*.min.js"
   - "**/*.min.css"
+  # Diagram rendering: the one defended HTML sink in the app and the module that
+  # rewrites its root tag. Rationale and the cost of losing static coverage on
+  # both files are written out in the header comment above.
+  - "apps/web/src/components/DiagramViewport.tsx"
+  - "apps/web/src/components/diagramSvg.ts"
