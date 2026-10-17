@@ -53,8 +53,15 @@ export interface DiagramViewportProps {
    * one.
    */
   onZoomChange: Dispatch<SetStateAction<number>>;
-  /** Height budget in px the diagram is fitted into. */
-  maxHeight: number;
+  /**
+   * Height budget in px, or "parent" to measure the element's own parent.
+   *
+   * A number is used directly because a measured height would track the
+   * rendered content and a short diagram would shrink itself forever. "parent"
+   * is for a stage whose height the surrounding layout already fixes — the
+   * fullscreen modal — where measuring the element itself would be circular.
+   */
+  maxHeight: number | "parent";
   /** Accessible name for the rendered diagram. */
   label: string;
 }
@@ -75,6 +82,7 @@ export const DiagramViewport = memo(function DiagramViewport({
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
+  const [parentHeight, setParentHeight] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ x: number; y: number; left: number } | null>(null);
 
@@ -90,9 +98,10 @@ export const DiagramViewport = memo(function DiagramViewport({
   // the padding comes out of the space the diagram may occupy on BOTH axes.
   // Leaving it out on the width side lets a width-bound chart overflow its own
   // fit by the padding and scroll at the zoom level that is supposed to fit.
+  const budgetHeight = maxHeight === "parent" ? parentHeight : maxHeight;
   const available: DiagramSize = {
     width: Math.max(0, availableWidth - PADDING_PX * 2),
-    height: maxHeight - PADDING_PX * 2,
+    height: budgetHeight - PADDING_PX * 2,
   };
   const fit = natural ? fitScale(natural, available) : 1;
   const content = natural ? scaleSize(natural, fit * clampedZoom) : null;
@@ -107,14 +116,21 @@ export const DiagramViewport = memo(function DiagramViewport({
   // useLayoutEffect is safe here and needed for correctness: this component is
   // only mounted once a diagram has rendered, which never happens during SSR,
   // and measuring before paint avoids a flash of the un-fitted natural size.
+  // The parent is observed too because a vertical window resize changes its
+  // height without changing this element's width.
   useLayoutEffect(() => {
     if (!element) return;
-    const read = () => setAvailableWidth(Math.round(element.clientWidth));
+    const parent = maxHeight === "parent" ? element.parentElement : null;
+    const read = () => {
+      setAvailableWidth(Math.round(element.clientWidth));
+      if (parent) setParentHeight(Math.round(parent.clientHeight));
+    };
     read();
     const observer = new ResizeObserver(read);
     observer.observe(element);
+    if (parent) observer.observe(parent);
     return () => observer.disconnect();
-  }, [element]);
+  }, [element, maxHeight]);
 
   // ctrl/cmd + wheel zooms, stepped through an updater so a burst of events
   // within one React commit still registers every step. A plain wheel is left

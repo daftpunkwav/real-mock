@@ -5,7 +5,7 @@
  * container's width is stubbed — that is the one input the fit depends on.
  */
 
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -17,20 +17,36 @@ const MAX_HEIGHT_PX = 480;
 
 const SVG = '<svg viewBox="0 0 400 800"><g/></svg>';
 
+/** Callbacks handed to the stub observer, so a test can drive a measurement. */
+let observerCallbacks: (() => void)[] = [];
+
+function fireResizeObservers(): void {
+  act(() => {
+    observerCallbacks.forEach((callback) => callback());
+  });
+}
+
 interface RenderOptions {
   natural: { width: number; height: number } | null;
   zoom?: number;
+  maxHeight?: number | "parent";
   onZoomChange?: Dispatch<SetStateAction<number>>;
 }
 
-function renderDiagram({ natural, zoom = 1, onZoomChange = vi.fn() }: RenderOptions) {
+function renderDiagram({
+  natural,
+  zoom = 1,
+  maxHeight = MAX_HEIGHT_PX,
+  onZoomChange = vi.fn(),
+}: RenderOptions) {
+  observerCallbacks = [];
   const result = render(
     <DiagramViewport
       svg={SVG}
       natural={natural}
       zoom={zoom}
       onZoomChange={onZoomChange}
-      maxHeight={MAX_HEIGHT_PX}
+      maxHeight={maxHeight}
       label="test diagram"
     />,
   );
@@ -54,9 +70,14 @@ beforeAll(() => {
   // jsdom ships neither of these; the observer only has to be inert, since the
   // viewport reads its measurement once on mount, and the capture calls are
   // bookkeeping the browser keeps for us.
+  // jsdom has no ResizeObserver; the stub records its callback so a test can
+  // drive a measurement, and does nothing else.
   vi.stubGlobal(
     "ResizeObserver",
     class {
+      constructor(callback: () => void) {
+        observerCallbacks.push(callback);
+      }
       observe() {}
       unobserve() {}
       disconnect() {}
@@ -153,6 +174,22 @@ describe("DiagramViewport", () => {
     // justify-content:center would place the left edge before scrollLeft's
     // origin; auto margins collapse to zero instead.
     expect(diagram.style.margin).toBe("0px auto");
+  });
+
+  it("fits into the parent stage when the budget is 'parent'", () => {
+    // A stage whose height the surrounding layout fixes: the viewport has to
+    // measure it, because no number can be derived without the DOM.
+    const { diagram } = renderDiagram({
+      natural: { width: 400, height: 800 },
+      maxHeight: "parent",
+    });
+    // The measured parent is the element wrapping the viewport root.
+    const stage = diagram.parentElement?.parentElement?.parentElement;
+    expect(stage).toBeTruthy();
+    Object.defineProperty(stage!, "clientHeight", { configurable: true, value: 300 });
+
+    act(() => fireResizeObservers());
+    expect(diagram.style.height).toBe(`${300 - 24}px`);
   });
 
   it("pans horizontally while a pointer drag is held", () => {

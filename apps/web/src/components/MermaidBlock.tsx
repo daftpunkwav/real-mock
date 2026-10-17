@@ -13,16 +13,7 @@
  * changes and follow the light/dark palette.
  */
 
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -78,27 +69,11 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const [view, setView] = useState<"diagram" | "source">("diagram");
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
-  const [fullscreenMaxHeight, setFullscreenMaxHeight] = useState(INLINE_MAX_HEIGHT_PX);
   const [copied, setCopied] = useState(false);
   const [dark, setDark] = useState(false);
-  const fullscreenStageRef = useRef<HTMLDivElement | null>(null);
   // mermaid keys its stylesheet, gradients and node ids on this id, so it has to
   // be unique per block and stay valid inside a CSS selector.
   const diagramId = `md-diagram-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-
-  // Measure the fullscreen stage rather than deriving a budget from the window
-  // height: the modal header and the overlay padding both come out of the same
-  // space, and a resize while the viewer is open changes the answer. Measuring
-  // the stage is exact for a short window and for a resize at the same time.
-  useLayoutEffect(() => {
-    const stage = fullscreenStageRef.current;
-    if (!stage) return;
-    const read = () => setFullscreenMaxHeight(Math.round(stage.clientHeight));
-    read();
-    const observer = new ResizeObserver(read);
-    observer.observe(stage);
-    return () => observer.disconnect();
-  }, [fullscreen]);
 
   // Track the app theme (class-based dark mode) so diagrams match the palette.
   useEffect(() => {
@@ -177,13 +152,17 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const diagramLabel = `${t("code.diagram")}: ${chart.slice(0, 120)}`;
 
   /** Diagram or source, at the given height budget. */
-  const body = (maxHeight: number) => {
+  const body = () => {
     // Source first: when a chart never rendered, or failed, the source is the
     // only thing left to show, so the Source tab must not fall back to the
     // loading paragraph just because there is no svg.
     if (view === "source") {
       return (
-        <div className="overflow-auto" style={{ maxHeight }}>
+        // The fullscreen stage already scrolls, so it needs no cap of its own.
+        <div
+          className="overflow-auto"
+          style={{ maxHeight: fullscreen ? undefined : INLINE_MAX_HEIGHT_PX }}
+        >
           {failure && showNotice && (
             <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -221,7 +200,11 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
         natural={natural}
         zoom={zoom}
         onZoomChange={setZoom}
-        maxHeight={maxHeight}
+        // The inline block has a constant budget; the fullscreen stage is sized
+        // by the modal layout, so the viewport measures it directly. Doing that
+        // in the viewport rather than here also keeps the layout hook out of a
+        // component that is server rendered.
+        maxHeight={fullscreen ? "parent" : INLINE_MAX_HEIGHT_PX}
         label={diagramLabel}
       />
     );
@@ -318,7 +301,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
           {tabs}
           <div className="flex items-center gap-0.5">{controls}</div>
         </div>
-        {body(INLINE_MAX_HEIGHT_PX)}
+        {body()}
       </div>
       {fullscreen && (
         <div
@@ -359,9 +342,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
             {/* min-h-0 lets the flex child shrink below its content; overflow
                 auto scrolls the zoomed diagram here, where trapping the scroll
                 is correct because the page behind is locked. */}
-            <div ref={fullscreenStageRef} className="min-h-0 flex-1 overflow-auto">
-              {body(fullscreenMaxHeight)}
-            </div>
+            <div className="min-h-0 flex-1 overflow-auto">{body()}</div>
           </div>
         </div>
       )}
