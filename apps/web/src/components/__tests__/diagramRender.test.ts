@@ -57,9 +57,28 @@ describe("renderDiagramSvg", () => {
     expect(root).toContain("viewBox");
   }, 30_000);
 
-  it("renders the same chart for the dark palette", async () => {
-    const svg = await renderDiagramSvg({ chart: CHART, id: "diagram-dark", dark: true });
-    expect(svg).toContain("请求进入");
+  it("emits the dark palette for the dark theme", async () => {
+    const light = await renderDiagramSvg({ chart: CHART, id: "diagram-light", dark: false });
+    const dark = await renderDiagramSvg({ chart: CHART, id: "diagram-dark", dark: true });
+    // Both must render the chart; what tells the palettes apart is the colour.
+    expect(light).toContain("请求进入");
+    expect(dark).toContain("请求进入");
+    // Node fill: the light token #e8f0fe against the dark one #1c2b3a.
+    expect(light).toContain("fill:#e8f0fe");
+    expect(dark).toContain("fill:#1c2b3a");
+    expect(dark).not.toContain("fill:#e8f0fe");
+  }, 30_000);
+
+  it("serializes overlapping renders so a theme switch cannot repaint a chart", async () => {
+    // Both run without awaiting in between: the second initialize would
+    // otherwise land while the first render is still in flight and decide its
+    // palette.
+    const [light, dark] = await Promise.all([
+      renderDiagramSvg({ chart: CHART, id: "parallel-light", dark: false }),
+      renderDiagramSvg({ chart: CHART, id: "parallel-dark", dark: true }),
+    ]);
+    expect(light).toContain("fill:#e8f0fe");
+    expect(dark).toContain("fill:#1c2b3a");
   }, 30_000);
 
   it("rejects on a chart mermaid cannot parse, even after repair", async () => {

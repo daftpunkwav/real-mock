@@ -6,8 +6,8 @@
  * state, and so the pipeline can be exercised directly in tests.
  *
  * Constraints:
- * - This module must not render anything to the screen and must not hold state;
- *   callers own the debounce and the theme toggle.
+ * - This module must not render anything to the screen and must not hold UI
+ *   state; callers own the debounce and the theme toggle.
  * - mermaid is imported lazily inside the call, not at module scope, so the
  *   ~1 MB diagram engine never lands in the initial bundle.
  * - Syntax repair belongs to diagramSource.ts; SVG post-processing belongs to
@@ -28,11 +28,35 @@ export interface RenderDiagramOptions {
 }
 
 /**
+ * Serializes every mermaid call in this process.
+ *
+ * `mermaid.initialize` writes to one module-level configuration and both
+ * parse() and render() read from it, so two overlapping invocations — a theme
+ * toggle landing while a previous chart is still rendering, or two diagrams in
+ * one conversation — would let the later configuration decide the earlier
+ * chart's palette. Chaining each run onto the previous one makes the
+ * initialize/parse/render sequence atomic from mermaid's point of view.
+ *
+ * A rejected run must not break the chain, hence the separate rejection
+ * handler: it keeps the failure owned by its own caller and still resolves.
+ */
+let renderQueue: Promise<unknown> = Promise.resolve();
+
+/**
  * Render one chart to display-ready SVG.
  *
  * Rejects on a parse or render failure; the caller decides how to surface it.
  */
-export async function renderDiagramSvg({ chart, id, dark }: RenderDiagramOptions): Promise<string> {
+export function renderDiagramSvg(options: RenderDiagramOptions): Promise<string> {
+  const run = renderQueue.then(() => renderPass(options));
+  // The queue resolves for the next run either way; the failure still travels
+  // to this caller's own promise.
+  renderQueue = run.catch(() => undefined);
+  return run;
+}
+
+/** One initialize/parse/render pass; see renderDiagramSvg for the queueing. */
+async function renderPass({ chart, id, dark }: RenderDiagramOptions): Promise<string> {
   const { default: mermaid } = await import("mermaid");
   mermaid.initialize({
     startOnLoad: false,
