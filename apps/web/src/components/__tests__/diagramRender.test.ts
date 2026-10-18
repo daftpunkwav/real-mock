@@ -95,6 +95,20 @@ describe("renderDiagramSvg", () => {
     expect(await fresh).toContain("请求进入");
   }, 30_000);
 
+  it("keeps labels as SVG text even when the chart directs htmlLabels on", async () => {
+    // An %%{init}%% directive overrides the config-level htmlLabels: false
+    // unless htmlLabels is a secure key, putting every label back into a
+    // <foreignObject>, which the sanitize pass strips.
+    const svg = await renderDiagramSvg({
+      chart: `%%{init: {"htmlLabels": true}}%%\n${CHART}`,
+      id: "diagram-directive",
+      dark: false,
+    });
+    expect(svg).not.toContain("<foreignObject");
+    expect(svg).toContain("<text");
+    expect(svg).toContain("请求进入");
+  }, 30_000);
+
   it("rejects on a chart mermaid cannot parse, even after repair", async () => {
     await expect(
       renderDiagramSvg({

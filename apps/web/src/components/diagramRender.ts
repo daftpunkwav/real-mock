@@ -93,6 +93,19 @@ async function renderPass({ chart, id, dark }: RenderDiagramOptions): Promise<st
     // error-diagram SVG. The isErrorDiagramSvg content check is the real guard
     // and works regardless of this flag.
     suppressErrorRendering: true,
+    // htmlLabels has to resist chart directives: a %%{init}%% block may not
+    // re-enable HTML labels, or every label returns to a <foreignObject> that
+    // the sanitize pass strips. Keys in `secure` survive directives; the
+    // mermaid defaults are restated so the list is extended, not replaced.
+    secure: [
+      "secure",
+      "securityLevel",
+      "startOnLoad",
+      "maxTextSize",
+      "suppressErrorRendering",
+      "maxEdges",
+      "htmlLabels",
+    ],
     ...buildDiagramTheme(dark),
   });
   // Models sometimes pack the flowchart direction and the first node onto one
