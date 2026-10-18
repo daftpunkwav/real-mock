@@ -43,16 +43,42 @@ export interface RenderDiagramOptions {
 let renderQueue: Promise<unknown> = Promise.resolve();
 
 /**
+ * The newest request per diagram id.
+ *
+ * While a chart streams, each debounce expiry queues a render; with a slow
+ * render in flight, obsolete requests pile up behind it in the queue and each
+ * would run to completion only to be discarded by its caller, delaying the
+ * chart the user is actually looking at. Only the newest request per id is
+ * worth a render pass; the rest are skipped before mermaid is touched.
+ */
+const latestTokenById = new Map<string, symbol>();
+
+/**
  * Render one chart to display-ready SVG.
  *
- * Rejects on a parse or render failure; the caller decides how to surface it.
+ * Rejects on a parse or render failure. Also rejects with a "superseded"
+ * error once a newer chart is queued for the same id — that failure is safe
+ * for the caller to drop, because it means the caller has already moved on to
+ * the newer chart.
  */
 export function renderDiagramSvg(options: RenderDiagramOptions): Promise<string> {
-  const run = renderQueue.then(() => renderPass(options));
+  const token = Symbol();
+  latestTokenById.set(options.id, token);
+  const run = renderQueue.then(() => {
+    if (latestTokenById.get(options.id) !== token) {
+      // A newer chart for this id arrived; its caller owns the render now.
+      throw new Error("Diagram render superseded by a newer chart.");
+    }
+    return renderPass(options);
+  });
   // The queue resolves for the next run either way; the failure still travels
   // to this caller's own promise.
   renderQueue = run.catch(() => undefined);
-  return run;
+  // Drop the bookkeeping once the newest request for this id settles, so the
+  // map does not grow with every diagram ever rendered.
+  return run.finally(() => {
+    if (latestTokenById.get(options.id) === token) latestTokenById.delete(options.id);
+  });
 }
 
 /** One initialize/parse/render pass; see renderDiagramSvg for the queueing. */

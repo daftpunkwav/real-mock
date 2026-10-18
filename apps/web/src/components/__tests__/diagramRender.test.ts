@@ -81,6 +81,20 @@ describe("renderDiagramSvg", () => {
     expect(dark).toContain("fill:#1c2b3a");
   }, 30_000);
 
+  it("skips a queued render once a newer chart arrives for the same id", async () => {
+    // Queue two charts for one id without awaiting: the stale run must reject
+    // without rendering, instead of finishing an obsolete pass that its caller
+    // already stopped waiting for and delaying the chart on screen.
+    const stale = renderDiagramSvg({
+      chart: 'flowchart LR\n  X["stale"] --> Y["stale"]',
+      id: "diagram-superseded",
+      dark: false,
+    });
+    const fresh = renderDiagramSvg({ chart: CHART, id: "diagram-superseded", dark: false });
+    await expect(stale).rejects.toThrow(/superseded/i);
+    expect(await fresh).toContain("请求进入");
+  }, 30_000);
+
   it("rejects on a chart mermaid cannot parse, even after repair", async () => {
     await expect(
       renderDiagramSvg({
