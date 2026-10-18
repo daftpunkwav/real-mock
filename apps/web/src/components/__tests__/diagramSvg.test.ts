@@ -167,9 +167,14 @@ describe("fitDiagramSvg", () => {
     // A `\s+` prefix let every failed start position re-split the whole
     // whitespace run, which scanned 100k padding spaces in seconds (S8786).
     // The single-character separator is linear, so this fits the default
-    // five-second test timeout with orders of magnitude to spare.
-    const padded = `<svg ${" ".repeat(100_000)}viewBox="0 0 10 10"><g/></svg>`;
+    // five-second test timeout with orders of magnitude to spare. The
+    // width attribute sits before the run, so the assertions only hold if
+    // the scan that crosses the padding actually strips it — and the run
+    // is followed by a non-matching name, the shape that used to
+    // backtrack.
+    const padded = `<svg width="640" ${" ".repeat(100_000)}viewBox="0 0 10 10"><g/></svg>`;
     const out = fitDiagramSvg(padded);
+    expect(out).not.toContain('width="640"');
     expect(out).toContain('viewBox="0 0 10 10"');
     expect(out).toContain('style="display:block;width:100%;height:100%"');
   });
