@@ -338,9 +338,12 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
             // and the overlay padding and so overflowed a short window.
             className="flex h-full max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-surface-border bg-surface"
           >
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
+            {/* Wrapping keeps the controls reachable on a narrow window: the
+                panel clips overflow, so a single row wider than the panel
+                would hide the close button instead of moving below. */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-surface-border bg-surface-muted px-3 py-2">
               <span className="truncate text-[13px] font-medium text-ink">{t("code.diagram")}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {tabs}
                 <div className="flex items-center gap-0.5">{controls}</div>
                 <button
