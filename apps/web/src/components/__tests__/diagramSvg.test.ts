@@ -152,4 +152,25 @@ describe("fitDiagramSvg", () => {
   it("leaves non-svg input untouched", () => {
     expect(fitDiagramSvg("not svg")).toBe("not svg");
   });
+
+  it("strips attributes separated by runs of spaces", () => {
+    const out = fitDiagramSvg(
+      '<svg  width="640"  height="480"  viewBox="0 0 64 48"  style="max-width:640px;"><g/></svg>',
+    );
+    expect(out).not.toContain("max-width");
+    expect(out).not.toMatch(/\s(?:width|height)\s*=/);
+    expect(out).toContain('viewBox="0 0 64 48"');
+    expect(out.match(/style="/g)).toHaveLength(1);
+  });
+
+  it("keeps the attribute scan linear on a padded root", () => {
+    // A `\s+` prefix let every failed start position re-split the whole
+    // whitespace run, which scanned 100k padding spaces in seconds (S8786).
+    // The single-character separator is linear, so this fits the default
+    // five-second test timeout with orders of magnitude to spare.
+    const padded = `<svg ${" ".repeat(100_000)}viewBox="0 0 10 10"><g/></svg>`;
+    const out = fitDiagramSvg(padded);
+    expect(out).toContain('viewBox="0 0 10 10"');
+    expect(out).toContain('style="display:block;width:100%;height:100%"');
+  });
 });
