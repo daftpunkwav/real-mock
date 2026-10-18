@@ -67,11 +67,9 @@ beforeAll(() => {
     configurable: true,
     get: () => VIEWPORT_WIDTH_PX,
   });
-  // jsdom ships neither of these; the observer only has to be inert, since the
-  // viewport reads its measurement once on mount, and the capture calls are
-  // bookkeeping the browser keeps for us.
   // jsdom has no ResizeObserver; the stub records its callback so a test can
-  // drive a measurement, and does nothing else.
+  // drive a measurement, and does nothing else. The pointer-capture calls are
+  // bookkeeping the browser keeps for us, so no-ops suffice.
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -124,7 +122,7 @@ describe("DiagramViewport", () => {
     expect(diagram.style.height).toBe("");
   });
 
-  it("zooms on ctrl+wheel without preventing the default", () => {
+  it("zooms on ctrl+wheel and prevents the browser default", () => {
     const onZoomChange = vi.fn<Dispatch<SetStateAction<number>>>();
     const { container } = renderViewport(1, onZoomChange);
     const viewport = container.firstElementChild as HTMLElement;
