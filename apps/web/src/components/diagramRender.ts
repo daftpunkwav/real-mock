@@ -51,7 +51,7 @@ let renderQueue: Promise<unknown> = Promise.resolve();
  * chart the user is actually looking at. Only the newest request per id is
  * worth a render pass; the rest are skipped before mermaid is touched.
  */
-const latestTokenById = new Map<string, symbol>();
+const latestTicketById = new Map<string, symbol>();
 
 /**
  * Render one chart to display-ready SVG.
@@ -62,10 +62,10 @@ const latestTokenById = new Map<string, symbol>();
  * the newer chart.
  */
 export function renderDiagramSvg(options: RenderDiagramOptions): Promise<string> {
-  const token = Symbol();
-  latestTokenById.set(options.id, token);
+  const ticket = Symbol();
+  latestTicketById.set(options.id, ticket);
   const run = renderQueue.then(() => {
-    if (latestTokenById.get(options.id) !== token) {
+    if (latestTicketById.get(options.id) !== ticket) {
       // A newer chart for this id arrived; its caller owns the render now.
       throw new Error("Diagram render superseded by a newer chart.");
     }
@@ -77,7 +77,7 @@ export function renderDiagramSvg(options: RenderDiagramOptions): Promise<string>
   // Drop the bookkeeping once the newest request for this id settles, so the
   // map does not grow with every diagram ever rendered.
   return run.finally(() => {
-    if (latestTokenById.get(options.id) === token) latestTokenById.delete(options.id);
+    if (latestTicketById.get(options.id) === ticket) latestTicketById.delete(options.id);
   });
 }
 
