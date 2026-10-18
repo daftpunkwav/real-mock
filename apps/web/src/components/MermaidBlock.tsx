@@ -151,8 +151,14 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const canZoom = view === "diagram" && svg !== null;
   const diagramLabel = `${t("code.diagram")}: ${chart.slice(0, 120)}`;
 
-  /** Diagram or source, at the given height budget. */
-  const body = () => {
+  /**
+   * Diagram or source, sized for the stage that will host it. The stage is a
+   * parameter rather than a read of `fullscreen`: while the modal is open the
+   * inline card keeps rendering behind it, and reading the flag there would
+   * hand the inline viewport an auto-sized parent as its height budget, so it
+   * would grow to natural size behind the backdrop and reflow the conversation.
+   */
+  const body = (inFullscreen: boolean) => {
     // Source first: when a chart never rendered, or failed, the source is the
     // only thing left to show, so the Source tab must not fall back to the
     // loading paragraph just because there is no svg.
@@ -161,7 +167,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
         // The fullscreen stage already scrolls, so it needs no cap of its own.
         <div
           className="overflow-auto"
-          style={{ maxHeight: fullscreen ? undefined : INLINE_MAX_HEIGHT_PX }}
+          style={{ maxHeight: inFullscreen ? undefined : INLINE_MAX_HEIGHT_PX }}
         >
           {failure && showNotice && (
             <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
@@ -204,7 +210,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
         // by the modal layout, so the viewport measures it directly. Doing that
         // in the viewport rather than here also keeps the layout hook out of a
         // component that is server rendered.
-        maxHeight={fullscreen ? "parent" : INLINE_MAX_HEIGHT_PX}
+        maxHeight={inFullscreen ? "parent" : INLINE_MAX_HEIGHT_PX}
         label={diagramLabel}
       />
     );
@@ -301,7 +307,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
           {tabs}
           <div className="flex items-center gap-0.5">{controls}</div>
         </div>
-        {body()}
+        {body(false)}
       </div>
       {fullscreen && (
         <div
@@ -342,7 +348,7 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
             {/* min-h-0 lets the flex child shrink below its content; overflow
                 auto scrolls the zoomed diagram here, where trapping the scroll
                 is correct because the page behind is locked. */}
-            <div className="min-h-0 flex-1 overflow-auto">{body()}</div>
+            <div className="min-h-0 flex-1 overflow-auto">{body(true)}</div>
           </div>
         </div>
       )}

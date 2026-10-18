@@ -6,7 +6,7 @@
  * while a chart is still rendering or has failed outright.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { LocaleProvider } from "@/i18n/LocaleProvider";
@@ -108,5 +108,16 @@ describe("MermaidBlock", () => {
     expect(backdrop).toBeTruthy();
     fireEvent.click(backdrop);
     expect(screen.queryByRole("dialog")).toBeNull();
+  }, 30_000);
+
+  it("keeps the inline source pane capped while the fullscreen viewer is open", async () => {
+    const { container } = await openFullscreen();
+    // Both headers render the tabs; switch the inline card's own to Source.
+    fireEvent.click(within(container.children[0]).getByRole("tab", { name: /source|源码/i }));
+    // Only the modal stage may grow with its layout; the inline pane keeps the
+    // card's height cap, or the conversation behind the backdrop would reflow.
+    const inlinePane = container.children[0].querySelector("div.overflow-auto");
+    expect(inlinePane).not.toBeNull();
+    expect(inlinePane!.getAttribute("style")).toContain("480px");
   }, 30_000);
 });
