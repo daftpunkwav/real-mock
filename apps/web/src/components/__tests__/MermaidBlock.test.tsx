@@ -120,4 +120,27 @@ describe("MermaidBlock", () => {
     expect(inlinePane).not.toBeNull();
     expect(inlinePane!.getAttribute("style")).toContain("480px");
   }, 30_000);
+
+  it("keeps the zoom across a theme re-render of the same chart", async () => {
+    const { panel } = await openFullscreen();
+    // The readout doubles as the zoom display; one zoom-in press reads 125%.
+    const readout = () => within(panel).getByRole("button", { name: /fit to screen|适应窗口/i });
+    fireEvent.click(within(panel).getByRole("button", { name: /zoom in|放大/i }));
+    expect(readout().textContent).toBe("125%");
+    // Re-render the same chart for the dark palette: the zoom must survive it.
+    // The disabled flag is read off the element directly: this suite has no
+    // jest-dom matchers.
+    const disabled = () => (readout() as HTMLButtonElement).disabled;
+    try {
+      document.documentElement.classList.add("dark");
+      // Disabled first proves the re-render started; enabled again proves it
+      // finished, so the assertion below cannot race the reset. The render
+      // itself takes seconds, so neither window fits waitFor's default 1s.
+      await waitFor(() => expect(disabled()).toBe(true), { timeout: 10_000 });
+      await waitFor(() => expect(disabled()).toBe(false), { timeout: 10_000 });
+      expect(readout().textContent).toBe("125%");
+    } finally {
+      document.documentElement.classList.remove("dark");
+    }
+  }, 30_000);
 });

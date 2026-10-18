@@ -13,7 +13,7 @@
  * changes and follow the light/dark palette.
  */
 
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -71,6 +71,10 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
   const [fullscreen, setFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dark, setDark] = useState(false);
+  // Chart source of the last successful render. A theme toggle re-renders the
+  // same chart and must keep the zoom the user already chose; only genuinely
+  // new content earns a clean stage.
+  const renderedChartRef = useRef<string | null>(null);
   // mermaid keys its stylesheet, gradients and node ids on this id, so it has to
   // be unique per block and stay valid inside a CSS selector.
   const diagramId = `md-diagram-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
@@ -96,8 +100,12 @@ export const MermaidBlock = memo(function MermaidBlock({ chart }: { chart: strin
           if (cancelled) return;
           setSvg(rendered);
           setFailure(null);
-          // A re-rendered chart gets a clean stage instead of the old zoom.
-          setZoom(1);
+          // New content gets a clean stage instead of the old zoom; a theme
+          // re-render of the same chart keeps the user's zoom.
+          if (renderedChartRef.current !== source) {
+            setZoom(1);
+            renderedChartRef.current = source;
+          }
         })
         .catch((err: unknown) => {
           // Parse/render failure (often a partial stream): stay on source.
