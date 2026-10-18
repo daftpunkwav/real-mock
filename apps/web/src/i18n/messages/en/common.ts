@@ -117,7 +117,7 @@ export const common = {
   "code.source": "Source",
   "code.zoomIn": "Zoom in",
   "code.zoomOut": "Zoom out",
-  "code.zoomReset": "Reset to 100%",
+  "code.fitToScreen": "Fit to screen (show everything)",
   "code.fullscreen": "View fullscreen",
   "code.diagramFailed": "Diagram failed to render; showing source",
   "code.errorDetail": "Technical details",
