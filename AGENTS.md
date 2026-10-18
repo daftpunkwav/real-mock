@@ -2,7 +2,7 @@
 
 `main` is the default branch. All changes reach it through a pull request.
 
->> **Note**: Custom local instructions or personal environment configurations are defined in [AGENTS.local.md](AGENTS.local.md). If there is a conflict between this document and `AGENTS.local.md`, **AGENTS.md takes precedence**.
+>> **Note**: Custom local instructions or personal environment configurations are defined in `AGENTS.local.md`. If there is a conflict between this document and `AGENTS.local.md`, **AGENTS.md takes precedence**.
 
 ### Branch naming
 
