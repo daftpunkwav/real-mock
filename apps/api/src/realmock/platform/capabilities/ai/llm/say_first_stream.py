@@ -176,7 +176,11 @@ class SayFirstStreamParser:
         rest = self._pending[idx + len(_SAY_KEY) :]
         colon = rest.find(":")
         if colon < 0:
-            self._pending = rest
+            # The colon has not arrived yet: keep the key in the buffer so the
+            # next feed can resume from it. Dropping the key here would leave
+            # the seek state unable to find it again, and the say text would
+            # only surface at the end of the stream instead of live.
+            self._pending = self._pending[idx:]
             return
         rest = rest[colon + 1 :].lstrip()
         if not rest.startswith('"'):
@@ -184,7 +188,11 @@ class SayFirstStreamParser:
                 # say is not a string: give up streaming extraction and downgrade to plain text as a whole
                 logger.debug("say-first parsing downgrade: say value is not a string")
                 self._degraded = True
-            self._pending = rest
+                self._pending = rest
+                return
+            # The value's opening quote has not arrived yet: keep the key so
+            # the next feed can resume from it (same reason as above).
+            self._pending = self._pending[idx:]
             return
         self._pending = rest[1:]
         self._state = _STATE_IN_SAY
