@@ -111,9 +111,14 @@ export function fitDiagramSvg(svg: string): string {
     const raw = String(attrs);
     const boxable = hasViewBox(raw) ? raw : synthesizeViewBox(raw);
     if (!boxable) return _tag;
+    // One whitespace character, not `\s+`: a greedy run before the name
+    // plus `\s*` around `=` lets one run split between the quantifiers, so
+    // a failed start position backtracks across the whole run. With `g`,
+    // consecutive matches still strip attributes separated by runs of
+    // spaces; the leftover separator spaces are inert in an attribute list.
     const cleaned = boxable
-      .replace(/\s+(?:width|height)\s*=\s*"[^"]*"/gi, "")
-      .replace(/\s+style\s*=\s*"[^"]*"/gi, "");
+      .replace(/\s(?:width|height)\s*=\s*"[^"]*"/gi, "")
+      .replace(/\sstyle\s*=\s*"[^"]*"/gi, "");
     return `<svg${cleaned} style="display:block;width:100%;height:100%">`;
   });
 }
