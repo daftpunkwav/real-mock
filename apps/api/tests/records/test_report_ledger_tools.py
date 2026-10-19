@@ -46,3 +46,121 @@ async def test_ledger_gaps() -> None:
     assert empty["error"] == "empty_keyword"
     many = json.loads(await specs["ledger_search"].handler({"keyword": "keyword"}))
     assert len(many["matches"]) <= 8
+
+
+def _long_ledger(count: int) -> dict:
+    """A ledger whose turns exceed the tool output budget when read as one page."""
+    return {
+        "turns": [
+            {
+                "turn_id": f"t-{i:04d}",
+                "phase": "project_deep_dive",
+                "assistant": {"text": "请详细描述你在项目中负责的核心模块架构与技术取舍。" * 8},
+                "user": {"text": "我负责了订单履约链路的设计，并用 Kafka 实现异步解耦。" * 8},
+                "tools": [{"name": "web_search", "result": "x" * 200} for _ in range(4)],
+            }
+            for i in range(1, count + 1)
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_turns_page_stays_valid_json() -> None:
+    """A full page of long turns must be trimmed, not sliced into invalid JSON."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(12))}
+    raw = await specs["ledger_read_turns"].handler({"offset": 0})
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert len(raw) <= mod._OUTPUT_CHARS
+    assert page["returned"] == len(page["turns"])
+    assert page["truncated"] is True
+    # The continuation cursor points at the first turn that did not fit.
+    assert page["next_offset"] == page["returned"]
+    assert page["total_turns"] == 12
+
+
+@pytest.mark.asyncio
+async def test_read_turns_short_page_is_not_marked_truncated() -> None:
+    """A page that fits the budget is returned whole and is not flagged."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(3))}
+    page = json.loads(await specs["ledger_read_turns"].handler({"offset": 0}))
+    assert page["returned"] == 3
+    assert "truncated" not in page
+    assert page["next_offset"] is None
+
+
+@pytest.mark.asyncio
+async def test_read_notes_page_stays_valid_json() -> None:
+    """The synthesis notes reader must also stay valid JSON when a page is large."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.domains.records.agents.report.normalize import normalize_turn_note
+
+    # The real stage-1 output shape: a normalized turn note (clipped fields).
+    note = normalize_turn_note(
+        {
+            "turn_id": "t-0001",
+            "question": "请详细描述你在项目中的核心贡献。" * 8,
+            "question_intent": "考察架构能力" * 10,
+            "answer_summary": "我负责了订单履约链路。" * 20,
+            "reference_answer": "参考回答：先讲背景再讲动作最后讲结果。" * 12,
+            "how_to_answer": "先给结论再给论据。" * 10,
+            "knowledge_brushup": "补充 Kafka 事务语义。" * 6,
+            "followup_quality": "追问后补充了细节。" * 6,
+            "problems": ["缺少量化指标"] * 6,
+            "knowledge_points": ["分布式事务"] * 8,
+            "exercises": ["复述一遍 Kafka 语义"] * 4,
+        }
+    )
+    assert note is not None
+    notes = [dict(note.model_dump(), turn_id=f"t-{i:04d}") for i in range(1, 11)]
+    raw = await mod.notes_tool_specs(notes)[0].handler({"offset": 0})
+    page = json.loads(raw)  # must not raise
+    assert len(raw) <= mod._OUTPUT_CHARS
+    assert page["returned"] == len(page["notes"])
+    assert page["truncated"] is True
+    assert page["next_offset"] == page["returned"]
+
+
+@pytest.mark.asyncio
+async def test_read_notes_keeps_one_oversized_note_so_the_cursor_advances() -> None:
+    """A single note larger than the budget is still returned, so paging moves on.
+
+    Dropping it would leave an empty page whose next_offset equals the current
+    offset, and the agent would re-read the same page forever.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.domains.records.agents.report.normalize import normalize_turn_note
+
+    # A note whose every field sits at its clip limit: one note can exceed the
+    # output budget on its own.
+    note = normalize_turn_note(
+        {
+            "turn_id": "t-0001",
+            "phase": "p" * 60,
+            "question": "问" * 800,
+            "question_intent": "意" * 400,
+            "answer_summary": "答" * 1200,
+            "problems": ["问" * 400] * 6,
+            "reference_answer": "参" * 2000,
+            "how_to_answer": "法" * 800,
+            "knowledge_points": ["知" * 400] * 8,
+            "knowledge_brushup": "补" * 800,
+            "exercises": ["练" * 400] * 4,
+            "followup_quality": "追" * 400,
+            "user_review": {"summary": "用" * 800, "suggestions": ["建" * 400] * 4},
+            "interviewer_review": {"intent": "面" * 400, "quality": "q" * 40, "notes": "评" * 400},
+        }
+    )
+    assert note is not None
+    notes = [dict(note.model_dump()), {"turn_id": "t-0002", "reference_answer": "短"}]
+    raw = await mod.notes_tool_specs(notes)[0].handler({"offset": 0})
+    assert len(raw) > mod._OUTPUT_CHARS  # the single note does not fit the budget
+    page = json.loads(raw)  # must not raise
+    assert page["returned"] == 1
+    assert page["notes"][0]["turn_id"] == "t-0001"
+    assert page["truncated"] is True
+    # The cursor advances past the entry that was returned.
+    assert page["next_offset"] == 1
