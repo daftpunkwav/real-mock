@@ -3,6 +3,9 @@
 Business services (agent / interview) must read ``UserProfile`` / ``Resume``
 through this module instead of importing platform models directly.
 Write paths stay in profile/resume/settings domains or explicit write services.
+
+Profile reads hand out :class:`UserProfileSnapshot` (the declared contract in
+``platform.schemas``); the ``UserProfile`` ORM row never leaves this module.
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ from typing import Any
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from realmock.platform.schemas import CandidateProfile
+from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -54,18 +57,63 @@ def _safe_orm_query(db: Session, loader, *, table_label: str):
         return None
 
 
-def get_user_profile(db: Session, profile_id: int) -> Any | None:
-    """Load user profile ORM by id (for prompt builders that need all fields)."""
+def _profile_snapshot(row: Any) -> UserProfileSnapshot:
+    """Map a ``UserProfile`` ORM row onto the declared read model.
+
+    Only the columns the agent domains read are carried over; missing values
+    become empty strings so a prompt never renders ``None``. Tech domains are
+    decoded from the stored JSON text, and non-string entries are dropped
+    (the prompt builders join the list as text).
+    """
+    return UserProfileSnapshot(
+        id=int(row.id or 0),
+        name=row.name or "",
+        gender=row.gender or "",
+        identity=row.identity or "",
+        school=row.school or "",
+        major=row.major or "",
+        graduation_year=row.graduation_year or "",
+        job_direction=row.job_direction or "",
+        experience_years=row.experience_years or "",
+        work_years_detail=row.work_years_detail or "",
+        current_company=row.current_company or "",
+        expected_salary=row.expected_salary or "",
+        expected_city=row.expected_city or "",
+        notice_period=row.notice_period or "",
+        open_to_remote=row.open_to_remote or "",
+        self_intro=row.self_intro or "",
+        target_role=row.target_role or "",
+        github_username=row.github_username or "",
+        portfolio_url=row.portfolio_url or "",
+        linkedin_url=row.linkedin_url or "",
+        city=row.city or "",
+        preferred_languages=row.preferred_languages or "",
+        career_highlights=row.career_highlights or "",
+        education_level=row.education_level or "",
+        email=row.email or "",
+        phone=row.phone or "",
+        certificates=row.certificates or "",
+        english_level=row.english_level or "",
+        signature_projects=row.signature_projects or "",
+        strengths=row.strengths or "",
+        weaknesses=row.weaknesses or "",
+        tech_domains_list=[item for item in row.tech_domains_list if isinstance(item, str)],
+    )
+
+
+def get_user_profile(db: Session, profile_id: int) -> UserProfileSnapshot | None:
+    """Load the candidate profile by id (for prompt builders that need all fields)."""
     from realmock.platform.models import UserProfile
 
-    return _safe_orm_query(
+    row = _safe_orm_query(
         db,
         lambda: db.query(UserProfile).filter(UserProfile.id == profile_id).first(),
         table_label="UserProfile",
     )
+    return _profile_snapshot(row) if row is not None else None
 
 
-def get_default_user_profile(db: Session) -> Any | None:
+def get_default_user_profile(db: Session) -> UserProfileSnapshot | None:
     """Load default profile: prefer id=1, else first row by ascending id."""
     from realmock.platform.models import UserProfile
 
@@ -75,7 +123,8 @@ def get_default_user_profile(db: Session) -> Any | None:
             row = db.query(UserProfile).order_by(UserProfile.id).first()
         return row
 
-    return _safe_orm_query(db, _load, table_label="UserProfile")
+    row = _safe_orm_query(db, _load, table_label="UserProfile")
+    return _profile_snapshot(row) if row is not None else None
 
 
 def format_profile_summary(db: Session, profile_id: int | None = None) -> str:

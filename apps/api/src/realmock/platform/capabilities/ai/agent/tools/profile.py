@@ -102,8 +102,8 @@ def _section_payload(snapshot: ProfileSnapshot, section: str) -> dict[str, Any]:
     return out
 
 
-def profile_from_orm(row: Any | None) -> ProfileSnapshot:
-    """Build a snapshot from a UserProfile ORM row (or None)."""
+def snapshot_from_profile(row: Any | None) -> ProfileSnapshot:
+    """Build a tool snapshot from a candidate-profile row (read model or None)."""
     if row is None:
         return ProfileSnapshot(fields={})
     data: dict[str, Any] = {}
@@ -200,6 +200,6 @@ __all__ = [
     "PROFILE_SECTION_FIELDS",
     "PROFILE_SECTION_ORDER",
     "ProfileSnapshot",
-    "profile_from_orm",
+    "snapshot_from_profile",
     "profile_tool_specs",
 ]

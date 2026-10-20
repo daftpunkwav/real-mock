@@ -40,7 +40,7 @@ def test_agent_build_context_with_resume(monkeypatch) -> None:
         monkeypatch.setattr(mod, "snapshot_from_payload", lambda p: "snap")
         monkeypatch.setattr(mod, "resume_tool_specs", lambda snap: ["rspec"])
         monkeypatch.setattr(mod, "get_user_profile", lambda db, pid: "row")
-        monkeypatch.setattr(mod, "profile_from_orm", lambda row: "psnap")
+        monkeypatch.setattr(mod, "snapshot_from_profile", lambda row: "psnap")
         monkeypatch.setattr(mod, "profile_tool_specs", lambda snap: ["pspec"])
         monkeypatch.setattr(mod, "github_tool_specs", lambda: ["gspec"])
         specs = mod.build_context_specs(resume_id=1, profile_id=2)

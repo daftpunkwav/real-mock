@@ -20,11 +20,11 @@ from realmock.platform.capabilities.ai.agent import OnAgentEvent as OnEvent
 from realmock.platform.capabilities.ai.agent import emit_agent_event
 from realmock.platform.capabilities.ai.agent.tools import (
     github_tool_specs,
-    profile_from_orm,
     profile_tool_specs,
     resume_tool_specs,
     search_tool_spec,
     snapshot_from_payload,
+    snapshot_from_profile,
     web_fetch_tool_spec,
 )
 from realmock.platform.database import api_db_session
@@ -76,7 +76,7 @@ def build_context_specs(resume_id: int | None, profile_id: int | None) -> list:
             get_user_profile(api_db, profile_id) if profile_id else get_default_user_profile(api_db)
         )
         if row is not None:
-            specs.extend(profile_tool_specs(profile_from_orm(row)))
+            specs.extend(profile_tool_specs(snapshot_from_profile(row)))
     specs.extend(github_tool_specs())
     return specs
 

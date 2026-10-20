@@ -13,10 +13,10 @@ from typing import Any
 
 from realmock.domains.prep.agents.tools.spec import SearchHits
 from realmock.platform.capabilities.ai.agent.tools import (
-    profile_from_orm,
     profile_tool_specs,
     resume_tool_specs,
     snapshot_from_payload,
+    snapshot_from_profile,
 )
 from realmock.platform.database import api_db_session
 from realmock.platform.services.candidate_read import (
@@ -66,7 +66,9 @@ def load_profile_or_resume_spec(name: str, resume_id: int | None) -> Any:
         if name.startswith("profile_"):
             specs = {
                 spec.name: spec
-                for spec in profile_tool_specs(profile_from_orm(get_default_user_profile(api_db)))
+                for spec in profile_tool_specs(
+                    snapshot_from_profile(get_default_user_profile(api_db))
+                )
             }
             bound = specs.get(name)
             if bound is None:

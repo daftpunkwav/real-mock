@@ -7,7 +7,12 @@ information. Domain-specific types belong to their respective services.
 Submodules are split by boundary: pipeline / errors / candidate / health.
 """
 
-from realmock.platform.schemas.candidate import CandidateProfile, CompanyInfo, ResumePickerItem
+from realmock.platform.schemas.candidate import (
+    CandidateProfile,
+    CompanyInfo,
+    ResumePickerItem,
+    UserProfileSnapshot,
+)
 from realmock.platform.schemas.errors import APIError, ErrorBody
 from realmock.platform.schemas.health import HealthResponse
 from realmock.platform.schemas.pipeline import (
@@ -34,4 +39,5 @@ __all__ = [
     "StageFallbackConfig",
     "StageModelCapability",
     "StageTestRequest",
+    "UserProfileSnapshot",
 ]

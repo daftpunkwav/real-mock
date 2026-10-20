@@ -18,7 +18,7 @@ from .fetch import (
     web_fetch_tool_spec,
 )
 from .github import github_tool_specs
-from .profile import ProfileSnapshot, profile_from_orm, profile_tool_specs
+from .profile import ProfileSnapshot, profile_tool_specs, snapshot_from_profile
 from .resume import ResumeSnapshot, resume_tool_specs, snapshot_from_payload
 from .search import (
     SEARCH_DEFAULT_MAX_RESULTS,
@@ -46,11 +46,11 @@ __all__ = [
     "ToolRunGuard",
     "invoke_with_timeout",
     "openai_tool",
-    "profile_from_orm",
     "profile_tool_specs",
     "resume_tool_specs",
     "run_code_snippet",
     "search_tool_spec",
+    "snapshot_from_profile",
     "web_fetch_tool_spec",
     "snapshot_from_payload",
 ]

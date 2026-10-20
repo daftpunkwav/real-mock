@@ -146,7 +146,7 @@ async def test_execute_profile_tool_success(monkeypatch) -> None:
 
     monkeypatch.setattr(tmod, "api_db_session", lambda: _fake_api_db())
     monkeypatch.setattr(tmod, "get_user_profile", lambda db, pid: object())
-    monkeypatch.setattr(tmod, "profile_from_orm", lambda row: object())
+    monkeypatch.setattr(tmod, "snapshot_from_profile", lambda row: object())
     monkeypatch.setattr(
         tmod,
         "profile_tool_specs",
@@ -162,7 +162,7 @@ async def test_execute_profile_tool_success(monkeypatch) -> None:
 async def test_execute_profile_unknown_tool(monkeypatch) -> None:
     monkeypatch.setattr(tmod, "api_db_session", lambda: _fake_api_db())
     monkeypatch.setattr(tmod, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(tmod, "profile_from_orm", lambda row: object())
+    monkeypatch.setattr(tmod, "snapshot_from_profile", lambda row: object())
     monkeypatch.setattr(tmod, "profile_tool_specs", lambda snap: [])
     out = await execute_interview_tool("profile_nope", {}, db=None, profile_id=1)
     assert json.loads(out)["error"] == "unknown_tool"

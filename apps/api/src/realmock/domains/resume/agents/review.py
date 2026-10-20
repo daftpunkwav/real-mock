@@ -78,11 +78,11 @@ from realmock.platform.capabilities.ai.agent.tools import (
     ToolRunGuard,
     github_tool_specs,
     invoke_with_timeout,
-    profile_from_orm,
     profile_tool_specs,
     resume_tool_specs,
     search_tool_spec,
     snapshot_from_payload,
+    snapshot_from_profile,
     web_fetch_tool_spec,
 )
 from realmock.platform.capabilities.ai.context.manager import (
@@ -264,7 +264,7 @@ def build_review_bundle(
     bundle = ToolBundle()
     bundle.extend(process_tool_specs(process))
     bundle.extend(resume_tool_specs(snapshot))
-    bundle.extend(profile_tool_specs(profile_from_orm(get_default_user_profile(db))))
+    bundle.extend(profile_tool_specs(snapshot_from_profile(get_default_user_profile(db))))
     bundle.extend(github_tool_specs())
 
     def _on_hits(query: str, _hits: list) -> None:

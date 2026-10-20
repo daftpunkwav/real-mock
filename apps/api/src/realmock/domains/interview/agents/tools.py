@@ -22,10 +22,10 @@ from realmock.platform.capabilities.ai.agent.tools import (
     execute_web_search,
     github_tool_specs,
     openai_tool,
-    profile_from_orm,
     profile_tool_specs,
     resume_tool_specs,
     snapshot_from_payload,
+    snapshot_from_profile,
 )
 from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapshot
 from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot
@@ -279,7 +279,7 @@ async def execute_interview_tool(
                 if profile_id
                 else get_default_user_profile(api_db)
             )
-            specs = {spec.name: spec for spec in profile_tool_specs(profile_from_orm(row))}
+            specs = {spec.name: spec for spec in profile_tool_specs(snapshot_from_profile(row))}
         bound = specs.get(name)
         if bound is None:
             return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
