@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from realmock.domains.interview.schemas import InterviewConfig
+from realmock.platform.schemas import CandidateProfile
 
 PLAN_JSON_CONTRACT = """{
   "round_note": "<one line positioning of this round, in the interview language>",
@@ -41,7 +42,7 @@ Hard rules:
 def build_plan_user_message(
     config: InterviewConfig,
     *,
-    resume_payload: dict[str, Any] | None,
+    candidate: CandidateProfile | None,
     profile: Any | None,
     process_section: str,
     company_context: str,
@@ -76,17 +77,18 @@ def build_plan_user_message(
             f"Highlights: {getattr(profile, 'career_highlights', '') or '—'}"
         )
 
-    if resume_payload:
-        projects = resume_payload.get("projects") or []
-        skills = resume_payload.get("skills") or []
+    if candidate:
+        projects = candidate.projects
+        skills = candidate.skills
+        # Project entries are free-form dicts (the parser keeps the model's
+        # own keys), so every value is coerced to text before it is truncated.
         compact_projects = [
             {
-                "name": (p.get("name") or p.get("title") or "")[:60],
-                "stack": (p.get("stack") or p.get("tech") or "")[:120],
-                "summary": (p.get("summary") or p.get("description") or "")[:200],
+                "name": str(p.get("name") or p.get("title") or "")[:60],
+                "stack": str(p.get("tech_stack") or p.get("stack") or p.get("tech") or "")[:120],
+                "summary": str(p.get("description") or p.get("summary") or "")[:200],
             }
             for p in projects
-            if isinstance(p, dict)
         ]
         parts.append(
             "## Resume\n"

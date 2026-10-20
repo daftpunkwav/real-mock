@@ -231,6 +231,42 @@ def test_generate_round_plan_success_marks_ready(db, monkeypatch):
     assert [r.kind for r in plan.rounds] == ["tech_1", "tech_2", "hr_1"]
 
 
+def test_generate_round_plan_prompt_carries_resume_grounding(db, monkeypatch):
+    """The HR planner prompt must carry the resume read through the read port.
+
+    The prompt builder used to read the raw resume payload with keys the
+    payload never had, so the round program was written without the resume.
+    """
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
+    from realmock.platform.schemas import CandidateProfile
+
+    req = ProcessCreateRequest(role="Backend", level="junior", company="acme", max_rounds=3)
+    process, _ = create_process_with_first_round(db, req)
+
+    sent: list = []
+
+    class FakeHRPlanner(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            sent.append(messages)
+            return _payload(_round("tech_1"))
+
+    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "get_user_profile", lambda db, pid: None)
+    monkeypatch.setattr(
+        round_planner_mod,
+        "get_candidate_profile",
+        lambda db, rid: CandidateProfile(
+            skills=["Python"],
+            projects=[{"name": "cache layer", "tech_stack": "Redis"}],
+        ),
+    )
+    asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
+
+    prompt = sent[0][1]["content"]
+    assert "Python" in prompt
+    assert "cache layer" in prompt
+
+
 def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
     req = ProcessCreateRequest(role="Backend", level="junior", company="acme", max_rounds=3)
     process, _ = create_process_with_first_round(db, req)

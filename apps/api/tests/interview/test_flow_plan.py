@@ -165,7 +165,7 @@ def test_plan_user_message_carries_locale_signal():
     config = InterviewConfig(role="Backend", level="Senior", company="Acme")
     msg = build_plan_user_message(
         config,
-        resume_payload=None,
+        candidate=None,
         profile=None,
         process_section="",
         company_context="",

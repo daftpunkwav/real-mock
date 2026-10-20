@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from realmock.platform.schemas import CandidateProfile
+
 ROUND_PLAN_JSON_CONTRACT = """{
   "note": "<one-line rationale, e.g. '3 rounds: junior backend, single tech deep-dive + HR fit'>",
   "rounds": [
@@ -58,7 +60,7 @@ def build_round_plan_user_message(
     company: str,
     round_budget: int,
     profile: Any | None,
-    resume_summary: dict[str, Any] | None,
+    candidate: CandidateProfile | None,
     company_context: str,
 ) -> str:
     """Compose the HR planner user message (HR-view candidate snapshot)."""
@@ -80,17 +82,17 @@ def build_round_plan_user_message(
             f"Highlights: {(getattr(profile, 'career_highlights', '') or '—')[:400]}"
         )
 
-    if resume_summary:
-        projects = resume_summary.get("projects") or []
-        skills = resume_summary.get("skills") or []
+    if candidate:
+        projects = candidate.projects
+        skills = candidate.skills
         parts.append(
             "## Resume snapshot\n"
             f"Skills: {json.dumps(skills[:30], ensure_ascii=False)}\n"
             f"Projects: {len(projects)} total — "
             + "; ".join(
-                str((p.get("name") or p.get("title") or "")[:60])
+                str(p.get("name") or p.get("title") or "")[:60]
                 for p in projects[:8]
-                if isinstance(p, dict) and (p.get("name") or p.get("title"))
+                if p.get("name") or p.get("title")
             )
         )
 
