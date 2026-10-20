@@ -6,6 +6,7 @@ Conventions: No real LLM/network; LLM and PrepAgent faked via monkeypatch; rate 
 
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -233,6 +234,50 @@ async def test_prep_message_stream_dict_str_and_done(db, monkeypatch) -> None:
     assert "plain-token" in text
     assert '"type": "done"' in text
     assert '"token_usage": 9' in text
+
+
+@pytest.mark.asyncio
+async def test_prep_message_stream_keeps_the_connection_alive(db, monkeypatch) -> None:
+    """A turn that is merely slow must not look like a dead stream.
+
+    The browser client aborts a coaching stream after 120 s without a byte,
+    while one model call can take minutes; the stream therefore has to prove
+    liveness on its own and emits ``: ping`` keep-alive comments while the
+    producer is idle.
+    """
+    import realmock.domains.prep.routes.chat as chat_route
+    from realmock.domains.prep.schemas import PrepMessageRequest
+
+    row = _session(db)
+    _patch_llm(monkeypatch)
+    monkeypatch.setattr(chat_route, "_SSE_HEARTBEAT_SECONDS", 0.05, raising=False)
+
+    class _Agent(_FakeAgent):
+        async def chat_stream(self, *args, **kwargs):
+            # A provider that thinks for a while before the first token.
+            await asyncio.sleep(0.2)
+            yield "slow-token"
+
+    monkeypatch.setattr(chat_route, "PrepAgent", lambda session, llm: _Agent())
+
+    class _Req:
+        async def is_disconnected(self) -> bool:
+            return False
+
+    resp = await chat_route.prep_message_stream(
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
+    )
+    body = b""
+    async for chunk in resp.body_iterator:
+        body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
+    text = body.decode()
+    assert ": ping" in text
+    assert "slow-token" in text
 
 
 @pytest.mark.asyncio
