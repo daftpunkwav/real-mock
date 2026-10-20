@@ -96,6 +96,14 @@ API_KEY_ENCRYPTION_VERSION = "enc:v2"
 TRACE_ID_HEADER = "X-Trace-Id"
 
 
+# ── Local data files ───────────────────────────────────────────────
+
+# Growth's cross-interview learning sidecar (platform/data/). The platform
+# data-wipe service and the growth learning service must agree on the name,
+# so it is declared once here.
+GROWTH_LEARNING_FILE_NAME = "system_learning.json"
+
+
 # ──Resume analysis──────────────────────────────────────
 
 RESUME_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB

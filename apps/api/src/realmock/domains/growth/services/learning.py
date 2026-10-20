@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from realmock.platform.core.constants import GROWTH_LEARNING_FILE_NAME
 from realmock.platform.core.file_lock import FileLockTimeout, file_lock
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ def _memory_path() -> Path:
 
     root = PLATFORM_ROOT / "data"
     root.mkdir(parents=True, exist_ok=True)
-    return root / "system_learning.json"
+    return root / GROWTH_LEARNING_FILE_NAME
 
 
 def _lock_path() -> Path:

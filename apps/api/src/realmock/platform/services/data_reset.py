@@ -27,6 +27,7 @@ from typing import Any
 
 from sqlalchemy import inspect
 
+from realmock.platform.core.constants import GROWTH_LEARNING_FILE_NAME
 from realmock.platform.core.errors import raise_error
 from realmock.platform.database import ApiBase, SessionsBase
 
@@ -34,10 +35,6 @@ logger = logging.getLogger(__name__)
 
 #: Api-database tables that hold user content (everything else stays).
 API_CONTENT_TABLES: tuple[str, ...] = ("resumes", "user_profiles")
-
-#: Growth's JSON sidecar, colocated with the databases under platform/data
-#: (same resolution as the growth learning service: PLATFORM_ROOT/data).
-LEARNING_FILE_NAME = "system_learning.json"
 
 
 def _existing_tables(engine: Any, metadata_tables: set[str]) -> list[str]:
@@ -64,7 +61,10 @@ def _clear_learning_sidecar() -> bool:
 
     data_dir = PLATFORM_ROOT / "data"
     removed = False
-    for candidate in (data_dir / LEARNING_FILE_NAME, data_dir / f"{LEARNING_FILE_NAME}.lock"):
+    for candidate in (
+        data_dir / GROWTH_LEARNING_FILE_NAME,
+        data_dir / f"{GROWTH_LEARNING_FILE_NAME}.lock",
+    ):
         if candidate.is_file():
             candidate.unlink(missing_ok=True)
             removed = True
