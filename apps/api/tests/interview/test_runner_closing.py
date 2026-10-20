@@ -75,7 +75,7 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         )
 
     monkeypatch.setattr(rcmod, "stream_say_first", fake_say_first)
-    monkeypatch.setattr(rcmod, "append_turn", lambda db, sess, **k: {"turn_id": "t-0001"})
+    monkeypatch.setattr(rcmod, "append_turn_row", lambda db, sess, **k: {"turn_id": "t-0001"})
     monkeypatch.setattr(rcmod, "take_pending_tools", lambda state: [])
     monkeypatch.setattr(rcmod, "run_finish_lifecycle", lambda db, sess, **k: {})
     return runner
@@ -165,7 +165,7 @@ async def test_stream_closing_ledger_failure_yields_retryable_error(monkeypatch)
     def boom(db, sess, **kwargs):
         raise RuntimeError("db down")
 
-    monkeypatch.setattr(rcmod, "append_turn", boom)
+    monkeypatch.setattr(rcmod, "append_turn_row", boom)
     events = [e async for e in rcmod.stream_closing(runner, db=None)]  # type: ignore[arg-type]
     err = next(e for e in events if e.kind == EventKind.ERROR)
     # Ledger failure after streaming is its own class: the answer is out,

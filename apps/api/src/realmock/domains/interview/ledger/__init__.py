@@ -11,6 +11,7 @@ from realmock.domains.interview.ledger.preview import truncate_preview
 from realmock.domains.interview.ledger.store import (
     append_pending_tool,
     append_turn,
+    append_turn_row,
     begin_pending_tools,
     empty_ledger,
     freeze_ledger,
@@ -28,6 +29,7 @@ __all__ = [
     "ToolPreview",
     "append_pending_tool",
     "append_turn",
+    "append_turn_row",
     "begin_pending_tools",
     "empty_ledger",
     "freeze_ledger",

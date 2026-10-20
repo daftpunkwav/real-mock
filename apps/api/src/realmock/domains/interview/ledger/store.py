@@ -143,7 +143,7 @@ def take_pending_tools(agent_state: dict[str, Any]) -> list[ToolPreview]:
     return list(raw)  # type: ignore[arg-type]
 
 
-def append_turn(
+def append_turn_row(
     db: Session,
     session: Any,
     *,
@@ -154,10 +154,14 @@ def append_turn(
     tools: list[ToolPreview] | None = None,
     flags: dict[str, Any] | None = None,
     visible: bool = True,
-) -> LedgerDocument | None:
+) -> str | None:
     """Append one turn as a single row and persist.
 
-    Returns the updated document, or None when skipped because ledger is frozen.
+    Returns the new turn id, or None when the append was skipped because the
+    ledger is frozen. The caller gets no document back on purpose: rebuilding
+    it means re-reading and re-parsing every turn of the session, which turns
+    a session of T turns into O(T^2) JSON parses. Use :func:`append_turn` when
+    the aggregated document is actually needed.
     """
     session_id = int(getattr(session, "id", 0) or 0)
     if is_frozen(session):
@@ -192,6 +196,40 @@ def append_turn(
         )
     )
     db.commit()
+    return turn_id
+
+
+def append_turn(
+    db: Session,
+    session: Any,
+    *,
+    phase: str,
+    assistant_text: str,
+    user_text: str | None = None,
+    user_source: str = "text",
+    tools: list[ToolPreview] | None = None,
+    flags: dict[str, Any] | None = None,
+    visible: bool = True,
+) -> LedgerDocument | None:
+    """Append one turn as a single row and persist.
+
+    Returns the updated document, or None when skipped because ledger is frozen.
+    The document is rebuilt from the turn table, so prefer
+    :func:`append_turn_row` on the turn-by-turn write path.
+    """
+    turn_id = append_turn_row(
+        db,
+        session,
+        phase=phase,
+        assistant_text=assistant_text,
+        user_text=user_text,
+        user_source=user_source,
+        tools=tools,
+        flags=flags,
+        visible=visible,
+    )
+    if turn_id is None:
+        return None
     return load_ledger(db, session)
 
 
@@ -217,11 +255,19 @@ def append_last_turn_flag(
             key,
         )
         return
-    rows = _turn_rows(db, session_id)
-    turns = [r for r in rows if r.seq != CORRUPT_SEQ]
-    if not turns:
+    # Only the newest turn is annotated: read that one row instead of the
+    # whole turn table, whose JSON bodies would be loaded for nothing.
+    row = (
+        db.query(InterviewTurn)
+        .filter(
+            InterviewTurn.session_id == session_id,
+            InterviewTurn.seq != CORRUPT_SEQ,
+        )
+        .order_by(InterviewTurn.seq.desc())
+        .first()
+    )
+    if row is None:
         return
-    row = turns[-1]
     try:
         turn = json.loads(row.turn)
     except (json.JSONDecodeError, TypeError):
