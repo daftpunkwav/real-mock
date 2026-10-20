@@ -47,6 +47,8 @@ SSRF filtering with DNS pinning, used by the agent `fetch` tool and the LLM clie
 
 `redact_api_key()` prepares API keys for log output: PEM blocks become `***PEM_REDACTED***`; `Authorization` / `Bearer` / `Token` / `Basic` headers keep only the scheme; recognized key shapes (`sk-`, `sk-ant-`, Google `aiza` prefixes) and heuristically detected secrets (≥20 chars, letters + digits, no spaces) render as `first4***last4`. Callers include the LLM clients, STT providers, the platform logging setup (`core/logging.py`), and domain route / tool-guard error paths.
 
+`redact_log_value()` is the entry point of the logging pipeline (`core/logging.py`). It applies the key heuristic to the parts of a value that are not URLs, and masks the query values plus the userinfo password of every URL inside it. A request URL is where a vendor credential travels without looking like a key: the Baidu ASR token request carries `client_secret` in the query, and the HTTP client logs the full request URL — so a query value must never reach a log line. The parameter names are kept so the request stays diagnosable. The exception text rendered by the formatter (`SafeFormatter`) is redacted the same way, and the redacted text is the copy the logging handler appends to the line.
+
 ## File handling (`security/file.py`)
 
 `sanitize_filename()` (ASCII-safe names, 120-char cap), `assert_within_dir()` (path-traversal containment), `sniff_extension()` (extension ↔ magic-number check for `pdf` / `docx` / `doc` containers).

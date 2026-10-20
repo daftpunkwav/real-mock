@@ -1,4 +1,10 @@
-"""API Key desensitization (covering mainstream forms)."""
+"""API Key desensitization (covering mainstream forms).
+
+Besides the key shapes themselves, a request URL is a place where a credential
+travels without looking like a key: a query parameter can carry the secret and
+the HTTP client logs the full request URL. :func:`redact_log_value` masks
+those query values.
+"""
 
 from __future__ import annotations
 
@@ -88,6 +94,81 @@ def redact_api_key(value: str | None) -> str:
         return f"{v[:4]}***{v[-4:]}"
 
     return v
+
+
+# URL-shaped substrings inside free-form text (log lines, exception text).
+# The trailing punctuation that usually follows a URL in prose is excluded so
+# it stays outside the match and survives the rewrite. The single group lets
+# ``re.split`` keep the URL matches, so the surrounding prose is redacted
+# separately.
+_URL_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>,;)\]}]+)")
+
+
+def _mask_query_values(query: str) -> str:
+    """Replace every query-parameter value with ``***`` (names are kept)."""
+    masked: list[str] = []
+    for part in query.split("&"):
+        name, sep, _value = part.partition("=")
+        masked.append(f"{name}=***" if sep else part)
+    return "&".join(masked)
+
+
+def _mask_url(url: str) -> str:
+    """Mask the query values and the userinfo password of one URL."""
+    scheme, sep, rest = url.partition("://")
+    if not sep:
+        return url
+    head, qmark, tail = rest.partition("?")
+    authority, slash, path = head.partition("/")
+    if "@" in authority:
+        userinfo, _, host = authority.rpartition("@")
+        if ":" in userinfo:
+            user, _, _password = userinfo.partition(":")
+            userinfo = f"{user}:***"
+        authority = f"{userinfo}@{host}"
+    head = f"{authority}{slash}{path}"
+    if not qmark:
+        return f"{scheme}://{head}"
+    query, hash_, fragment = tail.partition("#")
+    suffix = f"#{fragment}" if hash_ else ""
+    return f"{scheme}://{head}?{_mask_query_values(query)}{suffix}"
+
+
+def _redact_fragment(text: str) -> str:
+    """Apply the whole-value key heuristic to one fragment, keeping its spacing.
+
+    :func:`redact_api_key` strips its input, so it cannot be applied to a
+    fragment of a longer value without eating the surrounding spaces.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return text
+    masked = redact_api_key(stripped)
+    if masked == stripped:
+        return text
+    return text.replace(stripped, masked, 1)
+
+
+def redact_log_value(value: str | None) -> str:
+    """Redact one value on its way into a log line.
+
+    - Outside URLs, the whole-value key heuristic applies as before;
+    - Inside a URL, the query values and the userinfo password are masked and
+      the URL keeps its shape. A request URL is where a vendor credential
+      travels without looking like a key: APIs that authenticate through
+      query parameters put the secret there (the Baidu OAuth token endpoint
+      carries ``client_secret`` in the query) and the HTTP client logs the
+      full request URL. The parameter names are kept so the request stays
+      diagnosable.
+    """
+    if not value:
+        return ""
+    parts = _URL_RE.split(value)
+    out: list[str] = []
+    for index, part in enumerate(parts):
+        # The pattern has one group, so the odd indices are the URL matches.
+        out.append(_mask_url(part) if index % 2 else _redact_fragment(part))
+    return "".join(out)
 
 
 def redact_secrets_in_text(value: str | None) -> str:

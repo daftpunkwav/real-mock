@@ -47,6 +47,8 @@
 
 `redact_api_key()` 为日志输出脱敏 API key:PEM 块替换为 `***PEM_REDACTED***`;`Authorization` / `Bearer` / `Token` / `Basic` 头仅保留方案名;可识别的 key 形态(`sk-`、`sk-ant-`、Google `aiza` 前缀)与启发式判定为密钥的字符串(≥20 字符、字母数字混合、无空格)渲染为 `首4***末4`。调用方包括 LLM 客户端、STT 供应方、平台日志配置(`core/logging.py`)以及域内路由 / 工具守卫的错误路径。
 
+`redact_log_value()` 是日志管线(`core/logging.py`)的入口:对值中非 URL 的部分套用上述 key 启发式,并对其中的每个 URL 掩掉查询参数值与 userinfo 口令。请求 URL 是厂商凭据唯一可以"看起来不像 key"而随行的地方:百度 ASR 取 token 的请求把 `client_secret` 放在 query 里,而 HTTP 客户端会把完整请求 URL 写进日志 — 因此 query 的值绝不能进入日志行。参数名保留,请求仍可诊断。格式化器(`SafeFormatter`)渲染的异常文本同样按此规则脱敏,日志处理器追加到行尾的那份副本也是脱敏后的版本。
+
 ## 文件处理(`security/file.py`)
 
 `sanitize_filename()`(ASCII 安全文件名,上限 120 字符)、`assert_within_dir()`(路径穿越遏制)、`sniff_extension()`(`pdf` / `docx` / `doc` 容器的扩展名 ↔ 魔数校验)。

@@ -7,6 +7,10 @@
 Redaction covers ``record.msg`` and ``record.args`` while redacting **only their string components**,
 without changing the count or order of formatting placeholders such as `%s/%d`—a contract required
 by the logger's formatting phase.
+
+URL arguments are redacted as well: the HTTP client logs the full request URL, and a
+query parameter is one of the few places where a vendor credential travels (an OAuth
+token endpoint carries the secret in the query).
 """
 
 from __future__ import annotations
@@ -18,7 +22,9 @@ import sys
 import uuid
 from typing import Any
 
-from realmock.platform.core.security import redact_api_key as _redact
+import httpx
+
+from realmock.platform.core.security import redact_log_value as _redact
 
 # Request-level trace_id, which facilitates stringing together logs of the same request
 _trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="")
@@ -47,7 +53,7 @@ def reset_trace_id(token) -> None:
 
 
 # The API Key/Bearer token in the log is automatically desensitized.
-# Reuse the canonical :func:`realmock.platform.core.security.redact_api_key` entry point to prevent regex drift between two implementations.
+# Reuse the canonical :func:`realmock.platform.core.security.redact_log_value` entry point to prevent regex drift between two implementations.
 
 
 class RedactFilter(logging.Filter):
@@ -55,14 +61,16 @@ class RedactFilter(logging.Filter):
 
     Strategy:
 
-    - Call :func:`redact_api_key` only for **string** values in ``record.msg`` (template) and
-      ``record.args`` (arguments);
+    - Call :func:`redact_log_value` for the **string** values in ``record.msg``
+      (template) and ``record.args`` (arguments);
     - Preserve non-string arguments (such as numbers, bytes, Exception, etc.) unchanged, without disrupting
       the number of ``%s/%d`` placeholders;
-    - Also redact ``record.exc_text`` (formatted exception stack text) to prevent
-      leakage from strings containing Keys thrown by an upstream LLM/SDK.
+    - Render URL arguments as text with their query values masked: the HTTP client logs the
+      full request URL, and a query parameter is where a vendor credential travels;
+    - Also redact ``record.exc_text`` when another handler already formatted the
+      record; the exception text this formatter renders is redacted there.
 
-    Supporting a new Key format requires changes only in :func:`redact_api_key`.
+    Supporting a new Key format requires changes only in :func:`redact_log_value`.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -74,6 +82,8 @@ class RedactFilter(logging.Filter):
                 for a in record.args:
                     if isinstance(a, str):
                         new_args.append(_redact(a))
+                    elif isinstance(a, httpx.URL):
+                        new_args.append(_redact(str(a)))
                     else:
                         new_args.append(a)
                 record.args = tuple(new_args)
@@ -100,7 +110,12 @@ class SafeFormatter(logging.Formatter):
             "trace_id": get_trace_id(),
         }
         if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
+            # The exception text is rendered here, after the filter ran: a URL
+            # inside it carries the same credential risk as a logged argument.
+            # Assigning ``record.exc_text`` also redacts the copy the logging
+            # handler appends to the formatted line.
+            record.exc_text = _redact(self.formatException(record.exc_info))
+            payload["exc"] = record.exc_text
         return json.dumps(payload, ensure_ascii=False)
 
 
