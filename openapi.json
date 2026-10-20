@@ -193,7 +193,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeAnalysesClearResponse"
+                }
               }
             }
           }
@@ -280,7 +282,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeCollectionDeleteResponse"
+                }
               }
             }
           }
@@ -352,7 +356,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeDeleteResponse"
+                }
               }
             }
           },
@@ -402,8 +408,33 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -444,7 +475,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumePagesMetaResponse"
+                }
               }
             }
           },
@@ -493,8 +526,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -673,9 +709,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "text/event-stream": {}
             }
           },
           "422": {
@@ -1879,9 +1913,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "text/event-stream": {}
             }
           },
           "422": {
@@ -2951,7 +2983,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -3347,7 +3381,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatMessage"
+                  },
+                  "title": "Response Get Messages Api V1 Interview Sessions  Session Id  Messages Get"
+                }
               }
             }
           },
@@ -3422,7 +3462,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewStartResponse"
+                }
               }
             }
           },
@@ -4001,9 +4043,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "text/event-stream": {}
             }
           },
           "422": {
@@ -4524,7 +4564,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeAnalysesClearResponse"
+                }
               }
             }
           }
@@ -4611,7 +4653,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeCollectionDeleteResponse"
+                }
               }
             }
           }
@@ -4683,7 +4727,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeDeleteResponse"
+                }
               }
             }
           },
@@ -4733,8 +4779,33 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -4775,7 +4846,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResumePagesMetaResponse"
+                }
               }
             }
           },
@@ -4824,8 +4897,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -5004,9 +5080,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "text/event-stream": {}
             }
           },
           "422": {
@@ -6210,9 +6284,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "text/event-stream": {}
             }
           },
           "422": {
@@ -7282,7 +7354,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PrepDeletedResponse"
+                }
               }
             }
           },
@@ -7678,7 +7752,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatMessage"
+                  },
+                  "title": "Response Get Messages Api Interview Sessions  Session Id  Messages Get"
+                }
               }
             }
           },
@@ -7753,7 +7833,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewStartResponse"
+                }
               }
             }
           },
@@ -8332,9 +8414,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "text/event-stream": {}
             }
           },
           "422": {
@@ -8677,7 +8757,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -10101,6 +10183,30 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "description": "Payload of the ``GET /health`` probe.\n\nDeclared as a model so the OpenAPI contract states the shape instead of\nleaving it as an untyped object."
+      },
       "InterviewConfig": {
         "properties": {
           "role": {
@@ -10584,6 +10690,29 @@
           "created_at"
         ],
         "title": "InterviewSessionResponse"
+      },
+      "InterviewStartResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "message": {
+            "$ref": "#/components/schemas/ChatMessage"
+          },
+          "current_phase": {
+            "type": "string",
+            "title": "Current Phase"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "message",
+          "current_phase"
+        ],
+        "title": "InterviewStartResponse",
+        "description": "Opening turn of the HTTP fallback path (POST /sessions/{id}/start)."
       },
       "InterviewStyleOption": {
         "properties": {
@@ -13223,6 +13352,25 @@
         ],
         "title": "ReportResponse"
       },
+      "ResumeAnalysesClearResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "cleared": {
+            "type": "integer",
+            "title": "Cleared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "cleared"
+        ],
+        "title": "ResumeAnalysesClearResponse",
+        "description": "DELETE /resume/analyses: how many deep reviews were cleared."
+      },
       "ResumeAnalysis": {
         "properties": {
           "score": {
@@ -13463,6 +13611,44 @@
         ],
         "title": "ResumeAnalysis"
       },
+      "ResumeCollectionDeleteResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "deleted"
+        ],
+        "title": "ResumeCollectionDeleteResponse",
+        "description": "DELETE /resume/collection: how many rows were removed."
+      },
+      "ResumeDeleteResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "id"
+        ],
+        "title": "ResumeDeleteResponse",
+        "description": "DELETE /resume/{resume_id}: the removed row id."
+      },
       "ResumeDomainLimits": {
         "properties": {
           "allowed_extensions": {
@@ -13586,6 +13772,20 @@
           "score_band_standout": 85,
           "score_band_strong": 70
         }
+      },
+      "ResumePagesMetaResponse": {
+        "properties": {
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pages"
+        ],
+        "title": "ResumePagesMetaResponse",
+        "description": "GET /resume/{resume_id}/pages: rendered page count (0 for non-PDF)."
       },
       "ResumePickerItem": {
         "properties": {

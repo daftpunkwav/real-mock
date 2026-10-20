@@ -95,6 +95,14 @@ class InterviewMessageResponse(BaseModel):
     phases_remaining: list[str] = Field(default_factory=list)
 
 
+class InterviewStartResponse(BaseModel):
+    """Opening turn of the HTTP fallback path (POST /sessions/{id}/start)."""
+
+    session_id: int
+    message: ChatMessage
+    current_phase: str
+
+
 class FinishInterviewResponse(BaseModel):
     session_id: int
     status: str

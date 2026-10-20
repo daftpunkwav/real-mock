@@ -110,7 +110,7 @@ async def test_status_key_and_finish_errors():
                 return_value=MagicMock(phases_remaining=lambda: []),
             ):
                 out = await start_interview(1, db=db, access="tok")
-                assert out["message"].content == "open"
+                assert out.message.content == "open"
     sess2 = MagicMock(status="active", access_token="tok", current_phase="p")
     db.query.return_value.filter.return_value.first.return_value = sess2
 

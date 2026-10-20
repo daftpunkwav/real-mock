@@ -4,11 +4,12 @@ Ownership rule: include only types shared by two or more services (or by a servi
 voice/LLM capability layer)—error envelopes, handler configuration, LLM settings, and company
 information. Domain-specific types belong to their respective services.
 
-Submodules are split by boundary: pipeline / errors / candidate.
+Submodules are split by boundary: pipeline / errors / candidate / health.
 """
 
 from realmock.platform.schemas.candidate import CandidateProfile, CompanyInfo, ResumePickerItem
 from realmock.platform.schemas.errors import APIError, ErrorBody
+from realmock.platform.schemas.health import HealthResponse
 from realmock.platform.schemas.pipeline import (
     LLMTestResponse,
     StageConfigResponse,
@@ -24,6 +25,7 @@ __all__ = [
     "CandidateProfile",
     "CompanyInfo",
     "ErrorBody",
+    "HealthResponse",
     "LLMTestResponse",
     "ResumePickerItem",
     "StageConfigResponse",

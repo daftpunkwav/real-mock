@@ -28,6 +28,7 @@ from realmock.domains.interview.schemas import (
     FinishInterviewResponse,
     InterviewMessageRequest,
     InterviewMessageResponse,
+    InterviewStartResponse,
 )
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
@@ -72,7 +73,7 @@ async def start_interview(
     session_id: int,
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_token),
-):
+) -> InterviewStartResponse:
     """Run the opening turn over SSE-less HTTP (text-fallback path).
 
     Only PENDING/ACTIVE sessions; requires a configured chat model.
@@ -92,13 +93,13 @@ async def start_interview(
     runner = InterviewRunner(session, llm, agent)
     opening, _ = await _collect_turn_result(runner.stream_opening(db))
 
-    return {
-        "session_id": session_id,
-        "message": ChatMessage(
+    return InterviewStartResponse(
+        session_id=session_id,
+        message=ChatMessage(
             role="assistant", content=opening, timestamp=datetime.now(timezone.utc)
         ),
-        "current_phase": session.current_phase,
-    }
+        current_phase=session.current_phase,
+    )
 
 
 async def send_message(

@@ -41,6 +41,7 @@ from realmock.platform.config import Settings, get_settings
 from realmock.platform.core.logging import configure_logging
 from realmock.platform.database import dispose_all_engines
 from realmock.platform.router_mount import include_with_legacy_api_alias
+from realmock.platform.schemas.health import HealthResponse
 
 logger = logging.getLogger(__name__)
 
@@ -167,9 +168,9 @@ def create_app() -> FastAPI:
 
     register_core_error_handlers(app)
 
-    @app.get("/health")
-    def health():
-        return {"status": "ok", "service": "realmock", "version": "1.0.0"}
+    @app.get("/health", response_model=HealthResponse)
+    def health() -> HealthResponse:
+        return HealthResponse(status="ok", service="realmock", version="1.0.0")
 
     return app
 

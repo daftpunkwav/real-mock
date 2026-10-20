@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
 from realmock.domains.resume.schemas.limits import FILE_MIME
+from realmock.domains.resume.schemas.response import ResumePagesMetaResponse
 from realmock.domains.resume.services import store
 from realmock.domains.resume.services.files import find_resume_file
 from realmock.domains.resume.services.render import pdf_page_count, render_pdf_page_png
@@ -59,9 +60,9 @@ def get_resume_pages_meta(resume_id: int, db: Session = Depends(get_db)):
     """Paged preview meta; only PDF is page-rendered, other formats return pages=0."""
     resume, path = _load_resume_with_file(resume_id, db)
     if resume.file_type.lower() != "pdf":
-        return {"pages": 0}
+        return ResumePagesMetaResponse(pages=0)
     try:
-        return {"pages": pdf_page_count(path)}
+        return ResumePagesMetaResponse(pages=pdf_page_count(path))
     except ApiBusinessError:
         raise
     except Exception as e:

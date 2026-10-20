@@ -11,6 +11,7 @@ Must not import persistence or interpret field lengths.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from realmock.domains.resume.routes.analyze import analyze_resume, analyze_resume_stream
 from realmock.domains.resume.routes.crud import (
@@ -30,7 +31,16 @@ from realmock.domains.resume.routes.file import (
 )
 from realmock.domains.resume.routes.parse_retry import retry_resume_parse
 from realmock.domains.resume.routes.upload import upload_resume, upload_resume_version
-from realmock.domains.resume.schemas import ResumeAnalysis, ResumeDomainLimits, ResumeResponse
+from realmock.domains.resume.schemas import (
+    ResumeAnalysesClearResponse,
+    ResumeAnalysis,
+    ResumeCollectionDeleteResponse,
+    ResumeDeleteResponse,
+    ResumeDomainLimits,
+    ResumePagesMetaResponse,
+    ResumeResponse,
+)
+from realmock.domains.resume.schemas.limits import FILE_DOWNLOAD_MEDIA_TYPES
 from realmock.domains.resume.services import contract_guard
 from realmock.platform.contracts.data_export import DataExportFile
 from realmock.platform.core.constants import (
@@ -42,6 +52,20 @@ from realmock.platform.core.ratelimit import rate_limit_dep
 
 # Import-time guard: catalog / ORM / response must stay aligned.
 contract_guard.assert_resume_contract_aligned()
+
+# OpenAPI content map of the original-file download: every media type the
+# route can answer with, text formats as plain strings and binary formats as
+# binary payloads.
+_FILE_DOWNLOAD_CONTENT: dict[str, dict[str, dict[str, str]]] = {
+    media_type: {
+        "schema": (
+            {"type": "string"}
+            if media_type.startswith("text/")
+            else {"type": "string", "format": "binary"}
+        )
+    }
+    for media_type in FILE_DOWNLOAD_MEDIA_TYPES
+}
 
 router = APIRouter()
 
@@ -75,6 +99,7 @@ router.add_api_route(
     "/analyses",
     clear_review_results,
     methods=["DELETE"],
+    response_model=ResumeAnalysesClearResponse,
 )
 router.add_api_route(
     "/{resume_id}/analysis-export",
@@ -86,6 +111,7 @@ router.add_api_route(
     "/collection",
     delete_all_resumes,
     methods=["DELETE"],
+    response_model=ResumeCollectionDeleteResponse,
 )
 router.add_api_route(
     "/{resume_id}",
@@ -97,6 +123,8 @@ router.add_api_route(
     "/{resume_id}/file",
     get_resume_file,
     methods=["GET"],
+    response_class=FileResponse,
+    responses={200: {"content": _FILE_DOWNLOAD_CONTENT}},
     dependencies=[
         Depends(
             rate_limit_dep(
@@ -110,6 +138,7 @@ router.add_api_route(
     "/{resume_id}/pages",
     get_resume_pages_meta,
     methods=["GET"],
+    response_model=ResumePagesMetaResponse,
     dependencies=[
         Depends(
             rate_limit_dep(
@@ -123,6 +152,8 @@ router.add_api_route(
     "/{resume_id}/pages/{page_no}",
     get_resume_page_image,
     methods=["GET"],
+    response_class=Response,
+    responses={200: {"content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}}},
     dependencies=[
         Depends(
             rate_limit_dep(
@@ -170,11 +201,14 @@ router.add_api_route(
     "/{resume_id}",
     delete_resume,
     methods=["DELETE"],
+    response_model=ResumeDeleteResponse,
 )
 router.add_api_route(
     "/{resume_id}/analyze/stream",
     analyze_resume_stream,
     methods=["POST"],
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
     dependencies=[
         Depends(
             rate_limit_dep(

@@ -40,6 +40,7 @@ from realmock.platform.core.local_only import LOCAL_API_DEPENDENCIES
 from realmock.platform.core.logging import get_trace_id, reset_trace_id, set_trace_id
 from realmock.platform.core.security import UnsafeURLError
 from realmock.platform.schemas.errors import APIError, ErrorBody
+from realmock.platform.schemas.health import HealthResponse
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +121,9 @@ def create_service_app(
     if register_error_handlers:
         register_core_error_handlers(app)
 
-    @app.get("/health")
-    def health():
-        return {"status": "ok", "service": service_name, "version": "1.0.0"}
+    @app.get("/health", response_model=HealthResponse)
+    def health() -> HealthResponse:
+        return HealthResponse(status="ok", service=service_name, version="1.0.0")
 
     return app
 

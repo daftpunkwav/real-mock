@@ -33,6 +33,13 @@ FILE_MIME: dict[str, str] = {
     "txt": "text/plain",
 }
 
+# Media types the original-file download can answer with: the formats in
+# FILE_MIME plus the binary fallback used for unknown file types.
+FILE_DOWNLOAD_MEDIA_TYPES: tuple[str, ...] = (
+    *FILE_MIME.values(),
+    "application/octet-stream",
+)
+
 # ── Analysis locales ────────────────────────────────────────────────────
 
 ANALYSIS_LOCALES: tuple[str, ...] = ("zh-CN", "en")

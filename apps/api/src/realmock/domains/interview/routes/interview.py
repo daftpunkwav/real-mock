@@ -18,6 +18,7 @@ from realmock.domains.interview.routes.processes import (
     list_process_routes,
 )
 from realmock.domains.interview.routes.sessions import (
+    ChatMessage,
     InterviewSessionResponse,
     create_session,
     get_messages,
@@ -28,6 +29,7 @@ from realmock.domains.interview.routes.sessions import (
 from realmock.domains.interview.routes.turns import (
     FinishInterviewResponse,
     InterviewMessageResponse,
+    InterviewStartResponse,
     finish_interview,
     send_message,
     start_interview,
@@ -121,11 +123,13 @@ router.add_api_route(
     "/sessions/{session_id}/messages",
     get_messages,
     methods=["GET"],
+    response_model=list[ChatMessage],
 )
 router.add_api_route(
     "/sessions/{session_id}/start",
     start_interview,
     methods=["POST"],
+    response_model=InterviewStartResponse,
     dependencies=[
         Depends(
             rate_limit_dep(
