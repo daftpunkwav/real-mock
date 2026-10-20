@@ -125,6 +125,67 @@ async def test_read_notes_page_stays_valid_json() -> None:
 
 
 @pytest.mark.asyncio
+async def test_read_turns_degrades_non_numeric_paging_args() -> None:
+    """A non-numeric offset must degrade to the first page, not fail the call.
+
+    Malformed paging arguments are a model mistake; the sibling readers (resume
+    raw text, memory index, web search) degrade to their default instead of
+    raising, so one bad argument must not cost the report agent a round.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(3))}
+    page = json.loads(await specs["ledger_read_turns"].handler({"offset": "next"}))
+    assert page["offset"] == 0
+    assert page["returned"] == 3
+    assert page["next_offset"] is None
+
+
+@pytest.mark.asyncio
+async def test_read_turns_degrades_non_finite_paging_args() -> None:
+    """A non-finite offset must degrade too: int(float('inf')) raises OverflowError.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; OverflowError is not a ValueError and would escape a
+    ``(TypeError, ValueError)`` guard.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(3))}
+    page = json.loads(await specs["ledger_read_turns"].handler({"offset": float("inf")}))
+    assert page["offset"] == 0
+    assert page["returned"] == 3
+
+
+@pytest.mark.asyncio
+async def test_read_notes_degrades_non_numeric_paging_args() -> None:
+    """A non-numeric offset/limit must degrade to the default page, not fail."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    notes = [{"turn_id": f"t-{i:04d}", "question": "q" * 50} for i in range(1, 13)]
+    page = json.loads(await mod.notes_tool_specs(notes)[0].handler({"offset": "x", "limit": "y"}))
+    assert page["offset"] == 0
+    assert page["returned"] == 10
+    assert page["next_offset"] == 10
+
+
+@pytest.mark.asyncio
+async def test_read_notes_degrades_non_finite_paging_args() -> None:
+    """A non-finite offset/limit must degrade to the default page, not fail."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    notes = [{"turn_id": f"t-{i:04d}", "question": "q" * 50} for i in range(1, 13)]
+    page = json.loads(
+        await mod.notes_tool_specs(notes)[0].handler(
+            {"offset": float("inf"), "limit": float("inf")}
+        )
+    )
+    assert page["offset"] == 0
+    assert page["returned"] == 10
+    assert page["next_offset"] == 10
+
+
+@pytest.mark.asyncio
 async def test_read_notes_keeps_one_oversized_note_so_the_cursor_advances() -> None:
     """A single note larger than the budget is still returned, so paging moves on.
 

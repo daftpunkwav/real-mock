@@ -93,6 +93,30 @@ def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, A
         page.pop()
 
 
+def _page_offset(args: dict[str, Any], default: int = 0) -> int:
+    """Page offset from model-supplied args; a non-numeric value degrades to the start.
+
+    Malformed paging arguments are a model mistake, not a broken tool: the
+    other readers (resume raw text, memory index, web search) degrade to their
+    default instead of raising, so one bad argument must not fail the call and
+    cost the agent a round. A non-finite value (Infinity) counts as malformed
+    too: converting it to int raises OverflowError, which is not a ValueError.
+    """
+    try:
+        return max(0, int(args.get("offset") or default))
+    except (TypeError, ValueError, OverflowError):
+        return max(0, default)
+
+
+def _page_limit(args: dict[str, Any], default: int, maximum: int) -> int:
+    """Page size from model-supplied args; a non-numeric value degrades to the default."""
+    try:
+        limit = int(args.get("limit") or default)
+    except (TypeError, ValueError, OverflowError):
+        limit = default
+    return max(1, min(limit, maximum))
+
+
 def ledger_tool_specs(
     ledger: dict[str, Any],
     *,
@@ -122,7 +146,7 @@ def ledger_tool_specs(
         )
 
     async def read_turns(args: dict[str, Any]) -> str:
-        offset = max(0, int(args.get("offset") or 0))
+        offset = _page_offset(args)
         requested = args.get("turn_ids")
         explicit_ids = requested if isinstance(requested, list) and requested else None
         if explicit_ids is not None:
@@ -207,8 +231,8 @@ def notes_tool_specs(notes: list[dict[str, Any]]) -> list[ToolSpec]:
     """Paged access to the accumulated per-turn notes (synthesis stage)."""
 
     async def read_notes(args: dict[str, Any]) -> str:
-        offset = max(0, int(args.get("offset") or 0))
-        limit = max(1, min(int(args.get("limit") or 10), 20))
+        offset = _page_offset(args)
+        limit = _page_limit(args, 10, 20)
         candidates = notes[offset : offset + limit]
         # Same rule as the ledger reader: the observation must stay valid
         # JSON, so notes that do not fit the output budget stay for the next
