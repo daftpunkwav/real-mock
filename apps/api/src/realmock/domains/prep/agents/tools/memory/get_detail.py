@@ -41,7 +41,10 @@ async def run_memory_get_detail(
     del memory
     try:
         memory_id = int(args.get("id") or 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) id is not convertible and is
+        # not a ValueError; it degrades to the invalid-id answer like any other
+        # unusable id.
         memory_id = 0
     if memory_id <= 0:
         return json.dumps({"error": "invalid_id"}, ensure_ascii=False), []

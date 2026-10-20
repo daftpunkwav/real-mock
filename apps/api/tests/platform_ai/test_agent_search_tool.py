@@ -31,6 +31,18 @@ def test_clamp_bad_input() -> None:
     assert search_mod._clamp_max_results(0) == 1
 
 
+def test_clamp_non_finite_max_results_degrades() -> None:
+    """A non-finite max_results falls back to the default, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    assert search_mod._clamp_max_results(float("inf")) == search_mod.SEARCH_DEFAULT_MAX_RESULTS
+    parsed = json.loads('{"max_results": Infinity}')["max_results"]
+    assert search_mod._clamp_max_results(parsed) == search_mod.SEARCH_DEFAULT_MAX_RESULTS
+
+
 @pytest.mark.asyncio
 async def test_empty_query() -> None:
     out = json.loads(await search_mod.execute_web_search({}))

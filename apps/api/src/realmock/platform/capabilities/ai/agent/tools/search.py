@@ -23,7 +23,10 @@ OnSearchHits = Callable[[str, list[SearchHit]], None]
 def _clamp_max_results(raw: Any) -> int:
     try:
         value = int(raw)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) argument is not convertible
+        # and is not a ValueError; it falls back to the default like any other
+        # unusable value.
         value = SEARCH_DEFAULT_MAX_RESULTS
     return max(1, min(value, SEARCH_HARD_MAX_RESULTS))
 

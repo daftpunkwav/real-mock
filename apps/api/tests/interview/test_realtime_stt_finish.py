@@ -6,6 +6,7 @@ empty-text C2001 backoff, buffer path, echo reject, sample-range guard.
 Conventions: no real network/LLM (all external calls mocked); uses _make_handler for handler construction.
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -272,3 +273,29 @@ async def test_non_string_browser_text_is_coerced_not_fatal():
     await h._on_user_turn_end({"text": {"injected": "value"}}, MagicMock(), MagicMock())
     h._process_user_text.assert_awaited_once()
     assert isinstance(h._process_user_text.await_args.args[0], str)
+
+
+@pytest.mark.asyncio
+async def test_non_finite_sample_rate_falls_back_to_default():
+    """A non-finite PCM sample rate falls back to 16000, never raises.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a browser frame can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and would escape the ``(TypeError, ValueError)`` guard.
+    """
+    res = SttResult(text="answer text", provider="local")
+    frames = [
+        {"pcm": "AAAA", "sample_rate": float("inf")},
+        json.loads('{"pcm": "AAAA", "sample_rate": Infinity}'),
+    ]
+    for frame in frames:
+        h = _make_handler()
+        h.ctx.turn_state = TurnState.USER_SPEAKING
+        h._process_user_text = AsyncMock()  # type: ignore[method-assign]
+        h._reject_probable_echo = AsyncMock(return_value=False)  # type: ignore[method-assign]
+        with patch(
+            "realmock.domains.interview.realtime.turn.stt_finish.transcribe_utterance_result",
+            AsyncMock(return_value=res),
+        ) as stt:
+            await h._on_user_turn_end(frame, MagicMock(), MagicMock())
+        assert stt.await_args.kwargs["sample_rate"] == 16000

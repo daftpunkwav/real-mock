@@ -242,12 +242,15 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
             # offset must degrade to page start, not fail the whole tool call.
             try:
                 offset = int(args.get("offset") or 0)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
+                # OverflowError: a non-finite (Infinity) argument is not
+                # convertible and is not a ValueError; it degrades to the page
+                # start like any other unusable offset.
                 offset = 0
             offset = max(0, offset)
             try:
                 limit = int(args.get("limit") or RESUME_RAW_PAGE_CHARS)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 limit = RESUME_RAW_PAGE_CHARS
             limit = max(200, min(limit, RESUME_RAW_PAGE_HARD_CHARS))
             text = snapshot.raw_text or ""

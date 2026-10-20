@@ -61,6 +61,21 @@ def test_normalize_bad_stage_falls_to_insufficient() -> None:
     assert out["trajectory_stage"] == "insufficient"
 
 
+def test_normalize_non_finite_count_degrades() -> None:
+    """A non-finite count must degrade to the default, not abort the insight.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; converting it to int raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    from realmock.domains.growth.agents.insight import normalize_growth_insight
+
+    out = normalize_growth_insight(
+        {"recurring_weaknesses": [{"skill": "sql", "count": float("inf")}]}
+    )
+    assert out["recurring_weaknesses"][0]["count"] == 1
+
+
 def test_insight_substantive_gate() -> None:
     from realmock.domains.growth.agents.insight import (
         _insight_is_substantive,

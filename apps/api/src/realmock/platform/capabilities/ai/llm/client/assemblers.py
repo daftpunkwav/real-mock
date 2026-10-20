@@ -25,7 +25,10 @@ def _safe_index(value: Any) -> int | None:
     """
     try:
         return int(value or 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a gateway index of Infinity is not convertible and is
+        # not a ValueError; it must be treated as the malformed index it is,
+        # not kill the streaming turn.
         return None
 
 

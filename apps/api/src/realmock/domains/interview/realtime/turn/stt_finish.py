@@ -180,7 +180,10 @@ class TurnSttFinishMixin:
             raw_sr = data.get("sample_rate") or 16000
             try:
                 sample_rate = int(raw_sr)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
+                # OverflowError: a non-finite (Infinity) frame value is not
+                # convertible and is not a ValueError; it is an unusable sample
+                # rate like any other and falls back to the default.
                 sample_rate = 16000
             if sample_rate < 8000 or sample_rate > 96000:
                 sample_rate = 16000

@@ -107,6 +107,25 @@ def test_normalize_report_payload_verdict_and_breakdown():
     assert [n.turn_id for n in report.turn_notes] == ["t-1"]
 
 
+def test_normalize_report_payload_degrades_non_finite_scores():
+    """A non-finite score must degrade, not invalidate the whole report.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; converting it to int raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    report = normalize_report_payload(
+        {
+            "overall_score": float("inf"),
+            "score_breakdown": {"technical": float("inf")},
+            "turn_notes": [{"turn_id": "t-1", "score": float("inf")}],
+        }
+    )
+    assert report.overall_score == 0
+    assert report.score_breakdown.technical == 0
+    assert [n.score for n in report.turn_notes] == [0]
+
+
 # ---- ledger / notes tools --------------------------------------------------------
 
 

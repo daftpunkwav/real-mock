@@ -66,7 +66,10 @@ def _norm_score(value: Any) -> int:
         return 0
     try:
         score = int(float(value))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) or oversized number cannot be
+        # converted to int and is not a ValueError — it must degrade like any
+        # other unusable score instead of invalidating the whole report.
         return 0
     return max(0, min(100, score))
 

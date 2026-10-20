@@ -44,7 +44,10 @@ async def run_memory_list_summaries(
     tag = str(args.get("tag") or "").strip() or None
     try:
         limit = int(args.get("limit") or MEMORY_LIST_DEFAULT_LIMIT)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) limit is not convertible and
+        # is not a ValueError; it falls back to the default like any other
+        # unusable limit.
         limit = MEMORY_LIST_DEFAULT_LIMIT
     limit = max(1, min(MEMORY_LIST_MAX_LIMIT, limit))
     return await asyncio.to_thread(_list_summaries_sync, tag, limit), []

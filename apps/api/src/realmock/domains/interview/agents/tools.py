@@ -366,7 +366,10 @@ async def execute_interview_tool(
             try:
                 round_no = int(arguments.get("round_no") or 0)
                 offset = int(arguments.get("offset") or 0)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
+                # OverflowError: a non-finite (Infinity) argument is not
+                # convertible and is not a ValueError; it is a malformed
+                # argument like any other and must stay an observation.
                 return json.dumps(
                     {"error": "invalid_argument", "field": "round_no/offset (integer)"},
                     ensure_ascii=False,

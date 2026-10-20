@@ -141,7 +141,10 @@ def _clean_round(raw: object, round_no: int) -> PlannedRound | None:
         style = "guided" if workflow == "hr" else "deep_dive"
     try:
         strictness = max(1, min(10, int(raw.get("strictness") or 3)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) strictness is not convertible
+        # and is not a ValueError; it falls back to the default like any other
+        # unusable value.
         strictness = 3
     focus = str(raw.get("focus") or "").strip()[:FOCUS_MAX_CHARS]
     label = str(raw.get("label") or "").strip()[:LABEL_MAX_CHARS]

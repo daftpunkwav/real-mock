@@ -10,6 +10,7 @@ Verify through monkeypatch + mock httpx.AsyncClient:
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -393,6 +394,60 @@ def test_anthropic_round_assembler_malformed_index_no_crash() -> None:
     msg = a.message()
     assert msg["content"] == "Hello"
     assert "tool_calls" not in msg
+
+
+def test_round_assembler_non_finite_index_is_malformed() -> None:
+    """A non-finite stream index is the malformed index it is, not a crash.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a gateway can send
+    an infinite tool-call index; ``int(float('inf'))`` raises OverflowError,
+    which is not a ValueError and would kill the streaming turn.
+    """
+    from realmock.platform.capabilities.ai.llm.client.assemblers import (
+        _OpenAIRoundAssembler,
+        _safe_index,
+    )
+
+    assert _safe_index(float("inf")) is None
+    assert _safe_index(json.loads('{"index": Infinity}')["index"]) is None
+
+    a = _OpenAIRoundAssembler()
+    a.feed(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "c1",
+                                "function": {"name": "web_search", "arguments": '{"q": 1}'},
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    )
+    a.feed(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": float("inf"),
+                                "id": "c2",
+                                "function": {"name": "other", "arguments": "{}"},
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    )
+    msg = a.message()
+    assert [call["id"] for call in msg["tool_calls"]] == ["c1"]
 
 
 # ── Streaming 429/5xx retries (retry_stream: raise_for_status must run after the retry decision) ──────

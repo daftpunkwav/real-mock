@@ -193,7 +193,9 @@ def _resolve_suggested(
         return None
     try:
         index = int(suggested_index)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) index is not convertible and is
+        # not a ValueError; it falls back to the first option.
         index = 0
     index = max(0, min(len(options) - 1, index))
     return options[index]

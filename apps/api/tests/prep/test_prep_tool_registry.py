@@ -401,6 +401,17 @@ def test_ask_options_capped_at_eight() -> None:
     assert normalize_ask_options(["a", "b", "a", " a "]) == ["a", "b"]
 
 
+def test_ask_suggested_index_non_finite_degrades_to_first_option() -> None:
+    """A non-finite suggested index must fall back, not raise out of the turn."""
+    from realmock.domains.prep.agents.ask_user import normalize_ask_questions
+
+    events = normalize_ask_questions(
+        {"question": "Pick one", "options": ["a", "b"], "suggested_index": float("inf")}
+    )
+    assert events is not None
+    assert events[0]["suggested"] == "a"
+
+
 def test_ask_slider_scale_validation() -> None:
     from realmock.domains.prep.agents.ask_user import normalize_ask_scale
 
@@ -603,6 +614,47 @@ async def test_memory_write_requires_summary_and_validates_id(db) -> None:
     assert json.loads(text)["error"] == "invalid_id"
     text, _ = await prep_tools.execute_prep_tool("memory_get_detail", {"id": 999999999}, _memory())
     assert json.loads(text)["error"] == "not_found"
+
+
+async def test_memory_get_detail_non_finite_id_degrades() -> None:
+    """A non-finite memory id degrades to the invalid-id answer, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    from realmock.domains.prep.agents.tools.memory.get_detail import run_memory_get_detail
+
+    cases = [{"id": float("inf")}, json.loads('{"id": Infinity}')]
+    for args in cases:
+        text, hits = await run_memory_get_detail(args, _memory())
+        assert json.loads(text) == {"error": "invalid_id"}
+        assert hits == []
+
+
+async def test_memory_list_summaries_non_finite_limit_degrades(monkeypatch) -> None:
+    """A non-finite limit falls back to the default page size, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    from realmock.domains.prep.agents.tools.memory import list_summaries as list_summaries_mod
+    from realmock.domains.prep.services import MEMORY_LIST_DEFAULT_LIMIT
+
+    seen: list[int] = []
+
+    def _fake_list_summaries_sync(tag, limit):
+        seen.append(limit)
+        return '{"memories": []}'
+
+    monkeypatch.setattr(list_summaries_mod, "_list_summaries_sync", _fake_list_summaries_sync)
+    cases = [{"limit": float("inf")}, json.loads('{"limit": Infinity}')]
+    for args in cases:
+        text, hits = await list_summaries_mod.run_memory_list_summaries(args, _memory())
+        assert json.loads(text) == {"memories": []}
+        assert hits == []
+    assert seen == [MEMORY_LIST_DEFAULT_LIMIT, MEMORY_LIST_DEFAULT_LIMIT]
 
 
 # --- Agent state recovery ---

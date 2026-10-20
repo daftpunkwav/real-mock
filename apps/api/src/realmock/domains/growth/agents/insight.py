@@ -78,7 +78,9 @@ _VALID_STAGES = ("rising", "stalling", "plateau", "insufficient")
 def _clamp_int(value: Any, low: int, high: int, default: int = 0) -> int:
     try:
         return max(low, min(high, int(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) count is not convertible and is
+        # not a ValueError; it degrades to the default like any other bad count.
         return default
 
 

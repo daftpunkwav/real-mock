@@ -144,7 +144,10 @@ def _coerce_int_score(v: object) -> int | None:
     """
     try:
         return int(v)  # type: ignore[arg-type, call-overload]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) or oversized number cannot be
+        # converted to int and is not a ValueError; the float path below is
+        # tried next, and a number that survives neither is simply unusable.
         pass
     try:
         return int(float(v))  # type: ignore[arg-type]

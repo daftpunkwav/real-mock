@@ -181,7 +181,10 @@ async def _fetch_page(url: str, max_chars: int) -> str:
 def clamp_max_chars(raw: Any) -> int:
     try:
         value = int(raw)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) argument is not convertible
+        # and is not a ValueError; it falls back to the default like any other
+        # unusable value.
         value = FETCH_DEFAULT_MAX_CHARS
     return max(500, min(value, FETCH_HARD_MAX_CHARS))
 

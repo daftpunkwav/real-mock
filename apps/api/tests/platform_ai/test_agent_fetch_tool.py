@@ -126,3 +126,20 @@ async def test_fetch_tool_handler_delegates() -> None:
     spec = web_fetch_tool_spec()
     out = await spec.handler({})
     assert json.loads(out)["error"] == "empty_url"
+
+
+def test_clamp_max_chars_non_finite_degrades_to_default() -> None:
+    """A non-finite max_chars falls back to the default, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    from realmock.platform.capabilities.ai.agent.tools.fetch import (
+        FETCH_DEFAULT_MAX_CHARS,
+        clamp_max_chars,
+    )
+
+    assert clamp_max_chars(float("inf")) == FETCH_DEFAULT_MAX_CHARS
+    parsed = json.loads('{"max_chars": Infinity}')["max_chars"]
+    assert clamp_max_chars(parsed) == FETCH_DEFAULT_MAX_CHARS
