@@ -401,6 +401,21 @@ def test_ask_options_capped_at_eight() -> None:
     assert normalize_ask_options(["a", "b", "a", " a "]) == ["a", "b"]
 
 
+def test_ask_options_non_list_degrades_to_free_text() -> None:
+    """A non-array ``options`` must not raise and must not become one option per character."""
+    from realmock.domains.prep.agents.ask_user import normalize_ask_options, normalize_ask_questions
+
+    assert normalize_ask_options(5) == []
+    assert normalize_ask_options("Yes, No") == []
+    assert normalize_ask_options({"description": "d"}) == []
+    # The question still renders: no options means a free-text dialog.
+    events = normalize_ask_questions({"question": "Pick one", "options": 5})
+    assert events is not None
+    assert events[0]["options"] == []
+    assert events[0]["allow_custom"] is True
+    assert events[0]["suggested"] is None
+
+
 def test_ask_suggested_index_non_finite_degrades_to_first_option() -> None:
     """A non-finite suggested index must fall back, not raise out of the turn."""
     from realmock.domains.prep.agents.ask_user import normalize_ask_questions

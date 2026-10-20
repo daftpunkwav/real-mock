@@ -67,7 +67,15 @@ def normalize_ask_options(raw_options: Any) -> list[str]:
     Dedup runs on the clipped labels: two long options sharing a prefix would
     otherwise collapse into identical clickable labels — exactly the
     multi-select toggle ambiguity dedup exists to prevent.
+
+    A non-list ``options`` value is a model type error: the schema asks for an
+    array, and a scalar has no option list to read (a number would raise, a
+    string would be split into one option per character). It degrades to no
+    options, so the question still renders as a free-text dialog instead of
+    failing the turn.
     """
+    if not isinstance(raw_options, list):
+        return []
     seen: set[str] = set()
     cleaned: list[str] = []
     for opt in (_normalize_ask_option(o) for o in (raw_options or [])):
