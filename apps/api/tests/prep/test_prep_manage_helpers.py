@@ -1,7 +1,6 @@
 """Manage-helper tests for realmock.domains.prep routes and services.
 
-Covers: _require_existing_session missing (routes.manage) and
-refresh_linked_block bad-JSON, non-list and exception branches (services.linking)
+Covers: refresh_linked_block bad-JSON, non-list and exception branches (services.linking)
 Conventions: DB faked with MagicMock; never raises on corrupt data; rate limits reset per test
 """
 
@@ -12,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from realmock.platform.core.errors import ApiBusinessError
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -21,17 +19,6 @@ def _clean_limits():
     reset_rate_limit()
     yield
     reset_rate_limit()
-
-
-def test_require_existing_missing(db) -> None:
-    import importlib
-
-    mod = importlib.import_module("realmock.domains.prep.routes.manage")
-
-    # Real DB lookup misses → the route's shared raise_error fires with A3001.
-    with pytest.raises(ApiBusinessError) as ei:
-        mod._require_existing_session(999, db)
-    assert ei.value.error_code == "A3001"
 
 
 def test_refresh_linked_block_bad_json_and_non_list() -> None:

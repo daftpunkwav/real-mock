@@ -25,6 +25,10 @@ from realmock.domains.prep.schemas import (
     PrepSummaryUpdateRequest,
     PrepTruncateRequest,
 )
+from realmock.domains.prep.services.session_guard import (
+    require_owned_prep_session,
+    require_writable_prep_session,
+)
 from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
 from realmock.domains.prep.services.turn_lock import session_turn_lock
 from realmock.platform.capabilities.ai.context.compress import (
@@ -42,7 +46,6 @@ from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import (
-    assert_session_token,
     cookie_should_be_secure,
     extract_prep_token,
     new_access_token,
@@ -52,18 +55,6 @@ from realmock.platform.core.session_auth.csrf import assert_csrf_if_cookie_only
 from realmock.platform.database import get_api_db, get_sessions_db
 
 logger = logging.getLogger(__name__)
-
-_PREP_FORBIDDEN_DETAIL = "Don't have access to this coaching session"
-
-
-def _require_existing_writable_session(session_id: int, db: Session) -> PrepSession:
-    """Owner-level writable session (compact/summary/truncate): no token so orphans stay manageable."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
-        raise_error("A3002")
-    return session
 
 
 def _load_session_messages(session: PrepSession) -> list[dict]:
@@ -242,7 +233,7 @@ async def _run_compact(
     body: PrepCompactRequest | None,
 ):
     """Compact body, executed under the session turn lock (see the route shell)."""
-    session = _require_existing_writable_session(session_id, db)
+    session = require_writable_prep_session(db, session_id)
     params = body or PrepCompactRequest()
     llm = LLMClient.from_db(api_db)
     agent = PrepAgent(session, llm)
@@ -363,7 +354,7 @@ async def _run_summary_update(
     body: PrepSummaryUpdateRequest,
 ):
     """Summary-edit body, executed under the session turn lock."""
-    session = _require_existing_writable_session(session_id, db)
+    session = require_writable_prep_session(db, session_id)
     messages = _load_session_messages(session)
     if body.expected_message_count is not None and body.expected_message_count != len(messages):
         raise_error("A3003")
@@ -415,10 +406,7 @@ async def fork_prep_session(
     access: str | None = Depends(extract_prep_token),
 ):
     """Branch a new active session copying history through ``up_to`` (inclusive)."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
+    session = require_owned_prep_session(db, session_id, access)
     messages = _load_session_messages(session)
     if body.up_to < 0:
         kept = list(messages)
@@ -456,7 +444,7 @@ async def _run_truncate(
     body: PrepTruncateRequest,
 ):
     """Truncate body, executed under the session turn lock."""
-    session = _require_existing_writable_session(session_id, db)
+    session = require_writable_prep_session(db, session_id)
     messages = _load_session_messages(session)
     if body.expected_message_count is not None and body.expected_message_count != len(messages):
         raise_error("A3003")

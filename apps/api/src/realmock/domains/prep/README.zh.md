@@ -6,7 +6,7 @@ Prep 面试教练域:带工具的 agent 会话、长期记忆、用量统计。
 | --- | --- |
 | `routes/` | `chat.py`、`create.py`、`history.py`、`lists.py`、`manage.py`、`memories.py`、`router.py`(挂载各 handler;能力 token 与 CSRF 的分工) |
 | [`agents/`](agents/README.zh.md) | agent 循环与工具机制:`tools/`(注册表 + `basic/` `candidate/` `memory/` `repo/` `system/`)、`context/`(seed / working / linked / hints / markers)、`ask_user/`、流式、轮次状态、轮次压缩、quiz 渲染、持久化 |
-| `services/` | `memories.py`、`linking.py`(跨会话链接)、`session_notes.py`、`session_stats.py`、`turn_lock.py`(同会话轮次串行化)、`maintenance.py`(破坏性清理:判定会话可删条件) |
+| `services/` | `memories.py`、`linking.py`(跨会话链接)、`session_notes.py`、`session_stats.py`、`session_guard.py`(会话准入规则统一入口:存在 / 持有能力 token / 仍可写入)、`turn_lock.py`(同会话轮次串行化)、`maintenance.py`(破坏性清理:判定会话可删条件) |
 | `schemas/` | `prep.py` —— 请求 / 响应契约模型 |
 | `models/` | 教练会话与长期记忆(表在 `sessions.db`;单用户应用,无 owner 列) |
 | `prompts.py` | 教练系统提示词与循环提示(prep 提示词唯一存放处) |

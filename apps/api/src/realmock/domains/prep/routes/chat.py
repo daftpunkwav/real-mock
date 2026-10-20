@@ -30,7 +30,6 @@ from realmock.domains.prep.agents.context import (
     BREAKDOWN_ORDER,
     build_context_breakdown,
 )
-from realmock.domains.prep.models import PrepSession
 from realmock.domains.prep.routes.history import (
     _load_session_messages,
     _prune_dangling_tool_tail,  # noqa: F401  # backward-compatible re-export
@@ -45,15 +44,18 @@ from realmock.domains.prep.schemas import (
     PrepSuggestionsRequest,
     PrepSuggestionsResponse,
 )
-from realmock.domains.prep.services import session_turn_lock
+from realmock.domains.prep.services import (
+    require_open_prep_session,
+    require_owned_prep_session,
+    require_writable_prep_session,
+    session_turn_lock,
+)
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.provider_errors import is_diagnosable_upstream_error
 from realmock.platform.capabilities.ai.llm.stream_filters import sanitize_special_tokens
-from realmock.platform.core.constants import SessionStatus
-from realmock.platform.core.errors import raise_error
 from realmock.platform.core.security import redact_secrets_in_text
-from realmock.platform.core.session_auth import assert_session_token, extract_prep_token
+from realmock.platform.core.session_auth import extract_prep_token
 from realmock.platform.core.sse import (
     QueuePut,
     pump_queue_to_sse,
@@ -68,7 +70,6 @@ logger = logging.getLogger(__name__)
 _SSE_ERR_GENERIC = "Coaching response failed, please try again later"
 # Verbatim provider text is length-capped like other model-facing observations.
 _SSE_DETAIL_MAX_CHARS = 400
-_PREP_FORBIDDEN_DETAIL = "Don't have access to this coaching session"
 # Keep-alive interval for the coaching stream. A turn can sit silent for
 # minutes while the provider generates (one LLM call is budgeted at up to
 # 300 s, and the shared retry ladder adds more), so the stream must prove
@@ -105,12 +106,10 @@ async def prep_message(
     access: str | None = Depends(extract_prep_token),
 ):
     """Run one synchronous coaching turn."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
-    if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
-        raise_error("A3002")
+    # Admit the session before the turn starts: an unknown session, a wrong
+    # capability token, or a completed session must answer with an HTTP
+    # error, not with a model observation.
+    require_open_prep_session(db, session_id, access)
     llm = _build_prep_llm(api_db, body)
     # One turn at a time per session: concurrent requests would each load the
     # same history and save last-writer-wins, silently dropping a turn.
@@ -119,11 +118,7 @@ async def prep_message(
         # previous turn committed: drop the identity map so the agent reads
         # the freshly saved history, and revalidate existence/status.
         db.expire_all()
-        session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-        if not session:
-            raise_error("A3001")
-        if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
-            raise_error("A3002")
+        session = require_writable_prep_session(db, session_id)
         agent = PrepAgent(session, llm)
         logger.info(
             "prep turn sid=%s model=%s window=%s profile_id=%s",
@@ -171,12 +166,9 @@ async def prep_message_stream(
     access: str | None = Depends(extract_prep_token),
 ):
     """Stream one coaching turn as server-sent events (tokens + status/thinking/tool/usage/done)."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
-    if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
-        raise_error("A3002")
+    # Admit the session before the stream opens: a rejected session must
+    # answer with an HTTP error, not with an SSE error frame.
+    require_open_prep_session(db, session_id, access)
     llm = _build_prep_llm(api_db, body)
     drop_last = body.drop_last_assistant
     ui_locale = body.ui_locale
@@ -193,11 +185,7 @@ async def prep_message_stream(
             # history instead of its pre-wait snapshot.
             async with session_turn_lock(session_id):
                 db.expire_all()
-                session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-                if not session:
-                    raise_error("A3001")
-                if getattr(session, "status", None) == SessionStatus.COMPLETED.value:
-                    raise_error("A3002")
+                session = require_writable_prep_session(db, session_id)
                 agent = PrepAgent(session, llm)
                 logger.info(
                     "prep stream turn sid=%s model=%s window=%s profile_id=%s",
@@ -278,10 +266,7 @@ def get_prep_messages(
     access: str | None = Depends(extract_prep_token),
 ):
     """Return sanitized message history for display (store is never mutated)."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
+    session = require_owned_prep_session(db, session_id, access)
     messages = _load_session_messages(session)
     # Historical messages may contain leaked template tokens from before the
     # sanitizer was in place: clean before display without mutating the store.
@@ -307,10 +292,7 @@ def get_prep_context(
     access: str | None = Depends(extract_prep_token),
 ):
     """Measured context breakdown of persisted history plus provider usage totals."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
+    session = require_owned_prep_session(db, session_id, access)
     messages = _load_session_messages(session)
     counts = build_context_breakdown(messages)
     buckets = [PrepContextBucket(key=key, tokens=counts.get(key, 0)) for key in BREAKDOWN_ORDER]
@@ -375,10 +357,7 @@ async def suggest_prep_followups(
     access: str | None = Depends(extract_prep_token),
 ):
     """AI follow-up suggestions for the quick-prompts card (best-effort)."""
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
+    session = require_owned_prep_session(db, session_id, access)
     params = body or PrepSuggestionsRequest()
     exchange = _last_exchange(_load_session_messages(session))
     if exchange is None:
