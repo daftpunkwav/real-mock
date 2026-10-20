@@ -71,7 +71,7 @@ async def build_review_user_message(
     ``calibration`` is a prebuilt prior-version reference block (empty for
     same-file re-reviews, which score from current evidence alone); this module
     does not query the store. The PDF page render runs in a worker thread so
-    the event loop is never blocked by the synchronous ``fitz`` call.
+    the event loop is never blocked by the synchronous ``pymupdf`` call.
     """
     intro = _overview_text(snapshot)
     extra = calibration.strip()

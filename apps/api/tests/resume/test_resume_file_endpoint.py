@@ -67,9 +67,9 @@ def test_get_resume_file_missing_row_and_orphan(api_db) -> None:
 
 def _write_multipage_pdf(path: Path, pages: int) -> None:
     """Generate a multi-page PDF with a text layer (for the paginated preview contract)."""
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     for i in range(pages):
         page = doc.new_page(width=595, height=842)
         page.insert_text((72, 100), f"page {i + 1}")

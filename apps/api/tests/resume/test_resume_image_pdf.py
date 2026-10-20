@@ -11,6 +11,7 @@ without raising an error—silently persisting it would make AI evaluation treat
 - Upload with vision capability → background task persists the transcribed text and performs
   LLM structured parsing as usual;
 - Deep evaluation encountering a historical empty-text row → re-extract from the original file and persist it (self-healing).
+- The render path imports the canonical ``pymupdf`` module, never the deprecated ``fitz`` alias.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from realmock.domains.resume.services import extract as extract_module
 from realmock.domains.resume.services import ingest as ingest_module
 from realmock.domains.resume.services.analysis import analyze_resume_with_llm
 from realmock.domains.resume.services.render import (
+    pdf_page_count,
     render_pdf_page_png,
     render_pdf_pages_as_data_urls,
 )
@@ -39,9 +41,9 @@ from realmock.platform.schemas import CandidateProfile
 
 def _write_image_only_pdf(path: Path) -> None:
     """Generate an image-only PDF with no text layer: the entire page contains a single bitmap and no font or text objects."""
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
     pix = page.get_pixmap()
     page.insert_image(page.rect, pixmap=pix)
@@ -251,10 +253,10 @@ def test_upload_disk_write_failure_business_error(
 
 def test_render_huge_page_clamped(tmp_path: Path) -> None:
     """For an oversized page box, calculate zoom from the per-side pixel limit and render normally instead of failing or exhausting memory."""
-    import fitz
+    import pymupdf
 
     pdf = tmp_path / "giant.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=8000, height=8000)  # zoom 2.5 would reach 20000px, exceeding the limit
     doc.save(str(pdf))
     doc.close()
@@ -265,6 +267,36 @@ def test_render_huge_page_clamped(tmp_path: Path) -> None:
     from realmock.domains.resume.schemas.limits import MAX_RENDER_PX
 
     assert MAX_RENDER_PX == 4096
+
+
+def test_render_path_never_imports_the_deprecated_fitz_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The PDF render path must use the canonical ``pymupdf`` module.
+
+    ``fitz`` is PyMuPDF's deprecated alias and upstream states it will be
+    removed, while the manifest still allows PyMuPDF 1.x - a future in-range
+    release that drops the alias would break the resume render path. Blocking
+    the alias proves the render path never reaches for it.
+    """
+    import sys
+
+    import pymupdf
+
+    pdf = tmp_path / "page.pdf"
+    doc = pymupdf.open()
+    doc.new_page(width=595, height=842)
+    doc.save(str(pdf))
+    doc.close()
+
+    # ``None`` in sys.modules makes any ``import fitz`` raise ImportError.
+    monkeypatch.setitem(sys.modules, "fitz", None)
+
+    assert pdf_page_count(pdf) == 1
+    png = render_pdf_page_png(pdf, 1)
+    assert png[:8].startswith(b"\x89PNG\r\n\x1a\n")
+    urls = render_pdf_pages_as_data_urls(pdf)
+    assert urls and urls[0].startswith("data:image/png;base64,")
 
 
 def test_analyze_empty_row_self_heals_from_file(
