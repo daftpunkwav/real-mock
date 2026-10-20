@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -298,7 +298,15 @@ function isSeparatorRow(line: string): boolean {
   return /^:?-{3,}:?(?:\s+:?-{3,}:?)+$/.test(t);
 }
 
-export function MarkdownContent({
+/**
+ * Markdown renderer.
+ *
+ * Memoized: the markdown pipeline (remark parse → rehype sanitize) costs about
+ * a millisecond per message, and the chat views re-render their whole message
+ * list on every streamed-token flush. Without the memo, every settled message
+ * in the list is re-parsed on every frame of the reply.
+ */
+export const MarkdownContent = memo(function MarkdownContent({
   content,
   className = "",
   /**
@@ -327,4 +335,4 @@ export function MarkdownContent({
       </ReactMarkdown>
     </div>
   );
-}
+});
