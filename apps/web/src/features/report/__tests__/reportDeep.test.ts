@@ -8,7 +8,7 @@ import {
   visibleReportTabIds,
 } from "../reportTabs";
 import { REPORT_LIVE_MAX_EVENTS, applyReportLiveEvent, emptyReportLiveState } from "../liveEvents";
-import { buildNextRoundIndex, selectEligibleProcesses } from "@/features/interview";
+import { buildNextRoundIndex, selectEligibleProcesses } from "@/lib/interviewProcesses";
 import type { DebriefReport } from "@/types/domains/report";
 import type { InterviewProcessResponse } from "@/lib/api/contract";
 

@@ -1,12 +1,12 @@
 /**
- * @file sendToPrep.test.ts
+ * @file prepDeepLink.test.ts
  * @description Deep-link builder/parser contract between the deep-review sheet
  * and the prep page (resume pairing + seeded question round-trip).
  */
 
 import { describe, expect, it } from "vitest";
 
-import { buildPrepDeepLink, parsePrepDeepLink } from "../sendToPrep";
+import { buildPrepDeepLink, parsePrepDeepLink } from "../prepDeepLink";
 
 describe("buildPrepDeepLink", () => {
   it("carries the resume id and the encoded question", () => {

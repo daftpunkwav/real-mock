@@ -10,7 +10,7 @@ import { StrictMode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { parsePrepDeepLink } from "@/features/resume/sendToPrep";
+import { parsePrepDeepLink } from "@/lib/prepDeepLink";
 import { usePrepDeepLink } from "../hooks/usePrepDeepLink";
 
 vi.mock("@/i18n/resolve", () => ({

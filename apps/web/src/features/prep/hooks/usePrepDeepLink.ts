@@ -23,7 +23,7 @@ import { getTranslator } from "@/i18n/resolve";
 import { toast } from "@/components/Toast";
 import { formatApiError } from "@/lib/api/base";
 import type { ResumePickerItem } from "@/lib/api/contract";
-import { parsePrepDeepLink } from "@/features/resume/sendToPrep";
+import { parsePrepDeepLink } from "@/lib/prepDeepLink";
 
 interface UsePrepDeepLinkOptions {
   resumes: ResumePickerItem[];

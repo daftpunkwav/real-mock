@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ClientEvent } from "@/types";
 import { useTTSPlayer } from "@/features/media";
 import type { AnyRef } from "./useInterviewRoomEvents";
-import { publishTTSLevel } from "@/features/avatar/levelSink";
+import { publishTTSLevel } from "@/features/avatar";
 
 interface InterviewRoomTtsBindingDeps {
   playbackGenRef: AnyRef<number>;
