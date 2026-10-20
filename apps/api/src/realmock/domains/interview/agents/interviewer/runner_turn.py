@@ -238,7 +238,7 @@ async def stream_turn(
             )
         except Exception as e:
             logger.exception(
-                "ledger append_turn failed sid=%s",
+                "ledger append_turn_row failed sid=%s",
                 getattr(runner.session, "id", None),
             )
             raise LedgerWriteError("ledger append failed") from e

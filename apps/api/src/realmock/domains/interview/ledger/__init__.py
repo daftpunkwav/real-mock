@@ -10,7 +10,6 @@ from realmock.domains.interview.ledger.constants import PREVIEW_MAX_CHARS, SCHEM
 from realmock.domains.interview.ledger.preview import truncate_preview
 from realmock.domains.interview.ledger.store import (
     append_pending_tool,
-    append_turn,
     append_turn_row,
     begin_pending_tools,
     empty_ledger,
@@ -28,7 +27,6 @@ __all__ = [
     "LedgerTurn",
     "ToolPreview",
     "append_pending_tool",
-    "append_turn",
     "append_turn_row",
     "begin_pending_tools",
     "empty_ledger",

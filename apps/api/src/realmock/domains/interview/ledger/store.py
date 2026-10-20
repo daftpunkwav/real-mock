@@ -160,13 +160,13 @@ def append_turn_row(
     Returns the new turn id, or None when the append was skipped because the
     ledger is frozen. The caller gets no document back on purpose: rebuilding
     it means re-reading and re-parsing every turn of the session, which turns
-    a session of T turns into O(T^2) JSON parses. Use :func:`append_turn` when
-    the aggregated document is actually needed.
+    a session of T turns into O(T^2) JSON parses. Read the aggregated document
+    with :func:`load_ledger` when it is actually needed.
     """
     session_id = int(getattr(session, "id", 0) or 0)
     if is_frozen(session):
         logger.warning(
-            "ledger frozen; skip append_turn sid=%s phase=%s",
+            "ledger frozen; skip append_turn_row sid=%s phase=%s",
             session_id,
             phase,
         )
@@ -197,40 +197,6 @@ def append_turn_row(
     )
     db.commit()
     return turn_id
-
-
-def append_turn(
-    db: Session,
-    session: Any,
-    *,
-    phase: str,
-    assistant_text: str,
-    user_text: str | None = None,
-    user_source: str = "text",
-    tools: list[ToolPreview] | None = None,
-    flags: dict[str, Any] | None = None,
-    visible: bool = True,
-) -> LedgerDocument | None:
-    """Append one turn as a single row and persist.
-
-    Returns the updated document, or None when skipped because ledger is frozen.
-    The document is rebuilt from the turn table, so prefer
-    :func:`append_turn_row` on the turn-by-turn write path.
-    """
-    turn_id = append_turn_row(
-        db,
-        session,
-        phase=phase,
-        assistant_text=assistant_text,
-        user_text=user_text,
-        user_source=user_source,
-        tools=tools,
-        flags=flags,
-        visible=visible,
-    )
-    if turn_id is None:
-        return None
-    return load_ledger(db, session)
 
 
 def append_last_turn_flag(
@@ -342,7 +308,7 @@ __all__ = [
     "PENDING_TOOLS_KEY",
     "append_last_turn_flag",
     "append_pending_tool",
-    "append_turn",
+    "append_turn_row",
     "begin_pending_tools",
     "build_tool_preview",
     "empty_ledger",

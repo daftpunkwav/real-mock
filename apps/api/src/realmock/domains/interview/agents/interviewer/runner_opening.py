@@ -103,7 +103,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
             )
         except Exception as e:
             logger.exception(
-                "ledger append_turn failed on opening sid=%s",
+                "ledger append_turn_row failed on opening sid=%s",
                 getattr(runner.session, "id", None),
             )
             raise LedgerWriteError("ledger append failed") from e
