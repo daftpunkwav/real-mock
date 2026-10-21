@@ -55,6 +55,18 @@ for (const section of ["dependencies", "devDependencies", "overrides"]) {
   }
 }
 
+/**
+ * Compare two npm versions by their numeric segments.
+ *
+ * Version strings do not sort alphabetically: "8.10.0" is newer than
+ * "8.2.1", but an alphabetical order puts it first. A numeric collation
+ * compares the digit runs as numbers, so the reported versions are listed in
+ * the order they were resolved.
+ */
+function compareVersions(a, b) {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
 const violations = [...found]
   .filter((name) => banned[name] !== undefined)
   .sort();
@@ -81,7 +93,7 @@ if (violations.length > 0 || aliasViolations.length > 0) {
 // instances. Only runtime dependencies are checked: dev tooling duplicates
 // stay out of the shipped bundle and are a normal npm resolution outcome.
 const duplicatedRuntimeDeps = Object.keys(manifest.dependencies ?? {})
-  .map((name) => ({ name, versions: [...(versionsByName.get(name) ?? [])].sort() }))
+  .map((name) => ({ name, versions: [...(versionsByName.get(name) ?? [])].sort(compareVersions) }))
   .filter((dep) => dep.versions.length > 1)
   .sort((a, b) => a.name.localeCompare(b.name));
 
