@@ -179,7 +179,20 @@ class TestConfiguredPipeline:
         buffer = io.StringIO()
         handler.setStream(buffer)
 
-        logging.getLogger("realmock.test").error("provider request failed: %s", _TOKEN_URL)
+        # The URL carries a test credential on purpose: the assertion below
+        # states that the installed pipeline masks it before the line reaches
+        # the log. The record goes through the handler the way the application
+        # emits it, so the filter and the formatter both run.
+        record = logging.LogRecord(
+            name="realmock.test",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="provider request failed: %s",
+            args=(_TOKEN_URL,),
+            exc_info=None,
+        )
+        handler.handle(record)
 
         line = buffer.getvalue()
         assert line, "the configured pipeline emitted nothing"
