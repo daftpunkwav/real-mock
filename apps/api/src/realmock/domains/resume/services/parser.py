@@ -24,7 +24,7 @@ from realmock.domains.resume.schemas.limits import (
     TRANSCRIBE_CONCURRENCY,
 )
 from realmock.domains.resume.services.text_extract import truncate_text
-from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
+from realmock.platform.capabilities.ai.context.blob_compression import compress_text_blob
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.schemas import CandidateProfile
 

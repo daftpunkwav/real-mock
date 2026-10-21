@@ -43,7 +43,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
         runner.agent.messages = [{"role": "system", "content": system_prompt}]
         context_window = runner.prompter.get_context_window(db)
         if context_window:
-            from realmock.platform.capabilities.ai.context.manager import compress_messages
+            from realmock.platform.capabilities.ai.context.assembly import compress_messages
 
             runner.agent.messages = compress_messages(runner.agent.messages, context_window)
 

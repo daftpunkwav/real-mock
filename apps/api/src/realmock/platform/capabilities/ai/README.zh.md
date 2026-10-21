@@ -12,4 +12,4 @@
 
 ## `context/` — 上下文窗口管理
 
-`manager.py`(入口)、`estimation.py`(token 估算)、`compress.py` / `summarize.py`(压缩)、`blobs.py`(载荷块)、`options.py`(配置)。
+`assembly.py`(入口)、`estimation.py`(token 估算)、`compress.py` / `summarize.py`(压缩)、`blob_compression.py`(超长文本块)、`options.py`(配置)。

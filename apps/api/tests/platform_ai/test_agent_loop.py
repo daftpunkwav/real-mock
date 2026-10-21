@@ -9,7 +9,7 @@ import pytest
 
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.agent.loop import AgentHalt, AgentPause
-from realmock.platform.capabilities.ai.context.manager import prepare_llm_context
+from realmock.platform.capabilities.ai.context.assembly import prepare_llm_context
 
 
 class _FakeLLM:

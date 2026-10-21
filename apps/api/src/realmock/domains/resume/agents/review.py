@@ -85,7 +85,7 @@ from realmock.platform.capabilities.ai.agent.tools import (
     snapshot_from_profile,
     web_fetch_tool_spec,
 )
-from realmock.platform.capabilities.ai.context.manager import (
+from realmock.platform.capabilities.ai.context.assembly import (
     compact_with_summary,
     upsert_memory_block,
 )

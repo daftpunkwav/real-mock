@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
+from realmock.platform.capabilities.ai.context.blob_compression import compress_text_blob
 from realmock.platform.capabilities.ai.context.estimation import (
     estimate_image_url_tokens,
     estimate_messages_tokens,

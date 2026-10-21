@@ -30,7 +30,7 @@ from realmock.domains.prep.models import PrepSession, commit_session, utcnow
 from realmock.domains.prep.prompts import PREP_CLOSING_HINT
 from realmock.domains.prep.services.session_stats import compute_session_summary_and_count
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
-from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
+from realmock.platform.capabilities.ai.context.blob_compression import compress_text_blob
 from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.knowledge.search.web import SearchHit

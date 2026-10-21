@@ -12,4 +12,4 @@ AI capability layer shared by all agent-driven domains: LLM provider calls, the 
 
 ## `context/` — context window management
 
-`manager.py` (entry), `estimation.py` (token estimation), `compress.py` / `summarize.py` (compaction), `blobs.py` (payload blobs), `options.py` (configuration).
+`assembly.py` (entry), `estimation.py` (token estimation), `compress.py` / `summarize.py` (compaction), `blob_compression.py` (oversized text blobs), `options.py` (configuration).
