@@ -10,7 +10,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Plus, X } from "lucide-react";
 import { useT, type MessageKey } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 export interface RateSubmit {
   score: number;

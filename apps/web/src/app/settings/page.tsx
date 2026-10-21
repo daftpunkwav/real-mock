@@ -13,7 +13,7 @@ import {
   type SettingsCategoryId,
 } from "@/features/settings/registry";
 import { useT } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 export default function SettingsPage() {
   const t = useT("settings");

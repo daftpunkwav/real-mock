@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useT } from "@/i18n";
 import { Mic, MicOff, Video, VideoOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import { useCameraStream } from "../hooks/useCameraStream";
 import { useFaceAnalysisLoop } from "../hooks/useFaceAnalysisLoop";
 import type { FaceAnalysis } from "../hooks/useFaceAnalysisLoop";

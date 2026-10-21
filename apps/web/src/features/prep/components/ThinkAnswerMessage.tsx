@@ -10,7 +10,7 @@
 import { memo, useMemo } from "react";
 import { StreamingReveal } from "@/components/StreamingReveal";
 import { splitThinkAnswer, stripToolCallJson } from "@/lib/thinkStream";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 interface ThinkAnswerMessageProps {
   content: string;

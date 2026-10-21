@@ -7,7 +7,7 @@
 
 import { Check } from "lucide-react";
 import { useT } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import type { ReviewPlanStep } from "../../reviewProgress";
 
 function statusOf(step: ReviewPlanStep): string {

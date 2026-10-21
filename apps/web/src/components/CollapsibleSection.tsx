@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type ComponentType } from "react";
 import { ChevronDown, type LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 interface CollapsibleSectionProps {
   title: string;

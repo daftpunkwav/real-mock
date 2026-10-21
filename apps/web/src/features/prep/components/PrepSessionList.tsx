@@ -23,7 +23,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useT, type Translator } from "@/i18n";
 import { parseTimestamp } from "@/i18n/format";
 import type { PrepSessionSummary } from "@/lib/api/contract";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 /** Relative time label; falls back to M-D after 7 days. */
 function relativeTime(iso: string, t: Translator<"prep">): string {
