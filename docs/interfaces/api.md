@@ -15,7 +15,7 @@ The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers 
 
 ## Contract pipeline
 
-`scripts/export_openapi.py` → root `openapi.json` → `apps/web/src/types/generated/api.d.ts` (run `cd apps/web && npm run generate:api-types`). Guards: `apps/api/tests/architecture/test_api_v1_paths.py` (both prefixes exist), `test_route_response_models.py` (every published JSON response names a schema) and `test_openapi_contract_sync.py` (committed `openapi.json` matches the live app schema).
+`scripts/export_openapi.py` → root `openapi.json` → `apps/web/src/types/generated/api.d.ts` (run `cd apps/web && npm run generate:api-types`). Guards: `apps/api/tests/architecture/test_api_v1_paths.py` (both prefixes exist), `test_route_response_models.py` (every published JSON response names a schema), `test_route_response_contract.py` (the published component, its fields, and the media type of every non-JSON response) and `test_openapi_contract_sync.py` (committed `openapi.json` matches the live app schema).
 
 ## Error envelope and response models
 
@@ -34,7 +34,7 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | GET / PUT | `/profile` | single profile row: read / full-replace update |
 | POST | `/profile/clear` | blank every update-contract field |
 
-### resume — `domains/resume/routes/` (`router.py` aggregates `upload` / `crud` / `file` / `analyze` / `parse_retry`)
+### resume — `domains/resume/routes/` (`router.py` aggregates `upload` / `crud` / `file` / `analyze` / `parse_retry` / `export`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
@@ -44,9 +44,10 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | POST | `/resume/{resume_id}/parse` | re-schedule background parse (parse-retry) |
 | DELETE | `/resume/{resume_id}`, `/resume/analyses`, `/resume/collection` | delete one / clear review results / delete all |
 | GET | `/resume/{resume_id}/file`, `/resume/{resume_id}/pages`, `/resume/{resume_id}/pages/{page_no}` | file download and paginated page images |
+| GET | `/resume/{resume_id}/analysis-export` | deep-review analysis download (`md` / `json`, optionally with the resume) |
 | POST | `/resume/{resume_id}/analyze`, `/resume/{resume_id}/analyze/stream` | deep review (JSON / SSE) |
 
-### settings — `domains/settings/routes/` (`models` / `stages` / `model_tests` / `integrations`)
+### settings — `domains/settings/routes/` (`models` / `stages` / `model_tests` / `integrations` / `data`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
@@ -60,6 +61,7 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | POST | `/settings/test/{stage}`, `/settings/test/model/{model_id}` | connectivity tests |
 | GET / POST / DELETE | `/settings/integrations/github` | GitHub link |
 | POST | `/settings/integrations/github/test` | GitHub link test |
+| POST | `/settings/data/clear` | wipe all business content (configuration kept) |
 
 ### prep — `domains/prep/routes/` (`router.py` mounts `lists` / `create` / `chat` / `history` / `manage` / `memories`)
 
@@ -95,7 +97,7 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | GET | `/options` | setup-page options (workflows / personalities / voices / avatars) |
 | WS | `/ws/interview/{session_id}` | realtime room — see [realtime-protocol.md](realtime-protocol.md) |
 
-### records — `domains/records/routes/` (`history` / `report`)
+### records — `domains/records/routes/` (`history` / `report` / `export`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
@@ -104,6 +106,7 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | GET | `/reports/{session_id}` | debrief report (`A2004` while pending / generating, `A2005` when failed) |
 | POST | `/reports/{session_id}/retry` | re-run report generation (idempotent) |
 | GET | `/reports/{session_id}/stream` | pseudo-streamed report (generates once if pending) |
+| GET | `/records/export/report/{session_id}`, `/records/export/record/{session_id}` | report / transcript download (`md` / `json`) |
 
 ### growth — `domains/growth/routes/router.py`
 

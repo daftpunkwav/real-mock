@@ -4,14 +4,20 @@
 
 ## CI（`.github/workflows/ci.yml`）
 
-触发：push 到 `main` 与所有 Pull Request。并发组 `ci-<ref>` 且 `cancel-in-progress: true`；backend 与 frontend 两个 job 并行运行。
+触发：push 到 `main` 与所有 Pull Request。并发组 `ci-<ref>` 且 `cancel-in-progress: true`。`changes` job 先按 diff 分类，各领域 job 仅在对应区域有改动时执行，最后由 `gate` job 汇总结果形成唯一的必需检查项。
 
 | Job | 运行器 / 工具链 | 步骤 |
 | --- | --- | --- |
-| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.14，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api` 并带上 `dev` extra（`pip install -e 'apps/api[dev]'`；该 extra 携带 pytest / pytest-asyncio），再安装锁定版本 `ruff==0.16.10`、`mypy==2.4.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；OpenAPI 契约同步检查（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；`ruff check apps/api`；`ruff format --check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90`；`pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
-| `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（vitest,阈值由 `apps/web/vitest.config.mts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
+| `backend`（Backend (ruff / mypy / pytest / audit)） | ubuntu-latest，限时 20 分钟；Python 3.14，pip 缓存以 `apps/api/pyproject.toml` 为键 | 以 editable 方式安装 `apps/api` 并带上 `dev` extra（`pip install -e 'apps/api[dev]'`；该 extra 携带 pytest / pytest-asyncio），再安装锁定版本 `ruff==0.16.10`、`mypy==2.4.0`、`pytest-cov==7.1.0`、`pip-audit==2.10.1`；OpenAPI 契约同步检查（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；`ruff check apps/api`；`ruff format --check apps/api`；`mypy src`（阻塞）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90` |
+| `frontend`（Frontend (tsc / lint / test / build / audit)） | ubuntu-latest，限时 20 分钟；Node 24，npm 缓存以 `apps/web/package-lock.json` 为键 | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（vitest,阈值由 `apps/web/vitest.config.mts` 设定）；`npm run build`；`npm run format:check`；i18n 使用审计（`apps/web/scripts/check-i18n-usage.mjs`，幽灵键与死键） |
+| `docker` | ubuntu-latest，限时 25 分钟 | 构建后端镜像（根 `Dockerfile`）与 web 镜像（`apps/web/Dockerfile`） |
+| `workflow-lint` | ubuntu-latest，限时 10 分钟 | 对工作流文件自身做 lint（语法 / shellcheck，以及工作流安全审查） |
+| `repo-hygiene` | ubuntu-latest，限时 5 分钟 | 仓库内文件符合 `.editorconfig`；无大小写不敏感的路径冲突；文档中英配对齐全；文档内部链接有效 |
+| `gate` | ubuntu-latest，限时 5 分钟 | 唯一的必需检查项：所有实际执行的 job 均为绿则通过 |
 
 backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LLM_API_BASE` 与 `CORS_ORIGINS`。
+
+依赖审计与密钥扫描不属于 `ci.yml`：它们位于 `.github/workflows/security.yml`，在 push、Pull Request 与每周定时任务时运行。
 
 ## 镜像
 

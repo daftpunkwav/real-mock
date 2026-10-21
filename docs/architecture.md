@@ -41,6 +41,8 @@ Dependency direction: `bootstrap/` -> `domains/` -> `platform/`; cross-domain co
 | `test_app_factory.py` | Entry-point and middleware behavior of `app_factory` / `asgi` |
 | `test_exposure_guards.py` | Deployment-exposure guard regressions |
 | `test_openapi_contract_sync.py` | The committed `openapi.json` matches the live app schema |
+| `test_route_response_models.py` | Every published JSON response names a schema (non-JSON responses carry their own media type) |
+| `test_route_response_contract.py` | The published component, its fields, and the media type of every non-JSON response |
 | `test_ws_error_code_registry.py` | AST guard: `code=` literals emitted by the interview domain's WS layers must be registered in the platform error `CATALOG` |
 
 ## Domain anatomy

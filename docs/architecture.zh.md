@@ -41,6 +41,8 @@
 | `test_app_factory.py` | `app_factory` / `asgi` 入口与中间件行为 |
 | `test_exposure_guards.py` | 部署暴露面守卫回归 |
 | `test_openapi_contract_sync.py` | 仓库内 `openapi.json` 与应用实时 schema 一致 |
+| `test_route_response_models.py` | 每个对外发布的 JSON 成功响应都必须指明 schema（非 JSON 响应声明自己的媒体类型） |
+| `test_route_response_contract.py` | 发布的组件、其字段，以及每个非 JSON 响应的媒体类型 |
 | `test_ws_error_code_registry.py` | AST 守卫：interview 域 WS 层发出的 `code=` 字面量必须已注册进平台错误 `CATALOG` |
 
 ## 域内分层惯例

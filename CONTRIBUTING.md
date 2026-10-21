@@ -25,11 +25,12 @@ Run from `apps/api` unless noted:
 Frontend, run from `apps/web`:
 
 ```bash
-npx tsc --noEmit   # typecheck
-npm run lint       # eslint
-npm test           # vitest (coverage thresholds enforced from apps/web/vitest.config.mts)
-npm run build      # production build
-npm run audit      # dependency audit (fails on high+ unless allowlisted in npm-audit-allowlist.json)
+npx tsc --noEmit    # typecheck
+npm run lint        # eslint
+npm test            # vitest (coverage thresholds enforced from apps/web/vitest.config.mts)
+npm run build       # production build
+npm run format:check # prettier format check
+npm run audit       # dependency audit (fails on high+ unless allowlisted in npm-audit-allowlist.json)
 node scripts/check-i18n-usage.mjs                               # ghost + dead message keys (allowlist: i18n-usage-allowlist.json)
 node ../../scripts/ci/check_npm_deps_policy.mjs                 # banned packages (scripts/ci/dependency-policy.json)
 ```

@@ -15,7 +15,7 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 
 ## 契约链
 
-`scripts/export_openapi.py` → 根 `openapi.json` → `apps/web/src/types/generated/api.d.ts`（执行 `cd apps/web && npm run generate:api-types`）。守卫：`apps/api/tests/architecture/test_api_v1_paths.py`（两个前缀同时存在）、`test_route_response_models.py`（每个对外发布的 JSON 成功响应都必须指明 schema）与 `test_openapi_contract_sync.py`（仓库内的 `openapi.json` 与应用实时 schema 一致）。
+`scripts/export_openapi.py` → 根 `openapi.json` → `apps/web/src/types/generated/api.d.ts`（执行 `cd apps/web && npm run generate:api-types`）。守卫：`apps/api/tests/architecture/test_api_v1_paths.py`（两个前缀同时存在）、`test_route_response_models.py`（每个对外发布的 JSON 成功响应都必须指明 schema）、`test_route_response_contract.py`（发布的组件、其字段，以及每个非 JSON 响应的媒体类型）与 `test_openapi_contract_sync.py`（仓库内的 `openapi.json` 与应用实时 schema 一致）。
 
 ## 错误信封与响应模型
 
@@ -34,7 +34,7 @@ SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/prov
 | GET / PUT | `/profile` | 单行画像：读取 / 全量替换更新 |
 | POST | `/profile/clear` | 清空所有可更新字段 |
 
-### resume — `domains/resume/routes/`（`router.py` 聚合 `upload` / `crud` / `file` / `analyze` / `parse_retry`）
+### resume — `domains/resume/routes/`（`router.py` 聚合 `upload` / `crud` / `file` / `analyze` / `parse_retry` / `export`）
 
 | 方法 | 路径 | 端点组 |
 | --- | --- | --- |
@@ -44,9 +44,10 @@ SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/prov
 | POST | `/resume/{resume_id}/parse` | 重新调度后台解析（parse-retry） |
 | DELETE | `/resume/{resume_id}`、`/resume/analyses`、`/resume/collection` | 删除单份 / 清空复盘结果 / 删除全部 |
 | GET | `/resume/{resume_id}/file`、`/resume/{resume_id}/pages`、`/resume/{resume_id}/pages/{page_no}` | 文件下载与分页页面图片 |
+| GET | `/resume/{resume_id}/analysis-export` | 深度复盘分析下载(`md` / `json`,可附带简历原文) |
 | POST | `/resume/{resume_id}/analyze`、`/resume/{resume_id}/analyze/stream` | 深度复盘（JSON / SSE） |
 
-### settings — `domains/settings/routes/`（`models` / `stages` / `model_tests` / `integrations`）
+### settings — `domains/settings/routes/`（`models` / `stages` / `model_tests` / `integrations` / `data`）
 
 | 方法 | 路径 | 端点组 |
 | --- | --- | --- |
@@ -60,6 +61,7 @@ SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/prov
 | POST | `/settings/test/{stage}`、`/settings/test/model/{model_id}` | 连通性测试 |
 | GET / POST / DELETE | `/settings/integrations/github` | GitHub 绑定 |
 | POST | `/settings/integrations/github/test` | GitHub 绑定测试 |
+| POST | `/settings/data/clear` | 清空全部业务内容(保留配置) |
 
 ### prep — `domains/prep/routes/`（`router.py` 挂载 `lists` / `create` / `chat` / `history` / `manage` / `memories`）
 
@@ -95,7 +97,7 @@ SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/prov
 | GET | `/options` | 设置页选项（工作流 / 面试官风格 / 音色 / 形象） |
 | WS | `/ws/interview/{session_id}` | 实时面试间 — 见 [realtime-protocol.zh.md](realtime-protocol.zh.md) |
 
-### records — `domains/records/routes/`（`history` / `report`）
+### records — `domains/records/routes/`（`history` / `report` / `export`）
 
 | 方法 | 路径 | 端点组 |
 | --- | --- | --- |
@@ -104,6 +106,7 @@ SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/prov
 | GET | `/reports/{session_id}` | 复盘报告（pending / generating 返回 `A2004`，failed 返回 `A2005`） |
 | POST | `/reports/{session_id}/retry` | 重新排队报告生成（幂等） |
 | GET | `/reports/{session_id}/stream` | 伪流式报告（pending 时生成一次） |
+| GET | `/records/export/report/{session_id}`、`/records/export/record/{session_id}` | 报告 / 逐字稿下载(`md` / `json`) |
 
 ### growth — `domains/growth/routes/router.py`
 

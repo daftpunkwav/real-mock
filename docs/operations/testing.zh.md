@@ -55,6 +55,8 @@ pytest 位于 `apps/api/pyproject.toml` 的 `dev` extra（`[project.optional-dep
 | `test_app_factory.py` | `app_factory`/`asgi` 入口与中间件行为 |
 | `test_exposure_guards.py` | 部署暴露回归（local-only peer 检查；`ENV=prod` 时对非环回 peer 不得采纳 `TEST_MODE`） |
 | `test_openapi_contract_sync.py` | 见下方契约守卫 |
+| `test_route_response_models.py` | 每个对外发布的 JSON 成功响应都必须指明 schema；非 JSON 响应声明自己的媒体类型 |
+| `test_route_response_contract.py` | 发布的组件、其字段，以及每个非 JSON 响应的媒体类型 |
 | `test_ws_error_code_registry.py` | interview 域 WS 层发出的 `code=` 字面量必须已注册进平台错误 `CATALOG`（AST 守卫） |
 
 ### 契约守卫
@@ -78,13 +80,13 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | `npx tsc --noEmit` | TypeScript 类型门 |
 | `npm run lint` | ESLint |
 
-测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 78 个 `*.test.ts(x)` 文件。
+测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 94 个 `*.test.ts(x)` 文件。
 
 ## CI 门禁
 
-两个 job 在 push 到 `main` 与所有 Pull Request 时运行（`.github/workflows/ci.yml`）。
+`.github/workflows/ci.yml` 在 push 到 `main` 与所有 Pull Request 时运行。`changes` job 先按 diff 分类，各领域 job 仅在对应区域有改动时执行，最后由 `gate` job 汇总结果形成唯一的必需检查项。依赖审计与密钥扫描位于独立的 `security.yml` 工作流（push、Pull Request、每周定时），不在这些 job 内。
 
 | Job | 检查 |
 | --- | --- |
-| `backend` | `ruff==0.15.20`；`mypy==2.1.0` 检查 `src`（阻塞）；pytest 全量回归 + 覆盖率门 `--cov-fail-under=90`，覆盖 `realmock.platform` 与 profile / resume / settings / prep / interview / growth 六个域；`pip-audit==2.10.1` 并 `--ignore-vuln PYSEC-2026-311/3813/3814/3815`（chromadb 1.5.9 已知问题，暂无修复版本） |
-| `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（覆盖率阈值由 `vitest.config.mts` 设定）；`npm run build`；`npm run audit`（high+ 未列入 `apps/web/npm-audit-allowlist.json` 则失败） |
+| `backend` | `ruff==0.16.10`（静态检查与格式检查）；`mypy==2.4.0` 检查 `src`（阻塞）；OpenAPI 契约同步（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90` |
+| `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（覆盖率阈值由 `vitest.config.mts` 设定）；`npm run build`；`npm run format:check`；i18n 使用审计（幽灵键与死键） |
