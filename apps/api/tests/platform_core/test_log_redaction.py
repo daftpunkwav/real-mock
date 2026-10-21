@@ -17,6 +17,7 @@ import sys
 from collections.abc import Callable
 
 import httpx
+import pytest
 
 from realmock.platform.core.logging import RedactFilter, SafeFormatter
 from realmock.platform.core.security import redact_log_value
@@ -124,5 +125,63 @@ class TestLogPipeline:
             )
 
         line = _emit(make_record)
+        assert _SECRET not in line
+        assert "client_secret=***" in line
+
+
+class TestConfiguredPipeline:
+    """The application pipeline must actually install the redaction filter.
+
+    The filter and the formatter work in isolation, but the credential only
+    stays out of the log if the root handler runs the filter: a pipeline that
+    drops the filter would ship the vendor secret in cleartext while every
+    unit test above still passes.
+    """
+
+    @pytest.fixture
+    def _root_logger_state(self):
+        """Restore the root logger and the uvicorn loggers after the test."""
+        root = logging.getLogger()
+        saved = (
+            list(root.handlers),
+            root.level,
+            {
+                name: (logging.getLogger(name).handlers, logging.getLogger(name).propagate)
+                for name in ("uvicorn", "uvicorn.error", "uvicorn.access")
+            },
+        )
+        yield
+        root.handlers = saved[0]
+        root.setLevel(saved[1])
+        for name, (handlers, propagate) in saved[2].items():
+            lg = logging.getLogger(name)
+            lg.handlers = handlers
+            lg.propagate = propagate
+
+    def test_configure_logging_installs_the_redaction_filter(self, _root_logger_state) -> None:
+        from realmock.platform.core.logging import configure_logging
+
+        configure_logging()
+        root = logging.getLogger()
+        handlers = [h for h in root.handlers if isinstance(h, logging.StreamHandler)]
+        assert handlers, "configure_logging installed no stream handler on the root logger"
+        assert any(isinstance(f, RedactFilter) for h in handlers for f in h.filters), (
+            "the root handler runs no redaction filter: logged credentials "
+            "would reach the log in cleartext"
+        )
+
+    def test_configured_pipeline_masks_a_query_credential(self, _root_logger_state) -> None:
+        from realmock.platform.core.logging import configure_logging
+
+        configure_logging()
+        root = logging.getLogger()
+        handler = next(h for h in root.handlers if isinstance(h, logging.StreamHandler))
+        buffer = io.StringIO()
+        handler.setStream(buffer)
+
+        logging.getLogger("realmock.test").error("provider request failed: %s", _TOKEN_URL)
+
+        line = buffer.getvalue()
+        assert line, "the configured pipeline emitted nothing"
         assert _SECRET not in line
         assert "client_secret=***" in line
