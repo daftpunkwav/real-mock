@@ -15,7 +15,7 @@ from realmock.domains.interview.realtime.core.session_registry import (
     _lease_token,
     _persist_lease_sync,
     _release_lease_sync,
-    active_handlers_for_tests,
+    active_connections_for_tests,
     reset_session_registry_for_tests,
 )
 
@@ -56,7 +56,7 @@ async def test_verify_lease_memory_backend_short_circuits():
     assert await r.verify_lease(h) is True
     assert h._superseded is False
     reset_session_registry_for_tests()
-    assert active_handlers_for_tests() == {}
+    assert active_connections_for_tests() == {}
 
 
 @pytest.mark.asyncio

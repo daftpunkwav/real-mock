@@ -67,7 +67,7 @@ def candidate_block(
     """Candidate grounding block (full resume detail, or a compact identity card)."""
     if compact:
         return compact_candidate_block(profile, candidate)
-    info = ""
+    block = ""
     if profile and (
         profile.name
         or profile.school
@@ -90,7 +90,7 @@ def candidate_block(
         strengths = getattr(profile, "strengths", "") or ""
         weaknesses = getattr(profile, "weaknesses", "") or ""
         work_detail = getattr(profile, "work_years_detail", "") or ""
-        info += f"""
+        block += f"""
 ## Candidate profile
 Name: {profile.name}
 Gender / identity: {profile.gender or "—"} / {profile.identity or "—"}
@@ -117,19 +117,19 @@ Career highlights: {highlights}
 Self introduction: {profile.self_intro}
 """
         if github_u:
-            info += (
+            block += (
                 f"\nNote: the candidate listed GitHub username '{github_u}'; "
                 "during project deep dive, use github_* tools to verify.\n"
             )
     if candidate:
-        info += f"""
+        block += f"""
 ## Parsed resume
 Name: {candidate.name}
 Skills: {", ".join(candidate.skills)}
 Projects: {json.dumps(candidate.projects, ensure_ascii=False)}
 Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)}
 """
-    return info
+    return block
 
 
 def compact_candidate_block(

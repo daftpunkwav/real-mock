@@ -35,30 +35,30 @@ def _normalize_ask_option(raw: Any) -> str:
     The model occasionally violates the schema and writes an option as a ``{"description": ..., "value": ...}``
     dict or pseudo-JSON string; extract the human-readable description consistently and fall back to the original value.
     """
-    obj: Any = raw
+    option: Any = raw
     if isinstance(raw, str):
         text = raw.strip()
         if text[:1] in "{[":
             try:
-                obj = json.loads(text)
+                option = json.loads(text)
             except json.JSONDecodeError:
                 try:
-                    obj = ast.literal_eval(text)
+                    option = ast.literal_eval(text)
                 except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-                    obj = text
-    if isinstance(obj, dict):
+                    option = text
+    if isinstance(option, dict):
         for key in _ASK_OPT_DICT_KEYS:
-            value = str(obj.get(key, "") or "").strip()
+            value = str(option.get(key, "") or "").strip()
             if value:
                 return value
         return ""
-    if isinstance(obj, str):
-        text = obj.strip()
+    if isinstance(option, str):
+        text = option.strip()
         match = _ASK_OPT_DESC_RE.search(text) or _ASK_OPT_VALUE_RE.search(text)
         if match:
             return match.group(1).strip()
         return text
-    return str(obj).strip()
+    return str(option).strip()
 
 
 def normalize_ask_options(raw_options: Any) -> list[str]:

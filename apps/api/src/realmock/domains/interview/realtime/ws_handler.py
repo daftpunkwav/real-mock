@@ -22,7 +22,7 @@ from realmock.domains.interview.realtime.core.message_dispatcher import (
     MessageDispatcherMixin,
 )
 from realmock.domains.interview.realtime.core.session_registry import (
-    active_handlers_for_tests,
+    active_connections_for_tests,
     claim_session_connection,
     get_ws_connection_registry,
     release_session_connection,
@@ -181,5 +181,5 @@ __all__ = [
     "release_session_connection",
     "reset_session_registry_for_tests",
     "reset_ws_connection_registry",
-    "active_handlers_for_tests",
+    "active_connections_for_tests",
 ]

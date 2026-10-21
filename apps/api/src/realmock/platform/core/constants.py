@@ -87,7 +87,10 @@ DEFAULT_SESSION_CREATE_RATE_LIMIT_PER_MINUTE = 20
 
 # HTTP/WS user text limit (characters)
 MAX_USER_TEXT_CHARS = 16_000
-MAX_CONFIG_STR_CHARS = 200
+# Cap for the setup-option strings the client picks for an interview session
+# (role / level / company / avatar / scene): catalog ids or short free-form
+# labels, never free text.
+MAX_OPTION_CHARS = 200
 
 
 # ── HTTP Headers / Security ────────────────────────────────────────

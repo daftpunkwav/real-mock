@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from realmock.domains.interview.constants import DEFAULT_INTERVIEW_STYLE, DEFAULT_PERSONALITY
-from realmock.platform.core.constants import MAX_CONFIG_STR_CHARS, MAX_USER_TEXT_CHARS
+from realmock.platform.core.constants import MAX_OPTION_CHARS, MAX_USER_TEXT_CHARS
 
 
 # Processor selection for mock interviews: thinking / voice input / voice output + thinking intensity.
@@ -22,9 +22,9 @@ class AiOverrides(BaseModel):
 
 
 class InterviewConfig(BaseModel):
-    role: str = Field(..., max_length=MAX_CONFIG_STR_CHARS)
-    level: str = Field(..., max_length=MAX_CONFIG_STR_CHARS)
-    company: str = Field(..., max_length=MAX_CONFIG_STR_CHARS)
+    role: str = Field(..., max_length=MAX_OPTION_CHARS)
+    level: str = Field(..., max_length=MAX_OPTION_CHARS)
+    company: str = Field(..., max_length=MAX_OPTION_CHARS)
     workflow_type: Literal["technical", "hr", "management"] = "technical"
     personality: Literal["gentle", "professional", "pressure", "hr", "expert"] = (
         DEFAULT_PERSONALITY.value
@@ -34,8 +34,8 @@ class InterviewConfig(BaseModel):
         DEFAULT_INTERVIEW_STYLE.value
     )
     resume_id: int | None = None
-    avatar_id: str = Field(default="professional_male", max_length=MAX_CONFIG_STR_CHARS)
-    scene_id: str = Field(default="meeting_room", max_length=MAX_CONFIG_STR_CHARS)
+    avatar_id: str = Field(default="professional_male", max_length=MAX_OPTION_CHARS)
+    scene_id: str = Field(default="meeting_room", max_length=MAX_OPTION_CHARS)
     ai_overrides: "AiOverrides | None" = None
     # UI locale ("zh-CN" / "en-US" ...): one signal for the flow-language decision.
     ui_locale: str | None = Field(default=None, max_length=10)
