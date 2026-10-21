@@ -52,59 +52,53 @@ def _turn_db(session_row=None):
 
 @pytest.mark.asyncio
 async def test_turns_start_missing_and_bad_status() -> None:
-    from realmock.domains.interview.routes import turns as mod
+    """A missing session is A2001 and a finished one is A2002.
 
-    with patch.object(mod, "raise_error", side_effect=RuntimeError("A2001")):
-        try:
-            await mod.start_interview(1, db=_turn_db(None), access="tok")
-            assert False
-        except RuntimeError:
-            pass
-    with patch.object(mod, "raise_error", side_effect=RuntimeError("A2002")):
-        try:
-            await mod.start_interview(
-                1, db=_turn_db(_turn_session(status="completed")), access="tok"
-            )
-            assert False
-        except RuntimeError:
-            pass
+    The route's own ``raise_error`` runs here: the catalog code is part of the
+    API contract the client dispatches on, so the assertion pins the code
+    instead of merely observing that the route refused the call.
+    """
+    from realmock.domains.interview.routes import turns as mod
+    from realmock.platform.core.errors import ApiBusinessError
+
+    with pytest.raises(ApiBusinessError) as exc:
+        await mod.start_interview(1, db=_turn_db(None), access="tok")
+    assert exc.value.error_code == "A2001"
+
+    with pytest.raises(ApiBusinessError) as exc2:
+        await mod.start_interview(1, db=_turn_db(_turn_session(status="completed")), access="tok")
+    assert exc2.value.error_code == "A2002"
 
 
 @pytest.mark.asyncio
 async def test_turns_start_missing_llm_key() -> None:
     from realmock.domains.interview.routes import turns as mod
+    from realmock.platform.core.errors import ApiBusinessError
 
     db = _turn_db(_turn_session(status="pending"))
     with (
         patch.object(mod, "assert_session_token", return_value=None),
         patch.object(mod, "session_llm", return_value=SimpleNamespace(api_key="")),
-        patch.object(mod, "raise_error", side_effect=RuntimeError("A0006")),
     ):
-        try:
+        with pytest.raises(ApiBusinessError) as exc:
             await mod.start_interview(1, db=db, access="tok")
-            assert False
-        except RuntimeError as e:
-            assert "A0006" in str(e)
+    assert exc.value.error_code == "A0006"
 
 
 @pytest.mark.asyncio
 async def test_turns_finish_missing_and_lifecycle_failure() -> None:
     from realmock.domains.interview.routes import turns as mod
+    from realmock.platform.core.errors import ApiBusinessError
 
-    with patch.object(mod, "raise_error", side_effect=RuntimeError("A2001")):
-        try:
-            await mod.finish_interview(1, db=_turn_db(None), access="tok")
-            assert False
-        except RuntimeError:
-            pass
+    with pytest.raises(ApiBusinessError) as exc:
+        await mod.finish_interview(1, db=_turn_db(None), access="tok")
+    assert exc.value.error_code == "A2001"
 
     db = _turn_db(_turn_session(status="active"))
     with (
         patch.object(mod, "assert_session_token", return_value=None),
         patch.object(mod, "run_finish_lifecycle", side_effect=RuntimeError("freeze down")),
     ):
-        try:
+        with pytest.raises(RuntimeError) as exc2:
             await mod.finish_interview(1, db=db, access="tok")
-            assert False
-        except RuntimeError as e:
-            assert "freeze down" in str(e)
+    assert "freeze down" in str(exc2.value)

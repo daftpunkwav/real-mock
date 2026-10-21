@@ -33,17 +33,17 @@ def test_analyze_error_event_shape() -> None:
 
 @pytest.mark.asyncio
 async def test_analyze_missing_row_is_404(db) -> None:
+    """A missing resume row is the A1005 / 404 contract, not a generic failure."""
     import realmock.domains.resume.routes.analyze as mod
+    from realmock.platform.core.errors import ApiBusinessError
 
     req = MagicMock()
     req.body = AsyncMock(return_value=b"{}")
     with patch.object(mod.store, "get_row", return_value=None):
-        with patch.object(mod, "raise_error", side_effect=RuntimeError("A1005")):
-            try:
-                await mod.analyze_resume(999999, req, db)
-                assert False
-            except RuntimeError:
-                pass
+        with pytest.raises(ApiBusinessError) as exc:
+            await mod.analyze_resume(999999, req, db)
+    assert exc.value.error_code == "A1005"
+    assert exc.value.status_code == 404
 
 
 @pytest.mark.asyncio
