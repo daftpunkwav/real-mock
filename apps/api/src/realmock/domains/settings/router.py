@@ -1,4 +1,4 @@
-"""Processor configuration domain route aggregation: the three sub-routes are unified with the /settings prefix and are mounted by the aggregation entry."""
+"""Processor configuration domain route aggregation: the five sub-routes are unified with the /settings prefix and are mounted by the aggregation entry."""
 
 from __future__ import annotations
 

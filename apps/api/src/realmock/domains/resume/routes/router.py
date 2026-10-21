@@ -1,8 +1,8 @@
 """Resume HTTP route aggregation.
 
-Handlers live in ``upload`` / ``crud`` / ``file`` / ``analyze``. This module
-mounts them on one ``router`` (including rate-limit dependencies) which
-``domains.resume.router`` then prefixes with ``/resume``.
+Handlers live in ``upload`` / ``crud`` / ``file`` / ``analyze`` / ``parse_retry`` /
+``export``. This module mounts them on one ``router`` (including rate-limit
+dependencies) which ``domains.resume.router`` then prefixes with ``/resume``.
 
 Import-time ``contract_guard`` fails fast if catalog / ORM / response drifted.
 Must not import persistence or interpret field lengths.
