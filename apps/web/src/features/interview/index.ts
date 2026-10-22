@@ -7,8 +7,6 @@ export { useInterviewWS } from "./hooks/room/useInterviewWS";
 export { useInterviewRoomBootstrap, useInterviewRoom } from "./hooks/room";
 export { isLikelyEchoOfAssistant, normalizeEchoText } from "./echo";
 export { toVisibleChatMessages } from "./messages";
-export {
-  buildNextRoundIndex,
-  selectEligibleProcesses,
-  type EligibleProcess,
-} from "@/lib/interviewProcesses";
+// The multi-round helpers live in lib/interviewProcesses so other features can
+// use them without pulling in the room UI; they are not re-exported here, so
+// the barrel stays the interview feature's own surface.
