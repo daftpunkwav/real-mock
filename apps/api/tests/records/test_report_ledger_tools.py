@@ -291,14 +291,20 @@ async def test_read_notes_degrades_non_finite_paging_args() -> None:
 
 
 @pytest.mark.asyncio
-async def test_read_notes_keeps_one_oversized_note_so_the_cursor_advances() -> None:
-    """A single note larger than the budget is still returned, so paging moves on.
+async def test_read_notes_clips_one_oversized_note_so_the_page_fits_the_cap() -> None:
+    """A single note larger than the budget is clipped and kept, so paging moves on.
 
     Dropping it would leave an empty page whose next_offset equals the current
-    offset, and the agent would re-read the same page forever.
+    offset, and the agent would re-read the same page forever. Keeping it
+    untrimmed would hand the agent loop an observation longer than its cap,
+    and the loop would slice that observation into an unparsable document.
     """
     from realmock.domains.records.agents.report import ledger_tools as mod
     from realmock.domains.records.agents.report.normalize import normalize_turn_note
+    from realmock.platform.capabilities.ai.agent.llm_round import (
+        MAX_TOOL_RESULT_CHARS,
+        _truncate_tool_result,
+    )
 
     # A note whose every field sits at its clip limit: one note can exceed the
     # output budget on its own.
@@ -321,12 +327,18 @@ async def test_read_notes_keeps_one_oversized_note_so_the_cursor_advances() -> N
         }
     )
     assert note is not None
-    notes = [dict(note.model_dump()), {"turn_id": "t-0002", "reference_answer": "短"}]
+    notes = [dict(note.model_dump()), dict(note.model_dump(), turn_id="t-0002")]
     raw = await mod.notes_tool_specs(notes)[0].handler({"offset": 0})
-    assert len(raw) > mod._OUTPUT_CHARS  # the single note does not fit the budget
+    # The page reaches the model whole: the agent loop does not slice it.
+    assert len(raw) <= MAX_TOOL_RESULT_CHARS
+    assert _truncate_tool_result(raw) == raw
     page = json.loads(raw)  # must not raise
+    # One note fits the page; the second one waits for the next page.
     assert page["returned"] == 1
     assert page["notes"][0]["turn_id"] == "t-0001"
+    # The note is shortened, not dropped, and the model is told about it.
+    assert page["notes"][0]["clipped"] is True
+    assert len(page["notes"][0]["reference_answer"]) < len(note.reference_answer or "")
     assert page["truncated"] is True
     # The cursor advances past the entry that was returned.
     assert page["next_offset"] == 1

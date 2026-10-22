@@ -87,3 +87,9 @@ async def test_agent_batch_failure_returns_empty(monkeypatch) -> None:
     ledger = {"turns": [{"turn_id": "t-0001"}]}
     report = await agent.run(role="BE", level="S", company="Acme", ledger=ledger)
     assert isinstance(report, DebriefReport)
+    # The failed batch contributes no note content: the synthesis result is
+    # kept, and every transcript turn is padded with an empty note so the
+    # report still lists the whole turn list.
+    assert report.overall_score == 80
+    assert [n.turn_id for n in report.turn_notes] == ["t-0001"]
+    assert [n.score for n in report.turn_notes] == [0]

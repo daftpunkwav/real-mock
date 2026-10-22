@@ -36,5 +36,14 @@ def test_profile_tool_fields_are_declared_read_model_fields() -> None:
 
 
 def test_profile_tool_tech_domains_alias_resolves() -> None:
-    """The ``tech_domains`` entry maps to the decoded list of the read model."""
-    assert "tech_domains_list" in UserProfileSnapshot.model_fields
+    """The ``tech_domains`` entry maps to the decoded list of the read model.
+
+    This entry is the one the field-name guard above cannot cover: the tool
+    key (``tech_domains``) differs from the read-model field it resolves to
+    (``tech_domains_list``), so a rename there would leave the tool serving
+    an empty list instead of failing the field-name check.
+    """
+    from realmock.platform.capabilities.ai.agent.tools.profile import snapshot_from_profile
+
+    snapshot = snapshot_from_profile(UserProfileSnapshot(tech_domains_list=["Python", "Redis"]))
+    assert snapshot.fields[_TECH_DOMAINS_ALIAS] == ["Python", "Redis"]

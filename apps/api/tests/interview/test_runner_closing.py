@@ -162,7 +162,7 @@ async def test_stream_closing_plain_text_fallback_when_no_output(monkeypatch) ->
 
 
 @pytest.mark.asyncio
-async def test_stream_closing_ledger_failure_yields_retryable_error(monkeypatch) -> None:
+async def test_stream_closing_ledger_failure_yields_a_non_retryable_error(monkeypatch) -> None:
     runner = _make_runner(monkeypatch)
 
     def boom(db, sess, **kwargs):

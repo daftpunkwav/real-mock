@@ -64,6 +64,12 @@ def test_require_writable_prep_session_missing_and_completed(db) -> None:
     assert exc2.value.error_code == "A3002"
 
 
+def test_require_writable_prep_session_allows_an_open_session(db) -> None:
+    """The owner-level guard admits an open session (no capability token needed)."""
+    row = _session(db)
+    assert require_writable_prep_session(db, row.id).id == row.id
+
+
 def test_require_owned_prep_session_checks_the_capability_token(db) -> None:
     """A wrong capability token is refused with A0401."""
     row = _session(db)
@@ -72,10 +78,40 @@ def test_require_owned_prep_session_checks_the_capability_token(db) -> None:
     assert exc.value.error_code == "A0401"
 
 
+def test_require_owned_prep_session_refuses_an_unknown_session(db) -> None:
+    """Existence is judged before the token: an unknown session is A3001.
+
+    The caller learns nothing about a session it does not own beyond the
+    fact that it does not exist.
+    """
+    with pytest.raises(ApiBusinessError) as exc:
+        require_owned_prep_session(db, 999999999, "not-the-token")
+    assert exc.value.error_code == "A3001"
+
+
+def test_require_owned_prep_session_allows_a_completed_session(db) -> None:
+    """The owner guard judges the token, not the status.
+
+    Forking a finished session is allowed: the fork copies the history into
+    a new active session, so refusing the source would strand the transcript.
+    """
+    row = _session(db)
+    row.status = "completed"
+    db.commit()
+    assert require_owned_prep_session(db, row.id, row.access_token).id == row.id
+
+
 def test_require_open_prep_session_allows_an_open_session(db) -> None:
     """An open session with the right token is admitted."""
     row = _session(db)
     assert require_open_prep_session(db, row.id, row.access_token).id == row.id
+
+
+def test_require_open_prep_session_refuses_an_unknown_session(db) -> None:
+    """Existence is judged before the token: an unknown session is A3001."""
+    with pytest.raises(ApiBusinessError) as exc:
+        require_open_prep_session(db, 999999999, "not-the-token")
+    assert exc.value.error_code == "A3001"
 
 
 def test_require_open_prep_session_refuses_a_completed_session(db) -> None:

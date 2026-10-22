@@ -11,15 +11,26 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import delete
 from sqlalchemy.exc import OperationalError
 
 
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
+    """Create the api-db tables and clear the profile rows before each case.
+
+    The api.db is shared by the whole test session, so a profile row left
+    behind by another suite would decide which row the default-profile read
+    returns (it prefers id=1). Clearing the table keeps these cases
+    independent of the order the suites run in.
+    """
     import realmock.platform.models  # noqa: F401
     from realmock.platform.database import ApiBase
+    from realmock.platform.models import UserProfile
 
     ApiBase.metadata.create_all(bind=api_engine)
+    with api_engine.begin() as conn:
+        conn.execute(delete(UserProfile))
     yield
 
 
