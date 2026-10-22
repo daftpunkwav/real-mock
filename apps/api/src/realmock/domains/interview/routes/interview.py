@@ -2,9 +2,8 @@
 
 Handlers for session CRUD and turn start/message/finish are defined in ``sessions.py`` /
 ``turns.py`` respectively, and the multi-round process endpoints in ``processes.py``; this
-module only mounts them on the same ``router`` (including their respective rate limits
-and local-peer dependencies), while keeping ``start_interview`` / ``send_message``
-importable from this module.
+module only mounts them on the same ``router`` (including their respective rate limits),
+while keeping ``start_interview`` / ``send_message`` importable from this module.
 """
 
 from __future__ import annotations

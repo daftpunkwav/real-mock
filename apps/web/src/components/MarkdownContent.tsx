@@ -302,9 +302,9 @@ function isSeparatorRow(line: string): boolean {
  * Markdown renderer.
  *
  * Memoized: the markdown pipeline (remark parse → rehype sanitize) costs about
- * a millisecond per message, and the chat views re-render their whole message
- * list on every streamed-token flush. Without the memo, every settled message
- * in the list is re-parsed on every frame of the reply.
+ * a millisecond per message, and the chat views re-render their message list
+ * on every streamed-token flush. Without the memo, every settled bubble that
+ * re-renders re-parses its markdown on every frame of the reply.
  */
 export const MarkdownContent = memo(function MarkdownContent({
   content,

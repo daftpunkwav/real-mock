@@ -23,6 +23,7 @@ Business logic for the resume domain: ingest, deep review, market analysis, rend
 | `analysis_normalize.py` | Review payload normalization |
 | `score_anchor.py` | Prior-version score reference for re-review calibration |
 | `analyze_slots.py` | In-process concurrency cap (A1007 when full) |
+| `export.py` | Deep-review analysis export (md / json, optionally with the resume) |
 
 ## Storage and contracts
 

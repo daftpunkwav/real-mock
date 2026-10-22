@@ -82,7 +82,7 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | `npx tsc --noEmit` | TypeScript 类型门 |
 | `npm run lint` | ESLint |
 
-测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 94 个 `*.test.ts(x)` 文件。
+测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 95 个 `*.test.ts(x)` 文件。
 
 ## CI 门禁
 
@@ -92,3 +92,5 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | --- | --- |
 | `backend` | `ruff==0.16.10`（静态检查与格式检查）；`mypy==2.4.0` 检查 `src`（阻塞）；OpenAPI 契约同步（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90` |
 | `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（覆盖率阈值由 `vitest.config.mts` 设定）；`npm run build`；`npm run format:check`；i18n 使用审计（幽灵键与死键） |
+
+同一工作流还会在对应区域有改动时运行 `docker` 与 `workflow-lint`，并在每次运行时执行 `repo-hygiene`（editorconfig、大小写冲突、文档中英配对、文档内部链接）。完整 job 表见 [deployment.zh.md](deployment.zh.md)。

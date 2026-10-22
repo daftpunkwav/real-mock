@@ -19,9 +19,11 @@ FastAPI 聚合应用（`realmock.asgi:app`）将七个业务域路由挂载在 `
 
 ## 错误信封与响应模型
 
-所有 JSON 错误响应都由共享处理器 `platform/core/error_handlers.py` 发出，使用同一信封：`{"detail": ..., "error": {"code", "message", "hint", "retryable", "trace_id"}}`。业务错误码收录于全站唯一的 `platform/core/errors.py`（`A` 族的通用 / 简历 / 面试 / 教练 / 设置，`B` 族系统错误，`C` 族第三方）；未经迁移的普通 `HTTPException` 回退为 `http_{status}` 码。信封以 OpenAPI 组件 `APIError` / `ErrorBody` 注册（`platform/app_factory.py: register_core_error_handlers`），且 growth / settings / prep / interview / resume 路由均声明了类型化的 `response_model`，因此生成的 `api.d.ts` 同时覆盖两种形状。流式路由（`/resume/{resume_id}/analyze/stream`、`/prep/sessions/{session_id}/message/stream`、`/reports/{session_id}/stream`）声明 `text/event-stream` 媒体类型而非 JSON schema；简历文件与分页图片路由声明其真实返回的媒体类型（`application/pdf`、DOCX / markdown / 纯文本类型、`application/octet-stream`、`image/png`）。唯一保持无类型的操作是 `GET /records/sessions/{session_id}/ledger`：它承载的历史行可能无法通过严格模型校验，对损坏行的宽容处理是刻意保留的。请求校验失败返回 `A0001` 信封（HTTP 422）——例如 `/growth/insight/refresh` 的 `locale` 查询参数超长（`max_length=10`）。
+所有 JSON 错误响应都由共享处理器 `platform/core/error_handlers.py` 发出，使用同一信封：`{"detail": ..., "error": {"code", "message", "hint", "retryable", "trace_id"}}`。业务错误码收录于全站唯一的 `platform/core/errors.py`（`A` 族的通用 / 简历 / 面试 / 教练 / 设置，`B` 族系统错误，`C` 族第三方）；未经迁移的普通 `HTTPException` 回退为 `http_{status}` 码。信封以 OpenAPI 组件 `APIError` / `ErrorBody` 注册（`platform/app_factory.py: register_core_error_handlers`），且每个对外发布的 JSON 路由都声明了类型化的 `response_model`，因此生成的 `api.d.ts` 同时覆盖两种形状。流式路由（`/resume/{resume_id}/analyze/stream`、`/prep/sessions/{session_id}/message/stream`、`/reports/{session_id}/stream`）声明 `text/event-stream` 媒体类型而非 JSON schema；简历文件与分页图片路由声明其真实返回的媒体类型（`application/pdf`、DOCX / markdown / 纯文本类型、`application/octet-stream`、`image/png`）。唯一保持无类型的操作是 `GET /records/sessions/{session_id}/ledger`：它承载的历史行可能无法通过严格模型校验，对损坏行的宽容处理是刻意保留的。请求校验失败返回 `A0001` 信封（HTTP 422）——例如 `/growth/insight/refresh` 的 `locale` 查询参数超长（`max_length=10`）。
 
 SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/provider_errors.py: is_diagnosable_upstream_error`）：只有用户可自行处理的供应商错误类别（上下文超限 / 限流 / 配额耗尽）保留供应商原文——经密钥脱敏，用量摘要在 400 字符截断（`llm/usage.py: note_request_error`）；其余失败一律回退为路由的通用文案（`domains/prep/routes/chat.py`、`domains/resume/routes/analyze.py`）。
+
+三个流式路由在产出方仍在工作时都用 SSE 注释行（`: ping`）保持连接存活。共享泵（`platform/core/sse.py: pump_queue_to_sse`）在事件队列超过心跳间隔仍为空时发出一条——教练流的间隔为 15 秒（`domains/prep/routes/chat.py: _SSE_HEARTBEAT_SECONDS`），深度复盘流同样为 15 秒（`domains/resume/schemas/limits.py: SSE_HEARTBEAT_SECONDS`）。报告流不使用该泵：它在轮询报告是否就绪期间，每 10 个 0.5 秒的轮询轮次发出一条同样的注释（`domains/records/routes/report.py`）。
 
 ## 各域端点
 

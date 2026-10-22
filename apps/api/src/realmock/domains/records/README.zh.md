@@ -6,7 +6,8 @@
 | --- | --- |
 | `routes/history.py` | 历史端点(挂载于 `/records`) |
 | `routes/report.py` | 报告端点(挂载于 `/reports`) |
-| `services/` | `report_store.py`、`report_events.py`(报告实时事件)、`debrief_runner.py`、`ingest.py`、`legacy_fallback.py` |
+| `routes/export.py` | 会话导出端点(报告 / 逐字稿下载,挂载于 `/records`) |
+| `services/` | `report_store.py`、`report_events.py`(报告实时事件)、`debrief_runner.py`、`ingest.py`、`legacy_fallback.py`、`export.py`(报告 / 逐字稿导出) |
 | [`agents/report/`](agents/report/README.zh.md) | 报告 agent(两阶段 ReAct 流水线) |
 | `models/report.py` | 报告表 |
 | `schemas/` | `history.py`(历史列表响应)、`report.py`(报告负载,含旧版逐轮 review 块) |

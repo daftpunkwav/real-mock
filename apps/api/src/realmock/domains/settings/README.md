@@ -8,8 +8,10 @@ Settings domain: BYOK processor configuration, model capability registry, connec
 | `routes/models.py` | Model-profile API: provider / channel / model / task-binding routes (capability declarations) |
 | `routes/model_tests.py` | Connectivity / model tests |
 | `routes/integrations.py` | Third-party integration credentials (GitHub) |
+| `routes/data.py` | Data management: wipe all business content (configuration stays) |
 | `services/` | `model_registry.py`, `vendor_apply.py` (apply vendor descriptors), `github_integration.py`, `stage_tests.py`, `validation.py`, `route_timing.py` |
 | `schemas/providers.py` | Response models mirroring the dicts returned by `routes/models.py` / `integrations.py` / `stages.py` |
+| `schemas/data.py` | Wipe-all summary: removed row counts per storage area |
 
 Thin domain: no `models/` or lifecycle hooks.
 

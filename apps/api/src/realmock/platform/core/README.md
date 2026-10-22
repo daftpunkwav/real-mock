@@ -27,7 +27,7 @@ Kernel utilities shared by every domain: configuration-adjacent constants, the e
 | `file.py` | Filename sanitization (basename, character allowlist, length cap), path-traversal defense, magic-number sniffing |
 | `url.py` | URL/SSRF filtering: private / CGNAT / multicast ranges, port allowlist, multi-record + IPv6 resolution; policy functions stay here (tests patch `url._resolve_all`) |
 | `url_pin.py` | DNS pinning: resolve once, connect to the fixed IP (DNS-rebinding TOCTOU); `PinnedHostTransport` for httpx |
-| `redact.py` | API-key-shaped string redaction |
+| `redact.py` | Credential redaction for log output and user-facing error text: four entry points (whole value, free-form text, log runtime value, log format template) |
 
 ## `session_auth/` — session capability tokens
 
