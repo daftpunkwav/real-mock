@@ -225,3 +225,53 @@ async def test_read_notes_keeps_one_oversized_note_so_the_cursor_advances() -> N
     assert page["truncated"] is True
     # The cursor advances past the entry that was returned.
     assert page["next_offset"] == 1
+
+
+@pytest.mark.asyncio
+async def test_read_turns_page_survives_the_agent_loop_observation_cap() -> None:
+    """A fitted page must reach the model as valid JSON.
+
+    The agent loop slices any tool observation longer than its cap, which cuts
+    inside the serialized page and hands the model an unparsable document. The
+    page budget therefore has to stay at or below that cap: a page that fits
+    the tool budget but exceeds the loop cap is still cut on the way to the
+    model, which is exactly the failure the page fitter exists to prevent.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.platform.capabilities.ai.agent.llm_round import (
+        MAX_TOOL_RESULT_CHARS,
+        _truncate_tool_result,
+    )
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(12))}
+    raw = await specs["ledger_read_turns"].handler({"offset": 0})
+    assert len(raw) <= MAX_TOOL_RESULT_CHARS
+    # The loop must hand the page over untouched.
+    assert _truncate_tool_result(raw) == raw
+    page = json.loads(raw)  # must not raise
+    assert page["truncated"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_notes_page_survives_the_agent_loop_observation_cap() -> None:
+    """The synthesis notes reader must survive the agent loop's observation cap.
+
+    The report domain does not compress tool observations, so the loop slices
+    anything longer than its cap; a notes page over that cap would reach the
+    model as an unparsable document.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.platform.capabilities.ai.agent.llm_round import (
+        MAX_TOOL_RESULT_CHARS,
+        _truncate_tool_result,
+    )
+
+    notes = [
+        {"turn_id": f"t-{i:04d}", "question": "问" * 900, "answer": "答" * 900}
+        for i in range(1, 13)
+    ]
+    raw = await mod.notes_tool_specs(notes)[0].handler({"offset": 0})
+    assert len(raw) <= MAX_TOOL_RESULT_CHARS
+    assert _truncate_tool_result(raw) == raw
+    page = json.loads(raw)  # must not raise
+    assert page["truncated"] is True

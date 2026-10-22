@@ -7,7 +7,9 @@ pull it in bounded pages through ``ledger_overview`` / ``ledger_read_turns`` /
 Every reader returns a JSON document: a page is trimmed to the output budget
 by dropping trailing entries (never by slicing the serialized text, which
 would cut inside a string and hand the model an unparsable page). A trimmed
-page carries ``truncated: true`` and the continuation cursor.
+page carries ``truncated: true`` and the continuation cursor. The budget is
+the agent loop's own observation cap, so a fitted page reaches the model
+whole instead of being sliced there.
 """
 
 from __future__ import annotations
@@ -17,12 +19,20 @@ from collections.abc import Callable
 from typing import Any
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
+from realmock.platform.capabilities.ai.llm.defaults import TOOL_OBSERVATION_SOFT_CHARS
 
 _PAGE_TURNS = 12
 _TURN_CHARS = 900
 _SEARCH_HITS = 8
 _SNIPPET_CHARS = 240
-_OUTPUT_CHARS = 14_000
+#: Serialized page budget.
+#:
+#: The agent loop hands a tool observation longer than
+#: ``TOOL_OBSERVATION_SOFT_CHARS`` to the model sliced at that mark, which cuts
+#: inside the serialized page and delivers an unparsable document. The budget
+#: is therefore the loop's own cap: a fitted page must reach the model whole,
+#: so a private number that can drift above that cap does not belong here.
+_OUTPUT_CHARS = TOOL_OBSERVATION_SOFT_CHARS
 
 
 def _turns(ledger: dict[str, Any]) -> list[dict[str, Any]]:
