@@ -108,7 +108,7 @@ async def test_stream_opening_streamed_output_path() -> None:
     with (
         patch.object(romod, "ensure_plan", new=AsyncMock()),
         patch.object(romod, "stream_tool_rounds", side_effect=_rounds),
-        patch.object(romod, "append_turn_row", return_value={}),
+        patch.object(romod, "append_turn_row", return_value="t-0001"),
     ):
         events = [e async for e in romod.stream_opening(runner, MagicMock())]
     assert any(e.kind == EventKind.TURN_COMPLETE for e in events)
@@ -131,7 +131,7 @@ async def test_stream_opening_early_path_emits_token() -> None:
     with (
         patch.object(romod, "ensure_plan", new=AsyncMock()),
         patch.object(romod, "stream_tool_rounds", side_effect=_rounds),
-        patch.object(romod, "append_turn_row", return_value={}),
+        patch.object(romod, "append_turn_row", return_value="t-0001"),
     ):
         events = [e async for e in romod.stream_opening(runner, MagicMock())]
     assert any(e.kind == EventKind.TOKEN and e.token == "hi early" for e in events)
@@ -157,7 +157,7 @@ async def test_stream_opening_say_first_path_and_phase_advance() -> None:
         patch.object(romod, "ensure_plan", new=AsyncMock()),
         patch.object(romod, "stream_tool_rounds", side_effect=_rounds),
         patch.object(romod, "stream_say_first", side_effect=_say),
-        patch.object(romod, "append_turn_row", return_value={}),
+        patch.object(romod, "append_turn_row", return_value="t-0001"),
     ):
         events = [e async for e in romod.stream_opening(runner, MagicMock())]
     assert any(e.kind == EventKind.TOKEN for e in events)

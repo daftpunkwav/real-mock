@@ -75,7 +75,7 @@ def _make_runner(monkeypatch, *, status="active", personality="professional", sa
         )
 
     monkeypatch.setattr(rcmod, "stream_say_first", fake_say_first)
-    monkeypatch.setattr(rcmod, "append_turn_row", lambda db, sess, **k: {"turn_id": "t-0001"})
+    monkeypatch.setattr(rcmod, "append_turn_row", lambda db, sess, **k: "t-0001")
     monkeypatch.setattr(rcmod, "take_pending_tools", lambda state: [])
     monkeypatch.setattr(rcmod, "run_finish_lifecycle", lambda db, sess, **k: {})
     return runner
@@ -123,23 +123,26 @@ async def test_stream_closing_uses_context_window_compaction(monkeypatch) -> Non
     runner.prompter.get_context_window = lambda db: 8000
     runner.agent._score_section = lambda: ""
 
+    calls: list[tuple] = []
+
     async def fake_compact(messages, window, llm=None, keep_recent=24):
+        calls.append((messages, window, keep_recent))
         return messages
 
-    import realmock.domains.interview.agents.interviewer.runner_closing as m
-
-    monkeypatch.setitem(
-        __import__("sys").modules,
-        "realmock.platform.capabilities.ai.context.summarize",
-        SimpleNamespace(compact_with_summary=fake_compact),
-    )
-    # Patch via import path inside function: monkeypatch the module attribute directly
+    # Patch the module attribute, not ``sys.modules``: the closing imports
+    # ``compact_with_summary`` lazily, so replacing the module entry would
+    # also strip the parent package from the import chain.
     import realmock.platform.capabilities.ai.context.summarize as summod
 
     monkeypatch.setattr(summod, "compact_with_summary", fake_compact)
-    _ = m
     events = [e async for e in rcmod.stream_closing(runner, db=None)]  # type: ignore[arg-type]
     assert any(e.kind == EventKind.TURN_COMPLETE for e in events)
+    # The closing compacts the whole conversation with the resolved window.
+    assert len(calls) == 1
+    messages, window, keep_recent = calls[0]
+    assert window == 8000
+    assert keep_recent == 24
+    assert messages == runner.agent.messages[: len(messages)]
 
 
 @pytest.mark.asyncio
