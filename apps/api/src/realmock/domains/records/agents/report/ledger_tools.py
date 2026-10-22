@@ -10,7 +10,8 @@ output budget by dropping trailing entries (never by slicing the serialized
 text, which would cut inside a string and hand the model an unparsable
 page). A trimmed page carries ``truncated: true`` and the continuation
 cursor. The budget is the agent loop's own observation cap, so a fitted
-page reaches the model whole instead of being sliced there.
+page reaches the model whole instead of being sliced there. The readers
+project their entries so that one entry always fits the budget on its own.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import json
 from collections.abc import Callable
 from typing import Any, cast
 
+from realmock.domains.records.agents.report.normalize import shorten_note
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
 from realmock.platform.capabilities.ai.llm.defaults import TOOL_OBSERVATION_SOFT_CHARS
 from realmock.platform.contracts.ledger_document import LedgerTurn, ToolPreview
@@ -27,6 +29,12 @@ _PAGE_TURNS = 12
 _TURN_CHARS = 900
 _SEARCH_HITS = 8
 _SNIPPET_CHARS = 240
+#: Characters one note may carry into a report page. A note is a teaser for
+#: the report, not the evidence itself: it travels in one tool observation,
+#: so a note larger than this is shortened before it reaches the page. The
+#: budget leaves room for the page wrapper and stays above what the shortest
+#: texts of a note add up to, so a note can always be brought under it.
+_NOTE_CHARS = 9_000
 #: Characters of one tool result carried into a report page. The tool output
 #: is a teaser for the report, not the evidence itself: the interviewer's
 #: own ledger keeps the full text.
@@ -127,7 +135,8 @@ def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, A
     inside a string and hands the model an unparsable page. Trailing entries
     are dropped instead, and the page is marked ``truncated`` so the model
     knows to keep reading. One entry is always kept, so the paging cursor
-    advances even when a single entry alone exceeds the budget.
+    advances even when a single entry alone exceeds the budget; the readers
+    project their entries so that one entry always fits it.
     """
     page = list(entries)
     while True:
@@ -280,10 +289,12 @@ def notes_tool_specs(notes: list[dict[str, Any]]) -> list[ToolSpec]:
     async def read_notes(args: dict[str, Any]) -> str:
         offset = _page_offset(args)
         limit = _page_limit(args, 10, 20)
-        candidates = notes[offset : offset + limit]
         # Same rule as the ledger reader: the observation must stay valid
         # JSON, so notes that do not fit the output budget stay for the next
-        # page instead of being sliced out of the serialized payload.
+        # page instead of being sliced out of the serialized payload. A note
+        # that does not fit on its own is shortened, so one note can never
+        # exceed the budget by itself.
+        candidates = [shorten_note(note, _NOTE_CHARS) for note in notes[offset : offset + limit]]
         return _fit_page(
             candidates,
             lambda page: {

@@ -7,6 +7,7 @@ so one drifted field never invalidates a whole report.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from realmock.domains.records.schemas.report import (
@@ -93,6 +94,54 @@ _NOTE_ALIASES = {
     "followup_quality": ("followup_quality", "followup", "追问表现"),
     "phase": ("phase", "stage", "阶段"),
 }
+
+
+#: Texts shorter than this are never shortened: the identity of a note (its
+#: id, its phase) is short, and a shortened id would lose the turn.
+_MIN_SHORTENED_CHARS = 200
+
+
+def _halve(text: str) -> str:
+    """Halve a long text; a short one keeps its content."""
+    return text[: len(text) // 2] if len(text) > _MIN_SHORTENED_CHARS else text
+
+
+def _shorten_text(value: Any) -> Any:
+    """Shorten one text, one list of texts or one nested note object.
+
+    A note carries plain texts, lists of texts and the two nested review
+    objects, so the texts are shortened here without a recursive walk. A
+    nested list keeps its items: the reviews carry one list of suggestions.
+    """
+    if isinstance(value, str):
+        return _halve(value)
+    if isinstance(value, list):
+        return [_halve(item) if isinstance(item, str) else item for item in value]
+    if isinstance(value, dict):
+        return {key: _halve(item) if isinstance(item, str) else item for key, item in value.items()}
+    return value
+
+
+def shorten_note(note: dict[str, Any], max_chars: int) -> dict[str, Any]:
+    """Shorten the texts of one note until it fits ``max_chars`` characters.
+
+    A note travels to the synthesis agent in one tool observation, so a note
+    that does not fit would reach the model cut inside a string. Only the long
+    texts are shortened, and they are halved each pass, so the note keeps its
+    shape and its identity while losing the detail that does not fit. A note
+    that already fits is returned unchanged, and the given note is never
+    modified.
+    """
+    if len(json.dumps(note, ensure_ascii=False)) <= max_chars:
+        return note
+    shortened = {key: _shorten_text(value) for key, value in note.items()}
+    shortened["clipped"] = True
+    while len(json.dumps(shortened, ensure_ascii=False)) > max_chars:
+        smaller = {key: _shorten_text(value) for key, value in shortened.items()}
+        if smaller == shortened:
+            break
+        shortened = smaller
+    return shortened
 
 
 def _alias_get(raw: dict[str, Any], key: str) -> Any:
@@ -191,4 +240,4 @@ def normalize_report_payload(data: dict[str, Any]) -> DebriefReport:
     )
 
 
-__all__ = ["normalize_report_payload", "normalize_turn_note"]
+__all__ = ["normalize_report_payload", "normalize_turn_note", "shorten_note"]
