@@ -11,6 +11,10 @@ helpers stay on lightweight stubs.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from sqlalchemy import event
 
 from realmock.domains.interview.ledger.store import (
     append_last_turn_flag,
@@ -59,6 +63,22 @@ def _turns(db, session_id: int) -> list[dict]:
         .all()
     )
     return [json.loads(r.turn) for r in rows if r.seq != 0]
+
+
+@contextmanager
+def _captured_statements(db) -> Iterator[list[str]]:
+    """Collect the SQL statements issued on the session's engine inside the block."""
+    engine = db.get_bind()
+    seen: list[str] = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001, ARG001
+        seen.append(" ".join(statement.split()))
+
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        yield seen
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
 
 
 # ---- pure helpers ----
@@ -165,6 +185,44 @@ def test_append_turn_row_skipped_when_frozen(db) -> None:
     assert append_turn_row(db, row, phase="p", assistant_text="x") is None
     assert is_frozen(_reload(db, row)) is True
     assert _turns(db, row.id) == []
+
+
+def test_append_turn_row_reads_the_sequence_only(db) -> None:
+    """Appending must not rebuild the session document.
+
+    A rebuild re-reads and re-parses every stored turn of the session, so a
+    session of T turns pays O(T^2) JSON parses. The guard is the number of
+    reads against the turn table: the sequence lookup is one statement, a
+    document rebuild adds a second one.
+    """
+    row = _row(db)
+    append_turn_row(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a2")
+    with _captured_statements(db) as statements:
+        append_turn_row(db, row, phase="p", assistant_text="a3")
+    reads = [s for s in statements if "FROM interview_turns" in s]
+    assert len(reads) == 1, statements
+    inserts = [s for s in statements if s.upper().startswith("INSERT INTO INTERVIEW_TURNS")]
+    assert len(inserts) == 1, statements
+
+
+def test_append_last_turn_flag_reads_only_the_newest_row(db) -> None:
+    """Flagging must read the newest turn, not the whole turn table.
+
+    Reading the whole table loads every stored turn body for nothing. The
+    newest-row lookup is the single-row variant of the same query, so the
+    rendered statement carries a LIMIT.
+    """
+    row = _row(db)
+    for i in range(5):
+        append_turn_row(db, row, phase="p", assistant_text=f"a{i}")
+    with _captured_statements(db) as statements:
+        append_last_turn_flag(db, row, "silence_probe", {"seq": 1})
+    reads = [s for s in statements if "FROM interview_turns" in s]
+    assert len(reads) == 1, statements
+    assert "LIMIT" in reads[0].upper(), reads[0]
+    updates = [s for s in statements if s.upper().startswith("UPDATE INTERVIEW_TURNS")]
+    assert len(updates) == 1, statements
 
 
 def test_append_last_turn_flag_updates_newest_turn_only(db) -> None:
