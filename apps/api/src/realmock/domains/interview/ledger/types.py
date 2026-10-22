@@ -1,52 +1,20 @@
-"""Typed shapes for the interview session ledger document."""
+"""Typed shapes for the interview session ledger document.
+
+The shapes live in :mod:`realmock.platform.contracts.ledger_document` because
+the ledger is read across domains: interview writes it, records reads it
+through the session catalog seam. One declaration keeps the writer's key names
+and every reader's key lookups in sync.
+"""
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
-
-
-class ToolPreview(TypedDict, total=False):
-    """Curtain-layer tool call summary attached to an assistant turn."""
-
-    name: str
-    args_preview: Any
-    result_preview: Any
-    ok: bool
-    chars: int
-
-
-class LedgerAssistant(TypedDict, total=False):
-    text: str
-    visible: bool
-
-
-class LedgerUser(TypedDict, total=False):
-    text: str
-    source: str
-
-
-class LedgerTurn(TypedDict, total=False):
-    """One interview turn: assistant speech, optional tools, optional user reply."""
-
-    turn_id: str
-    phase: str
-    assistant: LedgerAssistant
-    tools: list[ToolPreview]
-    user: LedgerUser
-    flags: dict[str, Any]
-
-
-class LedgerDocument(TypedDict, total=False):
-    """Root ledger document aggregated from the ``interview_turns`` table."""
-
-    schema: str
-    session_id: int
-    frozen: bool
-    turns: list[LedgerTurn]
-    # Set when JSON parse failed; raw_unparsed preserves a truncated original blob.
-    corrupt: bool
-    raw_unparsed: str
-
+from realmock.platform.contracts.ledger_document import (
+    LedgerAssistant,
+    LedgerDocument,
+    LedgerTurn,
+    LedgerUser,
+    ToolPreview,
+)
 
 __all__ = [
     "LedgerAssistant",

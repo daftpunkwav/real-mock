@@ -1,6 +1,7 @@
 """Ledger-tool tests for realmock.domains.records.agents.report.ledger_tools.
 
-Covers: _turns/_turn_text edges and ledger_read_turns/ledger_search handlers
+Covers: _turns/_turn_text edges, ledger_read_turns/ledger_search handlers,
+and the tool preview projection (the tool result must reach the page)
 Conventions: Pure in-memory ledger; no LLM/DB; rate limits reset per test
 """
 
@@ -10,6 +11,7 @@ import json
 
 import pytest
 
+from realmock.domains.interview.ledger.store import build_tool_preview
 from realmock.platform.core.ratelimit import reset_rate_limit
 
 
@@ -57,11 +59,64 @@ def _long_ledger(count: int) -> dict:
                 "phase": "project_deep_dive",
                 "assistant": {"text": "请详细描述你在项目中负责的核心模块架构与技术取舍。" * 8},
                 "user": {"text": "我负责了订单履约链路的设计，并用 Kafka 实现异步解耦。" * 8},
-                "tools": [{"name": "web_search", "result": "x" * 200} for _ in range(4)],
+                "tools": [
+                    build_tool_preview("web_search", {"q": "kafka"}, "x" * 200) for _ in range(4)
+                ],
             }
             for i in range(1, count + 1)
         ]
     }
+
+
+@pytest.mark.asyncio
+async def test_read_turns_carries_the_tool_result_text() -> None:
+    """The page must carry the result the interviewer-side tool call returned.
+
+    The ledger writer stores a tool preview under ``result_preview``; a reader
+    that looks up another key loses the tool output silently, so the report
+    can no longer cite what the tool returned.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    preview = build_tool_preview("web_search", {"q": "kafka"}, "Kafka 保证同一分区内消息顺序")
+    # The writer's real shape: the result text lives under result_preview.
+    assert set(preview) == {"name", "args_preview", "result_preview", "ok", "chars"}
+    ledger = {
+        "turns": [
+            {
+                "turn_id": "t-0001",
+                "phase": "tech",
+                "assistant": {"text": "Kafka 如何保证顺序？", "visible": True},
+                "user": {"text": "靠分区键", "source": "text"},
+                "tools": [preview],
+            }
+        ]
+    }
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    page = json.loads(await specs["ledger_read_turns"].handler({"offset": 0}))
+    assert page["turns"][0]["tools"] == [
+        {"name": "web_search", "preview": "Kafka 保证同一分区内消息顺序"}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_read_turns_tolerates_a_tool_preview_without_a_result() -> None:
+    """A preview without the result key still projects (no crash, no text)."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    ledger = {
+        "turns": [
+            {
+                "turn_id": "t-0001",
+                "phase": "tech",
+                "assistant": {"text": "q", "visible": True},
+                "tools": [{"name": "web_search"}],
+            }
+        ]
+    }
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    page = json.loads(await specs["ledger_read_turns"].handler({"offset": 0}))
+    assert page["turns"][0]["tools"] == [{"name": "web_search", "preview": ""}]
 
 
 @pytest.mark.asyncio
@@ -78,6 +133,31 @@ async def test_read_turns_page_stays_valid_json() -> None:
     # The continuation cursor points at the first turn that did not fit.
     assert page["next_offset"] == page["returned"]
     assert page["total_turns"] == 12
+
+
+@pytest.mark.asyncio
+async def test_read_turns_page_survives_the_agent_loop_observation_cap() -> None:
+    """A fitted page must reach the model as valid JSON.
+
+    The agent loop slices any tool observation longer than its cap, which cuts
+    inside the serialized page and hands the model an unparsable document. The
+    page budget therefore has to stay at or below that cap: a page that fits
+    the tool budget but exceeds the loop cap is still cut on the way to the
+    model, which is exactly the failure the page fitter exists to prevent.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.platform.capabilities.ai.agent.llm_round import (
+        MAX_TOOL_RESULT_CHARS,
+        _truncate_tool_result,
+    )
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(12))}
+    raw = await specs["ledger_read_turns"].handler({"offset": 0})
+    assert len(raw) <= MAX_TOOL_RESULT_CHARS
+    # The loop must hand the page over untouched.
+    assert _truncate_tool_result(raw) == raw
+    page = json.loads(raw)  # must not raise
+    assert page["truncated"] is True
 
 
 @pytest.mark.asyncio
@@ -122,6 +202,31 @@ async def test_read_notes_page_stays_valid_json() -> None:
     assert page["returned"] == len(page["notes"])
     assert page["truncated"] is True
     assert page["next_offset"] == page["returned"]
+
+
+@pytest.mark.asyncio
+async def test_read_notes_page_survives_the_agent_loop_observation_cap() -> None:
+    """The synthesis notes reader must survive the agent loop's observation cap.
+
+    The report domain does not compress tool observations, so the loop slices
+    anything longer than its cap; a notes page over that cap would reach the
+    model as an unparsable document.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.platform.capabilities.ai.agent.llm_round import (
+        MAX_TOOL_RESULT_CHARS,
+        _truncate_tool_result,
+    )
+
+    notes = [
+        {"turn_id": f"t-{i:04d}", "question": "问" * 900, "answer": "答" * 900}
+        for i in range(1, 13)
+    ]
+    raw = await mod.notes_tool_specs(notes)[0].handler({"offset": 0})
+    assert len(raw) <= MAX_TOOL_RESULT_CHARS
+    assert _truncate_tool_result(raw) == raw
+    page = json.loads(raw)  # must not raise
+    assert page["truncated"] is True
 
 
 @pytest.mark.asyncio
@@ -225,53 +330,3 @@ async def test_read_notes_keeps_one_oversized_note_so_the_cursor_advances() -> N
     assert page["truncated"] is True
     # The cursor advances past the entry that was returned.
     assert page["next_offset"] == 1
-
-
-@pytest.mark.asyncio
-async def test_read_turns_page_survives_the_agent_loop_observation_cap() -> None:
-    """A fitted page must reach the model as valid JSON.
-
-    The agent loop slices any tool observation longer than its cap, which cuts
-    inside the serialized page and hands the model an unparsable document. The
-    page budget therefore has to stay at or below that cap: a page that fits
-    the tool budget but exceeds the loop cap is still cut on the way to the
-    model, which is exactly the failure the page fitter exists to prevent.
-    """
-    from realmock.domains.records.agents.report import ledger_tools as mod
-    from realmock.platform.capabilities.ai.agent.llm_round import (
-        MAX_TOOL_RESULT_CHARS,
-        _truncate_tool_result,
-    )
-
-    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(12))}
-    raw = await specs["ledger_read_turns"].handler({"offset": 0})
-    assert len(raw) <= MAX_TOOL_RESULT_CHARS
-    # The loop must hand the page over untouched.
-    assert _truncate_tool_result(raw) == raw
-    page = json.loads(raw)  # must not raise
-    assert page["truncated"] is True
-
-
-@pytest.mark.asyncio
-async def test_read_notes_page_survives_the_agent_loop_observation_cap() -> None:
-    """The synthesis notes reader must survive the agent loop's observation cap.
-
-    The report domain does not compress tool observations, so the loop slices
-    anything longer than its cap; a notes page over that cap would reach the
-    model as an unparsable document.
-    """
-    from realmock.domains.records.agents.report import ledger_tools as mod
-    from realmock.platform.capabilities.ai.agent.llm_round import (
-        MAX_TOOL_RESULT_CHARS,
-        _truncate_tool_result,
-    )
-
-    notes = [
-        {"turn_id": f"t-{i:04d}", "question": "问" * 900, "answer": "答" * 900}
-        for i in range(1, 13)
-    ]
-    raw = await mod.notes_tool_specs(notes)[0].handler({"offset": 0})
-    assert len(raw) <= MAX_TOOL_RESULT_CHARS
-    assert _truncate_tool_result(raw) == raw
-    page = json.loads(raw)  # must not raise
-    assert page["truncated"] is True

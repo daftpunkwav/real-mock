@@ -4,27 +4,36 @@ The frozen transcript is never dumped into the prompt in one shot: agents
 pull it in bounded pages through ``ledger_overview`` / ``ledger_read_turns`` /
 ``ledger_search``. A batch run scopes reads to its own turn range.
 
-Every reader returns a JSON document: a page is trimmed to the output budget
-by dropping trailing entries (never by slicing the serialized text, which
-would cut inside a string and hand the model an unparsable page). A trimmed
-page carries ``truncated: true`` and the continuation cursor. The budget is
-the agent loop's own observation cap, so a fitted page reaches the model
-whole instead of being sliced there.
+Every reader returns a JSON document. The **paged** readers
+(``ledger_read_turns`` / ``report_read_notes``) trim their page to the
+output budget by dropping trailing entries (never by slicing the serialized
+text, which would cut inside a string and hand the model an unparsable
+page). A trimmed page carries ``truncated: true`` and the continuation
+cursor. The budget is the agent loop's own observation cap, so a fitted
+page reaches the model whole instead of being sliced there.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
 from realmock.platform.capabilities.ai.llm.defaults import TOOL_OBSERVATION_SOFT_CHARS
+from realmock.platform.contracts.ledger_document import LedgerTurn, ToolPreview
 
 _PAGE_TURNS = 12
 _TURN_CHARS = 900
 _SEARCH_HITS = 8
 _SNIPPET_CHARS = 240
+#: Characters of one tool result carried into a report page. The tool output
+#: is a teaser for the report, not the evidence itself: the interviewer's
+#: own ledger keeps the full text.
+_TOOL_PREVIEW_CHARS = 200
+#: Tool previews carried per turn. A page summarizes the tool traffic of a
+#: turn; the report reads the tools it needs from the next page.
+_TOOLS_PER_TURN = 4
 #: Serialized page budget.
 #:
 #: The agent loop hands a tool observation longer than
@@ -32,20 +41,29 @@ _SNIPPET_CHARS = 240
 #: inside the serialized page and delivers an unparsable document. The budget
 #: is therefore the loop's own cap: a fitted page must reach the model whole,
 #: so a private number that can drift above that cap does not belong here.
+#:
+#: The page size follows from the per-turn payload (two ``_TURN_CHARS`` texts
+#: plus the tool previews): a page holds as many turns as that payload fits,
+#: so raising ``_PAGE_TURNS`` alone does not make a page longer.
 _OUTPUT_CHARS = TOOL_OBSERVATION_SOFT_CHARS
 
 
-def _turns(ledger: dict[str, Any]) -> list[dict[str, Any]]:
+def _turns(ledger: dict[str, Any]) -> list[LedgerTurn]:
+    """Turns of a ledger document, typed against the platform contract.
+
+    The session catalog seam hands the document over as an untyped dict, so
+    the declared shape is asserted here. Everything downstream then reads the
+    key names the contract declares.
+    """
     turns = ledger.get("turns")
     if not isinstance(turns, list):
         return []
-    return [t for t in turns if isinstance(t, dict)]
+    return [cast("LedgerTurn", t) for t in turns if isinstance(t, dict)]
 
 
-def _turn_text(turn: dict[str, Any]) -> str:
+def _turn_text(turn: LedgerTurn) -> str:
     parts: list[str] = []
-    for key in ("assistant", "user"):
-        val = turn.get(key)
+    for val in (turn.get("assistant"), turn.get("user")):
         if isinstance(val, dict):
             parts.append(str(val.get("text", "")))
         elif val:
@@ -53,9 +71,32 @@ def _turn_text(turn: dict[str, Any]) -> str:
     return " ".join(parts).lower()
 
 
-def _project_turn(turn: dict[str, Any]) -> dict[str, Any]:
-    assistant = turn.get("assistant") or {}
-    user = turn.get("user") or {}
+def _project_tool_preview(tool: ToolPreview) -> dict[str, Any]:
+    """Project one tool preview for a report page.
+
+    The keys are read as subscripts, so a key the platform contract does not
+    declare is a type error here instead of a preview that silently loses the
+    tool output. A preview that lacks a key still projects.
+    """
+    try:
+        name: str | None = tool["name"]
+    except KeyError:
+        name = None
+    try:
+        result = tool["result_preview"]
+    except KeyError:
+        result = ""
+    return {"name": name, "preview": str(result)[:_TOOL_PREVIEW_CHARS]}
+
+
+def _project_turn(turn: LedgerTurn) -> dict[str, Any]:
+    """Project one turn for a report page.
+
+    The tool preview keys come from the platform contract, so the page
+    carries the tool result the interviewer-side call returned.
+    """
+    assistant = turn.get("assistant")
+    user = turn.get("user")
     tools = turn.get("tools") or []
     return {
         "turn_id": turn.get("turn_id"),
@@ -64,11 +105,7 @@ def _project_turn(turn: dict[str, Any]) -> dict[str, Any]:
         if isinstance(assistant, dict)
         else "",
         "answer": str(user.get("text", ""))[:_TURN_CHARS] if isinstance(user, dict) else "",
-        "tools": [
-            {"name": t.get("name"), "preview": str(t.get("result", ""))[:200]}
-            for t in tools[:4]
-            if isinstance(t, dict)
-        ],
+        "tools": [_project_tool_preview(t) for t in tools[:_TOOLS_PER_TURN] if isinstance(t, dict)],
     }
 
 

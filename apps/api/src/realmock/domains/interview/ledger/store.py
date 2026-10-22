@@ -288,7 +288,7 @@ def build_tool_preview(
     *,
     ok: bool | None = None,
 ) -> ToolPreview:
-    """Build a curtain-layer tool preview from a live tool call.
+    """Build the ledger tool preview (truncated args / result) from a live tool call.
 
     ``ok`` defaults to detecting agent-loop failure prefixes when omitted.
     """
