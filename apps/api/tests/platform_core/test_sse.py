@@ -167,6 +167,26 @@ async def test_pump_unblocks_producer_that_pushes_during_cleanup() -> None:
     assert cleanup_done.is_set()
 
 
+async def test_pump_ends_the_stream_when_the_producer_dies_without_the_sentinel() -> None:
+    """A producer that dies without the None sentinel must not keep the
+    connection open.
+
+    The pump owns the end of the stream: once the producer is done and the
+    queue is drained, nothing more can arrive, so the stream has to close
+    instead of pinging a dead turn forever.
+    """
+
+    async def producer(put: QueuePut) -> None:
+        await put({"type": "token"})
+        raise RuntimeError("producer died")
+
+    lines = await asyncio.wait_for(
+        _collect(pump_queue_to_sse(_Request(), producer, heartbeat_seconds=0.05)),  # type: ignore[arg-type]
+        timeout=5.0,
+    )
+    assert lines == ['data: {"type": "token"}\n\n']
+
+
 def test_sse_streaming_response_headers() -> None:
     async def _empty():
         if False:

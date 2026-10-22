@@ -321,6 +321,68 @@ async def test_prep_message_stream_disconnect_breaks(db, monkeypatch) -> None:
     assert "tok2-never" not in body.decode()
 
 
+@pytest.mark.asyncio
+async def test_prep_message_stream_disconnect_cancels_the_turn_and_frees_the_lock(
+    db, monkeypatch
+) -> None:
+    """A client that walks away mid-turn must not leave the session locked.
+
+    The coaching turn runs in a producer task behind the shared SSE pump, and
+    it holds the per-session turn lock while it runs. If the pump's teardown
+    did not cancel that producer, the turn would keep running (and keep
+    holding the lock) long after the client is gone, wedging every later turn
+    of that session.
+    """
+    import realmock.domains.prep.routes.chat as chat_route
+    from realmock.domains.prep.schemas import PrepMessageRequest
+    from realmock.domains.prep.services import session_turn_lock
+
+    row = _session(db)
+    _patch_llm(monkeypatch)
+
+    cancelled = asyncio.Event()
+
+    class _Agent(_FakeAgent):
+        async def chat_stream(self, *args, **kwargs):
+            try:
+                yield "tok1"
+                # The provider is still working when the client leaves.
+                await asyncio.sleep(30)
+                yield "never"  # pragma: no cover
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+    monkeypatch.setattr(chat_route, "PrepAgent", lambda session, llm: _Agent())
+
+    class _Req:
+        calls = 0
+
+        async def is_disconnected(self) -> bool:
+            type(self).calls += 1
+            return type(self).calls >= 2
+
+    _Req.calls = 0
+    resp = await chat_route.prep_message_stream(
+        row.id,
+        PrepMessageRequest(content="hi"),
+        _Req(),
+        db,
+        db,
+        row.access_token,  # type: ignore[arg-type]
+    )
+    body = b""
+    async for chunk in resp.body_iterator:
+        body += chunk if isinstance(chunk, bytes) else str(chunk).encode()
+    assert "tok1" in body.decode()
+    # The producer was cancelled instead of being left running.
+    assert cancelled.is_set()
+    # The turn lock is free again: a later turn of the same session may run.
+    async with asyncio.timeout(1.0):
+        async with session_turn_lock(row.id):
+            pass
+
+
 class _UpstreamError(RuntimeError):
     """Provider-shaped error: optional HTTP status like httpx SDK exceptions."""
 
