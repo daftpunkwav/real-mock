@@ -100,3 +100,17 @@ def test_require_open_prep_session_checks_the_token_before_the_status(db) -> Non
     with pytest.raises(ApiBusinessError) as exc:
         require_open_prep_session(db, row.id, "not-the-token")
     assert exc.value.error_code == "A0401"
+
+
+def test_linking_an_unknown_target_uses_the_shared_session_rule(db) -> None:
+    """The linked target is loaded through the guard, not a second copy of it.
+
+    The unknown-session answer belongs to the guard; a second implementation
+    in the linking service would let the two drift apart.
+    """
+    from realmock.domains.prep.services.linking import apply_session_link
+
+    row = _session(db)
+    with pytest.raises(ApiBusinessError) as exc:
+        apply_session_link(row, db, 999999999)
+    assert exc.value.error_code == "A3001"

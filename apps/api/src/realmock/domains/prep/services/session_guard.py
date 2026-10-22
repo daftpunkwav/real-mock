@@ -28,7 +28,8 @@ from realmock.platform.core.errors import raise_error
 from realmock.platform.core.session_auth import assert_session_token
 
 #: Detail text for a capability-token mismatch on a prep session.
-PREP_FORBIDDEN_DETAIL = "Don't have access to this coaching session"
+#: Private to this module: the wording belongs to the guard, no caller reads it.
+_PREP_FORBIDDEN_DETAIL = "Don't have access to this coaching session"
 
 
 def load_prep_session(db: Session, session_id: int) -> PrepSession:
@@ -57,7 +58,7 @@ def require_owned_prep_session(
     allowed).
     """
     session = load_prep_session(db, session_id)
-    assert_session_token(session, access, detail=PREP_FORBIDDEN_DETAIL)
+    assert_session_token(session, access, detail=_PREP_FORBIDDEN_DETAIL)
     return session
 
 
@@ -88,7 +89,6 @@ def require_writable_prep_session(db: Session, session_id: int) -> PrepSession:
 
 
 __all__ = [
-    "PREP_FORBIDDEN_DETAIL",
     "load_prep_session",
     "require_open_prep_session",
     "require_owned_prep_session",

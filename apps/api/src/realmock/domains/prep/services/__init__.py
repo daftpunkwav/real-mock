@@ -32,7 +32,6 @@ from realmock.domains.prep.services.memories import (
     touch_memory,
 )
 from realmock.domains.prep.services.session_guard import (
-    PREP_FORBIDDEN_DETAIL,
     load_prep_session,
     require_open_prep_session,
     require_owned_prep_session,
@@ -46,7 +45,6 @@ from realmock.domains.prep.services.session_stats import (
 from realmock.domains.prep.services.turn_lock import session_turn_lock
 
 __all__ = [
-    "PREP_FORBIDDEN_DETAIL",
     "SESSION_SUMMARY_SNIPPET_MAX_CHARS",
     "compute_session_summary_and_count",
     "load_prep_session",
