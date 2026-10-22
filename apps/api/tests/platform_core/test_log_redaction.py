@@ -7,6 +7,11 @@ the client logs the full request URL at INFO, and that record reaches the
 application log. The redaction layer must therefore mask the query values of
 every URL it emits, and the parameter names must stay so the request remains
 diagnosable.
+
+The same layer must also mask a credential that is quoted inside a sentence:
+an upstream provider rejects a request with an error body that repeats the
+credential it refused ("Incorrect API key provided: sk-..."), and that text
+reaches the log as an argument or as the rendered exception.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ import httpx
 import pytest
 
 from realmock.platform.core.logging import RedactFilter, SafeFormatter
-from realmock.platform.core.security import redact_log_value
+from realmock.platform.core.security import redact_log_template, redact_log_value
 
 # The credential shape used by the Baidu ASR token request
 # (``platform/capabilities/voice/stt/providers/baidu.py``).
@@ -29,6 +34,9 @@ _TOKEN_URL = (
     "https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials"
     f"&client_id=PUBLIC_ID&client_secret={_SECRET}"
 )
+# A fake provider key: the shape an upstream error body quotes back when it
+# rejects the submitted credential.
+_EMBEDDED_KEY = "sk-fakefakefakefake0123456789"
 
 
 def _emit(record_factory: Callable[[], logging.LogRecord]) -> str:
@@ -70,6 +78,39 @@ class TestRedactLogValue:
     def test_empty_value_returns_empty(self) -> None:
         assert redact_log_value("") == ""
         assert redact_log_value(None) == ""
+
+    def test_credential_quoted_inside_a_sentence_is_masked(self) -> None:
+        """An upstream error body repeats the credential it refused.
+
+        The whole-value heuristic cannot see a key inside a sentence, so the
+        value is scanned token by token.
+        """
+        out = redact_log_value(f"Incorrect API key provided: {_EMBEDDED_KEY}")
+        assert _EMBEDDED_KEY not in out
+        assert "Incorrect API key provided" in out
+
+
+class TestRedactLogTemplate:
+    """A format template is a source literal: its text and its placeholders stay."""
+
+    def test_long_words_of_the_template_are_not_rewritten(self) -> None:
+        template = "record_round_finished failed sid=%s"
+        assert redact_log_template(template) == template
+
+    def test_placeholder_inside_a_url_survives(self) -> None:
+        """Masking the query must not delete the ``%s`` of the template.
+
+        A deleted placeholder leaves the argument count and the placeholder
+        count out of balance, and the logging machinery then drops the line.
+        """
+        assert redact_log_template("url=https://example.com/?a=%s") == (
+            "url=https://example.com/?a=%s"
+        )
+
+    def test_query_values_of_a_url_are_still_masked(self) -> None:
+        out = redact_log_template(f"url={_TOKEN_URL} failed")
+        assert _SECRET not in out
+        assert "client_secret=***" in out
 
 
 class TestLogPipeline:
@@ -127,6 +168,67 @@ class TestLogPipeline:
         line = _emit(make_record)
         assert _SECRET not in line
         assert "client_secret=***" in line
+
+    def test_credential_quoted_in_an_argument_is_masked(self) -> None:
+        """The upstream error body arrives as one argument and repeats the key."""
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.voice",
+                level=logging.ERROR,
+                pathname=__file__,
+                lineno=1,
+                msg="provider request failed: %s",
+                args=(f"Incorrect API key provided: {_EMBEDDED_KEY}",),
+                exc_info=None,
+            )
+
+        line = _emit(make_record)
+        assert _EMBEDDED_KEY not in line
+        assert "Incorrect API key provided" in line
+
+    def test_credential_quoted_in_the_exception_text_is_masked(self) -> None:
+        """The rendered exception text is a runtime value like any other."""
+        try:
+            raise RuntimeError(f"Incorrect API key provided: {_EMBEDDED_KEY}")
+        except RuntimeError:
+            exc_info = sys.exc_info()
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.core",
+                level=logging.ERROR,
+                pathname=__file__,
+                lineno=1,
+                msg="provider call failed",
+                args=(),
+                exc_info=exc_info,
+            )
+
+        line = _emit(make_record)
+        assert _EMBEDDED_KEY not in line
+
+    def test_a_template_keeps_its_placeholders_and_the_line_is_emitted(self) -> None:
+        """A URL in a template must not cost the line its placeholder.
+
+        The URL masking rewrites the query values; a ``%s`` among them has
+        to survive, otherwise the argument count and the placeholder count
+        diverge and the logging machinery drops the whole line.
+        """
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.core",
+                level=logging.ERROR,
+                pathname=__file__,
+                lineno=1,
+                msg="url=https://example.com/?a=%s",
+                args=("value",),
+                exc_info=None,
+            )
+
+        line = _emit(make_record)
+        assert "url=https://example.com/?a=value" in line
 
 
 class TestConfiguredPipeline:
