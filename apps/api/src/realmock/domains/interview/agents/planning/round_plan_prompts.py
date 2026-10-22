@@ -9,9 +9,12 @@ what each round IS (technical / HR / management), who interviews
 from __future__ import annotations
 
 import json
-from typing import Any
 
-from realmock.platform.schemas import CandidateProfile
+from realmock.domains.interview.agents.planning.candidate_context import (
+    HR_HIGHLIGHTS_MAX_CHARS,
+    candidate_profile_block,
+)
+from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
 ROUND_PLAN_JSON_CONTRACT = """{
   "note": "<one-line rationale, e.g. '3 rounds: junior backend, single tech deep-dive + HR fit'>",
@@ -59,7 +62,7 @@ def build_round_plan_user_message(
     level: str,
     company: str,
     round_budget: int,
-    profile: Any | None,
+    profile: UserProfileSnapshot | None,
     candidate: CandidateProfile | None,
     company_context: str,
 ) -> str:
@@ -72,15 +75,9 @@ def build_round_plan_user_message(
     if company_context:
         parts.append(f"## Target company\n{company_context[:1200]}")
 
-    if profile is not None:
-        parts.append(
-            "## Candidate profile\n"
-            f"Name: {getattr(profile, 'name', '') or '—'}\n"
-            f"Target role: {getattr(profile, 'target_role', '') or '—'}\n"
-            f"Experience: {getattr(profile, 'experience_years', '') or '—'} years\n"
-            f"Tech domains: {', '.join(getattr(profile, 'tech_domains_list', []) or []) or '—'}\n"
-            f"Highlights: {(getattr(profile, 'career_highlights', '') or '—')[:400]}"
-        )
+    profile_block = candidate_profile_block(profile, max_highlights_chars=HR_HIGHLIGHTS_MAX_CHARS)
+    if profile_block:
+        parts.append(profile_block)
 
     if candidate:
         projects = candidate.projects

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.domains.interview.workflows import (
@@ -14,7 +13,7 @@ from realmock.domains.interview.workflows import (
     Workflow,
 )
 from realmock.platform.core.prompts import with_agent_output_rules
-from realmock.platform.schemas import CandidateProfile
+from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
 
 def _language_rule(flow_language: str) -> str:
@@ -59,7 +58,7 @@ def needs_compact_candidate(current_phase: InterviewPhase) -> bool:
 
 
 def candidate_block(
-    profile: Any | None,
+    profile: UserProfileSnapshot | None,
     candidate: CandidateProfile | None,
     *,
     compact: bool,
@@ -69,56 +68,37 @@ def candidate_block(
         return compact_candidate_block(profile, candidate)
     block = ""
     if profile and (
-        profile.name
-        or profile.school
-        or profile.self_intro
-        or getattr(profile, "github_username", "")
+        profile.name or profile.school or profile.self_intro or profile.github_username
     ):
-        github_u = getattr(profile, "github_username", "") or ""
-        portfolio = getattr(profile, "portfolio_url", "") or ""
-        linkedin = getattr(profile, "linkedin_url", "") or ""
-        city = getattr(profile, "city", "") or ""
-        langs = getattr(profile, "preferred_languages", "") or ""
-        highlights = getattr(profile, "career_highlights", "") or ""
-        education_level = getattr(profile, "education_level", "") or ""
-        expected_city = getattr(profile, "expected_city", "") or ""
-        email = getattr(profile, "email", "") or ""
-        phone = getattr(profile, "phone", "") or ""
-        certificates = getattr(profile, "certificates", "") or ""
-        english_level = getattr(profile, "english_level", "") or ""
-        signature_projects = getattr(profile, "signature_projects", "") or ""
-        strengths = getattr(profile, "strengths", "") or ""
-        weaknesses = getattr(profile, "weaknesses", "") or ""
-        work_detail = getattr(profile, "work_years_detail", "") or ""
         block += f"""
 ## Candidate profile
 Name: {profile.name}
 Gender / identity: {profile.gender or "—"} / {profile.identity or "—"}
 School / major: {profile.school or "—"} / {profile.major or "—"}
-Education level: {education_level or "—"}
+Education level: {profile.education_level or "—"}
 Graduation year: {profile.graduation_year or "—"}
-City / preferred city: {city or "—"} / {expected_city or "—"}
-Email / phone or WeChat: {email or "—"} / {phone or "—"}
+City / preferred city: {profile.city or "—"} / {profile.expected_city or "—"}
+Email / phone or WeChat: {profile.email or "—"} / {profile.phone or "—"}
 Job direction: {profile.job_direction}
 Target role: {profile.target_role}
-Years of experience: {profile.experience_years}{f" ({work_detail})" if work_detail else ""}
+Years of experience: {profile.experience_years}{f" ({profile.work_years_detail})" if profile.work_years_detail else ""}
 Current company: {profile.current_company or "—"}
 Expected salary: {profile.expected_salary or "—"}
 Tech domains: {", ".join(profile.tech_domains_list)}
-English level: {english_level or "—"}
-Certificates: {certificates or "—"}
-GitHub: {github_u or "—"}
-Portfolio / blog: {portfolio or "—"}
-LinkedIn: {linkedin or "—"}
-Preferred languages: {langs or "—"}
-Signature projects: {signature_projects or "—"}
-Strengths / gaps: {strengths or "—"} / {weaknesses or "—"}
-Career highlights: {highlights}
+English level: {profile.english_level or "—"}
+Certificates: {profile.certificates or "—"}
+GitHub: {profile.github_username or "—"}
+Portfolio / blog: {profile.portfolio_url or "—"}
+LinkedIn: {profile.linkedin_url or "—"}
+Preferred languages: {profile.preferred_languages or "—"}
+Signature projects: {profile.signature_projects or "—"}
+Strengths / gaps: {profile.strengths or "—"} / {profile.weaknesses or "—"}
+Career highlights: {profile.career_highlights}
 Self introduction: {profile.self_intro}
 """
-        if github_u:
+        if profile.github_username:
             block += (
-                f"\nNote: the candidate listed GitHub username '{github_u}'; "
+                f"\nNote: the candidate listed GitHub username '{profile.github_username}'; "
                 "during project deep dive, use github_* tools to verify.\n"
             )
     if candidate:
@@ -133,29 +113,23 @@ Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)}
 
 
 def compact_candidate_block(
-    profile: Any | None,
+    profile: UserProfileSnapshot | None,
     candidate: CandidateProfile | None,
 ) -> str:
     """One-screen identity card for non-questioning phases (no resume dump)."""
     lines = ["## Candidate (compact: this phase asks no resume questions)"]
-    name = (getattr(profile, "name", "") or "") or (getattr(candidate, "name", "") or "—")
+    name = (profile.name if profile else "") or (candidate.name if candidate else "—")
     lines.append(f"Name: {name}")
     if profile is not None:
-        lines.append(f"Target role: {getattr(profile, 'target_role', '') or '—'}")
-        lines.append(f"School: {getattr(profile, 'school', '') or '—'}")
-        github_u = getattr(profile, "github_username", "") or ""
-        if github_u:
-            lines.append(f"GitHub: {github_u}")
+        lines.append(f"Target role: {profile.target_role or '—'}")
+        lines.append(f"School: {profile.school or '—'}")
+        if profile.github_username:
+            lines.append(f"GitHub: {profile.github_username}")
     if candidate is not None:
-        skills = list(getattr(candidate, "skills", []) or [])[:20]
+        skills = list(candidate.skills)[:20]
         if skills:
             lines.append(f"Skills: {', '.join(skills)}")
-        projects = getattr(candidate, "projects", []) or []
-        names = [
-            str(p.get("name") or p.get("title") or "").strip()
-            for p in projects[:8]
-            if isinstance(p, dict)
-        ]
+        names = [str(p.get("name") or p.get("title") or "").strip() for p in candidate.projects[:8]]
         names = [n for n in names if n]
         if names:
             lines.append(f"Projects: {'; '.join(names)}")
@@ -180,7 +154,7 @@ def build_system_prompt(
     company_context: str,
     workflow: Workflow,
     current_phase: InterviewPhase,
-    profile: Any | None = None,
+    profile: UserProfileSnapshot | None = None,
     followup_probe: str | None = None,
     allow_plan_ops: bool = False,
     flow_language: str = "zh",

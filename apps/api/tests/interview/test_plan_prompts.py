@@ -27,14 +27,14 @@ def _clean_limits():
 def test_plan_user_message_all_branches() -> None:
     from realmock.domains.interview.agents.planning import plan_prompts as mod
     from realmock.domains.interview.schemas import InterviewConfig
-    from realmock.platform.schemas import CandidateProfile
+    from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
     cfg = InterviewConfig(role="BE", level="S", company="Acme")
-    profile = SimpleNamespace(
+    profile = UserProfileSnapshot(
         preferred_languages="English",
         name="Ada",
         target_role="BE",
-        experience_years=3,
+        experience_years="3",
         tech_domains_list=["Python"],
         career_highlights="built cache",
     )

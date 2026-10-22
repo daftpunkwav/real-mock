@@ -1,4 +1,13 @@
-"""Candidate Profile and Resume Selector Contract."""
+"""Read models of the candidate profile, the resume, and the user profile.
+
+- ``CompanyInfo`` — one entry of the shared company catalog;
+- ``CandidateProfile`` — the parsed resume payload the interview Agent
+  grounds on;
+- ``ResumePickerItem`` — the read-only resume summary the setup pages list;
+- ``UserProfileSnapshot`` — the read-only projection of one stored user
+  profile row, the shape the agent domains receive from
+  ``platform.services.candidate_read``.
+"""
 
 from __future__ import annotations
 
