@@ -6,12 +6,10 @@ from pydantic import BaseModel
 
 
 class HealthResponse(BaseModel):
-    """Payload of the ``GET /health`` probe.
-
-    Declared as a model so the OpenAPI contract states the shape instead of
-    leaving it as an untyped object.
-    """
-
+    # Payload of the ``GET /health`` probe: the liveness answer of the service.
+    # Documented as comments on purpose: a docstring would be published as the
+    # schema description, and the contract must state the payload, not how the
+    # backend declares it.
     status: str
     service: str
     version: str

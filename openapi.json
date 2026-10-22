@@ -10204,8 +10204,7 @@
           "service",
           "version"
         ],
-        "title": "HealthResponse",
-        "description": "Payload of the ``GET /health`` probe.\n\nDeclared as a model so the OpenAPI contract states the shape instead of\nleaving it as an untyped object."
+        "title": "HealthResponse"
       },
       "InterviewConfig": {
         "properties": {
@@ -11653,7 +11652,7 @@
           "deleted"
         ],
         "title": "PrepDeletedResponse",
-        "description": "Delete / purge / batch-delete result (rows removed)."
+        "description": "Delete result: the removed row id for a single-row delete, the number of removed rows for a purge / batch delete."
       },
       "PrepForkRequest": {
         "properties": {

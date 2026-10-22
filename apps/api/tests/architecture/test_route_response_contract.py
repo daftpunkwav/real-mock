@@ -113,3 +113,29 @@ def test_records_ledger_stays_untyped() -> None:
     """The ledger keeps its deliberate lenient contract (see the guard allowlist)."""
     content = _response("get", "/api/v1/records/sessions/{session_id}/ledger").get("content") or {}
     assert content["application/json"]["schema"] == {}
+
+
+def test_health_schema_publishes_no_declaration_rationale() -> None:
+    """A published description states the payload, not how the schema was declared."""
+    description = (
+        _spec()["components"]["schemas"]["HealthResponse"].get("description") or ""
+    ).lower()
+    for marker in ("openapi", "untyped", "declared as a model"):
+        assert marker not in description, (
+            f"HealthResponse publishes implementation rationale ({marker!r}): {description!r}"
+        )
+
+
+def test_delete_result_description_covers_both_returned_shapes() -> None:
+    """``PrepDeletedResponse`` is published by single-row deletes (the row id) and bulk deletes (a row count)."""
+    description = (
+        _spec()["components"]["schemas"]["PrepDeletedResponse"].get("description") or ""
+    ).lower()
+    assert "id" in description, (
+        "PrepDeletedResponse is published by routes that answer with the removed row's id; "
+        f"its description must say so: {description!r}"
+    )
+    assert "number of" in description or "count" in description, (
+        "PrepDeletedResponse is published by purge / batch routes that answer with a row count; "
+        f"its description must say so: {description!r}"
+    )

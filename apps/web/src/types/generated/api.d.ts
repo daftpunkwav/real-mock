@@ -4011,13 +4011,7 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /**
-         * HealthResponse
-         * @description Payload of the ``GET /health`` probe.
-         *
-         *     Declared as a model so the OpenAPI contract states the shape instead of
-         *     leaving it as an untyped object.
-         */
+        /** HealthResponse */
         HealthResponse: {
             /** Status */
             status: string;
@@ -4667,7 +4661,7 @@ export interface components {
         };
         /**
          * PrepDeletedResponse
-         * @description Delete / purge / batch-delete result (rows removed).
+         * @description Delete result: the removed row id for a single-row delete, the number of removed rows for a purge / batch delete.
          */
         PrepDeletedResponse: {
             /** Deleted */
