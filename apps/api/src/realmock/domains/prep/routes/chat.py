@@ -71,12 +71,12 @@ _SSE_ERR_GENERIC = "Coaching response failed, please try again later"
 # Verbatim provider text is length-capped like other model-facing observations.
 _SSE_DETAIL_MAX_CHARS = 400
 # Keep-alive interval for the coaching stream. A turn can sit silent for
-# minutes while the provider generates (one LLM call is budgeted at up to
-# 300 s, and the shared retry ladder adds more), so the stream must prove
-# liveness on its own: the browser client aborts a coaching stream after
-# 120 s without a byte and would otherwise drop a turn that is merely slow.
-# 15 s matches the resume deep-review stream and stays far below that
-# client-side budget.
+# minutes while the provider generates (the tool-loop turn is budgeted at
+# 600 s, and one streaming round waits up to 180 s for the provider; the
+# shared retry ladder adds more), so the stream must prove liveness on its
+# own: the browser client aborts a coaching stream after 120 s without a
+# byte and would otherwise drop a turn that is merely slow. 15 s matches
+# the resume deep-review stream and stays far below that client-side budget.
 _SSE_HEARTBEAT_SECONDS = 15.0
 
 
