@@ -98,7 +98,10 @@ function compareVersions(a, b) {
 
 const violations = [...found]
   .filter((name) => banned[name] !== undefined)
-  .sort();
+  // Package names, so the alphabetical order is the intended one; the
+  // comparator is spelled out so no sort in this file relies on the default
+  // order of the runtime.
+  .sort((a, b) => a.localeCompare(b));
 
 const aliasViolations = aliases
   .map((alias) => ({ ...alias, real: alias.target.match(/^npm:(.+)@[^@]+$/)?.[1] ?? alias.target.slice(4) }))
