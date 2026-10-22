@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * MarkdownContent must not re-parse an unchanged message when its parent
- * re-renders: the prep chat re-renders the whole message list on every
- * streamed-token flush, and re-parsing every settled message's markdown each
+ * re-renders: the prep chat re-renders its message list on every
+ * streamed-token flush, and re-parsing each settled bubble's markdown every
  * time burns the main thread for the whole reply.
  */
 
@@ -24,6 +24,9 @@ vi.mock("rehype-sanitize", async (importOriginal) => {
   };
 });
 
+// The fenced-code chrome renders i18n labels; the test only needs the markup.
+vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
+
 import { MarkdownContent } from "../MarkdownContent";
 
 afterEach(() => {
@@ -39,6 +42,17 @@ function Host({ tick }: { tick: number }) {
     </div>
   );
 }
+
+/** A reply whose fence never closes: code while streaming, prose once settled. */
+const UNCLOSED_FENCE = [
+  "Intro paragraph.",
+  "",
+  "```",
+  "## Heading",
+  "",
+  "- item one",
+  "- item two",
+].join("\n");
 
 describe("MarkdownContent", () => {
   it("does not re-parse the markdown when the parent re-renders", () => {
@@ -59,5 +73,19 @@ describe("MarkdownContent", () => {
 
     rerender(<MarkdownContent content="second" />);
     expect(pipelineRuns).toBeGreaterThan(afterFirstRender);
+  });
+
+  it("re-parses when the final flag flips, so the memo cannot swallow it", () => {
+    const { container, rerender } = render(
+      <MarkdownContent content={UNCLOSED_FENCE} final={false} />,
+    );
+    const afterFirstRender = pipelineRuns;
+    // Streaming: the unclosed fence is a partial, so the tail stays code.
+    expect(container.querySelector("h2")).toBeNull();
+
+    rerender(<MarkdownContent content={UNCLOSED_FENCE} final={true} />);
+    expect(pipelineRuns).toBeGreaterThan(afterFirstRender);
+    // Settled: the fence is repaired, so the tail renders as prose again.
+    expect(container.querySelector("h2")?.textContent).toBe("Heading");
   });
 });

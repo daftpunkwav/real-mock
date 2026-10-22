@@ -69,6 +69,17 @@ describe("usePrepDeepLink", () => {
     expect(window.location.search).toBe("");
   });
 
+  it("seeds the question verbatim, including newlines and reserved characters", async () => {
+    // The resume feature seeds a templated question; the hand-off must not
+    // mangle the newlines or the characters that split a query string.
+    const question = "第一问:如何设计 RAG?\n\n补充:a & b #c";
+    pushLink(7, question);
+    renderHook(() => usePrepDeepLink(baseOpts()));
+    await waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith(question, 42, false, { assumeViewing: true }),
+    );
+  });
+
   it("falls back to the current pairing when the resume id is unknown", async () => {
     pushLink(999, "drill me");
     renderHook(() => usePrepDeepLink(baseOpts()));
