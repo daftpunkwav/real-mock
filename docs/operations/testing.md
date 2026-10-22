@@ -49,6 +49,8 @@ pytest lives in the `dev` extra of `apps/api/pyproject.toml` (`[project.optional
 | `test_platform_no_domain_imports.py` | The platform layer must not import business domains or composition-root bootstrap code (AST guard) |
 | `test_domains_no_cross_imports.py` | Domain packages must not import sibling domain packages (AST guard) |
 | `test_db_boundary_imports.py` | With dual databases, the interview/prep/growth domains must not directly import shared-table ORM models |
+| `test_profile_tool_field_contract.py` | The profile agent tool may only expose fields the declared profile read model carries |
+| `test_ledger_document_contract.py` | The interview ledger writer and the records readers share one declaration of the ledger document shape |
 | `test_interview_layering.py` | AST guards for the interview domain layering (`agents` subpackages per LLM role) |
 | `test_bootstrap_session_domains.py` | Bootstrap domain registration: isolated processes must not load unrelated business ORMs |
 | `test_api_v1_paths.py` | Both `/api/v1` and `/api` compatibility aliases resolve (`/api/v1/options` and `/api/options`) |

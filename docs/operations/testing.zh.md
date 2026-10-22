@@ -49,6 +49,8 @@ pytest 位于 `apps/api/pyproject.toml` 的 `dev` extra（`[project.optional-dep
 | `test_platform_no_domain_imports.py` | platform 层不得导入业务域或组合根 bootstrap 代码（AST 守卫） |
 | `test_domains_no_cross_imports.py` | 域包不得导入兄弟域包（AST 守卫） |
 | `test_db_boundary_imports.py` | 双库之下，interview/prep/growth 域不得直接导入共享表 ORM 模型 |
+| `test_profile_tool_field_contract.py` | 画像 Agent 工具只允许暴露已声明画像读模型上存在的字段 |
+| `test_ledger_document_contract.py` | interview 账本写入方与 records 读取方共用同一份账本文档结构声明 |
 | `test_interview_layering.py` | interview 域分层的 AST 守卫（`agents` 按 LLM 角色分子包） |
 | `test_bootstrap_session_domains.py` | Bootstrap 域注册：隔离进程不得加载无关业务 ORM |
 | `test_api_v1_paths.py` | `/api/v1` 与 `/api` 兼容别名均可用（`/api/v1/options` 与 `/api/options`） |
