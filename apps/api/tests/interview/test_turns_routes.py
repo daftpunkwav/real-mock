@@ -85,7 +85,7 @@ async def test_turns_start_missing_llm_key() -> None:
     db = _turn_db(_turn_session(status="pending"))
     with (
         patch.object(mod, "assert_session_token", return_value=None),
-        patch.object(mod, "session_llm", return_value=SimpleNamespace(api_key="")),
+        patch.object(mod, "api_session_llm", return_value=SimpleNamespace(api_key="")),
     ):
         with pytest.raises(ApiBusinessError) as exc:
             await mod.start_interview(1, db=db, access="tok")
@@ -119,6 +119,7 @@ async def test_turns_start_resolves_the_chat_model_from_the_api_database() -> No
     configuration tables, so resolving the model through the sessions session
     raises "no such table: model_profiles" and the turn never runs.
     """
+    from realmock.domains.interview.agents import session_overrides
     from realmock.domains.interview.routes import turns as mod
     from realmock.platform.core.errors import ApiBusinessError
 
@@ -130,7 +131,7 @@ async def test_turns_start_resolves_the_chat_model_from_the_api_database() -> No
 
     with (
         patch.object(mod, "assert_session_token", return_value=None),
-        patch.object(mod, "session_llm", side_effect=_record),
+        patch.object(session_overrides, "session_llm", side_effect=_record),
     ):
         with pytest.raises(ApiBusinessError) as exc:
             await mod.start_interview(1, db=_turn_db(_turn_session(status="pending")), access="tok")
@@ -145,6 +146,7 @@ async def test_turns_message_resolves_the_chat_model_from_the_api_database() -> 
     Same boundary as the opening turn: the session row lives in the sessions
     database, the chat configuration in the api database.
     """
+    from realmock.domains.interview.agents import session_overrides
     from realmock.domains.interview.routes import turns as mod
     from realmock.domains.interview.schemas import InterviewMessageRequest
     from realmock.platform.core.errors import ApiBusinessError
@@ -157,7 +159,7 @@ async def test_turns_message_resolves_the_chat_model_from_the_api_database() -> 
 
     with (
         patch.object(mod, "assert_session_token", return_value=None),
-        patch.object(mod, "session_llm", side_effect=_record),
+        patch.object(session_overrides, "session_llm", side_effect=_record),
     ):
         with pytest.raises(ApiBusinessError) as exc:
             await mod.send_message(

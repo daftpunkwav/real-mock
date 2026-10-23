@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.agents import session_llm
+from realmock.domains.interview.agents import api_session_llm
 from realmock.domains.interview.agents.planning.plan_prompts import (
     build_plan_user_message,
     planner_system_prompt,
@@ -165,8 +165,7 @@ async def generate_plan_for_session(session_id: int) -> None:
             # The chat configuration lives in the api database; the session row
             # lives in the sessions database. Resolving the model through the
             # sessions session cannot read the configuration tables at all.
-            with api_db_session() as api_db:
-                llm = session_llm(api_db, session)
+            llm = api_session_llm(session)
             if not llm.api_key:
                 session.plan_status = PLAN_STATUS_FAILED
                 db.commit()

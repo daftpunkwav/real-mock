@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+from realmock.platform.database import api_db_session
+
 if TYPE_CHECKING:
     from realmock.platform.capabilities.ai.llm.client import LLMClient
     from realmock.platform.capabilities.voice.stt.base import SttCredentials
@@ -57,6 +59,26 @@ def session_llm(db: Session, session: Any) -> "LLMClient":
         profile_id=overrides.get("chat_profile_id"),
         reasoning_effort=overrides.get("reasoning_effort"),
     )
+
+
+def api_session_llm(session: Any) -> "LLMClient":
+    """Build the reasoning-chat LLM client for a session from the api database.
+
+    The chat configuration lives in the api database and the session row lives
+    in the sessions database, so the model cannot be resolved through a
+    sessions-database session at all. Callers that hold a sessions session
+    use this helper instead of passing their own session to
+    :func:`session_llm`.
+
+    Args:
+        session: Interview session row carrying ``ai_overrides``.
+
+    Returns:
+        Client honoring ``chat_profile_id`` / ``reasoning_effort`` overrides,
+        else the default chat binding.
+    """
+    with api_db_session() as api_db:
+        return session_llm(api_db, session)
 
 
 def session_stt_credentials(db: Session, session: Any) -> "SttCredentials":

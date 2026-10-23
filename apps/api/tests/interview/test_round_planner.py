@@ -220,7 +220,7 @@ def test_generate_round_plan_success_marks_ready(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
     db.expire_all()
@@ -250,7 +250,7 @@ def test_generate_round_plan_prompt_carries_resume_grounding(db, monkeypatch):
             sent.append(messages)
             return _payload(_round("tech_1"))
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "get_user_profile", lambda db, pid: None)
     monkeypatch.setattr(
         round_planner_mod,
@@ -277,7 +277,7 @@ def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: ExplodingLLM())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: ExplodingLLM())
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
     db.expire_all()
@@ -308,7 +308,7 @@ def test_generate_round_plan_custom_company_researches(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context_cached", fake_research)
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
@@ -333,7 +333,7 @@ def test_generate_round_plan_catalog_company_skips_research(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context_cached", fail_research)
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
@@ -358,7 +358,7 @@ def test_generate_round_plan_research_failure_still_plans(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context_cached", failed_research)
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 

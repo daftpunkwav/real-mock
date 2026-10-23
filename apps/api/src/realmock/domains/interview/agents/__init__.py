@@ -47,6 +47,7 @@ from typing import Any
 _LAZY_EXPORTS: dict[str, str] = {
     "InterviewRunner": ".interviewer.runner",
     "InterviewSessionState": ".session_state",
+    "api_session_llm": ".session_overrides",
     "clear_company_briefs": ".research.company_brief",
     "generate_full_reference_hint": ".hint.hint_answer",
     "generate_plan_for_session": ".planning.planner",
@@ -65,6 +66,7 @@ _LAZY_EXPORTS: dict[str, str] = {
 __all__ = [
     "InterviewRunner",
     "InterviewSessionState",
+    "api_session_llm",
     "clear_company_briefs",
     "generate_full_reference_hint",
     "generate_plan_for_session",

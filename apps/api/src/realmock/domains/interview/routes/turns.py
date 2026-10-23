@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.agents import (
     InterviewRunner,
     InterviewSessionState,
+    api_session_llm,
     run_finish_lifecycle,
-    session_llm,
 )
 from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.models import InterviewSession
@@ -33,7 +33,7 @@ from realmock.domains.interview.schemas import (
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
 from realmock.platform.core.session_auth import assert_session_token, extract_token
-from realmock.platform.database import api_db_session, get_sessions_db
+from realmock.platform.database import get_sessions_db
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +88,7 @@ async def start_interview(
     # The chat configuration lives in the api database; the session row lives
     # in the sessions database. Resolving the model through the sessions
     # session cannot read the configuration tables at all.
-    with api_db_session() as api_db:
-        llm = session_llm(api_db, session)
+    llm = api_session_llm(session)
     if not llm.api_key:
         raise_error("A0006")
 
@@ -127,8 +126,7 @@ async def send_message(
     # The chat configuration lives in the api database; the session row lives
     # in the sessions database. Resolving the model through the sessions
     # session cannot read the configuration tables at all.
-    with api_db_session() as api_db:
-        llm = session_llm(api_db, session)
+    llm = api_session_llm(session)
     if not llm.api_key:
         raise_error("A0006")
 

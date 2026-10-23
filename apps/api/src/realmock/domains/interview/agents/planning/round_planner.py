@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any
 
-from realmock.domains.interview.agents import session_llm
+from realmock.domains.interview.agents import api_session_llm
 from realmock.domains.interview.agents.planning.round_plan_prompts import (
     build_round_plan_user_message,
     hr_planner_system_prompt,
@@ -78,8 +78,7 @@ async def generate_round_plan_for_process(process_id: int) -> None:
             # The chat configuration lives in the api database; the process row
             # lives in the sessions database. Resolving the model through the
             # sessions session cannot read the configuration tables at all.
-            with api_db_session() as api_db:
-                llm = session_llm(api_db, first)
+            llm = api_session_llm(first)
             if not llm.api_key:
                 process.round_plan_status = ROUND_PLAN_STATUS_FAILED
                 db.commit()
