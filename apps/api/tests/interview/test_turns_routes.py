@@ -50,6 +50,13 @@ def _turn_db(session_row=None):
     return db
 
 
+def _db_file(db) -> str:
+    """The database file a session is bound to."""
+    bind = db.get_bind()
+    url = getattr(bind, "url", None)
+    return str(getattr(url, "database", "") or "")
+
+
 @pytest.mark.asyncio
 async def test_turns_start_missing_and_bad_status() -> None:
     """A missing session is A2001 and a finished one is A2002.
@@ -102,3 +109,62 @@ async def test_turns_finish_missing_and_lifecycle_failure() -> None:
         with pytest.raises(RuntimeError) as exc2:
             await mod.finish_interview(1, db=db, access="tok")
     assert "freeze down" in str(exc2.value)
+
+
+@pytest.mark.asyncio
+async def test_turns_start_resolves_the_chat_model_from_the_api_database() -> None:
+    """The chat configuration lives in the api database.
+
+    The sessions database carries the session rows and none of the model
+    configuration tables, so resolving the model through the sessions session
+    raises "no such table: model_profiles" and the turn never runs.
+    """
+    from realmock.domains.interview.routes import turns as mod
+    from realmock.platform.core.errors import ApiBusinessError
+
+    resolved: list[str] = []
+
+    def _record(db, session):
+        resolved.append(_db_file(db))
+        return SimpleNamespace(api_key="")
+
+    with (
+        patch.object(mod, "assert_session_token", return_value=None),
+        patch.object(mod, "session_llm", side_effect=_record),
+    ):
+        with pytest.raises(ApiBusinessError) as exc:
+            await mod.start_interview(1, db=_turn_db(_turn_session(status="pending")), access="tok")
+    assert exc.value.error_code == "A0006"
+    assert resolved and resolved[0].endswith("api.db"), resolved
+
+
+@pytest.mark.asyncio
+async def test_turns_message_resolves_the_chat_model_from_the_api_database() -> None:
+    """The candidate turn resolves the chat model from the api database too.
+
+    Same boundary as the opening turn: the session row lives in the sessions
+    database, the chat configuration in the api database.
+    """
+    from realmock.domains.interview.routes import turns as mod
+    from realmock.domains.interview.schemas import InterviewMessageRequest
+    from realmock.platform.core.errors import ApiBusinessError
+
+    resolved: list[str] = []
+
+    def _record(db, session):
+        resolved.append(_db_file(db))
+        return SimpleNamespace(api_key="")
+
+    with (
+        patch.object(mod, "assert_session_token", return_value=None),
+        patch.object(mod, "session_llm", side_effect=_record),
+    ):
+        with pytest.raises(ApiBusinessError) as exc:
+            await mod.send_message(
+                1,
+                InterviewMessageRequest(content="请介绍一下你的项目"),
+                db=_turn_db(_turn_session(status="active")),
+                access="tok",
+            )
+    assert exc.value.error_code == "A0006"
+    assert resolved and resolved[0].endswith("api.db"), resolved

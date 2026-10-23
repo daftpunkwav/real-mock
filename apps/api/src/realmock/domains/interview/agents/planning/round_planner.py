@@ -75,7 +75,11 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 process.round_plan_status = ROUND_PLAN_STATUS_FAILED
                 db.commit()
                 return
-            llm = session_llm(db, first)
+            # The chat configuration lives in the api database; the process row
+            # lives in the sessions database. Resolving the model through the
+            # sessions session cannot read the configuration tables at all.
+            with api_db_session() as api_db:
+                llm = session_llm(api_db, first)
             if not llm.api_key:
                 process.round_plan_status = ROUND_PLAN_STATUS_FAILED
                 db.commit()

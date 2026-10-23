@@ -115,6 +115,43 @@ def test_config_shim_defaults() -> None:
     assert shim.interview_style == "deep_dive"
 
 
+@pytest.mark.asyncio
+async def test_generate_plan_resolves_the_chat_model_from_the_api_database(monkeypatch) -> None:
+    """The chat configuration lives in the api database.
+
+    The sessions database carries the session rows and none of the model
+    configuration tables, so resolving the model through the sessions session
+    raises "no such table: model_profiles" and the plan is never written.
+    """
+    api_marker = object()
+    resolved: list[object] = []
+
+    class _Db:
+        def get(self, *a, **k):
+            return SimpleNamespace(plan_status="", plan=None)
+
+        def commit(self):
+            pass
+
+    @contextmanager
+    def fake_sessions():
+        yield _Db()
+
+    @contextmanager
+    def fake_api():
+        yield api_marker
+
+    def _record(db, session):
+        resolved.append(db)
+        return SimpleNamespace(api_key="")
+
+    monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
+    monkeypatch.setattr(pl, "api_db_session", fake_api)
+    monkeypatch.setattr(pl, "session_llm", _record)
+    await pl.generate_plan_for_session(1)
+    assert resolved == [api_marker]
+
+
 def test_dump_and_fallback_plan() -> None:
     from realmock.domains.interview.workflows import get_workflow
 

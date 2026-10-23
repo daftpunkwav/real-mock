@@ -41,3 +41,8 @@ and `process/` read — move shared code there instead of adding an edge.
 - The phase/workflow SSOT is `workflows.py`, locked against the frontend
   `src/config/phases.ts` by `tests/interview/test_phase_ssot.py`.
 - The session ledger (`ledger/`) is written only by this domain.
+- The chat configuration (`model_profiles` / `llm_providers` /
+  `stage_configs` / `task_bindings`) lives in the api database, while the
+  interview rows live in the sessions database. Resolve the model through the
+  api database — a sessions-database session cannot read those tables at all
+  (`tests/platform_core/test_db_split.py` pins the split).

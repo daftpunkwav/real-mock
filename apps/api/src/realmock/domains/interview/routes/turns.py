@@ -33,7 +33,7 @@ from realmock.domains.interview.schemas import (
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
 from realmock.platform.core.session_auth import assert_session_token, extract_token
-from realmock.platform.database import get_sessions_db
+from realmock.platform.database import api_db_session, get_sessions_db
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,11 @@ async def start_interview(
     if session.status not in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
         raise_error("A2002")
 
-    llm = session_llm(db, session)
+    # The chat configuration lives in the api database; the session row lives
+    # in the sessions database. Resolving the model through the sessions
+    # session cannot read the configuration tables at all.
+    with api_db_session() as api_db:
+        llm = session_llm(api_db, session)
     if not llm.api_key:
         raise_error("A0006")
 
@@ -120,7 +124,11 @@ async def send_message(
     if session.status == SessionStatus.COMPLETED.value:
         raise_error("A2002")
 
-    llm = session_llm(db, session)
+    # The chat configuration lives in the api database; the session row lives
+    # in the sessions database. Resolving the model through the sessions
+    # session cannot read the configuration tables at all.
+    with api_db_session() as api_db:
+        llm = session_llm(api_db, session)
     if not llm.api_key:
         raise_error("A0006")
 

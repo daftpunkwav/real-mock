@@ -162,7 +162,11 @@ async def generate_plan_for_session(session_id: int) -> None:
             session = db.get(InterviewSession, session_id)
             if session is None or getattr(session, "plan_status", "") == PLAN_STATUS_READY:
                 return
-            llm = session_llm(db, session)
+            # The chat configuration lives in the api database; the session row
+            # lives in the sessions database. Resolving the model through the
+            # sessions session cannot read the configuration tables at all.
+            with api_db_session() as api_db:
+                llm = session_llm(api_db, session)
             if not llm.api_key:
                 session.plan_status = PLAN_STATUS_FAILED
                 db.commit()

@@ -6,6 +6,8 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -196,3 +198,40 @@ async def test_generate_round_plan_invalid_payload_marks_failed(db, monkeypatch)
     await rp.generate_round_plan_for_process(proc.id)
     db.expire_all()
     assert db.get(InterviewProcess, proc.id).round_plan_status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_generate_round_plan_resolves_the_chat_model_from_the_api_database(
+    db, monkeypatch
+) -> None:
+    """The chat configuration lives in the api database.
+
+    The sessions database carries the process rows and none of the model
+    configuration tables, so resolving the model through the sessions session
+    raises "no such table: model_profiles" and the round program is never
+    written.
+    """
+    from realmock.domains.interview.agents.planning import round_planner as rp
+    from realmock.domains.interview.process.process_service import (
+        create_process_with_first_round,
+    )
+    from realmock.domains.interview.schemas.process import ProcessCreateRequest
+
+    proc, _ = create_process_with_first_round(
+        db, ProcessCreateRequest(role="r", level="l", company="c", max_rounds=2)
+    )
+    api_marker = object()
+    resolved: list[object] = []
+
+    @contextmanager
+    def fake_api():
+        yield api_marker
+
+    def _record(db_, session):
+        resolved.append(db_)
+        return SimpleNamespace(api_key="")
+
+    monkeypatch.setattr(rp, "api_db_session", fake_api)
+    monkeypatch.setattr(rp, "session_llm", _record)
+    await rp.generate_round_plan_for_process(proc.id)
+    assert resolved == [api_marker]
