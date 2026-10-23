@@ -117,15 +117,17 @@ def _project_turn(turn: LedgerTurn) -> dict[str, Any]:
     }
 
 
-def _next_offset(offset: int, returned: int, total: int, *, explicit: bool) -> int | None:
+def _next_offset(offset: int, returned: int, total: int) -> int | None:
     """Offset cursor for the next page (None at the end of the transcript).
 
-    Offset paging resumes where the current page stopped. An explicit
-    ``turn_ids`` request has no cursor of its own, so the offset cursor stays
-    the paging hint the model can fall back to.
+    The cursor points at the first entry that did not fit, so a trimmed page
+    never skips the entries the model has not seen yet. The count of the
+    delivered entries is the only length that matters: a page that was trimmed
+    delivered fewer entries than the window holds, and a cursor built from the
+    window would step over the rest of the page.
     """
-    consumed = _PAGE_TURNS if explicit else returned
-    return offset + consumed if offset + consumed < total else None
+    consumed = offset + returned
+    return consumed if consumed < total else None
 
 
 def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, Any]]) -> str:
@@ -208,18 +210,21 @@ def ledger_tool_specs(
         if explicit_ids is not None:
             want = {str(t) for t in explicit_ids[: _PAGE_TURNS * 2]}
             candidates = [t for t in scoped if str(t.get("turn_id")) in want]
+            # The offset counts within the requested turns, so a page that was
+            # trimmed can be continued at the first turn that did not fit.
+            total = len(candidates)
+            candidates = candidates[offset:]
         else:
             candidates = scoped[offset : offset + _PAGE_TURNS]
+            total = len(scoped)
         projected = [_project_turn(t) for t in candidates]
         return _fit_page(
             projected,
             lambda page: {
                 "offset": offset,
                 "returned": len(page),
-                "total_turns": len(scoped),
-                "next_offset": _next_offset(
-                    offset, len(page), len(scoped), explicit=explicit_ids is not None
-                ),
+                "total_turns": total,
+                "next_offset": _next_offset(offset, len(page), total),
                 "turns": page,
             },
         )
@@ -251,7 +256,8 @@ def ledger_tool_specs(
             description=(
                 "Read transcript turns by page (offset-based) or by explicit turn_ids; "
                 "each turn carries the interviewer question, the candidate answer, and tool previews. "
-                "A page can come back shorter than requested (truncated): keep reading from next_offset."
+                "A page can come back shorter than requested (truncated): keep reading from next_offset "
+                "(pass the same turn_ids again when you asked for specific ones)."
             ),
             parameters={
                 "type": "object",

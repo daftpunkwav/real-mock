@@ -120,6 +120,38 @@ async def test_read_turns_tolerates_a_tool_preview_without_a_result() -> None:
 
 
 @pytest.mark.asyncio
+async def test_read_turns_explicit_ids_continue_at_the_first_turn_that_did_not_fit() -> None:
+    """A trimmed explicit page must not skip the turns it did not deliver.
+
+    The stage-one note agent asks for the turns of its batch by id. When the
+    page is trimmed, the cursor used to step over the delivered window and
+    the model never saw the turns in between - the batch was analysed without
+    the evidence of those turns.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(12))}
+    asked = [f"t-{i:04d}" for i in range(1, 13)]
+
+    first = json.loads(await specs["ledger_read_turns"].handler({"turn_ids": asked}))
+    assert first["truncated"] is True
+    # The cursor points at the first turn that did not fit, not past the window.
+    assert first["next_offset"] == first["returned"]
+    assert first["next_offset"] < len(asked)
+
+    second = json.loads(
+        await specs["ledger_read_turns"].handler(
+            {"turn_ids": asked, "offset": first["next_offset"]}
+        )
+    )
+    delivered = [turn["turn_id"] for turn in first["turns"]] + [
+        turn["turn_id"] for turn in second["turns"]
+    ]
+    assert delivered == asked[: len(delivered)]
+    assert len(set(delivered)) == len(delivered)
+
+
+@pytest.mark.asyncio
 async def test_read_turns_page_stays_valid_json() -> None:
     """A full page of long turns must be trimmed, not sliced into invalid JSON."""
     from realmock.domains.records.agents.report import ledger_tools as mod
