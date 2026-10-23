@@ -13,7 +13,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 export interface SelectOption<T extends string | number> {
   value: T;

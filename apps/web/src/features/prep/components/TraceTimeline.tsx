@@ -17,7 +17,7 @@
 import { memo, useMemo, useRef, useState } from "react";
 import { Brain, ChevronRight, Shrink, Wrench } from "lucide-react";
 import { useT, type MessageKey } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import type { PrepTraceItem } from "../types";
 
 /** Tool name to label key; falls back to the raw name. */

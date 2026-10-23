@@ -29,13 +29,13 @@ async def test_claim_kicks_old_connection() -> None:
 
     assert old._superseded is True
     assert new._superseded is False
-    assert ws_mod.active_handlers_for_tests()[7] is new
+    assert ws_mod.active_connections_for_tests()[7] is new
     old.ws.close.assert_awaited()
 
     await ws_mod.release_session_connection(old)
-    assert ws_mod.active_handlers_for_tests()[7] is new
+    assert ws_mod.active_connections_for_tests()[7] is new
     await ws_mod.release_session_connection(new)
-    assert 7 not in ws_mod.active_handlers_for_tests()
+    assert 7 not in ws_mod.active_connections_for_tests()
 
 
 @pytest.mark.asyncio

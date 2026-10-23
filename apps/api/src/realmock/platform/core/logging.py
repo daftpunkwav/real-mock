@@ -4,9 +4,20 @@
 - :class:`RedactFilter`: automatically replaces API Keys / Authorization headers in logs;
 - :func:`configure_logging`: installs logging once during FastAPI lifespan startup.
 
-Redaction covers ``record.msg`` and ``record.args`` while redacting **only their string components**,
-without changing the count or order of formatting placeholders such as `%s/%d`—a contract required
-by the logger's formatting phase.
+Redaction covers ``record.msg`` and ``record.args`` while redacting **only their text components**
+(strings and request URLs), without changing the count or order of formatting placeholders such as
+`%s/%d`—a contract required by the logger's formatting phase.
+
+URL arguments are redacted as well: the HTTP client logs the full request URL, and a
+query parameter is one of the few places where a vendor credential travels (an OAuth
+token endpoint carries the secret in the query).
+
+Runtime values (log arguments, exception text) are additionally scanned token by
+token: an upstream provider error arrives as a sentence that may quote the rejected
+credential, and the whole-value heuristic alone cannot see a key inside a sentence.
+The format template keeps the whole-value treatment only: its ``%s`` / ``%d``
+placeholders must survive the redaction, and the token-by-token scan would rewrite
+the ordinary long words of the message text that operators search for.
 """
 
 from __future__ import annotations
@@ -18,7 +29,10 @@ import sys
 import uuid
 from typing import Any
 
-from realmock.platform.core.security import redact_api_key as _redact
+import httpx
+
+from realmock.platform.core.security import redact_log_template as _redact_template
+from realmock.platform.core.security import redact_log_value as _redact
 
 # Request-level trace_id, which facilitates stringing together logs of the same request
 _trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="")
@@ -47,7 +61,7 @@ def reset_trace_id(token) -> None:
 
 
 # The API Key/Bearer token in the log is automatically desensitized.
-# Reuse the canonical :func:`realmock.platform.core.security.redact_api_key` entry point to prevent regex drift between two implementations.
+# Reuse the canonical :func:`realmock.platform.core.security.redact_log_value` entry point to prevent regex drift between two implementations.
 
 
 class RedactFilter(logging.Filter):
@@ -55,25 +69,34 @@ class RedactFilter(logging.Filter):
 
     Strategy:
 
-    - Call :func:`redact_api_key` only for **string** values in ``record.msg`` (template) and
-      ``record.args`` (arguments);
+    - Call :func:`redact_log_template` for the **template** (``record.msg``)
+      and :func:`redact_log_value` for the **arguments** (``record.args``):
+      the template is a format string whose ``%s`` / ``%d`` placeholders must
+      survive, while an argument is a runtime value whose credential can be
+      anywhere inside it;
     - Preserve non-string arguments (such as numbers, bytes, Exception, etc.) unchanged, without disrupting
       the number of ``%s/%d`` placeholders;
-    - Also redact ``record.exc_text`` (formatted exception stack text) to prevent
-      leakage from strings containing Keys thrown by an upstream LLM/SDK.
+    - Render URL arguments as text with their query values masked: the HTTP client logs the
+      full request URL, and a query parameter is where a vendor credential travels;
+    - Also redact ``record.exc_text`` when another handler already formatted the
+      record; the exception text this formatter renders is redacted there.
 
-    Supporting a new Key format requires changes only in :func:`redact_api_key`.
+    Supporting a new Key format requires one entry in the provider prefix
+    table of the redaction module, which the whole-value rule and the
+    token-by-token scanner both read.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             if isinstance(record.msg, str):
-                record.msg = _redact(record.msg)
+                record.msg = _redact_template(record.msg)
             if record.args:
                 new_args: list[Any] = []
                 for a in record.args:
                     if isinstance(a, str):
                         new_args.append(_redact(a))
+                    elif isinstance(a, httpx.URL):
+                        new_args.append(_redact(str(a)))
                     else:
                         new_args.append(a)
                 record.args = tuple(new_args)
@@ -100,7 +123,12 @@ class SafeFormatter(logging.Formatter):
             "trace_id": get_trace_id(),
         }
         if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
+            # The exception text is rendered here, after the filter ran: a URL
+            # inside it carries the same credential risk as a logged argument.
+            # Assigning ``record.exc_text`` also redacts the copy the logging
+            # handler appends to the formatted line.
+            record.exc_text = _redact(self.formatException(record.exc_info))
+            payload["exc"] = record.exc_text
         return json.dumps(payload, ensure_ascii=False)
 
 

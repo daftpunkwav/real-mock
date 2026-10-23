@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from realmock.platform.core.constants import GROWTH_LEARNING_FILE_NAME
 from realmock.platform.core.file_lock import FileLockTimeout, file_lock
 
 logger = logging.getLogger(__name__)
@@ -44,14 +45,14 @@ def _memory_path() -> Path:
 
     root = PLATFORM_ROOT / "data"
     root.mkdir(parents=True, exist_ok=True)
-    return root / "system_learning.json"
+    return root / GROWTH_LEARNING_FILE_NAME
 
 
 def _lock_path() -> Path:
     return _memory_path().with_suffix(".json.lock")
 
 
-def _default_data() -> dict[str, Any]:
+def _default_snapshot() -> dict[str, Any]:
     return {
         "version": 1,
         "followup_category_hits": {},
@@ -64,7 +65,59 @@ def _default_data() -> dict[str, Any]:
     }
 
 
-def _normalize(data: Any) -> dict[str, Any]:
+def _counter(value: Any) -> int | None:
+    """One counter of the sidecar, or None when the value cannot be one.
+
+    ``json.loads`` accepts ``Infinity`` and ``1e400``, and ``int(float('inf'))``
+    raises ``OverflowError`` - which is neither ``TypeError`` nor
+    ``ValueError``, so a tolerant coercion that catches only those two lets it
+    escape. One unusable counter must cost that counter alone, not the whole
+    snapshot.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _counters(raw: Any) -> dict[str, int]:
+    """The usable counters of one mapping of the snapshot.
+
+    An entry that cannot be a counter is dropped; the rest of the mapping
+    survives.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for name, value in raw.items():
+        count = _counter(value)
+        if count is not None:
+            counts[str(name)] = count
+    return counts
+
+
+def _averages(raw: Any) -> dict[str, dict[str, int]]:
+    """The usable average-score entries of the snapshot.
+
+    An entry needs both parts of the running average; an entry that is missing
+    one of them is dropped.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    clean: dict[str, dict[str, int]] = {}
+    for name, entry in raw.items():
+        if not isinstance(entry, dict):
+            continue
+        total = _counter(entry.get("sum"))
+        count = _counter(entry.get("n"))
+        if total is not None and count is not None:
+            clean[str(name)] = {"sum": total, "n": count}
+    return clean
+
+
+def _normalize(snapshot: Any) -> dict[str, Any]:
     """Coerce a loaded snapshot into the expected shape.
 
     A partially-written or hand-edited file can hold valid JSON of the wrong
@@ -72,62 +125,44 @@ def _normalize(data: Any) -> dict[str, Any]:
     as-is it would poison every later read/write with AttributeErrors. Keep
     the well-typed parts, drop the rest, and fill missing keys with defaults.
     """
-    if not isinstance(data, dict):
-        return _default_data()
-    norm = _default_data()
+    if not isinstance(snapshot, dict):
+        return _default_snapshot()
+    norm = _default_snapshot()
     for key in (
         "followup_category_hits",
         "tool_call_counts",
         "company_session_counts",
         "role_session_counts",
     ):
-        raw = data.get(key)
-        if isinstance(raw, dict):
-            norm[key] = {
-                str(k): int(v)
-                for k, v in raw.items()
-                if isinstance(v, (int, float)) and not isinstance(v, bool)
-            }
-    avgs = data.get("avg_scores_by_company")
-    if isinstance(avgs, dict):
-        clean: dict[str, dict[str, int]] = {}
-        for k, v in avgs.items():
-            if (
-                isinstance(v, dict)
-                and isinstance(v.get("sum"), (int, float))
-                and isinstance(v.get("n"), (int, float))
-                and not isinstance(v.get("sum"), bool)
-                and not isinstance(v.get("n"), bool)
-            ):
-                clean[str(k)] = {"sum": int(v["sum"]), "n": int(v["n"])}
-        norm["avg_scores_by_company"] = clean
-    probes = data.get("effective_probes")
+        norm[key] = _counters(snapshot.get(key))
+    norm["avg_scores_by_company"] = _averages(snapshot.get("avg_scores_by_company"))
+    probes = snapshot.get("effective_probes")
     if isinstance(probes, list):
         norm["effective_probes"] = [p for p in probes if isinstance(p, dict)]
-    if isinstance(data.get("updated_at"), str):
-        norm["updated_at"] = data["updated_at"]
+    if isinstance(snapshot.get("updated_at"), str):
+        norm["updated_at"] = snapshot["updated_at"]
     return norm
 
 
 def _load_unlocked() -> dict[str, Any]:
     path = _memory_path()
     if not path.exists():
-        return _default_data()
+        return _default_snapshot()
     try:
         return _normalize(json.loads(path.read_text(encoding="utf-8")))
     except Exception as e:
         logger.warning("failed to read system_learning: %s", e)
-        return _default_data()
+        return _default_snapshot()
 
 
-def _save_unlocked(data: dict[str, Any]) -> None:
-    """Atomic write: temp file + os.replace."""
-    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+def _save_unlocked(snapshot: dict[str, Any]) -> None:
+    """Atomic write: staging file + os.replace."""
+    snapshot["updated_at"] = datetime.now(timezone.utc).isoformat()
     path = _memory_path()
-    tmp = path.with_suffix(".json.tmp")
-    payload = json.dumps(data, ensure_ascii=False, indent=2)
-    tmp.write_text(payload, encoding="utf-8")
-    os.replace(tmp, path)
+    staging_path = path.with_suffix(".json.tmp")
+    payload = json.dumps(snapshot, ensure_ascii=False, indent=2)
+    staging_path.write_text(payload, encoding="utf-8")
+    os.replace(staging_path, path)
 
 
 def _parse_agent_state(raw: str | dict[str, Any] | None) -> dict[str, Any]:
@@ -156,20 +191,20 @@ def record_interview_learning(
     """
     with _write_lock:
         with file_lock(_lock_path()):
-            data = _load_unlocked()
+            snapshot = _load_unlocked()
             company = getattr(session, "company", None) or "unknown"
             role = getattr(session, "role", None) or "unknown"
             session_id = int(session.id)
 
-            counts = data.setdefault("company_session_counts", {})
+            counts = snapshot.setdefault("company_session_counts", {})
             counts[company] = int(counts.get(company, 0)) + 1
 
-            roles = data.setdefault("role_session_counts", {})
+            roles = snapshot.setdefault("role_session_counts", {})
             roles[role] = int(roles.get(role, 0)) + 1
 
             score = getattr(session, "overall_score", None)
             if score is not None:
-                avgs = data.setdefault("avg_scores_by_company", {})
+                avgs = snapshot.setdefault("avg_scores_by_company", {})
                 prev = avgs.get(company) or {"sum": 0, "n": 0}
                 prev["sum"] = int(prev.get("sum", 0)) + int(score)
                 prev["n"] = int(prev.get("n", 0)) + 1
@@ -180,20 +215,20 @@ def record_interview_learning(
                 state = _parse_agent_state(getattr(session, "agent_state", None))
 
             # Follow-up category hits (only when agent_state is available)
-            cat_hits = data.setdefault("followup_category_hits", {})
+            cat_hits = snapshot.setdefault("followup_category_hits", {})
             for clue in state.get("followup_clues") or []:
                 if isinstance(clue, str) and clue:
                     cat_hits[clue] = int(cat_hits.get(clue, 0)) + 1
 
             # Tool-call counts (skipped on report-summary path without agent_state)
-            tool_counts = data.setdefault("tool_call_counts", {})
+            tool_counts = snapshot.setdefault("tool_call_counts", {})
             for item in state.get("tool_trace") or []:
                 tool = item.get("tool") if isinstance(item, dict) else None
                 if tool:
                     tool_counts[tool] = int(tool_counts.get(tool, 0)) + 1
 
             # Effective probe clues (weak points)
-            probes = data.setdefault("effective_probes", [])
+            probes = snapshot.setdefault("effective_probes", [])
             for wp in (state.get("weak_points") or [])[:5]:
                 probes.append(
                     {
@@ -220,7 +255,7 @@ def record_interview_learning(
             if len(probes) > 200:
                 del probes[:-200]
 
-            _save_unlocked(data)
+            _save_unlocked(snapshot)
     logger.info("system learning updated session=%s company=%s", session_id, company)
 
 
@@ -243,32 +278,32 @@ def get_system_insights(limit: int = 10) -> dict[str, Any]:
     with _write_lock:
         try:
             with file_lock(_lock_path(), timeout=5.0):
-                data = _load_unlocked()
+                snapshot = _load_unlocked()
         except (FileLockTimeout, OSError):
             logger.warning(
                 "system insights read degraded (lock unavailable); serving last snapshot",
                 exc_info=True,
             )
-            data = _last_snapshot if _last_snapshot is not None else _default_data()
+            snapshot = _last_snapshot if _last_snapshot is not None else _default_snapshot()
         else:
-            _last_snapshot = data
-    avgs_raw = data.get("avg_scores_by_company") or {}
+            _last_snapshot = snapshot
+    avgs_raw = snapshot.get("avg_scores_by_company") or {}
     avg_scores = {
         k: round(v["sum"] / v["n"], 1) if v.get("n") else None
         for k, v in avgs_raw.items()
         if isinstance(v, dict)
     }
-    cat = data.get("followup_category_hits") or {}
-    tools = data.get("tool_call_counts") or {}
-    probes = list(data.get("effective_probes") or [])[-limit:]
+    cat = snapshot.get("followup_category_hits") or {}
+    tools = snapshot.get("tool_call_counts") or {}
+    probes = list(snapshot.get("effective_probes") or [])[-limit:]
     return {
         "followup_category_hits": cat,
         "tool_call_counts": tools,
-        "company_session_counts": data.get("company_session_counts") or {},
-        "role_session_counts": data.get("role_session_counts") or {},
+        "company_session_counts": snapshot.get("company_session_counts") or {},
+        "role_session_counts": snapshot.get("role_session_counts") or {},
         "avg_scores_by_company": avg_scores,
         "recent_probes": list(reversed(probes)),
-        "updated_at": data.get("updated_at"),
+        "updated_at": snapshot.get("updated_at"),
     }
 
 

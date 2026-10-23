@@ -15,13 +15,15 @@ The FastAPI aggregate app (`realmock.asgi:app`) mounts the seven domain routers 
 
 ## Contract pipeline
 
-`scripts/export_openapi.py` → root `openapi.json` → `apps/web/src/types/generated/api.d.ts` (run `cd apps/web && npm run generate:api-types`). Guards: `apps/api/tests/architecture/test_api_v1_paths.py` (both prefixes exist) and `test_openapi_contract_sync.py` (committed `openapi.json` matches the live app schema).
+`scripts/export_openapi.py` → root `openapi.json` → `apps/web/src/types/generated/api.d.ts` (run `cd apps/web && npm run generate:api-types`). Guards: `apps/api/tests/architecture/test_api_v1_paths.py` (both prefixes exist), `test_route_response_models.py` (every published JSON response names a schema), `test_route_response_contract.py` (the published component, its fields, and the media type of every non-JSON response) and `test_openapi_contract_sync.py` (committed `openapi.json` matches the live app schema).
 
 ## Error envelope and response models
 
-Every JSON error response is emitted by the shared handlers in `platform/core/error_handlers.py` and uses one envelope: `{"detail": ..., "error": {"code", "message", "hint", "retryable", "trace_id"}}`. Business codes come from the site-wide catalog `platform/core/errors.py` (the `A` families for generic / resume / interview / coaching / settings, `B` for system, `C` for third-party); plain `HTTPException`s fall back to `http_{status}` codes. The envelope is registered as OpenAPI components `APIError` / `ErrorBody` (`platform/app_factory.py: register_core_error_handlers`), and growth / settings / prep / interview routes declare typed `response_model`s, so the generated `api.d.ts` covers both shapes. Request-validation failures return the `A0001` envelope (HTTP 422) — for example an over-length `locale` query on `/growth/insight/refresh` (`max_length=10`).
+Every JSON error response is emitted by the shared handlers in `platform/core/error_handlers.py` and uses one envelope: `{"detail": ..., "error": {"code", "message", "hint", "retryable", "trace_id"}}`. Business codes come from the site-wide catalog `platform/core/errors.py` (the `A` families for generic / resume / interview / coaching / settings, `B` for system, `C` for third-party); plain `HTTPException`s fall back to `http_{status}` codes. The envelope is registered as OpenAPI components `APIError` / `ErrorBody` (`platform/app_factory.py: register_core_error_handlers`), and every published JSON route declares a typed `response_model`, so the generated `api.d.ts` covers both shapes. The streaming routes (`/resume/{resume_id}/analyze/stream`, `/prep/sessions/{session_id}/message/stream`, `/reports/{session_id}/stream`) declare the `text/event-stream` media type instead of a JSON schema, and the resume file / page-image routes declare the media types they actually answer with (`application/pdf`, the DOCX / markdown / plain-text types, `application/octet-stream`, `image/png`). One operation stays untyped by decision: `GET /records/sessions/{session_id}/ledger` carries historical rows that may not validate against a strict model, and the lenient corrupt-row tolerance is deliberate. Request-validation failures return the `A0001` envelope (HTTP 422) — for example an over-length `locale` query on `/growth/insight/refresh` (`max_length=10`).
 
 SSE error events follow a fixed disclosure rule (`platform/capabilities/ai/llm/provider_errors.py: is_diagnosable_upstream_error`): only user-actionable upstream classes (context overflow / rate limit / quota exhaustion) keep their verbatim provider text — secret-redacted, and capped at 400 characters in usage summaries (`llm/usage.py: note_request_error`); every other failure falls back to the route's generic copy (`domains/prep/routes/chat.py`, `domains/resume/routes/analyze.py`).
+
+All three streaming routes keep the connection alive with SSE comment lines (`: ping`) while the producer is still working. The shared pump (`platform/core/sse.py: pump_queue_to_sse`) emits one whenever the event queue stays empty for its heartbeat interval — 15 s for the coaching stream (`domains/prep/routes/chat.py: _SSE_HEARTBEAT_SECONDS`) and 15 s for the deep-review stream (`domains/resume/schemas/limits.py: SSE_HEARTBEAT_SECONDS`). The report stream does not use that pump: while it polls for a ready report it emits the same comment every 10 poll rounds of 0.5 s (`domains/records/routes/report.py`).
 
 ## Endpoints by domain
 
@@ -34,7 +36,7 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | GET / PUT | `/profile` | single profile row: read / full-replace update |
 | POST | `/profile/clear` | blank every update-contract field |
 
-### resume — `domains/resume/routes/` (`router.py` aggregates `upload` / `crud` / `file` / `analyze` / `parse_retry`)
+### resume — `domains/resume/routes/` (`router.py` aggregates `upload` / `crud` / `file` / `analyze` / `parse_retry` / `export`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
@@ -44,9 +46,10 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | POST | `/resume/{resume_id}/parse` | re-schedule background parse (parse-retry) |
 | DELETE | `/resume/{resume_id}`, `/resume/analyses`, `/resume/collection` | delete one / clear review results / delete all |
 | GET | `/resume/{resume_id}/file`, `/resume/{resume_id}/pages`, `/resume/{resume_id}/pages/{page_no}` | file download and paginated page images |
+| GET | `/resume/{resume_id}/analysis-export` | deep-review analysis download (`md` / `json`, optionally with the resume) |
 | POST | `/resume/{resume_id}/analyze`, `/resume/{resume_id}/analyze/stream` | deep review (JSON / SSE) |
 
-### settings — `domains/settings/routes/` (`models` / `stages` / `model_tests` / `integrations`)
+### settings — `domains/settings/routes/` (`models` / `stages` / `model_tests` / `integrations` / `data`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
@@ -60,6 +63,7 @@ Paths below are relative to `/api/v1`; each also exists under the legacy `/api` 
 | POST | `/settings/test/{stage}`, `/settings/test/model/{model_id}` | connectivity tests |
 | GET / POST / DELETE | `/settings/integrations/github` | GitHub link |
 | POST | `/settings/integrations/github/test` | GitHub link test |
+| POST | `/settings/data/clear` | wipe all business content (configuration kept) |
 
 ### prep — `domains/prep/routes/` (`router.py` mounts `lists` / `create` / `chat` / `history` / `manage` / `memories`)
 
@@ -95,7 +99,7 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | GET | `/options` | setup-page options (workflows / personalities / voices / avatars) |
 | WS | `/ws/interview/{session_id}` | realtime room — see [realtime-protocol.md](realtime-protocol.md) |
 
-### records — `domains/records/routes/` (`history` / `report`)
+### records — `domains/records/routes/` (`history` / `report` / `export`)
 
 | Methods | Path | Group |
 | --- | --- | --- |
@@ -104,6 +108,7 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | GET | `/reports/{session_id}` | debrief report (`A2004` while pending / generating, `A2005` when failed) |
 | POST | `/reports/{session_id}/retry` | re-run report generation (idempotent) |
 | GET | `/reports/{session_id}/stream` | pseudo-streamed report (generates once if pending) |
+| GET | `/records/export/report/{session_id}`, `/records/export/record/{session_id}` | report / transcript download (`md` / `json`) |
 
 ### growth — `domains/growth/routes/router.py`
 

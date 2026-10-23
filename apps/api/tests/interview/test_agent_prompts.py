@@ -13,7 +13,7 @@ from __future__ import annotations
 from realmock.domains.interview.agents.agent_prompts import build_system_prompt
 from realmock.domains.interview.schemas import InterviewConfig
 from realmock.domains.interview.workflows import get_workflow
-from realmock.platform.schemas import CandidateProfile
+from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
 
 def _config(**overrides) -> InterviewConfig:
@@ -80,15 +80,13 @@ def test_with_followup_probe_injects_section() -> None:
 
 def test_with_profile_includes_personal_info() -> None:
     """Include the candidate profile section when profile is provided."""
-    from realmock.platform.models import UserProfile
-
-    profile = UserProfile(
+    profile = UserProfileSnapshot(
         name="Li Si",
         school="A certain university",
         self_intro="5 years of backend experience",
         job_direction="Backend",
         target_role="Senior backend engineer",
-        tech_domains='["Python", "Go"]',
+        tech_domains_list=["Python", "Go"],
     )
     prompt = build_system_prompt(
         config=_config(),
@@ -227,11 +225,10 @@ def test_refresh_system_head_swaps_candidate_and_phase() -> None:
         }
     ]
     reverse_qa = next(p for p in get_workflow("technical").phases if p.id == "reverse_qa")
-    profile_stub = SimpleNamespace(
+    profile_stub = UserProfileSnapshot(
         name="Zhang San",
         target_role="Backend",
         school="TSU",
-        github_username="",
     )
 
     mixin.refresh_system_head(reverse_qa, profile=profile_stub, candidate=_candidate())
@@ -262,7 +259,7 @@ def test_refresh_system_head_keeps_full_block_for_questioning_phase() -> None:
     mixin.messages = [{"role": "system", "content": opening_prompt}]
     next_phase = get_workflow("technical").phases[2]  # basic_knowledge
 
-    mixin.refresh_system_head(next_phase, profile=object(), candidate=object())
+    mixin.refresh_system_head(next_phase, profile=None, candidate=None)
 
     head = mixin.messages[0]["content"]
     assert "Parsed resume" in head
@@ -303,14 +300,12 @@ def test_refresh_system_head_restores_full_block_after_compact_phase() -> None:
 
 def _profile_stub():
     """Minimal profile that satisfies the full candidate block renderer."""
-    from realmock.platform.models import UserProfile
-
-    return UserProfile(
+    return UserProfileSnapshot(
         name="Zhang San",
         target_role="Backend",
         school="TSU",
         job_direction="Backend",
-        tech_domains='["Python"]',
+        tech_domains_list=["Python"],
     )
 
 
@@ -326,12 +321,7 @@ def test_refresh_system_head_keeps_compact_card_without_candidate_data(
         "realmock.domains.interview.agents.session_prompt.get_candidate_profile",
         lambda db, resume_id: None,
     )
-    empty_profile = SimpleNamespace(
-        name="",
-        school="",
-        self_intro="",
-        github_username="",
-    )
+    empty_profile = UserProfileSnapshot()
     opening_prompt = build_system_prompt(**_prompt_kwargs(candidate=None))
     mixin = SessionPromptMixin()
     mixin.session = SimpleNamespace(profile_id=1, resume_id=None, company="")

@@ -23,6 +23,7 @@ resume 域业务逻辑:摄取、深度评价、市场分析、渲染、存储。
 | `analysis_normalize.py` | 评价载荷归一化 |
 | `score_anchor.py` | 复评校准用的历史分数参照 |
 | `analyze_slots.py` | 进程内并发上限(满载抛 A1007) |
+| `export.py` | 深度评价结果导出(`md` / `json`,可附带简历原文) |
 
 ## 存储与契约
 

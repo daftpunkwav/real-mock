@@ -47,7 +47,7 @@ async def extract_resume_text(
         # pypdf (up to 50 pages) / python-docx (up to 30MB uncompressed) parsing
         # is synchronous CPU+disk work; keep it off the event loop so in-flight
         # SSE streams sharing the loop do not stall (same discipline as the
-        # fitz render below). Raises from the worker propagate unchanged.
+        # pymupdf render below). Raises from the worker propagate unchanged.
         raw_text = await asyncio.to_thread(extract_text_from_file, file_path, ext)
     except Exception as e:
         logger.warning("Resume parsing failed: %s", e)
@@ -63,8 +63,8 @@ async def extract_resume_text(
     if not (llm.api_key and vision_cfg.get("supports_vision")):
         raise_error("A1006")
     try:
-        # Sync fitz rendering must not block the event loop (SSE heartbeats
-        # share it); the semaphore inside still caps fitz concurrency at 2.
+        # Sync pymupdf rendering must not block the event loop (SSE heartbeats
+        # share it); the semaphore inside still caps pymupdf concurrency at 2.
         page_images = await asyncio.to_thread(render_pdf_pages_as_data_urls, file_path)
         raw_text = await transcribe_pages_with_vision(page_images, llm)
     except Exception as e:

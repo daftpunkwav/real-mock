@@ -1,6 +1,6 @@
 """History route tests for realmock.domains.prep.routes.history.
 
-Covers: writable-session guards, message loading/pruning helpers, summary helpers, compact backup and reason branches, HTTP status mismatches
+Covers: message loading/pruning helpers, summary helpers, compact backup and reason branches, HTTP status mismatches
 Conventions: No real LLM; LLM and context faked; temp DB and TestClient where needed; rate limits reset per test
 """
 
@@ -37,22 +37,6 @@ def _session(db, messages: list[dict] | str = "[]", **kwargs) -> PrepSession:
     db.commit()
     db.refresh(row)
     return row
-
-
-def test_require_writable_missing_and_completed(db) -> None:
-    import realmock.domains.prep.routes.history as history_mod
-    from realmock.platform.core.errors import ApiBusinessError
-
-    with pytest.raises(ApiBusinessError) as exc:
-        history_mod._require_existing_writable_session(999999999, db)
-    assert exc.value.error_code == "A3001"
-
-    row = _session(db)
-    row.status = "completed"
-    db.commit()
-    with pytest.raises(ApiBusinessError) as exc2:
-        history_mod._require_existing_writable_session(row.id, db)
-    assert exc2.value.error_code == "A3002"
 
 
 def test_load_session_messages_corrupt_and_non_list(db) -> None:

@@ -35,12 +35,16 @@ Dependency direction: `bootstrap/` -> `domains/` -> `platform/`; cross-domain co
 | `test_platform_no_domain_imports.py` | AST guard: `platform` must not import `realmock.domains` or `realmock.bootstrap` |
 | `test_domains_no_cross_imports.py` | AST guard: domains must not import sibling domains |
 | `test_db_boundary_imports.py` | Interview / prep / growth domains must not import shared-table (api.db) ORM models directly |
+| `test_profile_tool_field_contract.py` | The profile agent tool may only expose fields the declared profile read model carries |
+| `test_ledger_document_contract.py` | The interview ledger writer and the records readers share one declaration of the ledger document shape |
 | `test_bootstrap_session_domains.py` | Standalone processes must not load unrelated business ORMs |
 | `test_interview_layering.py` | AST guards for the interview domain layering |
 | `test_api_v1_paths.py` | `/api/v1` and the `/api` compatibility alias both exist |
 | `test_app_factory.py` | Entry-point and middleware behavior of `app_factory` / `asgi` |
 | `test_exposure_guards.py` | Deployment-exposure guard regressions |
 | `test_openapi_contract_sync.py` | The committed `openapi.json` matches the live app schema |
+| `test_route_response_models.py` | Every published JSON response names a schema (non-JSON responses carry their own media type) |
+| `test_route_response_contract.py` | The published component, its fields, and the media type of every non-JSON response |
 | `test_ws_error_code_registry.py` | AST guard: `code=` literals emitted by the interview domain's WS layers must be registered in the platform error `CATALOG` |
 
 ## Domain anatomy

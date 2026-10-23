@@ -143,7 +143,7 @@ def take_pending_tools(agent_state: dict[str, Any]) -> list[ToolPreview]:
     return list(raw)  # type: ignore[arg-type]
 
 
-def append_turn(
+def append_turn_row(
     db: Session,
     session: Any,
     *,
@@ -154,15 +154,19 @@ def append_turn(
     tools: list[ToolPreview] | None = None,
     flags: dict[str, Any] | None = None,
     visible: bool = True,
-) -> LedgerDocument | None:
+) -> str | None:
     """Append one turn as a single row and persist.
 
-    Returns the updated document, or None when skipped because ledger is frozen.
+    Returns the new turn id, or None when the append was skipped because the
+    ledger is frozen. The caller gets no document back on purpose: rebuilding
+    it means re-reading and re-parsing every turn of the session, which turns
+    a session of T turns into O(T^2) JSON parses. Read the aggregated document
+    with :func:`load_ledger` when it is actually needed.
     """
     session_id = int(getattr(session, "id", 0) or 0)
     if is_frozen(session):
         logger.warning(
-            "ledger frozen; skip append_turn sid=%s phase=%s",
+            "ledger frozen; skip append_turn_row sid=%s phase=%s",
             session_id,
             phase,
         )
@@ -192,7 +196,7 @@ def append_turn(
         )
     )
     db.commit()
-    return load_ledger(db, session)
+    return turn_id
 
 
 def append_last_turn_flag(
@@ -217,11 +221,19 @@ def append_last_turn_flag(
             key,
         )
         return
-    rows = _turn_rows(db, session_id)
-    turns = [r for r in rows if r.seq != CORRUPT_SEQ]
-    if not turns:
+    # Only the newest turn is annotated: read that one row instead of the
+    # whole turn table, whose JSON bodies would be loaded for nothing.
+    row = (
+        db.query(InterviewTurn)
+        .filter(
+            InterviewTurn.session_id == session_id,
+            InterviewTurn.seq != CORRUPT_SEQ,
+        )
+        .order_by(InterviewTurn.seq.desc())
+        .first()
+    )
+    if row is None:
         return
-    row = turns[-1]
     try:
         turn = json.loads(row.turn)
     except (json.JSONDecodeError, TypeError):
@@ -276,7 +288,7 @@ def build_tool_preview(
     *,
     ok: bool | None = None,
 ) -> ToolPreview:
-    """Build a curtain-layer tool preview from a live tool call.
+    """Build the ledger tool preview (truncated args / result) from a live tool call.
 
     ``ok`` defaults to detecting agent-loop failure prefixes when omitted.
     """
@@ -296,7 +308,7 @@ __all__ = [
     "PENDING_TOOLS_KEY",
     "append_last_turn_flag",
     "append_pending_tool",
-    "append_turn",
+    "append_turn_row",
     "begin_pending_tools",
     "build_tool_preview",
     "empty_ledger",

@@ -24,13 +24,14 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 前端，在 `apps/web` 下运行：
 
 ```bash
-npx tsc --noEmit   # 类型检查
-npm run lint       # eslint
-npm test           # vitest(覆盖率阈值由 apps/web/vitest.config.mts 强制)
-npm run build      # 生产构建
-npm run audit      # 依赖审计（high+ 未列入 npm-audit-allowlist.json 则失败）
+npx tsc --noEmit    # 类型检查
+npm run lint        # eslint
+npm test            # vitest(覆盖率阈值由 apps/web/vitest.config.mts 强制)
+npm run build       # 生产构建
+npm run format:check # prettier 格式检查
+npm run audit       # 依赖审计（high+ 未列入 npm-audit-allowlist.json 则失败）
 node scripts/check-i18n-usage.mjs                               # 幽灵键 + 死键（豁免清单：i18n-usage-allowlist.json）
-node ../../scripts/ci/check_npm_deps_policy.mjs                 # 禁用包（scripts/ci/dependency-policy.json）
+node ../../scripts/ci/check_npm_deps_policy.mjs                 # 禁用包（scripts/ci/dependency-policy.json）+ 每个直接运行时依赖只能解析出一个版本
 ```
 
 ## Git 钩子（可选）

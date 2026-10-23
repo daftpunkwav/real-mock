@@ -53,3 +53,30 @@ def test_invalid_unicode_and_unknown_escapes() -> None:
     p2 = SayFirstStreamParser()
     assert p2.feed('{"say": "a\\qb", "v": 3}') == "aqb"
     assert p2.finish() == ""
+
+
+def test_say_key_split_from_colon_still_streams_live() -> None:
+    """A chunk boundary between the say key and its colon must not kill live extraction.
+
+    The provider splits the stream wherever it likes; if the key is found but
+    its colon has not arrived yet, the key must stay in the buffer — dropping
+    it left the seek state unable to find the key again, so the whole answer
+    only surfaced at the end of the stream instead of live.
+    """
+    body = '{"say": "Let us talk about the caching layer.", "wait_seconds": 30}'
+    p = SayFirstStreamParser()
+    live = "".join(p.feed(body[i : i + 1]) for i in range(len(body)))
+    assert live == "Let us talk about the caching layer."
+    assert p.finish() == ""
+    assert not p.degraded
+    assert p.controls and p.controls["wait_seconds"] == 30
+
+
+def test_say_value_quote_split_from_key_still_streams_live() -> None:
+    """The same holds when the boundary falls between the colon and the value quote."""
+    body = '{"say": "Let us talk about the caching layer.", "wait_seconds": 30}'
+    p = SayFirstStreamParser()
+    live = p.feed('{"say":') + p.feed(body[len('{"say":') :])
+    assert live == "Let us talk about the caching layer."
+    assert p.finish() == ""
+    assert p.controls and p.controls["wait_seconds"] == 30

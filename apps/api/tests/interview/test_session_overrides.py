@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from realmock.domains.interview.agents.session_overrides import (
+    api_session_llm,
     parse_ai_overrides,
     session_llm,
     session_stt_credentials,
@@ -101,6 +102,29 @@ def test_session_llm_honors_overrides() -> None:
         session_llm(MagicMock(), sess)
         _, kwargs = m.call_args
         assert kwargs.get("profile_id") == 3
+
+
+def test_api_session_llm_reads_the_api_database() -> None:
+    """The helper resolves the model through the api database.
+
+    The chat configuration lives in the api database and the session row lives
+    in the sessions database, so a sessions-database session cannot read the
+    configuration at all ("no such table: model_profiles"). The helper opens
+    the api database itself.
+    """
+    resolved: list[str] = []
+
+    def _record(db, session):
+        bind = db.get_bind()
+        resolved.append(str(getattr(getattr(bind, "url", None), "database", "") or ""))
+        return MagicMock()
+
+    with patch(
+        "realmock.domains.interview.agents.session_overrides.session_llm",
+        side_effect=_record,
+    ):
+        api_session_llm(SimpleNamespace(ai_overrides=""))
+    assert resolved and resolved[0].endswith("api.db"), resolved
 
 
 def test_session_stt_tts_credentials_passthrough() -> None:

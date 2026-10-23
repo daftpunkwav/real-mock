@@ -12,7 +12,7 @@ import { toast } from "@/components/Toast";
 import { useT } from "@/i18n";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { downloadTextFile } from "@/lib/download";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 /** Copy text (shared helper; re-exported for backward compatibility). */
 export const copyText = copyTextToClipboard;

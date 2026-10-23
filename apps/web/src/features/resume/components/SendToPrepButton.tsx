@@ -10,7 +10,7 @@
 import { SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/i18n";
-import { buildPrepDeepLink } from "../sendToPrep";
+import { buildPrepDeepLink } from "@/lib/prepDeepLink";
 
 export const SendToPrepButton = ({
   question,

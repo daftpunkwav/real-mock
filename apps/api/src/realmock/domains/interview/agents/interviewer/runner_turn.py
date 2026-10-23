@@ -30,7 +30,7 @@ from realmock.domains.interview.agents.step_compaction import (
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
-from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
+from realmock.domains.interview.ledger.store import append_turn_row, take_pending_tools
 from realmock.platform.capabilities.ai.agent.loop import build_environment_hint
 from realmock.platform.core.agent_error_log import log_agent_error
 
@@ -226,7 +226,7 @@ async def stream_turn(
                 if ts is not None
                 else None
             )
-            append_turn(
+            append_turn_row(
                 db,
                 runner.session,
                 phase=turn_phase,
@@ -238,7 +238,7 @@ async def stream_turn(
             )
         except Exception as e:
             logger.exception(
-                "ledger append_turn failed sid=%s",
+                "ledger append_turn_row failed sid=%s",
                 getattr(runner.session, "id", None),
             )
             raise LedgerWriteError("ledger append failed") from e

@@ -1,9 +1,9 @@
 """Interview-session API (route aggregation).
 
 Handlers for session CRUD and turn start/message/finish are defined in ``sessions.py`` /
-``turns.py`` respectively; this module only mounts them on the same ``router`` (including their
-respective rate limits and local-peer dependencies), while keeping ``start_interview`` /
-``send_message`` importable from this module.
+``turns.py`` respectively, and the multi-round process endpoints in ``processes.py``; this
+module only mounts them on the same ``router`` (including their respective rate limits),
+while keeping ``start_interview`` / ``send_message`` importable from this module.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from realmock.domains.interview.routes.processes import (
     list_process_routes,
 )
 from realmock.domains.interview.routes.sessions import (
+    ChatMessage,
     InterviewSessionResponse,
     create_session,
     get_messages,
@@ -28,6 +29,7 @@ from realmock.domains.interview.routes.sessions import (
 from realmock.domains.interview.routes.turns import (
     FinishInterviewResponse,
     InterviewMessageResponse,
+    InterviewStartResponse,
     finish_interview,
     send_message,
     start_interview,
@@ -121,11 +123,13 @@ router.add_api_route(
     "/sessions/{session_id}/messages",
     get_messages,
     methods=["GET"],
+    response_model=list[ChatMessage],
 )
 router.add_api_route(
     "/sessions/{session_id}/start",
     start_interview,
     methods=["POST"],
+    response_model=InterviewStartResponse,
     dependencies=[
         Depends(
             rate_limit_dep(

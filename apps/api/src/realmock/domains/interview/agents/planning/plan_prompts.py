@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
+from realmock.domains.interview.agents.planning.candidate_context import candidate_profile_block
 from realmock.domains.interview.schemas import InterviewConfig
+from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
 PLAN_JSON_CONTRACT = """{
   "round_note": "<one line positioning of this round, in the interview language>",
@@ -41,8 +42,8 @@ Hard rules:
 def build_plan_user_message(
     config: InterviewConfig,
     *,
-    resume_payload: dict[str, Any] | None,
-    profile: Any | None,
+    candidate: CandidateProfile | None,
+    profile: UserProfileSnapshot | None,
     process_section: str,
     company_context: str,
     ui_locale: str | None = None,
@@ -56,9 +57,7 @@ def build_plan_user_message(
     ]
     # Language signals for rule 8: the planner judges the working language.
     lang_signals = f"UI locale: {ui_locale or 'unknown'}"
-    preferred = (
-        (getattr(profile, "preferred_languages", "") or "").strip() if profile is not None else ""
-    )
+    preferred = profile.preferred_languages.strip() if profile is not None else ""
     if preferred:
         lang_signals += f"; candidate preferred languages: {preferred}"
     lang_signals += " (the Resume block below shows which language the resume is written in)"
@@ -66,27 +65,22 @@ def build_plan_user_message(
     if company_context:
         parts.append(f"## Target company\n{company_context}")
 
-    if profile is not None:
-        parts.append(
-            "## Candidate profile\n"
-            f"Name: {getattr(profile, 'name', '') or '—'}\n"
-            f"Target role: {getattr(profile, 'target_role', '') or '—'}\n"
-            f"Experience: {getattr(profile, 'experience_years', '') or '—'} years\n"
-            f"Tech domains: {', '.join(getattr(profile, 'tech_domains_list', []) or []) or '—'}\n"
-            f"Highlights: {getattr(profile, 'career_highlights', '') or '—'}"
-        )
+    profile_block = candidate_profile_block(profile)
+    if profile_block:
+        parts.append(profile_block)
 
-    if resume_payload:
-        projects = resume_payload.get("projects") or []
-        skills = resume_payload.get("skills") or []
+    if candidate:
+        projects = candidate.projects
+        skills = candidate.skills
+        # Project entries are free-form dicts (the parser keeps the model's
+        # own keys), so every value is coerced to text before it is truncated.
         compact_projects = [
             {
-                "name": (p.get("name") or p.get("title") or "")[:60],
-                "stack": (p.get("stack") or p.get("tech") or "")[:120],
-                "summary": (p.get("summary") or p.get("description") or "")[:200],
+                "name": str(p.get("name") or p.get("title") or "")[:60],
+                "stack": str(p.get("tech_stack") or p.get("stack") or p.get("tech") or "")[:120],
+                "summary": str(p.get("description") or p.get("summary") or "")[:200],
             }
             for p in projects
-            if isinstance(p, dict)
         ]
         parts.append(
             "## Resume\n"

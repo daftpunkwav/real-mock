@@ -165,7 +165,7 @@ def test_plan_user_message_carries_locale_signal():
     config = InterviewConfig(role="Backend", level="Senior", company="Acme")
     msg = build_plan_user_message(
         config,
-        resume_payload=None,
+        candidate=None,
         profile=None,
         process_section="",
         company_context="",
@@ -388,7 +388,7 @@ def test_generate_plan_success_marks_ready(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import planner as planner_mod
 
-    monkeypatch.setattr(planner_mod, "session_llm", lambda db, session: FakePlannerLLM())
+    monkeypatch.setattr(planner_mod, "api_session_llm", lambda session: FakePlannerLLM())
     import asyncio
 
     asyncio.run(planner_mod.generate_plan_for_session(session.id))
@@ -410,7 +410,7 @@ def test_generate_plan_failure_marks_failed(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import planner as planner_mod
 
-    monkeypatch.setattr(planner_mod, "session_llm", lambda db, session: ExplodingLLM())
+    monkeypatch.setattr(planner_mod, "api_session_llm", lambda session: ExplodingLLM())
     import asyncio
 
     asyncio.run(planner_mod.generate_plan_for_session(session.id))
@@ -446,7 +446,7 @@ def test_generate_plan_skipped_when_fallback_stored_midflight(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import planner as planner_mod
 
-    monkeypatch.setattr(planner_mod, "session_llm", lambda db, session: RaceLLM())
+    monkeypatch.setattr(planner_mod, "api_session_llm", lambda session: RaceLLM())
     import asyncio
 
     asyncio.run(planner_mod.generate_plan_for_session(session.id))

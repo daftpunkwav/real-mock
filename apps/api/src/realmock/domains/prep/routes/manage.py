@@ -25,6 +25,7 @@ from realmock.domains.prep.services import apply_session_link
 from realmock.domains.prep.services.maintenance import (
     purge_empty_sessions as purge_empty_session_rows,
 )
+from realmock.domains.prep.services.session_guard import load_prep_session
 from realmock.domains.prep.services.turn_lock import session_turn_lock
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import raise_error
@@ -39,13 +40,6 @@ from realmock.platform.database import get_sessions_db
 logger = logging.getLogger(__name__)
 
 
-def _require_existing_session(session_id: int, db: Session) -> PrepSession:
-    session = db.query(PrepSession).filter(PrepSession.id == session_id).first()
-    if not session:
-        raise_error("A3001")
-    return session
-
-
 async def delete_prep_session(
     session_id: int,
     request: Request,
@@ -53,7 +47,7 @@ async def delete_prep_session(
 ):
     """Delete a session and its history permanently."""
     assert_csrf_if_cookie_only(request, used_header=False)
-    session = _require_existing_session(session_id, db)
+    session = load_prep_session(db, session_id)
     db.delete(session)
     commit_session(db)
     return {"deleted": session_id}
@@ -95,7 +89,7 @@ async def archive_prep_session(
 ):
     """Archive (or restore) a session; archived sessions stay fully usable."""
     assert_csrf_if_cookie_only(request, used_header=False)
-    session = _require_existing_session(session_id, db)
+    session = load_prep_session(db, session_id)
     session.status = SessionStatus.ARCHIVED.value if body.archived else SessionStatus.ACTIVE.value
     session.updated_at = utcnow()
     commit_session(db)
@@ -110,7 +104,7 @@ async def reissue_prep_token(
 ):
     """Mint a fresh capability token for a listed session (owner-level recovery)."""
     assert_csrf_if_cookie_only(request, used_header=False)
-    session = _require_existing_session(session_id, db)
+    session = load_prep_session(db, session_id)
     session.access_token = new_access_token()
     session.updated_at = utcnow()
     commit_session(db)
@@ -145,7 +139,7 @@ async def _run_link(
     body: PrepLinkRequest,
 ):
     """Link body, executed under the session turn lock."""
-    session = _require_existing_session(session_id, db)
+    session = load_prep_session(db, session_id)
     target = apply_session_link(session, db, body.linked_session_id)
     return {"id": session_id, "linked_session_id": target}
 

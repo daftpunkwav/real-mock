@@ -2,7 +2,7 @@
 
 import { useT } from "@/i18n";
 import { Flag, Radio, Volume2, WifiOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import { turnLabelKey } from "../turnLabels";
 import type { InterviewRoomModel } from "../hooks/room";
 

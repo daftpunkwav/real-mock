@@ -270,6 +270,8 @@ async def retry_report(
 
 @router.get(
     "/{session_id}/stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
     dependencies=[
         Depends(
             rate_limit_dep(

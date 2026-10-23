@@ -11,11 +11,15 @@ helpers stay on lightweight stubs.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from sqlalchemy import event
 
 from realmock.domains.interview.ledger.store import (
     append_last_turn_flag,
     append_pending_tool,
-    append_turn,
+    append_turn_row,
     begin_pending_tools,
     build_tool_preview,
     empty_ledger,
@@ -59,6 +63,22 @@ def _turns(db, session_id: int) -> list[dict]:
         .all()
     )
     return [json.loads(r.turn) for r in rows if r.seq != 0]
+
+
+@contextmanager
+def _captured_statements(db) -> Iterator[list[str]]:
+    """Collect the SQL statements issued on the session's engine inside the block."""
+    engine = db.get_bind()
+    seen: list[str] = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001, ARG001
+        seen.append(" ".join(statement.split()))
+
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        yield seen
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
 
 
 # ---- pure helpers ----
@@ -105,9 +125,22 @@ def test_build_tool_preview_ok_autodetect() -> None:
 # ---- persistence (real DB, per-turn rows) ----
 
 
-def test_append_turn_persists_rows_and_increments_ids(db) -> None:
+def test_ledger_package_exposes_one_turn_writer() -> None:
+    """The ledger package exposes exactly one turn writer.
+
+    A writer that rebuilt the whole document while appending would
+    reintroduce the O(T^2) parse cost the per-turn table avoids, so the
+    package must not grow a second append entry point.
+    """
+    from realmock.domains.interview import ledger
+
+    writers = [name for name in ledger.__all__ if name.startswith("append_turn")]
+    assert writers == ["append_turn_row"]
+
+
+def test_append_turn_row_persists_rows_and_increments_ids(db) -> None:
     row = _row(db)
-    doc = append_turn(
+    turn_id = append_turn_row(
         db,
         row,
         phase="intro",
@@ -118,15 +151,16 @@ def test_append_turn_persists_rows_and_increments_ids(db) -> None:
         flags={"k": "v"},
         visible=False,
     )
-    assert doc is not None
+    assert turn_id == "t-0001"
+    doc = load_ledger(db, _reload(db, row))
     turn = doc["turns"][0]
     assert turn["turn_id"] == "t-0001"
     assert turn["assistant"] == {"text": "hello", "visible": False}
     assert turn["user"] == {"text": "hi", "source": "voice"}
     assert turn["flags"] == {"k": "v"}
     # Second append increments the id from the explicit sequence.
-    doc2 = append_turn(db, row, phase="p", assistant_text="q2")
-    assert doc2 is not None
+    assert append_turn_row(db, row, phase="p", assistant_text="q2") == "t-0002"
+    doc2 = load_ledger(db, _reload(db, row))
     assert doc2["turns"][-1]["turn_id"] == "t-0002"
     assert "user" not in doc2["turns"][-1]
     # Both turns survive a full reload from the table.
@@ -144,19 +178,57 @@ def test_append_turn_persists_rows_and_increments_ids(db) -> None:
     assert seqs == [1, 2]
 
 
-def test_append_turn_skipped_when_frozen(db) -> None:
+def test_append_turn_row_skipped_when_frozen(db) -> None:
     row = _row(db)
     row.ledger_frozen = True
     db.commit()
-    assert append_turn(db, row, phase="p", assistant_text="x") is None
+    assert append_turn_row(db, row, phase="p", assistant_text="x") is None
     assert is_frozen(_reload(db, row)) is True
     assert _turns(db, row.id) == []
 
 
+def test_append_turn_row_reads_the_sequence_only(db) -> None:
+    """Appending must not rebuild the session document.
+
+    A rebuild re-reads and re-parses every stored turn of the session, so a
+    session of T turns pays O(T^2) JSON parses. The guard is the number of
+    reads against the turn table: the sequence lookup is one statement, a
+    document rebuild adds a second one.
+    """
+    row = _row(db)
+    append_turn_row(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a2")
+    with _captured_statements(db) as statements:
+        append_turn_row(db, row, phase="p", assistant_text="a3")
+    reads = [s for s in statements if "FROM interview_turns" in s]
+    assert len(reads) == 1, statements
+    inserts = [s for s in statements if s.upper().startswith("INSERT INTO INTERVIEW_TURNS")]
+    assert len(inserts) == 1, statements
+
+
+def test_append_last_turn_flag_reads_only_the_newest_row(db) -> None:
+    """Flagging must read the newest turn, not the whole turn table.
+
+    Reading the whole table loads every stored turn body for nothing. The
+    newest-row lookup is the single-row variant of the same query, so the
+    rendered statement carries a LIMIT.
+    """
+    row = _row(db)
+    for i in range(5):
+        append_turn_row(db, row, phase="p", assistant_text=f"a{i}")
+    with _captured_statements(db) as statements:
+        append_last_turn_flag(db, row, "silence_probe", {"seq": 1})
+    reads = [s for s in statements if "FROM interview_turns" in s]
+    assert len(reads) == 1, statements
+    assert "LIMIT" in reads[0].upper(), reads[0]
+    updates = [s for s in statements if s.upper().startswith("UPDATE INTERVIEW_TURNS")]
+    assert len(updates) == 1, statements
+
+
 def test_append_last_turn_flag_updates_newest_turn_only(db) -> None:
     row = _row(db)
-    append_turn(db, row, phase="p", assistant_text="a1")
-    append_turn(db, row, phase="p", assistant_text="a2")
+    append_turn_row(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a2")
     # Non-dict flags on the newest turn are reset to a dict, not crashed on.
     append_last_turn_flag(db, row, "k", "v")
     doc = load_ledger(db, _reload(db, row))
@@ -176,7 +248,7 @@ def test_append_last_turn_flag_skipped_when_frozen(db) -> None:
     reloads the row without a live-status filter, so the column check here
     is what keeps a completed ledger immutable."""
     row = _row(db)
-    append_turn(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a1")
     row.ledger_frozen = True
     db.commit()
     append_last_turn_flag(db, row, "silence_probe", {"seq": 1})
@@ -186,7 +258,7 @@ def test_append_last_turn_flag_skipped_when_frozen(db) -> None:
 
 def test_freeze_ledger_sets_column_and_is_idempotent(db) -> None:
     row = _row(db)
-    append_turn(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a1")
     out = freeze_ledger(db, row)
     assert out["frozen"] is True
     assert is_frozen(_reload(db, row)) is True
@@ -221,7 +293,7 @@ def test_load_ledger_skips_corrupt_turn_row(db) -> None:
     """A torn/hand-edited turn row degrades to a skipped turn plus the corrupt
     flag instead of failing every read of the session's ledger."""
     row = _row(db)
-    append_turn(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a1")
     db.add(InterviewTurn(session_id=row.id, turn_id="t-broken", seq=99, turn="{not json"))
     db.commit()
 
@@ -234,7 +306,7 @@ def test_load_ledger_skips_corrupt_turn_row(db) -> None:
 def test_append_last_turn_flag_skips_corrupt_newest_row(db) -> None:
     """Flagging onto an unparsable newest row is a logged no-op, not a crash."""
     row = _row(db)
-    append_turn(db, row, phase="p", assistant_text="a1")
+    append_turn_row(db, row, phase="p", assistant_text="a1")
     newest = (
         db.query(InterviewTurn)
         .filter(InterviewTurn.session_id == row.id)

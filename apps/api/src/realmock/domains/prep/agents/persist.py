@@ -22,15 +22,15 @@ from realmock.domains.prep.agents.ask_user import (
     stamp_resume_task,
 )
 from realmock.domains.prep.agents.context import strip_ref_blocks
+from realmock.platform.capabilities.ai.context.assembly import (
+    estimate_tokens,
+    prepare_llm_context,
+)
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
     COMPACTION_SUMMARY_MARKER,
 )
 from realmock.platform.capabilities.ai.context.estimation import estimate_messages_tokens
-from realmock.platform.capabilities.ai.context.manager import (
-    estimate_tokens,
-    prepare_llm_context,
-)
 from realmock.platform.capabilities.ai.context.options import (
     DEFAULT_AUTO_COMPACT_THRESHOLD,
     CompactionOptions,

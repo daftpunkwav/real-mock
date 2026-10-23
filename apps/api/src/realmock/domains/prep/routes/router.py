@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from realmock.domains.prep.routes import chat, create, history, lists, manage, memories
 from realmock.domains.prep.schemas import (
@@ -104,6 +105,8 @@ router.add_api_route(
     "/sessions/{session_id}/message/stream",
     chat.prep_message_stream,
     methods=["POST"],
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
     dependencies=[
         Depends(
             rate_limit_dep(
@@ -262,6 +265,7 @@ router.add_api_route(
     "/memories/{memory_id}",
     memories.delete_memory,
     methods=["DELETE"],
+    response_model=PrepDeletedResponse,
     dependencies=[_manage_limit()],
 )
 

@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from realmock.domains.interview.agents import (
     InterviewRunner,
     InterviewSessionState,
+    api_session_llm,
     run_finish_lifecycle,
-    session_llm,
 )
 from realmock.domains.interview.agents.events import EventKind
 from realmock.domains.interview.models import InterviewSession
@@ -28,6 +28,7 @@ from realmock.domains.interview.schemas import (
     FinishInterviewResponse,
     InterviewMessageRequest,
     InterviewMessageResponse,
+    InterviewStartResponse,
 )
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError, raise_error
@@ -72,7 +73,7 @@ async def start_interview(
     session_id: int,
     db: Session = Depends(get_sessions_db),
     access: str | None = Depends(extract_token),
-):
+) -> InterviewStartResponse:
     """Run the opening turn over SSE-less HTTP (text-fallback path).
 
     Only PENDING/ACTIVE sessions; requires a configured chat model.
@@ -84,7 +85,10 @@ async def start_interview(
     if session.status not in (SessionStatus.PENDING.value, SessionStatus.ACTIVE.value):
         raise_error("A2002")
 
-    llm = session_llm(db, session)
+    # The chat configuration lives in the api database; the session row lives
+    # in the sessions database. Resolving the model through the sessions
+    # session cannot read the configuration tables at all.
+    llm = api_session_llm(session)
     if not llm.api_key:
         raise_error("A0006")
 
@@ -92,13 +96,13 @@ async def start_interview(
     runner = InterviewRunner(session, llm, agent)
     opening, _ = await _collect_turn_result(runner.stream_opening(db))
 
-    return {
-        "session_id": session_id,
-        "message": ChatMessage(
+    return InterviewStartResponse(
+        session_id=session_id,
+        message=ChatMessage(
             role="assistant", content=opening, timestamp=datetime.now(timezone.utc)
         ),
-        "current_phase": session.current_phase,
-    }
+        current_phase=session.current_phase,
+    )
 
 
 async def send_message(
@@ -119,7 +123,10 @@ async def send_message(
     if session.status == SessionStatus.COMPLETED.value:
         raise_error("A2002")
 
-    llm = session_llm(db, session)
+    # The chat configuration lives in the api database; the session row lives
+    # in the sessions database. Resolving the model through the sessions
+    # session cannot read the configuration tables at all.
+    llm = api_session_llm(session)
     if not llm.api_key:
         raise_error("A0006")
 

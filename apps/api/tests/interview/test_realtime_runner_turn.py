@@ -155,7 +155,9 @@ async def test_ledger_write_failure_yields_c0003_not_c0001():
     with patch(
         "realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty
     ):
-        with patch("realmock.domains.interview.agents.interviewer.runner_turn.append_turn", boom):
+        with patch(
+            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row", boom
+        ):
             evs3 = await _collect(stream_turn(r2, "hi", MagicMock()))
     assert evs3[-1].kind == EventKind.ERROR and evs3[-1].error_code == "C0003"
     assert evs3[-1].error_retryable is False
@@ -184,7 +186,7 @@ async def test_regen_and_ledger_fail():
             "realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say
         ):
             with patch(
-                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
                 side_effect=RuntimeError("db"),
             ):
                 evs = await _collect(stream_turn(r, "hi", MagicMock()))
@@ -211,7 +213,7 @@ async def test_bg_timeouts_do_not_block():
         "realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty2
     ):
         with patch(
-            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
             return_value=None,
         ):
             evs = await _collect(stream_turn(r, "hi", MagicMock()))
@@ -242,7 +244,7 @@ async def test_early_and_tool_yield_and_pace():
         "realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _tools
     ):
         with patch(
-            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
             return_value=None,
         ):
             evs = await _collect(stream_turn(r, "hi", MagicMock()))
@@ -281,7 +283,7 @@ async def test_complete_triggers_finish_and_degraded():
             "realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _nosay
         ):
             with patch(
-                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
                 return_value=None,
             ):
                 evs = await _collect(stream_turn(r, "hi", MagicMock()))
@@ -294,7 +296,7 @@ async def test_complete_triggers_finish_and_degraded():
             "realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say2
         ):
             with patch(
-                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
                 return_value=None,
             ):
                 with patch(
@@ -329,7 +331,7 @@ async def test_fallback_and_generic_bg_errors():
             "realmock.domains.interview.agents.interviewer.runner_turn.stream_say_first", _say
         ):
             with patch(
-                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+                "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
                 return_value=None,
             ):
                 evs = await _collect(stream_turn(r, "hi", MagicMock()))
@@ -356,7 +358,7 @@ async def test_bg_timeouts_with_started_at():
         "realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty
     ):
         with patch(
-            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
             return_value=None,
         ):
             evs = await _collect(stream_turn(r, "hi", MagicMock()))
@@ -387,7 +389,7 @@ async def test_boundary_pins_end_before_phase_advance():
         "realmock.domains.interview.agents.interviewer.runner_turn.stream_tool_rounds", _empty
     ):
         with patch(
-            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn",
+            "realmock.domains.interview.agents.interviewer.runner_turn.append_turn_row",
             return_value=None,
         ):
             evs = await _collect(stream_turn(r, "hi", MagicMock()))

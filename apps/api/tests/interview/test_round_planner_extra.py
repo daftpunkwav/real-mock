@@ -6,6 +6,7 @@ Conventions: no real network/LLM (mocked or faked); deterministic asserts only
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,6 +30,13 @@ def _llm() -> MagicMock:
     m = MagicMock()
     m.api_key = ""
     return m
+
+
+def _db_file(db) -> str:
+    """The database file a session is bound to."""
+    bind = db.get_bind()
+    url = getattr(bind, "url", None)
+    return str(getattr(url, "database", "") or "")
 
 
 def _row(**overrides) -> InterviewSession:
@@ -141,7 +149,7 @@ async def test_generate_round_plan_no_api_key_marks_failed(db, monkeypatch) -> N
     )
     llm = MagicMock()
     llm.api_key = ""
-    monkeypatch.setattr(rp, "session_llm", lambda *a, **k: llm)
+    monkeypatch.setattr(rp, "api_session_llm", lambda *a, **k: llm)
     await rp.generate_round_plan_for_process(proc.id)
     db.expire_all()
     assert db.get(InterviewProcess, proc.id).round_plan_status == "failed"
@@ -161,7 +169,7 @@ async def test_generate_round_plan_timeout_marks_failed(db, monkeypatch) -> None
         db, ProcessCreateRequest(role="r", level="l", company="c", max_rounds=2)
     )
     llm = FakeLLMClient()
-    monkeypatch.setattr(rp, "session_llm", lambda *a, **k: llm)
+    monkeypatch.setattr(rp, "api_session_llm", lambda *a, **k: llm)
 
     async def _timeout(coro, *a, **k):
         try:
@@ -192,7 +200,39 @@ async def test_generate_round_plan_invalid_payload_marks_failed(db, monkeypatch)
         async def chat_json(self, messages, temperature=0.3, **kw):
             return {"garbage": True}
 
-    monkeypatch.setattr(rp, "session_llm", lambda *a, **k: _Bad())
+    monkeypatch.setattr(rp, "api_session_llm", lambda *a, **k: _Bad())
     await rp.generate_round_plan_for_process(proc.id)
     db.expire_all()
     assert db.get(InterviewProcess, proc.id).round_plan_status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_generate_round_plan_resolves_the_chat_model_from_the_api_database(
+    db, monkeypatch
+) -> None:
+    """The chat configuration lives in the api database.
+
+    The sessions database carries the process rows and none of the model
+    configuration tables, so resolving the model through the sessions session
+    raises "no such table: model_profiles" and the round program is never
+    written.
+    """
+    from realmock.domains.interview.agents import session_overrides
+    from realmock.domains.interview.agents.planning import round_planner as rp
+    from realmock.domains.interview.process.process_service import (
+        create_process_with_first_round,
+    )
+    from realmock.domains.interview.schemas.process import ProcessCreateRequest
+
+    proc, _ = create_process_with_first_round(
+        db, ProcessCreateRequest(role="r", level="l", company="c", max_rounds=2)
+    )
+    resolved: list[str] = []
+
+    def _record(db_, session):
+        resolved.append(_db_file(db_))
+        return SimpleNamespace(api_key="")
+
+    monkeypatch.setattr(session_overrides, "session_llm", _record)
+    await rp.generate_round_plan_for_process(proc.id)
+    assert resolved and resolved[0].endswith("api.db"), resolved

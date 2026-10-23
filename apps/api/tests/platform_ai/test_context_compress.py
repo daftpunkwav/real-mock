@@ -5,15 +5,15 @@ from __future__ import annotations
 import pytest
 
 from realmock.platform.capabilities.ai.agent.working_memory import WorkingMemory
-from realmock.platform.capabilities.ai.context.compress import (
-    PROTECTED_ROW_MIN_CHARS,
-    protected_run_budget,
-)
-from realmock.platform.capabilities.ai.context.manager import (
+from realmock.platform.capabilities.ai.context.assembly import (
     compact_with_summary,
     compress_messages,
     estimate_messages_tokens,
     estimate_tokens,
+)
+from realmock.platform.capabilities.ai.context.compress import (
+    PROTECTED_ROW_MIN_CHARS,
+    protected_run_budget,
 )
 from realmock.platform.capabilities.ai.llm.json_extract import truncate_chunk
 

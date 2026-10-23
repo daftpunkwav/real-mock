@@ -18,7 +18,7 @@ import { useT } from "@/i18n";
 import { formatApiError } from "@/lib/api/base";
 import { prepMemoryHttp } from "@/lib/api/prepMemoryHttp";
 import type { PrepMemoryDetail, PrepMemorySummary } from "@/lib/api/contract";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 const ORIGIN_KEYS = ["user_rating", "user_emphasis", "agent_note"] as const;
 

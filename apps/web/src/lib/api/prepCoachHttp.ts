@@ -145,8 +145,9 @@ export const prepCoachHttp = {
       onCompaction,
     } = callbacks;
     const url = resolveBackendUrl(`/api/v1/prep/sessions/${sessionId}/message/stream`);
-    // Idle watchdog: tool rounds emit events steadily, so a quiet stream is a
-    // half-open connection, not a thinking model. No auto-reconnect: a turn is
+    // Idle watchdog: the server keeps the stream alive with ``: ping``
+    // comments while the model works, so a byte-quiet stream is a half-open
+    // connection, not a thinking model. No auto-reconnect: a turn is
     // non-idempotent (retrying would persist a duplicate turn server-side);
     // surface a stall error and let the user resend explicitly.
     const STREAM_IDLE_TIMEOUT_MS = 120_000;

@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from realmock.domains.records.agents.report.prompts import report_repair_system
-from realmock.platform.capabilities.ai.context.blobs import compress_text_blob
+from realmock.platform.capabilities.ai.context.blob_compression import compress_text_blob
 from realmock.platform.capabilities.ai.llm.json_extract import (
     extract_json_object,
     truncate_chunk,

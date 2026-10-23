@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from sqlalchemy.orm import Session
 
-from realmock.domains.interview.agents import session_llm
+from realmock.domains.interview.agents import api_session_llm
 from realmock.domains.interview.agents.planning.plan_prompts import (
     build_plan_user_message,
     planner_system_prompt,
@@ -47,7 +47,7 @@ from realmock.domains.interview.workflows import get_workflow
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session, sessions_db_session
 from realmock.platform.services.candidate_read import (
-    get_resume_agent_payload,
+    get_candidate_profile,
     get_user_profile,
 )
 
@@ -99,16 +99,6 @@ def _round_pass_criteria(process: InterviewProcess, round_no: int | None) -> str
     except Exception:
         logger.debug("round pass criteria lookup failed", exc_info=True)
     return ""
-
-
-def _resume_summary(resume_payload: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not isinstance(resume_payload, dict):
-        return None
-    return {
-        "skills": resume_payload.get("skills") or [],
-        "projects": resume_payload.get("projects") or [],
-        "summary": resume_payload.get("summary") or "",
-    }
 
 
 async def _company_context(db: Session, session: InterviewSession, llm: Any) -> str:
@@ -172,7 +162,10 @@ async def generate_plan_for_session(session_id: int) -> None:
             session = db.get(InterviewSession, session_id)
             if session is None or getattr(session, "plan_status", "") == PLAN_STATUS_READY:
                 return
-            llm = session_llm(db, session)
+            # The chat configuration lives in the api database; the session row
+            # lives in the sessions database. Resolving the model through the
+            # sessions session cannot read the configuration tables at all.
+            llm = api_session_llm(session)
             if not llm.api_key:
                 session.plan_status = PLAN_STATUS_FAILED
                 db.commit()
@@ -180,14 +173,14 @@ async def generate_plan_for_session(session_id: int) -> None:
 
             with api_db_session() as api_db:
                 profile = get_user_profile(api_db, session.profile_id)
-                resume_payload = get_resume_agent_payload(api_db, session.resume_id)
+                candidate = get_candidate_profile(api_db, session.resume_id)
 
             # _ConfigShim exposes the InterviewConfig attribute surface without
             # pydantic validation; build_plan_user_message only reads attributes.
             config_like = cast("InterviewConfig", _config_shim(session))
             user_msg = build_plan_user_message(
                 config_like,
-                resume_payload=_resume_summary(resume_payload),
+                candidate=candidate,
                 profile=profile,
                 process_section=_process_section(db, session),
                 company_context=await _company_context(db, session, llm),

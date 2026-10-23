@@ -109,6 +109,9 @@ const nextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   // Do not switch `next dev` to --turbopack: talkinghead's runtime-built
   // import(moduleName) fails the Turbopack build with "Can't resolve <dynamic>".
+  // `three` is the talking-head vendor's own dependency: Next matches a
+  // transpiled package by path, so naming it here covers the copy nested under
+  // the vendor and it is transpiled together with the vendor itself.
   transpilePackages: ["@met4citizen/talkinghead", "three"],
   async headers() {
     return [

@@ -34,10 +34,15 @@ def history_tool_specs(sessions_db: Session) -> list[ToolSpec]:
 
     async def list_sessions(args: dict[str, Any]) -> str:
         limit = args.get("limit")
+        try:
+            count = int(limit) if isinstance(limit, (int, float)) else _LIST_DEFAULT_LIMIT
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: a non-finite (Infinity) limit is not convertible and
+            # is not a ValueError; it is a malformed limit like any other and
+            # must degrade to the default page size.
+            count = _LIST_DEFAULT_LIMIT
         rows = []
-        for item in _scored_items(
-            int(limit) if isinstance(limit, (int, float)) else _LIST_DEFAULT_LIMIT
-        ):
+        for item in _scored_items(count):
             ended = item.ended_at or item.created_at
             rows.append(
                 {

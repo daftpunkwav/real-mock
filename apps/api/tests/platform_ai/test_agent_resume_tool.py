@@ -209,3 +209,23 @@ async def test_get_section_raw_paging() -> None:
 
 def test_section_order_constant() -> None:
     assert "raw" in resume_mod.RESUME_SECTION_ORDER
+
+
+@pytest.mark.asyncio
+async def test_get_section_raw_non_finite_paging_degrades() -> None:
+    """A non-finite offset/limit degrades to the page defaults, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    snap = _snap(raw_text="0123456789" * 1000)
+    specs = {s.name: s for s in resume_tool_specs(snap)}
+    cases = [
+        {"section": "raw", "offset": float("inf"), "limit": float("inf")},
+        json.loads('{"section": "raw", "offset": Infinity, "limit": Infinity}'),
+    ]
+    for args in cases:
+        page = json.loads(await specs["resume_get_section"].handler(args))
+        assert page["data"]["offset"] == 0
+        assert page["data"]["limit"] == resume_mod.RESUME_RAW_PAGE_CHARS

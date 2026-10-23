@@ -1,6 +1,6 @@
 # records/agents/report/
 
-Two-stage ReAct pipeline that produces the deep interview report from a frozen session ledger. Parent map: [../../..](../../../README.md) (records domain).
+Two-stage ReAct pipeline that produces the deep interview report from a frozen session ledger. Parent map: [../../README.md](../../README.md) (records domain).
 
 ## Pipeline
 

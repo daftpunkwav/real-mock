@@ -10,7 +10,7 @@ import { StrictMode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { parsePrepDeepLink } from "@/features/resume/sendToPrep";
+import { parsePrepDeepLink } from "@/lib/prepDeepLink";
 import { usePrepDeepLink } from "../hooks/usePrepDeepLink";
 
 vi.mock("@/i18n/resolve", () => ({
@@ -67,6 +67,17 @@ describe("usePrepDeepLink", () => {
       expect(sendMessage).toHaveBeenCalledWith("drill me", 42, false, { assumeViewing: true }),
     );
     expect(window.location.search).toBe("");
+  });
+
+  it("seeds the question verbatim, including newlines and reserved characters", async () => {
+    // The resume feature seeds a templated question; the hand-off must not
+    // mangle the newlines or the characters that split a query string.
+    const question = "第一问:如何设计 RAG?\n\n补充:a & b #c";
+    pushLink(7, question);
+    renderHook(() => usePrepDeepLink(baseOpts()));
+    await waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith(question, 42, false, { assumeViewing: true }),
+    );
   });
 
   it("falls back to the current pairing when the resume id is unknown", async () => {

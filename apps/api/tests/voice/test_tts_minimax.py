@@ -9,6 +9,7 @@ Conventions: no real network/model downloads (all clients mocked).
 from __future__ import annotations
 
 import base64
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -376,6 +377,26 @@ def test_build_tts_body_without_prosody_section_is_noop(monkeypatch):
     assert "emotion" not in body["voice_setting"]
     assert "speed" not in body["voice_setting"]
     assert "pitch" not in body["voice_setting"]
+
+
+def test_apply_prosody_non_finite_pinned_pitch_starts_from_zero(monkeypatch):
+    """A non-finite pinned pitch starts from zero, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a pinned
+    ``voice_setting.pitch`` can carry ``inf``; ``int(float('inf'))`` raises
+    OverflowError, which is not a ValueError and therefore slips past the
+    tolerant coercion.
+    """
+    monkeypatch.setattr(minimax_mod, "_capability_def", lambda: _PROSODY_DEF)
+    pinned_values = (float("inf"), json.loads('{"pitch": Infinity}')["pitch"])
+    for pinned in pinned_values:
+        body = minimax_mod.apply_prosody(
+            {"voice_setting": {"pitch": pinned}},
+            emotion="neutral",
+            rate="+0%",
+            pitch="+3Hz",
+        )
+        assert body["voice_setting"]["pitch"] == 3
 
 
 @pytest.mark.asyncio

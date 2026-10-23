@@ -78,7 +78,7 @@ class FollowupSignal:
 _NO_SIGNAL = FollowupSignal(False, FollowupCategory.NONE, "")
 
 
-def analyze(
+def analyze_followup(
     answer: str,
     question: str = "",
     tech_domains: list[str] | None = None,
@@ -204,5 +204,5 @@ def _matches_any_domain(text: str, domains: list[str]) -> bool:
 __all__ = [
     "FollowupCategory",
     "FollowupSignal",
-    "analyze",
+    "analyze_followup",
 ]

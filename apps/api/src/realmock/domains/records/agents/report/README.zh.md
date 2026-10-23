@@ -1,7 +1,7 @@
 # records/agents/report/
 
 两阶段 ReAct 流水线,从冻结的会话 ledger 产出深度面试报告。上层地图见
-[../../..](../../../README.zh.md)(records 域)。
+[../../README.zh.md](../../README.zh.md)(records 域)。
 
 ## 流水线
 

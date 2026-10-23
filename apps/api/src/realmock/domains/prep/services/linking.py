@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession, commit_session, utcnow
+from realmock.domains.prep.services.session_guard import load_prep_session
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.security import redact_api_key
 
@@ -119,9 +120,9 @@ def apply_session_link(session: PrepSession, db: Session, target: int | None) ->
     if target is not None:
         if target == session.id:
             raise_error("A0001")
-        linked = db.query(PrepSession).filter(PrepSession.id == target).first()
-        if linked is None:
-            raise_error("A3001")
+        # The unknown-target rule is the shared session-loading rule: the
+        # guard owns it, so the answer cannot drift between the two callers.
+        load_prep_session(db, target)
     session.linked_session_id = target
     session.updated_at = utcnow()
     commit_session(db)

@@ -8,8 +8,10 @@
 | `routes/models.py` | 模型档案 API:provider / channel / model / task 绑定路由(能力声明) |
 | `routes/model_tests.py` | 连通性 / 模型测试 |
 | `routes/integrations.py` | 第三方集成凭据(GitHub) |
+| `routes/data.py` | 数据管理:清空全部业务内容(配置保留) |
 | `services/` | `model_registry.py`、`vendor_apply.py`(应用厂商描述符)、`github_integration.py`、`stage_tests.py`、`validation.py`、`route_timing.py` |
 | `schemas/providers.py` | 响应模型,逐字段镜像 `routes/models.py` / `integrations.py` / `stages.py` 返回的 dict |
+| `schemas/data.py` | 清空摘要:各存储区域的删除行数 |
 
 薄域:无 `models/`、生命周期钩子。
 

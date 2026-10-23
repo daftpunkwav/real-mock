@@ -25,7 +25,10 @@ def _safe_index(value: Any) -> int | None:
     """
     try:
         return int(value or 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a gateway index of Infinity is not convertible and is
+        # not a ValueError; it must be treated as the malformed index it is,
+        # not kill the streaming turn.
         return None
 
 
@@ -336,6 +339,11 @@ class _ResponsesRoundAssembler:
                 message["finish_reason"] = finish
             self._server_tool_notes.extend(extract_server_tool_notes(data, "openai_responses"))
         else:
+            # Emission order, not key order: ``_call_order`` records the order
+            # the provider emitted the items in, and the model reads the
+            # parallel results back in that order. Sorting the keys would
+            # shuffle them (and the two sibling assemblers keep the provider
+            # order too).
             tool_calls = [
                 {
                     "id": self._calls[key]["id"] or f"call_{idx}",
@@ -345,7 +353,7 @@ class _ResponsesRoundAssembler:
                         "arguments": self._calls[key]["args"] or "{}",
                     },
                 }
-                for idx, key in enumerate(sorted(self._call_order))
+                for idx, key in enumerate(self._call_order)
             ]
             message = {"role": "assistant", "content": "".join(self._content) or None}
             if tool_calls:

@@ -40,7 +40,7 @@ def test_agent_build_context_with_resume(monkeypatch) -> None:
         monkeypatch.setattr(mod, "snapshot_from_payload", lambda p: "snap")
         monkeypatch.setattr(mod, "resume_tool_specs", lambda snap: ["rspec"])
         monkeypatch.setattr(mod, "get_user_profile", lambda db, pid: "row")
-        monkeypatch.setattr(mod, "profile_from_orm", lambda row: "psnap")
+        monkeypatch.setattr(mod, "snapshot_from_profile", lambda row: "psnap")
         monkeypatch.setattr(mod, "profile_tool_specs", lambda snap: ["pspec"])
         monkeypatch.setattr(mod, "github_tool_specs", lambda: ["gspec"])
         specs = mod.build_context_specs(resume_id=1, profile_id=2)
@@ -87,3 +87,9 @@ async def test_agent_batch_failure_returns_empty(monkeypatch) -> None:
     ledger = {"turns": [{"turn_id": "t-0001"}]}
     report = await agent.run(role="BE", level="S", company="Acme", ledger=ledger)
     assert isinstance(report, DebriefReport)
+    # The failed batch contributes no note content: the synthesis result is
+    # kept, and every transcript turn is padded with an empty note so the
+    # report still lists the whole turn list.
+    assert report.overall_score == 80
+    assert [n.turn_id for n in report.turn_notes] == ["t-0001"]
+    assert [n.score for n in report.turn_notes] == [0]

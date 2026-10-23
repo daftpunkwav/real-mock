@@ -127,7 +127,6 @@ interface UsePrepChat {
   submitRate: (data: RateSubmit) => Promise<void>;
 }
 
-/** Prep chat composition root: session state, streaming, and actions in one view-model. */
 /** AI quick-prompt suggestions for the viewed session (null = static defaults). */
 const usePrepQuickSuggestions = ({
   viewingRef,
@@ -233,6 +232,7 @@ const usePrepSlashCommands = ({
   return { slashClearOpen, handleSlashCommand, confirmSlashClear, cancelSlashClear };
 };
 
+/** Prep chat composition root: session state, streaming, and actions in one view-model. */
 export const usePrepChat = ({ onAskUser }: UsePrepChatOptions = {}): UsePrepChat => {
   const resources = usePrepResources();
   const { locale } = useLocale();

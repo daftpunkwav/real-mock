@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import * as interviewBarrel from "../index";
 import { isLikelyEchoOfAssistant, normalizeEchoText } from "../echo";
 import { toVisibleChatMessages } from "../messages";
 import { planStepTitle } from "../processes";
+
+describe("feature barrel", () => {
+  it("keeps the room surface but not the lib multi-round helpers", () => {
+    expect("InterviewRoomView" in interviewBarrel).toBe(true);
+    expect("buildNextRoundIndex" in interviewBarrel).toBe(false);
+    expect("selectEligibleProcesses" in interviewBarrel).toBe(false);
+  });
+});
 
 describe("echo", () => {
   it("normalizeEchoText strips punctuation and whitespace", () => {

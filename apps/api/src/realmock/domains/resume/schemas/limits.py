@@ -33,6 +33,13 @@ FILE_MIME: dict[str, str] = {
     "txt": "text/plain",
 }
 
+# Media types the original-file download can answer with: the formats in
+# FILE_MIME plus the binary fallback used for unknown file types.
+FILE_DOWNLOAD_MEDIA_TYPES: tuple[str, ...] = (
+    *FILE_MIME.values(),
+    "application/octet-stream",
+)
+
 # ── Analysis locales ────────────────────────────────────────────────────
 
 ANALYSIS_LOCALES: tuple[str, ...] = ("zh-CN", "en")
@@ -60,7 +67,7 @@ PAGE_PREVIEW_ZOOM: float = 2.5
 MAX_RENDER_PX: int = 4096
 RENDER_CONCURRENCY: int = 2
 # Per-page vision transcription calls run concurrently; this bounds the LLM
-# request fan-out for one resume (independent of the fitz render semaphore).
+# request fan-out for one resume (independent of the pymupdf render semaphore).
 TRANSCRIBE_CONCURRENCY: int = 3
 
 # ── Deep-review Agent ───────────────────────────────────────────────────

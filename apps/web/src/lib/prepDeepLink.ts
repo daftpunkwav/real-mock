@@ -1,10 +1,15 @@
 /**
- * @file sendToPrep
- * @description Deep link from the deep-review sheet into the prep coach chat.
+ * @file prepDeepLink
+ * @description Deep-link contract between the resume deep-review sheet and the
+ * prep coach chat.
  *
  * The link carries the owning resume id plus the seeded question text; the
  * prep page consumes (and strips) the params once its resources have loaded,
  * pairing the target session with the same resume the analysis belongs to.
+ *
+ * Lives in lib so both features share one contract: the resume feature builds
+ * the link, the prep feature parses it, and neither reaches into the other's
+ * internals.
  */
 
 /** Search-param keys consumed by the prep page. */

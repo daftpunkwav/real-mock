@@ -9,6 +9,10 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from realmock.platform.core.errors import ApiBusinessError
+
 
 def _session_row(**kw):
     """Build a minimal session row namespace with sensible defaults."""
@@ -126,12 +130,9 @@ def test_sessions_crud_gaps():
     # get_session 404 / 403 / ok
     db4 = MagicMock()
     db4.query.return_value.filter.return_value.first.return_value = None
-    with patch.object(mod, "raise_error", side_effect=RuntimeError("A2001")):
-        try:
-            mod.get_session(1, db4, "tok")
-            assert False
-        except RuntimeError:
-            pass
+    with pytest.raises(ApiBusinessError) as exc:
+        mod.get_session(1, db4, "tok")
+    assert exc.value.error_code == "A2001"
     db5 = MagicMock()
     db5.query.return_value.filter.return_value.first.return_value = _session_row()
     with (
@@ -151,12 +152,9 @@ def test_sessions_crud_gaps():
     # get_messages 404 / ok / dirty
     db6 = MagicMock()
     db6.query.return_value.filter.return_value.first.return_value = None
-    with patch.object(mod, "raise_error", side_effect=RuntimeError("A2001")):
-        try:
-            mod.get_messages(1, db6, "t")
-            assert False
-        except RuntimeError:
-            pass
+    with pytest.raises(ApiBusinessError) as exc2:
+        mod.get_messages(1, db6, "t")
+    assert exc2.value.error_code == "A2001"
     good = _session_row(messages=json.dumps([{"role": "user", "content": "hi"}]))
     db7 = MagicMock()
     db7.query.return_value.filter.return_value.first.return_value = good

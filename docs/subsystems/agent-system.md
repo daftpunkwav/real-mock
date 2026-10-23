@@ -39,11 +39,11 @@ Both backends implement the `IsolationBackend` protocol in `base.py` (`spawn` / 
 
 | Module | Purpose |
 | --- | --- |
-| `manager.py` | Entry point; `prepare_llm_context` orchestration (compression + working-memory injection as a separate system section). |
+| `assembly.py` | Entry point; `prepare_llm_context` orchestration (compression + working-memory injection as a separate system section). |
 | `estimation.py` | Script-aware token estimation for budget checks (CJK ≈ 1.5 chars/token, Latin ≈ 4); image data URLs budgeted at 32 chars/token with `VISION_CONTEXT_IMAGE_RATIO` (0.35) of the window reserved. |
 | `compress.py` | Rule-based `compress_messages` (system messages + latest tail + summary line) and collapsing of stale tool-call pairs; products marked `[Conversation Minutes]` / `[Context compression]`. |
 | `summarize.py` | `compact_with_summary` — above threshold, LLM-generated sectioned summary replaces the omitted conversation incrementally; LLM failure falls back to the rule-based summary (logged, visible) unless `force=True`. |
-| `blobs.py` | LLM compression for oversized text blobs; on failure returns an explicitly marked head+tail excerpt. |
+| `blob_compression.py` | LLM compression for oversized text blobs; on failure returns an explicitly marked head+tail excerpt. |
 | `options.py` | `CompactionOptions` value object; intensity levels `light` / `balanced` / `aggressive` with verbatim-tail floors of 10 / 4 / 0 messages. |
 
 ## `llm/` — provider-facing model calls

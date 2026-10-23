@@ -1,12 +1,12 @@
 /**
- * @file sendToPrep.test.ts
+ * @file prepDeepLink.test.ts
  * @description Deep-link builder/parser contract between the deep-review sheet
  * and the prep page (resume pairing + seeded question round-trip).
  */
 
 import { describe, expect, it } from "vitest";
 
-import { buildPrepDeepLink, parsePrepDeepLink } from "../sendToPrep";
+import { buildPrepDeepLink, parsePrepDeepLink, PREP_DEEP_LINK_PARAMS } from "../prepDeepLink";
 
 describe("buildPrepDeepLink", () => {
   it("carries the resume id and the encoded question", () => {
@@ -20,6 +20,14 @@ describe("buildPrepDeepLink", () => {
     const link = buildPrepDeepLink(null, "question");
     expect(link).toBe("/prep?q=question");
     expect(parsePrepDeepLink("?q=question")).toEqual({ resumeId: null, question: "question" });
+  });
+
+  it("emits exactly the declared params and encodes the question", () => {
+    const link = buildPrepDeepLink(7, "a & b #c?d=e");
+    const params = new URLSearchParams(link.slice("/prep".length));
+    expect([...params.keys()].sort()).toEqual([...PREP_DEEP_LINK_PARAMS].sort());
+    expect(params.get("resume")).toBe("7");
+    expect(params.get("q")).toBe("a & b #c?d=e");
   });
 });
 

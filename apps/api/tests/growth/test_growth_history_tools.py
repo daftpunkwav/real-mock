@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+from realmock.domains.growth.agents import tools as growth_tools
 from realmock.domains.growth.agents.tools import (
     REPORT_OBSERVATION_MAX_CHARS,
     history_tool_specs,
@@ -96,6 +97,21 @@ def test_list_sessions_limit_accepts_numbers_only() -> None:
         len(json.loads(_run_tool(catalog, "history_list_sessions", {"limit": "many"}))["sessions"])
         == 5
     )
+
+
+def test_list_sessions_non_finite_limit_degrades_to_default() -> None:
+    """A non-finite limit must degrade to the default page size, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    sessions = [_snapshot(i, 60) for i in range(30)]
+    catalog = _catalog(sessions)
+    limits = (float("inf"), json.loads('{"limit": Infinity}')["limit"])
+    for limit in limits:
+        body = json.loads(_run_tool(catalog, "history_list_sessions", {"limit": limit}))
+        assert body["count"] == growth_tools._LIST_DEFAULT_LIMIT
 
 
 def test_get_report_rejects_invalid_session_id() -> None:

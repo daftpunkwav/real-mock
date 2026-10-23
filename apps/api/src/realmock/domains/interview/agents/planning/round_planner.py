@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any
 
-from realmock.domains.interview.agents import session_llm
+from realmock.domains.interview.agents import api_session_llm
 from realmock.domains.interview.agents.planning.round_plan_prompts import (
     build_round_plan_user_message,
     hr_planner_system_prompt,
@@ -33,7 +33,7 @@ from realmock.domains.interview.protocols.round_plan_schema import parse_round_p
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session, sessions_db_session
 from realmock.platform.services.candidate_read import (
-    get_resume_agent_payload,
+    get_candidate_profile,
     get_user_profile,
 )
 
@@ -75,7 +75,10 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 process.round_plan_status = ROUND_PLAN_STATUS_FAILED
                 db.commit()
                 return
-            llm = session_llm(db, first)
+            # The chat configuration lives in the api database; the process row
+            # lives in the sessions database. Resolving the model through the
+            # sessions session cannot read the configuration tables at all.
+            llm = api_session_llm(first)
             if not llm.api_key:
                 process.round_plan_status = ROUND_PLAN_STATUS_FAILED
                 db.commit()
@@ -83,7 +86,7 @@ async def generate_round_plan_for_process(process_id: int) -> None:
 
             with api_db_session() as api_db:
                 profile = get_user_profile(api_db, process.profile_id)
-                resume_payload = get_resume_agent_payload(api_db, process.resume_id)
+                candidate = get_candidate_profile(api_db, process.resume_id)
 
             # Custom (non-catalog) companies have no interview-style context:
             # research the company once here (or reuse the cross-session cache
@@ -125,7 +128,7 @@ async def generate_round_plan_for_process(process_id: int) -> None:
                 company=process.company,
                 round_budget=max(1, process.max_rounds or 1),
                 profile=profile,
-                resume_summary=resume_payload if isinstance(resume_payload, dict) else None,
+                candidate=candidate,
                 company_context=blend_company_context(
                     get_company_context(process.company or ""), digest
                 ),

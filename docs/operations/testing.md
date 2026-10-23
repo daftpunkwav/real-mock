@@ -49,12 +49,16 @@ pytest lives in the `dev` extra of `apps/api/pyproject.toml` (`[project.optional
 | `test_platform_no_domain_imports.py` | The platform layer must not import business domains or composition-root bootstrap code (AST guard) |
 | `test_domains_no_cross_imports.py` | Domain packages must not import sibling domain packages (AST guard) |
 | `test_db_boundary_imports.py` | With dual databases, the interview/prep/growth domains must not directly import shared-table ORM models |
+| `test_profile_tool_field_contract.py` | The profile agent tool may only expose fields the declared profile read model carries |
+| `test_ledger_document_contract.py` | The interview ledger writer and the records readers share one declaration of the ledger document shape |
 | `test_interview_layering.py` | AST guards for the interview domain layering (`agents` subpackages per LLM role) |
 | `test_bootstrap_session_domains.py` | Bootstrap domain registration: isolated processes must not load unrelated business ORMs |
 | `test_api_v1_paths.py` | Both `/api/v1` and `/api` compatibility aliases resolve (`/api/v1/options` and `/api/options`) |
 | `test_app_factory.py` | `app_factory`/`asgi` entry-point and middleware behavior |
 | `test_exposure_guards.py` | Deployment-exposure regressions (local-only peer check; `ENV=prod` must not honor `TEST_MODE` for non-loopback peers) |
 | `test_openapi_contract_sync.py` | See contract guards below |
+| `test_route_response_models.py` | Every published JSON response names a schema; non-JSON responses carry their own media type |
+| `test_route_response_contract.py` | The published component, its fields, and the media type of every non-JSON response |
 | `test_ws_error_code_registry.py` | WS-emitted `code=` literals in the interview domain must be registered in the platform error `CATALOG` (AST guard) |
 
 ### Contract guards
@@ -78,13 +82,15 @@ Realtime tests patch module-level symbols in the owning module (e.g. `turn.stt_f
 | `npx tsc --noEmit` | TypeScript type gate |
 | `npm run lint` | ESLint |
 
-Tests live in `__tests__/` directories next to the code they cover; the current scale is 78 `*.test.ts(x)` files across `src/`.
+Tests live in `__tests__/` directories next to the code they cover; the current scale is 95 `*.test.ts(x)` files across `src/`.
 
 ## CI gates
 
-Both jobs run on push to `main` and on all pull requests (`.github/workflows/ci.yml`).
+`.github/workflows/ci.yml` runs on push to `main` and on all pull requests. A `changes` job classifies the diff, each area job runs only when its area changed, and the `gate` job aggregates the results into the single required check. The dependency audits and the secret scan live in the separate `security.yml` workflow (push, pull request, weekly schedule), not in these jobs.
 
 | Job | Checks |
 | --- | --- |
-| `backend` | `ruff==0.15.20`; `mypy==2.1.0` over `src` (blocking); pytest full regression with coverage gate `--cov-fail-under=90` over `realmock.platform` and the profile / resume / settings / prep / interview / growth domains; `pip-audit==2.10.1` with `--ignore-vuln PYSEC-2026-311/3813/3814/3815` (chromadb 1.5.9 known issues, no fixed release yet) |
-| `frontend` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (coverage thresholds from `vitest.config.mts`); `npm run build`; `npm run audit` (fails on high+ unless allowlisted in `apps/web/npm-audit-allowlist.json`) |
+| `backend` | `ruff==0.16.10` (static check and format check); `mypy==2.4.0` over `src` (blocking); OpenAPI contract sync (`export_openapi.py` must leave `openapi.json` unchanged); pytest full regression with whole-package coverage gate `--cov=realmock --cov-fail-under=90` |
+| `frontend` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (coverage thresholds from `vitest.config.mts`); `npm run build`; `npm run format:check`; i18n usage audit (ghost and dead keys) |
+
+The same workflow also runs `docker` and `workflow-lint` when their area changed, and `repo-hygiene` on every run (editorconfig, case collisions, documentation bilingual pairs, internal links). See [deployment.md](deployment.md) for the full job table.

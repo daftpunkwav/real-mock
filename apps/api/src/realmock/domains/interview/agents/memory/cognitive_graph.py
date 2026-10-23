@@ -51,7 +51,9 @@ class CompetencyEvidence:
     def from_dict(cls, data: dict[str, Any]) -> CompetencyEvidence:
         try:
             turn_index = int(data.get("turn_index", 0))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
+            # OverflowError: a non-finite (Infinity) index is not convertible and
+            # is not a ValueError; it falls back to the first turn.
             turn_index = 0
         try:
             confidence = float(data.get("confidence", 0.8))

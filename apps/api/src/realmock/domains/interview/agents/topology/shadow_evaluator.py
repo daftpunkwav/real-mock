@@ -229,7 +229,9 @@ class ShadowEvaluatorAgent:
             return None
         try:
             substance_score = int(raw.get("substance_score", 5))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
+            # OverflowError: a non-finite (Infinity) score is not convertible and
+            # is not a ValueError; it falls back to the default score.
             substance_score = 5
         substance_score = max(1, min(10, substance_score))
         return ShadowEvaluation(

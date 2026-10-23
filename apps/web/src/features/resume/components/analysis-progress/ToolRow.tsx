@@ -7,7 +7,7 @@
 
 import { ChevronRight, Globe, Plug } from "lucide-react";
 import { useT, type Translator } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import type { ReviewToolItem } from "../../reviewProgress";
 
 function toolDescription(name: string, t: Translator<"resume">): string {

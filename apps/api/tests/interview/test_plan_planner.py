@@ -30,11 +30,79 @@ def _valid_plan_dict(n=8):
     }
 
 
-def test_resume_summary() -> None:
-    assert pl._resume_summary(None) is None
-    assert pl._resume_summary("bad") is None
-    out = pl._resume_summary({"skills": ["Py"], "projects": [{"a": 1}], "summary": "s"})
-    assert out == {"skills": ["Py"], "projects": [{"a": 1}], "summary": "s"}
+def _db_file(db) -> str:
+    """The database file a session is bound to."""
+    bind = db.get_bind()
+    url = getattr(bind, "url", None)
+    return str(getattr(url, "database", "") or "")
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_prompt_carries_resume_grounding(monkeypatch) -> None:
+    """The planner prompt must carry the resume read through the read port.
+
+    The planner used to project the raw resume payload with keys the payload
+    never had, so every plan was written without the candidate's resume.
+    """
+    from realmock.platform.schemas import CandidateProfile
+
+    row = SimpleNamespace(
+        plan_status="",
+        plan=None,
+        profile_id=1,
+        resume_id=7,
+        role="Backend",
+        level="Senior",
+        company="bytedance",
+        workflow_type="technical",
+        personality="professional",
+        strictness=3,
+        interview_style="deep_dive",
+        ui_locale="zh-CN",
+    )
+    sent: dict[str, object] = {}
+
+    class _Db:
+        def get(self, *a, **k):
+            return row
+
+        def commit(self):
+            pass
+
+    @contextmanager
+    def fake_sessions():
+        yield _Db()
+
+    @contextmanager
+    def fake_api():
+        yield object()
+
+    class _LLM:
+        api_key = "k"
+
+        async def chat_json(self, messages, *a, **k):
+            sent["messages"] = messages
+            return json.dumps(_valid_plan_dict())
+
+    monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
+    monkeypatch.setattr(pl, "api_db_session", fake_api)
+    monkeypatch.setattr(pl, "api_session_llm", lambda s: _LLM())
+    monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
+    monkeypatch.setattr(
+        pl,
+        "get_candidate_profile",
+        lambda db, rid: CandidateProfile(
+            skills=["Python"],
+            projects=[{"name": "cache layer", "tech_stack": "Redis"}],
+        ),
+    )
+    monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
+    monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
+    await pl.generate_plan_for_session(42)
+    messages = sent["messages"]
+    prompt = messages[1]["content"]
+    assert "Python" in prompt
+    assert "cache layer" in prompt
 
 
 def test_config_shim_defaults() -> None:
@@ -52,6 +120,39 @@ def test_config_shim_defaults() -> None:
     assert shim.personality == "professional"
     assert shim.strictness == 3
     assert shim.interview_style == "deep_dive"
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_resolves_the_chat_model_from_the_api_database(monkeypatch) -> None:
+    """The chat configuration lives in the api database.
+
+    The sessions database carries the session rows and none of the model
+    configuration tables, so resolving the model through the sessions session
+    raises "no such table: model_profiles" and the plan is never written.
+    """
+    from realmock.domains.interview.agents import session_overrides
+
+    resolved: list[str] = []
+
+    class _Db:
+        def get(self, *a, **k):
+            return SimpleNamespace(plan_status="", plan=None)
+
+        def commit(self):
+            pass
+
+    @contextmanager
+    def fake_sessions():
+        yield _Db()
+
+    def _record(db, session):
+        resolved.append(_db_file(db))
+        return SimpleNamespace(api_key="")
+
+    monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
+    monkeypatch.setattr(session_overrides, "session_llm", _record)
+    await pl.generate_plan_for_session(1)
+    assert resolved and resolved[0].endswith("api.db"), resolved
 
 
 def test_dump_and_fallback_plan() -> None:
@@ -214,7 +315,7 @@ async def test_generate_plan_no_api_key_marks_failed(monkeypatch) -> None:
         yield _Db()
 
     monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
-    monkeypatch.setattr(pl, "session_llm", lambda db, s: SimpleNamespace(api_key=""))
+    monkeypatch.setattr(pl, "api_session_llm", lambda s: SimpleNamespace(api_key=""))
     await pl.generate_plan_for_session(1)
     assert committed.get("ok") is True
 
@@ -256,10 +357,10 @@ async def test_generate_plan_success(monkeypatch) -> None:
     monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
     monkeypatch.setattr(pl, "api_db_session", fake_api)
     monkeypatch.setattr(
-        pl, "session_llm", lambda db, s: FakeLLMClient(json_payload=_valid_plan_dict(), api_key="k")
+        pl, "api_session_llm", lambda s: FakeLLMClient(json_payload=_valid_plan_dict(), api_key="k")
     )
     monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "get_candidate_profile", lambda db, rid: None)
     monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
     monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
     await pl.generate_plan_for_session(42)
@@ -307,9 +408,9 @@ async def test_generate_plan_llm_timeout_marks_failed(monkeypatch) -> None:
 
     monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
     monkeypatch.setattr(pl, "api_db_session", fake_api)
-    monkeypatch.setattr(pl, "session_llm", lambda db, s: _TimeoutLLM())
+    monkeypatch.setattr(pl, "api_session_llm", lambda s: _TimeoutLLM())
     monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "get_candidate_profile", lambda db, rid: None)
     monkeypatch.setattr(pl, "get_company_context", lambda cid: "")
     monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
     await pl.generate_plan_for_session(1)
@@ -356,9 +457,9 @@ async def test_generate_plan_generic_exception_marks_failed(monkeypatch) -> None
 
     monkeypatch.setattr(pl, "sessions_db_session", fake_sessions)
     monkeypatch.setattr(pl, "api_db_session", fake_api)
-    monkeypatch.setattr(pl, "session_llm", lambda db, s: _BoomLLM())
+    monkeypatch.setattr(pl, "api_session_llm", lambda s: _BoomLLM())
     monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "get_candidate_profile", lambda db, rid: None)
     monkeypatch.setattr(pl, "get_company_context", lambda cid: "")
     monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
     await pl.generate_plan_for_session(1)
@@ -558,9 +659,9 @@ def _patch_planner_io(monkeypatch, row, llm) -> None:
 
     monkeypatch.setattr(pl, "sessions_db_session", fake_sessions_db)
     monkeypatch.setattr(pl, "api_db_session", fake_api)
-    monkeypatch.setattr(pl, "session_llm", lambda db, s: llm)
+    monkeypatch.setattr(pl, "api_session_llm", lambda s: llm)
     monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "get_candidate_profile", lambda db, rid: None)
     monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
 
 
@@ -650,9 +751,9 @@ async def test_generate_plan_process_round_reuses_process_digest(monkeypatch) ->
 
     monkeypatch.setattr(pl, "sessions_db_session", fake_sessions_db)
     monkeypatch.setattr(pl, "api_db_session", fake_api)
-    monkeypatch.setattr(pl, "session_llm", lambda db, s: llm)
+    monkeypatch.setattr(pl, "api_session_llm", lambda s: llm)
     monkeypatch.setattr(pl, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(pl, "get_resume_agent_payload", lambda db, rid: None)
+    monkeypatch.setattr(pl, "get_candidate_profile", lambda db, rid: None)
     monkeypatch.setattr(pl, "_process_section", lambda db, s: "")
     monkeypatch.setattr(pl, "get_company_context", lambda cid: "ctx")
 

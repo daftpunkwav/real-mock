@@ -96,6 +96,35 @@ def test_no_completed_event_falls_back_to_buffers() -> None:
     assert a.message()["content"] == "kept"
 
 
+def test_fallback_keeps_parallel_tool_calls_in_emission_order() -> None:
+    """Without a completed snapshot the buffered calls keep the provider order.
+
+    The model reads parallel results back in the order it asked for them, so
+    the assembler must not reorder them by their keys.
+    """
+    a = _ResponsesRoundAssembler()
+    for item_id, call_id, name in (
+        ("fc_2", "call_2", "second_emitted"),
+        ("fc_1", "call_1", "first_emitted"),
+    ):
+        a.feed(
+            {
+                "type": "response.output_item.added",
+                "item": {"type": "function_call", "id": item_id, "call_id": call_id, "name": name},
+            }
+        )
+        a.feed(
+            {
+                "type": "response.function_call_arguments.delta",
+                "item_id": item_id,
+                "delta": "{}",
+            }
+        )
+    names = [c["function"]["name"] for c in a.message()["tool_calls"]]
+    assert names == ["second_emitted", "first_emitted"]
+    assert [c["id"] for c in a.message()["tool_calls"]] == ["call_2", "call_1"]
+
+
 def test_parse_sse_event_surfaces_reasoning() -> None:
     token, think = parse_sse_event(
         {"type": "response.reasoning_summary_text.delta", "delta": "hmm"}, "openai_responses"

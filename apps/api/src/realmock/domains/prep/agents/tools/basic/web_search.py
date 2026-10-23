@@ -31,7 +31,10 @@ async def run_web_search(args: dict[str, Any], memory: WorkingMemory) -> tuple[s
     query = str(args.get("query", "") or "")
     try:
         requested = int(args.get("max_results") or _WEB_SEARCH_MAX_RESULTS)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) argument is not convertible
+        # and is not a ValueError; it falls back to the default like any other
+        # unusable value.
         requested = _WEB_SEARCH_MAX_RESULTS
     max_results = max(1, min(_WEB_SEARCH_HARD_LIMIT, requested))
     raw = await execute_web_search(

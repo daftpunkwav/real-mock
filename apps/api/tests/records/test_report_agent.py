@@ -19,6 +19,7 @@ from realmock.domains.records.agents.report.ledger_tools import (
 from realmock.domains.records.agents.report.normalize import (
     normalize_report_payload,
     normalize_turn_note,
+    shorten_note,
 )
 
 # ---- JSON extraction ------------------------------------------------------------
@@ -85,6 +86,36 @@ def test_normalize_turn_note_brushup_and_exercises():
     assert len(capped.exercises) == 4
 
 
+def test_shorten_note_keeps_a_note_that_fits_and_leaves_the_input_alone():
+    note = {"turn_id": "t-1", "question": "介绍一下项目", "score": 80}
+    assert shorten_note(note, 1000) is note
+
+    long_note = {"turn_id": "t-2", "question": "问" * 400, "score": 70}
+    shortened = shorten_note(long_note, 300)
+    assert shortened is not long_note
+    assert long_note["question"] == "问" * 400
+    assert len(shortened["question"]) < 400
+    assert shortened["turn_id"] == "t-2"
+    assert shortened["score"] == 70
+    assert shortened["clipped"] is True
+
+
+def test_shorten_note_brings_a_note_under_the_budget():
+    note = {
+        "turn_id": "t-3",
+        "question": "问" * 4000,
+        "knowledge_points": ["知" * 400] * 8,
+        "user_review": {"summary": "用" * 800, "suggestions": ["建" * 400] * 4},
+    }
+    shortened = shorten_note(note, 9000)
+    assert len(json.dumps(shortened, ensure_ascii=False)) <= 9000
+    # The identity of the note survives the shortening.
+    assert shortened["turn_id"] == "t-3"
+    assert shortened["user_review"]["summary"]
+    # A text keeps its content until it reaches the lower bound.
+    assert all(len(point) >= 200 for point in shortened["knowledge_points"])
+
+
 def test_normalize_report_payload_verdict_and_breakdown():
     report = normalize_report_payload(
         {
@@ -105,6 +136,25 @@ def test_normalize_report_payload_verdict_and_breakdown():
     assert report.score_breakdown.politeness == 100
     assert report.verdict == "passed"
     assert [n.turn_id for n in report.turn_notes] == ["t-1"]
+
+
+def test_normalize_report_payload_degrades_non_finite_scores():
+    """A non-finite score must degrade, not invalidate the whole report.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; converting it to int raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    report = normalize_report_payload(
+        {
+            "overall_score": float("inf"),
+            "score_breakdown": {"technical": float("inf")},
+            "turn_notes": [{"turn_id": "t-1", "score": float("inf")}],
+        }
+    )
+    assert report.overall_score == 0
+    assert report.score_breakdown.technical == 0
+    assert [n.score for n in report.turn_notes] == [0]
 
 
 # ---- ledger / notes tools --------------------------------------------------------

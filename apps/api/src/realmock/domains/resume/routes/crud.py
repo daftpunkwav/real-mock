@@ -14,7 +14,12 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from realmock.domains.resume.schemas.limits import client_limits_payload
-from realmock.domains.resume.schemas.response import ResumeDomainLimits
+from realmock.domains.resume.schemas.response import (
+    ResumeAnalysesClearResponse,
+    ResumeCollectionDeleteResponse,
+    ResumeDeleteResponse,
+    ResumeDomainLimits,
+)
 from realmock.domains.resume.services import resume_mappers, store
 from realmock.platform.core.errors import raise_error
 from realmock.platform.database import get_db
@@ -51,14 +56,14 @@ def delete_resume(resume_id: int, db: Session = Depends(get_db)):
     row = store.delete_row(db, resume_id)
     if not row:
         raise_error("A1005")
-    return {"ok": True, "id": resume_id}
+    return ResumeDeleteResponse(ok=True, id=resume_id)
 
 
 def clear_review_results(db: Session = Depends(get_db)):
     """Wipe deep-review JSON + scores for all resumes; files and rows stay."""
-    return {"ok": True, "cleared": store.clear_review_results(db)}
+    return ResumeAnalysesClearResponse(ok=True, cleared=store.clear_review_results(db))
 
 
 def delete_all_resumes(db: Session = Depends(get_db)):
     """Delete every resume row and its files; review history goes with the rows."""
-    return {"ok": True, "deleted": store.delete_all_rows(db)}
+    return ResumeCollectionDeleteResponse(ok=True, deleted=store.delete_all_rows(db))

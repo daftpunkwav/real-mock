@@ -83,6 +83,27 @@ def test_cognitive_graph_corrupted_data_resilience():
     assert restored.working_memory.current_topic == ""
 
 
+def test_cognitive_graph_non_finite_evidence_degrades():
+    """A non-finite turn index must degrade to 0, not abort the restore.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a stored graph can
+    carry ``inf``; converting it to int raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    corrupted_data = {
+        "nodes": {
+            "topic-a": {
+                "topic": "TopicA",
+                "status": "verified",
+                "confidence": 0.5,
+                "evidence": [{"turn_index": float("inf"), "claim": "c"}],
+            }
+        }
+    }
+    restored = CognitiveMemoryGraph.from_dict(corrupted_data)
+    assert restored.nodes["topic-a"].evidence[0].turn_index == 0
+
+
 # ---- growth caps ----
 
 

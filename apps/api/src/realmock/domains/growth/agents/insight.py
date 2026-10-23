@@ -32,8 +32,8 @@ from realmock.platform.capabilities.ai.agent.tools.executor import (
     invoke_with_timeout,
 )
 from realmock.platform.capabilities.ai.agent.tools.profile import (
-    profile_from_orm,
     profile_tool_specs,
+    snapshot_from_profile,
 )
 from realmock.platform.capabilities.ai.agent.tools.resume import (
     resume_tool_specs,
@@ -78,7 +78,9 @@ _VALID_STAGES = ("rising", "stalling", "plateau", "insufficient")
 def _clamp_int(value: Any, low: int, high: int, default: int = 0) -> int:
     try:
         return max(low, min(high, int(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: a non-finite (Infinity) count is not convertible and is
+        # not a ValueError; it degrades to the default like any other bad count.
         return default
 
 
@@ -193,7 +195,7 @@ def build_growth_bundle(api_db: Session, sessions_db: Session) -> ToolBundle:
     payload = get_resume_agent_payload(api_db, get_latest_scored_resume_id(api_db))
     if payload is not None:
         bundle.extend(resume_tool_specs(snapshot_from_payload(payload)))
-    profile = profile_from_orm(get_default_user_profile(api_db))
+    profile = snapshot_from_profile(get_default_user_profile(api_db))
     if profile is not None and getattr(profile, "fields", None):
         bundle.extend(profile_tool_specs(profile))
     return bundle

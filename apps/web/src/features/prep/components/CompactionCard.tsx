@@ -16,7 +16,7 @@ import { toast } from "@/components/Toast";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { formatApiError } from "@/lib/api/base";
 import { formatTokens } from "@/components/ModelControls";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import type { PrepChatMessage } from "../types";
 
 export interface CompactionCardActions {

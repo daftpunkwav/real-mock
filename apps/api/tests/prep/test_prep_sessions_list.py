@@ -3,12 +3,32 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 
 from realmock.asgi import app
 from realmock.domains.prep.models import PrepSession
+from realmock.domains.prep.routes.lists import list_prep_sessions
 from realmock.platform.models import Resume
+
+
+@contextmanager
+def _captured_statements(db) -> Iterator[list[str]]:
+    """Collect the SQL statements issued on the session's engine inside the block."""
+    engine = db.get_bind()
+    seen: list[str] = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001, ARG001
+        seen.append(" ".join(statement.split()))
+
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        yield seen
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
 
 
 def _seed(db, rows: list[PrepSession], resume: Resume | None = None) -> None:
@@ -88,3 +108,33 @@ def test_list_prep_sessions_orders_by_recent_activity(db) -> None:
         items = client.get("/api/v1/prep/sessions").json()
     ids = [i["id"] for i in items]
     assert ids.index(new.id) < ids.index(old.id)
+
+
+def test_list_prep_sessions_reads_bodies_only_for_legacy_rows(db, api_db) -> None:
+    """The list must not load every conversation body, and must not fan out.
+
+    Cached rows answer the list from their summary / count columns; only the
+    legacy rows without them need the stored body, and those are fetched in
+    one query. The statement count is the guard against both a per-row
+    re-read (an N+1) and a body column pulled into the row query.
+    """
+    body = json.dumps([{"role": "user", "content": "x" * 200}])
+    cached = [
+        PrepSession(resume_id=None, messages=body, summary=f"cached {i}", message_count=2)
+        for i in range(5)
+    ]
+    legacy = [PrepSession(resume_id=None, messages=body) for _ in range(2)]
+    db.add_all(cached + legacy)
+    db.commit()
+
+    with _captured_statements(db) as statements:
+        items = list_prep_sessions(db, api_db)
+
+    listed = {item.id for item in items}
+    assert {s.id for s in cached + legacy} <= listed
+    reads = [s for s in statements if "FROM prep_sessions" in s]
+    assert len(reads) == 2, statements
+    # The row query leaves the conversation body out; only the legacy batch
+    # selects it.
+    assert "prep_sessions.messages" not in reads[0]
+    assert "prep_sessions.messages" in reads[1]

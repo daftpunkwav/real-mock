@@ -4011,6 +4011,15 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HealthResponse */
+        HealthResponse: {
+            /** Status */
+            status: string;
+            /** Service */
+            service: string;
+            /** Version */
+            version: string;
+        };
         /** InterviewConfig */
         InterviewConfig: {
             /** Role */
@@ -4197,6 +4206,17 @@ export interface components {
             created_at: string;
             /** Access Token */
             access_token?: string | null;
+        };
+        /**
+         * InterviewStartResponse
+         * @description Opening turn of the HTTP fallback path (POST /sessions/{id}/start).
+         */
+        InterviewStartResponse: {
+            /** Session Id */
+            session_id: number;
+            message: components["schemas"]["ChatMessage"];
+            /** Current Phase */
+            current_phase: string;
         };
         /** InterviewStyleOption */
         InterviewStyleOption: {
@@ -4641,7 +4661,7 @@ export interface components {
         };
         /**
          * PrepDeletedResponse
-         * @description Delete / purge / batch-delete result (rows removed).
+         * @description Delete result: the removed row id for a single-row delete, the number of removed rows for a purge / batch delete.
          */
         PrepDeletedResponse: {
             /** Deleted */
@@ -5382,6 +5402,16 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * ResumeAnalysesClearResponse
+         * @description DELETE /resume/analyses: how many deep reviews were cleared.
+         */
+        ResumeAnalysesClearResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Cleared */
+            cleared: number;
+        };
         /** ResumeAnalysis */
         ResumeAnalysis: {
             /** Score */
@@ -5482,6 +5512,26 @@ export interface components {
             /** Repo Verification */
             repo_verification?: components["schemas"]["RepoVerification"][];
         };
+        /**
+         * ResumeCollectionDeleteResponse
+         * @description DELETE /resume/collection: how many rows were removed.
+         */
+        ResumeCollectionDeleteResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Deleted */
+            deleted: number;
+        };
+        /**
+         * ResumeDeleteResponse
+         * @description DELETE /resume/{resume_id}: the removed row id.
+         */
+        ResumeDeleteResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: number;
+        };
         /** ResumeDomainLimits */
         ResumeDomainLimits: {
             /** Allowed Extensions */
@@ -5512,6 +5562,14 @@ export interface components {
             score_band_strong: number;
             /** Score Band Standout */
             score_band_standout: number;
+        };
+        /**
+         * ResumePagesMetaResponse
+         * @description GET /resume/{resume_id}/pages: rendered page count (0 for non-PDF).
+         */
+        ResumePagesMetaResponse: {
+            /** Pages */
+            pages: number;
         };
         /** ResumePickerItem */
         ResumePickerItem: {
@@ -6576,7 +6634,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumeAnalysesClearResponse"];
                 };
             };
         };
@@ -6630,7 +6688,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumeCollectionDeleteResponse"];
                 };
             };
         };
@@ -6683,7 +6741,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumeDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6716,7 +6774,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/pdf": string;
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+                    "text/markdown": string;
+                    "text/plain": string;
+                    "application/octet-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -6747,7 +6809,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumePagesMetaResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6779,7 +6841,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "image/png": string;
                 };
             };
             /** @description Validation Error */
@@ -6907,7 +6969,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -7768,7 +7830,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -8390,7 +8452,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8685,7 +8747,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatMessage"][];
                 };
             };
             /** @description Validation Error */
@@ -8721,7 +8783,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InterviewStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9034,7 +9096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -9394,7 +9456,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumeAnalysesClearResponse"];
                 };
             };
         };
@@ -9448,7 +9510,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumeCollectionDeleteResponse"];
                 };
             };
         };
@@ -9501,7 +9563,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumeDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9534,7 +9596,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/pdf": string;
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+                    "text/markdown": string;
+                    "text/plain": string;
+                    "application/octet-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -9565,7 +9631,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResumePagesMetaResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9597,7 +9663,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "image/png": string;
                 };
             };
             /** @description Validation Error */
@@ -9725,7 +9791,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10586,7 +10652,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -11208,7 +11274,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrepDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -11503,7 +11569,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatMessage"][];
                 };
             };
             /** @description Validation Error */
@@ -11539,7 +11605,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InterviewStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -11852,7 +11918,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -12066,7 +12132,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };

@@ -327,7 +327,7 @@ class PrepTruncateResponse(BaseModel):
 
 
 class PrepDeletedResponse(BaseModel):
-    """Delete / purge / batch-delete result (rows removed)."""
+    """Delete result: the removed row id for a single-row delete, the number of removed rows for a purge / batch delete."""
 
     deleted: int
 

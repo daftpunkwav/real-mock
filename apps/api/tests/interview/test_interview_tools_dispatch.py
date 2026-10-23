@@ -146,7 +146,7 @@ async def test_execute_profile_tool_success(monkeypatch) -> None:
 
     monkeypatch.setattr(tmod, "api_db_session", lambda: _fake_api_db())
     monkeypatch.setattr(tmod, "get_user_profile", lambda db, pid: object())
-    monkeypatch.setattr(tmod, "profile_from_orm", lambda row: object())
+    monkeypatch.setattr(tmod, "snapshot_from_profile", lambda row: object())
     monkeypatch.setattr(
         tmod,
         "profile_tool_specs",
@@ -162,7 +162,7 @@ async def test_execute_profile_tool_success(monkeypatch) -> None:
 async def test_execute_profile_unknown_tool(monkeypatch) -> None:
     monkeypatch.setattr(tmod, "api_db_session", lambda: _fake_api_db())
     monkeypatch.setattr(tmod, "get_user_profile", lambda db, pid: None)
-    monkeypatch.setattr(tmod, "profile_from_orm", lambda row: object())
+    monkeypatch.setattr(tmod, "snapshot_from_profile", lambda row: object())
     monkeypatch.setattr(tmod, "profile_tool_specs", lambda snap: [])
     out = await execute_interview_tool("profile_nope", {}, db=None, profile_id=1)
     assert json.loads(out)["error"] == "unknown_tool"
@@ -347,5 +347,23 @@ async def test_read_past_round_rejects_malformed_args_without_raising() -> None:
     """Non-numeric paging args answer with an observation instead of raising
     into ToolGuard, whose breaker would open the tool after two bad calls."""
     for bad in ({"round_no": "two"}, {"round_no": {"a": 1}}, {"round_no": 1, "offset": "x"}):
+        out = await execute_interview_tool("read_past_round", bad, db=None, session=object())
+        assert json.loads(out)["error"] == "invalid_argument"
+
+
+@pytest.mark.asyncio
+async def test_read_past_round_non_finite_args_stay_observation() -> None:
+    """A non-finite paging arg stays an observation, never raises into ToolGuard.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not a
+    ValueError and would escape the ``(TypeError, ValueError)`` guard.
+    """
+    cases = [
+        {"round_no": float("inf")},
+        {"round_no": 1, "offset": float("inf")},
+        json.loads('{"round_no": Infinity}'),
+    ]
+    for bad in cases:
         out = await execute_interview_tool("read_past_round", bad, db=None, session=object())
         assert json.loads(out)["error"] == "invalid_argument"

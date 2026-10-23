@@ -27,7 +27,7 @@
 | `file.py` | 文件名清洗(取 basename、字符白名单、长度上限)、路径穿越防御、魔数嗅探 |
 | `url.py` | URL/SSRF 过滤:私网 / CGNAT / 组播网段、端口白名单、多 A 记录 + IPv6 解析;策略函数留在本模块(测试 patch `url._resolve_all`) |
 | `url_pin.py` | DNS pinning:解析一次、连接固定 IP(缓解 DNS rebinding TOCTOU);httpx 的 `PinnedHostTransport` |
-| `redact.py` | 形似 API Key 的字符串脱敏 |
+| `redact.py` | 日志输出与面向用户的错误文案的凭据脱敏:四个入口(整体值 / 自由文本 / 日志运行时值 / 日志格式模板) |
 
 ## `session_auth/` — 会话能力 token
 

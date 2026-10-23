@@ -44,7 +44,14 @@ fi
 
 if [ "${#web[@]}" -gt 0 ]; then
   (cd apps/web && for f in "${web[@]}"; do
-    git show ":apps/web/$f" | npx prettier --stdin-filepath "$f" --check
+    # Compare the staged bytes with the formatted bytes instead of asking
+    # prettier to check stdin: ``--check`` reports the input as unformatted
+    # whatever it contains, so it rejected every web file.
+    if ! diff -q <(git show ":apps/web/$f") \
+      <(git show ":apps/web/$f" | npx prettier --stdin-filepath "$f" 2>/dev/null) >/dev/null; then
+      echo "pre-commit: prettier check failed on $f" >&2
+      exit 1
+    fi
   done)
 fi
 

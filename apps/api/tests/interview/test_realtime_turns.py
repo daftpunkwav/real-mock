@@ -83,7 +83,8 @@ async def test_status_key_and_finish_errors():
     s2 = MagicMock(status="pending", access_token="tok")
     db.query.return_value.filter.return_value.first.return_value = s2
     with patch(
-        "realmock.domains.interview.routes.turns.session_llm", return_value=MagicMock(api_key="")
+        "realmock.domains.interview.routes.turns.api_session_llm",
+        return_value=MagicMock(api_key=""),
     ):
         try:
             await start_interview(1, db=db, access="tok")
@@ -103,14 +104,14 @@ async def test_status_key_and_finish_errors():
         )
 
     runner.stream_opening = _op
-    with patch("realmock.domains.interview.routes.turns.session_llm", return_value=llm):
+    with patch("realmock.domains.interview.routes.turns.api_session_llm", return_value=llm):
         with patch("realmock.domains.interview.routes.turns.InterviewRunner", return_value=runner):
             with patch(
                 "realmock.domains.interview.routes.turns.InterviewSessionState",
                 return_value=MagicMock(phases_remaining=lambda: []),
             ):
                 out = await start_interview(1, db=db, access="tok")
-                assert out["message"].content == "open"
+                assert out.message.content == "open"
     sess2 = MagicMock(status="active", access_token="tok", current_phase="p")
     db.query.return_value.filter.return_value.first.return_value = sess2
 
@@ -122,7 +123,7 @@ async def test_status_key_and_finish_errors():
 
     runner.stream_turn = _tu
     body = MagicMock(content="hi", face_analysis=None, image_base64=None)
-    with patch("realmock.domains.interview.routes.turns.session_llm", return_value=llm):
+    with patch("realmock.domains.interview.routes.turns.api_session_llm", return_value=llm):
         with patch("realmock.domains.interview.routes.turns.InterviewRunner", return_value=runner):
             with patch(
                 "realmock.domains.interview.routes.turns.InterviewSessionState",

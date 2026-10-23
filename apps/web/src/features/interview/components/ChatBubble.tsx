@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { useT } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 /**
  * Interview chat bubble: candidate / interviewer / legacy nudge styles.

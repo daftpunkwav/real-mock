@@ -12,6 +12,38 @@ from realmock.platform.models import LLMSettings
 from tests.fakes import FakeLLMClient
 
 
+def _set_reason_context_window(api_db, window: int) -> None:
+    """Pin the reason-stage context window for every runtime resolution path.
+
+    The reason stage resolves through the model-entry binding when one is bound
+    and through the legacy ``stage_configs`` / ``llm_settings`` rows otherwise.
+    The api.db is shared by the whole test session, so a row written by an
+    earlier test may decide which path wins; all three stores are written here
+    so the resolved window does not depend on execution order.
+    """
+    from realmock.platform.models import ModelProfile, StageConfig, TaskBinding
+
+    legacy = api_db.query(LLMSettings).filter(LLMSettings.id == 1).first()
+    if legacy is None:
+        legacy = LLMSettings(id=1, api_key="x", api_base="http://x", model="m")
+        api_db.add(legacy)
+    legacy.context_window = window
+
+    stage = api_db.query(StageConfig).filter(StageConfig.stage == "reason").first()
+    if stage is None:
+        stage = StageConfig(stage="reason")
+        api_db.add(stage)
+    stage.context_window = window
+
+    binding = api_db.query(TaskBinding).filter(TaskBinding.task == "chat").first()
+    if binding is not None:
+        profile = api_db.query(ModelProfile).filter(ModelProfile.id == binding.profile_id).first()
+        if profile is not None:
+            profile.context_window = window
+
+    api_db.commit()
+
+
 def _make_session(db) -> InterviewSession:
     s = InterviewSession(
         profile_id=1,
@@ -376,15 +408,7 @@ def test_stream_turn_applies_context_compression(db, api_db) -> None:
         for i in range(40)
     ]
     session.messages = json.dumps(base, ensure_ascii=False)
-    settings = api_db.query(LLMSettings).filter(LLMSettings.id == 1).first()
-    if settings is None:
-        settings = LLMSettings(
-            id=1, api_key="x", api_base="http://x", model="m", context_window=500, max_tokens=100
-        )
-        api_db.add(settings)
-    else:
-        settings.context_window = 500
-    api_db.commit()
+    _set_reason_context_window(api_db, 500)
     db.commit()
     db.refresh(session)
 

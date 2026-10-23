@@ -4,8 +4,9 @@ Two levels only:
 1. ``profile_list_sections`` — the five section names and whether each is filled
 2. ``profile_get_section`` — the fields of one section
 
-Never dump the whole profile in one call. This module takes a plain snapshot
-so prep / interview / resume can share it without importing ORM.
+Never dump the whole profile in one call. This module takes the declared
+profile read model (``UserProfileSnapshot``) so prep / interview / resume can
+share it without importing ORM.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
+from realmock.platform.schemas import UserProfileSnapshot
 
 PROFILE_SECTION_ORDER: tuple[str, ...] = (
     "basics",
@@ -102,18 +104,24 @@ def _section_payload(snapshot: ProfileSnapshot, section: str) -> dict[str, Any]:
     return out
 
 
-def profile_from_orm(row: Any | None) -> ProfileSnapshot:
-    """Build a snapshot from a UserProfile ORM row (or None)."""
-    if row is None:
+def snapshot_from_profile(profile: UserProfileSnapshot | None) -> ProfileSnapshot:
+    """Build a tool snapshot from the candidate-profile read model (or None).
+
+    ``PROFILE_SECTION_FIELDS`` names the fields the tool exposes. The tool
+    reads them dynamically, so a rename in the read model would not be a
+    type error here: it would silently empty the section. The architecture
+    guard ``tests/architecture/test_profile_tool_field_contract.py`` is what
+    keeps the two declarations in step.
+    """
+    if profile is None:
         return ProfileSnapshot(fields={})
     data: dict[str, Any] = {}
     for keys in PROFILE_SECTION_FIELDS.values():
         for key in keys:
             if key == "tech_domains":
-                getter = getattr(row, "tech_domains_list", None)
-                data[key] = list(getter) if getter else []
+                data[key] = list(profile.tech_domains_list)
                 continue
-            data[key] = getattr(row, key, "") or ""
+            data[key] = getattr(profile, key, "") or ""
     return ProfileSnapshot(fields=data)
 
 
@@ -200,6 +208,6 @@ __all__ = [
     "PROFILE_SECTION_FIELDS",
     "PROFILE_SECTION_ORDER",
     "ProfileSnapshot",
-    "profile_from_orm",
+    "snapshot_from_profile",
     "profile_tool_specs",
 ]

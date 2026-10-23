@@ -27,26 +27,26 @@ def _clean_limits():
 def test_plan_user_message_all_branches() -> None:
     from realmock.domains.interview.agents.planning import plan_prompts as mod
     from realmock.domains.interview.schemas import InterviewConfig
+    from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 
     cfg = InterviewConfig(role="BE", level="S", company="Acme")
-    profile = SimpleNamespace(
+    profile = UserProfileSnapshot(
         preferred_languages="English",
         name="Ada",
         target_role="BE",
-        experience_years=3,
+        experience_years="3",
         tech_domains_list=["Python"],
         career_highlights="built cache",
     )
-    payload = {
-        "projects": [
-            {"name": "p1", "stack": "py", "summary": "s1", "extra": 1},
-            "not-a-dict",
+    candidate = CandidateProfile(
+        projects=[
+            {"name": "p1", "tech_stack": "py", "description": "s1", "extra": 1},
         ],
-        "skills": ["Python", "Redis"],
-    }
+        skills=["Python", "Redis"],
+    )
     out = mod.build_plan_user_message(
         cfg,
-        resume_payload=payload,
+        candidate=candidate,
         profile=profile,
         process_section="prior rounds memory",
         company_context="Acme cloud",
@@ -57,6 +57,35 @@ def test_plan_user_message_all_branches() -> None:
     assert "Resume" in out
     assert "Prior rounds" in out
     assert mod.planner_system_prompt().startswith("You are a senior")
+
+
+def test_plan_user_message_carries_resume_grounding() -> None:
+    """The planner prompt must carry the resume skills and projects.
+
+    The planner reads the resume through the typed candidate contract; the
+    resume content used to be dropped because the raw payload dict was read
+    with the wrong keys.
+    """
+    from realmock.domains.interview.agents.planning import plan_prompts as mod
+    from realmock.domains.interview.schemas import InterviewConfig
+    from realmock.platform.schemas import CandidateProfile
+
+    cfg = InterviewConfig(role="BE", level="S", company="Acme")
+    candidate = CandidateProfile(
+        skills=["Python", "Redis"],
+        projects=[{"name": "cache layer", "tech_stack": "Redis", "description": "d"}],
+    )
+    out = mod.build_plan_user_message(
+        cfg,
+        candidate=candidate,
+        profile=None,
+        process_section="",
+        company_context="",
+        ui_locale="zh-CN",
+    )
+    assert "Python" in out
+    assert "cache layer" in out
+    assert "Redis" in out
 
 
 # ---- process_service (165, 278-279, 308-310) ----

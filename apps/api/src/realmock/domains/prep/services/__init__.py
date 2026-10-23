@@ -1,4 +1,4 @@
-"""Prep services: long-term memory store, cross-session linking, session notes, and session list metrics shared by routes and agent tools."""
+"""Prep services: long-term memory store, cross-session linking, session notes, session list metrics, and the session admission guard shared by routes and agent tools."""
 
 from __future__ import annotations
 
@@ -31,6 +31,12 @@ from realmock.domains.prep.services.memories import (
     memory_to_summary,
     touch_memory,
 )
+from realmock.domains.prep.services.session_guard import (
+    load_prep_session,
+    require_open_prep_session,
+    require_owned_prep_session,
+    require_writable_prep_session,
+)
 from realmock.domains.prep.services.session_notes import note_rating_into_session
 from realmock.domains.prep.services.session_stats import (
     SESSION_SUMMARY_SNIPPET_MAX_CHARS,
@@ -41,6 +47,10 @@ from realmock.domains.prep.services.turn_lock import session_turn_lock
 __all__ = [
     "SESSION_SUMMARY_SNIPPET_MAX_CHARS",
     "compute_session_summary_and_count",
+    "load_prep_session",
+    "require_open_prep_session",
+    "require_owned_prep_session",
+    "require_writable_prep_session",
     "session_turn_lock",
     "LINKED_BLOCK_MARKER",
     "REF_BLOCK_MARKER",

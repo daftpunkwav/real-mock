@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronRight, Loader2, PanelLeftClose } from "lucide-react";
 import { NAV_ITEMS } from "@/config/nav";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import { LogoMark } from "@/components/brand/LogoMark";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useT } from "@/i18n";

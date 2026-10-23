@@ -3,6 +3,7 @@
 Responsibilities:
 - ``ResumeResponse`` for list / get / upload / activate
 - ``ResumeDomainLimits`` for ``GET /resume/limits`` (frontend catalog alignment)
+- small result envelopes for the delete / clear / page-meta operations
 
 ``analysis`` stays ``dict`` so a corrupted JSON blob degrades to ``{}``
 instead of failing response validation. Typed review lives on the analyze
@@ -63,3 +64,31 @@ class ResumeDomainLimits(BaseModel):
     score_band_fair: int
     score_band_strong: int
     score_band_standout: int
+
+
+# Result envelopes of the resume delete / clear / page-meta operations.
+class ResumeDeleteResponse(BaseModel):
+    """DELETE /resume/{resume_id}: the removed row id."""
+
+    ok: bool
+    id: int
+
+
+class ResumeAnalysesClearResponse(BaseModel):
+    """DELETE /resume/analyses: how many deep reviews were cleared."""
+
+    ok: bool
+    cleared: int
+
+
+class ResumeCollectionDeleteResponse(BaseModel):
+    """DELETE /resume/collection: how many rows were removed."""
+
+    ok: bool
+    deleted: int
+
+
+class ResumePagesMetaResponse(BaseModel):
+    """GET /resume/{resume_id}/pages: rendered page count (0 for non-PDF)."""
+
+    pages: int

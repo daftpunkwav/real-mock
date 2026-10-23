@@ -220,7 +220,7 @@ def test_generate_round_plan_success_marks_ready(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
     db.expire_all()
@@ -229,6 +229,42 @@ def test_generate_round_plan_success_marks_ready(db, monkeypatch):
     plan = parse_round_plan(refreshed.round_plan)
     assert plan is not None
     assert [r.kind for r in plan.rounds] == ["tech_1", "tech_2", "hr_1"]
+
+
+def test_generate_round_plan_prompt_carries_resume_grounding(db, monkeypatch):
+    """The HR planner prompt must carry the resume read through the read port.
+
+    The prompt builder used to read the raw resume payload with keys the
+    payload never had, so the round program was written without the resume.
+    """
+    from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
+    from realmock.platform.schemas import CandidateProfile
+
+    req = ProcessCreateRequest(role="Backend", level="junior", company="acme", max_rounds=3)
+    process, _ = create_process_with_first_round(db, req)
+
+    sent: list = []
+
+    class FakeHRPlanner(FakeLLMClient):
+        async def chat_json(self, messages, temperature=0.3, max_tokens=None):
+            sent.append(messages)
+            return _payload(_round("tech_1"))
+
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "get_user_profile", lambda db, pid: None)
+    monkeypatch.setattr(
+        round_planner_mod,
+        "get_candidate_profile",
+        lambda db, rid: CandidateProfile(
+            skills=["Python"],
+            projects=[{"name": "cache layer", "tech_stack": "Redis"}],
+        ),
+    )
+    asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
+
+    prompt = sent[0][1]["content"]
+    assert "Python" in prompt
+    assert "cache layer" in prompt
 
 
 def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
@@ -241,7 +277,7 @@ def test_generate_round_plan_failure_marks_failed(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: ExplodingLLM())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: ExplodingLLM())
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
     db.expire_all()
@@ -272,7 +308,7 @@ def test_generate_round_plan_custom_company_researches(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context_cached", fake_research)
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
@@ -297,7 +333,7 @@ def test_generate_round_plan_catalog_company_skips_research(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context_cached", fail_research)
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 
@@ -322,7 +358,7 @@ def test_generate_round_plan_research_failure_still_plans(db, monkeypatch):
 
     from realmock.domains.interview.agents.planning import round_planner as round_planner_mod
 
-    monkeypatch.setattr(round_planner_mod, "session_llm", lambda db, session: FakeHRPlanner())
+    monkeypatch.setattr(round_planner_mod, "api_session_llm", lambda session: FakeHRPlanner())
     monkeypatch.setattr(round_planner_mod, "research_company_context_cached", failed_research)
     asyncio.run(round_planner_mod.generate_round_plan_for_process(process.id))
 

@@ -19,6 +19,7 @@ from .session import (
     InterviewMessageRequest,
     InterviewMessageResponse,
     InterviewSessionResponse,
+    InterviewStartResponse,
 )
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "ResumePickerItem",
     "InterviewMessageRequest",
     "InterviewMessageResponse",
+    "InterviewStartResponse",
     "FinishInterviewResponse",
     "InterviewSessionResponse",
     "OptionsResponse",

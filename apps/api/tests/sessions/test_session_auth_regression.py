@@ -118,12 +118,12 @@ async def test_ws_bad_token_does_not_claim_lease(monkeypatch: pytest.MonkeyPatch
     good = ws_mod.InterviewWSHandler(good_ws, session_id=7, access_token=_StubSession.access_token)
     # Manually acquire the lease to simulate an authenticated legitimate user
     await ws_mod.claim_session_connection(good)
-    assert ws_mod.active_handlers_for_tests()[7] is good
+    assert ws_mod.active_connections_for_tests()[7] is good
 
     attacker = ws_mod.InterviewWSHandler(bad_ws, session_id=7, access_token="wrong")
     await attacker.serve_session()
 
-    assert ws_mod.active_handlers_for_tests()[7] is good
+    assert ws_mod.active_connections_for_tests()[7] is good
     assert good._superseded is False
     sent = [c.args[0] for c in bad_ws.send_json.call_args_list]
     assert any(e.get("type") == "error" for e in sent)

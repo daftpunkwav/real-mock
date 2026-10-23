@@ -216,5 +216,5 @@ def reset_session_registry_for_tests() -> None:
     reset_ws_connection_registry()
 
 
-def active_handlers_for_tests() -> dict[int, SessionConnection]:
+def active_connections_for_tests() -> dict[int, SessionConnection]:
     return get_ws_connection_registry().snapshot_for_tests()

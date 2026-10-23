@@ -150,12 +150,12 @@ class TestSessionConnectionMutex:
 
         await ws_mod.claim_session_connection(old_h)
         assert old_h._superseded is False
-        assert ws_mod.active_handlers_for_tests()[42] is old_h
+        assert ws_mod.active_connections_for_tests()[42] is old_h
 
         await ws_mod.claim_session_connection(new_h)
         assert old_h._superseded is True
         assert new_h._superseded is False
-        assert ws_mod.active_handlers_for_tests()[42] is new_h
+        assert ws_mod.active_connections_for_tests()[42] is new_h
         old_ws.close.assert_awaited()
         # The old connection should receive an error notification
         sent = [c.args[0] for c in old_ws.send_json.call_args_list]
@@ -163,10 +163,10 @@ class TestSessionConnectionMutex:
 
         # Releasing the displaced old handler must not accidentally remove the new connection
         await ws_mod.release_session_connection(old_h)
-        assert ws_mod.active_handlers_for_tests()[42] is new_h
+        assert ws_mod.active_connections_for_tests()[42] is new_h
 
         await ws_mod.release_session_connection(new_h)
-        assert 42 not in ws_mod.active_handlers_for_tests()
+        assert 42 not in ws_mod.active_connections_for_tests()
 
     @pytest.mark.asyncio
     async def test_different_sessions_independent(self) -> None:
@@ -179,8 +179,8 @@ class TestSessionConnectionMutex:
         await ws_mod.claim_session_connection(h2)
         assert h1._superseded is False
         assert h2._superseded is False
-        assert ws_mod.active_handlers_for_tests()[1] is h1
-        assert ws_mod.active_handlers_for_tests()[2] is h2
+        assert ws_mod.active_connections_for_tests()[1] is h1
+        assert ws_mod.active_connections_for_tests()[2] is h2
         await ws_mod.release_session_connection(h1)
         await ws_mod.release_session_connection(h2)
 

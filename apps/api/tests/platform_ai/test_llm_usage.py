@@ -8,6 +8,8 @@ Conventions: pure functions, no network; asyncio_mode=auto.
 
 from __future__ import annotations
 
+import json
+
 from realmock.platform.capabilities.ai.llm.usage import UsageAccumulator, _as_int
 from realmock.platform.core.constants import LLMProtocol
 
@@ -24,6 +26,25 @@ def test_as_int_variants() -> None:
     assert _as_int(None) == 0
     assert _as_int("bad") == 0
     assert _as_int(4.9) == 4
+
+
+def test_as_int_non_finite_counts_as_zero() -> None:
+    """A non-finite token count counts as zero, not raise.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a provider payload
+    can carry ``inf``; ``int(float('inf'))`` raises OverflowError, which is not
+    a ValueError and therefore slips past the tolerant coercion.
+    """
+    assert _as_int(float("inf")) == 0
+    assert _as_int(json.loads('{"prompt_tokens": Infinity}')["prompt_tokens"]) == 0
+
+    acc = UsageAccumulator()
+    ok = acc.record_response(
+        {"usage": {"prompt_tokens": float("inf"), "completion_tokens": 5}}, CHAT
+    )
+    assert ok is True
+    assert acc.prompt_tokens == 0
+    assert acc.completion_tokens == 5
 
 
 def test_cache_hit_rate_none_without_prompt() -> None:

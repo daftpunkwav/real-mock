@@ -132,7 +132,7 @@ async def seed_session_github_evidence(session_id: int) -> None:
                 return
             with api_db_session() as api_db:
                 profile = get_user_profile(api_db, profile_id)
-            username = (getattr(profile, "github_username", "") or "").strip() if profile else ""
+            username = profile.github_username.strip() if profile else ""
             if not username:
                 return
             evidence = await gather_evidence(username)

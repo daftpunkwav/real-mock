@@ -31,6 +31,7 @@ from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.voice.tts.options import avatar_gender
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session, sessions_db_session
+from realmock.platform.schemas import CandidateProfile, UserProfileSnapshot
 from realmock.platform.services.candidate_read import get_candidate_profile, get_user_profile
 
 logger = logging.getLogger(__name__)
@@ -87,21 +88,21 @@ class SessionPromptMixin:
             resume_id=self.session.resume_id,
         )
 
-    def get_user_profile(self, db: Session | None = None):
-        """Candidate profile row for prompt grounding (None when absent).
+    def get_user_profile(self, db: Session | None = None) -> UserProfileSnapshot | None:
+        """Candidate profile snapshot for prompt grounding (None when absent).
 
         ``db`` is accepted for call-site compatibility and IGNORED: the lookup
-        always runs on its own short-lived session, so the returned row is
-        detached and must not be lazy-loaded afterwards.
+        always runs on its own short-lived session. The read port hands out a
+        frozen snapshot, so the value carries no session-bound state.
         """
         with api_db_session() as api_db:
             return get_user_profile(api_db, self.session.profile_id)
 
-    def get_candidate(self, db: Session | None = None):
-        """Candidate resume payload for prompt grounding (None when absent).
+    def get_candidate(self, db: Session | None = None) -> CandidateProfile | None:
+        """Candidate resume contract for prompt grounding (None when absent).
 
         Same contract as :meth:`get_user_profile`: ``db`` is ignored and the
-        returned row is detached from its short-lived session.
+        returned value is a plain model, detached from its short-lived session.
         """
         with api_db_session() as api_db:
             return get_candidate_profile(api_db, self.session.resume_id)
@@ -374,7 +375,13 @@ class SessionPromptMixin:
                 return content.split(marker)[0].rstrip()
         return content.rstrip()
 
-    def refresh_system_head(self, phase, *, profile=None, candidate=None) -> None:
+    def refresh_system_head(
+        self,
+        phase,
+        *,
+        profile: UserProfileSnapshot | None = None,
+        candidate: CandidateProfile | None = None,
+    ) -> None:
         """Rebuild the phase-dependent sections of ``messages[0]`` on phase advance.
 
         The opening system prompt freezes two sections that go stale as the

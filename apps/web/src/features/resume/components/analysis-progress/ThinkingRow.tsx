@@ -7,7 +7,7 @@
 
 import { Brain, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import type { ReviewThinkingItem } from "../../reviewProgress";
 
 function thinkingSeconds(item: ReviewThinkingItem, now: number): number {

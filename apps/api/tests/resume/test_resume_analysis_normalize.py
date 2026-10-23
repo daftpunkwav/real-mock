@@ -69,6 +69,30 @@ def test_normalize_invalid_inputs_keep_semantics():
     assert data["benchmark_percentile"] == benchmark_percentile_from_score(0)
 
 
+def test_normalize_non_finite_scores_degrade():
+    """A non-finite number must degrade, not abort the whole analysis.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; converting it to int raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    data = normalize_resume_analysis_payload(
+        {
+            "score": float("inf"),
+            "dimension_scores": {"tech_depth": {"score": float("inf")}},
+            "section_reviews": [{"score": float("inf")}],
+            "repo_evidence": [{"repo": "r", "stars": float("inf")}],
+        }
+    )
+    analysis = ResumeAnalysis.model_validate(data)
+    assert analysis.score == 0
+    # An unusable dimension score drops the dimension, exactly like a
+    # non-numeric one — the payload stays valid instead of raising.
+    assert "tech_depth" not in analysis.dimension_scores
+    assert analysis.section_reviews[0].score == 0
+    assert analysis.repo_evidence[0].stars is None
+
+
 def test_normalize_zh_cn_applies_fullwidth_punctuation():
     """zh-CN locale converts half-width punctuation adjacent to CJK."""
     data = normalize_resume_analysis_payload(

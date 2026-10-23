@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as avatarFacade from "../index";
 import {
   currentTTSLevel,
   publishTTSLevel,
@@ -37,5 +38,17 @@ describe("tts level sink", () => {
     subscribeTTSLevel(good);
     expect(() => publishTTSLevel(0.4)).not.toThrow();
     expect(good).toHaveBeenCalledWith(0.4);
+  });
+});
+
+describe("avatar facade", () => {
+  it("publishes the level sink write side for other features", () => {
+    expect(avatarFacade.publishTTSLevel).toBe(publishTTSLevel);
+  });
+
+  it("keeps the sink internals out of the public surface", () => {
+    expect("currentTTSLevel" in avatarFacade).toBe(false);
+    expect("subscribeTTSLevel" in avatarFacade).toBe(false);
+    expect("resetTTSLevelSink" in avatarFacade).toBe(false);
   });
 });

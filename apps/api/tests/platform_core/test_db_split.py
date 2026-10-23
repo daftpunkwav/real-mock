@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 
 class TestDbSplit:
@@ -177,3 +178,18 @@ class TestDbSplit:
         (d2 / "data" / "api.db").unlink()
         (d2 / "data" / "sessions.db").unlink(missing_ok=True)
         ds.maybe_migrate_legacy_app_db()
+
+
+def test_the_model_configuration_lives_in_the_api_database(api_db, db) -> None:
+    """The chat configuration tables are api-database tables.
+
+    The sessions database carries the session rows and none of the model
+    configuration, so a code path that resolves the chat model through a
+    sessions-database session fails with "no such table: model_profiles".
+    This is the boundary every model lookup has to respect.
+    """
+    from realmock.platform.models.config_models import ModelProfile
+
+    assert api_db.query(ModelProfile).count() >= 0
+    with pytest.raises(OperationalError):
+        db.query(ModelProfile).count()

@@ -21,7 +21,7 @@ from realmock.domains.interview.agents.say_first import (
 from realmock.domains.interview.agents.tool_round_runner import ToolRoundResult
 from realmock.domains.interview.agents.tool_round_stream import stream_tool_rounds
 from realmock.domains.interview.agents.turn_output import TurnOutput, parse_turn_output
-from realmock.domains.interview.ledger.store import append_turn, take_pending_tools
+from realmock.domains.interview.ledger.store import append_turn_row, take_pending_tools
 from realmock.platform.core.agent_error_log import log_agent_error
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
         runner.agent.messages = [{"role": "system", "content": system_prompt}]
         context_window = runner.prompter.get_context_window(db)
         if context_window:
-            from realmock.platform.capabilities.ai.context.manager import compress_messages
+            from realmock.platform.capabilities.ai.context.assembly import compress_messages
 
             runner.agent.messages = compress_messages(runner.agent.messages, context_window)
 
@@ -94,7 +94,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
         runner.agent.save_state(db)
 
         try:
-            append_turn(
+            append_turn_row(
                 db,
                 runner.session,
                 phase=runner.agent.current_phase().id,
@@ -103,7 +103,7 @@ async def stream_opening(runner: "InterviewRunner", db: Session) -> AsyncIterato
             )
         except Exception as e:
             logger.exception(
-                "ledger append_turn failed on opening sid=%s",
+                "ledger append_turn_row failed on opening sid=%s",
                 getattr(runner.session, "id", None),
             )
             raise LedgerWriteError("ledger append failed") from e

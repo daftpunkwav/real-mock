@@ -62,7 +62,7 @@ def test_load_profile_or_resume_spec_branches(monkeypatch) -> None:
 
     # profile unknown tool
     monkeypatch.setattr(binding, "get_default_user_profile", lambda db: object())
-    monkeypatch.setattr(binding, "profile_from_orm", lambda p: {"x": 1})
+    monkeypatch.setattr(binding, "snapshot_from_profile", lambda p: {"x": 1})
     monkeypatch.setattr(
         binding, "profile_tool_specs", lambda snap: [_tool_spec("profile_list_sections")]
     )

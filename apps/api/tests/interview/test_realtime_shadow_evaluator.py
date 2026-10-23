@@ -90,6 +90,26 @@ async def test_shadow_evaluator_gaps():
 
 
 @pytest.mark.asyncio
+async def test_shadow_non_finite_score_degrades():
+    """A non-finite substance score must degrade to the default, not abort the turn.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model answer can
+    carry ``inf``; converting it to int raises OverflowError, which is not a
+    ValueError and therefore slips past the tolerant coercion.
+    """
+    from realmock.domains.interview.agents.memory import CognitiveMemoryGraph
+
+    llm = MagicMock(api_key="sk")
+    llm.chat_json = AsyncMock(
+        return_value={"substance_score": float("inf"), "assessed_topic": "Redis"}
+    )
+    ev = await ShadowEvaluatorAgent(llm, CognitiveMemoryGraph()).evaluate_turn(
+        question="q", user_text="ans", current_phase="tech", turn_index=1
+    )
+    assert ev.substance_score == 5
+
+
+@pytest.mark.asyncio
 async def test_shadow_string_list_fields_stay_whole():
     """A bare string in a list-typed field must not explode into characters."""
     from realmock.domains.interview.agents.memory import CognitiveMemoryGraph

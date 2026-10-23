@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.prep.models import PrepSession, commit_session, utcnow
 from realmock.platform.capabilities.ai.agent import WorkingMemory
-from realmock.platform.capabilities.ai.context.manager import upsert_memory_block
+from realmock.platform.capabilities.ai.context.assembly import upsert_memory_block
 
 logger = logging.getLogger(__name__)
 

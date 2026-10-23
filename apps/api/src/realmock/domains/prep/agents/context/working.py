@@ -20,15 +20,15 @@ from realmock.domains.prep.agents.context.markers import (
 )
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.agent.working_memory import MEMORY_MARKER
+from realmock.platform.capabilities.ai.context.assembly import (
+    compact_with_summary,
+    upsert_memory_block,
+)
 from realmock.platform.capabilities.ai.context.compress import (
     COMPACTION_DIGEST_MARKER,
     COMPACTION_SUMMARY_MARKER,
 )
 from realmock.platform.capabilities.ai.context.estimation import estimate_tokens
-from realmock.platform.capabilities.ai.context.manager import (
-    compact_with_summary,
-    upsert_memory_block,
-)
 from realmock.platform.capabilities.ai.context.options import (
     DEFAULT_AUTO_COMPACT_THRESHOLD,
     CompactionOptions,

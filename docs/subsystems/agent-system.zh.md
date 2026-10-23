@@ -39,11 +39,11 @@
 
 | 模块 | 用途 |
 | --- | --- |
-| `manager.py` | 入口;`prepare_llm_context` 编排(压缩 + 以独立 system 分区注入工作记忆)。 |
+| `assembly.py` | 入口;`prepare_llm_context` 编排(压缩 + 以独立 system 分区注入工作记忆)。 |
 | `estimation.py` | 面向预算检查的按文字系统粗估 token(中文 ≈ 1.5 字符/token,拉丁文 ≈ 4);图片 data URL 按 32 字符/token 计,并预留窗口的 `VISION_CONTEXT_IMAGE_RATIO`(0.35)。 |
 | `compress.py` | 规则式 `compress_messages`(保留 system 消息 + 最近尾部 + 摘要行)与折叠陈旧工具调用对;产物标记 `[Conversation Minutes]` / `[Context compression]`。 |
 | `summarize.py` | `compact_with_summary` — 超阈值时由 LLM 生成分段纪要,增量替换被省略的对话;LLM 失败回退规则式摘要(记日志、可见),`force=True` 时不回退。 |
-| `blobs.py` | 超长文本 blob 的 LLM 压缩;失败时返回显式标记的首尾摘录。 |
+| `blob_compression.py` | 超长文本 blob 的 LLM 压缩;失败时返回显式标记的首尾摘录。 |
 | `options.py` | `CompactionOptions` 值对象;强度档位 `light` / `balanced` / `aggressive`,逐字保底尾窗分别为 10 / 4 / 0 条消息。 |
 
 ## `llm/` — 面向供应方的模型调用

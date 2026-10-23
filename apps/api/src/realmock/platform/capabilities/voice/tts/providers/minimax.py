@@ -229,7 +229,10 @@ def apply_prosody(
         hi = int(pitch_cfg.get("max", 12))
         try:
             current = int(float(voice_setting.get("pitch") or 0))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: a non-finite (Infinity) pinned pitch is not
+            # convertible to int and is not a ValueError; it is an unusable
+            # pitch like any other and starts from zero.
             current = 0
         voice_setting["pitch"] = min(max(current + hz, lo), hi)
 

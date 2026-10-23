@@ -138,6 +138,24 @@ def test_parse_round_plan_string_and_workflow_derive() -> None:
     assert "mgmt" in kinds and "hr_1" in kinds
 
 
+def test_parse_round_plan_non_finite_strictness_degrades() -> None:
+    """A non-finite strictness must degrade to the default, not abort the parse.
+
+    ``json.loads`` accepts ``Infinity`` (and ``1e400``), so a model-authored
+    round plan can carry ``inf``; converting it to int raises OverflowError,
+    which is not a ValueError and therefore slips past the tolerant coercion.
+    """
+    plan = parse_round_plan(
+        {
+            "rounds": [
+                {"kind": "tech_1", "focus": "f", "strictness": float("inf")},
+            ]
+        }
+    )
+    assert plan is not None
+    assert plan.rounds[0].strictness == 3
+
+
 def test_load_round_plan_exception_returns_none() -> None:
     proc = SimpleNamespace(round_plan_status="ready", round_plan="{}", id=1)
     with patch(

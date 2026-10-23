@@ -11,15 +11,26 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import delete
 from sqlalchemy.exc import OperationalError
 
 
 @pytest.fixture(autouse=True)
 def _ensure_tables(api_engine):
+    """Create the api-db tables and clear the profile rows before each case.
+
+    The api.db is shared by the whole test session, so a profile row left
+    behind by another suite would decide which row the default-profile read
+    returns (it prefers id=1). Clearing the table keeps these cases
+    independent of the order the suites run in.
+    """
     import realmock.platform.models  # noqa: F401
     from realmock.platform.database import ApiBase
+    from realmock.platform.models import UserProfile
 
     ApiBase.metadata.create_all(bind=api_engine)
+    with api_engine.begin() as conn:
+        conn.execute(delete(UserProfile))
     yield
 
 
@@ -60,6 +71,34 @@ class TestCandidateRead:
         api_db.query(UserProfile).delete()
         api_db.commit()
         assert cr.get_default_user_profile(api_db) is None
+
+    def test_user_profile_read_model(self, api_db) -> None:
+        """The read port hands out the declared profile contract, not the ORM row."""
+        from realmock.platform.models import UserProfile
+        from realmock.platform.schemas import UserProfileSnapshot
+        from realmock.platform.services import candidate_read as cr
+
+        _wipe(api_db)
+        row = UserProfile(name="Alice", school="X", tech_domains='["Python", 7]')
+        api_db.add(row)
+        api_db.commit()
+
+        profile = cr.get_user_profile(api_db, row.id)
+        assert isinstance(profile, UserProfileSnapshot)
+        assert not isinstance(profile, UserProfile)
+        assert profile.name == "Alice"
+        assert profile.school == "X"
+        # Unset columns read as empty text, never as None.
+        assert profile.job_direction == ""
+        # Tech domains are decoded; non-string entries never reach the prompts.
+        assert profile.tech_domains_list == ["Python"]
+
+        default_profile = cr.get_default_user_profile(api_db)
+        assert default_profile is not None
+        assert default_profile.name == "Alice"
+
+        api_db.query(UserProfile).delete()
+        api_db.commit()
 
     def test_format_profile_summary(self, api_db) -> None:
         from realmock.platform.models import UserProfile

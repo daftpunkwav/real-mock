@@ -33,6 +33,7 @@ from realmock.platform.capabilities.ai.agent.tools import (
 )
 from realmock.platform.catalogs.company import get_company_context
 from realmock.platform.database import api_db_session
+from realmock.platform.schemas import UserProfileSnapshot
 from realmock.platform.services.candidate_read import (
     get_default_user_profile,
     get_resume_agent_payload,
@@ -99,33 +100,33 @@ async def generate_full_reference_hint(
         return None
 
 
-def _render_profile(profile: Any) -> str:
+def _render_profile(profile: UserProfileSnapshot | None) -> str:
     """Full candidate profile block (readable lines; no truncation)."""
     if profile is None:
         return ""
     fields = [
-        ("Name", getattr(profile, "name", "")),
-        ("Target role", getattr(profile, "target_role", "")),
-        ("Job direction", getattr(profile, "job_direction", "")),
+        ("Name", profile.name),
+        ("Target role", profile.target_role),
+        ("Job direction", profile.job_direction),
         (
             "School / major",
-            f"{getattr(profile, 'school', '') or ''} {getattr(profile, 'major', '') or ''}".strip(),
+            f"{profile.school} {profile.major}".strip(),
         ),
-        ("Education level", getattr(profile, "education_level", "")),
+        ("Education level", profile.education_level),
         (
             "Experience",
-            f"{getattr(profile, 'experience_years', '')} years {getattr(profile, 'work_years_detail', '') or ''}".strip(),
+            f"{profile.experience_years} years {profile.work_years_detail}".strip(),
         ),
-        ("Current company", getattr(profile, "current_company", "")),
-        ("Tech domains", ", ".join(getattr(profile, "tech_domains_list", None) or [])),
-        ("Certificates", getattr(profile, "certificates", "")),
-        ("English level", getattr(profile, "english_level", "")),
-        ("Signature projects", getattr(profile, "signature_projects", "")),
-        ("Strengths", getattr(profile, "strengths", "")),
-        ("Weaknesses", getattr(profile, "weaknesses", "")),
-        ("Career highlights", getattr(profile, "career_highlights", "")),
-        ("Self introduction", getattr(profile, "self_intro", "")),
-        ("GitHub", getattr(profile, "github_username", "")),
+        ("Current company", profile.current_company),
+        ("Tech domains", ", ".join(profile.tech_domains_list)),
+        ("Certificates", profile.certificates),
+        ("English level", profile.english_level),
+        ("Signature projects", profile.signature_projects),
+        ("Strengths", profile.strengths),
+        ("Weaknesses", profile.weaknesses),
+        ("Career highlights", profile.career_highlights),
+        ("Self introduction", profile.self_intro),
+        ("GitHub", profile.github_username),
     ]
     lines = ["## Candidate profile"]
     for label, value in fields:

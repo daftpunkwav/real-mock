@@ -17,6 +17,7 @@ session refs — and the stream registry are exported alongside it). It wires:
 | `hooks/usePrepCompact`                       | Manual `/compact`, summary edits, archive of folded turns                                                |
 | `hooks/usePrepSessionManage`                 | Delete / archive / restore / clear (stops the live stream first)                                         |
 | `hooks/usePrepScroll`, `hooks/useTokenBatch` | Autoscroll follow, rAF token batching                                                                    |
+| `hooks/usePrepDeepLink`                      | One-shot consumption of the resume deep link: pairs the session and seeds the question                   |
 | `streamRegistry.ts`                          | Module-level in-flight streams keyed by session id — they survive session switches and in-app navigation |
 
 ## Invariants

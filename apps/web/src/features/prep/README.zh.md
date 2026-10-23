@@ -16,6 +16,7 @@ Prep 教练聊天:会话、流式发送管线、单条消息操作。
 | `hooks/usePrepCompact`                       | 手动 `/compact`、摘要编辑、折叠轮次的本地存档                       |
 | `hooks/usePrepSessionManage`                 | 删除 / 归档 / 恢复 / 清空(先停在途流)                               |
 | `hooks/usePrepScroll`、`hooks/useTokenBatch` | 自动跟随滚动、rAF token 批处理                                      |
+| `hooks/usePrepDeepLink`                      | 一次性消费简历深链:绑定会话并投递预置问题                           |
 | `streamRegistry.ts`                          | 模块级在途流注册表,按会话 id 键控 —— 切换会话与应用内导航都不会中断 |
 
 ## 不变量
