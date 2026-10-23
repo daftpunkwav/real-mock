@@ -41,7 +41,14 @@ cannot force an import order on the flat modules during init.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # The lazy resolver below hands these names out at runtime. Naming one
+    # here makes it visible to the type checker and to static analysis,
+    # which would otherwise read a name in ``__all__`` that the module
+    # never binds. The import is type-check-only, so the runtime stays lazy.
+    from realmock.domains.interview.agents.session_overrides import api_session_llm
 
 #: Facade name → owning submodule (relative). Resolved by ``__getattr__``.
 _LAZY_EXPORTS: dict[str, str] = {
