@@ -82,6 +82,41 @@ def _counter(value: Any) -> int | None:
         return None
 
 
+def _counters(raw: Any) -> dict[str, int]:
+    """The usable counters of one mapping of the snapshot.
+
+    An entry that cannot be a counter is dropped; the rest of the mapping
+    survives.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for name, value in raw.items():
+        count = _counter(value)
+        if count is not None:
+            counts[str(name)] = count
+    return counts
+
+
+def _averages(raw: Any) -> dict[str, dict[str, int]]:
+    """The usable average-score entries of the snapshot.
+
+    An entry needs both parts of the running average; an entry that is missing
+    one of them is dropped.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    clean: dict[str, dict[str, int]] = {}
+    for name, entry in raw.items():
+        if not isinstance(entry, dict):
+            continue
+        total = _counter(entry.get("sum"))
+        count = _counter(entry.get("n"))
+        if total is not None and count is not None:
+            clean[str(name)] = {"sum": total, "n": count}
+    return clean
+
+
 def _normalize(snapshot: Any) -> dict[str, Any]:
     """Coerce a loaded snapshot into the expected shape.
 
@@ -99,25 +134,8 @@ def _normalize(snapshot: Any) -> dict[str, Any]:
         "company_session_counts",
         "role_session_counts",
     ):
-        raw = snapshot.get(key)
-        if isinstance(raw, dict):
-            counts: dict[str, int] = {}
-            for name, value in raw.items():
-                count = _counter(value)
-                if count is not None:
-                    counts[str(name)] = count
-            norm[key] = counts
-    avgs = snapshot.get("avg_scores_by_company")
-    if isinstance(avgs, dict):
-        clean: dict[str, dict[str, int]] = {}
-        for k, v in avgs.items():
-            if not isinstance(v, dict):
-                continue
-            total = _counter(v.get("sum"))
-            count = _counter(v.get("n"))
-            if total is not None and count is not None:
-                clean[str(k)] = {"sum": total, "n": count}
-        norm["avg_scores_by_company"] = clean
+        norm[key] = _counters(snapshot.get(key))
+    norm["avg_scores_by_company"] = _averages(snapshot.get("avg_scores_by_company"))
     probes = snapshot.get("effective_probes")
     if isinstance(probes, list):
         norm["effective_probes"] = [p for p in probes if isinstance(p, dict)]
