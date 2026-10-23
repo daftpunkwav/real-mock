@@ -65,6 +65,23 @@ def _default_snapshot() -> dict[str, Any]:
     }
 
 
+def _counter(value: Any) -> int | None:
+    """One counter of the sidecar, or None when the value cannot be one.
+
+    ``json.loads`` accepts ``Infinity`` and ``1e400``, and ``int(float('inf'))``
+    raises ``OverflowError`` - which is neither ``TypeError`` nor
+    ``ValueError``, so a tolerant coercion that catches only those two lets it
+    escape. One unusable counter must cost that counter alone, not the whole
+    snapshot.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def _normalize(snapshot: Any) -> dict[str, Any]:
     """Coerce a loaded snapshot into the expected shape.
 
@@ -84,23 +101,22 @@ def _normalize(snapshot: Any) -> dict[str, Any]:
     ):
         raw = snapshot.get(key)
         if isinstance(raw, dict):
-            norm[key] = {
-                str(k): int(v)
-                for k, v in raw.items()
-                if isinstance(v, (int, float)) and not isinstance(v, bool)
-            }
+            counts: dict[str, int] = {}
+            for name, value in raw.items():
+                count = _counter(value)
+                if count is not None:
+                    counts[str(name)] = count
+            norm[key] = counts
     avgs = snapshot.get("avg_scores_by_company")
     if isinstance(avgs, dict):
         clean: dict[str, dict[str, int]] = {}
         for k, v in avgs.items():
-            if (
-                isinstance(v, dict)
-                and isinstance(v.get("sum"), (int, float))
-                and isinstance(v.get("n"), (int, float))
-                and not isinstance(v.get("sum"), bool)
-                and not isinstance(v.get("n"), bool)
-            ):
-                clean[str(k)] = {"sum": int(v["sum"]), "n": int(v["n"])}
+            if not isinstance(v, dict):
+                continue
+            total = _counter(v.get("sum"))
+            count = _counter(v.get("n"))
+            if total is not None and count is not None:
+                clean[str(k)] = {"sum": total, "n": count}
         norm["avg_scores_by_company"] = clean
     probes = snapshot.get("effective_probes")
     if isinstance(probes, list):

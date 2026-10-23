@@ -57,6 +57,36 @@ def test_learning_corrupt_file_and_parse_branches(tmp_path, monkeypatch) -> None
     assert mod._parse_agent_state(json.dumps(["not", "dict"])) == {}
 
 
+def test_a_non_finite_counter_costs_only_itself(tmp_path, monkeypatch) -> None:
+    """One unusable counter must not cost the whole learning history.
+
+    ``json.loads`` accepts ``Infinity`` and ``1e400``, and converting them
+    raises ``OverflowError`` - which is neither ``TypeError`` nor
+    ``ValueError``. The escape used to abandon the whole snapshot, and the
+    next write persisted that empty one, so every counter, score and probe
+    accumulated so far was gone.
+    """
+    from realmock.domains.growth.services import learning as mod
+
+    monkeypatch.setattr(mod, "_memory_path", lambda: tmp_path / "sys.json")
+    monkeypatch.setattr(mod, "_lock_path", lambda: tmp_path / "sys.json.lock")
+    (tmp_path / "sys.json").write_text(
+        json.dumps(
+            {
+                "company_session_counts": {"Acme": 3, "Globex": float("inf")},
+                "tool_call_counts": {"web_search": 1},
+                "avg_scores_by_company": {"Acme": {"sum": 80.0, "n": 1}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    data = mod.get_system_insights()
+    assert data["company_session_counts"] == {"Acme": 3}
+    assert data["tool_call_counts"] == {"web_search": 1}
+    assert data["avg_scores_by_company"] == {"Acme": 80.0}
+
+
 def test_get_system_insights_lock_timeout_serves_snapshot(tmp_path, monkeypatch) -> None:
     """Read path is fail-open: lock timeout serves the last snapshot / empty
     structure instead of raising FileLockTimeout (growth page must not 500)."""
