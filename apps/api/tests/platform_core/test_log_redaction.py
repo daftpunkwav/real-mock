@@ -112,6 +112,57 @@ class TestRedactLogTemplate:
         assert _SECRET not in out
         assert "client_secret=***" in out
 
+    def test_a_credential_word_does_not_cost_the_placeholder(self) -> None:
+        """The text of a template must not swallow its placeholder.
+
+        The whole-value rule replaces a value it considers a credential with a
+        fixed constant. A template that happens to start with such a word
+        ("token expired for user %s") would lose its ``%s``: the argument count
+        and the placeholder count then disagree, the logging machinery raises
+        on the substitution and the whole line is dropped.
+        """
+        out = redact_log_template("token expired for user %s")
+        assert "%s" in out
+
+        out = redact_log_template("authorization=%s")
+        assert "%s" in out
+
+    def test_the_line_is_emitted_when_the_template_starts_with_a_credential_word(
+        self,
+    ) -> None:
+        """The redaction must not cost the record its line."""
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.core",
+                level=logging.INFO,
+                pathname=__file__,
+                lineno=1,
+                msg="token expired for user %s",
+                args=("alice",),
+                exc_info=None,
+            )
+
+        line = _emit(make_record)
+        assert "alice" in line
+
+
+class TestRedactLogUrlCredentials:
+    """A credential does not only travel in the query of a URL."""
+
+    def test_a_credential_in_the_path_is_masked(self) -> None:
+        out = redact_log_value("https://api.example.com/v1/sk-abcdefghijklmnop/chat")
+        assert "sk-abcdefghijklmnop" not in out
+        assert "api.example.com/v1/" in out
+
+    def test_a_credential_in_the_fragment_is_masked(self) -> None:
+        out = redact_log_value("https://api.example.com/v1/chat#access_token=sk-abcdefghijklmnop")
+        assert "sk-abcdefghijklmnop" not in out
+
+    def test_an_ordinary_path_keeps_its_identifiers(self) -> None:
+        url = "https://api.example.com/v1/sessions/8f14e45fceea167a5a36dedd4bea2543"
+        assert redact_log_value(url) == url
+
 
 class TestLogPipeline:
     def test_url_argument_is_masked(self) -> None:

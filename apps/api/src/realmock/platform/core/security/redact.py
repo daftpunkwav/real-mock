@@ -12,12 +12,15 @@ Four entry points, one job each:
 - :func:`redact_log_template` — a **format template** (the ``"x=%s"``
   pattern of a log call): the whole-value rule and the URL masking, but no
   token-by-token scan, so the ``%s`` / ``%d`` placeholders and the ordinary
-  long words of the message survive.
+  long words of the message survive. The placeholders are set aside before
+  the rule runs, because the rule replaces the value it considers a
+  credential with a fixed constant.
 
 Besides the key shapes themselves, a request URL is a place where a credential
 travels without looking like a key: a query parameter can carry the secret and
 the HTTP client logs the full request URL. The two log entry points mask
-those query values.
+those query values, and the credential shapes that travel in a URL path or
+fragment.
 
 The provider key prefixes are declared once, in ``_PROVIDER_KEY_PREFIXES``:
 the whole-value heuristic and the token-by-token scanner both read that
@@ -94,6 +97,13 @@ _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
     + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
+)
+
+# The credential shapes that can travel inside a URL path or fragment. The
+# provider key prefixes and the assignment forms only: the standalone-run
+# rule above would mask every long path segment.
+_URL_CREDENTIAL_RE = re.compile(
+    _provider_key_pattern() + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
 )
 
 
@@ -177,8 +187,27 @@ def _mask_query_values(query: str) -> str:
     return "&".join(masked)
 
 
+def _mask_url_credentials(text: str) -> str:
+    """Mask the credential shapes inside a URL path or fragment.
+
+    A credential does not only travel in the query: a vendor that puts it in
+    the path (``/v1/sk-.../chat``) or an OAuth fragment (``#access_token=...``)
+    would otherwise reach the log in clear text. The standalone-run rule of the
+    free-text scanner is deliberately not reused here: a request path carries
+    opaque identifiers (session ids, object keys) that operators need, and
+    masking every long path segment would cost the diagnosability the URL
+    masking preserves.
+    """
+
+    def _mask(match: re.Match[str]) -> str:
+        token = match.group(0)
+        return f"{token[:4]}***" if len(token) > 8 else "***"
+
+    return _URL_CREDENTIAL_RE.sub(_mask, text)
+
+
 def _mask_url(url: str) -> str:
-    """Mask the query values and the userinfo password of one URL."""
+    """Mask the query values, the userinfo password and the credentials of one URL."""
     scheme, sep, rest = url.partition("://")
     if not sep:
         return url
@@ -190,10 +219,12 @@ def _mask_url(url: str) -> str:
             user, _, _password = userinfo.partition(":")
             userinfo = f"{user}:***"
         authority = f"{userinfo}@{host}"
+    path = _mask_url_credentials(path)
     head = f"{authority}{slash}{path}"
     if not qmark:
         return f"{scheme}://{head}"
     query, hash_, fragment = tail.partition("#")
+    fragment = _mask_url_credentials(fragment)
     suffix = f"#{fragment}" if hash_ else ""
     return f"{scheme}://{head}?{_mask_query_values(query)}{suffix}"
 
@@ -217,6 +248,29 @@ def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
     if not scan_embedded or not any(ch.isspace() for ch in stripped):
         return text
     return redact_secrets_in_text(text)
+
+
+def _redact_template_text(text: str) -> str:
+    """Redact the text of a template, leaving its placeholders untouched.
+
+    The whole-value rule replaces a fragment it considers a credential with a
+    fixed constant. Applied to a template that constant can swallow a
+    ``%s``: the argument count and the placeholder count then disagree, the
+    logging machinery raises on the substitution and the whole line is lost.
+    Splitting the fragment at its format specs keeps the placeholders out of
+    the rule's reach.
+    """
+    parts: list[str] = []
+    position = 0
+    for match in _FORMAT_SPEC_RE.finditer(text):
+        parts.append(text[position : match.start()])
+        parts.append(match.group(0))
+        position = match.end()
+    parts.append(text[position:])
+    return "".join(
+        part if index % 2 else _redact_fragment(part, scan_embedded=False)
+        for index, part in enumerate(parts)
+    )
 
 
 def _split_log_text(value: str) -> list[str]:
@@ -266,7 +320,8 @@ def redact_log_template(template: str) -> str:
     parts = _split_log_text(template)
     out: list[str] = []
     for index, part in enumerate(parts):
-        out.append(_mask_url(part) if index % 2 else _redact_fragment(part, scan_embedded=False))
+        # The pattern has one group, so the odd indices are the URL matches.
+        out.append(_mask_url(part) if index % 2 else _redact_template_text(part))
     return "".join(out)
 
 

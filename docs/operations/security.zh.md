@@ -47,9 +47,9 @@
 
 四个入口,各司其职。`redact_api_key()` 处理**整体值** —— 值本身可能就是凭据:PEM 块替换为 `***PEM_REDACTED***`;`Authorization` / `Bearer` / `Token` / `Basic` 头仅保留方案名;可识别的 key 形态(`sk-`、`sk_`、`sk-ant-`、Google `aiza` 前缀)与启发式判定为密钥的字符串(≥20 字符、字母数字混合、无空格)渲染为 `首4***末4`。`redact_secrets_in_text()` 处理**自由文本**(异常消息)—— 凭据可能藏在句子任意位置:它就地掩掉 key,保留周边语句可读。调用方包括 LLM 用量诊断(`platform/capabilities/ai/llm/usage.py`)、平台日志配置(`core/logging.py`)以及域内路由 / 工具守卫的错误路径。供应方 key 前缀只声明一次(`_PROVIDER_KEY_PREFIXES`),两条规则都读这张表,新增一种 key 形态只需加一条表项。
 
-`redact_log_value()` 是日志管线(`core/logging.py`)针对运行时值的入口:日志参数与格式化器渲染出的异常文本。它对值中非 URL 的部分套用上述 key 启发式,对其中的每个 URL 掩掉查询参数值与 userinfo 口令,并对多词的值按 token 逐个扫描 —— 上游供应方的报错会把它拒绝的凭据原文引回来("Incorrect API key provided: sk-..."),而埋在句子里的 key 并不是整体值启发式能识别的形态。请求 URL 是厂商凭据唯一可以"看起来不像 key"而随行的地方:百度 ASR 取 token 的请求把 `client_secret` 放在 query 里,而 HTTP 客户端会把完整请求 URL 写进日志 — 因此 query 的值绝不能进入日志行。参数名保留,请求仍可诊断。格式化器(`SafeFormatter`)渲染的异常文本同样按此规则脱敏,日志处理器追加到行尾的那份副本也是脱敏后的版本。
+`redact_log_value()` 是日志管线(`core/logging.py`)针对运行时值的入口:日志参数与格式化器渲染出的异常文本。它对值中非 URL 的部分套用上述 key 启发式,对其中的每个 URL 掩掉查询参数值与 userinfo 口令,掩掉落在 URL 路径或片段里的凭据形态,并对多词的值按 token 逐个扫描 —— 上游供应方的报错会把它拒绝的凭据原文引回来("Incorrect API key provided: sk-..."),而埋在句子里的 key 并不是整体值启发式能识别的形态。请求 URL 是厂商凭据唯一可以"看起来不像 key"而随行的地方:百度 ASR 取 token 的请求把 `client_secret` 放在 query 里,而 HTTP 客户端会把完整请求 URL 写进日志 — 因此 query 的值绝不能进入日志行。路径段或 OAuth 片段里的凭据按其形态掩掉;请求路径自带的不透明标识符保留,请求仍可诊断,参数名同样保留。格式化器(`SafeFormatter`)渲染的异常文本同样按此规则脱敏,日志处理器追加到行尾的那份副本也是脱敏后的版本。
 
-`redact_log_template()` 是日志格式模板(`record.msg`)的入口。模板是源码里的字面量,日志机制要用它替换 `%s` / `%d` 占位符,因此只按整体值处理:逐 token 扫描会改写消息正文里的普通长单词,而 query 掩码会保留落在 URL 里的 `%` 占位符,占位符数量因此保持不变,日志行不会被丢弃。
+`redact_log_template()` 是日志格式模板(`record.msg`)的入口。模板是源码里的字面量,日志机制要用它替换 `%s` / `%d` 占位符,因此只按整体值处理:逐 token 扫描会改写消息正文里的普通长单词。规则运行前先把占位符摘出来 —— 它会把判定为凭据的值替换成固定字符串,而以这类词开头的模板("token expired for user %s")会因此丢掉 `%s`,参数数量与占位符数量随即对不上,日志机制会把整行丢弃。query 掩码会保留落在 URL 里的 `%` 占位符,占位符数量因此保持不变,日志行不会被丢弃。
 
 ## 文件处理(`security/file.py`)
 
