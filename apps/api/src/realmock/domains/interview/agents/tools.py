@@ -31,6 +31,7 @@ from realmock.platform.capabilities.ai.agent.tools.profile import ProfileSnapsho
 from realmock.platform.capabilities.ai.agent.tools.resume import ResumeSnapshot
 from realmock.platform.capabilities.integrations.github.tools import execute_github_tool
 from realmock.platform.catalogs.company import get_company_context
+from realmock.platform.core.coerce import try_coerce_int
 from realmock.platform.core.security import redact_api_key
 from realmock.platform.database import api_db_session
 from realmock.platform.services.candidate_read import (
@@ -363,13 +364,12 @@ async def execute_interview_tool(
             # Malformed paging args are a model mistake, not a broken tool:
             # answer with an observation instead of raising into ToolGuard,
             # whose breaker would otherwise open the tool after two bad calls.
-            try:
-                round_no = int(arguments.get("round_no") or 0)
-                offset = int(arguments.get("offset") or 0)
-            except (TypeError, ValueError, OverflowError):
-                # OverflowError: a non-finite (Infinity) argument is not
-                # convertible and is not a ValueError; it is a malformed
-                # argument like any other and must stay an observation.
+            # Malformed paging args are a model mistake, not a broken tool:
+            # answer with an observation instead of raising into ToolGuard,
+            # whose breaker would otherwise open the tool after two bad calls.
+            round_no = try_coerce_int(arguments.get("round_no") or 0)
+            offset = try_coerce_int(arguments.get("offset") or 0)
+            if round_no is None or offset is None:
                 return json.dumps(
                     {"error": "invalid_argument", "field": "round_no/offset (integer)"},
                     ensure_ascii=False,

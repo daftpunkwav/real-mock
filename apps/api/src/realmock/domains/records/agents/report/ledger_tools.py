@@ -24,6 +24,7 @@ from realmock.domains.records.agents.report.normalize import shorten_note
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
 from realmock.platform.capabilities.ai.llm.defaults import TOOL_OBSERVATION_SOFT_CHARS
 from realmock.platform.contracts.ledger_document import LedgerTurn, ToolPreview
+from realmock.platform.core.coerce import coerce_int
 
 _PAGE_TURNS = 12
 _TURN_CHARS = 900
@@ -160,19 +161,12 @@ def _page_offset(args: dict[str, Any], default: int = 0) -> int:
     cost the agent a round. A non-finite value (Infinity) counts as malformed
     too: converting it to int raises OverflowError, which is not a ValueError.
     """
-    try:
-        return max(0, int(args.get("offset") or default))
-    except (TypeError, ValueError, OverflowError):
-        return max(0, default)
+    return max(0, coerce_int(args.get("offset") or default, default))
 
 
 def _page_limit(args: dict[str, Any], default: int, maximum: int) -> int:
     """Page size from model-supplied args; a non-numeric value degrades to the default."""
-    try:
-        limit = int(args.get("limit") or default)
-    except (TypeError, ValueError, OverflowError):
-        limit = default
-    return max(1, min(limit, maximum))
+    return max(1, min(coerce_int(args.get("limit") or default, default), maximum))
 
 
 def ledger_tool_specs(

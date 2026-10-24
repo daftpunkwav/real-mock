@@ -16,20 +16,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from realmock.platform.core.coerce import try_coerce_int
+
 
 def _safe_index(value: Any) -> int | None:
     """Coerce a stream-event index to int; None when malformed.
 
-    Non-conforming gateways can send non-numeric indices (``"abc"``, objects);
-    a raw ``int()`` there would raise and kill the whole streaming turn.
+    Non-conforming gateways can send non-numeric indices (``"abc"``, objects,
+    ``Infinity``); a raw ``int()`` there would raise and kill the whole
+    streaming turn, so the value is treated as the malformed index it is.
     """
-    try:
-        return int(value or 0)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a gateway index of Infinity is not convertible and is
-        # not a ValueError; it must be treated as the malformed index it is,
-        # not kill the streaming turn.
-        return None
+    return try_coerce_int(value or 0)
 
 
 class _OpenAIRoundAssembler:

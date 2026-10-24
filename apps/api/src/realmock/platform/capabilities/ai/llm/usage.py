@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from time import monotonic
 from typing import Any
 
+from realmock.platform.core.coerce import coerce_int
 from realmock.platform.core.constants import LLMProtocol
 from realmock.platform.core.security import redact_secrets_in_text
 
@@ -29,13 +30,8 @@ from .provider_errors import is_diagnosable_upstream_error
 
 
 def _as_int(value: Any) -> int:
-    try:
-        n = int(value)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a provider token count of Infinity (a JSON literal or
-        # an overflowing exponent) is not convertible and is not a ValueError;
-        # it is unusable usage data like any other and must count as zero.
-        return 0
+    """One provider token count; unusable usage data counts as zero."""
+    n = coerce_int(value, 0)
     return n if n > 0 else 0
 
 
