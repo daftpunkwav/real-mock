@@ -74,3 +74,37 @@ async def test_analyze_stream_error_path(db, monkeypatch) -> None:
             break
     assert chunks
     await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_analyze_stream_error_masks_embedded_credential(db, monkeypatch, caplog) -> None:
+    """The SSE message is generic copy, and the log line must not carry the key."""
+    import logging
+
+    import realmock.domains.resume.routes.analyze as mod
+
+    row = MagicMock()
+    monkeypatch.setattr(mod.store, "get_row", lambda db_arg, rid: row)
+
+    class _Req:
+        async def body(self):
+            return b"{}"
+
+        async def is_disconnected(self):
+            return False
+
+    async def _boom(*a, **k):
+        raise RuntimeError("evaluator 401: Incorrect API key provided: sk-proj-abcdefghij123456789")
+
+    monkeypatch.setattr(mod, "analyze_resume_with_llm", _boom)
+    monkeypatch.setattr(mod.analyze_slots, "acquire_slot", AsyncMock())
+    monkeypatch.setattr(mod.analyze_slots, "release_slot", AsyncMock())
+    with caplog.at_level(logging.ERROR):
+        resp = await mod.analyze_resume_stream(1, _Req(), db)  # type: ignore[arg-type]
+        chunks = []
+        async for chunk in resp.body_iterator:
+            chunks.append(chunk)
+            if len(chunks) > 20:
+                break
+    assert chunks
+    assert "sk-proj-abcdefghij123456789" not in caplog.text

@@ -281,3 +281,35 @@ async def test_generate_with_live_events_drains_leftover_queue() -> None:
                     break
             assert out and out[0].overall_score == 75
             assert any("leftover" in line for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_report_stream_error_masks_embedded_credential(
+    db, api_db, seed_ledger_turns, caplog
+) -> None:
+    """The SSE detail is generic copy, and the log line must not carry the key."""
+    import logging
+
+    _ensure_llm(api_db)
+    sid = _completed_session(db, seed_ledger_turns=seed_ledger_turns)
+    with caplog.at_level(logging.ERROR):
+        with patch.object(
+            rmod,
+            "get_report_row",
+            side_effect=RuntimeError(
+                "report 401: Incorrect API key provided: sk-proj-abcdefghij123456789"
+            ),
+        ):
+            with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
+                with TestClient(app) as client:
+                    with client.stream(
+                        "GET", f"/api/reports/{sid}/stream", headers=_headers()
+                    ) as resp:
+                        assert resp.status_code == 200
+                        chunks = [
+                            json.loads(line[6:])
+                            for line in resp.iter_lines()
+                            if line.startswith("data: ")
+                        ]
+    assert any(c["type"] == "error" for c in chunks)
+    assert "sk-proj-abcdefghij123456789" not in caplog.text

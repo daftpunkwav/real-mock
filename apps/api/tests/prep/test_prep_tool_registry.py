@@ -1036,3 +1036,20 @@ def test_resolve_timeout_clamps_override_and_falls_back() -> None:
     assert _resolve_timeout("ask_user", {}) == _TOOL_TIMEOUT_SEC
     assert _resolve_timeout("compact_context", {}) == 150.0
     assert _resolve_timeout("no_such_tool", {}) == _TOOL_TIMEOUT_SEC
+
+
+async def test_execute_failure_masks_embedded_credential() -> None:
+    """An upstream error quoting the rejected key must not leak it to the model.
+
+    Provider failures arrive as a sentence ("Incorrect API key provided:
+    sk-..."), so the detail is scanned token by token: the whole-value
+    heuristic never fires on a multi-word message.
+    """
+
+    async def boom(name, args, db):
+        raise RuntimeError("provider 401: Incorrect API key provided: sk-proj-abcdefghij123456789")
+
+    execute = _callback(boom)
+    out = await execute("company_info", {"company": "x"})
+    assert "tool_failed" in out
+    assert "sk-proj-abcdefghij123456789" not in out

@@ -24,7 +24,7 @@ from realmock.domains.resume.schemas.request import ResumeAnalyzeRequest
 from realmock.domains.resume.services import analyze_slots, store
 from realmock.domains.resume.services.analysis import analyze_resume_with_llm
 from realmock.platform.core.errors import ApiBusinessError, raise_error
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 from realmock.platform.core.sse import (
     QueuePut,
     pump_queue_to_sse,
@@ -109,7 +109,7 @@ async def analyze_resume_stream(
                 logger.exception(
                     "Resume analyze stream failed id=%s: %s",
                     resume_id,
-                    redact_api_key(str(exc)),
+                    redact_secrets_in_text(str(exc)),
                 )
             await put(_error_event(exc))
         finally:

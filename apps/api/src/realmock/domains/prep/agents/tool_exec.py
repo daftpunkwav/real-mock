@@ -38,7 +38,7 @@ from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 
 from .ask_user import dispatch_ask_user
 from .tools.registry import TOOL_REGISTRY
@@ -237,7 +237,7 @@ def build_execute_callback(
                 # always sees the failure and the streak counts it; never propagate
                 # (ApiBusinessError above is the only exception that propagates).
                 # Redact before exposing to the model: tracebacks may carry keys/paths.
-                safe_detail = redact_api_key(str(exc))[:400]
+                safe_detail = redact_secrets_in_text(str(exc))[:400]
                 logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
                 failure = ("tool_failed", safe_detail)
             if attempts_left > 0:
