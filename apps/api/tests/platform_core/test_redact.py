@@ -91,15 +91,46 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text("auth failed: Basic abc123")
         assert "abc123" not in out
 
+    def test_basic_minimal_base64_payload_is_masked(self) -> None:
+        # Valid base64 lengths are multiples of 4, so 4 chars is the floor a
+        # payload can have; anything shorter encodes nothing.
+        out = redact_secrets_in_text("401 for Basic YQ==")
+        assert "YQ==" not in out
+
     def test_basic_base64_padding_is_masked_whole(self) -> None:
         out = redact_secrets_in_text("server said: Basic dXNlci9wYXNzOnBhc3M=")
         assert "dXNlci9wYXNzOnBhc3M=" not in out
 
     def test_basic_prose_with_short_words_is_preserved(self) -> None:
-        # "auth" is shorter than the Basic minimum, so ordinary prose like
-        # "basic auth" survives.
-        text = "the basic auth flow starts with a GET"
+        # The word after "basic" is shorter than the payload floor, so this
+        # prose survives; words of 4+ chars after "basic" are masked, the
+        # module's documented over-masking tradeoff.
+        text = "the basic is not the only scheme"
         assert redact_secrets_in_text(text) == text
+
+    def test_url_query_credential_is_masked(self) -> None:
+        # A vendor that puts the secret in the query (OAuth token endpoints)
+        # makes the exception text carry it; the URL treatment masks the
+        # value and keeps the parameter name.
+        out = redact_secrets_in_text(
+            "connect failed: https://api.vendor.com/v1?api_key=shortsecret123 refused"
+        )
+        assert "shortsecret123" not in out
+        assert "api_key=***" in out
+        assert "connect failed:" in out
+        assert "refused" in out
+
+    def test_url_userinfo_password_is_masked(self) -> None:
+        out = redact_secrets_in_text("login to https://user:secretpw@host.example.com/v1 failed")
+        assert "secretpw" not in out
+        assert "user:***@host.example.com" in out
+
+    def test_bare_authorization_header_is_masked_whole(self) -> None:
+        # The whole-value rule runs before the token scan: a message that IS
+        # the header is caught whole, including payloads shorter than the
+        # scanner thresholds.
+        out = redact_secrets_in_text("Authorization: Basic YQ")
+        assert "YQ" not in out
 
     def test_empty_value_returns_empty(self) -> None:
         assert redact_secrets_in_text("") == ""

@@ -93,14 +93,15 @@ def _provider_key_pattern() -> str:
 # characters. ``basic`` carries its own shorter minimum and the base64
 # alphabet (``+/=``): a Basic payload is base64, the padding and separator
 # characters break the standalone-run rule, so the scheme form is the only
-# net that catches it, and the base64 of a short "user:pass" is still a
-# credential. Deliberately conservative: the last alternative does NOT
-# require mixed alphanumerics, so ordinary long words are masked too —
-# a false positive costs a little readability, a false negative leaks a key.
+# net that catches it; the floor is 4 because valid base64 lengths are
+# multiples of 4, so anything shorter encodes nothing. Deliberately
+# conservative: the last alternative does NOT require mixed alphanumerics,
+# so ordinary long words are masked too — a false positive costs a little
+# readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
     + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
-    + r"|(?i:basic)\s+[A-Za-z0-9+/=]{6,}"
+    + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
 
@@ -258,7 +259,36 @@ def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
         return text.replace(stripped, masked, 1)
     if not scan_embedded or not any(ch.isspace() for ch in stripped):
         return text
-    return redact_secrets_in_text(text)
+    return _mask_tokens_in_text(text)
+
+
+def _mask_tokens_in_text(value: str) -> str:
+    """Mask credentials token by token; no URL handling, no whole-value step."""
+    if not value:
+        return ""
+
+    def _mask(m: re.Match[str]) -> str:
+        token = m.group(0)
+        return f"{token[:4]}***" if len(token) > 8 else "***"
+
+    return _SUBSTR_KEY_RE.sub(_mask, value)
+
+
+def _scan_free_text(value: str) -> str:
+    """Full pipeline for one free-form text: URLs, then fragments.
+
+    URL-shaped substrings get the URL treatment (query values, userinfo
+    password, credentials in path/fragment); the surrounding prose goes
+    through the whole-value rule first and the token-by-token scan second,
+    so a bare header value ("Authorization: Basic dXNlcg==") is caught by
+    the former and a credential quoted inside a sentence by the latter.
+    """
+    parts = _URL_RE.split(value)
+    out: list[str] = []
+    for index, part in enumerate(parts):
+        # The pattern has one group, so the odd indices are the URL matches.
+        out.append(_mask_url(part) if index % 2 else _redact_fragment(part, scan_embedded=True))
+    return "".join(out)
 
 
 def _redact_template_text(text: str) -> str:
@@ -308,12 +338,7 @@ def redact_log_value(value: str | None) -> str:
     """
     if not value:
         return ""
-    parts = _split_log_text(value)
-    out: list[str] = []
-    for index, part in enumerate(parts):
-        # The pattern has one group, so the odd indices are the URL matches.
-        out.append(_mask_url(part) if index % 2 else _redact_fragment(part, scan_embedded=True))
-    return "".join(out)
+    return _scan_free_text(value)
 
 
 def redact_log_template(template: str) -> str:
@@ -341,10 +366,14 @@ def redact_secrets_in_text(value: str | None) -> str:
 
     :func:`redact_api_key` treats its input as one candidate value, so a key
     buried inside a sentence ("request failed: key sk-... rejected") survives
-    untouched. This scanner works token-by-token instead: provider key
-    prefixes, Bearer/Token/Basic schemes (a Basic payload is base64, masked
-    including short values), and any standalone run of 20+ key characters
-    are masked in place, keeping the surrounding prose readable.
+    untouched. This scanner handles the full free-form pipeline: URL-shaped
+    substrings get the URL treatment (query values, userinfo password,
+    credentials in path/fragment), every other fragment goes through the
+    whole-value rule first (a bare "Authorization: Basic ..." header is a
+    whole value) and the token-by-token scan second (provider key prefixes,
+    Bearer/Token/Basic schemes — a Basic payload is base64, masked including
+    short values — and any standalone run of 20+ key characters), keeping
+    the surrounding prose readable.
     The standalone-run rule is intentionally broader than the
     mixed-alphanumeric heuristic (no digit required), so ordinary long words
     are masked as well — accepted over-masking in exchange for not missing
@@ -354,9 +383,4 @@ def redact_secrets_in_text(value: str | None) -> str:
         return ""
     if "-----BEGIN" in value.upper():
         return "***PEM_REDACTED***"
-
-    def _mask(m: re.Match[str]) -> str:
-        token = m.group(0)
-        return f"{token[:4]}***" if len(token) > 8 else "***"
-
-    return _SUBSTR_KEY_RE.sub(_mask, value)
+    return _scan_free_text(value)

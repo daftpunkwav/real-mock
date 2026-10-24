@@ -119,3 +119,11 @@ def test_refresh_linked_block_failure_masks_embedded_credential(monkeypatch, db,
     with caplog.at_level(logging.WARNING):
         linking_mod.refresh_linked_block(row, db)  # type: ignore[arg-type]
     assert "sk-proj-abcdefghij123456789" not in caplog.text
+    # The failure must actually be logged, with the sanitized detail: an
+    # empty log would also contain no credential.
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING" and "Linked-block refresh failed" in r.getMessage()
+    ]
+    assert warnings, "the refresh failure must be logged"

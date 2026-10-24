@@ -313,6 +313,17 @@ async def test_report_stream_error_masks_embedded_credential(
                         ]
     assert any(c["type"] == "error" for c in chunks)
     assert "sk-proj-abcdefghij123456789" not in caplog.text
-    # The handler must not attach the raw exception: its traceback would
-    # re-render the credential into operator logs.
-    assert all(record.exc_info is None for record in caplog.records)
+    # The failure must actually be logged, with the sanitized detail.
+    errors = [
+        r
+        for r in caplog.records
+        if r.levelname == "ERROR" and "stream report failed" in r.getMessage()
+    ]
+    assert errors, "the stream failure must be logged"
+    # The traceback stays attached for diagnosis; the configured pipeline
+    # (RedactFilter + SafeFormatter) is what scrubs the rendered text.
+    from realmock.platform.core.logging import SafeFormatter
+
+    formatter = SafeFormatter()
+    for record in errors:
+        assert "sk-proj-abcdefghij123456789" not in formatter.format(record)

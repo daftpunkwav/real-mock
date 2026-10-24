@@ -9,6 +9,7 @@ rate limits reset per test.
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -93,7 +94,11 @@ async def test_analyze_stream_error_masks_embedded_credential(db, monkeypatch, c
         async def is_disconnected(self):
             return False
 
+    calls = 0
+
     async def _boom(*a, **k):
+        nonlocal calls
+        calls += 1
         raise RuntimeError("evaluator 401: Incorrect API key provided: sk-proj-abcdefghij123456789")
 
     monkeypatch.setattr(mod, "analyze_resume_with_llm", _boom)
@@ -107,7 +112,27 @@ async def test_analyze_stream_error_masks_embedded_credential(db, monkeypatch, c
             if len(chunks) > 20:
                 break
     assert chunks
+    # The mocked analyzer must actually have run and raised, or this test
+    # would pass on a stream that never reached the error path.
+    assert calls == 1
+    events = []
+    for chunk in chunks:
+        for line in str(chunk).splitlines():
+            if line.startswith("data: "):
+                events.append(json.loads(line[6:]))
+    assert any(e.get("type") == "error" for e in events)
     assert "sk-proj-abcdefghij123456789" not in caplog.text
-    # The handler must not attach the raw exception: its traceback would
-    # re-render the credential into operator logs.
-    assert all(record.exc_info is None for record in caplog.records)
+    # The failure must actually be logged, with the sanitized detail.
+    errors = [
+        r
+        for r in caplog.records
+        if r.levelname == "ERROR" and "Resume analyze stream failed" in r.getMessage()
+    ]
+    assert errors, "the stream failure must be logged"
+    # The traceback stays attached for diagnosis; the configured pipeline
+    # (RedactFilter + SafeFormatter) is what scrubs the rendered text.
+    from realmock.platform.core.logging import SafeFormatter
+
+    formatter = SafeFormatter()
+    for record in errors:
+        assert "sk-proj-abcdefghij123456789" not in formatter.format(record)

@@ -221,7 +221,10 @@ def build_execute_callback(
                     failure = None
                     break
                 # Retrieval outage: retryable — the tool ran but its source failed.
-                failure = ("retrieval_failed", str(obs or "")[:400])
+                # The returned text is an upstream failure message, so it is
+                # redacted like an exception text before it reaches the model
+                # observation and the persisted error record.
+                failure = ("retrieval_failed", redact_secrets_in_text(str(obs or ""))[:400])
                 obs = None
             except ApiBusinessError:
                 # Business failures (auth/quota/validation) must surface as HTTP
@@ -237,11 +240,10 @@ def build_execute_callback(
                 # always sees the failure and the streak counts it; never propagate
                 # (ApiBusinessError above is the only exception that propagates).
                 # Redact before exposing to the model: tracebacks may carry keys/paths.
+                # The traceback stays attached: the log pipeline (SafeFormatter)
+                # redacts the rendered exception text.
                 safe_detail = redact_secrets_in_text(str(exc))[:400]
-                # No exc_info: the traceback re-renders str(exc), the very
-                # text the redaction just scrubbed. The type keeps the
-                # failure classed without leaking the message.
-                logger.warning("Tool failed %s (%s): %s", name, type(exc).__name__, safe_detail)
+                logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
                 failure = ("tool_failed", safe_detail)
             if attempts_left > 0:
                 # Transient failures get a short pause, then one more shot;
