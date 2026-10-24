@@ -385,3 +385,15 @@ async def test_web_search_failure_masks_embedded_credential(monkeypatch) -> None
     data = json.loads(out)
     assert data["error"] == "search_failed"
     assert "sk-ant-api03-abcdefgh0123456789" not in data["message"]
+
+
+def test_every_advertised_tool_resolves_to_a_handler() -> None:
+    """The dispatcher table must cover every tool the definitions advertise.
+
+    A table key that drifts from the advertised name would only surface at
+    runtime as an unknown_tool observation, so the resolver is pinned here
+    against the full definition list (including the dynamic prefix families).
+    """
+    for tool in tmod.get_interview_tool_definitions(include_past_records=True):
+        name = (tool.get("function") or {}).get("name")
+        assert name and tmod._resolve_tool_handler(name) is not None, name
