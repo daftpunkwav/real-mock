@@ -10,56 +10,20 @@
  * keep per-module state (the classic "two three.js instances" failure). A
  * direct dependency nobody imports is the usual cause: the version range then
  * fails to satisfy the package that really uses it, so npm nests a second copy.
+ *
+ * The parsing/comparison logic is exported and pinned by
+ * scripts/ci/test/check_npm_deps_policy.test.mjs (`node --test`); the file
+ * still runs as the gate when executed directly.
  */
 
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const lockPath = join(repoRoot, "apps", "web", "package-lock.json");
 const manifestPath = join(repoRoot, "apps", "web", "package.json");
 const policyPath = join(repoRoot, "scripts", "ci", "dependency-policy.json");
-
-const policy = JSON.parse(readFileSync(policyPath, "utf8"));
-const banned = policy.npm ?? {};
-
-const lock = JSON.parse(readFileSync(lockPath, "utf8"));
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-
-// Lock entries look like "node_modules/next" or "node_modules/@scope/pkg";
-// the package name is everything after the last "node_modules/" segment.
-// Alias installs ("local": "npm:real@...") hide the real package behind a
-// local folder name - the spec string is the only place the real name shows,
-// so both the lock entry version and the manifest spec are inspected.
-const found = new Set();
-const aliases = []; // { installed, target: "npm:<realname>@..." }
-const versionsByName = new Map(); // installed name -> Set of resolved versions
-for (const [key, entry] of Object.entries(lock.packages ?? {})) {
-  const installed = key.split("node_modules/").pop();
-  if (installed) found.add(installed);
-  if (typeof entry?.version === "string" && entry.version.startsWith("npm:")) {
-    aliases.push({ installed, target: entry.version });
-  }
-  if (installed && typeof entry?.version === "string" && !entry.dev) {
-    // Only copies that reach the shipped bundle count as instances of a
-    // runtime dependency. npm marks a copy that exists solely for the dev
-    // toolchain with "dev"; "npm ci --omit=dev" does not install it, so it is
-    // not a second instance of the library. "devOptional" copies are part of
-    // the production tree (they are reachable through an optional production
-    // edge), so they still count.
-    if (!versionsByName.has(installed)) versionsByName.set(installed, new Set());
-    versionsByName.get(installed).add(entry.version);
-  }
-}
-for (const section of ["dependencies", "devDependencies", "overrides"]) {
-  for (const [installed, spec] of Object.entries(manifest[section] ?? {})) {
-    found.add(installed);
-    if (typeof spec === "string" && spec.startsWith("npm:")) {
-      aliases.push({ installed, target: spec });
-    }
-  }
-}
 
 /**
  * Split a version into its numeric core and its prerelease part.
@@ -67,7 +31,7 @@ for (const section of ["dependencies", "devDependencies", "overrides"]) {
  * Build metadata ("+sha") does not take part in the precedence, so it is
  * dropped before the split.
  */
-function splitVersion(version) {
+export function splitVersion(version) {
   const withoutBuild = version.split("+")[0];
   const dash = withoutBuild.indexOf("-");
   if (dash === -1) return [withoutBuild, ""];
@@ -84,7 +48,7 @@ function splitVersion(version) {
  * the release it precedes ("1.0.0") - a plain numeric collation ranks it the
  * other way round, so the two parts are compared separately.
  */
-function compareVersions(a, b) {
+export function compareVersions(a, b) {
   const [aCore, aPre] = splitVersion(a);
   const [bCore, bPre] = splitVersion(b);
   if (aCore !== bCore) {
@@ -96,50 +60,110 @@ function compareVersions(a, b) {
   return aPre.localeCompare(bPre, undefined, { numeric: true, sensitivity: "base" });
 }
 
-const violations = [...found]
-  .filter((name) => banned[name] !== undefined)
-  // Package names, so the alphabetical order is the intended one; the
-  // comparator is spelled out so no sort in this file relies on the default
-  // order of the runtime.
-  .sort((a, b) => a.localeCompare(b));
+/**
+ * Run both policy rules over one lock/manifest/policy triple.
+ *
+ * Pure: the caller owns reading the files and reporting the result, so the
+ * tests can pin the rules against synthetic trees.
+ */
+export function scan({ lock, manifest, policy }) {
+  const banned = policy.npm ?? {};
 
-const aliasViolations = aliases
-  .map((alias) => ({ ...alias, real: alias.target.match(/^npm:(.+)@[^@]+$/)?.[1] ?? alias.target.slice(4) }))
-  .filter((alias) => banned[alias.real] !== undefined)
-  .sort((a, b) => a.installed.localeCompare(b.installed));
-
-if (violations.length > 0 || aliasViolations.length > 0) {
-  console.error("banned npm dependencies present:");
-  for (const name of violations) {
-    console.error(`  - ${name}: ${banned[name]}`);
+  // Lock entries look like "node_modules/next" or "node_modules/@scope/pkg";
+  // the package name is everything after the last "node_modules/" segment.
+  // Alias installs ("local": "npm:real@...") hide the real package behind a
+  // local folder name - the spec string is the only place the real name shows,
+  // so both the lock entry version and the manifest spec are inspected.
+  const found = new Set();
+  const aliases = []; // { installed, target: "npm:<realname>@..." }
+  const versionsByName = new Map(); // installed name -> Set of resolved versions
+  for (const [key, entry] of Object.entries(lock.packages ?? {})) {
+    const installed = key.split("node_modules/").pop();
+    if (installed) found.add(installed);
+    if (typeof entry?.version === "string" && entry.version.startsWith("npm:")) {
+      aliases.push({ installed, target: entry.version });
+    }
+    if (installed && typeof entry?.version === "string" && !entry.dev) {
+      // Only copies that reach the shipped bundle count as instances of a
+      // runtime dependency. npm marks a copy that exists solely for the dev
+      // toolchain with "dev"; "npm ci --omit=dev" does not install it, so it is
+      // not a second instance of the library. "devOptional" copies are part of
+      // the production tree (they are reachable through an optional production
+      // edge), so they still count.
+      if (!versionsByName.has(installed)) versionsByName.set(installed, new Set());
+      versionsByName.get(installed).add(entry.version);
+    }
   }
-  for (const alias of aliasViolations) {
+  for (const section of ["dependencies", "devDependencies", "overrides"]) {
+    for (const [installed, spec] of Object.entries(manifest[section] ?? {})) {
+      found.add(installed);
+      if (typeof spec === "string" && spec.startsWith("npm:")) {
+        aliases.push({ installed, target: spec });
+      }
+    }
+  }
+
+  const violations = [...found]
+    .filter((name) => banned[name] !== undefined)
+    // Package names, so the alphabetical order is the intended one; the
+    // comparator is spelled out so no sort in this file relies on the default
+    // order of the runtime.
+    .sort((a, b) => a.localeCompare(b));
+
+  const aliasViolations = aliases
+    .map((alias) => ({ ...alias, real: alias.target.match(/^npm:(.+)@[^@]+$/)?.[1] ?? alias.target.slice(4) }))
+    .filter((alias) => banned[alias.real] !== undefined)
+    .sort((a, b) => a.installed.localeCompare(b.installed));
+
+  // A direct runtime dependency that resolves to several versions in the shipped
+  // tree ships several instances. Only runtime dependencies are checked, and only
+  // the copies that reach the bundle count: a duplicate that exists solely for
+  // the dev toolchain stays out of the shipped bundle and is a normal npm
+  // resolution outcome.
+  const duplicatedRuntimeDeps = Object.keys(manifest.dependencies ?? {})
+    .map((name) => ({ name, versions: [...(versionsByName.get(name) ?? [])].sort(compareVersions) }))
+    .filter((dep) => dep.versions.length > 1)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { scanned: found.size, violations, aliasViolations, duplicatedRuntimeDeps };
+}
+
+function main() {
+  const policy = JSON.parse(readFileSync(policyPath, "utf8"));
+  const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const { scanned, violations, aliasViolations, duplicatedRuntimeDeps } = scan({ lock, manifest, policy });
+
+  if (violations.length > 0 || aliasViolations.length > 0) {
+    console.error("banned npm dependencies present:");
+    for (const name of violations) {
+      console.error(`  - ${name}: ${policy.npm?.[name]}`);
+    }
+    for (const alias of aliasViolations) {
+      console.error(
+        `  - ${alias.installed} (alias for ${alias.real}): ${policy.npm?.[alias.real]}`,
+      );
+    }
+    process.exit(1);
+  }
+
+  if (duplicatedRuntimeDeps.length > 0) {
+    console.error("direct runtime dependencies resolved to more than one version:");
+    for (const dep of duplicatedRuntimeDeps) {
+      console.error(`  - ${dep.name}: ${dep.versions.join(", ")}`);
+    }
     console.error(
-      `  - ${alias.installed} (alias for ${alias.real}): ${banned[alias.real]}`,
+      "keep the range compatible with the package that actually uses it, or drop the unused direct dependency",
     );
+    process.exit(1);
   }
-  process.exit(1);
+
+  console.log(`npm dependency policy ok (${scanned} packages scanned)`);
 }
 
-// A direct runtime dependency that resolves to several versions in the shipped
-// tree ships several instances. Only runtime dependencies are checked, and only
-// the copies that reach the bundle count: a duplicate that exists solely for
-// the dev toolchain stays out of the shipped bundle and is a normal npm
-// resolution outcome.
-const duplicatedRuntimeDeps = Object.keys(manifest.dependencies ?? {})
-  .map((name) => ({ name, versions: [...(versionsByName.get(name) ?? [])].sort(compareVersions) }))
-  .filter((dep) => dep.versions.length > 1)
-  .sort((a, b) => a.name.localeCompare(b.name));
-
-if (duplicatedRuntimeDeps.length > 0) {
-  console.error("direct runtime dependencies resolved to more than one version:");
-  for (const dep of duplicatedRuntimeDeps) {
-    console.error(`  - ${dep.name}: ${dep.versions.join(", ")}`);
-  }
-  console.error(
-    "keep the range compatible with the package that actually uses it, or drop the unused direct dependency",
-  );
-  process.exit(1);
+// Run as the gate only when executed directly (`node check_npm_deps_policy.mjs`
+// from security.yml); importing the module must stay side-effect free so the
+// tests can pin the exported logic.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main();
 }
-
-console.log(`npm dependency policy ok (${found.size} packages scanned)`);

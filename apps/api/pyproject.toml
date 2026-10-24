@@ -72,6 +72,18 @@ dependencies = [
 dev = [
     "pytest>=8.3.0,<10",
     "pytest-asyncio>=0.24.0,<2",
+    # The gate toolchain, pinned exactly: a local run must exercise the same
+    # formatter, type checker, coverage runner and auditor the pipeline gates
+    # with, not whatever the developer's environment happens to carry.
+    "ruff==0.16.10",
+    "mypy==2.4.0",
+    "pytest-cov==7.1.0",
+    "pip-audit==2.10.1",
+    # Test-client HTTP stack: starlette.testclient prefers httpx2, and the
+    # httpx fallback is deprecated with removal announced in a future 1.x.
+    # Runtime outbound HTTP stays on httpx (declared above); the test client
+    # drives the ASGI app in-process, so it exercises no transport of its own.
+    "httpx2>=2,<3",
 ]
 
 [tool.setuptools.packages.find]

@@ -103,10 +103,11 @@ jobs:
           cache-dependency-path: apps/api/pyproject.toml
 
       - name: Install deps and toolchain
-        # Pinned toolchain; bump only after the gate passes locally.
-        run: |
-          pip install -q -e 'apps/api[dev]'
-          pip install -q ruff==0.16.10 mypy==2.4.0 pytest-cov==7.1.0 pip-audit==2.10.1
+        # One declaration drives both: the dev extra pins the gate toolchain
+        # (ruff/mypy/pytest-cov/pip-audit, plus httpx2 for the test client),
+        # so a local `pip install -e 'apps/api[dev]'` exercises the same
+        # versions these gates run. Bump only after the gate passes locally.
+        run: pip install -q -e 'apps/api[dev]'
 
       - name: OpenAPI contract is in sync (openapi.json)
         # openapi.json is committed and feeds the frontend types; drift means

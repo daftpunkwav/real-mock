@@ -16,8 +16,8 @@ Run from `apps/api` unless noted:
 
 | Gate | Command | Note |
 |---|---|---|
-| Lint | `python -m ruff check apps/api` | from repo root; CI pins `ruff==0.16.10` |
-| Types | `python -m mypy src` | CI pins `mypy==2.4.0`; blocking, must stay at 0 errors |
+| Lint | `python -m ruff check apps/api` | from repo root; the `dev` extra pins `ruff==0.16.10` |
+| Types | `python -m mypy src` | the `dev` extra pins `mypy==2.4.0`; blocking, must stay at 0 errors |
 | Tests | `python -m pytest` | Coverage gate >=90% over the whole `realmock` package (`--cov=realmock` in CI) |
 | Deps audit | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 known issues with no upstream fix; declared in `pyproject.toml` |
 | Deps policy | `python scripts/ci/check_python_deps_policy.py` | from repo root; banned packages in `scripts/ci/dependency-policy.json` (scans the installed env, transitive included) |
