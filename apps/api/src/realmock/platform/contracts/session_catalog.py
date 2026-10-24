@@ -16,6 +16,8 @@ from typing import Any, Protocol, runtime_checkable
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from realmock.platform.contracts.ledger_document import LedgerDocument
+
 logger = logging.getLogger(__name__)
 
 
@@ -72,6 +74,10 @@ class SessionSnapshot(BaseModel):
     result: str | None = None
     messages: str = "[]"
     report: str = "{}"
+    # Deliberately a loose dict: migrated legacy ledgers carry non-dict turns
+    # verbatim (pinned by the ledger migration tests), so validating this
+    # field against LedgerDocument would 500 snapshot reads on such sessions.
+    # The typed document is what ``SessionCatalogPort.get_ledger`` returns.
     ledger: dict[str, Any] | None = None
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -97,7 +103,7 @@ class SessionCatalogPort(Protocol):
         """Return a JSON-friendly snapshot dict, or None when missing."""
         ...
 
-    def get_ledger(self, db: Session, session_id: int) -> dict[str, Any] | None:
+    def get_ledger(self, db: Session, session_id: int) -> LedgerDocument | None:
         """Return frozen (or in-progress prefix) ledger, or None."""
         ...
 
@@ -118,7 +124,7 @@ class _EmptySessionCatalog:
     def get_session_snapshot(self, db: Session, session_id: int) -> dict[str, Any] | None:
         return None
 
-    def get_ledger(self, db: Session, session_id: int) -> dict[str, Any] | None:
+    def get_ledger(self, db: Session, session_id: int) -> LedgerDocument | None:
         return None
 
     def get_process_context(self, db: Session, process_id: int) -> str:

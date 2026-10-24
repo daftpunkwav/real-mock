@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -261,7 +262,7 @@ def build_report_export_json(db: Session, session_id: int, access: str | None) -
     )
 
 
-def _ledger_turns(ledger: dict[str, Any] | None) -> list[dict[str, Any]]:
+def _ledger_turns(ledger: Mapping[str, Any] | None) -> list[dict[str, Any]]:
     """Collect dict-shaped turns from a ledger document (empty when absent)."""
     if not ledger:
         return []
@@ -274,7 +275,11 @@ def _record_source(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Session meta plus its ledger turns, shared by the record exporters."""
     snap = _require_finished_snapshot(db, session_id, access)
-    ledger = get_session_catalog().get_ledger(db, session_id)
+    # The snapshot already carries the ledger; the catalog fallback only
+    # serves a snapshot built without one.
+    ledger = snap.ledger
+    if ledger is None:
+        ledger = get_session_catalog().get_ledger(db, session_id)
     return _meta(snap), _ledger_turns(ledger)
 
 

@@ -38,7 +38,11 @@ def get_session_ledger(
         raise_error("A2001")
     snap = snapshot_from_catalog_dict(raw)
     assert_session_token(snap, access)
-    ledger = catalog.get_ledger(db, session_id)
+    # The snapshot already carries the ledger; the catalog fallback only
+    # serves a snapshot built without one.
+    ledger = snap.ledger
+    if ledger is None:
+        ledger = catalog.get_ledger(db, session_id)
     if ledger is None:
         raise_error("A2001")
     return ledger

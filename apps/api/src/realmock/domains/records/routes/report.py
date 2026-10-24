@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -193,7 +194,9 @@ def _build_response(
     catalog = get_session_catalog()
     ledger = snap.ledger
     if ledger is None:
-        ledger = catalog.get_ledger(db, snap.id)
+        # The port hands over the typed document; the wire field stays a loose
+        # dict (legacy migrated ledgers carry non-dict turns by design).
+        ledger = cast("dict[str, Any] | None", catalog.get_ledger(db, snap.id))
     return ReportResponse(
         session_id=snap.id,
         report=report,
