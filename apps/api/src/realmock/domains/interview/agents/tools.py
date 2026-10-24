@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -239,6 +240,249 @@ def _note_company_finding(
         del findings[:-10]
 
 
+#: Uniform handler signature of the dispatcher table. The dispatcher hands
+#: every handler the whole execution context; each handler reads only the
+#: fields its tool needs.
+_ToolHandler = Callable[..., Awaitable[str]]
+
+
+async def _run_github_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """github_* tools: platform integration plus structured-memory findings."""
+    # If username is not passed and the file has github_username, it can be automatically completed.
+    args = dict(arguments or {})
+    if name in ("github_get_user", "github_list_repos") and not args.get("username"):
+        if profile_id:
+            with api_db_session() as api_db:
+                p = get_user_profile(api_db, profile_id)
+                gh_user = getattr(p, "github_username", None) if p else None
+                if gh_user:
+                    args["username"] = gh_user
+    result = await execute_github_tool(name, args)
+    # Write to structured memory
+    if agent_state is not None:
+        findings = agent_state.setdefault("github_findings", [])
+        findings.append({"tool": name, "args": args, "preview": result[:2000]})
+        # Keep the last 20 items
+        if len(findings) > 20:
+            del findings[:-20]
+    return _cap_result(result)
+
+
+async def _run_profile_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """profile_* tools: platform specs bound to the session's profile snapshot."""
+    with api_db_session() as api_db:
+        row = (
+            get_user_profile(api_db, profile_id) if profile_id else get_default_user_profile(api_db)
+        )
+        specs = {spec.name: spec for spec in profile_tool_specs(snapshot_from_profile(row))}
+    bound = specs.get(name)
+    if bound is None:
+        return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
+    return _cap_result(await bound.handler(arguments or {}))
+
+
+async def _run_resume_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """resume_* tools: platform specs bound to the session's resume payload."""
+    with api_db_session() as api_db:
+        payload = get_resume_agent_payload(api_db, resume_id)
+    if payload is None:
+        return json.dumps({"error": "no_resume_bound"}, ensure_ascii=False)
+    specs = {spec.name: spec for spec in resume_tool_specs(snapshot_from_payload(payload))}
+    bound = specs.get(name)
+    if bound is None:
+        return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
+    return _cap_result(await bound.handler(arguments or {}))
+
+
+async def _run_company_profile_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """lookup_company_profile: company KB lookup with a structured-memory note."""
+    company_id = str(arguments.get("company_id") or "")
+    ctx = get_company_context(company_id)
+    result = _cap_result(ctx or f"No company knowledge found: {company_id}")
+    _note_company_finding(agent_state, tool=name, subject=company_id, result=result)
+    return result
+
+
+async def _run_resume_projects_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """lookup_resume_projects: local resume-fragment retrieval, focus-filtered."""
+    if not resume_id:
+        return json.dumps({"error": "no_resume_bound"}, ensure_ascii=False)
+    with api_db_session() as api_db:
+        detail = get_resume_detail(api_db, resume_id)
+        if not detail:
+            return json.dumps({"error": "resume_not_found"}, ensure_ascii=False)
+        filename, profile = detail
+    focus = (arguments.get("focus") or "").lower()
+    projects = profile.get("projects") or []
+    skills = profile.get("skills") or []
+    if focus:
+        projects = [p for p in projects if focus in json.dumps(p, ensure_ascii=False).lower()]
+        skills = [s for s in skills if focus in str(s).lower()]
+    payload = {
+        "filename": filename,
+        "name": profile.get("name"),
+        "skills": skills,
+        "projects": projects,
+        "summary": profile.get("summary") or "",
+    }
+    result = _cap_result(json.dumps(payload, ensure_ascii=False))
+    _note_company_finding(agent_state, tool=name, subject=focus or "*", result=result)
+    return result
+
+
+async def _run_web_fetch_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """web_fetch: read one public page through the platform tool."""
+    raw = await execute_web_fetch(arguments or {})
+    return _cap_result(raw)
+
+
+async def _run_web_search_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """web_search: public web search whose failure stays an observation.
+
+    Redact before exposing: exception text may carry credentials or
+    token-bearing URLs (platform convention, mirrors prep tool_exec).
+    """
+    query = str(arguments.get("query") or "")
+    if not query:
+        return json.dumps({"error": "empty_query"}, ensure_ascii=False)
+    try:
+        raw = await execute_web_search({"query": query})
+        data = json.loads(raw)
+        text = str(data.get("text") or raw)
+    except Exception as e:
+        safe_detail = redact_api_key(str(e))[:200]
+        logger.warning("web_search failed: %s", safe_detail)
+        return json.dumps({"error": "search_failed", "message": safe_detail}, ensure_ascii=False)
+    return _cap_result(text)
+
+
+async def _run_past_records_tool(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    db: Session,
+    resume_id: int | None,
+    profile_id: int | None,
+    agent_state: dict[str, Any] | None,
+    session: Any | None,
+) -> str:
+    """search_past_interviews / read_past_round: cross-round transcript reads."""
+    from realmock.domains.interview.agents import past_records
+
+    if session is None:
+        return json.dumps({"error": "no_process_context"}, ensure_ascii=False)
+    if name == "search_past_interviews":
+        raw = past_records.search_past_interviews(db, session, str(arguments.get("query") or ""))
+    else:
+        # Malformed paging args are a model mistake, not a broken tool:
+        # answer with an observation instead of raising into ToolGuard,
+        # whose breaker would otherwise open the tool after two bad calls.
+        try:
+            round_no = int(arguments.get("round_no") or 0)
+            offset = int(arguments.get("offset") or 0)
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: a non-finite (Infinity) argument is not
+            # convertible and is not a ValueError; it is a malformed
+            # argument like any other and must stay an observation.
+            return json.dumps(
+                {"error": "invalid_argument", "field": "round_no/offset (integer)"},
+                ensure_ascii=False,
+            )
+        raw = past_records.read_past_round(db, session, round_no, offset)
+    return _cap_result(raw)
+
+
+#: Exact-name handlers. A new exact-name tool is one handler plus one entry
+#: here; the dispatcher itself never grows.
+_EXACT_TOOL_HANDLERS: dict[str, _ToolHandler] = {
+    "lookup_company_profile": _run_company_profile_tool,
+    "lookup_resume_projects": _run_resume_projects_tool,
+    "web_fetch": _run_web_fetch_tool,
+    "web_search": _run_web_search_tool,
+    "search_past_interviews": _run_past_records_tool,
+    "read_past_round": _run_past_records_tool,
+}
+
+
+def _resolve_tool_handler(name: str) -> _ToolHandler | None:
+    """Resolve a tool name to its handler.
+
+    Prefix families first (github_* / profile_* / resume_*), then the
+    exact-name table; unknown names return None and become an
+    ``unknown_tool`` observation.
+    """
+    if name.startswith("github_"):
+        return _run_github_tool
+    if name.startswith("profile_"):
+        return _run_profile_tool
+    if name.startswith("resume_"):
+        return _run_resume_tool
+    return _EXACT_TOOL_HANDLERS.get(name)
+
+
 async def execute_interview_tool(
     name: str,
     arguments: dict[str, Any],
@@ -251,133 +495,18 @@ async def execute_interview_tool(
     session: Any | None = None,
 ) -> str:
     """Execute a single tool, returning a string result."""
-    # GitHub tools
-    if name.startswith("github_"):
-        # If username is not passed and the file has github_username, it can be automatically completed.
-        args = dict(arguments or {})
-        if name in ("github_get_user", "github_list_repos") and not args.get("username"):
-            if profile_id:
-                with api_db_session() as api_db:
-                    p = get_user_profile(api_db, profile_id)
-                    gh_user = getattr(p, "github_username", None) if p else None
-                    if gh_user:
-                        args["username"] = gh_user
-        result = await execute_github_tool(name, args)
-        # Write to structured memory
-        if agent_state is not None:
-            findings = agent_state.setdefault("github_findings", [])
-            findings.append({"tool": name, "args": args, "preview": result[:2000]})
-            # Keep the last 20 items
-            if len(findings) > 20:
-                del findings[:-20]
-        return _cap_result(result)
-
-    if name.startswith("profile_"):
-        with api_db_session() as api_db:
-            row = (
-                get_user_profile(api_db, profile_id)
-                if profile_id
-                else get_default_user_profile(api_db)
-            )
-            specs = {spec.name: spec for spec in profile_tool_specs(snapshot_from_profile(row))}
-        bound = specs.get(name)
-        if bound is None:
-            return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
-        return _cap_result(await bound.handler(arguments or {}))
-
-    if name.startswith("resume_") and name != "lookup_resume_projects":
-        with api_db_session() as api_db:
-            payload = get_resume_agent_payload(api_db, resume_id)
-        if payload is None:
-            return json.dumps({"error": "no_resume_bound"}, ensure_ascii=False)
-        specs = {spec.name: spec for spec in resume_tool_specs(snapshot_from_payload(payload))}
-        bound = specs.get(name)
-        if bound is None:
-            return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
-        return _cap_result(await bound.handler(arguments or {}))
-
-    if name == "lookup_company_profile":
-        company_id = str(arguments.get("company_id") or "")
-        ctx = get_company_context(company_id)
-        result = _cap_result(ctx or f"No company knowledge found: {company_id}")
-        _note_company_finding(agent_state, tool=name, subject=company_id, result=result)
-        return result
-
-    if name == "lookup_resume_projects":
-        if not resume_id:
-            return json.dumps({"error": "no_resume_bound"}, ensure_ascii=False)
-        with api_db_session() as api_db:
-            detail = get_resume_detail(api_db, resume_id)
-            if not detail:
-                return json.dumps({"error": "resume_not_found"}, ensure_ascii=False)
-            filename, profile = detail
-        focus = (arguments.get("focus") or "").lower()
-        projects = profile.get("projects") or []
-        skills = profile.get("skills") or []
-        if focus:
-            projects = [p for p in projects if focus in json.dumps(p, ensure_ascii=False).lower()]
-            skills = [s for s in skills if focus in str(s).lower()]
-        payload = {
-            "filename": filename,
-            "name": profile.get("name"),
-            "skills": skills,
-            "projects": projects,
-            "summary": profile.get("summary") or "",
-        }
-        result = _cap_result(json.dumps(payload, ensure_ascii=False))
-        _note_company_finding(agent_state, tool=name, subject=focus or "*", result=result)
-        return result
-
-    if name == "web_fetch":
-        raw = await execute_web_fetch(arguments or {})
-        return _cap_result(raw)
-
-    if name == "web_search":
-        query = str(arguments.get("query") or "")
-        if not query:
-            return json.dumps({"error": "empty_query"}, ensure_ascii=False)
-        try:
-            raw = await execute_web_search({"query": query})
-            data = json.loads(raw)
-            text = str(data.get("text") or raw)
-        except Exception as e:
-            # Redact before exposing: exception text may carry credentials or
-            # token-bearing URLs (platform convention, mirrors prep tool_exec).
-            safe_detail = redact_api_key(str(e))[:200]
-            logger.warning("web_search failed: %s", safe_detail)
-            return json.dumps(
-                {"error": "search_failed", "message": safe_detail}, ensure_ascii=False
-            )
-        return _cap_result(text)
-
-    if name == "search_past_interviews" or name == "read_past_round":
-        from realmock.domains.interview.agents import past_records
-
-        if session is None:
-            return json.dumps({"error": "no_process_context"}, ensure_ascii=False)
-        if name == "search_past_interviews":
-            raw = past_records.search_past_interviews(
-                db, session, str(arguments.get("query") or "")
-            )
-        else:
-            # Malformed paging args are a model mistake, not a broken tool:
-            # answer with an observation instead of raising into ToolGuard,
-            # whose breaker would otherwise open the tool after two bad calls.
-            try:
-                round_no = int(arguments.get("round_no") or 0)
-                offset = int(arguments.get("offset") or 0)
-            except (TypeError, ValueError, OverflowError):
-                # OverflowError: a non-finite (Infinity) argument is not
-                # convertible and is not a ValueError; it is a malformed
-                # argument like any other and must stay an observation.
-                return json.dumps(
-                    {"error": "invalid_argument", "field": "round_no/offset (integer)"},
-                    ensure_ascii=False,
-                )
-            raw = past_records.read_past_round(db, session, round_no, offset)
-        return _cap_result(raw)
-
-    return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
+    handler = _resolve_tool_handler(name)
+    if handler is None:
+        return json.dumps({"error": "unknown_tool", "name": name}, ensure_ascii=False)
+    return await handler(
+        name,
+        arguments,
+        db=db,
+        resume_id=resume_id,
+        profile_id=profile_id,
+        agent_state=agent_state,
+        session=session,
+    )
 
 
 __all__ = [
