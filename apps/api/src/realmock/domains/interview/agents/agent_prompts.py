@@ -57,20 +57,14 @@ def needs_compact_candidate(current_phase: InterviewPhase) -> bool:
     return getattr(current_phase, "id", "") in ("reverse_qa", "summary")
 
 
-def candidate_block(
-    profile: UserProfileSnapshot | None,
-    candidate: CandidateProfile | None,
-    *,
-    compact: bool,
-) -> str:
-    """Candidate grounding block (full resume detail, or a compact identity card)."""
-    if compact:
-        return compact_candidate_block(profile, candidate)
-    block = ""
-    if profile and (
-        profile.name or profile.school or profile.self_intro or profile.github_username
+def _profile_section(profile: UserProfileSnapshot | None) -> str:
+    """## Candidate profile section ("" when the snapshot carries no identity)."""
+    if not (
+        profile
+        and (profile.name or profile.school or profile.self_intro or profile.github_username)
     ):
-        block += f"""
+        return ""
+    block = f"""
 ## Candidate profile
 Name: {profile.name}
 Gender / identity: {profile.gender or "—"} / {profile.identity or "—"}
@@ -96,20 +90,40 @@ Strengths / gaps: {profile.strengths or "—"} / {profile.weaknesses or "—"}
 Career highlights: {profile.career_highlights}
 Self introduction: {profile.self_intro}
 """
-        if profile.github_username:
-            block += (
-                f"\nNote: the candidate listed GitHub username '{profile.github_username}'; "
-                "during project deep dive, use github_* tools to verify.\n"
-            )
-    if candidate:
-        block += f"""
+    if profile.github_username:
+        block += (
+            f"\nNote: the candidate listed GitHub username '{profile.github_username}'; "
+            "during project deep dive, use github_* tools to verify.\n"
+        )
+    return block
+
+
+def _parsed_resume_section(candidate: CandidateProfile | None) -> str:
+    """## Parsed resume section ("" when there is no parsed profile)."""
+    if not candidate:
+        return ""
+    return f"""
 ## Parsed resume
 Name: {candidate.name}
 Skills: {", ".join(candidate.skills)}
 Projects: {json.dumps(candidate.projects, ensure_ascii=False)}
 Work experience: {json.dumps(candidate.work_experience, ensure_ascii=False)}
 """
-    return block
+
+
+def candidate_block(
+    profile: UserProfileSnapshot | None,
+    candidate: CandidateProfile | None,
+    *,
+    compact: bool,
+) -> str:
+    """Candidate grounding block (full resume detail, or a compact identity card).
+
+    Fixed section order: profile first, parsed resume second.
+    """
+    if compact:
+        return compact_candidate_block(profile, candidate)
+    return _profile_section(profile) + _parsed_resume_section(candidate)
 
 
 def compact_candidate_block(

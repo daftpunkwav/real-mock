@@ -367,3 +367,15 @@ async def test_read_past_round_non_finite_args_stay_observation() -> None:
     for bad in cases:
         out = await execute_interview_tool("read_past_round", bad, db=None, session=object())
         assert json.loads(out)["error"] == "invalid_argument"
+
+
+def test_every_advertised_tool_resolves_to_a_handler() -> None:
+    """The dispatcher table must cover every tool the definitions advertise.
+
+    A table key that drifts from the advertised name would only surface at
+    runtime as an unknown_tool observation, so the resolver is pinned here
+    against the full definition list (including the dynamic prefix families).
+    """
+    for tool in tmod.get_interview_tool_definitions(include_past_records=True):
+        name = (tool.get("function") or {}).get("name")
+        assert name and tmod._resolve_tool_handler(name) is not None, name
