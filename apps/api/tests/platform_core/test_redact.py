@@ -79,6 +79,28 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text("load key failed: -----BEGIN RSA PRIVATE KEY-----")
         assert out == "***PEM_REDACTED***"
 
+    def test_basic_authorization_substring_is_masked(self) -> None:
+        # A Basic payload is base64: the "+/=" separator and padding
+        # characters break the standalone-run rule, so the scheme form is
+        # the only net that catches it.
+        out = redact_secrets_in_text("401 rejected: Basic dXNlcjpwYXNz0123 required")
+        assert "dXNlcjpwYXNz0123" not in out
+        assert out.startswith("401 rejected: Basi***")
+
+    def test_basic_short_payload_is_masked(self) -> None:
+        out = redact_secrets_in_text("auth failed: Basic abc123")
+        assert "abc123" not in out
+
+    def test_basic_base64_padding_is_masked_whole(self) -> None:
+        out = redact_secrets_in_text("server said: Basic dXNlci9wYXNzOnBhc3M=")
+        assert "dXNlci9wYXNzOnBhc3M=" not in out
+
+    def test_basic_prose_with_short_words_is_preserved(self) -> None:
+        # "auth" is shorter than the Basic minimum, so ordinary prose like
+        # "basic auth" survives.
+        text = "the basic auth flow starts with a GET"
+        assert redact_secrets_in_text(text) == text
+
     def test_empty_value_returns_empty(self) -> None:
         assert redact_secrets_in_text("") == ""
         assert redact_secrets_in_text(None) == ""

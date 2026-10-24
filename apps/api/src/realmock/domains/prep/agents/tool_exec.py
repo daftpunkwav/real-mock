@@ -238,7 +238,10 @@ def build_execute_callback(
                 # (ApiBusinessError above is the only exception that propagates).
                 # Redact before exposing to the model: tracebacks may carry keys/paths.
                 safe_detail = redact_secrets_in_text(str(exc))[:400]
-                logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
+                # No exc_info: the traceback re-renders str(exc), the very
+                # text the redaction just scrubbed. The type keeps the
+                # failure classed without leaking the message.
+                logger.warning("Tool failed %s (%s): %s", name, type(exc).__name__, safe_detail)
                 failure = ("tool_failed", safe_detail)
             if attempts_left > 0:
                 # Transient failures get a short pause, then one more shot;

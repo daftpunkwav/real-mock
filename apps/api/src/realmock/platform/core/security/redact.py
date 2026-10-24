@@ -88,14 +88,19 @@ def _provider_key_pattern() -> str:
 
 
 # Substring scanner for free-form text (exception messages, observations):
-# provider key prefixes, Bearer/Token schemes, and any standalone run of
+# provider key prefixes, Bearer/Token/Basic schemes, and any standalone run of
 # 20+ key characters (letters/digits/hyphen/underscore) delimited by other
-# characters. Deliberately conservative: the last alternative does NOT
+# characters. ``basic`` carries its own shorter minimum and the base64
+# alphabet (``+/=``): a Basic payload is base64, the padding and separator
+# characters break the standalone-run rule, so the scheme form is the only
+# net that catches it, and the base64 of a short "user:pass" is still a
+# credential. Deliberately conservative: the last alternative does NOT
 # require mixed alphanumerics, so ordinary long words are masked too —
 # a false positive costs a little readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
     + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
+    + r"|(?i:basic)\s+[A-Za-z0-9+/=]{6,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
 
@@ -337,8 +342,9 @@ def redact_secrets_in_text(value: str | None) -> str:
     :func:`redact_api_key` treats its input as one candidate value, so a key
     buried inside a sentence ("request failed: key sk-... rejected") survives
     untouched. This scanner works token-by-token instead: provider key
-    prefixes, Bearer/Token schemes, and any standalone run of 20+ key
-    characters are masked in place, keeping the surrounding prose readable.
+    prefixes, Bearer/Token/Basic schemes (a Basic payload is base64, masked
+    including short values), and any standalone run of 20+ key characters
+    are masked in place, keeping the surrounding prose readable.
     The standalone-run rule is intentionally broader than the
     mixed-alphanumeric heuristic (no digit required), so ordinary long words
     are masked as well — accepted over-masking in exchange for not missing

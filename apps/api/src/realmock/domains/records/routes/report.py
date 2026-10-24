@@ -367,7 +367,14 @@ async def get_report_stream(
             raise
         except Exception as e:
             safe_detail = redact_secrets_in_text(str(e)) or _SSE_ERR_GENERIC
-            logger.exception("stream report failed sid=%s: %s", session_id, safe_detail)
+            # No traceback: it re-renders str(e), the very text the redaction
+            # just scrubbed; the type keeps the failure classed.
+            logger.error(
+                "stream report failed sid=%s (%s): %s",
+                session_id,
+                type(e).__name__,
+                safe_detail,
+            )
             yield format_sse_line(sse_error_event(e, message=_SSE_ERR_GENERIC, code="C1001"))
 
     return sse_streaming_response(event_stream())

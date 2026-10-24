@@ -106,9 +106,12 @@ async def analyze_resume_stream(
             await put({"type": "done", "analysis": analysis.model_dump(mode="json")})
         except Exception as exc:
             if not isinstance(exc, ApiBusinessError):
-                logger.exception(
-                    "Resume analyze stream failed id=%s: %s",
+                # No traceback: it re-renders str(exc), the very text the
+                # redaction just scrubbed; the type keeps the failure classed.
+                logger.error(
+                    "Resume analyze stream failed id=%s (%s): %s",
                     resume_id,
+                    type(exc).__name__,
                     redact_secrets_in_text(str(exc)),
                 )
             await put(_error_event(exc))

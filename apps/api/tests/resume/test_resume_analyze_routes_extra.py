@@ -108,3 +108,6 @@ async def test_analyze_stream_error_masks_embedded_credential(db, monkeypatch, c
                 break
     assert chunks
     assert "sk-proj-abcdefghij123456789" not in caplog.text
+    # The handler must not attach the raw exception: its traceback would
+    # re-render the credential into operator logs.
+    assert all(record.exc_info is None for record in caplog.records)
