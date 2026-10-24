@@ -79,6 +79,107 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text("load key failed: -----BEGIN RSA PRIVATE KEY-----")
         assert out == "***PEM_REDACTED***"
 
+    def test_basic_authorization_substring_is_masked(self) -> None:
+        # A Basic payload is base64: the "+/=" separator and padding
+        # characters break the standalone-run rule, so the scheme form is
+        # the only net that catches it.
+        out = redact_secrets_in_text("401 rejected: Basic dXNlcjpwYXNz0123 required")
+        assert "dXNlcjpwYXNz0123" not in out
+        assert out.startswith("401 rejected: Basi***")
+
+    def test_basic_short_payload_is_masked(self) -> None:
+        out = redact_secrets_in_text("auth failed: Basic abc123")
+        assert "abc123" not in out
+
+    def test_basic_minimal_base64_payload_is_masked(self) -> None:
+        # Valid base64 lengths are multiples of 4, so 4 chars is the floor a
+        # payload can have; anything shorter encodes nothing.
+        out = redact_secrets_in_text("401 for Basic YQ==")
+        assert "YQ==" not in out
+
+    def test_basic_base64_padding_is_masked_whole(self) -> None:
+        out = redact_secrets_in_text("server said: Basic dXNlci9wYXNzOnBhc3M=")
+        assert "dXNlci9wYXNzOnBhc3M=" not in out
+
+    def test_basic_prose_with_short_words_is_preserved(self) -> None:
+        # The word after "basic" is shorter than the payload floor, so this
+        # prose survives; words of 4+ chars after "basic" are masked, the
+        # module's documented over-masking tradeoff.
+        text = "the basic is not the only scheme"
+        assert redact_secrets_in_text(text) == text
+
+    def test_url_query_credential_is_masked(self) -> None:
+        # A vendor that puts the secret in the query (OAuth token endpoints)
+        # makes the exception text carry it; the URL treatment masks the
+        # value and keeps the parameter name.
+        out = redact_secrets_in_text(
+            "connect failed: https://api.vendor.com/v1?api_key=shortsecret123 refused"
+        )
+        assert "shortsecret123" not in out
+        assert "api_key=***" in out
+        assert "connect failed:" in out
+        assert "refused" in out
+
+    def test_url_userinfo_password_is_masked(self) -> None:
+        out = redact_secrets_in_text("login to https://user:secretpw@host.example.com/v1 failed")
+        assert "secretpw" not in out
+        assert "user:***@host.example.com" in out
+
+    def test_bare_authorization_header_is_masked_whole(self) -> None:
+        # The whole-value rule runs before the token scan: a message that IS
+        # the header is caught whole, including payloads shorter than the
+        # scanner thresholds.
+        out = redact_secrets_in_text("Authorization: Basic YQ")
+        assert "YQ" not in out
+
     def test_empty_value_returns_empty(self) -> None:
         assert redact_secrets_in_text("") == ""
         assert redact_secrets_in_text(None) == ""
+
+    def test_bearer_base64_payload_is_masked(self) -> None:
+        # A standard-base64 payload carries +/ and trailing = padding; the
+        # scheme form must consume the whole alphabet or the standalone-run
+        # rule splits at the separator and the halves survive.
+        out = redact_secrets_in_text("rejected: Bearer dXNlci9wYXNz012345== refused")
+        assert "dXNlci9wYXNz012345" not in out
+
+    def test_single_unrecognized_token_is_masked(self) -> None:
+        # The whole-value heuristic needs letters AND digits, so a pure
+        # alphabetic run escapes it; the token scan runs regardless of the
+        # fragment's whitespace.
+        out = redact_secrets_in_text("internationalization")
+        assert out != "internationalization"
+
+    def test_url_query_basic_payload_is_masked(self) -> None:
+        # A Basic payload inside a query is masked wholesale by the query
+        # treatment: the query value carries the credential whatever its
+        # scheme, and path/fragment never hold unencoded spaces.
+        out = redact_secrets_in_text(
+            "denied at https://api.example.com/v1/token?auth=Basic+YQ== retry"
+        )
+        assert "YQ==" not in out
+        assert "auth=***" in out
+
+    def test_url_fragment_short_assignment_is_masked(self) -> None:
+        # A fragment is where OAuth flows park access_token=..., and its
+        # payload can be shorter than the free-text assignment floor.
+        out = redact_secrets_in_text("denied at https://api.example.com/v1#access_token=abc123 end")
+        assert "abc123" not in out
+
+    def test_url_path_opaque_identifiers_stay_diagnosable(self) -> None:
+        # Pins the deliberate boundary: a path's session-id-shaped segment
+        # is not a credential shape, and masking it would cost the
+        # diagnosability the URL treatment exists to preserve.
+        url = "https://api.example.com/v1/sessions/8f14e45fceea167a5a36dedd4bea2543"
+        assert redact_secrets_in_text(f"lookup failed for {url}") == f"lookup failed for {url}"
+
+    def test_ipv6_url_query_credential_is_masked(self) -> None:
+        # The closing bracket of an IPv6 literal authority is mid-URL, not
+        # the end of it: cutting there would hand the query to the prose
+        # path, which cannot mask a short named value.
+        out = redact_secrets_in_text(
+            "connect failed: http://[2001:db8::1]:8080/v1?api_key=shortsecret retry"
+        )
+        assert "shortsecret" not in out
+        assert "api_key=***" in out
+        assert "2001:db8::1" in out

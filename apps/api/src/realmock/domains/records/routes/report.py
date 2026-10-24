@@ -34,7 +34,7 @@ from realmock.platform.contracts.session_catalog import (
 from realmock.platform.core.constants import DEFAULT_LLM_RATE_LIMIT_PER_MINUTE
 from realmock.platform.core.errors import raise_error
 from realmock.platform.core.ratelimit import rate_limit_dep
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 from realmock.platform.core.session_auth import assert_session_token, extract_token
 from realmock.platform.core.sse import format_sse_line, sse_error_event, sse_streaming_response
 from realmock.platform.database import get_api_db, get_sessions_db
@@ -366,7 +366,9 @@ async def get_report_stream(
             logger.info("SSE client disconnected sid=%s", session_id)
             raise
         except Exception as e:
-            safe_detail = redact_api_key(str(e)) or _SSE_ERR_GENERIC
+            safe_detail = redact_secrets_in_text(str(e)) or _SSE_ERR_GENERIC
+            # The traceback stays attached for diagnosis: the log pipeline
+            # (SafeFormatter) redacts the rendered exception text.
             logger.exception("stream report failed sid=%s: %s", session_id, safe_detail)
             yield format_sse_line(sse_error_event(e, message=_SSE_ERR_GENERIC, code="C1001"))
 

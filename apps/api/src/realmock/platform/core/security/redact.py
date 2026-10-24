@@ -88,22 +88,37 @@ def _provider_key_pattern() -> str:
 
 
 # Substring scanner for free-form text (exception messages, observations):
-# provider key prefixes, Bearer/Token schemes, and any standalone run of
+# provider key prefixes, Bearer/Token/Basic schemes, and any standalone run of
 # 20+ key characters (letters/digits/hyphen/underscore) delimited by other
-# characters. Deliberately conservative: the last alternative does NOT
-# require mixed alphanumerics, so ordinary long words are masked too —
-# a false positive costs a little readability, a false negative leaks a key.
+# characters. ``basic`` carries its own shorter minimum and the base64
+# alphabet (``+/=``): a Basic payload is base64, the padding and separator
+# characters break the standalone-run rule, so the scheme form is the only
+# net that catches it; the floor is 4 because valid base64 lengths are
+# multiples of 4, so anything shorter encodes nothing. The scheme/assignment
+# forms accept the full base64 alphabet too — a standard-base64 payload
+# carries ``+``/``/`` that would otherwise split the token in half — and
+# tolerate up to two ``=`` padding characters at the end. Deliberately
+# conservative: the last alternative does NOT require mixed alphanumerics,
+# so ordinary long words are masked too — a false positive costs a little
+# readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
-    + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
+    + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._+/-]{12,}={0,2}"
+    + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
 
 # The credential shapes that can travel inside a URL path or fragment. The
-# provider key prefixes and the assignment forms only: the standalone-run
-# rule above would mask every long path segment.
+# provider key prefixes and the scheme/assignment forms only, with the same
+# base64 alphabet and a shorter assignment floor (a fragment is where OAuth
+# flows park ``access_token=...``, and its payload can be short): the
+# standalone-run rule above would mask every long path segment, and a path's
+# opaque identifiers (session ids, object keys) must stay diagnosable. The
+# Basic scheme form is not listed: path and fragment carry no unencoded
+# spaces, so its whitespace anchor can never match there — a Basic payload
+# in a query is masked wholesale by ``_mask_query_values``.
 _URL_CREDENTIAL_RE = re.compile(
-    _provider_key_pattern() + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
+    _provider_key_pattern() + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._+/-]{4,}={0,2}"
 )
 
 
@@ -160,7 +175,12 @@ def redact_api_key(value: str | None) -> str:
 # it stays outside the match and survives the rewrite. The single group lets
 # ``re.split`` keep the URL matches, so the surrounding prose is redacted
 # separately.
-_URL_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>,;)\]}]+)")
+# The closing bracket is NOT a terminator: an IPv6 literal authority
+# ("http://[2001:db8::1]:8080/?key=...") contains one mid-URL, and cutting
+# there would hand the query to the prose path, whose rules cannot mask a
+# short named value. A bracket that trails prose ("page[1]") stays inside
+# the match and survives the URL treatment untouched, so nothing is lost.
+_URL_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>,;)\}]+)")
 
 
 # A ``%``-format specifier (as the logging machinery understands it). A
@@ -241,9 +261,12 @@ def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
     :func:`redact_api_key` strips its input, so it cannot be applied to a
     fragment of a longer value without eating the surrounding spaces.
 
-    ``scan_embedded`` adds the token-by-token scanner for a fragment that is
-    several words long: a credential buried in a sentence is not a whole
-    value, so the whole-value heuristic cannot see it.
+    ``scan_embedded`` adds the token-by-token scanner for whatever the
+    whole-value rule did not catch — a credential buried in a sentence is
+    not a whole value, and neither is a single unrecognized token (a pure
+    alphabetic run has no digit for the heuristic). The whitespace of the
+    fragment is irrelevant: the scan is keyed on the token shapes, not on
+    the prose around them.
     """
     stripped = text.strip()
     if not stripped:
@@ -251,9 +274,38 @@ def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
     masked = redact_api_key(stripped)
     if masked != stripped:
         return text.replace(stripped, masked, 1)
-    if not scan_embedded or not any(ch.isspace() for ch in stripped):
+    if not scan_embedded:
         return text
-    return redact_secrets_in_text(text)
+    return _mask_tokens_in_text(text)
+
+
+def _mask_tokens_in_text(value: str) -> str:
+    """Mask credentials token by token; no URL handling, no whole-value step."""
+    if not value:
+        return ""
+
+    def _mask(m: re.Match[str]) -> str:
+        token = m.group(0)
+        return f"{token[:4]}***" if len(token) > 8 else "***"
+
+    return _SUBSTR_KEY_RE.sub(_mask, value)
+
+
+def _scan_free_text(value: str) -> str:
+    """Full pipeline for one free-form text: URLs, then fragments.
+
+    URL-shaped substrings get the URL treatment (query values, userinfo
+    password, credentials in path/fragment); the surrounding prose goes
+    through the whole-value rule first and the token-by-token scan second,
+    so a bare header value ("Authorization: Basic dXNlcg==") is caught by
+    the former and a credential quoted inside a sentence by the latter.
+    """
+    parts = _URL_RE.split(value)
+    out: list[str] = []
+    for index, part in enumerate(parts):
+        # The pattern has one group, so the odd indices are the URL matches.
+        out.append(_mask_url(part) if index % 2 else _redact_fragment(part, scan_embedded=True))
+    return "".join(out)
 
 
 def _redact_template_text(text: str) -> str:
@@ -303,12 +355,7 @@ def redact_log_value(value: str | None) -> str:
     """
     if not value:
         return ""
-    parts = _split_log_text(value)
-    out: list[str] = []
-    for index, part in enumerate(parts):
-        # The pattern has one group, so the odd indices are the URL matches.
-        out.append(_mask_url(part) if index % 2 else _redact_fragment(part, scan_embedded=True))
-    return "".join(out)
+    return _scan_free_text(value)
 
 
 def redact_log_template(template: str) -> str:
@@ -336,9 +383,14 @@ def redact_secrets_in_text(value: str | None) -> str:
 
     :func:`redact_api_key` treats its input as one candidate value, so a key
     buried inside a sentence ("request failed: key sk-... rejected") survives
-    untouched. This scanner works token-by-token instead: provider key
-    prefixes, Bearer/Token schemes, and any standalone run of 20+ key
-    characters are masked in place, keeping the surrounding prose readable.
+    untouched. This scanner handles the full free-form pipeline: URL-shaped
+    substrings get the URL treatment (query values, userinfo password,
+    credentials in path/fragment), every other fragment goes through the
+    whole-value rule first (a bare "Authorization: Basic ..." header is a
+    whole value) and the token-by-token scan second (provider key prefixes,
+    Bearer/Token/Basic schemes — a Basic payload is base64, masked including
+    short values — and any standalone run of 20+ key characters), keeping
+    the surrounding prose readable.
     The standalone-run rule is intentionally broader than the
     mixed-alphanumeric heuristic (no digit required), so ordinary long words
     are masked as well — accepted over-masking in exchange for not missing
@@ -348,9 +400,4 @@ def redact_secrets_in_text(value: str | None) -> str:
         return ""
     if "-----BEGIN" in value.upper():
         return "***PEM_REDACTED***"
-
-    def _mask(m: re.Match[str]) -> str:
-        token = m.group(0)
-        return f"{token[:4]}***" if len(token) > 8 else "***"
-
-    return _SUBSTR_KEY_RE.sub(_mask, value)
+    return _scan_free_text(value)

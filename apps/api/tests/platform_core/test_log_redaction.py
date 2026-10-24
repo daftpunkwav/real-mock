@@ -351,3 +351,40 @@ class TestConfiguredPipeline:
         assert line, "the configured pipeline emitted nothing"
         assert _SECRET not in line
         assert "client_secret=***" in line
+
+    def test_provider_key_inside_the_exception_text_is_masked(self) -> None:
+        """The traceback re-renders str(exc), so a quoted key must not survive it.
+
+        The route handlers attach the raw exception for diagnosis; this pins
+        the configured pipeline (RedactFilter + SafeFormatter) as the thing
+        that keeps that traceback safe to emit.
+        """
+        try:
+            raise RuntimeError(f"provider 401: Incorrect API key provided: {_EMBEDDED_KEY}")
+        except RuntimeError:
+            exc_info = sys.exc_info()
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.prep",
+                level=logging.WARNING,
+                pathname=__file__,
+                lineno=1,
+                msg="Tool failed web_search: %s",
+                args=("details scrubbed separately",),
+                exc_info=exc_info,
+            )
+
+        line = _emit(make_record)
+        assert _EMBEDDED_KEY not in line
+        assert "Incorrect API key provided" in line
+
+    def test_bracketed_prose_keeps_its_tail(self) -> None:
+        """A bracket that trails prose is not an IPv6 authority terminator.
+
+        Extending the URL match over ``]`` must not swallow the words after
+        it: the bracket stays inside the match and survives the URL
+        treatment untouched, so the emitted text is unchanged.
+        """
+        text = "see https://example.com/page[1] for details"
+        assert redact_log_value(text) == text

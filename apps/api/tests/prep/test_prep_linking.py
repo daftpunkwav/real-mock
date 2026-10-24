@@ -93,3 +93,37 @@ def test_format_linked_sessions_skips_and_caps(db) -> None:
     # Capped at five sessions.
     assert out.count("Linked session #") == 5
     assert format_linked_sessions(db, [], exclude_id=None) == ""
+
+
+def test_refresh_linked_block_failure_masks_embedded_credential(monkeypatch, db, caplog) -> None:
+    """The refresh is best-effort; its warning must not carry the upstream key."""
+    import logging
+
+    from realmock.domains.prep.services import linking as linking_mod
+
+    row = PrepSession(
+        access_token=new_access_token(),
+        status="active",
+        messages=json.dumps([{"role": "user", "content": "hi"}]),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    def _boom(_db):
+        raise RuntimeError(
+            "link refresh 401: Incorrect API key provided: sk-proj-abcdefghij123456789"
+        )
+
+    monkeypatch.setattr(linking_mod, "commit_session", _boom)
+    with caplog.at_level(logging.WARNING):
+        linking_mod.refresh_linked_block(row, db)  # type: ignore[arg-type]
+    assert "sk-proj-abcdefghij123456789" not in caplog.text
+    # The failure must actually be logged, with the sanitized detail: an
+    # empty log would also contain no credential.
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING" and "Linked-block refresh failed" in r.getMessage()
+    ]
+    assert warnings, "the refresh failure must be logged"
