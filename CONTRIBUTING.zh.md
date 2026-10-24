@@ -15,8 +15,8 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 
 | 门禁 | 命令 | 说明 |
 |---|---|---|
-| Lint | `python -m ruff check apps/api` | 在仓库根目录运行；CI 钉 `ruff==0.16.10` |
-| 类型 | `python -m mypy src` | CI 钉 `mypy==2.4.0`；阻塞门，必须保持 0 错误 |
+| Lint | `python -m ruff check apps/api` | 在仓库根目录运行；`dev` extra 钉 `ruff==0.16.10` |
+| 类型 | `python -m mypy src` | `dev` extra 钉 `mypy==2.4.0`；阻塞门，必须保持 0 错误 |
 | 测试 | `python -m pytest` | CI 对整个 `realmock` 包有 >=90% 覆盖率门（`--cov=realmock`） |
 | 依赖审计 | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 已知问题且上游无修复版；已在 `pyproject.toml` 声明 |
 | 依赖政策 | `python scripts/ci/check_python_deps_policy.py` | 在仓库根目录运行；禁用包清单在 `scripts/ci/dependency-policy.json`（扫描已安装环境，含传递依赖） |

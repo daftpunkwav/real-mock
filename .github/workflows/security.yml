@@ -134,6 +134,12 @@ jobs:
         # scripts/ci/dependency-policy.json.
         run: node ../../scripts/ci/check_npm_deps_policy.mjs
 
+      - name: Gate script tests (node:test)
+        # The npm policy script carries real parsing logic (the
+        # resolved-version graph, the alias resolution, the version
+        # comparison); scripts/ci/test/ pins it.
+        run: node --test ../../scripts/ci/test/check_npm_deps_policy.test.mjs
+
   security-gate:
     name: security-gate
     # Merge-time summary: branch protection requires this check. Always runs;
