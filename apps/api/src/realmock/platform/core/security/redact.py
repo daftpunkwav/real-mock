@@ -166,8 +166,14 @@ _URL_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>,;)\]}]+)")
 # A ``%``-format specifier (as the logging machinery understands it). A
 # template may carry one inside a URL — masking it would delete the
 # placeholder and break the log call, so such a value is kept as it is.
+# The flag and width runs are possessive: both accept ``0`` (as the
+# zero-padding flag and as a width digit), and plain greedy runs would hand
+# a zero run back and forth across the boundary, retrying every split while
+# no conversion character closes the specifier — quadratic on a long zero
+# run. A possessive run commits to its longest match, which no later part of
+# the pattern can resume, so the recognized specifiers stay the same.
 _FORMAT_SPEC_RE = re.compile(
-    r"%(?:\([^)]*\))?[-+#0 ]*[0-9*]*(?:\.[0-9*]*)?[hlL]?[diouxXeEfFgGcrsa%]"
+    r"%(?:\([^)]*\))?[-+#0 ]*+[0-9*]*+(?:\.[0-9*]*)?[hlL]?[diouxXeEfFgGcrsa%]"
 )
 
 
