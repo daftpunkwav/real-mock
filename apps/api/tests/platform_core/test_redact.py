@@ -135,3 +135,51 @@ class TestRedactSecretsInText:
     def test_empty_value_returns_empty(self) -> None:
         assert redact_secrets_in_text("") == ""
         assert redact_secrets_in_text(None) == ""
+
+    def test_bearer_base64_payload_is_masked(self) -> None:
+        # A standard-base64 payload carries +/ and trailing = padding; the
+        # scheme form must consume the whole alphabet or the standalone-run
+        # rule splits at the separator and the halves survive.
+        out = redact_secrets_in_text("rejected: Bearer dXNlci9wYXNz012345== refused")
+        assert "dXNlci9wYXNz012345" not in out
+
+    def test_single_unrecognized_token_is_masked(self) -> None:
+        # The whole-value heuristic needs letters AND digits, so a pure
+        # alphabetic run escapes it; the token scan runs regardless of the
+        # fragment's whitespace.
+        out = redact_secrets_in_text("internationalization")
+        assert out != "internationalization"
+
+    def test_url_query_basic_payload_is_masked(self) -> None:
+        # A Basic payload inside a query is masked wholesale by the query
+        # treatment: the query value carries the credential whatever its
+        # scheme, and path/fragment never hold unencoded spaces.
+        out = redact_secrets_in_text(
+            "denied at https://api.example.com/v1/token?auth=Basic+YQ== retry"
+        )
+        assert "YQ==" not in out
+        assert "auth=***" in out
+
+    def test_url_fragment_short_assignment_is_masked(self) -> None:
+        # A fragment is where OAuth flows park access_token=..., and its
+        # payload can be shorter than the free-text assignment floor.
+        out = redact_secrets_in_text("denied at https://api.example.com/v1#access_token=abc123 end")
+        assert "abc123" not in out
+
+    def test_url_path_opaque_identifiers_stay_diagnosable(self) -> None:
+        # Pins the deliberate boundary: a path's session-id-shaped segment
+        # is not a credential shape, and masking it would cost the
+        # diagnosability the URL treatment exists to preserve.
+        url = "https://api.example.com/v1/sessions/8f14e45fceea167a5a36dedd4bea2543"
+        assert redact_secrets_in_text(f"lookup failed for {url}") == f"lookup failed for {url}"
+
+    def test_ipv6_url_query_credential_is_masked(self) -> None:
+        # The closing bracket of an IPv6 literal authority is mid-URL, not
+        # the end of it: cutting there would hand the query to the prose
+        # path, which cannot mask a short named value.
+        out = redact_secrets_in_text(
+            "connect failed: http://[2001:db8::1]:8080/v1?api_key=shortsecret retry"
+        )
+        assert "shortsecret" not in out
+        assert "api_key=***" in out
+        assert "2001:db8::1" in out

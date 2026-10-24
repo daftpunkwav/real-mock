@@ -299,7 +299,7 @@ async def test_report_stream_error_masks_embedded_credential(
             side_effect=RuntimeError(
                 "report 401: Incorrect API key provided: sk-proj-abcdefghij123456789"
             ),
-        ):
+        ) as row_probe:
             with patch.object(LLMClient, "from_db", classmethod(lambda cls, db: FakeLLMClient())):
                 with TestClient(app) as client:
                     with client.stream(
@@ -313,13 +313,21 @@ async def test_report_stream_error_masks_embedded_credential(
                         ]
     assert any(c["type"] == "error" for c in chunks)
     assert "sk-proj-abcdefghij123456789" not in caplog.text
-    # The failure must actually be logged, with the sanitized detail.
+    # The injected probe must be the exception the handler saw: an unrelated
+    # error caught by the same handler would satisfy the log checks below
+    # without ever exercising the credential.
+    assert row_probe.called
+    # The failure must actually be logged, with the sanitized detail — the
+    # injected message's own prefix, so the record provably carries this
+    # failure and not some other one.
     errors = [
         r
         for r in caplog.records
-        if r.levelname == "ERROR" and "stream report failed" in r.getMessage()
+        if r.levelname == "ERROR"
+        and "stream report failed" in r.getMessage()
+        and "report 401" in r.getMessage()
     ]
-    assert errors, "the stream failure must be logged"
+    assert errors, "the stream failure must be logged with its sanitized detail"
     # The traceback stays attached for diagnosis; the configured pipeline
     # (RedactFilter + SafeFormatter) is what scrubs the rendered text.
     from realmock.platform.core.logging import SafeFormatter

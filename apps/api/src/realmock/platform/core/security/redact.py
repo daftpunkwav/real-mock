@@ -94,22 +94,31 @@ def _provider_key_pattern() -> str:
 # alphabet (``+/=``): a Basic payload is base64, the padding and separator
 # characters break the standalone-run rule, so the scheme form is the only
 # net that catches it; the floor is 4 because valid base64 lengths are
-# multiples of 4, so anything shorter encodes nothing. Deliberately
+# multiples of 4, so anything shorter encodes nothing. The scheme/assignment
+# forms accept the full base64 alphabet too — a standard-base64 payload
+# carries ``+``/``/`` that would otherwise split the token in half — and
+# tolerate up to two ``=`` padding characters at the end. Deliberately
 # conservative: the last alternative does NOT require mixed alphanumerics,
 # so ordinary long words are masked too — a false positive costs a little
 # readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
-    + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
+    + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._+/-]{12,}={0,2}"
     + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
 
 # The credential shapes that can travel inside a URL path or fragment. The
-# provider key prefixes and the assignment forms only: the standalone-run
-# rule above would mask every long path segment.
+# provider key prefixes and the scheme/assignment forms only, with the same
+# base64 alphabet and a shorter assignment floor (a fragment is where OAuth
+# flows park ``access_token=...``, and its payload can be short): the
+# standalone-run rule above would mask every long path segment, and a path's
+# opaque identifiers (session ids, object keys) must stay diagnosable. The
+# Basic scheme form is not listed: path and fragment carry no unencoded
+# spaces, so its whitespace anchor can never match there — a Basic payload
+# in a query is masked wholesale by ``_mask_query_values``.
 _URL_CREDENTIAL_RE = re.compile(
-    _provider_key_pattern() + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._-]{12,}"
+    _provider_key_pattern() + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9._+/-]{4,}={0,2}"
 )
 
 
@@ -166,7 +175,12 @@ def redact_api_key(value: str | None) -> str:
 # it stays outside the match and survives the rewrite. The single group lets
 # ``re.split`` keep the URL matches, so the surrounding prose is redacted
 # separately.
-_URL_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>,;)\]}]+)")
+# The closing bracket is NOT a terminator: an IPv6 literal authority
+# ("http://[2001:db8::1]:8080/?key=...") contains one mid-URL, and cutting
+# there would hand the query to the prose path, whose rules cannot mask a
+# short named value. A bracket that trails prose ("page[1]") stays inside
+# the match and survives the URL treatment untouched, so nothing is lost.
+_URL_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>,;)\}]+)")
 
 
 # A ``%``-format specifier (as the logging machinery understands it). A
@@ -247,9 +261,12 @@ def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
     :func:`redact_api_key` strips its input, so it cannot be applied to a
     fragment of a longer value without eating the surrounding spaces.
 
-    ``scan_embedded`` adds the token-by-token scanner for a fragment that is
-    several words long: a credential buried in a sentence is not a whole
-    value, so the whole-value heuristic cannot see it.
+    ``scan_embedded`` adds the token-by-token scanner for whatever the
+    whole-value rule did not catch — a credential buried in a sentence is
+    not a whole value, and neither is a single unrecognized token (a pure
+    alphabetic run has no digit for the heuristic). The whitespace of the
+    fragment is irrelevant: the scan is keyed on the token shapes, not on
+    the prose around them.
     """
     stripped = text.strip()
     if not stripped:
@@ -257,7 +274,7 @@ def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
     masked = redact_api_key(stripped)
     if masked != stripped:
         return text.replace(stripped, masked, 1)
-    if not scan_embedded or not any(ch.isspace() for ch in stripped):
+    if not scan_embedded:
         return text
     return _mask_tokens_in_text(text)
 

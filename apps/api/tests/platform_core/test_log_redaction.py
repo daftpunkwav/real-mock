@@ -378,3 +378,13 @@ class TestConfiguredPipeline:
         line = _emit(make_record)
         assert _EMBEDDED_KEY not in line
         assert "Incorrect API key provided" in line
+
+    def test_bracketed_prose_keeps_its_tail(self) -> None:
+        """A bracket that trails prose is not an IPv6 authority terminator.
+
+        Extending the URL match over ``]`` must not swallow the words after
+        it: the bracket stays inside the match and survives the URL
+        treatment untouched, so the emitted text is unchanged.
+        """
+        text = "see https://example.com/page[1] for details"
+        assert redact_log_value(text) == text
