@@ -30,6 +30,7 @@ from realmock.domains.interview.agents.topology.prompts import (
     SHADOW_SYSTEM_PROMPT,
 )
 from realmock.platform.capabilities.ai.llm.client import LLMClient
+from realmock.platform.core.coerce import coerce_int
 
 logger = logging.getLogger(__name__)
 
@@ -227,13 +228,7 @@ class ShadowEvaluatorAgent:
     def _parse(self, raw: object) -> ShadowEvaluation | None:
         if not isinstance(raw, dict) or not raw:
             return None
-        try:
-            substance_score = int(raw.get("substance_score", 5))
-        except (ValueError, TypeError, OverflowError):
-            # OverflowError: a non-finite (Infinity) score is not convertible and
-            # is not a ValueError; it falls back to the default score.
-            substance_score = 5
-        substance_score = max(1, min(10, substance_score))
+        substance_score = max(1, min(10, coerce_int(raw.get("substance_score", 5), 5)))
         return ShadowEvaluation(
             substance_score=substance_score,
             is_consistent=bool(raw.get("is_consistent", True)),

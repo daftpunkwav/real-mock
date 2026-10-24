@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
+from realmock.platform.core.coerce import coerce_int
+
 #: Evidence kept per competency node. Consumers read only the latest entry
 #: (:meth:`CognitiveMemoryGraph.render_prompt_summary`); older entries are pure
 #: persistence weight — every turn's shadow/reflection findings are serialized
@@ -49,12 +51,7 @@ class CompetencyEvidence:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CompetencyEvidence:
-        try:
-            turn_index = int(data.get("turn_index", 0))
-        except (ValueError, TypeError, OverflowError):
-            # OverflowError: a non-finite (Infinity) index is not convertible and
-            # is not a ValueError; it falls back to the first turn.
-            turn_index = 0
+        turn_index = coerce_int(data.get("turn_index", 0), 0)
         try:
             confidence = float(data.get("confidence", 0.8))
         except (ValueError, TypeError):
