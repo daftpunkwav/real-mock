@@ -29,6 +29,14 @@ _PAGE_TURNS = 12
 _TURN_CHARS = 900
 _SEARCH_HITS = 8
 _SNIPPET_CHARS = 240
+#: Turn ids carried per ``ledger_overview`` page. Ids are short, so the page
+#: exists for one reason: a session with a few hundred turns must not push
+#: the overview observation over the agent loop's cap.
+_OVERVIEW_IDS = 50
+#: Characters one phase label may carry into the overview. A phase label is
+#: plan-supplied text, so the per-label cap keeps the page bounded by
+#: construction instead of by the length of whatever the plan wrote.
+_PHASE_CHARS = 120
 #: Characters one note may carry into a report page. A note is a teaser for
 #: the report, not the evidence itself: it travels in one tool observation,
 #: so a note larger than this is shortened before it reaches the page. The
@@ -188,17 +196,27 @@ def ledger_tool_specs(
     allowed: set[str] | None = set(turn_ids) if turn_ids is not None else None
     scoped = [t for t in _turns(ledger) if allowed is None or str(t.get("turn_id")) in allowed]
 
-    async def overview(_args: dict[str, Any]) -> str:
+    async def overview(args: dict[str, Any]) -> str:
+        # Every field is bounded by construction: the phase list is capped in
+        # count and per-label length, and the ids are a page, so a session
+        # with a few hundred turns cannot push this observation over the cap
+        # and into the loop's slicer (the failure the page fitter exists to
+        # prevent). The model pages the ids by offset like the turns.
         phases: list[str] = []
         for turn in scoped:
-            phase = str(turn.get("phase") or "")
+            phase = str(turn.get("phase") or "")[:_PHASE_CHARS]
             if phase and phase not in phases:
                 phases.append(phase)
+        offset = _page_offset(args)
+        ids = [str(t.get("turn_id")) for t in scoped]
+        window = ids[offset : offset + _OVERVIEW_IDS]
         return json.dumps(
             {
+                "offset": offset,
                 "total_turns": len(scoped),
                 "phases": phases[:30],
-                "turn_ids": [str(t.get("turn_id")) for t in scoped],
+                "turn_ids": window,
+                "next_offset": _next_offset(offset, len(window), len(scoped)),
             },
             ensure_ascii=False,
         )
@@ -247,8 +265,20 @@ def ledger_tool_specs(
     return [
         ToolSpec(
             name="ledger_overview",
-            description="Overview of the frozen interview transcript: turn count, phase list, ordered turn ids.",
-            parameters={"type": "object", "properties": {}, "required": []},
+            description=(
+                "Overview of the frozen interview transcript: turn count, phase list, "
+                "ordered turn ids (paged — pass offset for the next page of ids)."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "offset": {
+                        "type": "integer",
+                        "description": "Turn-id page offset (0-based); default 0",
+                    },
+                },
+                "required": [],
+            },
             handler=overview,
         ),
         ToolSpec(
