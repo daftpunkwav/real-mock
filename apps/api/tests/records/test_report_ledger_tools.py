@@ -374,3 +374,48 @@ async def test_read_notes_clips_one_oversized_note_so_the_page_fits_the_cap() ->
     assert page["truncated"] is True
     # The cursor advances past the entry that was returned.
     assert page["next_offset"] == 1
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_pages_the_turn_ids() -> None:
+    """The overview is a page too: a window of ids plus the continuation cursor.
+
+    Every turn id in one payload pushed a few-hundred-turn session's
+    observation over the agent loop's cap, which sliced it into a document
+    the model cannot parse.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(120))}
+    first = json.loads(await specs["ledger_overview"].handler({}))
+    assert first["total_turns"] == 120
+    assert len(first["turn_ids"]) == mod._OVERVIEW_IDS
+    assert first["next_offset"] == mod._OVERVIEW_IDS
+
+    collected: list[str] = []
+    offset = 0
+    while True:
+        page = json.loads(await specs["ledger_overview"].handler({"offset": offset}))
+        collected.extend(page["turn_ids"])
+        if page["next_offset"] is None:
+            break
+        offset = page["next_offset"]
+    assert collected == [f"t-{i:04d}" for i in range(1, 121)]
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_stays_inside_the_observation_cap() -> None:
+    """The overview page is bounded by construction, whatever the ledger holds.
+
+    A degenerate plan can carry very long phase labels and a session can hold
+    hundreds of turns; neither may push the observation over the loop cap.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    ledger = _long_ledger(1000)
+    ledger["turns"][0]["phase"] = "超长阶段标签" * 1000
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    raw = await specs["ledger_overview"].handler({})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert len(page["phases"][0]) == mod._PHASE_CHARS
