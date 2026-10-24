@@ -3,8 +3,8 @@
 Responsibilities:
 - Declare the key names of the ledger document, its turns, and the tool
   previews attached to a turn. The interview domain is the sole writer; other
-  domains read the document through the session catalog seam, whose payload
-  is an untyped dict.
+  domains read the document through the session catalog port, whose
+  ``get_ledger`` hands it over typed as ``LedgerDocument``.
 
 Contracts:
 - The key names below are the single source of truth. A reader that is typed
