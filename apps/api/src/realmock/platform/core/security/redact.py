@@ -88,28 +88,31 @@ def _provider_key_pattern() -> str:
 
 
 # Substring scanner for free-form text (exception messages, observations):
-# provider key prefixes, Bearer/Token/Basic schemes, and any standalone run of
-# 20+ key characters (letters/digits/hyphen/underscore) delimited by other
-# characters. ``basic`` carries its own shorter minimum and the base64
-# alphabet (``+/=``): a Basic payload is base64, the padding and separator
-# characters break the standalone-run rule, so the scheme form is the only
-# net that catches it; the floor is 4 because valid base64 lengths are
-# multiples of 4, so anything shorter encodes nothing. The scheme/assignment
-# forms accept the full base64 alphabet too — a standard-base64 payload
-# carries ``+``/``/`` that would otherwise split the token in half — and the
-# underscore that URL-safe tokens use, and tolerate up to two ``=`` padding
-# characters at the end. A second, shorter scheme alternative (floor 6)
-# catches a compact quoted credential ("rejected Bearer abc123"): its digit
-# lookahead is what keeps ordinary prose out — the words that follow a scheme
-# word in prose ("authorization required", "token authentication") are pure
-# alphabetic, so they survive. Deliberately conservative: the last
-# alternative does NOT require mixed alphanumerics, so ordinary long words
-# are masked too — a false positive costs a little readability, a false
-# negative leaks a key.
+# provider key prefixes, Bearer/Token/Basic schemes, labeled key assignments
+# (``api_key=...``), and any standalone run of 20+ key characters
+# (letters/digits/hyphen/underscore) delimited by other characters.
+# ``basic`` carries its own shorter minimum and the base64 alphabet
+# (``+/=``): a Basic payload is base64, the padding and separator characters
+# break the standalone-run rule, so the scheme form is the only net that
+# catches it; the floor is 4 because valid base64 lengths are multiples of 4,
+# so anything shorter encodes nothing. The scheme/assignment forms accept the
+# full base64 alphabet too — a standard-base64 payload carries ``+``/``/``
+# that would otherwise split the token in half — and the underscore that
+# URL-safe tokens use, and tolerate up to two ``=`` padding characters at the
+# end. The short scheme alternative (floor 6) and the labeled-assignment form
+# (floor 4) catch a compact quoted credential ("rejected Bearer abc123",
+# "api_key: abc123"): their digit lookahead is what keeps ordinary prose out —
+# the words that follow a scheme or label word in prose ("authorization
+# required", "api key required") are pure alphabetic, so they survive.
+# Deliberately conservative: the last alternative does NOT require mixed
+# alphanumerics, so ordinary long words are masked too — a false positive
+# costs a little readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
     + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9_.+/-]{12,}={0,2}"
     + r"|(?i:bearer|token|authorization)[:= ]\s*(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{6,}={0,2}"
+    + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token)[:= ]\s*"
+    + r"(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{4,}={0,2}"
     + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
@@ -122,18 +125,25 @@ _SUBSTR_KEY_RE = re.compile(
 # everything else in a path or fragment that matters stays diagnosable. The
 # last alternative is the standalone-run rule tightened for URLs: a path or
 # fragment can also carry an unprefixed token (a signed-path credential), so
-# a 20+ run of key characters that mixes letters and digits is masked, while
-# a segment's ordinary opaque identifiers (slugs, pure-digit or pure-alpha
-# ids) keep the URL diagnosable. The Basic scheme form is not listed: path
-# and fragment carry no unencoded spaces, so its whitespace anchor can never
-# match there — a Basic payload in a query is masked wholesale by
+# a 20+ run of key characters is masked unless the token-level callback
+# (see ``_mask_url_credentials``) clears it as an ordinary identifier. The
+# run class carries ``+`` so a standard-base64 token is not split at it; ``/``
+# stays out — it is the path separator. The Basic scheme form is not listed:
+# path and fragment carry no unencoded spaces, so its whitespace anchor can
+# never match there — a Basic payload in a query is masked wholesale by
 # ``_mask_query_values``.
 _URL_CREDENTIAL_RE = re.compile(
     _provider_key_pattern()
     + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
-    + r"|(?<![A-Za-z0-9_.%-])"
-    + r"(?=[A-Za-z0-9_.%-]*[A-Za-z])(?=[A-Za-z0-9_.%-]*[0-9])"
-    + r"[A-Za-z0-9_.%-]{20,}(?![A-Za-z0-9_.%-])",
+    + r"|(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]{20,})(?![A-Za-z0-9_.%+-])",
+)
+
+# A canonical UUID: the one 20+ mixed-alphanumeric run that stays readable in
+# a URL path. Resource identifiers are overwhelmingly UUID-shaped, and
+# correlating a log line with a record needs the full id; anything else that
+# mixes letters and digits at that length is treated as a token.
+_UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 )
 
 
@@ -217,17 +227,27 @@ _FORMAT_SPEC_RE = re.compile(
 def _mask_query_values(query: str) -> str:
     """Replace every query-parameter value with ``***`` (names are kept).
 
-    A value carrying a ``%``-format specifier is a placeholder, not a
-    credential, so it survives the rewrite — masking around it would break
-    the substitution balance and cost the line (a template URL whose
-    authority keeps a prose bracket inside the match can leave a specifier
-    inside a longer value, ``key=%s]``).
+    A value carrying a ``%``-format specifier keeps each specifier and masks
+    the payload around it: masking the whole value would delete the
+    placeholder and cost the log line, keeping the whole value would leave a
+    percent-sequence credential visible.
     """
     masked: list[str] = []
     for part in query.split("&"):
         name, sep, value = part.partition("=")
-        if not sep or _FORMAT_SPEC_RE.search(value):
+        if not sep:
             masked.append(part)
+        elif _FORMAT_SPEC_RE.search(value):
+            pieces: list[str] = []
+            cursor = 0
+            for spec in _FORMAT_SPEC_RE.finditer(value):
+                if spec.start() > cursor:
+                    pieces.append("***")
+                pieces.append(spec.group(0))
+                cursor = spec.end()
+            if cursor < len(value):
+                pieces.append("***")
+            masked.append(f"{name}={''.join(pieces)}")
         else:
             masked.append(f"{name}=***")
     return "&".join(masked)
@@ -241,13 +261,22 @@ def _mask_url_credentials(text: str) -> str:
     or a signed path (``/files/<token>/content``) would otherwise reach the
     log in clear text. The free-text standalone-run rule is deliberately not
     reused as-is: a request path carries opaque identifiers (session ids,
-    object keys) that operators need, so the standalone form here requires
-    the mixed-alphanumeric shape of a token and a 20+ length, leaving slugs
-    and pure-digit or pure-alpha ids diagnosable.
+    object keys) that operators need. The standalone run therefore survives
+    only when it is not token-shaped: a canonical UUID keeps its full form,
+    and a run without both letters and digits (slugs, pure-digit ids) stays
+    readable — anything else at that length is masked.
     """
 
     def _mask(match: re.Match[str]) -> str:
         token = match.group(0)
+        if match.group(1) is not None:
+            # Standalone run (the only capturing alternative): a canonical
+            # UUID stays whole, and the run must mix letters and digits to
+            # be treated as a token.
+            if _UUID_RE.fullmatch(token) or not (
+                any(c.isdigit() for c in token) and any(c.isalpha() for c in token)
+            ):
+                return token
         return f"{token[:4]}***" if len(token) > 8 else "***"
 
     return _URL_CREDENTIAL_RE.sub(_mask, text)
@@ -259,7 +288,9 @@ def _mask_url(url: str) -> str:
     The fragment is partitioned off first, so it is scanned whether or not a
     query precedes it — a credential parked after ``#`` in a query-less URL
     would otherwise ride along inside the path segment and escape the
-    assignment floor.
+    assignment floor. The userinfo username is scanned too: a credential
+    supplied as a URL username (``https://sk-...@host/``) is as sensitive as
+    one in the password.
     """
     scheme, sep, rest = url.partition("://")
     if not sep:
@@ -271,7 +302,9 @@ def _mask_url(url: str) -> str:
         userinfo, _, host = authority.rpartition("@")
         if ":" in userinfo:
             user, _, _password = userinfo.partition(":")
-            userinfo = f"{user}:***"
+            userinfo = f"{_mask_url_credentials(user)}:***"
+        else:
+            userinfo = _mask_url_credentials(userinfo)
         authority = f"{userinfo}@{host}"
     path = _mask_url_credentials(path)
     head = f"{authority}{slash}{path}"

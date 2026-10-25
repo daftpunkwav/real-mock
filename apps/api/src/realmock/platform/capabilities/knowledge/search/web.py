@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TypedDict
 
+from realmock.platform.core.security import redact_secrets_in_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -75,9 +77,12 @@ def _search_with_ddgs(query: str, max_results: int) -> list[dict]:
 
 
 def _unavailable(detail: str) -> str:
+    # The detail can quote a backend exception; the outage text reaches the
+    # model as a normal result (no exception leaves this function), so the
+    # text is scanned before it leaves.
     return (
         "SEARCH_UNAVAILABLE\n"
-        f"Search temporarily unavailable ({detail}).\n"
+        f"Search temporarily unavailable ({redact_secrets_in_text(detail)}).\n"
         "Do not invent result lists, links, or citation numbers; continue coaching "
         "with general knowledge and clearly tell the user it is based on general "
         "knowledge, not live search."

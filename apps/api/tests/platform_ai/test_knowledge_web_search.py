@@ -95,6 +95,24 @@ def test_web_search_with_hits_empty_query() -> None:
     assert hits == []
 
 
+def test_web_search_with_hits_unavailable_redacts_credential(monkeypatch) -> None:
+    """The outage detail is redacted before it becomes the observation.
+
+    A search failure is a returned result (no exception leaves this
+    function), and a backend error text can quote a credential; every
+    consumer (platform tool, interview, growth) reads this text as-is.
+    """
+
+    def _boom(query: str, max_results: int) -> list[dict]:
+        raise RuntimeError("token endpoint refused sk-fakefakefakefake0123456789")
+
+    monkeypatch.setattr(web_mod, "_search_with_ddgs", _boom)
+    text, hits = web_mod.web_search_with_hits("q", 5)
+    assert hits == []
+    assert "SEARCH_UNAVAILABLE" in text
+    assert "sk-fakefakefakefake0123456789" not in text
+
+
 def test_web_search_with_hits_ddgs_success(monkeypatch) -> None:
     monkeypatch.setattr(
         web_mod,

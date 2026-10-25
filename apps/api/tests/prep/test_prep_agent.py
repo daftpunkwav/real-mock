@@ -79,7 +79,7 @@ async def test_ensure_system_degraded_falls_back(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_ensure_system_degraded_redacts_credential(monkeypatch) -> None:
+async def test_ensure_system_degraded_redacts_credential(monkeypatch, caplog) -> None:
     import realmock.domains.prep.agents.agent as agent_mod
 
     agent = _agent()
@@ -97,6 +97,14 @@ async def test_ensure_system_degraded_redacts_credential(monkeypatch) -> None:
     assert "sk-fakefakefakefake0123456789" not in logged[0]["message"]
     assert "sk-f***" in logged[0]["message"]
     assert isinstance(logged[0]["message"], str)
+    # The warning's message argument is the sanitized string: passing the
+    # raw exception again would put the credential into the rendered line
+    # even though the persisted record below stays clean.
+    warn_records = [
+        record for record in caplog.records if "Prep system seed degraded" in record.getMessage()
+    ]
+    assert warn_records, "the seed degradation emitted no warning"
+    assert "sk-fakefakefakefake0123456789" not in warn_records[0].getMessage()
 
 
 def test_waiting_line_alias_matches_pending() -> None:

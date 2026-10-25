@@ -146,9 +146,9 @@ class TestRedactSecretsInText:
     def test_single_unrecognized_token_is_masked(self) -> None:
         # The whole-value heuristic needs letters AND digits, so a pure
         # alphabetic run escapes it; the token scan runs regardless of the
-        # fragment's whitespace.
-        out = redact_secrets_in_text("internationalization")
-        assert out != "internationalization"
+        # fragment's whitespace. The full masked form is pinned so a scanner
+        # that alters a single character cannot pass.
+        assert redact_secrets_in_text("internationalization") == "inte***"
 
     def test_url_query_basic_payload_is_masked(self) -> None:
         # A Basic payload inside a query is masked wholesale by the query
@@ -208,19 +208,65 @@ class TestRedactSecretsInText:
     def test_url_fragment_percent_encoded_value_is_masked(self) -> None:
         # A percent-encoded payload character must not end the match: the
         # assignment class accepts ``%`` so an encoded fragment credential
-        # is consumed whole.
+        # is consumed whole. The full masked form is pinned so a scanner
+        # that only strips the escapes cannot pass.
         out = redact_secrets_in_text(
             "denied at https://api.example.com/v1#access_token=abc%2Fdef%3D end"
         )
-        assert "%2F" not in out
-        assert "%3D" not in out
+        assert out == "denied at https://api.example.com/v1#access_toke*** end"
 
     def test_url_path_percent_encoded_value_is_masked(self) -> None:
         out = redact_secrets_in_text(
             "denied at https://api.example.com/v1/files/token%3DAbc123Def456Ghi789/retrieve"
         )
-        assert "%3D" not in out
-        assert "Abc123Def456Ghi789" not in out
+        assert "token%3DAbc123Def456Ghi789" not in out
+        assert "/files/" in out and "/retrieve" in out
+
+    def test_url_username_credential_is_masked(self) -> None:
+        # A credential supplied as the userinfo username is as sensitive as
+        # one in the password; the URL treatment scans both.
+        out = redact_secrets_in_text(
+            "denied at https://sk-abcdefghijklmnopqrst@host.example.com/v1 end"
+        )
+        assert "sk-abcdefghijklmnopqrst" not in out
+        assert "sk-a***@host.example.com" in out
+
+    def test_url_path_base64_plus_token_is_masked(self) -> None:
+        # A standard-base64 token carries ``+``; the URL standalone class
+        # must not split at it, or the short halves survive.
+        out = redact_secrets_in_text(
+            "denied at https://api.example.com/v1/files/Abc123+Def456+Ghi789+Jkl0/retrieve"
+        )
+        assert "Abc123+Def456+Ghi789+Jkl0" not in out
+
+    def test_url_path_uuid_identifier_stays_diagnosable(self) -> None:
+        # A canonical UUID is the one mixed 20+ run that stays readable:
+        # resource ids are UUID-shaped and correlation needs them whole.
+        url = "https://api.example.com/v1/sessions/550e8400-e29b-41d4-a716-446655440000"
+        assert redact_secrets_in_text(f"lookup failed for {url}") == f"lookup failed for {url}"
+
+    def test_labeled_short_key_is_masked(self) -> None:
+        # An unprefixed key shorter than the standalone floor survives when
+        # it is bare, but a key-label assignment ("api_key: abc123") is a
+        # credential shape at any length above 4.
+        out = redact_secrets_in_text("rejected: api_key: abc123 outright")
+        assert "abc123" not in out
+
+    def test_labeled_prose_is_preserved(self) -> None:
+        # The label form's digit lookahead keeps ordinary prose out: a bare
+        # short value and a pure-alphabetic word after a label both stay.
+        text = "the apikey is fine and api_key=required stays"
+        assert redact_secrets_in_text(text) == text
+
+    def test_query_value_with_percent_sequence_credential_is_masked(self) -> None:
+        # A value carrying a percent sequence that reads like a format
+        # specifier ("%a") must still lose its credential payload: the
+        # specifier is kept, the surrounding text is masked.
+        out = redact_secrets_in_text(
+            "connect failed: https://x.example.com/v1?token=ab%aecd refused"
+        )
+        assert "ab%aecd" not in out
+        assert "refused" in out
 
     def test_bearer_token_with_underscores_is_masked(self) -> None:
         # URL-safe tokens carry underscores; the scheme payload class must

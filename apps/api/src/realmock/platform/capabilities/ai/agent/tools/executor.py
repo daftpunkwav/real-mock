@@ -63,12 +63,17 @@ _ERROR_MESSAGE_MAX_CHARS = 2000
 
 
 def _args_echo(args: dict[str, Any]) -> str:
-    """Truncated JSON echo of the model's own call arguments."""
+    """Truncated JSON echo of the model's own call arguments.
+
+    The echo returns to the model inside the error observation, and the
+    model's own arguments can carry a credential (a URL with a key in the
+    query), so the rendered text is scanned like any other text.
+    """
     try:
         rendered = json.dumps(args, ensure_ascii=False, default=str)
     except Exception:
         rendered = str(args)
-    return rendered[:_ARGS_ECHO_MAX_CHARS]
+    return redact_secrets_in_text(rendered)[:_ARGS_ECHO_MAX_CHARS]
 
 
 def _error_hint(kind: str, exc: Exception | None) -> str:

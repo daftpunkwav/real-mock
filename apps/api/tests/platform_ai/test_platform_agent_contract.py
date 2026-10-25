@@ -131,7 +131,11 @@ async def test_invoke_with_timeout_classifies_provider_error_hints() -> None:
 
 
 async def test_invoke_with_timeout_truncates_args_echo() -> None:
-    """The echoed call arguments in an error observation are capped at 400 chars."""
+    """The echoed call arguments in an error observation are capped at 400 chars.
+
+    The echo is redacted before the cap, so a long token argument shrinks
+    instead of reaching the cap; the ceiling is what the contract fixes.
+    """
 
     async def _boom(args: dict) -> str:
         del args
@@ -142,7 +146,7 @@ async def test_invoke_with_timeout_truncates_args_echo() -> None:
     raw, status = await _invoke(bundle, "wide", {"query": "y" * 5000}, timeout=5.0)
     assert status == "error"
     payload = json.loads(raw)
-    assert len(payload["args"]) == 400
+    assert len(payload["args"]) <= 400
     assert payload["args"].startswith('{"query": "yyy')
 
 
