@@ -102,8 +102,10 @@ def _provider_key_pattern(payload_class: str = "A-Za-z0-9_-") -> str:
 # carries ``+``/``/`` that would otherwise split the token in half — and the
 # underscore that URL-safe tokens use (spelled first in every class), and
 # tolerate up to two ``=`` padding characters at the end. The delimiter
-# alternation ``(?:\s*[:=]\s*|\s+)`` spans the written forms ("key: v",
-# "key = v", "bearer v") and an optional opening quote. A short scheme value
+# alternation spans the written forms ("key: v", "key = v", "bearer v"), a
+# JSON-style quoted label and value (``"key": "v"`` — the closing quote
+# between the label and the separator is part of the delimiter), and an
+# optional opening quote. A short scheme value
 # (floor 6) or a short labeled value (floor 4) after an explicit ``:``/``=``
 # is masked whatever its composition — a bare hex credential like
 # "api_key: deadbeef" has no digit — while a value after a bare space keeps
@@ -114,13 +116,13 @@ def _provider_key_pattern(payload_class: str = "A-Za-z0-9_-") -> str:
 # costs a little readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
-    + r"|(?i:bearer|token|authorization)(?:\s*[:=]\s*|\s+)[\"\']?"
+    + r"|(?i:bearer|token|authorization)(?:[\"\']?\s*[:=]\s*[\"\']?|\s+[\"\']?)"
     + r"[_A-Za-z0-9.+/-]{12,}={0,2}"
-    + r"|(?i:bearer|token|authorization)(?:\s*[:=]\s*|\s+)[\"\']?"
+    + r"|(?i:bearer|token|authorization)(?:[\"\']?\s*[:=]\s*[\"\']?|\s+[\"\']?)"
     + r"(?=[_A-Za-z0-9.+/-]*[0-9])[_A-Za-z0-9.+/-]{6,}={0,2}"
     + r"|(?i:api[\s_-]?key|apikey|access[\s_-]?token|auth[\s_-]?token|secret|password|passwd)"
     + r"(?:"
-    + r"\s*[:=]\s*[\"\']?[_A-Za-z0-9.+/-]{4,}={0,2}"
+    + r"[\"\']?\s*[:=]\s*[\"\']?[_A-Za-z0-9.+/-]{4,}={0,2}"
     + r"|\s+[\"\']?(?=[_A-Za-z0-9.+/-]*[0-9])[_A-Za-z0-9.+/-]{4,}={0,2}"
     + r")"
     + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
@@ -289,17 +291,19 @@ def _mask_url_credentials(text: str) -> str:
     object keys) that operators need. The standalone run therefore survives
     only when it is not token-shaped: a canonical UUID keeps its full form,
     and a run without both letters and digits (slugs, pure-digit ids) stays
-    readable — anything else at that length is masked.
+    readable — except a run carrying ``+``, whose only realistic shape in a
+    path is a standard-base64 token; anything else at that length is masked.
     """
 
     def _mask(match: re.Match[str]) -> str:
         token = match.group(0)
         if match.group(1) is not None:
             # Standalone run (the only capturing alternative): a canonical
-            # UUID stays whole, and the run must mix letters and digits to
-            # be treated as a token.
-            if _UUID_RE.fullmatch(token) or not (
-                any(c.isdigit() for c in token) and any(c.isalpha() for c in token)
+            # UUID stays whole, and the run must mix letters and digits —
+            # or carry the base64 ``+`` — to be treated as a token.
+            if "+" not in token and (
+                _UUID_RE.fullmatch(token)
+                or not (any(c.isdigit() for c in token) and any(c.isalpha() for c in token))
             ):
                 return token
         return f"{token[:4]}***" if len(token) > 8 else "***"

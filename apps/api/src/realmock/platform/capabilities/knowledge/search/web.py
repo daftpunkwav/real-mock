@@ -115,7 +115,9 @@ def web_search_with_hits(
         # A non-str argument bypasses the redaction filter: pass the
         # sanitized string.
         logger.warning("web search failed: %s", redact_secrets_in_text(str(e)))
-        return _unavailable(str(e)[:400]), []
+        # Redact before the cap: a cut inside a credential can drop the
+        # remainder below the scanner floors.
+        return _unavailable(redact_secrets_in_text(str(e))[:400]), []
 
     hits: list[SearchHit] = []
     for r in raw[:max_results]:

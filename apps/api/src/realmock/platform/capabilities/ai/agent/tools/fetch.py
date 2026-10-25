@@ -207,7 +207,9 @@ async def execute_web_fetch(args: dict[str, Any]) -> str:
     except UnsafeURLError as e:
         return _unavailable(f"URL blocked by policy: {e}")
     except Exception as e:
-        return _unavailable(f"{type(e).__name__}: {str(e)[:200]}")
+        # Redact before the cap: a cut inside a credential can drop the
+        # remainder below the scanner floors.
+        return _unavailable(f"{type(e).__name__}: {redact_secrets_in_text(str(e))[:200]}")
 
 
 def web_fetch_tool_spec() -> ToolSpec:

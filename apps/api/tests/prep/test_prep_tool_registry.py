@@ -1044,8 +1044,9 @@ async def test_execute_failure_masks_embedded_credential(caplog) -> None:
     Provider failures arrive as a sentence ("Incorrect API key provided:
     sk-..."), so the detail is scanned token by token: the whole-value
     heuristic never fires on a multi-word message. The log line carries the
-    same sanitized detail and nothing else: a traceback would re-render the
-    raw exception and put the key back in operator logs.
+    same sanitized detail. The traceback remains attached for diagnosis, and
+    the log formatter redacts its rendered exception text before operator
+    output.
     """
     import logging
 

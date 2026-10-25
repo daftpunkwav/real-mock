@@ -246,6 +246,16 @@ class TestRedactSecretsInText:
         )
         assert "Abc123+Def456+Ghi789+Jkl0" not in out
 
+    def test_url_path_letters_plus_token_is_masked(self) -> None:
+        # A 20+ run of letters and ``+`` has no digit for the mixed check,
+        # but ``+`` in a path segment is the base64 shape itself: the run is
+        # treated as a token and masked.
+        out = redact_secrets_in_text(
+            "denied at https://files.example.com/dl/Abcdef+Ghijkl+Mnopqr+Stuv/content end"
+        )
+        assert "Abcdef+Ghijkl+Mnopqr+Stuv" not in out
+        assert "/dl/" in out and "/content" in out
+
     def test_url_path_uuid_identifier_stays_diagnosable(self) -> None:
         # A canonical UUID is the one mixed 20+ run that stays readable:
         # resource ids are UUID-shaped and correlation needs them whole.
@@ -281,6 +291,14 @@ class TestRedactSecretsInText:
         # "API key" spelled with a space is the same label.
         out = redact_secrets_in_text("the API key: abc123 stays masked")
         assert "abc123" not in out
+
+    def test_json_quoted_label_value_is_masked(self) -> None:
+        # Error text that echoes the request as JSON closes the label with a
+        # quote before the separator: the delimiter spans that quote.
+        out = redact_secrets_in_text('{"api_key": "abc123"} rejected')
+        assert "abc123" not in out
+        out = redact_secrets_in_text('{"authorization": "Bearer abc123def456ghi"} refused')
+        assert "abc123def456ghi" not in out
 
     def test_labeled_space_separated_prose_is_preserved(self) -> None:
         # A value after a bare space keeps the digit lookahead: that is
