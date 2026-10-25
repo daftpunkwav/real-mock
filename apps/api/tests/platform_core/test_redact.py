@@ -271,14 +271,37 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text("rejected: secret: 4f8a2b1c outright")
         assert "4f8a2b1c" not in out
 
-    def test_labeled_prose_is_preserved(self) -> None:
-        # The label form's digit lookahead keeps ordinary prose out: a bare
-        # short value and a pure-alphabetic word after a label both stay.
-        text = "the apikey is fine and api_key=required stays"
+    def test_labeled_alpha_value_is_masked(self) -> None:
+        # A bare hex credential after an explicit separator has no digit;
+        # the labeled form masks it whatever its composition.
+        out = redact_secrets_in_text("rejected: api_key: deadbeef outright")
+        assert "deadbeef" not in out
+
+    def test_spaced_label_value_is_masked(self) -> None:
+        # "API key" spelled with a space is the same label.
+        out = redact_secrets_in_text("the API key: abc123 stays masked")
+        assert "abc123" not in out
+
+    def test_labeled_space_separated_prose_is_preserved(self) -> None:
+        # A value after a bare space keeps the digit lookahead: that is
+        # where prose lives ("password required", "secret sauce").
+        text = "password required and secret sauce stays"
         assert redact_secrets_in_text(text) == text
-        assert redact_secrets_in_text("the secret sauce recipe stays") == (
-            "the secret sauce recipe stays"
-        )
+
+    def test_labeled_prose_is_preserved(self) -> None:
+        # The spaced form keeps the digit lookahead: a bare short value and
+        # a pure-alphabetic word after a label-like space both stay.
+        text = "the apikey is fine and the secret sauce recipe stays"
+        assert redact_secrets_in_text(text) == text
+
+    def test_labeled_explicit_assignment_of_a_word_is_masked(self) -> None:
+        # An explicit ":"/"=" is an assignment shape, so a word after it is
+        # masked whatever its composition ("api_key=required" reads as a
+        # field, not as prose); the spaced form is where prose survives.
+        text = "the apikey is fine and api_key=required stays"
+        out = redact_secrets_in_text(text)
+        assert "required" not in out
+        assert "the apikey is fine and" in out and "stays" in out
 
     def test_query_value_with_percent_sequence_credential_is_masked(self) -> None:
         # A value carrying a percent sequence that reads like a format

@@ -91,35 +91,38 @@ def _provider_key_pattern(payload_class: str = "A-Za-z0-9_-") -> str:
 
 # Substring scanner for free-form text (exception messages, observations):
 # provider key prefixes, Bearer/Token/Basic schemes, labeled key assignments
-# (``api_key=...``), and any standalone run of 20+ key characters
-# (letters/digits/hyphen/underscore) delimited by other characters.
-# ``basic`` carries its own shorter minimum and the base64 alphabet
-# (``+/=``): a Basic payload is base64, the padding and separator characters
-# break the standalone-run rule, so the scheme form is the only net that
-# catches it; the floor is 4 because valid base64 lengths are multiples of 4,
-# so anything shorter encodes nothing. The scheme/assignment forms accept the
-# full base64 alphabet too — a standard-base64 payload carries ``+``/``/``
-# that would otherwise split the token in half — and the underscore that
-# URL-safe tokens use, and tolerate up to two ``=`` padding characters at the
-# end. The delimiter alternation ``(?:\s*[:=]\s*|\s+)`` spans the written
-# forms ("key: v", "key = v", "bearer v") and an optional opening quote, and
-# the short scheme (floor 6) and labeled (floor 4) alternatives catch a
-# compact quoted credential ("rejected Bearer abc123", "api_key: abc123"):
-# their digit lookahead is what keeps ordinary prose out — the words that
-# follow a scheme or label word in prose ("authorization required", "api key
-# required", "secret sauce") are pure alphabetic, so they survive.
+# (``api_key=...``, the spaced "api key: ..." included), and any standalone
+# run of 20+ key characters (letters/digits/hyphen/underscore) delimited by
+# other characters. ``basic`` carries its own shorter minimum and the base64
+# alphabet (``+/=``): a Basic payload is base64, the padding and separator
+# characters break the standalone-run rule, so the scheme form is the only
+# net that catches it; the floor is 4 because valid base64 lengths are
+# multiples of 4, so anything shorter encodes nothing. The scheme/assignment
+# forms accept the full base64 alphabet too — a standard-base64 payload
+# carries ``+``/``/`` that would otherwise split the token in half — and the
+# underscore that URL-safe tokens use (spelled first in every class), and
+# tolerate up to two ``=`` padding characters at the end. The delimiter
+# alternation ``(?:\s*[:=]\s*|\s+)`` spans the written forms ("key: v",
+# "key = v", "bearer v") and an optional opening quote. A short scheme value
+# (floor 6) or a short labeled value (floor 4) after an explicit ``:``/``=``
+# is masked whatever its composition — a bare hex credential like
+# "api_key: deadbeef" has no digit — while a value after a bare space keeps
+# the digit lookahead, because that is where prose lives ("password
+# required", "secret sauce" are pure alphabetic and stay readable).
 # Deliberately conservative: the last alternative does NOT require mixed
 # alphanumerics, so ordinary long words are masked too — a false positive
 # costs a little readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
     + r"|(?i:bearer|token|authorization)(?:\s*[:=]\s*|\s+)[\"\']?"
-    + r"[A-Za-z0-9_.+/-]{12,}={0,2}"
+    + r"[_A-Za-z0-9.+/-]{12,}={0,2}"
     + r"|(?i:bearer|token|authorization)(?:\s*[:=]\s*|\s+)[\"\']?"
-    + r"(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{6,}={0,2}"
-    + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret|password|passwd)"
-    + r"(?:\s*[:=]\s*|\s+)[\"\']?"
-    + r"(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{4,}={0,2}"
+    + r"(?=[_A-Za-z0-9.+/-]*[0-9])[_A-Za-z0-9.+/-]{6,}={0,2}"
+    + r"|(?i:api[\s_-]?key|apikey|access[\s_-]?token|auth[\s_-]?token|secret|password|passwd)"
+    + r"(?:"
+    + r"\s*[:=]\s*[\"\']?[_A-Za-z0-9.+/-]{4,}={0,2}"
+    + r"|\s+[\"\']?(?=[_A-Za-z0-9.+/-]*[0-9])[_A-Za-z0-9.+/-]{4,}={0,2}"
+    + r")"
     + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
@@ -127,13 +130,13 @@ _SUBSTR_KEY_RE = re.compile(
 # The credential shapes that can travel inside a URL path or fragment. The
 # provider key prefixes and the scheme/assignment forms — including the
 # labeled keys, a fragment is where OAuth flows park both ``access_token=``
-# and ``api_key=`` — with the same base64 alphabet, the underscore, and the
-# ``%`` of a percent-encoded payload, and a short assignment floor (1): the
-# payload can be very short, while everything else in a path or fragment
-# that matters stays diagnosable. The last alternative is the
-# standalone-run rule tightened for URLs: a path or fragment can also carry
-# an unprefixed token (a signed-path credential), so a 20+ run of key
-# characters is masked unless the token-level callback (see
+# and ``api_key=`` — with the same base64 alphabet, the underscore (spelled
+# first in every class), and the ``%`` of a percent-encoded payload, and a
+# short assignment floor (1): the payload can be very short, while
+# everything else in a path or fragment that matters stays diagnosable. The
+# last alternative is the standalone-run rule tightened for URLs: a path or
+# fragment can also carry an unprefixed token (a signed-path credential), so
+# a 20+ run of key characters is masked unless the token-level callback (see
 # ``_mask_url_credentials``) clears it as an ordinary identifier. The run
 # class carries ``+`` so a standard-base64 token is not split at it; ``/``
 # stays out — it is the path separator. The Basic scheme form is not listed:
@@ -142,10 +145,10 @@ _SUBSTR_KEY_RE = re.compile(
 # ``_mask_query_values``.
 _URL_CREDENTIAL_RE = re.compile(
     _provider_key_pattern("A-Za-z0-9_.%+-")
-    + r"|(?i:bearer|token|authorization)[:=]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
+    + r"|(?i:bearer|token|authorization)[:=]\s*[_A-Za-z0-9.%+/-]{1,}={0,2}"
     + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret|password|passwd)"
-    + r"[:=]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
-    + r"|(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]{20,})(?![A-Za-z0-9_.%+-])",
+    + r"[:=]\s*[_A-Za-z0-9.%+/-]{1,}={0,2}"
+    + r"|(?<![_A-Za-z0-9.%+-])([_A-Za-z0-9.%+-]{20,})(?![_A-Za-z0-9.%+-])",
 )
 
 # A canonical UUID: the one 20+ mixed-alphanumeric run that stays readable in
