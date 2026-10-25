@@ -431,5 +431,14 @@ class TestConfiguredPipeline:
     def test_underscores_do_not_split_a_quoted_token(self) -> None:
         """A URL-safe token's underscores must not end the scheme match."""
         out = redact_log_value("upstream said: Token ab.dEf_ghIJKlmnoP expired")
-        assert "dEf_ghIJKlmnoP" not in out
-        assert "upstream said:" in out
+        assert out == "upstream said: Toke*** expired"
+
+    def test_an_ipv6_url_in_brackets_keeps_its_closing_bracket(self) -> None:
+        """A Markdown bracket around an IPv6 URL with a query stays.
+
+        The authority's own brackets balance, so the surplus ``]`` after the
+        URL is prose: the query is masked and the closing bracket survives
+        instead of being consumed with the query value.
+        """
+        out = redact_log_value("see [http://[::1]/?a=1] more")
+        assert out == "see [http://[::1]/?a=***] more"

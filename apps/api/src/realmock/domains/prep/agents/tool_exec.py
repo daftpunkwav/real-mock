@@ -189,7 +189,10 @@ def build_execute_callback(
                 asked_user=asked_user,
             )
         query = args.get("query") or args.get("company") or args.get("repo") or ""
-        header = f"[{name}] {query}".strip()
+        # The header echoes the model's own query into every observation
+        # (success, failure, and breaker), and a query can carry a
+        # credential-bearing URL — scanned like any other text.
+        header = f"[{name}] {redact_secrets_in_text(str(query))}".strip()
         if error_streak.get(name, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
             return f"{header}\n{_circuit_open_observation(name)}"
         try:

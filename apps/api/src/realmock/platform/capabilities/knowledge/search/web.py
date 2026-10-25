@@ -71,8 +71,12 @@ def _search_with_ddgs(query: str, max_results: int) -> list[dict]:
                     return results
                 errors.append(f"{backend}: empty")
             except Exception as e:
-                errors.append(f"{backend}: {e}")
-                logger.info("ddgs backend=%s failed: %s", backend, e)
+                # The backend error text can quote a credential; a non-str
+                # argument would bypass the redaction filter, so pass the
+                # sanitized string.
+                safe = redact_secrets_in_text(str(e))
+                errors.append(f"{backend}: {safe}")
+                logger.info("ddgs backend=%s failed: %s", backend, safe)
     raise RuntimeError("; ".join(errors)[:400] or "no backend succeeded")
 
 
@@ -108,7 +112,9 @@ def web_search_with_hits(
         # Single backend by decision: the legacy duckduckgo_search fallback
         # was removed together with its dependency, so a ddgs failure is
         # surfaced as SEARCH_UNAVAILABLE instead of a silent retry path.
-        logger.warning("web search failed: %s", e)
+        # A non-str argument bypasses the redaction filter: pass the
+        # sanitized string.
+        logger.warning("web search failed: %s", redact_secrets_in_text(str(e)))
         return _unavailable(str(e)[:400]), []
 
     hits: list[SearchHit] = []

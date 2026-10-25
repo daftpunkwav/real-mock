@@ -99,42 +99,50 @@ def _provider_key_pattern() -> str:
 # full base64 alphabet too — a standard-base64 payload carries ``+``/``/``
 # that would otherwise split the token in half — and the underscore that
 # URL-safe tokens use, and tolerate up to two ``=`` padding characters at the
-# end. The short scheme alternative (floor 6) and the labeled-assignment form
-# (floor 4) catch a compact quoted credential ("rejected Bearer abc123",
-# "api_key: abc123"): their digit lookahead is what keeps ordinary prose out —
-# the words that follow a scheme or label word in prose ("authorization
-# required", "api key required") are pure alphabetic, so they survive.
+# end. The delimiter alternation ``(?:\s*[:=]\s*|\s+)`` spans the written
+# forms ("key: v", "key = v", "bearer v") and an optional opening quote, and
+# the short scheme (floor 6) and labeled (floor 4) alternatives catch a
+# compact quoted credential ("rejected Bearer abc123", "api_key: abc123"):
+# their digit lookahead is what keeps ordinary prose out — the words that
+# follow a scheme or label word in prose ("authorization required", "api key
+# required", "secret sauce") are pure alphabetic, so they survive.
 # Deliberately conservative: the last alternative does NOT require mixed
 # alphanumerics, so ordinary long words are masked too — a false positive
 # costs a little readability, a false negative leaks a key.
 _SUBSTR_KEY_RE = re.compile(
     _provider_key_pattern()
-    + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9_.+/-]{12,}={0,2}"
-    + r"|(?i:bearer|token|authorization)[:= ]\s*(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{6,}={0,2}"
-    + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token)[:= ]\s*"
+    + r"|(?i:bearer|token|authorization)(?:\s*[:=]\s*|\s+)[\"\']?"
+    + r"[A-Za-z0-9_.+/-]{12,}={0,2}"
+    + r"|(?i:bearer|token|authorization)(?:\s*[:=]\s*|\s+)[\"\']?"
+    + r"(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{6,}={0,2}"
+    + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret|password|passwd)"
+    + r"(?:\s*[:=]\s*|\s+)[\"\']?"
     + r"(?=[A-Za-z0-9_.+/-]*[0-9])[A-Za-z0-9_.+/-]{4,}={0,2}"
     + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"
     + r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])",
 )
 
 # The credential shapes that can travel inside a URL path or fragment. The
-# provider key prefixes and the scheme/assignment forms, with the same
-# base64 alphabet, the underscore, and the ``%`` of a percent-encoded
-# payload — and a short assignment floor (1): a fragment is where OAuth
-# flows park ``access_token=...``, and its payload can be very short, while
-# everything else in a path or fragment that matters stays diagnosable. The
-# last alternative is the standalone-run rule tightened for URLs: a path or
-# fragment can also carry an unprefixed token (a signed-path credential), so
-# a 20+ run of key characters is masked unless the token-level callback
-# (see ``_mask_url_credentials``) clears it as an ordinary identifier. The
-# run class carries ``+`` so a standard-base64 token is not split at it; ``/``
+# provider key prefixes and the scheme/assignment forms — including the
+# labeled keys, a fragment is where OAuth flows park both ``access_token=``
+# and ``api_key=`` — with the same base64 alphabet, the underscore, and the
+# ``%`` of a percent-encoded payload, and a short assignment floor (1): the
+# payload can be very short, while everything else in a path or fragment
+# that matters stays diagnosable. The last alternative is the
+# standalone-run rule tightened for URLs: a path or fragment can also carry
+# an unprefixed token (a signed-path credential), so a 20+ run of key
+# characters is masked unless the token-level callback (see
+# ``_mask_url_credentials``) clears it as an ordinary identifier. The run
+# class carries ``+`` so a standard-base64 token is not split at it; ``/``
 # stays out — it is the path separator. The Basic scheme form is not listed:
 # path and fragment carry no unencoded spaces, so its whitespace anchor can
 # never match there — a Basic payload in a query is masked wholesale by
 # ``_mask_query_values``.
 _URL_CREDENTIAL_RE = re.compile(
     _provider_key_pattern()
-    + r"|(?i:bearer|token|authorization)[:= ]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
+    + r"|(?i:bearer|token|authorization)[:=]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
+    + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret|password|passwd)"
+    + r"[:=]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
     + r"|(?<![A-Za-z0-9_.%+-])([A-Za-z0-9_.%+-]{20,})(?![A-Za-z0-9_.%+-])",
 )
 
@@ -352,28 +360,31 @@ def _mask_tokens_in_text(value: str) -> str:
 
 
 def _trim_trailing_brackets(url: str) -> tuple[str, str]:
-    """Split the trailing prose brackets an IPv6-less URL match swallowed.
+    """Split the trailing prose brackets a URL match swallowed.
 
-    ``]`` is a URL character (an IPv6 authority's closing bracket), but a
-    match with no ``[`` in it cannot be closing one: the brackets belong to
-    the text after the URL. Keeping them inside the match would mask a query
-    placeholder together with the bracket (``"...?key=%s]"`` loses the
-    ``%s`` and the log line with it) or eat the bracket that closes a
-    Markdown link.
+    ``]`` is a URL character (an IPv6 authority's closing bracket), so the
+    match runs over one — but a matched URL with more ``]`` than ``[`` has
+    prose brackets at its tail, and keeping them inside the match would mask
+    a query placeholder together with the bracket (``"...?key=%s]"`` loses
+    the ``%s`` and the log line with it), eat the bracket that closes a
+    Markdown link, or swallow a closing bracket after an IPv6 URL whose
+    authority brackets already balance.
     """
-    if "[" in url:
+    surplus = url.count("]") - url.count("[")
+    if surplus <= 0:
         return url, ""
     body = url.rstrip("]")
-    return body, url[len(body) :]
+    brackets = url[len(body) :][:surplus]
+    return url[: len(url) - len(brackets)], brackets
 
 
 def _split_url_text(value: str) -> list[str]:
     """Split a text into alternating prose and URL parts, brackets restored.
 
     Same alternation contract as ``_URL_RE.split`` (even index = prose, odd =
-    URL match), with the trailing prose brackets of each IPv6-less URL
-    prepended to the prose part that always follows a match, so the parity
-    of every part is preserved.
+    URL match), with the trailing prose brackets of each URL match prepended
+    to the prose part that always follows a match, so the parity of every
+    part is preserved.
     """
     parts = _URL_RE.split(value)
     if len(parts) < 3:

@@ -213,7 +213,14 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text(
             "denied at https://api.example.com/v1#access_token=abc%2Fdef%3D end"
         )
-        assert out == "denied at https://api.example.com/v1#access_toke*** end"
+        assert out == "denied at https://api.example.com/v1#acce*** end"
+
+    def test_url_fragment_labeled_key_is_masked(self) -> None:
+        # Labeled keys are assignment shapes too: a fragment is where OAuth
+        # flows park both access_token= and api_key=, at any short length.
+        out = redact_secrets_in_text("denied at https://api.example.com/v1#api_key=short1 end")
+        assert "short1" not in out
+        assert "api_***" in out
 
     def test_url_path_percent_encoded_value_is_masked(self) -> None:
         out = redact_secrets_in_text(
@@ -248,32 +255,47 @@ class TestRedactSecretsInText:
     def test_labeled_short_key_is_masked(self) -> None:
         # An unprefixed key shorter than the standalone floor survives when
         # it is bare, but a key-label assignment ("api_key: abc123") is a
-        # credential shape at any length above 4.
+        # credential shape at any length above 4. The full masked form is
+        # pinned so a scanner that masks only the value cannot pass.
         out = redact_secrets_in_text("rejected: api_key: abc123 outright")
+        assert out == "rejected: api_*** outright"
+
+    def test_labeled_quoted_and_spaced_value_is_masked(self) -> None:
+        # The delimiter alternation spans the written forms: whitespace
+        # around the "=" and an opening quote around the value are consumed
+        # with the match.
+        out = redact_secrets_in_text('rejected: api_key = "abc123" outright')
         assert "abc123" not in out
+
+    def test_secret_labeled_value_is_masked(self) -> None:
+        out = redact_secrets_in_text("rejected: secret: 4f8a2b1c outright")
+        assert "4f8a2b1c" not in out
 
     def test_labeled_prose_is_preserved(self) -> None:
         # The label form's digit lookahead keeps ordinary prose out: a bare
         # short value and a pure-alphabetic word after a label both stay.
         text = "the apikey is fine and api_key=required stays"
         assert redact_secrets_in_text(text) == text
+        assert redact_secrets_in_text("the secret sauce recipe stays") == (
+            "the secret sauce recipe stays"
+        )
 
     def test_query_value_with_percent_sequence_credential_is_masked(self) -> None:
         # A value carrying a percent sequence that reads like a format
         # specifier ("%a") must still lose its credential payload: the
-        # specifier is kept, the surrounding text is masked.
+        # specifier is kept (the placeholder survives), the surrounding text
+        # is masked. The exact form is pinned.
         out = redact_secrets_in_text(
             "connect failed: https://x.example.com/v1?token=ab%aecd refused"
         )
-        assert "ab%aecd" not in out
-        assert "refused" in out
+        assert out == "connect failed: https://x.example.com/v1?token=***%a*** refused"
 
     def test_bearer_token_with_underscores_is_masked(self) -> None:
         # URL-safe tokens carry underscores; the scheme payload class must
         # consume them or the scan stops mid-token and the tail survives.
+        # The full masked form is pinned so a partial mask cannot pass.
         out = redact_secrets_in_text("rejected: Bearer ab.dEf_ghIJKlmnoP refused")
-        assert "dEf_ghIJKlmnoP" not in out
-        assert "refused" in out
+        assert out == "rejected: Bear*** refused"
 
     def test_url_fragment_underscored_value_is_masked(self) -> None:
         out = redact_secrets_in_text("denied at https://api.example.com/v1#token=ab_cdef end")
