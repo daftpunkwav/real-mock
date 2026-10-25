@@ -237,6 +237,25 @@ _FORMAT_SPEC_RE = re.compile(
 )
 
 
+def _mask_around_specifiers(value: str) -> str:
+    """Keep each format specifier, mask the payload around it.
+
+    A template placeholder must survive the rewrite or the substitution
+    balance breaks and the log line is lost; the non-specifier text between
+    and around the specifiers is not trusted the same way, so it is masked.
+    """
+    pieces: list[str] = []
+    cursor = 0
+    for spec in _FORMAT_SPEC_RE.finditer(value):
+        if spec.start() > cursor:
+            pieces.append("***")
+        pieces.append(spec.group(0))
+        cursor = spec.end()
+    if cursor < len(value):
+        pieces.append("***")
+    return "".join(pieces)
+
+
 def _mask_query_values(query: str, *, preserve_specifiers: bool) -> str:
     """Replace every query-parameter value with ``***`` (names are kept).
 
@@ -253,16 +272,7 @@ def _mask_query_values(query: str, *, preserve_specifiers: bool) -> str:
         if not sep:
             masked.append(part)
         elif preserve_specifiers and _FORMAT_SPEC_RE.search(value):
-            pieces: list[str] = []
-            cursor = 0
-            for spec in _FORMAT_SPEC_RE.finditer(value):
-                if spec.start() > cursor:
-                    pieces.append("***")
-                pieces.append(spec.group(0))
-                cursor = spec.end()
-            if cursor < len(value):
-                pieces.append("***")
-            masked.append(f"{name}={''.join(pieces)}")
+            masked.append(f"{name}={_mask_around_specifiers(value)}")
         else:
             masked.append(f"{name}=***")
     return "&".join(masked)
