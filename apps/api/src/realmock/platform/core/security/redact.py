@@ -72,18 +72,20 @@ def _looks_like_secret(v: str) -> bool:
     return has_letter and has_digit
 
 
-def _provider_key_pattern() -> str:
+def _provider_key_pattern(payload_class: str = "A-Za-z0-9_-") -> str:
     """Regex alternatives for the provider key prefixes of the table.
 
     Each prefix carries its own minimum payload length, so the scanner reads
-    the same table the whole-value heuristic reads.
+    the same table the whole-value heuristic reads. The URL scanner widens
+    the payload class: a percent-encoded payload character must not end the
+    match there.
     """
     alternatives: list[str] = []
     for prefix, min_payload, case_insensitive in _PROVIDER_KEY_PREFIXES:
         escaped = re.escape(prefix)
         if case_insensitive:
             escaped = f"(?i:{escaped})"
-        alternatives.append(f"{escaped}[A-Za-z0-9_-]{{{min_payload},}}")
+        alternatives.append(f"{escaped}[{payload_class}]{{{min_payload},}}")
     return "|".join(alternatives)
 
 
@@ -139,7 +141,7 @@ _SUBSTR_KEY_RE = re.compile(
 # never match there — a Basic payload in a query is masked wholesale by
 # ``_mask_query_values``.
 _URL_CREDENTIAL_RE = re.compile(
-    _provider_key_pattern()
+    _provider_key_pattern("A-Za-z0-9_.%+-")
     + r"|(?i:bearer|token|authorization)[:=]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
     + r"|(?i:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret|password|passwd)"
     + r"[:=]\s*[A-Za-z0-9_.%+/-]{1,}={0,2}"
@@ -232,20 +234,22 @@ _FORMAT_SPEC_RE = re.compile(
 )
 
 
-def _mask_query_values(query: str) -> str:
+def _mask_query_values(query: str, *, preserve_specifiers: bool) -> str:
     """Replace every query-parameter value with ``***`` (names are kept).
 
-    A value carrying a ``%``-format specifier keeps each specifier and masks
-    the payload around it: masking the whole value would delete the
-    placeholder and cost the log line, keeping the whole value would leave a
-    percent-sequence credential visible.
+    ``preserve_specifiers`` is the template pipeline's need: a placeholder
+    (``?key=%s``) must survive or the substitution balance breaks and the
+    log line is lost, so a value carrying a specifier keeps each specifier
+    and masks the payload around it. Outside a template a specifier-looking
+    sequence is just text — and part of a possible credential — so every
+    value is masked whole.
     """
     masked: list[str] = []
     for part in query.split("&"):
         name, sep, value = part.partition("=")
         if not sep:
             masked.append(part)
-        elif _FORMAT_SPEC_RE.search(value):
+        elif preserve_specifiers and _FORMAT_SPEC_RE.search(value):
             pieces: list[str] = []
             cursor = 0
             for spec in _FORMAT_SPEC_RE.finditer(value):
@@ -290,7 +294,7 @@ def _mask_url_credentials(text: str) -> str:
     return _URL_CREDENTIAL_RE.sub(_mask, text)
 
 
-def _mask_url(url: str) -> str:
+def _mask_url(url: str, *, preserve_specifiers: bool = False) -> str:
     """Mask the query values, the userinfo password and the credentials of one URL.
 
     The fragment is partitioned off first, so it is scanned whether or not a
@@ -298,7 +302,8 @@ def _mask_url(url: str) -> str:
     would otherwise ride along inside the path segment and escape the
     assignment floor. The userinfo username is scanned too: a credential
     supplied as a URL username (``https://sk-...@host/``) is as sensitive as
-    one in the password.
+    one in the password. ``preserve_specifiers`` forwards the template
+    pipeline's placeholder need to the query treatment.
     """
     scheme, sep, rest = url.partition("://")
     if not sep:
@@ -320,7 +325,11 @@ def _mask_url(url: str) -> str:
         fragment = _mask_url_credentials(fragment)
     if not qmark:
         return f"{scheme}://{head}{hash_}{fragment}"
-    return f"{scheme}://{head}?{_mask_query_values(query)}{hash_}{fragment}"
+    return (
+        f"{scheme}://{head}"
+        f"?{_mask_query_values(query, preserve_specifiers=preserve_specifiers)}"
+        f"{hash_}{fragment}"
+    )
 
 
 def _redact_fragment(text: str, *, scan_embedded: bool) -> str:
@@ -480,7 +489,9 @@ def redact_log_template(template: str) -> str:
     out: list[str] = []
     for index, part in enumerate(parts):
         # The pattern has one group, so the odd indices are the URL matches.
-        out.append(_mask_url(part) if index % 2 else _redact_template_text(part))
+        out.append(
+            _mask_url(part, preserve_specifiers=True) if index % 2 else _redact_template_text(part)
+        )
     return "".join(out)
 
 

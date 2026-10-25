@@ -288,7 +288,16 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text(
             "connect failed: https://x.example.com/v1?token=ab%aecd refused"
         )
-        assert out == "connect failed: https://x.example.com/v1?token=***%a*** refused"
+        assert out == "connect failed: https://x.example.com/v1?token=*** refused"
+
+    def test_url_path_encoded_provider_key_is_masked(self) -> None:
+        # A percent-encoded payload character must not end the provider-key
+        # match inside a URL path: the URL payload class accepts ``%``.
+        out = redact_secrets_in_text(
+            "connect failed: https://api.vendor.com/v1/sk-abc%2Ddefghij/chat"
+        )
+        assert "sk-abc%2Ddefghij" not in out
+        assert "sk-a***" in out
 
     def test_bearer_token_with_underscores_is_masked(self) -> None:
         # URL-safe tokens carry underscores; the scheme payload class must
