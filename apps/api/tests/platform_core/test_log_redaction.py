@@ -159,9 +159,12 @@ class TestRedactLogUrlCredentials:
         out = redact_log_value("https://api.example.com/v1/chat#access_token=sk-abcdefghijklmnop")
         assert "sk-abcdefghijklmnop" not in out
 
-    def test_an_ordinary_path_keeps_its_identifiers(self) -> None:
-        url = "https://api.example.com/v1/sessions/8f14e45fceea167a5a36dedd4bea2543"
-        assert redact_log_value(url) == url
+    def test_ordinary_path_identifiers_stay_diagnosable(self) -> None:
+        # Slugs and pure-digit segments are not token shapes (no letter-digit
+        # mix), so the URL standalone rule leaves them readable.
+        for segment in ("session-445566", "20241024143022123456", "quarterly-financial-report"):
+            url = f"https://api.example.com/v1/sessions/{segment}"
+            assert redact_log_value(url) == url
 
 
 class TestLogPipeline:
@@ -388,3 +391,45 @@ class TestConfiguredPipeline:
         """
         text = "see https://example.com/page[1] for details"
         assert redact_log_value(text) == text
+
+    def test_a_bracketed_url_keeps_its_closing_bracket(self) -> None:
+        """A ``]`` that closes prose around a query URL stays in the output.
+
+        The URL match runs over the bracket (it might be an IPv6 authority),
+        but the matched URL carries no ``[``: the trailing bracket is split
+        back off before the URL treatment, so the query is masked and the
+        bracket survives instead of being swallowed.
+        """
+        text = "see [https://example.com/?a=1] for details"
+        out = redact_log_value(text)
+        assert out == "see [https://example.com/?a=***] for details"
+
+    def test_a_template_bracket_after_a_query_placeholder_keeps_the_line(self) -> None:
+        """``?key=%s]`` must keep its placeholder and its line.
+
+        A query value that swallowed a prose bracket stops being a
+        format-specifier match, and masking it would delete the ``%s`` and
+        break the substitution balance — the log line would be dropped. The
+        trailing bracket is prose, so it is split off and the placeholder
+        survives intact.
+        """
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.core",
+                level=logging.INFO,
+                pathname=__file__,
+                lineno=1,
+                msg="check [http://example.com/?key=%s]",
+                args=("value",),
+                exc_info=None,
+            )
+
+        line = _emit(make_record)
+        assert "check [http://example.com/?key=value]" in line
+
+    def test_underscores_do_not_split_a_quoted_token(self) -> None:
+        """A URL-safe token's underscores must not end the scheme match."""
+        out = redact_log_value("upstream said: Token ab.dEf_ghIJKlmnoP expired")
+        assert "dEf_ghIJKlmnoP" not in out
+        assert "upstream said:" in out

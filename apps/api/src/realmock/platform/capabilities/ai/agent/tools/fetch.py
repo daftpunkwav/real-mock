@@ -22,6 +22,7 @@ from urllib.parse import urljoin
 import httpx
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
+from realmock.platform.core.security import redact_secrets_in_text
 from realmock.platform.core.security.url import UnsafeURLError
 from realmock.platform.core.security.url_pin import make_pinned_async_client
 
@@ -102,9 +103,13 @@ def _strip_html(raw_html: str) -> str:
 
 
 def _unavailable(detail: str) -> str:
+    # The detail can quote an upstream exception, and an httpx error text
+    # embeds the full request URL — the credential's favorite hiding place.
+    # The soft-fail observation reaches the model as a normal result, so the
+    # text is redacted here, before it leaves the tool.
     return (
         "FETCH_FAILED\n"
-        f"Could not fetch the page ({detail}).\n"
+        f"Could not fetch the page ({redact_secrets_in_text(detail)}).\n"
         "Do not invent the page's content; rely on the search snippet or "
         "general knowledge, and say so."
     )

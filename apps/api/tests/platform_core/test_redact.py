@@ -166,12 +166,25 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text("denied at https://api.example.com/v1#access_token=abc123 end")
         assert "abc123" not in out
 
-    def test_url_path_opaque_identifiers_stay_diagnosable(self) -> None:
-        # Pins the deliberate boundary: a path's session-id-shaped segment
-        # is not a credential shape, and masking it would cost the
-        # diagnosability the URL treatment exists to preserve.
-        url = "https://api.example.com/v1/sessions/8f14e45fceea167a5a36dedd4bea2543"
-        assert redact_secrets_in_text(f"lookup failed for {url}") == f"lookup failed for {url}"
+    def test_url_path_mixed_token_is_masked(self) -> None:
+        # A path or fragment can also carry an unprefixed token (a signed
+        # path is ``/files/<token>/content``), so a 20+ mixed-alphanumeric
+        # segment is masked by the URL standalone rule.
+        url = "https://files.example.com/dl/Abc123Def456Ghi789Jkl0/content"
+        out = redact_secrets_in_text(f"lookup failed for {url}")
+        assert "Abc123Def456Ghi789Jkl0" not in out
+        assert "/dl/" in out and "/content" in out
+
+    def test_url_path_ordinary_identifiers_stay_diagnosable(self) -> None:
+        # Pins the diagnosability boundary that survives the URL standalone
+        # rule: slugs, pure-digit and pure-alpha segments are not token
+        # shapes (no letter-digit mix), and masking them would cost the
+        # URL's readability — even at 20+ characters.
+        for segment in ("session-445566", "20241024143022123456", "quarterly-financial-report"):
+            url = f"https://api.example.com/v1/sessions/{segment}"
+            assert redact_secrets_in_text(f"lookup failed for {url}") == (
+                f"lookup failed for {url}"
+            )
 
     def test_ipv6_url_query_credential_is_masked(self) -> None:
         # The closing bracket of an IPv6 literal authority is mid-URL, not
@@ -183,3 +196,54 @@ class TestRedactSecretsInText:
         assert "shortsecret" not in out
         assert "api_key=***" in out
         assert "2001:db8::1" in out
+
+    def test_url_fragment_without_query_is_scanned(self) -> None:
+        # A credential parked after ``#`` in a query-less URL must not ride
+        # along inside the path segment: the fragment is partitioned off
+        # first and scanned with its own short assignment floor.
+        out = redact_secrets_in_text("denied at https://api.example.com/v1#token=abc end")
+        assert "token=abc" not in out
+        assert "denied at" in out and "end" in out
+
+    def test_url_fragment_percent_encoded_value_is_masked(self) -> None:
+        # A percent-encoded payload character must not end the match: the
+        # assignment class accepts ``%`` so an encoded fragment credential
+        # is consumed whole.
+        out = redact_secrets_in_text(
+            "denied at https://api.example.com/v1#access_token=abc%2Fdef%3D end"
+        )
+        assert "%2F" not in out
+        assert "%3D" not in out
+
+    def test_url_path_percent_encoded_value_is_masked(self) -> None:
+        out = redact_secrets_in_text(
+            "denied at https://api.example.com/v1/files/token%3DAbc123Def456Ghi789/retrieve"
+        )
+        assert "%3D" not in out
+        assert "Abc123Def456Ghi789" not in out
+
+    def test_bearer_token_with_underscores_is_masked(self) -> None:
+        # URL-safe tokens carry underscores; the scheme payload class must
+        # consume them or the scan stops mid-token and the tail survives.
+        out = redact_secrets_in_text("rejected: Bearer ab.dEf_ghIJKlmnoP refused")
+        assert "dEf_ghIJKlmnoP" not in out
+        assert "refused" in out
+
+    def test_url_fragment_underscored_value_is_masked(self) -> None:
+        out = redact_secrets_in_text("denied at https://api.example.com/v1#token=ab_cdef end")
+        assert "ab_cdef" not in out
+
+    def test_short_bearer_credential_is_masked(self) -> None:
+        # A compact quoted credential is shorter than the 12-char scheme
+        # floor; the short alternative catches it when it carries a digit.
+        out = redact_secrets_in_text("provider rejected Bearer abc123 outright")
+        assert "abc123" not in out
+        assert "provider rejected" in out and "outright" in out
+
+    def test_prose_after_scheme_words_is_preserved(self) -> None:
+        # The short alternative's digit lookahead keeps pure-alphabetic prose
+        # out of the net: the words that follow a scheme word in an error
+        # sentence are usually exactly that. (A sentence that STARTS with
+        # "authorization" is a whole-value header shape by design.)
+        text = "the request says authorization required and the token is expired"
+        assert redact_secrets_in_text(text) == text

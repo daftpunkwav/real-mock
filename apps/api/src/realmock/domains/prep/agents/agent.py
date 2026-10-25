@@ -37,6 +37,7 @@ from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.constants import SessionStatus
 from realmock.platform.core.errors import ApiBusinessError
+from realmock.platform.core.security import redact_secrets_in_text
 from realmock.platform.core.session_auth import new_access_token
 
 from .ask_user import fallback_reply as _fallback_reply
@@ -222,16 +223,21 @@ class PrepAgent:
                 memory_index_limit=self.memory_index_limit,
             )
         except Exception as exc:
+            # Redact before both sinks: the message goes to the log record
+            # and to the persisted error record, and an upstream seed error
+            # can quote a credential. Pass a str, not the exception object —
+            # a non-str argument is rendered raw by the log machinery.
+            safe_detail = redact_secrets_in_text(str(exc))[:200]
             logger.warning(
                 "Prep system seed degraded sid=%s: %s",
                 getattr(self.session, "id", ""),
-                exc,
+                safe_detail,
             )
             log_agent_error(
                 domain="prep",
                 session=str(getattr(self.session, "id", "") or ""),
                 kind="seed_degraded",
-                message=str(exc)[:200],
+                message=safe_detail,
             )
             self.messages = [{"role": "system", "content": PREP_SYSTEM}]
 
