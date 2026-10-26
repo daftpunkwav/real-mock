@@ -1,4 +1,8 @@
 # Test fixtures: fake credential shapes used by the redaction regression
 # tests (no real secret; the values are opaque made-up strings).
-35cb36c611162ff2ef6919e61b1d43c5acc60efc:apps/api/tests/platform_core/test_redact.py:generic-api-key:220
-06cd6825e9ef3a45dcadf00fd551394a6a09a3f7:apps/api/tests/platform_core/test_redact.py:generic-api-key:222
+# The key is <file>:<rule>:<line>; the pinned scanner (gitleaks 8.30.1)
+# matches it per file position.
+apps/api/tests/platform_core/test_redact.py:generic-api-key:220
+apps/api/tests/platform_core/test_redact.py:generic-api-key:222
+apps/api/tests/platform_core/test_redact.py:generic-api-key:227
+apps/api/tests/platform_core/test_redact.py:generic-api-key:229
