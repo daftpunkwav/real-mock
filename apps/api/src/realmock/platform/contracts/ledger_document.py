@@ -26,6 +26,9 @@ class ToolPreview(TypedDict, total=False):
 
     The args and the result are truncated previews, not the full tool
     output: the ledger keeps what a reader needs to see that a tool ran.
+    Readers key their lookups on these declared names; the ledger store
+    normalizes a stored preview written under an older key to the declared
+    one before publishing the document.
     """
 
     name: str
@@ -63,16 +66,20 @@ class LedgerTurn(TypedDict, total=False):
 class LedgerDocument(TypedDict, total=False):
     """Root ledger document aggregated from the ``interview_turns`` table.
 
-    Every element of ``turns`` is a turn object: the writer skips a row whose
-    stored JSON is not a mapping, so a reader can map a turn without
-    re-checking its type.
+    Every element of ``turns`` is a turn mapping with tool previews under the
+    declared key names: the writer skips a row that is not a mapping and
+    normalizes the previews of a row it publishes. A skipped row or a dropped
+    preview marks the document ``corrupt``, so a reader can tell an absent
+    turn from one the document could not represent.
     """
 
     schema: str
     session_id: int
     frozen: bool
     turns: list[LedgerTurn]
-    # Set when JSON parse failed; raw_unparsed preserves a truncated original blob.
+    # Set when stored content cannot be represented in this document
+    # (unparsable JSON, a non-mapping turn, a dropped tool preview);
+    # raw_unparsed preserves a truncated original blob.
     corrupt: bool
     raw_unparsed: str
 

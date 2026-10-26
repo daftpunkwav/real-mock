@@ -59,6 +59,63 @@ def _turn_rows(db: Session, session_id: int) -> list[InterviewTurn]:
     )
 
 
+# The report reader of an earlier release looked the tool result up under
+# ``result`` instead of the declared ``result_preview``. A stored preview can
+# still carry that key (a hand-edited row, a blob written around that time);
+# rename it on read so the declared key is the only one a reader needs.
+_LEGACY_PREVIEW_KEYS = (("result", "result_preview"),)
+
+
+def _normalize_tool_preview(value: Any) -> ToolPreview | None:
+    """Return one stored preview under the declared key names.
+
+    ``None`` means the value is not a mapping and cannot become a preview.
+    """
+    if not isinstance(value, dict):
+        return None
+    preview = dict(value)
+    for legacy, declared in _LEGACY_PREVIEW_KEYS:
+        if declared not in preview and legacy in preview:
+            preview[declared] = preview.pop(legacy)
+    return cast("ToolPreview", preview)
+
+
+def _normalize_turn(turn: dict[str, Any]) -> tuple[LedgerTurn, bool]:
+    """Publish one stored turn under the declared tool-preview shape.
+
+    The storage writer produces the declared keys, but a legacy or hand-edited
+    row can carry a preview under a key the contract does not declare, or a
+    ``tools`` value that is not a list of mappings. Readers key their lookups
+    on the contract, so previews are normalized here and entries that cannot
+    be previews are dropped. The boolean reports whether content was dropped;
+    the caller marks the document corrupt in that case instead of losing the
+    evidence silently.
+    """
+    raw_tools = turn.get("tools")
+    if raw_tools is None:
+        if "tools" not in turn:
+            return cast("LedgerTurn", turn), False
+        # JSON null is not a preview list: drop the key (no content is lost)
+        # so the published turn matches the declared optional shape.
+        normalized = dict(turn)
+        normalized.pop("tools")
+        return cast("LedgerTurn", normalized), False
+    normalized = dict(turn)
+    if not isinstance(raw_tools, list):
+        normalized.pop("tools", None)
+        return cast("LedgerTurn", normalized), True
+    previews: list[ToolPreview] = []
+    dropped = False
+    for item in raw_tools:
+        preview = _normalize_tool_preview(item)
+        if preview is None:
+            dropped = True
+            continue
+        previews.append(preview)
+    normalized["tools"] = previews
+    return cast("LedgerTurn", normalized), dropped
+
+
 def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) -> LedgerDocument:
     doc: LedgerDocument = {
         "schema": SCHEMA,
@@ -92,15 +149,24 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
         if not isinstance(turn, dict):
             # A legacy migrated blob can hold a non-mapping element (a raw
             # string turn). The document contract types every turn as a
-            # mapping, so the row is skipped instead of published as a turn
-            # that a reader could not map.
+            # mapping, so the row is not published as a turn; the corrupt flag
+            # records that the document omits stored content.
+            doc["corrupt"] = True
             logger.warning(
                 "ledger turn row not a mapping sid=%s seq=%s; skipped",
                 session_id,
                 r.seq,
             )
             continue
-        doc["turns"].append(cast("LedgerTurn", turn))
+        turn_doc, dropped = _normalize_turn(turn)
+        if dropped:
+            doc["corrupt"] = True
+            logger.warning(
+                "ledger turn row lost tool previews sid=%s seq=%s",
+                session_id,
+                r.seq,
+            )
+        doc["turns"].append(turn_doc)
     return doc
 
 

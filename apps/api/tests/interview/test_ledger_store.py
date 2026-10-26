@@ -306,7 +306,8 @@ def test_load_ledger_skips_corrupt_turn_row(db) -> None:
 def test_load_ledger_skips_non_mapping_turn_row(db) -> None:
     """A row that holds a non-mapping value is not published as a turn: the
     document contract types every turn as a mapping, so a reader can map a
-    turn without re-checking its type."""
+    turn without re-checking its type. The corrupt flag records that stored
+    content is missing from the document instead of dropping it silently."""
     row = _row(db)
     append_turn_row(db, row, phase="p", assistant_text="a1")
     db.add(
@@ -320,9 +321,141 @@ def test_load_ledger_skips_non_mapping_turn_row(db) -> None:
     db.commit()
 
     doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
     assert len(doc["turns"]) == 1
     assert doc["turns"][0]["assistant"]["text"] == "a1"
     assert all(isinstance(turn, dict) for turn in doc["turns"])
+
+
+def test_load_ledger_normalizes_a_legacy_tool_preview_key(db) -> None:
+    """A stored preview under the reader-era ``result`` key is renamed to the
+    declared ``result_preview``, so the report reader keeps the tool output
+    instead of projecting an empty preview."""
+    row = _row(db)
+    legacy_turn = {
+        "turn_id": "t-legacy",
+        "phase": "p",
+        "assistant": {"text": "a1", "visible": True},
+        "tools": [{"name": "web_search", "result": "legacy result"}],
+    }
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-legacy",
+            seq=1,
+            turn=json.dumps(legacy_turn, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    preview = doc["turns"][0]["tools"][0]
+    assert preview["result_preview"] == "legacy result"
+    assert "result" not in preview
+    # A normalization is not data loss: the document is not marked corrupt.
+    assert not doc.get("corrupt")
+
+
+def test_load_ledger_flags_a_dropped_tool_preview_corrupt(db) -> None:
+    """A tools entry that is not a mapping cannot be published as a preview:
+    it is dropped and the document is marked corrupt instead of losing it
+    silently."""
+    row = _row(db)
+    stored = {
+        "turn_id": "t-0001",
+        "assistant": {"text": "a1"},
+        "tools": ["not a preview", {"name": "web_search", "result_preview": "kept"}],
+    }
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
+    assert doc["turns"][0]["tools"] == [{"name": "web_search", "result_preview": "kept"}]
+
+
+def test_load_ledger_drops_a_non_list_tools_value(db) -> None:
+    """A stored ``tools`` value that is not a list cannot be published as the
+    declared preview list; the field is dropped and the loss is flagged."""
+    row = _row(db)
+    stored = {"turn_id": "t-0001", "assistant": {"text": "a1"}, "tools": "not a list"}
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
+    assert "tools" not in doc["turns"][0]
+
+
+def test_load_ledger_drops_a_null_tools_value(db) -> None:
+    """JSON null is not a preview list; the key is dropped without flagging
+    corruption because no stored content is lost."""
+    row = _row(db)
+    stored = {"turn_id": "t-0001", "assistant": {"text": "a1"}, "tools": None}
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert "tools" not in doc["turns"][0]
+    assert not doc.get("corrupt")
+
+
+def test_load_ledger_publishes_a_document_the_contract_accepts(db) -> None:
+    """The published document validates against the platform contract.
+
+    The writer is the boundary that asserts the stored rows really have the
+    declared shape (a legacy preview key is normalized), so the typed return
+    is backed by more than a cast.
+    """
+    from pydantic import TypeAdapter
+
+    from realmock.platform.contracts.ledger_document import LedgerDocument
+
+    row = _row(db)
+    append_turn_row(
+        db, row, phase="p", assistant_text="a1", tools=[build_tool_preview("t", {}, "r")]
+    )
+    legacy = {
+        "turn_id": "t-0002",
+        "assistant": {"text": "q"},
+        "tools": [{"name": "web_search", "result": "legacy result"}],
+    }
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0002",
+            seq=2,
+            turn=json.dumps(legacy, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    # Raises pydantic.ValidationError when a published shape drifts.
+    assert TypeAdapter(LedgerDocument).validate_python(doc)["turns"][1]["tools"] == [
+        {"name": "web_search", "result_preview": "legacy result"}
+    ]
 
 
 def test_append_last_turn_flag_skips_corrupt_newest_row(db) -> None:
