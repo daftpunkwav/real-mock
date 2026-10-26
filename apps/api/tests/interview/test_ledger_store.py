@@ -381,6 +381,30 @@ def test_load_ledger_flags_a_dropped_tool_preview_corrupt(db) -> None:
     assert doc["turns"][0]["tools"] == [{"name": "web_search", "result_preview": "kept"}]
 
 
+def test_load_ledger_drops_a_preview_with_a_non_string_name(db) -> None:
+    """A preview whose declared ``name`` is not a string violates the contract
+    and is dropped (flagged corrupt) instead of being published."""
+    row = _row(db)
+    stored = {
+        "turn_id": "t-0001",
+        "assistant": {"text": "a1"},
+        "tools": [{"name": 123, "result_preview": "x"}],
+    }
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert doc.get("corrupt") is True
+    assert doc["turns"][0]["tools"] == []
+
+
 def test_load_ledger_drops_a_non_list_tools_value(db) -> None:
     """A stored ``tools`` value that is not a list cannot be published as the
     declared preview list; the field is dropped and the loss is flagged."""

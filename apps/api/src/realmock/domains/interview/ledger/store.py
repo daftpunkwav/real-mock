@@ -77,7 +77,8 @@ def _drop_tools(turn: dict[str, Any]) -> LedgerTurn:
 def _normalize_tool_preview(value: Any) -> ToolPreview | None:
     """Return one stored preview under the declared key names.
 
-    ``None`` means the value is not a mapping and cannot become a preview.
+    ``None`` means the value is not a mapping, or its declared ``name`` is not
+    a string, so it cannot be published as a preview.
     """
     if not isinstance(value, dict):
         return None
@@ -86,6 +87,8 @@ def _normalize_tool_preview(value: Any) -> ToolPreview | None:
         # The declared key wins when both are present; the legacy key is
         # dropped either way so a published preview has one result field.
         preview.setdefault(_DECLARED_PREVIEW_KEY, preview.pop(_LEGACY_PREVIEW_KEY))
+    if "name" in preview and not isinstance(preview["name"], str):
+        return None
     return cast("ToolPreview", preview)
 
 
