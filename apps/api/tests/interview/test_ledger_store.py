@@ -421,12 +421,76 @@ def test_load_ledger_drops_a_null_tools_value(db) -> None:
     assert not doc.get("corrupt")
 
 
-def test_load_ledger_publishes_a_document_the_contract_accepts(db) -> None:
-    """The published document validates against the platform contract.
+def test_load_ledger_publishes_a_turn_without_tools(db) -> None:
+    """A turn that never carried tools keeps its shape and is not flagged."""
+    row = _row(db)
+    stored = {"turn_id": "t-0001", "assistant": {"text": "a1"}}
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
 
-    The writer is the boundary that asserts the stored rows really have the
-    declared shape (a legacy preview key is normalized), so the typed return
-    is backed by more than a cast.
+    doc = load_ledger(db, _reload(db, row))
+    assert "tools" not in doc["turns"][0]
+    assert not doc.get("corrupt")
+
+
+def test_load_ledger_prefers_the_declared_preview_key(db) -> None:
+    """When a stored preview carries both keys, the declared key wins and the
+    legacy key is not published next to it."""
+    row = _row(db)
+    stored = {
+        "turn_id": "t-0001",
+        "assistant": {"text": "a1"},
+        "tools": [{"name": "web_search", "result": "legacy", "result_preview": "declared"}],
+    }
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    preview = doc["turns"][0]["tools"][0]
+    assert preview["result_preview"] == "declared"
+    assert "result" not in preview
+    assert not doc.get("corrupt")
+
+
+def test_load_ledger_ignores_a_null_tools_entry(db) -> None:
+    """A JSON null tools slot carries no tool data, so dropping it is not a
+    loss and does not flag the document corrupt."""
+    row = _row(db)
+    stored = {"turn_id": "t-0001", "assistant": {"text": "a1"}, "tools": [None]}
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-0001",
+            seq=1,
+            turn=json.dumps(stored, ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert doc["turns"][0]["tools"] == []
+    assert not doc.get("corrupt")
+
+
+def test_load_ledger_publishes_a_document_the_contract_accepts(db) -> None:
+    """The published document passes pydantic validation against the contract.
+
+    The writer publishes the declared key names (a stored ``result`` preview
+    key is renamed), so the typed return is backed by more than a cast.
     """
     from pydantic import TypeAdapter
 
@@ -452,7 +516,8 @@ def test_load_ledger_publishes_a_document_the_contract_accepts(db) -> None:
     db.commit()
 
     doc = load_ledger(db, _reload(db, row))
-    # Raises pydantic.ValidationError when a published shape drifts.
+    # Pydantic checks the declared key shapes; undeclared keys are dropped,
+    # not treated as an error, so this validates the declared payload.
     assert TypeAdapter(LedgerDocument).validate_python(doc)["turns"][1]["tools"] == [
         {"name": "web_search", "result_preview": "legacy result"}
     ]

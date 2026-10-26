@@ -263,11 +263,13 @@ def build_report_export_json(db: Session, session_id: int, access: str | None) -
 
 
 def _ledger_turns(ledger: LedgerDocument | None) -> list[LedgerTurn]:
-    """Turns of a ledger document (empty when absent)."""
+    """Turns of a ledger document (empty when absent or malformed)."""
     if not ledger:
         return []
     turns = ledger.get("turns")
-    return turns if isinstance(turns, list) else []
+    if not isinstance(turns, list):
+        return []
+    return [turn for turn in turns if isinstance(turn, dict)]
 
 
 def _record_source(

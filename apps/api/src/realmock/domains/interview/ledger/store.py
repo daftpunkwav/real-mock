@@ -61,8 +61,8 @@ def _turn_rows(db: Session, session_id: int) -> list[InterviewTurn]:
 
 # The report reader of an earlier release looked the tool result up under
 # ``result`` instead of the declared ``result_preview``. A stored preview can
-# still carry that key (a hand-edited row, a blob written around that time);
-# rename it on read so the declared key is the only one a reader needs.
+# carry that key; rename it on read so a reader sees the result text instead
+# of projecting an empty preview.
 _LEGACY_PREVIEW_KEY = "result"
 _DECLARED_PREVIEW_KEY = "result_preview"
 
@@ -82,14 +82,24 @@ def _normalize_tool_preview(value: Any) -> ToolPreview | None:
     if not isinstance(value, dict):
         return None
     preview = dict(value)
-    if _DECLARED_PREVIEW_KEY not in preview and _LEGACY_PREVIEW_KEY in preview:
-        preview[_DECLARED_PREVIEW_KEY] = preview.pop(_LEGACY_PREVIEW_KEY)
+    if _LEGACY_PREVIEW_KEY in preview:
+        # The declared key wins when both are present; the legacy key is
+        # dropped either way so a published preview has one result field.
+        preview.setdefault(_DECLARED_PREVIEW_KEY, preview.pop(_LEGACY_PREVIEW_KEY))
     return cast("ToolPreview", preview)
 
 
-def _normalize_tool_previews(raw_tools: list[Any]) -> list[ToolPreview]:
-    """Return the stored tools entries that can be published as previews."""
-    return [preview for item in raw_tools if (preview := _normalize_tool_preview(item)) is not None]
+def _normalize_tool_previews(raw_tools: list[Any]) -> tuple[list[ToolPreview], bool]:
+    """Return publishable previews and whether a non-null entry was dropped.
+
+    A JSON ``null`` slot carries no tool data, so dropping it is not content
+    loss and does not flag the document corrupt.
+    """
+    candidates = [item for item in raw_tools if item is not None]
+    previews = [
+        preview for item in candidates if (preview := _normalize_tool_preview(item)) is not None
+    ]
+    return previews, len(previews) != len(candidates)
 
 
 def _normalize_turn(turn: dict[str, Any]) -> tuple[LedgerTurn, bool]:
@@ -110,10 +120,10 @@ def _normalize_turn(turn: dict[str, Any]) -> tuple[LedgerTurn, bool]:
         return _drop_tools(turn), False
     if not isinstance(raw_tools, list):
         return _drop_tools(turn), True
-    previews = _normalize_tool_previews(raw_tools)
+    previews, dropped = _normalize_tool_previews(raw_tools)
     normalized = dict(turn)
     normalized["tools"] = previews
-    return cast("LedgerTurn", normalized), len(previews) != len(raw_tools)
+    return cast("LedgerTurn", normalized), dropped
 
 
 def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) -> LedgerDocument:

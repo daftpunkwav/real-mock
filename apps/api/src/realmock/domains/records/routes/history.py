@@ -39,8 +39,8 @@ def get_session_ledger(
     snap = snapshot_from_catalog_dict(raw)
     assert_session_token(snap, access)
     # The snapshot already carries the ledger; the catalog fallback only
-    # serves a snapshot built without one. Both are the typed document, so a
-    # reader that looks up ledger keys cannot drift from the contract.
+    # serves a snapshot built without one. The view is the same mapping, so
+    # the replay payload keeps the stored keys.
     ledger = snap.ledger_document()
     if ledger is None:
         ledger = catalog.get_ledger(db, session_id)

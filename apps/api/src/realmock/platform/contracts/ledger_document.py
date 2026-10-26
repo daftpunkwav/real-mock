@@ -27,8 +27,8 @@ class ToolPreview(TypedDict, total=False):
     The args and the result are truncated previews, not the full tool
     output: the ledger keeps what a reader needs to see that a tool ran.
     Readers key their lookups on these declared names; the ledger store
-    normalizes a stored preview written under an older key to the declared
-    one before publishing the document.
+    renames a stored preview's ``result`` key to ``result_preview`` before
+    publishing the document.
     """
 
     name: str
@@ -66,9 +66,9 @@ class LedgerTurn(TypedDict, total=False):
 class LedgerDocument(TypedDict, total=False):
     """Root ledger document aggregated from the ``interview_turns`` table.
 
-    Every element of ``turns`` is a turn mapping with tool previews under the
-    declared key names: the writer skips a row that is not a mapping and
-    normalizes the previews of a row it publishes. A skipped row or a dropped
+    Every element of ``turns`` is a turn mapping: the writer skips a row that
+    is not a mapping, and publishes tool previews under the declared key
+    names (a stored ``result`` key is renamed). A skipped row or a dropped
     preview marks the document ``corrupt``, so a reader can tell an absent
     turn from one the document could not represent.
     """
