@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -76,7 +76,8 @@ class SessionSnapshot(BaseModel):
     report: str = "{}"
     # Deliberately a loose dict: a field typed as the contract validates on
     # every construction and drops the keys the contract does not declare,
-    # which would change the snapshot payload. The typed document is what
+    # which would change the snapshot payload. Readers that need the declared
+    # key names call ``ledger_document()``; the typed document is also what
     # ``SessionCatalogPort.get_ledger`` returns.
     ledger: dict[str, Any] | None = None
     started_at: datetime | None = None
@@ -85,6 +86,17 @@ class SessionSnapshot(BaseModel):
     messages_count: int = 0
     duration_seconds: float | None = None
     ledger_frozen: bool = False
+
+    def ledger_document(self) -> LedgerDocument | None:
+        """Return the ledger payload through the declared document contract.
+
+        The field stays loose only so the wire payload keeps the keys a legacy
+        turn carries beyond the contract. The interview writer normalizes the
+        turn mappings and tool-preview keys before the snapshot is built, so a
+        reader that looks up ledger keys goes through this view and gets the
+        declared key names checked by the type checker.
+        """
+        return cast("LedgerDocument | None", self.ledger)
 
 
 @runtime_checkable

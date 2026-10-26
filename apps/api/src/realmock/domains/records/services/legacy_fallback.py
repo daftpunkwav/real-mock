@@ -40,11 +40,9 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
     except Exception:
         logger.debug("legacy report parse failed sid=%s", session_id, exc_info=True)
         return None
-    ledger = snap.ledger
+    ledger = snap.ledger_document()
     if ledger is None:
-        # The port hands over the typed document; the wire field stays a loose
-        # dict, so the typed document is cast at the boundary.
-        ledger = cast("dict[str, Any] | None", catalog.get_ledger(db, session_id))
+        ledger = catalog.get_ledger(db, session_id)
     messages_count = snap.messages_count
     if not messages_count:
         try:
@@ -70,5 +68,7 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
         messages_count=messages_count,
         duration_minutes=duration,
         status="ready",
-        ledger=ledger,
+        # The wire field stays a loose dict, so the typed document is cast at
+        # the response boundary.
+        ledger=cast("dict[str, Any] | None", ledger),
     )

@@ -11,8 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +24,7 @@ from realmock.domains.records.services.report_store import (
     parse_payload,
 )
 from realmock.platform.contracts.data_export import MIME_JSON, MIME_MARKDOWN, DataExportFile
+from realmock.platform.contracts.ledger_document import LedgerDocument, LedgerTurn
 from realmock.platform.contracts.session_catalog import (
     SessionSnapshot,
     get_session_catalog,
@@ -262,26 +262,24 @@ def build_report_export_json(db: Session, session_id: int, access: str | None) -
     )
 
 
-def _ledger_turns(ledger: Mapping[str, Any] | None) -> list[dict[str, Any]]:
-    """Collect dict-shaped turns from a ledger document (empty when absent)."""
+def _ledger_turns(ledger: LedgerDocument | None) -> list[LedgerTurn]:
+    """Turns of a ledger document (empty when absent)."""
     if not ledger:
         return []
     turns = ledger.get("turns")
-    return [t for t in turns if isinstance(t, dict)] if isinstance(turns, list) else []
+    return turns if isinstance(turns, list) else []
 
 
 def _record_source(
     db: Session, session_id: int, access: str | None
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+) -> tuple[dict[str, Any], list[LedgerTurn]]:
     """Session meta plus its ledger turns, shared by the record exporters."""
     snap = _require_finished_snapshot(db, session_id, access)
     # The snapshot already carries the ledger; the catalog fallback only
     # serves a snapshot built without one.
-    ledger = snap.ledger
+    ledger = snap.ledger_document()
     if ledger is None:
-        # The port hands over the typed document; the wire field stays a loose
-        # dict, so the typed document is cast at the boundary.
-        ledger = cast("dict[str, Any] | None", get_session_catalog().get_ledger(db, session_id))
+        ledger = get_session_catalog().get_ledger(db, session_id)
     return _meta(snap), _ledger_turns(ledger)
 
 
@@ -300,7 +298,7 @@ def _record_header_md(meta: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _record_turn_md(index: int, turn: dict[str, Any]) -> list[str]:
+def _record_turn_md(index: int, turn: LedgerTurn) -> list[str]:
     """Render one ledger turn as speaker-labelled paragraphs."""
     lines = [f"## Turn {index}", ""]
     raw_assistant = turn.get("assistant")
@@ -316,7 +314,7 @@ def _record_turn_md(index: int, turn: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _record_turn_json(turn: dict[str, Any]) -> dict[str, Any]:
+def _record_turn_json(turn: LedgerTurn) -> dict[str, Any]:
     """Project one ledger turn to its exportable Q&A fields.
 
     Mirrors the Markdown transcript's visibility rule: assistant text marked
