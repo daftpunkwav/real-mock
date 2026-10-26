@@ -12,8 +12,9 @@ Contracts:
   helpers but never reworded.
 - The public helpers (:func:`build_system_prompt`, :func:`candidate_block`,
   :func:`compact_candidate_block`, :func:`github_evidence_block`,
-  :func:`needs_compact_candidate`) are consumed through the agents facade and
-  by the interview runner; their signatures must stay stable.
+  :func:`needs_compact_candidate`) are imported from this module by
+  :mod:`session_prompt` and by :mod:`interviewer.runner`; their signatures
+  must stay stable.
 """
 
 from __future__ import annotations
