@@ -303,6 +303,28 @@ def test_load_ledger_skips_corrupt_turn_row(db) -> None:
     assert doc["turns"][0]["assistant"]["text"] == "a1"
 
 
+def test_load_ledger_skips_non_mapping_turn_row(db) -> None:
+    """A row that holds a non-mapping value is not published as a turn: the
+    document contract types every turn as a mapping, so a reader can map a
+    turn without re-checking its type."""
+    row = _row(db)
+    append_turn_row(db, row, phase="p", assistant_text="a1")
+    db.add(
+        InterviewTurn(
+            session_id=row.id,
+            turn_id="t-legacy",
+            seq=99,
+            turn=json.dumps("raw string turn", ensure_ascii=False),
+        )
+    )
+    db.commit()
+
+    doc = load_ledger(db, _reload(db, row))
+    assert len(doc["turns"]) == 1
+    assert doc["turns"][0]["assistant"]["text"] == "a1"
+    assert all(isinstance(turn, dict) for turn in doc["turns"])
+
+
 def test_append_last_turn_flag_skips_corrupt_newest_row(db) -> None:
     """Flagging onto an unparsable newest row is a logged no-op, not a crash."""
     row = _row(db)

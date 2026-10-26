@@ -61,7 +61,12 @@ class LedgerTurn(TypedDict, total=False):
 
 
 class LedgerDocument(TypedDict, total=False):
-    """Root ledger document aggregated from the ``interview_turns`` table."""
+    """Root ledger document aggregated from the ``interview_turns`` table.
+
+    Every element of ``turns`` is a turn object: the writer skips a row whose
+    stored JSON is not a mapping, so a reader can map a turn without
+    re-checking its type.
+    """
 
     schema: str
     session_id: int

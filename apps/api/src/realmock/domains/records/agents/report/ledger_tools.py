@@ -59,9 +59,9 @@ _OUTPUT_CHARS = TOOL_OBSERVATION_SOFT_CHARS
 def _turns(ledger: dict[str, Any]) -> list[LedgerTurn]:
     """Turns of a ledger document, typed against the platform contract.
 
-    The session catalog seam hands the document over as an untyped dict, so
-    the declared shape is asserted here. Everything downstream then reads the
-    key names the contract declares.
+    The ledger arrives as the loose dict the session snapshot carries, so the
+    declared shape is asserted here. Everything downstream then reads the key
+    names the contract declares.
     """
     turns = ledger.get("turns")
     if not isinstance(turns, list):

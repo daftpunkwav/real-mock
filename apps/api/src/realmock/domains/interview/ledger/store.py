@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -80,7 +80,7 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
                     doc["raw_unparsed"] = evidence["raw_unparsed"][:CORRUPT_RAW_MAX]
             continue
         try:
-            doc["turns"].append(json.loads(r.turn))
+            turn = json.loads(r.turn)
         except (json.JSONDecodeError, TypeError):
             doc["corrupt"] = True
             logger.warning(
@@ -88,6 +88,19 @@ def _doc_from_rows(session_id: int, rows: list[InterviewTurn], *, frozen: bool) 
                 session_id,
                 r.seq,
             )
+            continue
+        if not isinstance(turn, dict):
+            # A legacy migrated blob can hold a non-mapping element (a raw
+            # string turn). The document contract types every turn as a
+            # mapping, so the row is skipped instead of published as a turn
+            # that a reader could not map.
+            logger.warning(
+                "ledger turn row not a mapping sid=%s seq=%s; skipped",
+                session_id,
+                r.seq,
+            )
+            continue
+        doc["turns"].append(cast("LedgerTurn", turn))
     return doc
 
 

@@ -43,7 +43,7 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
     ledger = snap.ledger
     if ledger is None:
         # The port hands over the typed document; the wire field stays a loose
-        # dict (legacy migrated ledgers carry non-dict turns by design).
+        # dict, so the typed document is cast at the boundary.
         ledger = cast("dict[str, Any] | None", catalog.get_ledger(db, session_id))
     messages_count = snap.messages_count
     if not messages_count:

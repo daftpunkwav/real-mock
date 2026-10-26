@@ -74,10 +74,10 @@ class SessionSnapshot(BaseModel):
     result: str | None = None
     messages: str = "[]"
     report: str = "{}"
-    # Deliberately a loose dict: migrated legacy ledgers carry non-dict turns
-    # verbatim (pinned by the ledger migration tests), so validating this
-    # field against LedgerDocument would 500 snapshot reads on such sessions.
-    # The typed document is what ``SessionCatalogPort.get_ledger`` returns.
+    # Deliberately a loose dict: a field typed as the contract validates on
+    # every construction and drops the keys the contract does not declare,
+    # which would change the snapshot payload. The typed document is what
+    # ``SessionCatalogPort.get_ledger`` returns.
     ledger: dict[str, Any] | None = None
     started_at: datetime | None = None
     ended_at: datetime | None = None

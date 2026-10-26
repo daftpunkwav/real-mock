@@ -280,7 +280,7 @@ def _record_source(
     ledger = snap.ledger
     if ledger is None:
         # The port hands over the typed document; the wire field stays a loose
-        # dict (legacy migrated ledgers carry non-dict turns by design).
+        # dict, so the typed document is cast at the boundary.
         ledger = cast("dict[str, Any] | None", get_session_catalog().get_ledger(db, session_id))
     return _meta(snap), _ledger_turns(ledger)
 
