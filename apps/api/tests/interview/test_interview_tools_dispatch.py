@@ -19,6 +19,35 @@ from realmock.domains.interview.agents.tools import (
     get_interview_tool_definitions,
 )
 
+#: Advertised tool name → the handler that must serve it. The exact-name
+#: tools are pinned one by one; the prefix families are pinned as families,
+#: so an advertised name that drifts into another family fails the guard.
+_EXPECTED_EXACT_HANDLERS = {
+    "lookup_company_profile": tmod._run_company_profile_tool,
+    "lookup_resume_projects": tmod._run_resume_projects_tool,
+    "web_fetch": tmod._run_web_fetch_tool,
+    "web_search": tmod._run_web_search_tool,
+    "search_past_interviews": tmod._run_past_records_tool,
+    "read_past_round": tmod._run_past_records_tool,
+}
+
+#: Prefix family → the handler that must serve every name of that family.
+_EXPECTED_PREFIX_HANDLERS = {
+    "github_": tmod._run_github_tool,
+    "profile_": tmod._run_profile_tool,
+    "resume_": tmod._run_resume_tool,
+}
+
+
+def _expected_handler(name: str) -> object:
+    """The handler that must serve an advertised tool name."""
+    if name in _EXPECTED_EXACT_HANDLERS:
+        return _EXPECTED_EXACT_HANDLERS[name]
+    for prefix, handler in _EXPECTED_PREFIX_HANDLERS.items():
+        if name.startswith(prefix):
+            return handler
+    return None
+
 
 def test_tool_definitions_include_local_and_github() -> None:
     tools = get_interview_tool_definitions()
@@ -392,8 +421,54 @@ def test_every_advertised_tool_resolves_to_a_handler() -> None:
 
     A table key that drifts from the advertised name would only surface at
     runtime as an unknown_tool observation, so the resolver is pinned here
-    against the full definition list (including the dynamic prefix families).
+    against the full definition list (including the dynamic prefix
+    families). Every name is pinned to the handler that must serve it — a
+    name that resolves to a handler of another family would dispatch to the
+    wrong tool.
     """
     for tool in tmod.get_interview_tool_definitions(include_past_records=True):
         name = (tool.get("function") or {}).get("name")
-        assert name and tmod._resolve_tool_handler(name) is not None, name
+        assert name, tool
+        expected = _expected_handler(name)
+        assert expected is not None, f"{name} is advertised without a pinned handler"
+        assert tmod._resolve_tool_handler(name) is expected, name
+
+
+def test_exact_name_tools_win_over_prefix_families() -> None:
+    """An exact-name tool is never served by a prefix family.
+
+    The families cover the platform tools (github_* / profile_* / resume_*);
+    an exact name is the more specific rule, so the resolver checks the
+    exact table first and no tool can be captured by a family it does not
+    belong to.
+    """
+    for name, handler in tmod._EXACT_TOOL_HANDLERS.items():
+        assert tmod._resolve_tool_handler(name) is handler, name
+
+
+def test_exact_name_wins_over_a_matching_prefix_family(monkeypatch) -> None:
+    """A name listed in both tables is served by its exact handler.
+
+    The shipped tables do not overlap; the probe pins the precedence rule
+    so a future tool name cannot be captured by a family.
+    """
+    monkeypatch.setitem(tmod._PREFIX_TOOL_HANDLERS, "probe_", tmod._run_resume_tool)
+    monkeypatch.setitem(tmod._EXACT_TOOL_HANDLERS, "probe_tool", tmod._run_web_search_tool)
+    assert tmod._resolve_tool_handler("probe_tool") is tmod._run_web_search_tool
+
+
+@pytest.mark.asyncio
+async def test_lookup_resume_projects_is_not_served_by_the_resume_family(monkeypatch) -> None:
+    """The exact-name tool must reach its own handler, not the resume family.
+
+    The family handler looks a platform resume spec up by the tool name;
+    ``lookup_resume_projects`` has no such spec, so a family match would
+    answer ``unknown_tool`` instead of the projects.
+    """
+    monkeypatch.setattr(tmod, "api_db_session", lambda: _fake_api_db())
+    monkeypatch.setattr(tmod, "get_resume_agent_payload", lambda db, rid: {"a": 1})
+    monkeypatch.setattr(tmod, "snapshot_from_payload", lambda p: object())
+    monkeypatch.setattr(tmod, "resume_tool_specs", lambda snap: [])
+    monkeypatch.setattr(tmod, "get_resume_detail", lambda db, rid: ("r.pdf", {"name": "Ada"}))
+    out = await execute_interview_tool("lookup_resume_projects", {}, db=None, resume_id=5)
+    assert json.loads(out)["name"] == "Ada"

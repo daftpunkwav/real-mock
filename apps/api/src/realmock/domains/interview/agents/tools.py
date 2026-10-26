@@ -486,7 +486,7 @@ async def _run_past_records_tool(ctx: ToolContext, name: str, arguments: dict[st
     return _cap_result(raw)
 
 
-#: Prefix families resolved before the exact-name table.
+#: Prefix families, consulted when the exact-name table has no entry.
 _PREFIX_TOOL_HANDLERS: dict[str, _ToolHandler] = {
     "github_": _run_github_tool,
     "profile_": _run_profile_tool,
@@ -508,14 +508,19 @@ _EXACT_TOOL_HANDLERS: dict[str, _ToolHandler] = {
 def _resolve_tool_handler(name: str) -> _ToolHandler | None:
     """Resolve a tool name to its handler.
 
-    Prefix families first (github_* / profile_* / resume_*), then the
-    exact-name table; unknown names return None and become an
+    The exact-name table wins over the prefix families: an exact name is
+    the more specific rule, so no tool can be captured by a family it does
+    not belong to. The families (github_* / profile_* / resume_*) cover the
+    platform tools; unknown names return None and become an
     ``unknown_tool`` observation.
     """
+    exact = _EXACT_TOOL_HANDLERS.get(name)
+    if exact is not None:
+        return exact
     for prefix, handler in _PREFIX_TOOL_HANDLERS.items():
         if name.startswith(prefix):
             return handler
-    return _EXACT_TOOL_HANDLERS.get(name)
+    return None
 
 
 async def execute_interview_tool(
