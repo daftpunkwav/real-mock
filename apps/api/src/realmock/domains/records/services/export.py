@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -279,7 +279,9 @@ def _record_source(
     # serves a snapshot built without one.
     ledger = snap.ledger
     if ledger is None:
-        ledger = get_session_catalog().get_ledger(db, session_id)
+        # The port hands over the typed document; the wire field stays a loose
+        # dict (legacy migrated ledgers carry non-dict turns by design).
+        ledger = cast("dict[str, Any] | None", get_session_catalog().get_ledger(db, session_id))
     return _meta(snap), _ledger_turns(ledger)
 
 

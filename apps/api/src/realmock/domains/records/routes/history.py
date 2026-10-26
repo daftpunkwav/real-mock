@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -42,7 +44,9 @@ def get_session_ledger(
     # serves a snapshot built without one.
     ledger = snap.ledger
     if ledger is None:
-        ledger = catalog.get_ledger(db, session_id)
+        # The port hands over the typed document; the wire field stays a loose
+        # dict (legacy migrated ledgers carry non-dict turns by design).
+        ledger = cast("dict[str, Any] | None", catalog.get_ledger(db, session_id))
     if ledger is None:
         raise_error("A2001")
     return ledger

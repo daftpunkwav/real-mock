@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,9 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
         return None
     ledger = snap.ledger
     if ledger is None:
-        ledger = catalog.get_ledger(db, session_id)
+        # The port hands over the typed document; the wire field stays a loose
+        # dict (legacy migrated ledgers carry non-dict turns by design).
+        ledger = cast("dict[str, Any] | None", catalog.get_ledger(db, session_id))
     messages_count = snap.messages_count
     if not messages_count:
         try:
