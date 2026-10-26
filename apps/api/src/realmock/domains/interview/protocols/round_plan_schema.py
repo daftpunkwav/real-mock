@@ -28,6 +28,7 @@ from realmock.domains.interview.protocols.round_chain import (
     RoundStep,
     avatar_for_personality,
 )
+from realmock.platform.core.coerce import coerce_int
 
 logger = logging.getLogger(__name__)
 
@@ -139,13 +140,7 @@ def _clean_round(raw: object, round_no: int) -> PlannedRound | None:
     style = str(raw.get("interview_style") or "").strip()
     if style not in KNOWN_STYLES:
         style = "guided" if workflow == "hr" else "deep_dive"
-    try:
-        strictness = max(1, min(10, int(raw.get("strictness") or 3)))
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) strictness is not convertible
-        # and is not a ValueError; it falls back to the default like any other
-        # unusable value.
-        strictness = 3
+    strictness = max(1, min(10, coerce_int(raw.get("strictness") or 3, 3)))
     focus = str(raw.get("focus") or "").strip()[:FOCUS_MAX_CHARS]
     label = str(raw.get("label") or "").strip()[:LABEL_MAX_CHARS]
     if not focus:

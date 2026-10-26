@@ -22,6 +22,7 @@ from realmock.domains.resume.schemas.limits import (
     PERCENTILE_FLOOR,
     dimension_weight_range,
 )
+from realmock.platform.core.coerce import try_coerce_int
 from realmock.platform.core.prompts import normalize_cn_punctuation_tree
 
 if TYPE_CHECKING:
@@ -142,13 +143,11 @@ def _coerce_int_score(v: object) -> int | None:
     computed aggregates (``compute_score_from_dims``,
     ``benchmark_percentile_from_score``) round.
     """
-    try:
-        return int(v)  # type: ignore[arg-type, call-overload]
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) or oversized number cannot be
-        # converted to int and is not a ValueError; the float path below is
-        # tried next, and a number that survives neither is simply unusable.
-        pass
+    direct = try_coerce_int(v)
+    if direct is not None:
+        return direct
+    # Decimal strings ("88.7") and other values int() cannot parse take the
+    # float path; a number that survives neither path is simply unusable.
     try:
         return int(float(v))  # type: ignore[arg-type]
     except (TypeError, ValueError, OverflowError):
