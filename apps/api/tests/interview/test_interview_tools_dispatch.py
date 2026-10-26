@@ -367,3 +367,21 @@ async def test_read_past_round_non_finite_args_stay_observation() -> None:
     for bad in cases:
         out = await execute_interview_tool("read_past_round", bad, db=None, session=object())
         assert json.loads(out)["error"] == "invalid_argument"
+
+
+@pytest.mark.asyncio
+async def test_web_search_failure_masks_embedded_credential(monkeypatch) -> None:
+    """The search failure message reaches the model, so an embedded key is masked.
+
+    A provider that answers "Incorrect API key provided: sk-..." embeds the
+    credential inside a sentence; the token-by-token scanner has to catch it.
+    """
+
+    async def boom(args):
+        raise RuntimeError("401 Incorrect API key provided: sk-ant-api03-abcdefgh0123456789")
+
+    monkeypatch.setattr(tmod, "execute_web_search", boom)
+    out = await execute_interview_tool("web_search", {"query": "q"}, db=None)
+    data = json.loads(out)
+    assert data["error"] == "search_failed"
+    assert "sk-ant-api03-abcdefgh0123456789" not in data["message"]

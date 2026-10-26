@@ -28,7 +28,7 @@ from realmock.platform.capabilities.ai.context.options import CompactionOptions
 from realmock.platform.capabilities.ai.llm.client import LLMClient
 from realmock.platform.capabilities.ai.llm.defaults import DEFAULT_CONTEXT_WINDOW
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 
 from .context import build_working_context
 from .turn_state import TurnState
@@ -211,7 +211,7 @@ async def compact_current_round(
             default_focus=objective_line or None,
         )
     except Exception as e:
-        safe_detail = redact_api_key(str(e))[:200]
+        safe_detail = redact_secrets_in_text(str(e))[:200]
         logger.warning("Agent-invoked compaction failed: %s", safe_detail)
         return MidTurnCompaction(
             text=f"Compaction failed ({safe_detail}); continuing with full history."

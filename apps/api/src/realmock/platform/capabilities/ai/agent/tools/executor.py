@@ -31,6 +31,7 @@ from typing import Any
 
 from realmock.platform.core.agent_error_log import error_scope, log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
+from realmock.platform.core.security import redact_secrets_in_text
 
 from .spec import ToolBundle
 
@@ -62,12 +63,17 @@ _ERROR_MESSAGE_MAX_CHARS = 2000
 
 
 def _args_echo(args: dict[str, Any]) -> str:
-    """Truncated JSON echo of the model's own call arguments."""
+    """Truncated JSON echo of the model's own call arguments.
+
+    The echo returns to the model inside the error observation, and the
+    model's own arguments can carry a credential (a URL with a key in the
+    query), so the rendered text is scanned like any other text.
+    """
     try:
         rendered = json.dumps(args, ensure_ascii=False, default=str)
     except Exception:
         rendered = str(args)
-    return rendered[:_ARGS_ECHO_MAX_CHARS]
+    return redact_secrets_in_text(rendered)[:_ARGS_ECHO_MAX_CHARS]
 
 
 def _error_hint(kind: str, exc: Exception | None) -> str:
@@ -107,7 +113,10 @@ def _error_observation(kind: str, name: str, args: dict[str, Any], exc: Exceptio
         "error": kind,
         "tool": name,
         "args": _args_echo(args),
-        "message": str(exc)[:_ERROR_MESSAGE_MAX_CHARS],
+        # The provider error body reaches the model observation, so an
+        # upstream message quoting the rejected credential is scanned out
+        # here — the single funnel every error observation flows through.
+        "message": redact_secrets_in_text(str(exc))[:_ERROR_MESSAGE_MAX_CHARS],
     }
     hint = _error_hint(kind, exc)
     if hint:
@@ -169,14 +178,20 @@ async def invoke_with_timeout(
                     type(exc).__name__,
                 )
                 continue
-            logger.warning("Agent tool failed name=%s: %s", name, exc, exc_info=True)
+            # Redact before the text reaches the log record and the persisted
+            # error record: the message argument must be a str so the log
+            # pipeline's argument scan sees it (an Exception argument is
+            # passed through untouched and renders raw). The traceback stays
+            # attached for diagnosis; SafeFormatter scrubs the rendered text.
+            safe_detail = redact_secrets_in_text(str(exc))
+            logger.warning("Agent tool failed name=%s: %s", name, safe_detail, exc_info=True)
             domain, session = error_scope(context)
             log_agent_error(
                 domain=domain,
                 session=session,
                 tool=name,
                 kind="tool_failed",
-                message=str(exc),
+                message=safe_detail,
             )
             return (_error_observation("tool_failed", name, args, exc), "error")
     return (

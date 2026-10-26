@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TypedDict
 
+from realmock.platform.core.security import redact_secrets_in_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,15 +71,22 @@ def _search_with_ddgs(query: str, max_results: int) -> list[dict]:
                     return results
                 errors.append(f"{backend}: empty")
             except Exception as e:
-                errors.append(f"{backend}: {e}")
-                logger.info("ddgs backend=%s failed: %s", backend, e)
+                # The backend error text can quote a credential; a non-str
+                # argument would bypass the redaction filter, so pass the
+                # sanitized string.
+                safe = redact_secrets_in_text(str(e))
+                errors.append(f"{backend}: {safe}")
+                logger.info("ddgs backend=%s failed: %s", backend, safe)
     raise RuntimeError("; ".join(errors)[:400] or "no backend succeeded")
 
 
 def _unavailable(detail: str) -> str:
+    # The detail can quote a backend exception; the outage text reaches the
+    # model as a normal result (no exception leaves this function), so the
+    # text is scanned before it leaves.
     return (
         "SEARCH_UNAVAILABLE\n"
-        f"Search temporarily unavailable ({detail}).\n"
+        f"Search temporarily unavailable ({redact_secrets_in_text(detail)}).\n"
         "Do not invent result lists, links, or citation numbers; continue coaching "
         "with general knowledge and clearly tell the user it is based on general "
         "knowledge, not live search."
@@ -103,8 +112,12 @@ def web_search_with_hits(
         # Single backend by decision: the legacy duckduckgo_search fallback
         # was removed together with its dependency, so a ddgs failure is
         # surfaced as SEARCH_UNAVAILABLE instead of a silent retry path.
-        logger.warning("web search failed: %s", e)
-        return _unavailable(str(e)[:400]), []
+        # A non-str argument bypasses the redaction filter: pass the
+        # sanitized string.
+        logger.warning("web search failed: %s", redact_secrets_in_text(str(e)))
+        # Redact before the cap: a cut inside a credential can drop the
+        # remainder below the scanner floors.
+        return _unavailable(redact_secrets_in_text(str(e))[:400]), []
 
     hits: list[SearchHit] = []
     for r in raw[:max_results]:

@@ -182,3 +182,37 @@ async def test_compact_current_round_failure_branch(monkeypatch) -> None:
     assert "Compaction failed" in out.text
     assert "continuing with full history" in out.text
     assert out.messages is None
+
+
+@pytest.mark.asyncio
+async def test_compact_failure_masks_embedded_credential(monkeypatch) -> None:
+    """The failure text travels into the model context, so an embedded key is masked."""
+    import realmock.domains.prep.agents.round_compaction as rc_mod
+    from realmock.domains.prep.agents.turn_state import TurnState
+    from realmock.platform.capabilities.ai.agent import WorkingMemory
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("compactor 401: Incorrect API key provided: sk-abcdefghij1234567890")
+
+    monkeypatch.setattr(rc_mod, "build_turn_context", _boom)
+    mem = WorkingMemory()
+    fake_llm = SimpleNamespace(context_window=8000)
+    st = TurnState()
+    messages = [
+        {"role": "user", "content": "first " + "x" * 2000},
+        {"role": "assistant", "content": "reply"},
+        {"role": "user", "content": "second question here"},
+    ]
+    out = await rc_mod.compact_current_round(
+        messages=messages,
+        context_window=500,
+        memory=mem,
+        llm=fake_llm,  # type: ignore[arg-type]
+        reply_locale="zh-CN",
+        turn_state=st,
+        objective_line="obj",
+        resume_id=None,
+        args={},
+    )
+    assert "Compaction failed" in out.text
+    assert "sk-abcdefghij1234567890" not in out.text
