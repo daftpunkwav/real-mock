@@ -105,7 +105,13 @@ def _provider_key_pattern(payload_class: str = "A-Za-z0-9_-") -> str:
 # alternation spans the written forms ("key: v", "key = v", "bearer v"), a
 # JSON-style quoted label and value (``"key": "v"`` — the closing quote
 # between the label and the separator is part of the delimiter), and an
-# optional opening quote. A short scheme value
+# optional opening quote. A quoted value is consumed whole through its
+# closing quote (its absence, in error text truncated mid-JSON, ends the run
+# at the line end instead): the run stops at the opening quote's own
+# character, so an apostrophe inside a double-quoted value stays inside, and
+# a quoted value can carry a scheme word and its payload separated by a
+# space (``"api_key": "Bearer <token>"``) that the single-word rule would
+# cut at the space, leaving the payload behind. A short scheme value
 # (floor 6) or a short labeled value (floor 4) after an explicit ``:``/``=``
 # is masked whatever its composition — a bare hex credential like
 # "api_key: deadbeef" has no digit — while a value after a bare space keeps
@@ -122,7 +128,8 @@ _SUBSTR_KEY_RE = re.compile(
     + r"(?=[_A-Za-z0-9.+/-]*[0-9])[_A-Za-z0-9.+/-]{6,}={0,2}"
     + r"|(?i:api[\s_-]?key|apikey|access[\s_-]?token|auth[\s_-]?token|secret|password|passwd)"
     + r"(?:"
-    + r"[\"\']?\s*[:=]\s*[\"\']?[_A-Za-z0-9.+/-]{4,}={0,2}"
+    + r"[\"\']?\s*[:=]\s*([\"\'])(?:(?!\1)[^\r\n]){4,}\1?"
+    + r"|[\"\']?\s*[:=]\s*[\"\']?[_A-Za-z0-9.+/-]{4,}={0,2}"
     + r"|\s+[\"\']?(?=[_A-Za-z0-9.+/-]*[0-9])[_A-Za-z0-9.+/-]{4,}={0,2}"
     + r")"
     + r"|(?i:basic)\s+[A-Za-z0-9+/=]{4,}"

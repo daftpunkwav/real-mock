@@ -300,6 +300,34 @@ class TestRedactSecretsInText:
         out = redact_secrets_in_text('{"authorization": "Bearer abc123def456ghi"} refused')
         assert "abc123def456ghi" not in out
 
+    def test_json_quoted_label_value_with_scheme_is_masked(self) -> None:
+        # A quoted labeled value can carry a scheme word and its payload
+        # separated by a space ("api_key": "Bearer <token>"): the
+        # single-word rule would cut the value at the space and leave the
+        # payload behind, so a quoted value is consumed whole through its
+        # closing quote. The masked form is pinned.
+        out = redact_secrets_in_text('failed {"api_key": "Bearer abc123def456ghi"} done')
+        assert out == 'failed {"api_***} done'
+
+    def test_quoted_label_value_stops_at_the_closing_quote(self) -> None:
+        # The quoted-value consumption ends at the closing quote: the prose
+        # after it is scanned on its own and stays readable.
+        out = redact_secrets_in_text('password: "abc12345" required for user bob')
+        assert out == "pass*** required for user bob"
+
+    def test_quoted_label_value_with_apostrophe_is_masked(self) -> None:
+        # The quoted run stops at the opening quote's own character, so an
+        # apostrophe inside a double-quoted value cannot split the value.
+        out = redact_secrets_in_text('password: "don\'t leak abc123def456" now')
+        assert "abc123def456" not in out
+        assert "now" in out
+
+    def test_truncated_json_quoted_label_value_is_masked(self) -> None:
+        # Error text can be truncated mid-JSON: the closing quote may never
+        # come, so the quoted run ends at the line end instead.
+        out = redact_secrets_in_text('{"api_key": "Bearer abc123def456ghi')
+        assert "abc123def456ghi" not in out
+
     def test_labeled_space_separated_prose_is_preserved(self) -> None:
         # A value after a bare space keeps the digit lookahead: that is
         # where prose lives ("password required", "secret sauce").
