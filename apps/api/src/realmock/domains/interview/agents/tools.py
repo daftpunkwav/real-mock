@@ -452,16 +452,6 @@ async def _run_web_search_tool(ctx: ToolContext, name: str, arguments: dict[str,
     return _cap_result(text)
 
 
-def _past_round_paging(arguments: dict[str, Any]) -> tuple[int, int] | None:
-    """Paging arguments of read_past_round (None when they are malformed)."""
-    try:
-        return int(arguments.get("round_no") or 0), int(arguments.get("offset") or 0)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) argument is not convertible
-        # and is not a ValueError; it is a malformed argument like any other.
-        return None
-
-
 async def _run_past_records_tool(ctx: ToolContext, name: str, arguments: dict[str, Any]) -> str:
     """search_past_interviews / read_past_round: cross-round transcript reads."""
     from realmock.domains.interview.agents import past_records
@@ -473,10 +463,7 @@ async def _run_past_records_tool(ctx: ToolContext, name: str, arguments: dict[st
             ctx.db, ctx.session, str(arguments.get("query") or "")
         )
     else:
-        # Malformed paging args are a model mistake, not a broken tool:
-        # answer with an observation instead of raising into ToolGuard,
-        # whose breaker would otherwise open the tool after two bad calls.
-        paging = _past_round_paging(arguments)
+        paging = past_records.past_round_paging(arguments)
         if paging is None:
             return json.dumps(
                 {"error": "invalid_argument", "field": "round_no/offset (integer)"},
