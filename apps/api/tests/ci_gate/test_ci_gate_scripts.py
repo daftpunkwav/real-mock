@@ -568,5 +568,20 @@ def test_regen_compiles_with_the_header_command(tmp_path: Path, monkeypatch) -> 
     )
     assert mod.main([]) == 0
     ((argv, kwargs),) = calls
-    assert argv == mod.COMPILE_COMMAND
+    # The exact command recorded in the lock header; keep both in sync.
+    assert argv == [
+        "uv",
+        "pip",
+        "compile",
+        "apps/api/pyproject.toml",
+        "--extra",
+        "dev",
+        "--generate-hashes",
+        "--python-platform",
+        "linux",
+        "--python-version",
+        "3.14",
+        "--output-file",
+        "apps/api/requirements-ci.lock",
+    ]
     assert kwargs == {"cwd": tmp_path, "check": False}

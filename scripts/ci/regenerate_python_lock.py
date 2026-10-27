@@ -35,30 +35,33 @@ from check_python_lock_sync import (
     with_snapshot,
 )
 
-# The lock header records this command verbatim; keep both in sync.
-COMPILE_COMMAND = [
-    "uv",
-    "pip",
-    "compile",
-    "apps/api/pyproject.toml",
-    "--extra",
-    "dev",
-    "--generate-hashes",
-    "--python-platform",
-    "linux",
-    "--python-version",
-    "3.14",
-    "--output-file",
-    "apps/api/requirements-ci.lock",
-]
-
 
 def main(argv: list[str]) -> int:
     """Compile the lock (unless --annotate-only) and refresh its snapshot."""
     annotate_only = "--annotate-only" in argv
     if not annotate_only:
-        # Fixed argv built from constants in this file, no shell, repo cwd.
-        result = subprocess.run(COMPILE_COMMAND, cwd=ROOT, check=False)  # nosec B603 B607
+        # The exact command recorded in the lock header; keep both in sync.
+        # Spelled out as a literal at the call site: the security scanners
+        # only accept a literal, not a name resolved from elsewhere.
+        result = subprocess.run(  # fixed uv argv, no shell  # nosec B603 B607
+            [
+                "uv",
+                "pip",
+                "compile",
+                "apps/api/pyproject.toml",
+                "--extra",
+                "dev",
+                "--generate-hashes",
+                "--python-platform",
+                "linux",
+                "--python-version",
+                "3.14",
+                "--output-file",
+                "apps/api/requirements-ci.lock",
+            ],
+            cwd=ROOT,
+            check=False,
+        )
         if result.returncode != 0:
             return result.returncode
     manifest = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
