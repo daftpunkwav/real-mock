@@ -9,7 +9,7 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 - 前端：Node 24（见 [.nvmrc](.nvmrc)）—— 在 `apps/web` 内 `npm ci`
 - 一键本地开发：`scripts/dev.sh start|stop`（前端 8080，后端 8081，日志与 PID 在 `logs/`）
 
-CI 从已提交的哈希锁定文件 `apps/api/requirements-ci.lock` 安装后端依赖，而不是在安装时解析依赖；该锁文件用其头部记录的 `uv pip compile` 命令重新生成。
+CI 从已提交的哈希锁定文件 `apps/api/requirements-ci.lock` 安装后端依赖，而不是在安装时解析依赖。用 `python scripts/ci/regenerate_python_lock.py`（仓库根目录运行）重新生成：它会执行锁文件头部记录的 `uv pip compile` 命令，并刷新锁文件末尾的 manifest 快照——`check_python_lock_sync.py` 正是靠这份快照才能检测出 extras 的变化（比如去掉 `[standard]`）。
 
 ## 检查项（本地必须与 CI 一致）
 

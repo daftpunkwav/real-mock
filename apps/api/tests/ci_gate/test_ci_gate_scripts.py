@@ -223,10 +223,19 @@ extra==1.2.3 \\
 """
 
 
-def _stub_lock_sync(mod, monkeypatch, tmp_path: Path, manifest: str, lock: str) -> None:
-    """Point the gate at a synthetic manifest/lock pair instead of the real ones."""
+def _stub_lock_sync(
+    mod, monkeypatch, tmp_path: Path, manifest: str, lock: str, *, snapshot: bool = True
+) -> None:
+    """Point the gate at a synthetic manifest/lock pair instead of the real ones.
+
+    Unless ``snapshot`` is false, the lock gains the manifest-snapshot block
+    the gate requires, rendered from the same manifest — most tests are about
+    the pin comparison and must not trip over the snapshot.
+    """
     manifest_path = tmp_path / "pyproject.toml"
     manifest_path.write_text(manifest, encoding="utf-8")
+    if snapshot:
+        lock = mod.with_snapshot(lock, mod.expected_snapshot(tomllib.loads(manifest)))
     lock_path = tmp_path / "requirements-ci.lock"
     lock_path.write_text(lock, encoding="utf-8")
     monkeypatch.setattr(mod, "ROOT", tmp_path)
@@ -410,3 +419,154 @@ def test_python_lock_sync_compares_only_the_dev_extra(tmp_path: Path, monkeypatc
     # both: only the requirements the lock covers are compared.
     _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_OTHER_EXTRA, _LOCK_FOR_DEV_EXTRA)
     assert mod.main() == 0
+
+
+# --- the manifest snapshot (extras drift) ---
+
+# The manifest asks for the `standard` extra; the pins below satisfy the
+# specifier, so a lock without the snapshot would stay green even though its
+# tree still installs the extra's packages.
+_MANIFEST_WITH_EXTRAS = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = [
+    "alpha>=1.0,<2",
+    "uvicorn[standard]>=0.32.0,<1",
+]
+"""
+
+_LOCK_FOR_EXTRAS = """\
+alpha==1.5.0 \\
+    --hash=sha256:1111
+    # via
+    #   demo (pyproject.toml)
+uvicorn==0.54.0 \\
+    --hash=sha256:2222
+    # via
+    #   demo (pyproject.toml)
+"""
+
+
+def _stale_snapshot_lock(mod, entries: list[str]) -> str:
+    """A lock whose snapshot block was written by hand to the given entries."""
+    return mod.with_snapshot(_LOCK_FOR_EXTRAS, entries)
+
+
+def test_snapshot_round_trips_through_render_and_parse() -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    entries = mod.expected_snapshot(tomllib.loads(_MANIFEST_WITH_EXTRAS))
+    assert entries == ["alpha>=1.0,<2", "uvicorn[standard]>=0.32.0,<1"]
+    assert mod.snapshot_entries(mod.snapshot_block(entries)) == entries
+
+
+def test_lock_sync_flags_a_dropped_extra(tmp_path: Path, monkeypatch, capsys) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    # The lock was compiled from `uvicorn` without the extra; the manifest now
+    # asks for `uvicorn[standard]`. The pins still satisfy the specifier, so
+    # only the snapshot sees the drift.
+    lock = _stale_snapshot_lock(mod, ["alpha>=1.0,<2", "uvicorn>=0.32.0,<1"])
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_EXTRAS, lock, snapshot=False)
+    assert mod.main() == 1
+    out = capsys.readouterr().out
+    assert "uvicorn[standard]>=0.32.0,<1" in out
+
+
+def test_lock_sync_flags_an_added_extra(tmp_path: Path, monkeypatch, capsys) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    # The reverse drift: the manifest dropped the extra, the lock snapshot
+    # still records it — the tree keeps installing the extra's packages.
+    lock = _stale_snapshot_lock(mod, ["alpha>=1.0,<2", "uvicorn[standard]>=0.32.0,<1"])
+    manifest = _MANIFEST_WITH_EXTRAS.replace("uvicorn[standard]", "uvicorn")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, manifest, lock, snapshot=False)
+    assert mod.main() == 1
+    out = capsys.readouterr().out
+    assert "uvicorn[standard]>=0.32.0,<1" in out
+
+
+def test_lock_sync_flags_a_missing_snapshot(tmp_path: Path, monkeypatch, capsys) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    # Without the snapshot the lock's provenance is unknown: the gate must not
+    # silently fall back to the pin-only comparison.
+    _stub_lock_sync(
+        mod, monkeypatch, tmp_path, _MANIFEST_WITH_EXTRAS, _LOCK_FOR_EXTRAS, snapshot=False
+    )
+    assert mod.main() == 1
+    assert "manifest-snapshot" in capsys.readouterr().out
+
+
+def test_lock_sync_flags_a_reordered_manifest(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    lock = _stale_snapshot_lock(mod, ["uvicorn[standard]>=0.32.0,<1", "alpha>=1.0,<2"])
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_EXTRAS, lock, snapshot=False)
+    assert mod.main() == 1
+
+
+# --- regenerate_python_lock.py ---
+
+
+def test_regen_annotate_only_refreshes_the_snapshot(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("regenerate_python_lock.py")
+    manifest_path = tmp_path / "pyproject.toml"
+    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
+    lock_path = tmp_path / "requirements-ci.lock"
+    lock_path.write_text(_LOCK_FOR_EXTRAS, encoding="utf-8")
+    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
+    monkeypatch.setattr(mod, "LOCK", lock_path)
+    monkeypatch.setattr(
+        mod,
+        "subprocess",
+        SimpleNamespace(
+            run=lambda *a, **k: (_ for _ in ()).throw(AssertionError("uv must not run"))
+        ),
+    )
+    assert mod.main(["--annotate-only"]) == 0
+    text = lock_path.read_text(encoding="utf-8")
+    gate = _load_script("check_python_lock_sync.py")
+    assert gate.snapshot_entries(text) == gate.expected_snapshot(
+        tomllib.loads(_MANIFEST_WITH_EXTRAS)
+    )
+    # The pins themselves are untouched by the annotation pass.
+    assert text.startswith(_LOCK_FOR_EXTRAS.rstrip("\n"))
+
+
+def test_regen_replaces_a_stale_snapshot(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("regenerate_python_lock.py")
+    manifest_path = tmp_path / "pyproject.toml"
+    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
+    lock_path = tmp_path / "requirements-ci.lock"
+    stale = mod.with_snapshot(_LOCK_FOR_EXTRAS, ["alpha>=1.0,<2", "uvicorn>=0.32.0,<1"])
+    lock_path.write_text(stale, encoding="utf-8")
+    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
+    monkeypatch.setattr(mod, "LOCK", lock_path)
+    assert mod.main(["--annotate-only"]) == 0
+    gate = _load_script("check_python_lock_sync.py")
+    assert (
+        gate.snapshot_violations(
+            tomllib.loads(_MANIFEST_WITH_EXTRAS), lock_path.read_text(encoding="utf-8")
+        )
+        == []
+    )
+
+
+def test_regen_compiles_with_the_header_command(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("regenerate_python_lock.py")
+    manifest_path = tmp_path / "pyproject.toml"
+    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
+    lock_path = tmp_path / "requirements-ci.lock"
+    lock_path.write_text(_LOCK_FOR_EXTRAS, encoding="utf-8")
+    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
+    monkeypatch.setattr(mod, "LOCK", lock_path)
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    calls: list[tuple[list[str], dict]] = []
+    monkeypatch.setattr(
+        mod,
+        "subprocess",
+        SimpleNamespace(
+            run=lambda argv, **kw: calls.append((argv, kw)) or SimpleNamespace(returncode=0)
+        ),
+    )
+    assert mod.main([]) == 0
+    ((argv, kwargs),) = calls
+    assert argv == mod.COMPILE_COMMAND
+    assert kwargs == {"cwd": tmp_path, "check": False}
