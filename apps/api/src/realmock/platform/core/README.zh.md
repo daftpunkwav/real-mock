@@ -19,6 +19,7 @@
 | `prompts.py` | 共享 agent/LLM 提示词片段;输出规则统一走 `with_agent_output_rules` |
 | `background.py` | `spawn_background`:fire-and-forget 后台任务派生,持有在飞任务引用(防 GC 提前回收),崩溃只记日志不外抛 |
 | `agent_error_log.py` | agent 工具/循环失败的可选 JSONL 日志(`REALMOCK_AGENT_ERROR_LOG=1`);默认关闭 |
+| `coerce.py` | 模型给出的数字转整数的统一入口:`try_coerce_int`(不可转换时返回 None)与 `coerce_int`(不可转换时回退默认值) |
 
 ## `security/` — 输入与 URL 安全
 

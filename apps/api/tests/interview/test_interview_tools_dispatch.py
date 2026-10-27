@@ -381,6 +381,29 @@ async def test_read_past_round_rejects_malformed_args_without_raising() -> None:
 
 
 @pytest.mark.asyncio
+async def test_read_past_round_passes_converted_paging_values(monkeypatch) -> None:
+    """The paging values reach the reader as converted integers, in order."""
+    import realmock.domains.interview.agents.past_records as pr
+
+    seen: list[tuple[int, int]] = []
+
+    def _read_past_round(db, session, round_no, offset):
+        seen.append((round_no, offset))
+        return '{"turns":[]}'
+
+    monkeypatch.setattr(pr, "read_past_round", _read_past_round)
+    out = await execute_interview_tool(
+        "read_past_round", {"round_no": "3", "offset": "7"}, db=None, session=object()
+    )
+    assert "turns" in out
+    assert seen == [(3, 7)]
+
+    seen.clear()
+    await execute_interview_tool("read_past_round", {"round_no": 2}, db=None, session=object())
+    assert seen == [(2, 0)]
+
+
+@pytest.mark.asyncio
 async def test_read_past_round_non_finite_args_stay_observation() -> None:
     """A non-finite paging arg stays an observation, never raises into ToolGuard.
 

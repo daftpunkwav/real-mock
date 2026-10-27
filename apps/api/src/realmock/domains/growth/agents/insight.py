@@ -48,6 +48,7 @@ from realmock.platform.capabilities.ai.llm.json_extract import (
     salvage_truncated_object as _salvage_truncated_object,
 )
 from realmock.platform.contracts.session_catalog import get_session_catalog
+from realmock.platform.core.coerce import try_coerce_int
 from realmock.platform.services.candidate_read import (
     get_default_user_profile,
     get_latest_scored_resume_id,
@@ -76,12 +77,12 @@ _VALID_STAGES = ("rising", "stalling", "plateau", "insufficient")
 
 
 def _clamp_int(value: Any, low: int, high: int, default: int = 0) -> int:
-    try:
-        return max(low, min(high, int(value)))
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) count is not convertible and is
-        # not a ValueError; it degrades to the default like any other bad count.
+    converted = try_coerce_int(value)
+    if converted is None:
+        # A non-finite (Infinity) count is not convertible; it degrades to the
+        # default like any other bad count.
         return default
+    return max(low, min(high, converted))
 
 
 def _as_str_list(raw: Any, *, cap: int, item_max: int = 300) -> list[str]:

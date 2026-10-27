@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from realmock.domains.interview.ledger.store import load_ledger
 from realmock.domains.interview.models import InterviewSession
+from realmock.platform.core.coerce import try_coerce_int
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,20 @@ def search_past_interviews(db: Session, session: InterviewSession, query: str) -
     return json.dumps({"matches": hits[:_SEARCH_TURN_LIMIT]}, ensure_ascii=False)
 
 
+def past_round_paging(arguments: dict[str, Any]) -> tuple[int, int] | None:
+    """Paging arguments of read_past_round (None when they are malformed).
+
+    A malformed argument is a model mistake, not a broken tool: the caller
+    answers with an observation instead of raising into ToolGuard, whose
+    breaker would otherwise open the tool after two bad calls.
+    """
+    round_no = try_coerce_int(arguments.get("round_no") or 0)
+    offset = try_coerce_int(arguments.get("offset") or 0)
+    if round_no is None or offset is None:
+        return None
+    return round_no, offset
+
+
 def read_past_round(db: Session, session: InterviewSession, round_no: int, offset: int = 0) -> str:
     """Page through one prior round's transcript (bounded turns per page)."""
     round_no = int(round_no or 0)
@@ -137,6 +152,7 @@ def read_past_round(db: Session, session: InterviewSession, round_no: int, offse
 
 __all__ = [
     "has_prior_rounds",
+    "past_round_paging",
     "prior_round_sessions",
     "read_past_round",
     "search_past_interviews",
