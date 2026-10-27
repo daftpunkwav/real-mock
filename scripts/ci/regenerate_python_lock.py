@@ -51,6 +51,23 @@ from check_python_lock_sync import (
 )
 
 
+def _annotate_only_blocked(expected: list[str], lock_text: str) -> str | None:
+    """Why annotate-only must not stamp the snapshot, or None when it may.
+
+    A lock whose recorded snapshot differs from the current manifest was
+    compiled from a different manifest, so the pins may no longer reflect
+    it; stamping the new strings would attest a tree the manifest no longer
+    describes. Only the full compile re-resolves the pins.
+    """
+    recorded = snapshot_entries(lock_text)
+    if recorded is not None and recorded != expected:
+        return (
+            "the lock records a different manifest than the current one; "
+            "run the full compile instead of --annotate-only"
+        )
+    return None
+
+
 def main(argv: list[str]) -> int:
     """Compile the lock (unless --annotate-only) and refresh its snapshot."""
     annotate_only = "--annotate-only" in argv
@@ -83,16 +100,9 @@ def main(argv: list[str]) -> int:
     expected = expected_snapshot(manifest)
     lock_text = LOCK.read_text(encoding="utf-8")
     if annotate_only:
-        recorded = snapshot_entries(lock_text)
-        if recorded is not None and recorded != expected:
-            # The lock was compiled from a different manifest, so the pins may
-            # no longer reflect it; stamping the new strings would attest a
-            # tree the manifest no longer describes. Only the full compile
-            # re-resolves the pins.
-            print(
-                "the lock records a different manifest than the current one; "
-                "run the full compile instead of --annotate-only"
-            )
+        blocked = _annotate_only_blocked(expected, lock_text)
+        if blocked is not None:
+            print(blocked)
             return 1
     LOCK.write_text(with_snapshot(lock_text, expected), encoding="utf-8")
     if annotate_only:
