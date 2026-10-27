@@ -300,7 +300,6 @@ class ToolRoundRunner:
                     resume_id=self.session.resume_id,
                     profile_id=self.session.profile_id,
                     agent_state=self.agent.agent_state,
-                    llm=self.llm,
                     session=self.session,
                 ),
                 timeout_sec=timeout_override,

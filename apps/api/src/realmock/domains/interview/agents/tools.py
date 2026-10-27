@@ -18,7 +18,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -48,9 +48,6 @@ from realmock.platform.services.candidate_read import (
 )
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    pass
 
 #: Interviewer tool-loop round cap: derived from the declared policy table
 #: (agent_policies.INTERVIEWER_LOOP) so tuning stays a table edit, not a
@@ -518,7 +515,6 @@ async def execute_interview_tool(
     resume_id: int | None = None,
     profile_id: int | None = None,
     agent_state: dict[str, Any] | None = None,
-    llm: Any | None = None,
     session: Any | None = None,
 ) -> str:
     """Execute a single tool, returning a string result."""

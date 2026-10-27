@@ -278,7 +278,6 @@ async def _run_github_tool_loop(
                 resume_id=getattr(session, "resume_id", None),
                 profile_id=getattr(session, "profile_id", None),
                 agent_state=agent_state,
-                llm=llm,
                 session=session,
             ),
         )
