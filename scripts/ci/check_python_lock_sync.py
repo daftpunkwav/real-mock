@@ -109,16 +109,35 @@ def duplicate_pins(lock_text: str) -> dict[str, list[str]]:
 
 
 def manifest_requirements(manifest: dict[str, Any]) -> list[Requirement]:
-    """Return the requirements the lock is expected to cover.
+    """Return every requirement declared for the lock's scope.
 
     Those are `project.dependencies` plus the entries of the extra the lock is
     compiled with; an extra that is not compiled into the lock is not part of
-    the comparison.
+    the comparison. Environment markers are not evaluated here.
     """
     project = manifest.get("project", {})
     entries: list[str] = list(project.get("dependencies", []))
     entries.extend(project.get("optional-dependencies", {}).get(LOCKED_EXTRA, []))
     return [Requirement(entry) for entry in entries]
+
+
+def _applies(requirement: Requirement) -> bool:
+    """Whether the requirement applies to the target the lock is compiled for."""
+    return requirement.marker is None or requirement.marker.evaluate(LOCK_ENVIRONMENT)
+
+
+def locked_requirements(manifest: dict[str, Any]) -> list[Requirement]:
+    """Return the declared requirements that apply to the lock target.
+
+    A requirement whose environment marker excludes the target the lock is
+    compiled for is legitimately absent from the lock, so it takes no part in
+    either direction of the comparison.
+    """
+    return [
+        requirement
+        for requirement in manifest_requirements(manifest)
+        if _applies(requirement)
+    ]
 
 
 def project_marker(manifest: dict[str, Any], manifest_path: Path, root: Path) -> str:
@@ -195,12 +214,6 @@ def _requirement_message(
     requirement: Requirement, versions: dict[str, str]
 ) -> str | None:
     """Return the drift of one requirement, or None when the lock satisfies it."""
-    if requirement.marker is not None and not requirement.marker.evaluate(
-        LOCK_ENVIRONMENT
-    ):
-        # The marker excludes the target the lock is compiled for, so the lock
-        # cannot carry this requirement.
-        return None
     name = canonical(requirement.name)
     if name not in versions:
         return f"{name}: declared in the manifest but not locked"
@@ -220,7 +233,9 @@ def _requirement_message(
 
 def sync_violations(manifest: dict[str, Any], lock_text: str, marker: str) -> list[str]:
     """Return one message per drift between the manifest requirements and the lock."""
-    requirements = manifest_requirements(manifest)
+    requirements = locked_requirements(manifest)
+    # Only the requirements that apply to the lock target can justify a pin, so
+    # an inactive one must not mask a pin the lock should have dropped.
     declared = {canonical(requirement.name) for requirement in requirements}
 
     violations = _duplicate_pin_violations(lock_text)
@@ -243,7 +258,7 @@ def main() -> int:
         print("regenerate the lock with the uv pip compile command in its header")
         return 1
 
-    requirement_count = len(manifest_requirements(manifest))
+    requirement_count = len(locked_requirements(manifest))
     locked_count = len(locked_versions(lock_text))
     summary = (
         "python lock in sync with the manifest "

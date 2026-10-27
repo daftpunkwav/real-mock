@@ -308,7 +308,9 @@ def test_lock_sync_marker_set_matches_the_manifest_requirements() -> None:
     lock_text = mod.LOCK.read_text(encoding="utf-8")
     marker = mod.project_marker(manifest, mod.MANIFEST, mod.ROOT)
     direct = mod.direct_requirements(lock_text, marker)
-    declared = {mod.canonical(r.name) for r in mod.manifest_requirements(manifest)}
+    # Only the requirements that apply to the lock target can be marked direct
+    # in a lock for that target.
+    declared = {mod.canonical(r.name) for r in mod.locked_requirements(manifest)}
     assert set(direct) == declared
 
 
@@ -329,6 +331,15 @@ posix-only==1.0.0 \\
     --hash=sha256:1111
     # via
     #   demo (pyproject.toml)
+"""
+
+# The same requirement, moved off the lock target: the pin is now stale, and
+# the inactive requirement must not justify it.
+_MANIFEST_WITH_INACTIVE_REQUIREMENT = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = ["posix-only; sys_platform == 'win32'"]
 """
 
 
@@ -372,6 +383,23 @@ def test_python_lock_sync_flags_a_marker_requirement_the_lock_should_carry(
     # the applicable requirement is missing and the inapplicable one is orphaned.
     lock = _LOCK_WITH_POSIX_ONLY.replace("posix-only", "windows-only")
     _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_MARKERS, lock)
+    assert mod.main() == 1
+    assert "posix-only" in capsys.readouterr().out
+
+
+def test_python_lock_sync_flags_a_pin_the_inactive_requirement_no_longer_justifies(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    # The requirement moved off the lock target but the lock still pins it, so
+    # the pin is stale: an inactive requirement must not mask it.
+    _stub_lock_sync(
+        mod,
+        monkeypatch,
+        tmp_path,
+        _MANIFEST_WITH_INACTIVE_REQUIREMENT,
+        _LOCK_WITH_POSIX_ONLY,
+    )
     assert mod.main() == 1
     assert "posix-only" in capsys.readouterr().out
 
