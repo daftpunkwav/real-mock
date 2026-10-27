@@ -69,6 +69,9 @@ jobs:
       LLM_API_KEY: "test-key"
       LLM_API_BASE: "http://127.0.0.1:9999/v1"
       CORS_ORIGINS: "http://localhost:8080"
+      # The backend runs from the working tree: the job installs the locked
+      # dependency tree, and the package itself is imported from apps/api/src.
+      PYTHONPATH: ${{ github.workspace }}/apps/api/src
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,12 +81,16 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: apps/api/pyproject.toml
+          cache-dependency-path: |
+            apps/api/pyproject.toml
+            apps/api/requirements-ci.lock
 
-      # The audit must see the full runtime env (editable install included),
-      # so it installs the same set the backend job does.
+      # The audit must see the full runtime dependency set, so it installs the
+      # same tree the backend job does: the compiled lock, where every
+      # version is pinned and hash-verified and only wheels are accepted.
       - name: Install deps
-        run: pip install -q -e 'apps/api[dev]' pip-audit==2.10.1
+        run: |
+          python -m pip install --only-binary :all: --require-hashes -r apps/api/requirements-ci.lock
 
       - name: pip-audit dependency scan
         # chromadb 1.5.9 (latest) known issues with no fixed release yet

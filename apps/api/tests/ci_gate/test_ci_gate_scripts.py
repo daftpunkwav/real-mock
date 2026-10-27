@@ -5,13 +5,14 @@ was known only through failure output. They run inside the backend suite now:
 each script is loaded by file path (they live outside the backend package),
 the pass paths run against the real repository, and the failure paths stub
 the script's IO seam (the git index, the installed distributions, the repo
-root) with synthetic fixtures.
+root, the manifest and the lock) with synthetic fixtures.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -125,3 +126,187 @@ def test_deps_policy_passes_a_clean_environment(monkeypatch) -> None:
     fake = [SimpleNamespace(metadata={"Name": "safe-pkg"}, version="1.0.0")]
     monkeypatch.setattr(mod.metadata, "distributions", lambda: iter(fake))
     assert mod.main() == 0
+
+
+# --- check_python_lock_sync.py ---
+
+# A synthetic manifest/lock pair. The manifest declares `Beta._-Pkg` while the
+# lock pins `beta-pkg`, so a clean run also proves both sides are compared
+# PEP 503 normalized; `gamma` carries no specifier, so only its presence is
+# required of it. The lock marks every pin as a direct requirement through its
+# `# via` block, which is how uv records the project itself.
+_SYNTHETIC_MANIFEST = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = [
+    "alpha>=1.0,<2",
+    "Beta._-Pkg==3.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["gamma"]
+"""
+
+_SYNTHETIC_LOCK = """\
+alpha==1.5.0 \\
+    --hash=sha256:1111
+    # via
+    #   demo (pyproject.toml)
+beta-pkg==3.0.0 \\
+    --hash=sha256:2222
+    # via
+    #   demo (pyproject.toml)
+gamma==7.7.7 \\
+    --hash=sha256:3333
+    # via
+    #   demo (pyproject.toml)
+"""
+
+# The manifest declares a distribution the lock does not pin.
+_MANIFEST_WITH_MISSING = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = [
+    "alpha>=1.0,<2",
+    "missing-pkg==1.0.0",
+]
+"""
+
+# The manifest allows `alpha` below 2.0, the lock pins it above.
+_MANIFEST_WITH_RANGE = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = ["alpha>=1.0,<2"]
+"""
+
+_LOCK_OUT_OF_RANGE = """\
+alpha==2.5.0 \\
+    --hash=sha256:1111
+    # via demo
+"""
+
+# The same distribution pinned twice: the lock must pin each one exactly once.
+_LOCK_WITH_DUPLICATE = """\
+alpha==1.5.0 \\
+    --hash=sha256:1111
+alpha==1.6.0 \\
+    --hash=sha256:2222
+"""
+
+# A distribution the lock marks as a direct requirement of the project, but
+# which the manifest no longer declares.
+_LOCK_WITH_ORPHAN = """\
+alpha==1.5.0 \\
+    --hash=sha256:1111
+    # via
+    #   demo (pyproject.toml)
+orphan==9.9.9 \\
+    --hash=sha256:4444
+    # via
+    #   demo (pyproject.toml)
+"""
+
+# A lock that carries no marker at all: the reverse check must not guess and
+# must report nothing, even for a pin the manifest does not declare.
+_LOCK_WITHOUT_MARKER = """\
+alpha==1.5.0 \\
+    --hash=sha256:1111
+    # via
+    #   some-other-package
+extra==1.2.3 \\
+    --hash=sha256:5555
+    # via
+    #   some-other-package
+"""
+
+
+def _stub_lock_sync(mod, monkeypatch, tmp_path: Path, manifest: str, lock: str) -> None:
+    """Point the gate at a synthetic manifest/lock pair instead of the real ones."""
+    manifest_path = tmp_path / "pyproject.toml"
+    manifest_path.write_text(manifest, encoding="utf-8")
+    lock_path = tmp_path / "requirements-ci.lock"
+    lock_path.write_text(lock, encoding="utf-8")
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
+    monkeypatch.setattr(mod, "LOCK", lock_path)
+
+
+def test_python_lock_sync_passes_on_the_real_repo() -> None:
+    assert _load_script("check_python_lock_sync.py").main() == 0
+
+
+def test_lock_sync_canonical_normalizes_pep503_names() -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    assert mod.canonical("Foo._-Bar") == "foo-bar"
+
+
+def test_lock_sync_reads_the_pins_and_skips_the_hash_and_comment_lines() -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    assert mod.locked_versions(_SYNTHETIC_LOCK) == {
+        "alpha": "1.5.0",
+        "beta-pkg": "3.0.0",
+        "gamma": "7.7.7",
+    }
+
+
+def test_python_lock_sync_accepts_a_clean_synthetic_pair(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _SYNTHETIC_MANIFEST, _SYNTHETIC_LOCK)
+    assert mod.main() == 0
+
+
+def test_python_lock_sync_flags_a_requirement_missing_from_the_lock(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_MISSING, _SYNTHETIC_LOCK)
+    assert mod.main() == 1
+    assert "missing-pkg" in capsys.readouterr().out
+
+
+def test_python_lock_sync_flags_a_version_outside_the_manifest_range(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_RANGE, _LOCK_OUT_OF_RANGE)
+    assert mod.main() == 1
+    assert "locked at 2.5.0" in capsys.readouterr().out
+
+
+def test_python_lock_sync_flags_a_distribution_pinned_twice(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_RANGE, _LOCK_WITH_DUPLICATE)
+    assert mod.main() == 1
+    assert "pinned more than once" in capsys.readouterr().out
+
+
+def test_python_lock_sync_flags_a_direct_requirement_no_longer_declared(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_RANGE, _LOCK_WITH_ORPHAN)
+    assert mod.main() == 1
+    assert "orphan" in capsys.readouterr().out
+
+
+def test_python_lock_sync_ignores_a_lock_without_the_direct_marker(
+    tmp_path: Path, monkeypatch
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_RANGE, _LOCK_WITHOUT_MARKER)
+    assert mod.main() == 0
+
+
+def test_lock_sync_marker_set_matches_the_manifest_requirements() -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    manifest = tomllib.loads(mod.MANIFEST.read_text(encoding="utf-8"))
+    lock_text = mod.LOCK.read_text(encoding="utf-8")
+    marker = mod.project_marker(manifest, mod.MANIFEST, mod.ROOT)
+    direct = mod.direct_requirements(lock_text, marker)
+    declared = {mod.canonical(r.name) for r in mod.manifest_requirements(manifest)}
+    assert set(direct) == declared

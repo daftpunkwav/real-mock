@@ -9,6 +9,8 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 - 前端：Node 24（见 [.nvmrc](.nvmrc)）—— 在 `apps/web` 内 `npm ci`
 - 一键本地开发：`scripts/dev.sh start|stop`（前端 8080，后端 8081，日志与 PID 在 `logs/`）
 
+CI 从已提交的哈希锁定文件 `apps/api/requirements-ci.lock` 安装后端依赖，而不是在安装时解析依赖；该锁文件用其头部记录的 `uv pip compile` 命令重新生成。
+
 ## 检查项（本地必须与 CI 一致）
 
 除注明外均在 `apps/api` 下运行：
@@ -20,6 +22,7 @@ CI 的确切要求；agent 相关工作规则见 [AGENTS.md](AGENTS.md)。
 | 测试 | `python -m pytest` | CI 对整个 `realmock` 包有 >=90% 覆盖率门（`--cov=realmock`） |
 | 依赖审计 | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 已知问题且上游无修复版；已在 `pyproject.toml` 声明 |
 | 依赖政策 | `python scripts/ci/check_python_deps_policy.py` | 在仓库根目录运行；禁用包清单在 `scripts/ci/dependency-policy.json`（扫描已安装环境，含传递依赖） |
+| 依赖锁 | `python scripts/ci/check_python_lock_sync.py` | 在仓库根目录运行；CI 锁 `apps/api/requirements-ci.lock` 必须与 `pyproject.toml` 一致 |
 
 前端，在 `apps/web` 下运行：
 

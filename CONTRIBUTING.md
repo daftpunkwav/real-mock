@@ -10,6 +10,8 @@ agent-specific working rules live in [AGENTS.md](AGENTS.md).
 - Frontend: Node 24 (see [.nvmrc](.nvmrc)) — `npm ci` inside `apps/web`
 - One-command local dev: `scripts/dev.sh start|stop` (frontend on 8080, backend on 8081, logs and PIDs under `logs/`)
 
+CI installs the backend dependencies from the committed hash-locked file `apps/api/requirements-ci.lock` instead of resolving dependencies at install time; regenerate it with the `uv pip compile` command recorded in the lock header.
+
 ## Checks (local must match CI)
 
 Run from `apps/api` unless noted:
@@ -21,6 +23,7 @@ Run from `apps/api` unless noted:
 | Tests | `python -m pytest` | Coverage gate >=90% over the whole `realmock` package (`--cov=realmock` in CI) |
 | Deps audit | `pip-audit --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815` | chromadb 1.5.9 known issues with no upstream fix; declared in `pyproject.toml` |
 | Deps policy | `python scripts/ci/check_python_deps_policy.py` | from repo root; banned packages in `scripts/ci/dependency-policy.json` (scans the installed env, transitive included) |
+| Deps lock | `python scripts/ci/check_python_lock_sync.py` | from repo root; the CI lock `apps/api/requirements-ci.lock` must match `pyproject.toml` |
 
 Frontend, run from `apps/web`:
 

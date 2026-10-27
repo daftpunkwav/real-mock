@@ -8,16 +8,16 @@ Triggers: push to `main` and all pull requests. Concurrency group `ci-<ref>` wit
 
 | Job | Runner / toolchain | Steps |
 | --- | --- | --- |
-| `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.14 with pip cache keyed on `apps/api/pyproject.toml` | install `apps/api` editable with the `dev` extra (`pip install -e 'apps/api[dev]'`; the extra carries pytest / pytest-asyncio plus the pinned gate toolchain `ruff==0.16.10`, `mypy==2.4.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`, `httpx2`); OpenAPI contract sync check (`export_openapi.py` must leave `openapi.json` unchanged); `ruff check apps/api`; `ruff format --check apps/api`; `mypy src` (blocking); pytest full regression with whole-package coverage gate `--cov=realmock --cov-fail-under=90` |
+| `backend` (Backend (ruff / mypy / pytest / audit)) | ubuntu-latest, 20 min cap; Python 3.14 with pip cache keyed on `apps/api/pyproject.toml` and `apps/api/requirements-ci.lock` | install the backend dependencies from the hash-locked `apps/api/requirements-ci.lock` (`pip install --only-binary :all: --require-hashes -r apps/api/requirements-ci.lock`; runtime dependencies plus the `dev` extra — pytest / pytest-asyncio plus the pinned gate toolchain `ruff==0.16.10`, `mypy==2.4.0`, `pytest-cov==7.1.0`, `pip-audit==2.10.1`, `httpx2` — every version pinned and hash-verified); the project itself is not installed as a distribution — the job runs the backend from the checked-out working tree, with `apps/api/src` on `PYTHONPATH`; lock-sync gate (`python scripts/ci/check_python_lock_sync.py`); OpenAPI contract sync check (`export_openapi.py` must leave `openapi.json` unchanged); `ruff check apps/api`; `ruff format --check apps/api`; `mypy src` (blocking); pytest full regression with whole-package coverage gate `--cov=realmock --cov-fail-under=90` |
 | `frontend` (Frontend (tsc / lint / test / build / audit)) | ubuntu-latest, 20 min cap; Node 24 with npm cache keyed on `apps/web/package-lock.json` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (vitest with coverage thresholds from `apps/web/vitest.config.mts`); `npm run build`; `npm run format:check`; i18n usage audit (`apps/web/scripts/check-i18n-usage.mjs`, ghost and dead keys) |
 | `docker` | ubuntu-latest, 25 min cap | build the backend image (root `Dockerfile`) and the web image (`apps/web/Dockerfile`) |
 | `workflow-lint` | ubuntu-latest, 10 min cap | lint the workflow files themselves (syntax / shellcheck, and a workflow security review) |
 | `repo-hygiene` | ubuntu-latest, 5 min cap | committed files match `.editorconfig`; no case-insensitive path collisions; documentation bilingual pairs; internal documentation links |
 | `gate` | ubuntu-latest, 5 min cap | the one required check: green iff every job that ran was green |
 
-The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, and `CORS_ORIGINS` as job env.
+The backend job sets `TEST_MODE`, `ENV=dev`, `LLM_API_KEY`, `LLM_API_BASE`, `CORS_ORIGINS`, and `PYTHONPATH` (pointing at `apps/api/src`) as job env.
 
-The dependency audits and the secret scan are not part of `ci.yml`: they live in `.github/workflows/security.yml`, which runs on push, on pull requests, and on a weekly schedule.
+The dependency audits and the secret scan are not part of `ci.yml`: they live in `.github/workflows/security.yml`, which runs on push, on pull requests, and on a weekly schedule. Its python job installs the same hash-locked backend environment (`apps/api/requirements-ci.lock`) before `pip-audit`.
 
 ## Images
 
