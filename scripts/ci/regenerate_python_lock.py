@@ -68,51 +68,62 @@ def _annotate_only_blocked(expected: list[str], lock_text: str) -> str | None:
     return None
 
 
-def main(argv: list[str]) -> int:
-    """Compile the lock (unless --annotate-only) and refresh its snapshot."""
-    annotate_only = "--annotate-only" in argv
-    if not annotate_only:
-        # The exact command recorded in the lock header; keep both in sync.
-        # Spelled out as a literal at the call site: the security scanners
-        # only accept a literal, not a name resolved from elsewhere.
-        result = subprocess.run(  # fixed uv argv, no shell  # nosec B603 B607
-            [
-                "uv",
-                "pip",
-                "compile",
-                "apps/api/pyproject.toml",
-                "--extra",
-                "dev",
-                "--generate-hashes",
-                "--python-platform",
-                "linux",
-                "--python-version",
-                "3.14",
-                "--output-file",
-                "apps/api/requirements-ci.lock",
-            ],
-            cwd=ROOT,
-            check=False,
-        )
-        if result.returncode != 0:
-            return result.returncode
-    manifest = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
-    expected = expected_snapshot(manifest)
-    lock_text = LOCK.read_text(encoding="utf-8")
-    if annotate_only:
-        blocked = _annotate_only_blocked(expected, lock_text)
-        if blocked is not None:
-            print(blocked)
-            return 1
-    LOCK.write_text(with_snapshot(lock_text, expected), encoding="utf-8")
-    if annotate_only:
-        print(
-            "manifest snapshot refreshed; the pins were not re-resolved (--annotate-only)"
-        )
-    else:
-        print("lock compiled and manifest snapshot refreshed")
+def _compile_and_annotate() -> int:
+    """Compile the lock with uv, then stamp the snapshot of the manifest."""
+    # The exact command recorded in the lock header; keep both in sync.
+    # Spelled out as a literal at the call site: the security scanners only
+    # accept a literal, not a name resolved from elsewhere.
+    result = subprocess.run(  # fixed uv argv, no shell  # nosec B603 B607
+        [
+            "uv",
+            "pip",
+            "compile",
+            "apps/api/pyproject.toml",
+            "--extra",
+            "dev",
+            "--generate-hashes",
+            "--python-platform",
+            "linux",
+            "--python-version",
+            "3.14",
+            "--output-file",
+            "apps/api/requirements-ci.lock",
+        ],
+        cwd=ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        return result.returncode
+    expected = expected_snapshot(tomllib.loads(MANIFEST.read_text(encoding="utf-8")))
+    LOCK.write_text(
+        with_snapshot(LOCK.read_text(encoding="utf-8"), expected), encoding="utf-8"
+    )
+    print("lock compiled and manifest snapshot refreshed")
     print("verify with: python scripts/ci/check_python_lock_sync.py")
     return 0
+
+
+def _annotate_only() -> int:
+    """Stamp the snapshot without re-resolving; refuse a differing recorded one."""
+    expected = expected_snapshot(tomllib.loads(MANIFEST.read_text(encoding="utf-8")))
+    lock_text = LOCK.read_text(encoding="utf-8")
+    blocked = _annotate_only_blocked(expected, lock_text)
+    if blocked is not None:
+        print(blocked)
+        return 1
+    LOCK.write_text(with_snapshot(lock_text, expected), encoding="utf-8")
+    print(
+        "manifest snapshot refreshed; the pins were not re-resolved (--annotate-only)"
+    )
+    print("verify with: python scripts/ci/check_python_lock_sync.py")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    """Compile the lock, or only refresh its snapshot with --annotate-only."""
+    if "--annotate-only" in argv:
+        return _annotate_only()
+    return _compile_and_annotate()
 
 
 if __name__ == "__main__":
