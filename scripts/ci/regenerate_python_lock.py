@@ -13,8 +13,11 @@ Usage::
     python scripts/ci/regenerate_python_lock.py --annotate-only
 
 ``--annotate-only`` skips the uv compile and refreshes the snapshot from the
-current manifest; use it when the pins are known to be unaffected, e.g. after
-a pure formatting edit to the manifest.
+current manifest. Only for manifest edits the lock cannot see: comments,
+whitespace, or reordering a requirements array. After changing a
+requirement's extras or specifier the lock must be recompiled — the gate
+compares versions and the snapshot records strings, so neither can catch a
+stale pin behind a freshly stamped snapshot.
 """
 
 from __future__ import annotations
