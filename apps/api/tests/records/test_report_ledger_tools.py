@@ -419,3 +419,131 @@ async def test_ledger_overview_stays_inside_the_observation_cap() -> None:
     assert len(raw) <= mod._OUTPUT_CHARS
     page = json.loads(raw)  # must not raise: the observation is a JSON document
     assert len(page["phases"][0]) == mod._PHASE_CHARS
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_bounds_labels_that_json_escapes() -> None:
+    """A phase label is clipped by its serialized length, not its character count.
+
+    ``json.dumps`` expands a control character to a six-character escape, so
+    thirty distinct labels that each fit the character cap used to serialize
+    past the observation cap; the agent loop then sliced the document open.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    ledger = {
+        "turns": [
+            {"turn_id": f"t-{i:04d}", "phase": f"{i:02d}" + "\x00" * 200}
+            for i in range(mod._OVERVIEW_PHASES + 10)
+        ]
+    }
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    raw = await specs["ledger_overview"].handler({})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert len(page["phases"]) == mod._OVERVIEW_PHASES
+    assert all(
+        len(json.dumps(phase, ensure_ascii=False)) - 2 <= mod._PHASE_CHARS
+        for phase in page["phases"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_keeps_distinct_phases_that_share_a_prefix() -> None:
+    """Phases are de-duplicated on the full label, before the label is clipped.
+
+    Clipping first collapsed two labels that differ only after the label cap
+    into one entry, so the caller saw an incomplete phase list.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    prefix = "p" * mod._PHASE_CHARS
+    ledger = {
+        "turns": [
+            {"turn_id": "t-0001", "phase": prefix + "alpha"},
+            {"turn_id": "t-0002", "phase": prefix + "beta"},
+        ]
+    }
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    page = json.loads(await specs["ledger_overview"].handler({}))
+    # Both distinct labels survive; the bounded label cannot carry their
+    # distinguishing tail, but the list is no longer missing an entry.
+    assert page["phases"] == [prefix, prefix]
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_pages_long_turn_ids_without_slicing_json() -> None:
+    """Long preserved turn ids shrink the page instead of overflowing it.
+
+    A legacy payload can hold ids far longer than the usual ``t-0001``; the
+    overview used to serialize the whole window and exceed the loop cap.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    ids = [f"t-{i:04d}-" + "x" * 400 for i in range(1, 121)]
+    ledger = {"turns": [{"turn_id": turn_id, "phase": "tech"} for turn_id in ids]}
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+
+    raw = await specs["ledger_overview"].handler({})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    first = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert 0 < len(first["turn_ids"]) < mod._OVERVIEW_IDS
+    assert first["next_offset"] == len(first["turn_ids"])
+
+    collected: list[str] = []
+    offset: int | None = 0
+    while offset is not None:
+        page = json.loads(await specs["ledger_overview"].handler({"offset": offset}))
+        collected.extend(page["turn_ids"])
+        offset = page["next_offset"]
+    # The ids reach the model whole, one page at a time.
+    assert collected == ids
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_clips_an_id_larger_than_the_budget() -> None:
+    """A single id over the whole budget is clipped so the page stays parsable.
+
+    The page keeps one id so the cursor advances; when that id alone cannot
+    fit (a legacy payload can preserve any string), it is clipped to a prefix
+    instead of handing the model an unparsable document.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    huge = "x" * (mod._OUTPUT_CHARS * 2)
+    ledger = {
+        "turns": [
+            {"turn_id": huge, "phase": "tech"},
+            {"turn_id": "t-0002", "phase": "tech"},
+        ]
+    }
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+
+    raw = await specs["ledger_overview"].handler({})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert page["next_offset"] == 1
+    assert len(page["turn_ids"]) == 1
+    assert huge.startswith(page["turn_ids"][0])
+
+    rest = json.loads(await specs["ledger_overview"].handler({"offset": 1}))
+    assert rest["turn_ids"] == ["t-0002"]
+    assert rest["next_offset"] is None
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_clamps_an_oversized_offset() -> None:
+    """A huge model-supplied offset must not inflate the serialized page.
+
+    The offset is echoed in the payload, so an unbounded integer would make
+    the page exceed the output budget however few ids it carries.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(120))}
+    raw = await specs["ledger_overview"].handler({"offset": 10**100})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert page["offset"] == 120
+    assert page["turn_ids"] == []
+    assert page["next_offset"] is None

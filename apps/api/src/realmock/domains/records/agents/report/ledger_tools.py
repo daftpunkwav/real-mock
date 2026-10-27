@@ -5,13 +5,14 @@ pull it in bounded pages through ``ledger_overview`` / ``ledger_read_turns`` /
 ``ledger_search``. A batch run scopes reads to its own turn range.
 
 Every reader returns a JSON document. The **paged** readers
-(``ledger_read_turns`` / ``report_read_notes``) trim their page to the
-output budget by dropping trailing entries (never by slicing the serialized
-text, which would cut inside a string and hand the model an unparsable
-page). A trimmed page carries ``truncated: true`` and the continuation
-cursor. The budget is the agent loop's own observation cap, so a fitted
-page reaches the model whole instead of being sliced there. The readers
-project their entries so that one entry always fits the budget on its own.
+(``ledger_overview`` / ``ledger_read_turns`` / ``report_read_notes``) fit
+their page to the output budget by dropping trailing entries (never by
+slicing the serialized text, which would cut inside a string and hand the
+model an unparsable page). A trimmed page carries the continuation cursor
+(and ``truncated: true`` where the payload has that field). The budget is
+the agent loop's own observation cap, so a fitted page reaches the model
+whole instead of being sliced there. The readers project their entries so
+that one entry always fits the budget on its own.
 """
 
 from __future__ import annotations
@@ -30,13 +31,19 @@ _PAGE_TURNS = 12
 _TURN_CHARS = 900
 _SEARCH_HITS = 8
 _SNIPPET_CHARS = 240
-#: Turn ids carried per ``ledger_overview`` page. Ids are short, so the page
-#: exists for one reason: a session with a few hundred turns must not push
-#: the overview observation over the agent loop's cap.
+#: Turn ids carried per ``ledger_overview`` page. A session with a few hundred
+#: turns must not push the overview observation over the agent loop's cap, so
+#: the overview pages the ids like the turn reader; a window of long legacy ids
+#: is trimmed further until the page fits the budget.
 _OVERVIEW_IDS = 50
-#: Characters one phase label may carry into the overview. A phase label is
-#: plan-supplied text, so the per-label cap keeps the page bounded by
-#: construction instead of by the length of whatever the plan wrote.
+#: Phase labels carried in ``ledger_overview``. A phase label is plan-supplied
+#: text and a plan can name any number of phases, so the list is capped in
+#: count as well as in length.
+_OVERVIEW_PHASES = 30
+#: Serialized characters one phase label may add to the overview. The cap is
+#: applied to the JSON-escaped label, not to the raw one: ``json.dumps``
+#: expands a control character to a six-character ``\uXXXX`` escape, so a raw
+#: character count would not bound the serialized phase list.
 _PHASE_CHARS = 120
 #: Characters one note may carry into a report page. A note is a teaser for
 #: the report, not the evidence itself: it travels in one tool observation,
@@ -139,6 +146,28 @@ def _next_offset(offset: int, returned: int, total: int) -> int | None:
     return consumed if consumed < total else None
 
 
+def _clip_json_text(text: str, max_escaped: int) -> str:
+    """Longest prefix of ``text`` whose JSON-escaped form fits ``max_escaped``.
+
+    ``json.dumps`` expands control characters to six-character escapes, so a
+    raw character count does not bound the serialized length of a plan-supplied
+    phase label or of a turn id preserved from a legacy payload. The escaped
+    length of a prefix grows with the prefix, so the longest fitting prefix is
+    found by bisection. When even the empty prefix exceeds the budget, the
+    empty string is returned.
+    """
+    if len(json.dumps(text, ensure_ascii=False)) - 2 <= max_escaped:
+        return text
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(json.dumps(text[:middle], ensure_ascii=False)) - 2 <= max_escaped:
+            low = middle
+        else:
+            high = middle - 1
+    return text[:low]
+
+
 def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, Any]]) -> str:
     """Serialize one page of entries as JSON that fits the output budget.
 
@@ -158,6 +187,38 @@ def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, A
         if len(raw) <= _OUTPUT_CHARS or len(page) <= 1:
             return raw
         page.pop()
+
+
+def _fit_overview(offset: int, phases: list[str], ids: list[str]) -> str:
+    """Serialize one overview page as JSON that fits the output budget.
+
+    ``json.dumps`` expands control characters, so the page is measured after
+    serialization: the phase labels are already clipped to their escaped
+    budgets, and the id window is trimmed here until the document fits.
+    Trailing ids are dropped first, never sliced out of the serialized text,
+    and the continuation cursor follows the delivered window. The page always
+    fits once the window is down to one id (the phase list is capped and the
+    offset is clamped); an id preserved from a legacy payload can be longer
+    than the whole budget by itself, and that last id is clipped to the room
+    the wrapper leaves - an id that long is not a usable cursor anyway.
+    """
+    window = ids[offset : offset + _OVERVIEW_IDS]
+    while True:
+        payload = {
+            "offset": offset,
+            "total_turns": len(ids),
+            "phases": phases,
+            "turn_ids": window,
+            "next_offset": _next_offset(offset, len(window), len(ids)),
+        }
+        raw = json.dumps(payload, ensure_ascii=False)
+        if len(raw) <= _OUTPUT_CHARS:
+            return raw
+        if len(window) > 1:
+            window.pop()
+            continue
+        wrapper = json.dumps({**payload, "turn_ids": [""]}, ensure_ascii=False)
+        window[0] = _clip_json_text(window[0], _OUTPUT_CHARS - len(wrapper))
 
 
 def _page_offset(args: dict[str, Any], default: int = 0) -> int:
@@ -191,29 +252,28 @@ def ledger_tool_specs(
     scoped = [t for t in _turns(ledger) if allowed is None or str(t.get("turn_id")) in allowed]
 
     async def overview(args: dict[str, Any]) -> str:
-        # Every field is bounded by construction: the phase list is capped in
-        # count and per-label length, and the ids are a page, so a session
-        # with a few hundred turns cannot push this observation over the cap
-        # and into the loop's slicer (the failure the page fitter exists to
-        # prevent). The model pages the ids by offset like the turns.
+        # The phase labels are plan-supplied text and a legacy payload can
+        # preserve an arbitrarily long turn id, so neither list is bounded by
+        # the ledger. Labels are de-duplicated on their full value first (two
+        # phases that share a prefix are still two phases) and then clipped to
+        # a JSON-escaped length; the id page is fitted to the remaining budget
+        # by _fit_overview, so the observation cannot reach the loop's slicer
+        # (the failure the page fitter exists to prevent).
         phases: list[str] = []
+        seen_phases: set[str] = set()
         for turn in scoped:
-            phase = str(turn.get("phase") or "")[:_PHASE_CHARS]
-            if phase and phase not in phases:
-                phases.append(phase)
-        offset = _page_offset(args)
+            phase = str(turn.get("phase") or "")
+            if not phase or phase in seen_phases:
+                continue
+            seen_phases.add(phase)
+            phases.append(_clip_json_text(phase, _PHASE_CHARS))
+            if len(phases) >= _OVERVIEW_PHASES:
+                break
         ids = [str(t.get("turn_id")) for t in scoped]
-        window = ids[offset : offset + _OVERVIEW_IDS]
-        return json.dumps(
-            {
-                "offset": offset,
-                "total_turns": len(scoped),
-                "phases": phases[:30],
-                "turn_ids": window,
-                "next_offset": _next_offset(offset, len(window), len(scoped)),
-            },
-            ensure_ascii=False,
-        )
+        # A model-supplied offset is any integer; clamping it to the end of the
+        # ledger keeps the echoed cursor, and therefore the page, bounded.
+        offset = min(_page_offset(args), len(ids))
+        return _fit_overview(offset, phases, ids)
 
     async def read_turns(args: dict[str, Any]) -> str:
         offset = _page_offset(args)
