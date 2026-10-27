@@ -19,7 +19,7 @@ a pure formatting edit to the manifest.
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # the script drives uv  # nosec B404
 import sys
 from pathlib import Path
 
@@ -57,7 +57,8 @@ def main(argv: list[str]) -> int:
     """Compile the lock (unless --annotate-only) and refresh its snapshot."""
     annotate_only = "--annotate-only" in argv
     if not annotate_only:
-        result = subprocess.run(COMPILE_COMMAND, cwd=ROOT, check=False)
+        # Fixed argv built from constants in this file, no shell, repo cwd.
+        result = subprocess.run(COMPILE_COMMAND, cwd=ROOT, check=False)  # nosec B603 B607
         if result.returncode != 0:
             return result.returncode
     manifest = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
