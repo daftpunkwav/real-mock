@@ -58,7 +58,9 @@ jobs:
           frontend=false
           docker=false
           workflows=false
-          if grep -qE '^apps/api/|^scripts/export_openapi\.py$|^openapi\.json$' <<< "$changed"; then
+          # scripts/ci/ belongs to the backend job: it runs the Python gates
+          # from there, and apps/api/tests/ci_gate pins them.
+          if grep -qE '^apps/api/|^scripts/ci/|^scripts/export_openapi\.py$|^openapi\.json$' <<< "$changed"; then
             backend=true
           fi
           if grep -qE '^apps/web/|^openapi\.json$' <<< "$changed"; then
