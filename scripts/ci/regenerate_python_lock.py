@@ -15,9 +15,20 @@ Usage::
 ``--annotate-only`` skips the uv compile and refreshes the snapshot from the
 current manifest. Only for manifest edits the lock cannot see: comments,
 whitespace, or reordering a requirements array. After changing a
-requirement's extras or specifier the lock must be recompiled — the gate
-compares versions and the snapshot records strings, so neither can catch a
-stale pin behind a freshly stamped snapshot.
+Usage::
+
+    python scripts/ci/regenerate_python_lock.py
+    python scripts/ci/regenerate_python_lock.py --annotate-only
+
+``--annotate-only`` skips the uv compile and refreshes the snapshot. It
+refuses to run when the lock already carries a snapshot that differs from
+the current manifest: that difference means the lock was compiled from a
+different manifest, and the pins may no longer reflect it — the gate
+compares pinned versions and the snapshot records strings, so neither can
+catch a stale pin behind a freshly stamped snapshot. A missing block (uv
+overwrites the lock on a bare compile) or an already matching one are the
+only annotations it performs; a changed manifest always takes the full
+compile.
 """
 
 from __future__ import annotations
@@ -35,6 +46,7 @@ from check_python_lock_sync import (
     MANIFEST,
     ROOT,
     expected_snapshot,
+    snapshot_entries,
     with_snapshot,
 )
 
@@ -68,10 +80,21 @@ def main(argv: list[str]) -> int:
         if result.returncode != 0:
             return result.returncode
     manifest = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
-    LOCK.write_text(
-        with_snapshot(LOCK.read_text(encoding="utf-8"), expected_snapshot(manifest)),
-        encoding="utf-8",
-    )
+    expected = expected_snapshot(manifest)
+    lock_text = LOCK.read_text(encoding="utf-8")
+    if annotate_only:
+        recorded = snapshot_entries(lock_text)
+        if recorded is not None and recorded != expected:
+            # The lock was compiled from a different manifest, so the pins may
+            # no longer reflect it; stamping the new strings would attest a
+            # tree the manifest no longer describes. Only the full compile
+            # re-resolves the pins.
+            print(
+                "the lock records a different manifest than the current one; "
+                "run the full compile instead of --annotate-only"
+            )
+            return 1
+    LOCK.write_text(with_snapshot(lock_text, expected), encoding="utf-8")
     if annotate_only:
         print(
             "manifest snapshot refreshed; the pins were not re-resolved (--annotate-only)"

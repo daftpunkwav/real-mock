@@ -530,7 +530,7 @@ def test_regen_annotate_only_refreshes_the_snapshot(tmp_path: Path, monkeypatch)
     assert text.startswith(_LOCK_FOR_EXTRAS.rstrip("\n"))
 
 
-def test_regen_replaces_a_stale_snapshot(tmp_path: Path, monkeypatch) -> None:
+def test_regen_annotate_only_rejects_a_stale_snapshot(tmp_path: Path, monkeypatch) -> None:
     mod = _load_script("regenerate_python_lock.py")
     manifest_path = tmp_path / "pyproject.toml"
     manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
@@ -539,17 +539,37 @@ def test_regen_replaces_a_stale_snapshot(tmp_path: Path, monkeypatch) -> None:
     lock_path.write_text(stale, encoding="utf-8")
     monkeypatch.setattr(mod, "MANIFEST", manifest_path)
     monkeypatch.setattr(mod, "LOCK", lock_path)
-    assert mod.main(["--annotate-only"]) == 0
-    gate = _load_script("check_python_lock_sync.py")
-    assert (
-        gate.snapshot_violations(
-            tomllib.loads(_MANIFEST_WITH_EXTRAS), lock_path.read_text(encoding="utf-8")
-        )
-        == []
+    # The lock was compiled from a different manifest, so the pins may no
+    # longer reflect it: stamping the new strings would attest a tree the
+    # manifest no longer describes. Only the full compile re-resolves them.
+    assert mod.main(["--annotate-only"]) == 1
+    assert lock_path.read_text(encoding="utf-8") == stale
+
+
+def test_regen_annotate_only_allows_a_matching_snapshot(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("regenerate_python_lock.py")
+    manifest_path = tmp_path / "pyproject.toml"
+    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
+    lock_path = tmp_path / "requirements-ci.lock"
+    annotated = mod.with_snapshot(
+        _LOCK_FOR_EXTRAS, mod.expected_snapshot(tomllib.loads(_MANIFEST_WITH_EXTRAS))
     )
+    lock_path.write_text(annotated, encoding="utf-8")
+    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
+    monkeypatch.setattr(mod, "LOCK", lock_path)
+    monkeypatch.setattr(
+        mod,
+        "subprocess",
+        SimpleNamespace(
+            run=lambda *a, **k: (_ for _ in ()).throw(AssertionError("uv must not run"))
+        ),
+    )
+    assert mod.main(["--annotate-only"]) == 0
+    # The rewrite is idempotent: the lock text is unchanged.
+    assert lock_path.read_text(encoding="utf-8") == annotated
 
 
-def test_regen_compiles_with_the_header_command(tmp_path: Path, monkeypatch) -> None:
+def test_regen_compiles_and_writes_the_snapshot(tmp_path: Path, monkeypatch) -> None:
     mod = _load_script("regenerate_python_lock.py")
     manifest_path = tmp_path / "pyproject.toml"
     manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
@@ -585,3 +605,11 @@ def test_regen_compiles_with_the_header_command(tmp_path: Path, monkeypatch) -> 
         "apps/api/requirements-ci.lock",
     ]
     assert kwargs == {"cwd": tmp_path, "check": False}
+    # The full path annotates whatever compile produced: the lock gains the
+    # snapshot of the current manifest.
+    gate = _load_script("check_python_lock_sync.py")
+    text = lock_path.read_text(encoding="utf-8")
+    assert gate.snapshot_entries(text) == gate.expected_snapshot(
+        tomllib.loads(_MANIFEST_WITH_EXTRAS)
+    )
+    assert gate.snapshot_violations(tomllib.loads(_MANIFEST_WITH_EXTRAS), text) == []
