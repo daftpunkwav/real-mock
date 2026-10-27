@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
 from realmock.platform.capabilities.ai.llm.json_extract import truncate_chunk
 from realmock.platform.contracts.session_catalog import get_session_catalog
+from realmock.platform.core.coerce import coerce_int
 
 # Attention bound (not a context-space bound): a full DebriefReport can be
 # large, so one observation is capped head+tail with an explicit elision
@@ -33,14 +34,7 @@ def history_tool_specs(sessions_db: Session) -> list[ToolSpec]:
         return items[: max(1, limit)]
 
     async def list_sessions(args: dict[str, Any]) -> str:
-        limit = args.get("limit")
-        try:
-            count = int(limit) if isinstance(limit, (int, float)) else _LIST_DEFAULT_LIMIT
-        except (TypeError, ValueError, OverflowError):
-            # OverflowError: a non-finite (Infinity) limit is not convertible and
-            # is not a ValueError; it is a malformed limit like any other and
-            # must degrade to the default page size.
-            count = _LIST_DEFAULT_LIMIT
+        count = coerce_int(args.get("limit"), _LIST_DEFAULT_LIMIT)
         rows = []
         for item in _scored_items(count):
             ended = item.ended_at or item.created_at

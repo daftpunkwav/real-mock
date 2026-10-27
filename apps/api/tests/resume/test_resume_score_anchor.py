@@ -57,3 +57,30 @@ def test_score_anchor_gaps() -> None:
         is None
         or True
     )
+
+
+def test_compact_anchor_degrades_non_finite_scores() -> None:
+    """Non-finite scores must degrade, not raise or clamp to a real score.
+
+    ``json.loads`` accepts ``Infinity``, and ``int(float('inf'))`` raises
+    ``OverflowError`` — a tuple of ``(TypeError, ValueError)`` lets it escape.
+    """
+    from realmock.domains.resume.services import score_anchor as mod
+
+    out = mod.compact_score_anchor(
+        {
+            "dimension_scores": {
+                "a": {"score": float("inf")},
+                "b": float("inf"),
+                "c": 80,
+                "d": 70,
+                "e": 60,
+                "f": 50,
+            },
+            "score": float("inf"),
+        }
+    )
+    assert out is not None
+    assert "a" not in out["dimension_scores"]
+    assert "b" not in out["dimension_scores"]
+    assert out["score"] is None

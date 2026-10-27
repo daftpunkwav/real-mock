@@ -17,6 +17,7 @@ from realmock.domains.records.schemas.report import (
     TurnNoteInterviewerReview,
     TurnNoteUserReview,
 )
+from realmock.platform.core.coerce import coerce_int
 
 _NOTE_LIST_CAPS = {
     "problems": 6,
@@ -65,14 +66,9 @@ def _clip_external_notes(value: Any, cap: int = _EXTERNAL_NOTES_CAP) -> list[str
 def _norm_score(value: Any) -> int:
     if isinstance(value, bool):
         return 0
-    try:
-        score = int(float(value))
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) or oversized number cannot be
-        # converted to int and is not a ValueError — it must degrade like any
-        # other unusable score instead of invalidating the whole report.
-        return 0
-    return max(0, min(100, score))
+    # via_float keeps this site's tolerance for decimal strings ("88.7" -> 88)
+    # and degrades values beyond the float range instead of clamping them.
+    return max(0, min(100, coerce_int(value, 0, via_float=True)))
 
 
 def _norm_verdict(value: Any) -> str | None:

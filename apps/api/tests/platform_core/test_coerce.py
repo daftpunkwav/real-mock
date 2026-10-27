@@ -54,3 +54,21 @@ def test_coerce_int_passes_convertible_values_through() -> None:
     assert coerce_int("9", 3) == 9
     assert coerce_int(0, 3) == 0
     assert coerce_int(12.9, 3) == 12
+
+
+def test_try_coerce_int_via_float_tolerates_decimal_strings() -> None:
+    assert try_coerce_int("88.7", via_float=True) == 88
+    assert try_coerce_int(3.7, via_float=True) == 3
+    # A value beyond the float range degrades instead of surviving as a huge
+    # integer, and Infinity raises OverflowError on int() and degrades too.
+    assert try_coerce_int(10**400, via_float=True) is None
+    assert try_coerce_int(float("inf"), via_float=True) is None
+    # Non-numeric strings still degrade; NaN does as well.
+    assert try_coerce_int("next", via_float=True) is None
+    assert try_coerce_int(float("nan"), via_float=True) is None
+
+
+def test_coerce_int_via_float_uses_the_default_for_unusable_values() -> None:
+    assert coerce_int("88.7", 0, via_float=True) == 88
+    assert coerce_int(float("inf"), 0, via_float=True) == 0
+    assert coerce_int(10**400, 0, via_float=True) == 0

@@ -8,6 +8,7 @@ from typing import Any
 from realmock.domains.prep.agents.tools.spec import SearchHits, ToolSpec
 from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.ai.agent.tools.search import execute_web_search
+from realmock.platform.core.coerce import coerce_int
 
 _WEB_SEARCH_MAX_RESULTS = 3
 
@@ -29,13 +30,9 @@ async def run_web_search(args: dict[str, Any], memory: WorkingMemory) -> tuple[s
     """
     del memory
     query = str(args.get("query", "") or "")
-    try:
-        requested = int(args.get("max_results") or _WEB_SEARCH_MAX_RESULTS)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) argument is not convertible
-        # and is not a ValueError; it falls back to the default like any other
-        # unusable value.
-        requested = _WEB_SEARCH_MAX_RESULTS
+    requested = coerce_int(
+        args.get("max_results") or _WEB_SEARCH_MAX_RESULTS, _WEB_SEARCH_MAX_RESULTS
+    )
     max_results = max(1, min(_WEB_SEARCH_HARD_LIMIT, requested))
     raw = await execute_web_search(
         {"query": query, "max_results": max_results},

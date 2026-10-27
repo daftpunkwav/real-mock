@@ -22,6 +22,7 @@ from urllib.parse import urljoin
 import httpx
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
+from realmock.platform.core.coerce import coerce_int
 from realmock.platform.core.security import redact_secrets_in_text
 from realmock.platform.core.security.url import UnsafeURLError
 from realmock.platform.core.security.url_pin import make_pinned_async_client
@@ -184,13 +185,7 @@ async def _fetch_page(url: str, max_chars: int) -> str:
 
 
 def clamp_max_chars(raw: Any) -> int:
-    try:
-        value = int(raw)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) argument is not convertible
-        # and is not a ValueError; it falls back to the default like any other
-        # unusable value.
-        value = FETCH_DEFAULT_MAX_CHARS
+    value = coerce_int(raw, FETCH_DEFAULT_MAX_CHARS)
     return max(500, min(value, FETCH_HARD_MAX_CHARS))
 
 
