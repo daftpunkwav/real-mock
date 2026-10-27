@@ -67,6 +67,26 @@ test("scan sees a ban through an alias install", () => {
   }
 });
 
+test("scan sees a ban through the alias name npm writes on the lock entry", () => {
+  // npm records an alias install under the local folder name and puts the real
+  // package in the entry's "name" field, with a plain version beside it, so
+  // the folder name and the "npm:" spec form are not the only aliases.
+  const result = scan({
+    lock: {
+      packages: {
+        "node_modules/local-name": { name: "bannedpkg", version: "1.0.0" },
+      },
+    },
+    manifest: { dependencies: {} },
+    policy: POLICY,
+  });
+  assert.deepEqual(result.violations, []);
+  assert.equal(result.aliasViolations.length, 1);
+  assert.equal(result.aliasViolations[0].installed, "local-name");
+  assert.equal(result.aliasViolations[0].real, "bannedpkg");
+  assert.equal(result.aliasViolations[0].reason, "banned by policy");
+});
+
 test("scan counts only non-dev copies as runtime instances", () => {
   const result = scan({
     lock: {

@@ -72,6 +72,22 @@ function aliasTarget(spec) {
 }
 
 /**
+ * The package name a lock entry declares, when it differs from the folder the
+ * entry is installed under, or null when the two agree.
+ *
+ * npm records an alias install under the local folder name and writes the real
+ * package into the entry's "name" field, with the plain version beside it
+ * ("node_modules/alias": { "name": "real", "version": "1.0.0" }). The folder
+ * name then hides the real package, so the entry is inspected as well.
+ */
+function entryAlias(entry, installed) {
+  if (!installed) return null;
+  const declared = typeof entry?.name === "string" ? entry.name : null;
+  if (!declared || declared === installed) return null;
+  return declared;
+}
+
+/**
  * What one lock entry contributes: the installed package name, the package an
  * alias points at, and the version the entry resolves to.
  *
@@ -84,7 +100,9 @@ function lockEntryFacts(key, entry) {
   return {
     installed,
     version,
-    real: aliasTarget(version),
+    // The entry's own name covers the alias installs npm writes with a plain
+    // version; the spec form covers the lock's "npm:real@..." version.
+    real: entryAlias(entry, installed) ?? aliasTarget(version),
     // Only copies that reach the shipped bundle count as instances of a
     // runtime dependency. npm marks a copy that exists solely for the dev
     // toolchain with "dev"; "npm ci --omit=dev" does not install it, so it is
