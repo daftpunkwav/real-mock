@@ -8,6 +8,8 @@ import math
 import re
 from typing import Any
 
+from realmock.platform.core.coerce import coerce_int
+
 # Option-count bounds (the persistent free-text input is separate, not counted).
 _ASK_MIN_OPTIONS = 2
 _ASK_MAX_OPTIONS = 8
@@ -199,13 +201,7 @@ def _resolve_suggested(
         return f"{scale.get('min')}{scale.get('unit') or ''}"
     if not options:
         return None
-    try:
-        index = int(suggested_index)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) index is not convertible and is
-        # not a ValueError; it falls back to the first option.
-        index = 0
-    index = max(0, min(len(options) - 1, index))
+    index = max(0, min(len(options) - 1, coerce_int(suggested_index, 0)))
     return options[index]
 
 

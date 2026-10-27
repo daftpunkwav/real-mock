@@ -159,9 +159,12 @@ class TestRedactLogUrlCredentials:
         out = redact_log_value("https://api.example.com/v1/chat#access_token=sk-abcdefghijklmnop")
         assert "sk-abcdefghijklmnop" not in out
 
-    def test_an_ordinary_path_keeps_its_identifiers(self) -> None:
-        url = "https://api.example.com/v1/sessions/8f14e45fceea167a5a36dedd4bea2543"
-        assert redact_log_value(url) == url
+    def test_ordinary_path_identifiers_stay_diagnosable(self) -> None:
+        # Slugs and pure-digit segments are not token shapes (no letter-digit
+        # mix), so the URL standalone rule leaves them readable.
+        for segment in ("session-445566", "20241024143022123456", "quarterly-financial-report"):
+            url = f"https://api.example.com/v1/sessions/{segment}"
+            assert redact_log_value(url) == url
 
 
 class TestLogPipeline:
@@ -351,3 +354,91 @@ class TestConfiguredPipeline:
         assert line, "the configured pipeline emitted nothing"
         assert _SECRET not in line
         assert "client_secret=***" in line
+
+    def test_provider_key_inside_the_exception_text_is_masked(self) -> None:
+        """The traceback re-renders str(exc), so a quoted key must not survive it.
+
+        The route handlers attach the raw exception for diagnosis; this pins
+        the configured pipeline (RedactFilter + SafeFormatter) as the thing
+        that keeps that traceback safe to emit.
+        """
+        try:
+            raise RuntimeError(f"provider 401: Incorrect API key provided: {_EMBEDDED_KEY}")
+        except RuntimeError:
+            exc_info = sys.exc_info()
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.prep",
+                level=logging.WARNING,
+                pathname=__file__,
+                lineno=1,
+                msg="Tool failed web_search: %s",
+                args=("details scrubbed separately",),
+                exc_info=exc_info,
+            )
+
+        line = _emit(make_record)
+        assert _EMBEDDED_KEY not in line
+        assert "Incorrect API key provided" in line
+
+    def test_bracketed_prose_keeps_its_tail(self) -> None:
+        """A bracket that trails prose is not an IPv6 authority terminator.
+
+        Extending the URL match over ``]`` must not swallow the words after
+        it: the bracket stays inside the match and survives the URL
+        treatment untouched, so the emitted text is unchanged.
+        """
+        text = "see https://example.com/page[1] for details"
+        assert redact_log_value(text) == text
+
+    def test_a_bracketed_url_keeps_its_closing_bracket(self) -> None:
+        """A ``]`` that closes prose around a query URL stays in the output.
+
+        The URL match runs over the bracket (it might be an IPv6 authority),
+        but the matched URL carries no ``[``: the trailing bracket is split
+        back off before the URL treatment, so the query is masked and the
+        bracket survives instead of being swallowed.
+        """
+        text = "see [https://example.com/?a=1] for details"
+        out = redact_log_value(text)
+        assert out == "see [https://example.com/?a=***] for details"
+
+    def test_a_template_bracket_after_a_query_placeholder_keeps_the_line(self) -> None:
+        """``?key=%s]`` must keep its placeholder and its line.
+
+        A query value that swallowed a prose bracket stops being a
+        format-specifier match, and masking it would delete the ``%s`` and
+        break the substitution balance — the log line would be dropped. The
+        trailing bracket is prose, so it is split off and the placeholder
+        survives intact.
+        """
+
+        def make_record() -> logging.LogRecord:
+            return logging.LogRecord(
+                name="realmock.core",
+                level=logging.INFO,
+                pathname=__file__,
+                lineno=1,
+                msg="check [http://example.com/?key=%s]",
+                args=("value",),
+                exc_info=None,
+            )
+
+        line = _emit(make_record)
+        assert "check [http://example.com/?key=value]" in line
+
+    def test_underscores_do_not_split_a_quoted_token(self) -> None:
+        """A URL-safe token's underscores must not end the scheme match."""
+        out = redact_log_value("upstream said: Token ab.dEf_ghIJKlmnoP expired")
+        assert out == "upstream said: Toke*** expired"
+
+    def test_an_ipv6_url_in_brackets_keeps_its_closing_bracket(self) -> None:
+        """A Markdown bracket around an IPv6 URL with a query stays.
+
+        The authority's own brackets balance, so the surplus ``]`` after the
+        URL is prose: the query is masked and the closing bracket survives
+        instead of being consumed with the query value.
+        """
+        out = redact_log_value("see [http://[::1]/?a=1] more")
+        assert out == "see [http://[::1]/?a=***] more"

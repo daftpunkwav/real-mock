@@ -54,6 +54,42 @@ def test_execute_failure_is_honest_not_invented():
     assert "Do not invent" in result
 
 
+def test_execute_failure_redacts_upstream_error_detail(monkeypatch) -> None:
+    """A caught upstream error reaches the model as a normal result, so its
+    text is redacted inside the tool: an httpx error embeds the full request
+    URL, and the credential in its query must not survive the observation.
+    """
+
+    async def _boom(url: str, max_chars: int) -> str:
+        raise RuntimeError(
+            "connect failed for https://api.vendor.com/v1?api_key=SuperSecretValue123"
+        )
+
+    monkeypatch.setattr(fetch_mod, "_fetch_page", _boom)
+    result = asyncio.run(execute_web_fetch({"url": "https://api.vendor.com/v1"}))
+    assert "FETCH_FAILED" in result
+    assert "SuperSecretValue123" not in result
+    assert "api_key=***" in result
+
+
+def test_execute_failure_redacts_before_truncating(monkeypatch) -> None:
+    """The detail is redacted before the 200-char cap.
+
+    A credential sitting past the cap boundary must be masked first: cutting
+    the raw text first can leave a fragment too short for the scanner floors
+    (here the cap lands inside the value and the raw run would end up as a
+    short prefix).
+    """
+
+    async def _boom(url: str, max_chars: int) -> str:
+        raise RuntimeError("x" * 180 + " api_key=SuperSecretValue123 end")
+
+    monkeypatch.setattr(fetch_mod, "_fetch_page", _boom)
+    result = asyncio.run(execute_web_fetch({"url": "https://api.vendor.com/v1"}))
+    assert "SuperSecretValue123" not in result
+    assert "SuperSe" not in result
+
+
 def test_spec_shape():
     spec = web_fetch_tool_spec()
     assert spec.name == "web_fetch"

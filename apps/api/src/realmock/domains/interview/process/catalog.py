@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, defer
 
 from realmock.domains.interview.ledger.store import is_frozen, load_ledger
 from realmock.domains.interview.models import InterviewSession
+from realmock.platform.contracts.ledger_document import LedgerDocument
 from realmock.platform.contracts.session_catalog import (
     SessionCatalogItem,
     SessionSnapshot,
@@ -65,12 +66,12 @@ class InterviewSessionCatalog:
             return None
         return snap.model_dump(mode="json")
 
-    def get_ledger(self, db: Session, session_id: int) -> dict[str, Any] | None:
-        """Raw ledger document for a session; None when the id is unknown."""
+    def get_ledger(self, db: Session, session_id: int) -> LedgerDocument | None:
+        """Ledger document for a session; None when the id is unknown."""
         session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if session is None:
             return None
-        return dict(load_ledger(db, session))
+        return load_ledger(db, session)
 
     def get_process_context(self, db: Session, process_id: int) -> str:
         """Render a process's prior-round memory for cross-domain consumers."""

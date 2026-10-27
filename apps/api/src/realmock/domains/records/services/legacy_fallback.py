@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -40,7 +40,7 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
     except Exception:
         logger.debug("legacy report parse failed sid=%s", session_id, exc_info=True)
         return None
-    ledger = snap.ledger
+    ledger = snap.ledger_document()
     if ledger is None:
         ledger = catalog.get_ledger(db, session_id)
     messages_count = snap.messages_count
@@ -68,5 +68,7 @@ def try_legacy_report(db: Session, session_id: int) -> ReportResponse | None:
         messages_count=messages_count,
         duration_minutes=duration,
         status="ready",
-        ledger=ledger,
+        # The wire field stays a loose dict, so the typed document is cast at
+        # the response boundary.
+        ledger=cast("dict[str, Any] | None", ledger),
     )

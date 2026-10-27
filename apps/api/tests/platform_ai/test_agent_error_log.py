@@ -78,3 +78,68 @@ def test_log_never_raises(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     # The failed write left no artifacts behind.
     assert tmp_path.is_dir()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_enabled_tool_failure_masks_embedded_credential(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, caplog
+) -> None:
+    """A provider error quoting the rejected key must not reach any sink raw.
+
+    The observation, the persisted error record, and the log message all
+    carry the exception text, so all three are redacted at the funnel; the
+    traceback stays attached to the log record for the configured pipeline
+    (SafeFormatter) to scrub.
+    """
+
+    class _BoomBundle:
+        async def execute(self, name: str, args: dict) -> str:
+            del name, args
+            raise RuntimeError(
+                "provider 401: Incorrect API key provided: sk-proj-abcdefghij123456789"
+            )
+
+    target = _env(monkeypatch, tmp_path, enabled=True)
+    raw, status = asyncio.run(
+        invoke_with_timeout(_BoomBundle(), "web_search", {"q": "x"}, timeout=5)  # type: ignore[arg-type]
+    )
+    assert status == "error"
+    assert "sk-proj-abcdefghij123456789" not in raw
+    with open(target, encoding="utf-8") as handle:
+        persisted = json.loads(handle.readlines()[-1])
+    assert "sk-proj-abcdefghij123456789" not in persisted["message"]
+    # The warning's message argument is the sanitized string: if the funnel
+    # ever passes the raw exception again, the rendered log line would carry
+    # the credential even though this file's other sinks stay clean.
+    tool_records = [
+        record for record in caplog.records if "Agent tool failed" in record.getMessage()
+    ]
+    assert tool_records, "the executor emitted no failure warning"
+    assert "sk-proj-abcdefghij123456789" not in tool_records[0].getMessage()
+
+
+def test_error_observation_redacts_credential_in_args(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """The argument echo in an error observation is scanned like any text.
+
+    The model's own arguments can carry a credential (a URL with a key in
+    the query); the echo returns to the model inside the observation.
+    """
+
+    class _BoomBundle:
+        async def execute(self, name: str, args: dict) -> str:
+            del name
+            raise RuntimeError("boom")
+
+    _env(monkeypatch, tmp_path, enabled=True)
+    raw, status = asyncio.run(
+        invoke_with_timeout(
+            _BoomBundle(),  # type: ignore[arg-type]
+            "web_fetch",
+            {"url": "https://api.vendor.com/v1?api_key=SuperSecretValue123"},
+            timeout=5,
+        )
+    )
+    assert status == "error"
+    assert "SuperSecretValue123" not in raw
+    assert "api_key=***" in raw

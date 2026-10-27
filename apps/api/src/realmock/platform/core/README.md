@@ -19,6 +19,7 @@ Kernel utilities shared by every domain: configuration-adjacent constants, the e
 | `prompts.py` | Shared agent/LLM prompt fragments; output rules go through `with_agent_output_rules` |
 | `background.py` | `spawn_background`: fire-and-forget task spawning that holds in-flight references (GC-safe) and logs crashes instead of raising |
 | `agent_error_log.py` | Opt-in JSONL log for agent tool/loop failures (`REALMOCK_AGENT_ERROR_LOG=1`); disabled by default |
+| `coerce.py` | Coercion of model-supplied numbers into integers: `try_coerce_int` (None when not convertible) and `coerce_int` (fallback instead) |
 
 ## `security/` — input and URL safety
 

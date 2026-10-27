@@ -1036,3 +1036,66 @@ def test_resolve_timeout_clamps_override_and_falls_back() -> None:
     assert _resolve_timeout("ask_user", {}) == _TOOL_TIMEOUT_SEC
     assert _resolve_timeout("compact_context", {}) == 150.0
     assert _resolve_timeout("no_such_tool", {}) == _TOOL_TIMEOUT_SEC
+
+
+async def test_execute_failure_masks_embedded_credential(caplog) -> None:
+    """An upstream error quoting the rejected key must not leak it to the model.
+
+    Provider failures arrive as a sentence ("Incorrect API key provided:
+    sk-..."), so the detail is scanned token by token: the whole-value
+    heuristic never fires on a multi-word message. The log line carries the
+    same sanitized detail. The traceback remains attached for diagnosis, and
+    the log formatter redacts its rendered exception text before operator
+    output.
+    """
+    import logging
+
+    async def boom(name, args, db):
+        raise RuntimeError("provider 401: Incorrect API key provided: sk-proj-abcdefghij123456789")
+
+    execute = _callback(boom)
+    with caplog.at_level(logging.WARNING, logger="realmock.domains.prep.agents.tool_exec"):
+        out = await execute("company_info", {"company": "x"})
+    assert "tool_failed" in out
+    assert "sk-proj-abcdefghij123456789" not in out
+    assert "sk-proj-abcdefghij123456789" not in caplog.text
+    # The failure must actually be logged, with the sanitized detail: an
+    # empty log would also contain no credential.
+    warnings = [
+        r
+        for r in caplog.records
+        if r.name == "realmock.domains.prep.agents.tool_exec" and "Tool failed" in r.getMessage()
+    ]
+    assert warnings, "the tool failure must be logged"
+    # The traceback stays attached for diagnosis; the configured pipeline
+    # (RedactFilter + SafeFormatter) is what scrubs the rendered text.
+    from realmock.platform.core.logging import SafeFormatter
+
+    formatter = SafeFormatter()
+    for record in warnings:
+        rendered = formatter.format(record)
+        assert "sk-proj-abcdefghij123456789" not in rendered
+        assert "Incorrect API key provided" in rendered
+
+
+async def test_retrieval_failure_masks_returned_error_text(monkeypatch) -> None:
+    """A returned SEARCH_UNAVAILABLE body is upstream error text and is redacted.
+
+    The search backend reports its outage as the returned observation (not an
+    exception), so the text flows into the model observation and the persisted
+    error record without ever passing through an except block that redacts.
+    """
+    import realmock.domains.prep.agents.tool_exec as tool_exec
+
+    records: list[dict] = []
+    monkeypatch.setattr(tool_exec, "log_agent_error", lambda **kw: records.append(kw))
+    monkeypatch.setattr(tool_exec, "_RETRY_PAUSE_SECONDS", 0)
+
+    async def failing(name, args, db):
+        return "SEARCH_UNAVAILABLE\n401 Unauthorized: sk-proj-abcdefghij123456789", []
+
+    execute = _callback(failing)
+    out = await execute("web_search", {"query": "q"})
+    assert "sk-proj-abcdefghij123456789" not in out
+    assert records, "the retrieval failure must be persisted"
+    assert all("sk-proj-abcdefghij123456789" not in str(r.get("message")) for r in records)

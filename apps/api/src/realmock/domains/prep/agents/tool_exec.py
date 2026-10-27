@@ -38,7 +38,7 @@ from realmock.platform.capabilities.ai.agent import WorkingMemory
 from realmock.platform.capabilities.knowledge.search.web import SearchHit
 from realmock.platform.core.agent_error_log import log_agent_error
 from realmock.platform.core.errors import ApiBusinessError
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 
 from .ask_user import dispatch_ask_user
 from .tools.registry import TOOL_REGISTRY
@@ -189,7 +189,10 @@ def build_execute_callback(
                 asked_user=asked_user,
             )
         query = args.get("query") or args.get("company") or args.get("repo") or ""
-        header = f"[{name}] {query}".strip()
+        # The header echoes the model's own query into every observation
+        # (success, failure, and breaker), and a query can carry a
+        # credential-bearing URL — scanned like any other text.
+        header = f"[{name}] {redact_secrets_in_text(str(query))}".strip()
         if error_streak.get(name, 0) >= _TOOL_CIRCUIT_BREAKER_STREAK:
             return f"{header}\n{_circuit_open_observation(name)}"
         try:
@@ -221,7 +224,10 @@ def build_execute_callback(
                     failure = None
                     break
                 # Retrieval outage: retryable — the tool ran but its source failed.
-                failure = ("retrieval_failed", str(obs or "")[:400])
+                # The returned text is an upstream failure message, so it is
+                # redacted like an exception text before it reaches the model
+                # observation and the persisted error record.
+                failure = ("retrieval_failed", redact_secrets_in_text(str(obs or ""))[:400])
                 obs = None
             except ApiBusinessError:
                 # Business failures (auth/quota/validation) must surface as HTTP
@@ -237,7 +243,9 @@ def build_execute_callback(
                 # always sees the failure and the streak counts it; never propagate
                 # (ApiBusinessError above is the only exception that propagates).
                 # Redact before exposing to the model: tracebacks may carry keys/paths.
-                safe_detail = redact_api_key(str(exc))[:400]
+                # The traceback stays attached: the log pipeline (SafeFormatter)
+                # redacts the rendered exception text.
+                safe_detail = redact_secrets_in_text(str(exc))[:400]
                 logger.warning("Tool failed %s: %s", name, safe_detail, exc_info=True)
                 failure = ("tool_failed", safe_detail)
             if attempts_left > 0:

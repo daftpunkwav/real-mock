@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from realmock.domains.prep.models import PrepSession, commit_session, utcnow
 from realmock.domains.prep.services.session_guard import load_prep_session
 from realmock.platform.core.errors import raise_error
-from realmock.platform.core.security import redact_api_key
+from realmock.platform.core.security import redact_secrets_in_text
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ def refresh_linked_block(session: PrepSession, db: Session) -> None:
         logger.warning(
             "Linked-block refresh failed sid=%s: %s",
             session.id,
-            redact_api_key(str(exc)),
+            redact_secrets_in_text(str(exc)),
         )
 
 

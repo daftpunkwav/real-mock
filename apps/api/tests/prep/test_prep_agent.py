@@ -78,6 +78,35 @@ async def test_ensure_system_degraded_falls_back(monkeypatch) -> None:
     assert logged and logged[0]["kind"] == "seed_degraded"
 
 
+@pytest.mark.asyncio
+async def test_ensure_system_degraded_redacts_credential(monkeypatch, caplog) -> None:
+    import realmock.domains.prep.agents.agent as agent_mod
+
+    agent = _agent()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("seed failed for sk-fakefakefakefake0123456789")
+
+    monkeypatch.setattr(agent_mod, "build_system_messages", _boom)
+    logged: list[dict] = []
+    monkeypatch.setattr(agent_mod, "log_agent_error", lambda **kw: logged.append(kw))
+    await agent._ensure_system(_FakeDB())  # type: ignore[arg-type]
+    assert logged and logged[0]["kind"] == "seed_degraded"
+    # The message is redacted before both sinks (log record + persisted
+    # error record) and arrives as a str, not the exception object.
+    assert "sk-fakefakefakefake0123456789" not in logged[0]["message"]
+    assert "sk-f***" in logged[0]["message"]
+    assert isinstance(logged[0]["message"], str)
+    # The warning's message argument is the sanitized string: passing the
+    # raw exception again would put the credential into the rendered line
+    # even though the persisted record below stays clean.
+    warn_records = [
+        record for record in caplog.records if "Prep system seed degraded" in record.getMessage()
+    ]
+    assert warn_records, "the seed degradation emitted no warning"
+    assert "sk-fakefakefakefake0123456789" not in warn_records[0].getMessage()
+
+
 def test_waiting_line_alias_matches_pending() -> None:
     agent = _agent()
     agent.reply_locale = "en"
