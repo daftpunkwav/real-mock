@@ -11,12 +11,21 @@ slicing the serialized text, which would cut inside a string and hand the
 model an unparsable page). A trimmed page carries the continuation cursor
 (and ``truncated: true`` where the payload has that field). The budget is
 the agent loop's own observation cap, so a fitted page reaches the model
-whole instead of being sliced there. The readers project their entries so
-that one entry always fits the budget on its own.
+whole instead of being sliced there.
+
+Every page projects its entries to that budget. Free text is clipped by its
+JSON-escaped length rather than its character count (``json.dumps`` expands
+a control character to a six-character escape), and a turn id or phase label
+that does not fit becomes a bounded handle: the clipped value plus a digest
+of the full one, so handles stay distinct and map back to the ledger text.
+The ledger tools match ids through the same projection, so an id advertised
+by ``ledger_overview`` or ``ledger_search`` still resolves its turn, and a
+single projected entry always fits the budget on its own.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from typing import Any, cast
@@ -28,33 +37,45 @@ from realmock.platform.contracts.ledger_document import LedgerTurn, ToolPreview
 from realmock.platform.core.coerce import coerce_int
 
 _PAGE_TURNS = 12
+#: Serialized characters of one question/answer carried into a turn page.
 _TURN_CHARS = 900
 _SEARCH_HITS = 8
+#: Serialized characters of one keyword-search snippet.
 _SNIPPET_CHARS = 240
-#: Turn ids carried per ``ledger_overview`` page. A session with a few hundred
-#: turns must not push the overview observation over the agent loop's cap, so
-#: the overview pages the ids like the turn reader; a window of long legacy ids
-#: is trimmed further until the page fits the budget.
+#: Turn ids carried per ``ledger_overview`` page. The overview pages a long
+#: session's ids like the turn reader, so one observation stays bounded.
 _OVERVIEW_IDS = 50
-#: Phase labels carried in ``ledger_overview``. A phase label is plan-supplied
-#: text and a plan can name any number of phases, so the list is capped in
-#: count as well as in length.
+#: Phase labels carried in ``ledger_overview``. The cap only truncates a
+#: ledger that carries more distinct phases than this; the page reports that
+#: through ``total_phases`` / ``phases_truncated``.
 _OVERVIEW_PHASES = 30
-#: Serialized characters one phase label may add to the overview. The cap is
-#: applied to the JSON-escaped label, not to the raw one: ``json.dumps``
-#: expands a control character to a six-character ``\uXXXX`` escape, so a raw
-#: character count would not bound the serialized phase list.
+#: Serialized characters one turn id may add to a page. A live ledger writes
+#: short ``t-0001`` ids; a legacy payload can preserve a longer one, so ids
+#: are projected to a bounded handle that still resolves the turn (see
+#: :func:`_bounded_handle`).
+_TURN_ID_CHARS = 120
+#: Serialized characters one phase label may add to the overview. A phase
+#: label is plan-supplied text; a label preserved from a legacy payload is
+#: bounded like a turn id, and the digest keeps clipped labels distinct.
 _PHASE_CHARS = 120
+#: Serialized characters of one phase label carried into a turn page. A turn
+#: page is where a phase label abbreviated by the overview is read in full:
+#: the bound is high enough that only a label far beyond a plan title is
+#: clipped, and it still leaves room for the two texts and the tool previews
+#: of one turn inside the observation budget.
+_TURN_PHASE_CHARS = 6_000
 #: Characters one note may carry into a report page. A note is a teaser for
 #: the report, not the evidence itself: it travels in one tool observation,
 #: so a note larger than this is shortened before it reaches the page. The
 #: budget leaves room for the page wrapper and stays above what the shortest
 #: texts of a note add up to, so a note can always be brought under it.
 _NOTE_CHARS = 9_000
-#: Characters of one tool result carried into a report page. The tool output
-#: is a teaser for the report, not the evidence itself: the interviewer's
-#: own ledger keeps the full text.
+#: Serialized characters of one tool result carried into a report page. The
+#: tool output is a teaser for the report, not the evidence itself: the
+#: interviewer's own ledger keeps the full text.
 _TOOL_PREVIEW_CHARS = 200
+#: Serialized characters of one tool name carried by a preview.
+_TOOL_NAME_CHARS = 80
 #: Tool previews carried per turn. A page summarizes the tool traffic of a
 #: turn; the report reads the tools it needs from the next page.
 _TOOLS_PER_TURN = 4
@@ -95,6 +116,60 @@ def _turn_text(turn: LedgerTurn) -> str:
     return " ".join(parts).lower()
 
 
+def _json_escaped_chars(text: str) -> int:
+    """Serialized length of ``text`` as a JSON string, surrounding quotes excluded."""
+    return len(json.dumps(text, ensure_ascii=False)) - 2
+
+
+def _clip_json_text(text: str, max_escaped: int) -> str:
+    """Longest prefix of ``text`` whose JSON-escaped form fits ``max_escaped``.
+
+    ``json.dumps`` expands control characters to six-character escapes, so a
+    raw character count does not bound the serialized length of a plan-supplied
+    phase label or of a turn id preserved from a legacy payload. The escaped
+    length of a prefix grows with the prefix, so the longest fitting prefix is
+    found by bisection. When even the empty prefix exceeds the budget, the
+    empty string is returned.
+    """
+    if _json_escaped_chars(text) <= max_escaped:
+        return text
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if _json_escaped_chars(text[:middle]) <= max_escaped:
+            low = middle
+        else:
+            high = middle - 1
+    return text[:low]
+
+
+def _digest(text: str) -> str:
+    """Eight hexadecimal digits identifying one full text behind a handle.
+
+    Not a security primitive: the digest only keeps long values that share a
+    clipped prefix distinguishable after projection.
+    """
+    return hashlib.blake2s(text.encode("utf-8", "surrogatepass"), digest_size=4).hexdigest()
+
+
+def _bounded_handle(text: str, max_escaped: int) -> str:
+    """Bounded handle for a turn id or phase label.
+
+    A live ledger writes short turn ids and plan titles, but a legacy payload
+    can preserve any string, and an over-long value cannot travel in one tool
+    observation. The handle keeps the value's prefix and appends a digest of
+    the full value, so it fits ``max_escaped`` serialized characters, values
+    that share a prefix stay distinct, and the ledger tools can map the handle
+    back to the ledger text. Projecting a handle again returns it unchanged, so
+    advertised ids and raw ledger ids match through the same projection.
+    """
+    if _json_escaped_chars(text) <= max_escaped:
+        return text
+    digest = _digest(text)
+    head = _clip_json_text(text, max_escaped - len(digest) - 1)
+    return f"{head}…{digest}"
+
+
 def _project_tool_preview(tool: ToolPreview) -> dict[str, Any]:
     """Project one tool preview for a report page.
 
@@ -110,25 +185,34 @@ def _project_tool_preview(tool: ToolPreview) -> dict[str, Any]:
         result = tool["result_preview"]
     except KeyError:
         result = ""
-    return {"name": name, "preview": str(result)[:_TOOL_PREVIEW_CHARS]}
+    return {
+        "name": None if name is None else _clip_json_text(str(name), _TOOL_NAME_CHARS),
+        "preview": _clip_json_text(str(result), _TOOL_PREVIEW_CHARS),
+    }
 
 
 def _project_turn(turn: LedgerTurn) -> dict[str, Any]:
     """Project one turn for a report page.
 
-    The tool preview keys come from the platform contract, so the page
-    carries the tool result the interviewer-side call returned.
+    Every text is bounded by its serialized length, which is what the page
+    budget is spent on, so one projected turn always fits the budget on its
+    own. The identity fields use :func:`_bounded_handle`, so a legacy id or
+    phase label stays bounded and its handle still maps back to the ledger.
+    The tool preview keys come from the platform contract, so the page carries
+    the tool result the interviewer-side call returned.
     """
     assistant = turn.get("assistant")
     user = turn.get("user")
     tools = turn.get("tools") or []
     return {
-        "turn_id": turn.get("turn_id"),
-        "phase": turn.get("phase"),
-        "question": str(assistant.get("text", ""))[:_TURN_CHARS]
+        "turn_id": _bounded_handle(str(turn.get("turn_id")), _TURN_ID_CHARS),
+        "phase": _bounded_handle(str(turn.get("phase") or ""), _TURN_PHASE_CHARS),
+        "question": _clip_json_text(str(assistant.get("text", "")), _TURN_CHARS)
         if isinstance(assistant, dict)
         else "",
-        "answer": str(user.get("text", ""))[:_TURN_CHARS] if isinstance(user, dict) else "",
+        "answer": _clip_json_text(str(user.get("text", "")), _TURN_CHARS)
+        if isinstance(user, dict)
+        else "",
         "tools": [_project_tool_preview(t) for t in tools[:_TOOLS_PER_TURN] if isinstance(t, dict)],
     }
 
@@ -146,28 +230,6 @@ def _next_offset(offset: int, returned: int, total: int) -> int | None:
     return consumed if consumed < total else None
 
 
-def _clip_json_text(text: str, max_escaped: int) -> str:
-    """Longest prefix of ``text`` whose JSON-escaped form fits ``max_escaped``.
-
-    ``json.dumps`` expands control characters to six-character escapes, so a
-    raw character count does not bound the serialized length of a plan-supplied
-    phase label or of a turn id preserved from a legacy payload. The escaped
-    length of a prefix grows with the prefix, so the longest fitting prefix is
-    found by bisection. When even the empty prefix exceeds the budget, the
-    empty string is returned.
-    """
-    if len(json.dumps(text, ensure_ascii=False)) - 2 <= max_escaped:
-        return text
-    low, high = 0, len(text)
-    while low < high:
-        middle = (low + high + 1) // 2
-        if len(json.dumps(text[:middle], ensure_ascii=False)) - 2 <= max_escaped:
-            low = middle
-        else:
-            high = middle - 1
-    return text[:low]
-
-
 def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, Any]]) -> str:
     """Serialize one page of entries as JSON that fits the output budget.
 
@@ -176,7 +238,7 @@ def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, A
     are dropped instead, and the page is marked ``truncated`` so the model
     knows to keep reading. One entry is always kept, so the paging cursor
     advances even when a single entry alone exceeds the budget; the readers
-    project their entries so that one entry always fits it.
+    project every entry so that one entry always fits it.
     """
     page = list(entries)
     while True:
@@ -187,38 +249,6 @@ def _fit_page(entries: list[Any], payload_for: Callable[[list[Any]], dict[str, A
         if len(raw) <= _OUTPUT_CHARS or len(page) <= 1:
             return raw
         page.pop()
-
-
-def _fit_overview(offset: int, phases: list[str], ids: list[str]) -> str:
-    """Serialize one overview page as JSON that fits the output budget.
-
-    ``json.dumps`` expands control characters, so the page is measured after
-    serialization: the phase labels are already clipped to their escaped
-    budgets, and the id window is trimmed here until the document fits.
-    Trailing ids are dropped first, never sliced out of the serialized text,
-    and the continuation cursor follows the delivered window. The page always
-    fits once the window is down to one id (the phase list is capped and the
-    offset is clamped); an id preserved from a legacy payload can be longer
-    than the whole budget by itself, and that last id is clipped to the room
-    the wrapper leaves - an id that long is not a usable cursor anyway.
-    """
-    window = ids[offset : offset + _OVERVIEW_IDS]
-    while True:
-        payload = {
-            "offset": offset,
-            "total_turns": len(ids),
-            "phases": phases,
-            "turn_ids": window,
-            "next_offset": _next_offset(offset, len(window), len(ids)),
-        }
-        raw = json.dumps(payload, ensure_ascii=False)
-        if len(raw) <= _OUTPUT_CHARS:
-            return raw
-        if len(window) > 1:
-            window.pop()
-            continue
-        wrapper = json.dumps({**payload, "turn_ids": [""]}, ensure_ascii=False)
-        window[0] = _clip_json_text(window[0], _OUTPUT_CHARS - len(wrapper))
 
 
 def _page_offset(args: dict[str, Any], default: int = 0) -> int:
@@ -252,36 +282,58 @@ def ledger_tool_specs(
     scoped = [t for t in _turns(ledger) if allowed is None or str(t.get("turn_id")) in allowed]
 
     async def overview(args: dict[str, Any]) -> str:
-        # The phase labels are plan-supplied text and a legacy payload can
-        # preserve an arbitrarily long turn id, so neither list is bounded by
-        # the ledger. Labels are de-duplicated on their full value first (two
-        # phases that share a prefix are still two phases) and then clipped to
-        # a JSON-escaped length; the id page is fitted to the remaining budget
-        # by _fit_overview, so the observation cannot reach the loop's slicer
-        # (the failure the page fitter exists to prevent).
+        # Every field is bounded by construction: phase labels and turn ids
+        # are projected to handles that fit the budget, the phase list is
+        # capped and reports its own truncation, and the ids are a page, so a
+        # session with hundreds of turns or a legacy payload cannot push this
+        # observation into the loop's slicer.
         phases: list[str] = []
         seen_phases: set[str] = set()
+        phases_truncated = False
         for turn in scoped:
             phase = str(turn.get("phase") or "")
             if not phase or phase in seen_phases:
                 continue
             seen_phases.add(phase)
-            phases.append(_clip_json_text(phase, _PHASE_CHARS))
-            if len(phases) >= _OVERVIEW_PHASES:
-                break
-        ids = [str(t.get("turn_id")) for t in scoped]
+            label = _bounded_handle(phase, _PHASE_CHARS)
+            phases_truncated = phases_truncated or label != phase
+            if len(phases) < _OVERVIEW_PHASES:
+                phases.append(label)
+        if len(seen_phases) > len(phases):
+            phases_truncated = True
+        ids = [_bounded_handle(str(t.get("turn_id")), _TURN_ID_CHARS) for t in scoped]
         # A model-supplied offset is any integer; clamping it to the end of the
-        # ledger keeps the echoed cursor, and therefore the page, bounded.
+        # ledger keeps the echoed cursor small.
         offset = min(_page_offset(args), len(ids))
-        return _fit_overview(offset, phases, ids)
+        window = ids[offset : offset + _OVERVIEW_IDS]
+        return json.dumps(
+            {
+                "offset": offset,
+                "total_turns": len(ids),
+                "phases": phases,
+                "total_phases": len(seen_phases),
+                "phases_truncated": phases_truncated,
+                "turn_ids": window,
+                "next_offset": _next_offset(offset, len(window), len(ids)),
+            },
+            ensure_ascii=False,
+        )
 
     async def read_turns(args: dict[str, Any]) -> str:
         offset = _page_offset(args)
         requested = args.get("turn_ids")
         explicit_ids = requested if isinstance(requested, list) and requested else None
         if explicit_ids is not None:
-            want = {str(t) for t in explicit_ids[: _PAGE_TURNS * 2]}
-            candidates = [t for t in scoped if str(t.get("turn_id")) in want]
+            # Match on the advertised projection, so the handle an overview or
+            # search returned resolves the turn it names. A raw id still
+            # matches: a short id projects to itself, and a legacy long id
+            # projects to the same handle the tools advertise.
+            want = {
+                _bounded_handle(str(t), _TURN_ID_CHARS) for t in explicit_ids[: _PAGE_TURNS * 2]
+            }
+            candidates = [
+                t for t in scoped if _bounded_handle(str(t.get("turn_id")), _TURN_ID_CHARS) in want
+            ]
             # The offset counts within the requested turns, so a page that was
             # trimmed can be continued at the first turn that did not fit.
             total = len(candidates)
@@ -305,13 +357,18 @@ def ledger_tool_specs(
         keyword = str(args.get("keyword") or "").strip().lower()
         if not keyword:
             return json.dumps({"error": "empty_keyword"}, ensure_ascii=False)
-        hits = []
+        hits: list[dict[str, Any]] = []
         for turn in scoped:
             text = _turn_text(turn)
             if keyword in text:
                 idx = text.find(keyword)
                 snippet = text[max(0, idx - 40) : idx + _SNIPPET_CHARS]
-                hits.append({"turn_id": turn.get("turn_id"), "snippet": snippet})
+                hits.append(
+                    {
+                        "turn_id": _bounded_handle(str(turn.get("turn_id")), _TURN_ID_CHARS),
+                        "snippet": _clip_json_text(snippet, _SNIPPET_CHARS),
+                    }
+                )
             if len(hits) >= _SEARCH_HITS:
                 break
         return json.dumps({"matches": hits}, ensure_ascii=False)
@@ -321,7 +378,10 @@ def ledger_tool_specs(
             name="ledger_overview",
             description=(
                 "Overview of the frozen interview transcript: turn count, phase list, "
-                "ordered turn ids (paged — pass offset for the next page of ids)."
+                "ordered turn ids (paged — pass offset for the next page of ids). "
+                "Phase labels may be shortened and total_phases/phases_truncated say "
+                "whether the list is complete; ledger_read_turns carries each turn's phase "
+                "label, which is only shortened when it exceeds the page budget itself."
             ),
             parameters={
                 "type": "object",
@@ -339,7 +399,8 @@ def ledger_tool_specs(
             name="ledger_read_turns",
             description=(
                 "Read transcript turns by page (offset-based) or by explicit turn_ids; "
-                "each turn carries the interviewer question, the candidate answer, and tool previews. "
+                "each turn carries the interviewer question, the candidate answer, the phase label, "
+                "and tool previews. Turn ids may come from the overview or the search tool. "
                 "A page can come back shorter than requested (truncated): keep reading from next_offset "
                 "(pass the same turn_ids again when you asked for specific ones)."
             ),

@@ -408,7 +408,8 @@ async def test_ledger_overview_stays_inside_the_observation_cap() -> None:
     """The overview page is bounded by construction, whatever the ledger holds.
 
     A degenerate plan can carry very long phase labels and a session can hold
-    hundreds of turns; neither may push the observation over the loop cap.
+    hundreds of turns; neither may push the observation over the loop cap. A
+    label that had to be shortened is reported through ``phases_truncated``.
     """
     from realmock.domains.records.agents.report import ledger_tools as mod
 
@@ -418,7 +419,10 @@ async def test_ledger_overview_stays_inside_the_observation_cap() -> None:
     raw = await specs["ledger_overview"].handler({})
     assert len(raw) <= mod._OUTPUT_CHARS
     page = json.loads(raw)  # must not raise: the observation is a JSON document
-    assert len(page["phases"][0]) == mod._PHASE_CHARS
+    assert page["phases"][0] != "超长阶段标签" * 1000
+    assert mod._json_escaped_chars(page["phases"][0]) <= mod._PHASE_CHARS
+    assert page["total_phases"] == 2
+    assert page["phases_truncated"] is True
 
 
 @pytest.mark.asyncio
@@ -442,18 +446,18 @@ async def test_ledger_overview_bounds_labels_that_json_escapes() -> None:
     assert len(raw) <= mod._OUTPUT_CHARS
     page = json.loads(raw)  # must not raise: the observation is a JSON document
     assert len(page["phases"]) == mod._OVERVIEW_PHASES
-    assert all(
-        len(json.dumps(phase, ensure_ascii=False)) - 2 <= mod._PHASE_CHARS
-        for phase in page["phases"]
-    )
+    # The distinguishing prefix survives clipping (a cleared label would fail).
+    assert all(phase.startswith(f"{i:02d}") for i, phase in enumerate(page["phases"]))
+    assert all(0 < mod._json_escaped_chars(phase) <= mod._PHASE_CHARS for phase in page["phases"])
+    assert page["phases_truncated"] is True
 
 
 @pytest.mark.asyncio
 async def test_ledger_overview_keeps_distinct_phases_that_share_a_prefix() -> None:
-    """Phases are de-duplicated on the full label, before the label is clipped.
+    """Labels that differ only after the cap stay distinct in the overview.
 
-    Clipping first collapsed two labels that differ only after the label cap
-    into one entry, so the caller saw an incomplete phase list.
+    Clipping first collapsed the two labels into one entry; the digest suffix
+    keeps them distinguishable after projection.
     """
     from realmock.domains.records.agents.report import ledger_tools as mod
 
@@ -466,17 +470,19 @@ async def test_ledger_overview_keeps_distinct_phases_that_share_a_prefix() -> No
     }
     specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
     page = json.loads(await specs["ledger_overview"].handler({}))
-    # Both distinct labels survive; the bounded label cannot carry their
-    # distinguishing tail, but the list is no longer missing an entry.
-    assert page["phases"] == [prefix, prefix]
+    assert len(page["phases"]) == 2
+    assert page["phases"][0] != page["phases"][1]
+    assert all(phase.startswith(prefix[: mod._PHASE_CHARS - 9]) for phase in page["phases"])
+    assert all(mod._json_escaped_chars(phase) <= mod._PHASE_CHARS for phase in page["phases"])
 
 
 @pytest.mark.asyncio
 async def test_ledger_overview_pages_long_turn_ids_without_slicing_json() -> None:
-    """Long preserved turn ids shrink the page instead of overflowing it.
+    """Long preserved turn ids page as bounded handles, never as sliced JSON.
 
-    A legacy payload can hold ids far longer than the usual ``t-0001``; the
-    overview used to serialize the whole window and exceed the loop cap.
+    A legacy payload can hold ids far longer than the usual ``t-0001``; each
+    page must stay inside the cap, and every advertised handle must resolve
+    its turn through ``ledger_read_turns``.
     """
     from realmock.domains.records.agents.report import ledger_tools as mod
 
@@ -484,36 +490,42 @@ async def test_ledger_overview_pages_long_turn_ids_without_slicing_json() -> Non
     ledger = {"turns": [{"turn_id": turn_id, "phase": "tech"} for turn_id in ids]}
     specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
 
-    raw = await specs["ledger_overview"].handler({})
-    assert len(raw) <= mod._OUTPUT_CHARS
-    first = json.loads(raw)  # must not raise: the observation is a JSON document
-    assert 0 < len(first["turn_ids"]) < mod._OVERVIEW_IDS
-    assert first["next_offset"] == len(first["turn_ids"])
-
     collected: list[str] = []
     offset: int | None = 0
     while offset is not None:
-        page = json.loads(await specs["ledger_overview"].handler({"offset": offset}))
+        raw = await specs["ledger_overview"].handler({"offset": offset})
+        assert len(raw) <= mod._OUTPUT_CHARS
+        page = json.loads(raw)  # must not raise: the observation is a JSON document
+        assert page["next_offset"] is None or page["next_offset"] > offset
+        assert all(
+            0 < mod._json_escaped_chars(turn_id) <= mod._TURN_ID_CHARS
+            for turn_id in page["turn_ids"]
+        )
         collected.extend(page["turn_ids"])
         offset = page["next_offset"]
-    # The ids reach the model whole, one page at a time.
-    assert collected == ids
+    # Every turn is advertised exactly once, with a distinct handle.
+    assert len(collected) == len(ids)
+    assert len(set(collected)) == len(collected)
+
+    page = json.loads(await specs["ledger_read_turns"].handler({"turn_ids": [collected[0]]}))
+    assert page["returned"] == 1
+    assert page["turns"][0]["turn_id"] == collected[0]
 
 
 @pytest.mark.asyncio
-async def test_ledger_overview_clips_an_id_larger_than_the_budget() -> None:
-    """A single id over the whole budget is clipped so the page stays parsable.
+async def test_ledger_overview_advertises_a_retrievable_handle_for_a_huge_id() -> None:
+    """An id too long for a page is advertised as a handle that resolves the turn.
 
-    The page keeps one id so the cursor advances; when that id alone cannot
-    fit (a legacy payload can preserve any string), it is clipped to a prefix
-    instead of handing the model an unparsable document.
+    The overview used to clip the id to a bare prefix that ``ledger_read_turns``
+    could not match, so the turn it named was unreachable; the handle projects
+    back to the same full id on both sides.
     """
     from realmock.domains.records.agents.report import ledger_tools as mod
 
     huge = "x" * (mod._OUTPUT_CHARS * 2)
     ledger = {
         "turns": [
-            {"turn_id": huge, "phase": "tech"},
+            {"turn_id": huge, "phase": "tech", "assistant": {"text": "question"}},
             {"turn_id": "t-0002", "phase": "tech"},
         ]
     }
@@ -522,9 +534,17 @@ async def test_ledger_overview_clips_an_id_larger_than_the_budget() -> None:
     raw = await specs["ledger_overview"].handler({})
     assert len(raw) <= mod._OUTPUT_CHARS
     page = json.loads(raw)  # must not raise: the observation is a JSON document
-    assert page["next_offset"] == 1
-    assert len(page["turn_ids"]) == 1
-    assert huge.startswith(page["turn_ids"][0])
+    handle = page["turn_ids"][0]
+    assert handle  # a cleared placeholder would be unusable
+    assert huge.startswith(handle[:-9])  # clipped prefix, then "…" + digest
+    assert "…" in handle
+    assert mod._bounded_handle(handle, mod._TURN_ID_CHARS) == handle
+    assert page["next_offset"] is None
+
+    found = json.loads(await specs["ledger_read_turns"].handler({"turn_ids": [handle]}))
+    assert found["returned"] == 1
+    assert found["turns"][0]["turn_id"] == handle
+    assert found["turns"][0]["question"] == "question"
 
     rest = json.loads(await specs["ledger_overview"].handler({"offset": 1}))
     assert rest["turn_ids"] == ["t-0002"]
@@ -532,18 +552,186 @@ async def test_ledger_overview_clips_an_id_larger_than_the_budget() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ledger_overview_reports_a_clipped_phase_label() -> None:
+    """The overview says when it shortened a phase label.
+
+    The shortened label keeps its distinguishing prefix plus a digest, and the
+    full label stays readable from a turn page, so the synthesis agent can
+    resolve which phase the overview meant.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    phase = "phase-" + "y" * 500
+    ledger = {"turns": [{"turn_id": "t-0001", "phase": phase}]}
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+
+    page = json.loads(await specs["ledger_overview"].handler({}))
+    assert page["total_phases"] == 1
+    assert page["phases_truncated"] is True
+    assert page["phases"][0] != phase
+    assert page["phases"][0].startswith(phase[: mod._PHASE_CHARS - 9])
+
+    turn_page = json.loads(await specs["ledger_read_turns"].handler({"offset": 0}))
+    assert turn_page["turns"][0]["phase"] == phase
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_reports_phases_beyond_the_page() -> None:
+    """A phase list longer than the page is reported, not silently cut."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    ledger = {"turns": [{"turn_id": f"t-{i:04d}", "phase": f"phase-{i:02d}"} for i in range(40)]}
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    page = json.loads(await specs["ledger_overview"].handler({}))
+    assert len(page["phases"]) == mod._OVERVIEW_PHASES
+    assert page["total_phases"] == 40
+    assert page["phases_truncated"] is True
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_worst_case_payload_stays_inside_the_cap() -> None:
+    """The projections keep the page inside the cap at the caps' own limits.
+
+    30 escaped labels and 50 legacy-length ids are the largest overview a
+    ledger can produce; the serialized page still fits the loop cap with the
+    cursor fields on top.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    turns = []
+    for i in range(50):
+        turn_id = f"t-{i:04d}-" + "x" * 500
+        phase = f"{i:02d}" + "\x00" * 200 if i < mod._OVERVIEW_PHASES else "tech"
+        turns.append({"turn_id": turn_id, "phase": phase})
+    specs = {s.name: s for s in mod.ledger_tool_specs({"turns": turns})}
+
+    raw = await specs["ledger_overview"].handler({})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert len(page["phases"]) == mod._OVERVIEW_PHASES
+    assert len(page["turn_ids"]) == 50
+    assert all(mod._json_escaped_chars(phase) <= mod._PHASE_CHARS for phase in page["phases"])
+    assert all(
+        mod._json_escaped_chars(turn_id) <= mod._TURN_ID_CHARS for turn_id in page["turn_ids"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_ledger_overview_projects_an_escaped_id_at_a_later_page() -> None:
+    """An escaped id anywhere in the ledger becomes a handle, not a broken page.
+
+    A control-character id is far longer once serialized than its character
+    count suggests, and it can sit past the first page boundary; every page
+    stays bounded and the cursor neither skips nor repeats it.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    turns = [
+        {
+            "turn_id": "\x00" * 3_000 if i == 59 else f"t-{i + 1:04d}",
+            "phase": "tech",
+            "assistant": {"text": f"question {i + 1}"},
+        }
+        for i in range(120)
+    ]
+    specs = {s.name: s for s in mod.ledger_tool_specs({"turns": turns})}
+
+    collected: list[str] = []
+    offset: int | None = 0
+    while offset is not None:
+        raw = await specs["ledger_overview"].handler({"offset": offset})
+        assert len(raw) <= mod._OUTPUT_CHARS
+        page = json.loads(raw)  # must not raise: the observation is a JSON document
+        assert page["next_offset"] is None or page["next_offset"] > offset
+        assert all(0 < mod._json_escaped_chars(turn_id) for turn_id in page["turn_ids"])
+        assert all(
+            mod._json_escaped_chars(turn_id) <= mod._TURN_ID_CHARS for turn_id in page["turn_ids"]
+        )
+        collected.extend(page["turn_ids"])
+        offset = page["next_offset"]
+
+    assert len(collected) == 120
+    escaped_handle = collected[59]
+    assert escaped_handle
+    found = json.loads(await specs["ledger_read_turns"].handler({"turn_ids": [escaped_handle]}))
+    assert found["returned"] == 1
+    assert found["turns"][0]["turn_id"] == escaped_handle
+    assert found["turns"][0]["question"] == "question 60"
+
+
+@pytest.mark.asyncio
 async def test_ledger_overview_clamps_an_oversized_offset() -> None:
     """A huge model-supplied offset must not inflate the serialized page.
 
-    The offset is echoed in the payload, so an unbounded integer would make
-    the page exceed the output budget however few ids it carries.
+    The offset is echoed in the payload, so an unbounded integer would fail
+    serialization (an integer of more than 4,300 digits cannot be turned back
+    into text) regardless of how few ids the page carries.
     """
     from realmock.domains.records.agents.report import ledger_tools as mod
 
     specs = {s.name: s for s in mod.ledger_tool_specs(_long_ledger(120))}
-    raw = await specs["ledger_overview"].handler({"offset": 10**100})
+    raw = await specs["ledger_overview"].handler({"offset": 10**mod._OUTPUT_CHARS})
     assert len(raw) <= mod._OUTPUT_CHARS
     page = json.loads(raw)  # must not raise: the observation is a JSON document
     assert page["offset"] == 120
     assert page["turn_ids"] == []
     assert page["next_offset"] is None
+
+
+@pytest.mark.asyncio
+async def test_ledger_read_turns_single_entry_fits_with_legacy_fields() -> None:
+    """One projected turn always fits the loop cap, whatever the ledger holds.
+
+    A legacy turn can carry an arbitrarily long id, phase label or text. The
+    projection bounds every field, so ``_fit_page`` never keeps a single entry
+    that the agent loop would slice into an unparsable document.
+    """
+    from realmock.domains.records.agents.report import ledger_tools as mod
+    from realmock.platform.capabilities.ai.agent.llm_round import (
+        MAX_TOOL_RESULT_CHARS,
+        _truncate_tool_result,
+    )
+
+    ledger = {
+        "turns": [
+            {
+                "turn_id": "t-" + "\x00" * 30_000,
+                "phase": "\x00" * 30_000,
+                "assistant": {"text": "\x00" * 5_000},
+                "user": {"text": "\x00" * 5_000},
+                "tools": [
+                    {"name": "\x00" * 5_000, "result_preview": "\x00" * 5_000}
+                    for _ in range(mod._TOOLS_PER_TURN)
+                ],
+            }
+        ]
+    }
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    raw = await specs["ledger_read_turns"].handler({"offset": 0})
+    assert len(raw) <= MAX_TOOL_RESULT_CHARS
+    assert _truncate_tool_result(raw) == raw
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert page["returned"] == 1
+    assert page["turns"][0]["turn_id"]
+
+
+@pytest.mark.asyncio
+async def test_ledger_search_projects_long_ids_and_snippets() -> None:
+    """Search hits stay bounded: ids are handles and snippets are clipped."""
+    from realmock.domains.records.agents.report import ledger_tools as mod
+
+    ledger = _long_ledger(12)
+    for i, turn in enumerate(ledger["turns"], start=1):
+        turn["turn_id"] = f"t-{i:04d}-" + "x" * 400
+        turn["assistant"]["text"] = "\x00" * 1_000 + " keyword"
+    specs = {s.name: s for s in mod.ledger_tool_specs(ledger)}
+    raw = await specs["ledger_search"].handler({"keyword": "keyword"})
+    assert len(raw) <= mod._OUTPUT_CHARS
+    page = json.loads(raw)  # must not raise: the observation is a JSON document
+    assert 0 < len(page["matches"]) <= mod._SEARCH_HITS
+    assert all(
+        0 < mod._json_escaped_chars(hit["turn_id"]) <= mod._TURN_ID_CHARS for hit in page["matches"]
+    )
+    assert all(
+        0 < mod._json_escaped_chars(hit["snippet"]) <= mod._SNIPPET_CHARS for hit in page["matches"]
+    )
