@@ -505,70 +505,6 @@ def test_lock_sync_flags_a_reordered_manifest(tmp_path: Path, monkeypatch) -> No
 # --- regenerate_python_lock.py ---
 
 
-def test_regen_annotate_only_refreshes_the_snapshot(tmp_path: Path, monkeypatch) -> None:
-    mod = _load_script("regenerate_python_lock.py")
-    manifest_path = tmp_path / "pyproject.toml"
-    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
-    lock_path = tmp_path / "requirements-ci.lock"
-    lock_path.write_text(_LOCK_FOR_EXTRAS, encoding="utf-8")
-    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
-    monkeypatch.setattr(mod, "LOCK", lock_path)
-    monkeypatch.setattr(
-        mod,
-        "subprocess",
-        SimpleNamespace(
-            run=lambda *a, **k: (_ for _ in ()).throw(AssertionError("uv must not run"))
-        ),
-    )
-    assert mod.main(["--annotate-only"]) == 0
-    text = lock_path.read_text(encoding="utf-8")
-    gate = _load_script("check_python_lock_sync.py")
-    assert gate.snapshot_entries(text) == gate.expected_snapshot(
-        tomllib.loads(_MANIFEST_WITH_EXTRAS)
-    )
-    # The pins themselves are untouched by the annotation pass.
-    assert text.startswith(_LOCK_FOR_EXTRAS.rstrip("\n"))
-
-
-def test_regen_annotate_only_rejects_a_stale_snapshot(tmp_path: Path, monkeypatch) -> None:
-    mod = _load_script("regenerate_python_lock.py")
-    manifest_path = tmp_path / "pyproject.toml"
-    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
-    lock_path = tmp_path / "requirements-ci.lock"
-    stale = mod.with_snapshot(_LOCK_FOR_EXTRAS, ["alpha>=1.0,<2", "uvicorn>=0.32.0,<1"])
-    lock_path.write_text(stale, encoding="utf-8")
-    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
-    monkeypatch.setattr(mod, "LOCK", lock_path)
-    # The lock was compiled from a different manifest, so the pins may no
-    # longer reflect it: stamping the new strings would attest a tree the
-    # manifest no longer describes. Only the full compile re-resolves them.
-    assert mod.main(["--annotate-only"]) == 1
-    assert lock_path.read_text(encoding="utf-8") == stale
-
-
-def test_regen_annotate_only_allows_a_matching_snapshot(tmp_path: Path, monkeypatch) -> None:
-    mod = _load_script("regenerate_python_lock.py")
-    manifest_path = tmp_path / "pyproject.toml"
-    manifest_path.write_text(_MANIFEST_WITH_EXTRAS, encoding="utf-8")
-    lock_path = tmp_path / "requirements-ci.lock"
-    annotated = mod.with_snapshot(
-        _LOCK_FOR_EXTRAS, mod.expected_snapshot(tomllib.loads(_MANIFEST_WITH_EXTRAS))
-    )
-    lock_path.write_text(annotated, encoding="utf-8")
-    monkeypatch.setattr(mod, "MANIFEST", manifest_path)
-    monkeypatch.setattr(mod, "LOCK", lock_path)
-    monkeypatch.setattr(
-        mod,
-        "subprocess",
-        SimpleNamespace(
-            run=lambda *a, **k: (_ for _ in ()).throw(AssertionError("uv must not run"))
-        ),
-    )
-    assert mod.main(["--annotate-only"]) == 0
-    # The rewrite is idempotent: the lock text is unchanged.
-    assert lock_path.read_text(encoding="utf-8") == annotated
-
-
 def test_regen_compiles_and_writes_the_snapshot(tmp_path: Path, monkeypatch) -> None:
     mod = _load_script("regenerate_python_lock.py")
     manifest_path = tmp_path / "pyproject.toml"
@@ -586,7 +522,7 @@ def test_regen_compiles_and_writes_the_snapshot(tmp_path: Path, monkeypatch) -> 
             run=lambda argv, **kw: calls.append((argv, kw)) or SimpleNamespace(returncode=0)
         ),
     )
-    assert mod.main([]) == 0
+    assert mod.main() == 0
     ((argv, kwargs),) = calls
     # The exact command recorded in the lock header; keep both in sync.
     assert argv == [
@@ -605,8 +541,10 @@ def test_regen_compiles_and_writes_the_snapshot(tmp_path: Path, monkeypatch) -> 
         "apps/api/requirements-ci.lock",
     ]
     assert kwargs == {"cwd": tmp_path, "check": False}
-    # The full path annotates whatever compile produced: the lock gains the
-    # snapshot of the current manifest.
+    # The compile is followed by the annotation in one step: the lock gains
+    # the snapshot of the current manifest, so no snapshot written without
+    # the re-resolution behind it can attest a tree the manifest no longer
+    # describes.
     gate = _load_script("check_python_lock_sync.py")
     text = lock_path.read_text(encoding="utf-8")
     assert gate.snapshot_entries(text) == gate.expected_snapshot(
