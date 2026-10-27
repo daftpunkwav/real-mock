@@ -310,3 +310,75 @@ def test_lock_sync_marker_set_matches_the_manifest_requirements() -> None:
     direct = mod.direct_requirements(lock_text, marker)
     declared = {mod.canonical(r.name) for r in mod.manifest_requirements(manifest)}
     assert set(direct) == declared
+
+
+# A requirement whose environment marker excludes the lock target (Linux) is
+# legitimately absent from the lock; one whose marker applies to it is not.
+_MANIFEST_WITH_MARKERS = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = [
+    "windows-only; sys_platform == 'win32'",
+    "posix-only; sys_platform == 'linux'",
+]
+"""
+
+_LOCK_WITH_POSIX_ONLY = """\
+posix-only==1.0.0 \\
+    --hash=sha256:1111
+    # via
+    #   demo (pyproject.toml)
+"""
+
+
+# A non-dev extra is not compiled into the lock, so it is not compared.
+_MANIFEST_WITH_OTHER_EXTRA = """\
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = ["alpha>=1.0,<2"]
+
+[project.optional-dependencies]
+docs = ["docs-only==1.0.0"]
+dev = ["gamma==7.7.7"]
+"""
+
+_LOCK_FOR_DEV_EXTRA = """\
+alpha==1.5.0 \\
+    --hash=sha256:1111
+    # via
+    #   demo (pyproject.toml)
+gamma==7.7.7 \\
+    --hash=sha256:3333
+    # via
+    #   demo (pyproject.toml)
+"""
+
+
+def test_python_lock_sync_skips_a_requirement_whose_marker_excludes_the_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_MARKERS, _LOCK_WITH_POSIX_ONLY)
+    assert mod.main() == 0
+
+
+def test_python_lock_sync_flags_a_marker_requirement_the_lock_should_carry(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    # The lock pins the Windows-only requirement instead of the Linux one, so
+    # the applicable requirement is missing and the inapplicable one is orphaned.
+    lock = _LOCK_WITH_POSIX_ONLY.replace("posix-only", "windows-only")
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_MARKERS, lock)
+    assert mod.main() == 1
+    assert "posix-only" in capsys.readouterr().out
+
+
+def test_python_lock_sync_compares_only_the_dev_extra(tmp_path: Path, monkeypatch) -> None:
+    mod = _load_script("check_python_lock_sync.py")
+    # `docs-only` is declared but not compiled into the lock, and `gamma` is
+    # both: only the requirements the lock covers are compared.
+    _stub_lock_sync(mod, monkeypatch, tmp_path, _MANIFEST_WITH_OTHER_EXTRA, _LOCK_FOR_DEV_EXTRA)
+    assert mod.main() == 0

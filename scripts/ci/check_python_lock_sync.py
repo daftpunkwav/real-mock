@@ -5,13 +5,21 @@ so the gate exercises the pinned tree rather than the manifest. A dependency
 added, dropped or re-ranged in `apps/api/pyproject.toml` without regenerating
 the lock leaves CI installing the old tree, and the manifest and the installed
 tree disagree silently. This gate compares the manifest's direct requirements
-(`project.dependencies` plus every `project.optional-dependencies` entry) with
-the pins in the lock and fails loudly on any drift.
+with the pins in the lock and fails loudly on any drift.
+
+The comparison covers exactly what the lock is compiled from: `project.
+dependencies` plus the `dev` extra, for Linux on CPython 3.14. A requirement
+from another extra, or one whose environment marker excludes that target, is
+legitimately absent from the lock and is not reported.
 
 Both directions are checked: a manifest requirement must be locked at a version
 its specifier allows, and a distribution the lock marks as a direct requirement
 of the project must still be declared in the manifest, so a dependency that was
 dropped is caught as well.
+
+Known limitation: the lock records the resolved distributions of an extra, not
+which extras a requirement asked for, so dropping an extra (`uvicorn[standard]`
+to `uvicorn`) without regenerating the lock is not detected here.
 
 Names are compared PEP 503 normalized (lowercase, runs of -/_/. collapsed to
 one dash) so both sides agree on spelling, and the version ranges are matched
@@ -34,6 +42,18 @@ from packaging.version import InvalidVersion
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "apps" / "api" / "pyproject.toml"
 LOCK = ROOT / "apps" / "api" / "requirements-ci.lock"
+
+# The extra the lock is compiled from, and the target it is compiled for. Both
+# mirror the compile command recorded in the lock header.
+LOCKED_EXTRA = "dev"
+LOCK_ENVIRONMENT = {
+    "sys_platform": "linux",
+    "platform_system": "Linux",
+    "os_name": "posix",
+    "platform_machine": "x86_64",
+    "python_version": "3.14",
+    "python_full_version": "3.14.0",
+}
 
 # A pin line is `name==version`, optionally continued by a trailing backslash
 # into its `--hash=` lines. Hash and `# via` lines never start at column 0, so
@@ -89,16 +109,15 @@ def duplicate_pins(lock_text: str) -> dict[str, list[str]]:
 
 
 def manifest_requirements(manifest: dict[str, Any]) -> list[Requirement]:
-    """Return the manifest's direct requirements.
+    """Return the requirements the lock is expected to cover.
 
-    Those are `project.dependencies` plus every entry of
-    `project.optional-dependencies`; the extra names are not hard-coded, so a
-    new extra is covered the moment it is declared.
+    Those are `project.dependencies` plus the entries of the extra the lock is
+    compiled with; an extra that is not compiled into the lock is not part of
+    the comparison.
     """
     project = manifest.get("project", {})
     entries: list[str] = list(project.get("dependencies", []))
-    for extra in project.get("optional-dependencies", {}).values():
-        entries.extend(extra)
+    entries.extend(project.get("optional-dependencies", {}).get(LOCKED_EXTRA, []))
     return [Requirement(entry) for entry in entries]
 
 
@@ -176,6 +195,12 @@ def _requirement_message(
     requirement: Requirement, versions: dict[str, str]
 ) -> str | None:
     """Return the drift of one requirement, or None when the lock satisfies it."""
+    if requirement.marker is not None and not requirement.marker.evaluate(
+        LOCK_ENVIRONMENT
+    ):
+        # The marker excludes the target the lock is compiled for, so the lock
+        # cannot carry this requirement.
+        return None
     name = canonical(requirement.name)
     if name not in versions:
         return f"{name}: declared in the manifest but not locked"
