@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -191,7 +192,7 @@ def _build_response(
     status: str = STATUS_READY,
 ) -> ReportResponse:
     catalog = get_session_catalog()
-    ledger = snap.ledger
+    ledger = snap.ledger_document()
     if ledger is None:
         ledger = catalog.get_ledger(db, snap.id)
     return ReportResponse(
@@ -200,7 +201,9 @@ def _build_response(
         messages_count=_messages_count(snap),
         duration_minutes=_duration_minutes(snap),
         status=status,  # type: ignore[arg-type]
-        ledger=ledger,
+        # The wire field stays a loose dict, so the typed document is cast at
+        # the response boundary.
+        ledger=cast("dict[str, Any] | None", ledger),
     )
 
 

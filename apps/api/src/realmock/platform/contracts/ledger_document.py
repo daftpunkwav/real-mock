@@ -3,8 +3,8 @@
 Responsibilities:
 - Declare the key names of the ledger document, its turns, and the tool
   previews attached to a turn. The interview domain is the sole writer; other
-  domains read the document through the session catalog seam, whose payload
-  is an untyped dict.
+  domains read the document through the session catalog port, whose
+  ``get_ledger`` hands it over typed as ``LedgerDocument``.
 
 Contracts:
 - The key names below are the single source of truth. A reader that is typed
@@ -26,6 +26,9 @@ class ToolPreview(TypedDict, total=False):
 
     The args and the result are truncated previews, not the full tool
     output: the ledger keeps what a reader needs to see that a tool ran.
+    Readers key their lookups on these declared names; the ledger store
+    renames a stored preview's ``result`` key to ``result_preview`` before
+    publishing the document.
     """
 
     name: str
@@ -61,13 +64,22 @@ class LedgerTurn(TypedDict, total=False):
 
 
 class LedgerDocument(TypedDict, total=False):
-    """Root ledger document aggregated from the ``interview_turns`` table."""
+    """Root ledger document aggregated from the ``interview_turns`` table.
+
+    Every element of ``turns`` is a turn mapping: the writer skips a row that
+    is not a mapping, and publishes tool previews under the declared key
+    names (a stored ``result`` key is renamed). A skipped row or a dropped
+    preview marks the document ``corrupt``, so a reader can tell an absent
+    turn from one the document could not represent.
+    """
 
     schema: str
     session_id: int
     frozen: bool
     turns: list[LedgerTurn]
-    # Set when JSON parse failed; raw_unparsed preserves a truncated original blob.
+    # Set when stored content cannot be represented in this document
+    # (unparsable JSON, a non-mapping turn, a dropped tool preview);
+    # raw_unparsed preserves a truncated original blob.
     corrupt: bool
     raw_unparsed: str
 

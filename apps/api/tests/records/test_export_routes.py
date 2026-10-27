@@ -62,7 +62,13 @@ def _snapshot(**over) -> dict:
 
 
 def _catalog(snap: dict, ledger: dict | None = None) -> MagicMock:
-    """A session-catalog double returning the given snapshot and ledger."""
+    """A session-catalog double returning the given snapshot and ledger.
+
+    The real adapter always carries the ledger in the snapshot, so the double
+    mirrors that; a snapshot without one falls back to ``get_ledger``.
+    """
+    if ledger is not None:
+        snap = {**snap, "ledger": ledger}
     cat = MagicMock()
     cat.get_session_snapshot.return_value = snap
     cat.get_ledger.return_value = ledger if ledger is not None else snap.get("ledger")
@@ -344,3 +350,21 @@ def test_record_export_json_omits_empty_turns(db, include_visible_turns) -> None
         _unoverride_sessions_db()
     assert resp.status_code == 200
     assert json.loads(resp.json()["content"])["record"]["turns"] == expected
+
+
+def test_record_export_reads_the_snapshot_ledger(db) -> None:
+    """The exporters read the ledger the snapshot already carries.
+
+    ``get_ledger`` re-reads the session row plus the whole turn table; a
+    snapshot that carries the ledger must not trigger that second read.
+    """
+    _override_sessions_db(db)
+    try:
+        cat = _catalog(_snapshot(), _ledger())
+        cat.get_ledger.side_effect = AssertionError("get_ledger must not be re-read")
+        with export_client(cat) as client:
+            resp = client.get("/api/v1/records/export/record/1?format=md")
+    finally:
+        _unoverride_sessions_db()
+    assert resp.status_code == 200
+    assert "Introduce yourself." in resp.json()["content"]

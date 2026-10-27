@@ -39,3 +39,21 @@ class TestSessionCatalogContract:
             {"id": 1, "role": "r", "level": "l", "company": "c", "status": "done"}
         )
         assert snap.id == 1
+
+    def test_snapshot_ledger_document_view_keeps_undeclared_keys(self) -> None:
+        """The typed view must expose the payload itself, not a re-validated
+        copy: pydantic drops keys the contract does not declare, which would
+        silently remove a legacy turn key from the wire payload."""
+        from realmock.platform.contracts.session_catalog import SessionSnapshot
+
+        ledger = {
+            "frozen": True,
+            "turns": [{"turn_id": "t-0001", "legacy_turn_key": "kept"}],
+        }
+        snap = SessionSnapshot(id=1, ledger=ledger)
+
+        document = snap.ledger_document()
+        assert document is not None
+        assert document["turns"][0]["turn_id"] == "t-0001"
+        # The wire payload keeps the undeclared key the typed view would drop.
+        assert snap.model_dump()["ledger"]["turns"][0]["legacy_turn_key"] == "kept"

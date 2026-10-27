@@ -190,11 +190,19 @@ def test_backfill_survives_duplicate_and_non_dict_turns(legacy_db) -> None:
 
     assert backfill_ledger_rows(legacy_db) == 3
     doc = dict(load_ledger(legacy_db, row))
-    # The third element is a legacy raw string; load_ledger passes it through
-    # verbatim (only dict turns carry ids).
-    ids = [t.get("turn_id") if isinstance(t, dict) else None for t in doc["turns"]]
-    assert ids == ["t-0001", "t-0002", None]
-    assert doc["turns"][2] == "raw string turn"  # normalised verbatim as JSON text
+    # The third element is a legacy raw string. It is kept as a row, but it is
+    # not a turn shape, so load_ledger does not publish it as a turn: the
+    # document contract types every turn as a mapping.
+    ids = [t["turn_id"] for t in doc["turns"]]
+    assert ids == ["t-0001", "t-0002"]
+    rows = (
+        legacy_db.query(InterviewTurn)
+        .filter(InterviewTurn.session_id == row.id)
+        .order_by(InterviewTurn.seq)
+        .all()
+    )
+    assert len(rows) == 3
+    assert json.loads(rows[2].turn) == "raw string turn"  # kept verbatim as JSON text
 
 
 def test_backfill_derived_fallback_colliding_with_earlier_id(legacy_db) -> None:
