@@ -43,7 +43,9 @@ test("scan flags a banned package by any path of arrival", () => {
     manifest: { dependencies: { next: "^16" } },
     policy: POLICY,
   });
-  assert.deepEqual(result.violations, ["bannedpkg"]);
+  // The finding carries the policy reason, so the reporter never has to look
+  // the package up in the policy by name.
+  assert.deepEqual(result.violations, [{ name: "bannedpkg", reason: "banned by policy" }]);
   assert.deepEqual(result.aliasViolations, []);
   assert.deepEqual(result.duplicatedRuntimeDeps, []);
 });
@@ -61,6 +63,7 @@ test("scan sees a ban through an alias install", () => {
   for (const alias of result.aliasViolations) {
     assert.equal(alias.installed, "local-name");
     assert.equal(alias.real, "bannedpkg");
+    assert.equal(alias.reason, "banned by policy");
   }
 });
 

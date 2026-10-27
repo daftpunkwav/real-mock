@@ -61,59 +61,124 @@ export function compareVersions(a, b) {
 }
 
 /**
+ * The package an alias install points at, or null when the spec is not one.
+ *
+ * Alias installs ("local": "npm:real@...") hide the real package behind a
+ * local folder name, so the spec string is the only place the real name shows.
+ */
+function aliasTarget(spec) {
+  if (typeof spec !== "string" || !spec.startsWith("npm:")) return null;
+  return spec.match(/^npm:(.+)@[^@]+$/)?.[1] ?? spec.slice(4);
+}
+
+/**
+ * What one lock entry contributes: the installed package name, the package an
+ * alias points at, and the version the entry resolves to.
+ *
+ * Lock entries look like "node_modules/next" or "node_modules/@scope/pkg";
+ * the package name is everything after the last "node_modules/" segment.
+ */
+function lockEntryFacts(key, entry) {
+  const installed = key.split("node_modules/").pop();
+  const version = typeof entry?.version === "string" ? entry.version : null;
+  return {
+    installed,
+    version,
+    real: aliasTarget(version),
+    // Only copies that reach the shipped bundle count as instances of a
+    // runtime dependency. npm marks a copy that exists solely for the dev
+    // toolchain with "dev"; "npm ci --omit=dev" does not install it, so it is
+    // not a second instance of the library. "devOptional" copies are part of
+    // the production tree (they are reachable through an optional production
+    // edge), so they still count.
+    runtime: Boolean(installed) && version !== null && !entry.dev,
+  };
+}
+
+/**
+ * The resolved versions of the runtime copies, grouped by package name.
+ */
+function groupRuntimeVersions(facts) {
+  const versionsByName = new Map();
+  for (const fact of facts) {
+    const versions = versionsByName.get(fact.installed) ?? new Set();
+    versions.add(fact.version);
+    versionsByName.set(fact.installed, versions);
+  }
+  return versionsByName;
+}
+
+/**
+ * The packages, aliases and runtime versions the lock file resolves.
+ */
+function scanLock(lock) {
+  const facts = Object.entries(lock.packages ?? {}).map(([key, entry]) => lockEntryFacts(key, entry));
+  return {
+    found: new Set(facts.filter((fact) => fact.installed).map((fact) => fact.installed)),
+    aliases: facts
+      .filter((fact) => fact.real)
+      .map((fact) => ({ installed: fact.installed, real: fact.real })),
+    versionsByName: groupRuntimeVersions(facts.filter((fact) => fact.runtime)),
+  };
+}
+
+/**
+ * Every dependency declaration of the manifest.
+ *
+ * The three sections are read with static property access: a computed lookup
+ * on a plain object is a generic object injection sink.
+ */
+function manifestEntries(manifest) {
+  return [
+    ...Object.entries(manifest.dependencies ?? {}),
+    ...Object.entries(manifest.devDependencies ?? {}),
+    ...Object.entries(manifest.overrides ?? {}),
+  ];
+}
+
+/**
+ * The packages and aliases the manifest declares.
+ */
+function scanManifest(manifest) {
+  const entries = manifestEntries(manifest);
+  const aliases = entries
+    .map(([installed, spec]) => ({ installed, real: aliasTarget(spec) }))
+    .filter((alias) => alias.real);
+  return { found: new Set(entries.map(([installed]) => installed)), aliases };
+}
+
+/**
  * Run both policy rules over one lock/manifest/policy triple.
  *
  * Pure: the caller owns reading the files and reporting the result, so the
- * tests can pin the rules against synthetic trees.
+ * tests can pin the rules against synthetic trees. The banned packages are
+ * indexed in a Map, so a package name read from the lock file is a lookup and
+ * never a computed property access on a plain object.
+ *
+ * Returns the scanned package count, the banned packages that reached the tree
+ * (each with the policy reason), the banned packages that reached it through
+ * an alias install, and the direct runtime dependencies that resolved to more
+ * than one version.
  */
 export function scan({ lock, manifest, policy }) {
-  const banned = policy.npm ?? {};
-
-  // Lock entries look like "node_modules/next" or "node_modules/@scope/pkg";
-  // the package name is everything after the last "node_modules/" segment.
-  // Alias installs ("local": "npm:real@...") hide the real package behind a
-  // local folder name - the spec string is the only place the real name shows,
-  // so both the lock entry version and the manifest spec are inspected.
-  const found = new Set();
-  const aliases = []; // { installed, target: "npm:<realname>@..." }
-  const versionsByName = new Map(); // installed name -> Set of resolved versions
-  for (const [key, entry] of Object.entries(lock.packages ?? {})) {
-    const installed = key.split("node_modules/").pop();
-    if (installed) found.add(installed);
-    if (typeof entry?.version === "string" && entry.version.startsWith("npm:")) {
-      aliases.push({ installed, target: entry.version });
-    }
-    if (installed && typeof entry?.version === "string" && !entry.dev) {
-      // Only copies that reach the shipped bundle count as instances of a
-      // runtime dependency. npm marks a copy that exists solely for the dev
-      // toolchain with "dev"; "npm ci --omit=dev" does not install it, so it is
-      // not a second instance of the library. "devOptional" copies are part of
-      // the production tree (they are reachable through an optional production
-      // edge), so they still count.
-      if (!versionsByName.has(installed)) versionsByName.set(installed, new Set());
-      versionsByName.get(installed).add(entry.version);
-    }
-  }
-  for (const section of ["dependencies", "devDependencies", "overrides"]) {
-    for (const [installed, spec] of Object.entries(manifest[section] ?? {})) {
-      found.add(installed);
-      if (typeof spec === "string" && spec.startsWith("npm:")) {
-        aliases.push({ installed, target: spec });
-      }
-    }
-  }
+  const banned = new Map(Object.entries(policy.npm ?? {}));
+  const lockScan = scanLock(lock);
+  const manifestScan = scanManifest(manifest);
+  const found = new Set([...lockScan.found, ...manifestScan.found]);
+  const aliases = [...lockScan.aliases, ...manifestScan.aliases];
 
   const violations = [...found]
-    .filter((name) => banned[name] !== undefined)
+    .filter((name) => banned.has(name))
     // Package names, so the alphabetical order is the intended one; the
     // comparator is spelled out so no sort in this file relies on the default
     // order of the runtime.
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ name, reason: banned.get(name) }));
 
   const aliasViolations = aliases
-    .map((alias) => ({ ...alias, real: alias.target.match(/^npm:(.+)@[^@]+$/)?.[1] ?? alias.target.slice(4) }))
-    .filter((alias) => banned[alias.real] !== undefined)
-    .sort((a, b) => a.installed.localeCompare(b.installed));
+    .filter((alias) => banned.has(alias.real))
+    .sort((a, b) => a.installed.localeCompare(b.installed))
+    .map((alias) => ({ installed: alias.installed, real: alias.real, reason: banned.get(alias.real) }));
 
   // A direct runtime dependency that resolves to several versions in the shipped
   // tree ships several instances. Only runtime dependencies are checked, and only
@@ -121,11 +186,37 @@ export function scan({ lock, manifest, policy }) {
   // the dev toolchain stays out of the shipped bundle and is a normal npm
   // resolution outcome.
   const duplicatedRuntimeDeps = Object.keys(manifest.dependencies ?? {})
-    .map((name) => ({ name, versions: [...(versionsByName.get(name) ?? [])].sort(compareVersions) }))
+    .map((name) => ({ name, versions: [...(lockScan.versionsByName.get(name) ?? [])].sort(compareVersions) }))
     .filter((dep) => dep.versions.length > 1)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return { scanned: found.size, violations, aliasViolations, duplicatedRuntimeDeps };
+}
+
+/**
+ * Report the banned packages that reached the tree.
+ */
+function reportBannedDependencies(violations, aliasViolations) {
+  console.error("banned npm dependencies present:");
+  for (const violation of violations) {
+    console.error(`  - ${violation.name}: ${violation.reason}`);
+  }
+  for (const alias of aliasViolations) {
+    console.error(`  - ${alias.installed} (alias for ${alias.real}): ${alias.reason}`);
+  }
+}
+
+/**
+ * Report the direct runtime dependencies that ship more than one instance.
+ */
+function reportDuplicatedRuntimeDependencies(duplicatedRuntimeDeps) {
+  console.error("direct runtime dependencies resolved to more than one version:");
+  for (const dep of duplicatedRuntimeDeps) {
+    console.error(`  - ${dep.name}: ${dep.versions.join(", ")}`);
+  }
+  console.error(
+    "keep the range compatible with the package that actually uses it, or drop the unused direct dependency",
+  );
 }
 
 function main() {
@@ -135,26 +226,12 @@ function main() {
   const { scanned, violations, aliasViolations, duplicatedRuntimeDeps } = scan({ lock, manifest, policy });
 
   if (violations.length > 0 || aliasViolations.length > 0) {
-    console.error("banned npm dependencies present:");
-    for (const name of violations) {
-      console.error(`  - ${name}: ${policy.npm?.[name]}`);
-    }
-    for (const alias of aliasViolations) {
-      console.error(
-        `  - ${alias.installed} (alias for ${alias.real}): ${policy.npm?.[alias.real]}`,
-      );
-    }
+    reportBannedDependencies(violations, aliasViolations);
     process.exit(1);
   }
 
   if (duplicatedRuntimeDeps.length > 0) {
-    console.error("direct runtime dependencies resolved to more than one version:");
-    for (const dep of duplicatedRuntimeDeps) {
-      console.error(`  - ${dep.name}: ${dep.versions.join(", ")}`);
-    }
-    console.error(
-      "keep the range compatible with the package that actually uses it, or drop the unused direct dependency",
-    );
+    reportDuplicatedRuntimeDependencies(duplicatedRuntimeDeps);
     process.exit(1);
   }
 
