@@ -3,7 +3,9 @@
 FROM node:24-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: no dependency in the lock declares install scripts; the
+# image build must not execute third-party lifecycle hooks.
+RUN npm ci --ignore-scripts
 
 FROM node:24-slim AS builder
 WORKDIR /app
