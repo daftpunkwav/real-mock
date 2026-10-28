@@ -9,6 +9,7 @@ from typing import Any
 from realmock.domains.prep.agents.tools.spec import TOOL_TIER_SECONDARY, SearchHits, ToolSpec
 from realmock.domains.prep.services import get_memory, memory_to_detail
 from realmock.platform.capabilities.ai.agent import WorkingMemory
+from realmock.platform.core.coerce import coerce_int
 from realmock.platform.database import sessions_db_session
 
 
@@ -39,13 +40,7 @@ async def run_memory_get_detail(
         ``(json_text, [])`` with the detail payload or an error object.
     """
     del memory
-    try:
-        memory_id = int(args.get("id") or 0)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) id is not convertible and is
-        # not a ValueError; it degrades to the invalid-id answer like any other
-        # unusable id.
-        memory_id = 0
+    memory_id = coerce_int(args.get("id") or 0, 0)
     if memory_id <= 0:
         return json.dumps({"error": "invalid_id"}, ensure_ascii=False), []
     return await asyncio.to_thread(_get_detail_sync, memory_id), []

@@ -13,6 +13,7 @@ from typing import Any
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
 from realmock.platform.capabilities.knowledge.search.web import SearchHit, web_search_with_hits
+from realmock.platform.core.coerce import coerce_int
 
 SEARCH_DEFAULT_MAX_RESULTS = 8
 SEARCH_HARD_MAX_RESULTS = 12
@@ -21,13 +22,7 @@ OnSearchHits = Callable[[str, list[SearchHit]], None]
 
 
 def _clamp_max_results(raw: Any) -> int:
-    try:
-        value = int(raw)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) argument is not convertible
-        # and is not a ValueError; it falls back to the default like any other
-        # unusable value.
-        value = SEARCH_DEFAULT_MAX_RESULTS
+    value = coerce_int(raw, SEARCH_DEFAULT_MAX_RESULTS)
     return max(1, min(value, SEARCH_HARD_MAX_RESULTS))
 
 

@@ -17,7 +17,7 @@ from typing import Any
 __all__ = ["coerce_int", "try_coerce_int"]
 
 
-def try_coerce_int(value: Any) -> int | None:
+def try_coerce_int(value: Any, *, via_float: bool = False) -> int | None:
     """Coerce one model-supplied value to int, or None when not convertible.
 
     ``None``, a non-numeric string, NaN (``ValueError``) and Infinity
@@ -25,14 +25,19 @@ def try_coerce_int(value: Any) -> int | None:
     ``1``) and a float truncates toward zero, like ``int()`` itself; a
     numeric string with a decimal point (``"88.7"``) is not an ``int()``
     candidate and degrades to None.
+
+    With ``via_float`` the value converts through ``float`` first, so a
+    decimal string truncates like the float it names (``"88.7"`` -> ``88``)
+    and a value beyond the float range (``10**400``, Infinity) degrades to
+    None instead of surviving as a huge integer.
     """
     try:
-        return int(value)
+        return int(float(value)) if via_float else int(value)
     except (TypeError, ValueError, OverflowError):
         return None
 
 
-def coerce_int(value: Any, default: int) -> int:
+def coerce_int(value: Any, default: int, *, via_float: bool = False) -> int:
     """Coerce one model-supplied value to int; ``default`` when not convertible."""
-    converted = try_coerce_int(value)
+    converted = try_coerce_int(value, via_float=via_float)
     return default if converted is None else converted

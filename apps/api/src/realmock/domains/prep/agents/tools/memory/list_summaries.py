@@ -14,6 +14,7 @@ from realmock.domains.prep.services import (
     memory_to_summary,
 )
 from realmock.platform.capabilities.ai.agent import WorkingMemory
+from realmock.platform.core.coerce import coerce_int
 from realmock.platform.database import sessions_db_session
 
 
@@ -42,13 +43,7 @@ async def run_memory_list_summaries(
     """
     del memory
     tag = str(args.get("tag") or "").strip() or None
-    try:
-        limit = int(args.get("limit") or MEMORY_LIST_DEFAULT_LIMIT)
-    except (TypeError, ValueError, OverflowError):
-        # OverflowError: a non-finite (Infinity) limit is not convertible and
-        # is not a ValueError; it falls back to the default like any other
-        # unusable limit.
-        limit = MEMORY_LIST_DEFAULT_LIMIT
+    limit = coerce_int(args.get("limit") or MEMORY_LIST_DEFAULT_LIMIT, MEMORY_LIST_DEFAULT_LIMIT)
     limit = max(1, min(MEMORY_LIST_MAX_LIMIT, limit))
     return await asyncio.to_thread(_list_summaries_sync, tag, limit), []
 

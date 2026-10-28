@@ -11,6 +11,7 @@ for the LLM-internal call sites.
 
 from __future__ import annotations
 
+from realmock.platform.core.coerce import coerce_int
 from realmock.platform.core.constants import DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_OUTPUT_TOKENS
 
 # Compaction summaries stay small so they do not consume the main output budget.
@@ -35,19 +36,13 @@ LLM_TEST_CONNECTION_TIMEOUT_SECONDS = 60.0
 
 def resolve_context_window(value: int | None) -> int:
     """Return a positive context window, falling back to the platform default."""
-    try:
-        parsed = int(value or 0)
-    except (TypeError, ValueError):
-        parsed = 0
+    parsed = coerce_int(value or 0, 0)
     return parsed if parsed > 0 else DEFAULT_CONTEXT_WINDOW
 
 
 def resolve_max_output_tokens(value: int | None) -> int:
     """Return a positive max-output budget, falling back to the platform default."""
-    try:
-        parsed = int(value or 0)
-    except (TypeError, ValueError):
-        parsed = 0
+    parsed = coerce_int(value or 0, 0)
     return parsed if parsed > 0 else DEFAULT_MAX_OUTPUT_TOKENS
 
 

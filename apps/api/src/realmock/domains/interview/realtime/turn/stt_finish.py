@@ -21,6 +21,7 @@ from realmock.domains.interview.realtime.core.events import TurnState
 from realmock.domains.interview.realtime.voice.pipeline import _is_echo_of_assistant, _pick_stt_text
 from realmock.platform.capabilities.voice.stt import transcribe_utterance_result
 from realmock.platform.capabilities.voice.stt.providers.whisper import local_stt_unavailable_reason
+from realmock.platform.core.coerce import coerce_int
 from realmock.platform.core.constants import AUDIO_BUFFER_MAX_BYTES, MAX_USER_TEXT_CHARS
 from realmock.platform.database import SessionLocal
 
@@ -178,13 +179,7 @@ class TurnSttFinishMixin:
         stt_provider = ""
         if pcm_b64:
             raw_sr = data.get("sample_rate") or 16000
-            try:
-                sample_rate = int(raw_sr)
-            except (TypeError, ValueError, OverflowError):
-                # OverflowError: a non-finite (Infinity) frame value is not
-                # convertible and is not a ValueError; it is an unusable sample
-                # rate like any other and falls back to the default.
-                sample_rate = 16000
+            sample_rate = coerce_int(raw_sr, 16000)
             if sample_rate < 8000 or sample_rate > 96000:
                 sample_rate = 16000
             stt_t0 = time.perf_counter()

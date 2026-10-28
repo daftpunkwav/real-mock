@@ -10,7 +10,7 @@ agent-specific working rules live in [AGENTS.md](AGENTS.md).
 - Frontend: Node 24 (see [.nvmrc](.nvmrc)) — `npm ci` inside `apps/web`
 - One-command local dev: `scripts/dev.sh start|stop` (frontend on 8080, backend on 8081, logs and PIDs under `logs/`)
 
-CI installs the backend dependencies from the committed hash-locked file `apps/api/requirements-ci.lock` instead of resolving dependencies at install time; regenerate it with the `uv pip compile` command recorded in the lock header.
+CI installs the backend dependencies from the committed hash-locked file `apps/api/requirements-ci.lock` instead of resolving dependencies at install time. Regenerate it with `python scripts/ci/regenerate_python_lock.py` (from the repo root): it runs the `uv pip compile` command recorded in the lock header and refreshes the manifest snapshot at the end of the lock, which is what lets `check_python_lock_sync.py` detect a changed extras request such as dropping `[standard]`.
 
 ## Checks (local must match CI)
 

@@ -17,9 +17,13 @@ its specifier allows, and a distribution the lock marks as a direct requirement
 of the project must still be declared in the manifest, so a dependency that was
 dropped is caught as well.
 
-Known limitation: the lock records the resolved distributions of an extra, not
-which extras a requirement asked for, so dropping an extra (`uvicorn[standard]`
-to `uvicorn`) without regenerating the lock is not detected here.
+The lock's pin lines do not record which extras a requirement asked for, so the
+lock also carries a manifest snapshot — the exact requirement strings the lock
+was compiled from, appended by `scripts/ci/regenerate_python_lock.py`. The gate
+requires the snapshot to match the live manifest exactly. That is what catches
+an extras change (`uvicorn[standard]` to `uvicorn`): it changes no resolved
+version, so only the snapshot comparison can see it. A lock without the block
+fails the gate, because its provenance is then unknown.
 
 Names are compared PEP 503 normalized (lowercase, runs of -/_/. collapsed to
 one dash) so both sides agree on spelling, and the version ranges are matched
@@ -59,6 +63,14 @@ LOCK_ENVIRONMENT = {
 # into its `--hash=` lines. Hash and `# via` lines never start at column 0, so
 # anchoring the pattern there keeps them out of the result.
 _PIN = re.compile(r"^([A-Za-z0-9._-]+)==([^\s\\]+)")
+
+# The manifest snapshot the lock ends with. `regenerate_python_lock.py` appends
+# it after compiling; the entry lines carry one manifest requirement string
+# each. Explanations inside the block use a single `# ` comment prefix so they
+# can never be mistaken for `#   ` entries.
+SNAPSHOT_BEGIN = "# --- manifest snapshot ---"
+SNAPSHOT_END = "# --- end manifest snapshot ---"
+SNAPSHOT_ENTRY_PREFIX = "#   "
 
 
 def canonical(name: str) -> str:
@@ -115,10 +127,97 @@ def manifest_requirements(manifest: dict[str, Any]) -> list[Requirement]:
     compiled with; an extra that is not compiled into the lock is not part of
     the comparison. Environment markers are not evaluated here.
     """
+    return [Requirement(entry) for entry in expected_snapshot(manifest)]
+
+
+def expected_snapshot(manifest: dict[str, Any]) -> list[str]:
+    """Return the raw manifest requirement strings the lock is compiled from.
+
+    Same enumeration as :func:`manifest_requirements`, but the strings stay
+    unparsed and in manifest order — the snapshot must also record the extras
+    a requirement asks for, which :class:`Requirement` drops from its repr.
+    """
     project = manifest.get("project", {})
     entries: list[str] = list(project.get("dependencies", []))
     entries.extend(project.get("optional-dependencies", {}).get(LOCKED_EXTRA, []))
-    return [Requirement(entry) for entry in entries]
+    return entries
+
+
+def snapshot_block(entries: list[str]) -> str:
+    """Render the manifest-snapshot block for the given requirement strings."""
+    lines = [
+        SNAPSHOT_BEGIN,
+        "# The pins above were compiled from exactly these manifest requirement",
+        "# strings (project.dependencies plus the dev extra, in manifest order).",
+        "# The lock does not record which extras a requirement asks for, so this",
+        "# block is the record of it; refresh it whenever the manifest changes.",
+    ]
+    lines.extend(f"{SNAPSHOT_ENTRY_PREFIX}{entry}" for entry in entries)
+    lines.append(SNAPSHOT_END)
+    return "\n".join(lines)
+
+
+def with_snapshot(lock_text: str, entries: list[str]) -> str:
+    """Return lock_text with the manifest-snapshot block replaced or appended.
+
+    The block is written at the end, so replacing drops everything from the
+    first begin marker on — that also recovers an unterminated block left by
+    an interrupted edit.
+    """
+    lines = lock_text.splitlines()
+    if SNAPSHOT_BEGIN in lines:
+        lines = lines[: lines.index(SNAPSHOT_BEGIN)]
+    text = "\n".join(lines).rstrip("\n")
+    return f"{text}\n\n{snapshot_block(entries)}\n"
+
+
+def snapshot_entries(lock_text: str) -> list[str] | None:
+    """Extract the manifest snapshot recorded in the lock, or None.
+
+    None means the block is missing or unterminated, so the lock's provenance
+    is unknown and the caller must fail rather than guess.
+    """
+    lines = lock_text.splitlines()
+    try:
+        begin = lines.index(SNAPSHOT_BEGIN)
+    except ValueError:
+        return None
+    entries: list[str] = []
+    for line in lines[begin + 1 :]:
+        if line == SNAPSHOT_END:
+            return entries
+        if line.startswith(SNAPSHOT_ENTRY_PREFIX):
+            entries.append(line[len(SNAPSHOT_ENTRY_PREFIX) :])
+    return None
+
+
+def snapshot_violations(manifest: dict[str, Any], lock_text: str) -> list[str]:
+    """Return one message per mismatch between the manifest and the lock's snapshot."""
+    expected = expected_snapshot(manifest)
+    recorded = snapshot_entries(lock_text)
+    if recorded is None:
+        return [
+            (
+                "the lock does not record which manifest requirements it was compiled "
+                "from (missing or malformed manifest-snapshot block); regenerate it "
+                "with scripts/ci/regenerate_python_lock.py"
+            )
+        ]
+    violations = [
+        f"snapshot: {entry} is declared in the manifest but not recorded in the lock"
+        for entry in expected
+        if entry not in set(recorded)
+    ]
+    violations += [
+        f"snapshot: {entry} is recorded in the lock but not declared in the manifest"
+        for entry in recorded
+        if entry not in set(expected)
+    ]
+    if not violations and recorded != expected:
+        violations.append(
+            "snapshot: the manifest requirements changed order; regenerate the lock"
+        )
+    return violations
 
 
 def _applies(requirement: Requirement) -> bool:
@@ -241,6 +340,7 @@ def sync_violations(manifest: dict[str, Any], lock_text: str, marker: str) -> li
     violations = _duplicate_pin_violations(lock_text)
     violations += _orphan_violations(lock_text, marker, declared)
     violations += _requirement_violations(requirements, locked_versions(lock_text))
+    violations += snapshot_violations(manifest, lock_text)
     return violations
 
 
@@ -255,7 +355,7 @@ def main() -> int:
         print("python lock is out of sync with the manifest:")
         for violation in violations:
             print(f"  - {violation}")
-        print("regenerate the lock with the uv pip compile command in its header")
+        print("regenerate the lock with scripts/ci/regenerate_python_lock.py")
         return 1
 
     requirement_count = len(locked_requirements(manifest))
