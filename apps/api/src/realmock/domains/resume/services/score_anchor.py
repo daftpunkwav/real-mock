@@ -15,6 +15,7 @@ from typing import Any
 
 from realmock.domains.resume.prompts import prior_version_calibration_text
 from realmock.domains.resume.schemas.limits import REVIEW_MIN_SCORED_DIMENSIONS
+from realmock.platform.core.coerce import try_coerce_int
 
 
 def _clip_list(values: object, limit: int, item_max: int = 160) -> list[str]:
@@ -42,23 +43,17 @@ def compact_score_anchor(analysis: dict[str, Any] | None) -> dict[str, Any] | No
     for key, value in raw_dims.items():
         score: int | None = None
         if isinstance(value, dict) and "score" in value:
-            raw_score: Any = value.get("score")
-            try:
-                score = int(raw_score)
-            except (TypeError, ValueError):
-                score = None
+            score = try_coerce_int(value.get("score"))
         elif isinstance(value, (int, float)):
-            score = int(value)
+            score = try_coerce_int(value)
         if score is None:
             continue
         scores[str(key)[:64]] = max(0, min(100, score))
     if len(scores) < REVIEW_MIN_SCORED_DIMENSIONS:
         return None
     overall = analysis.get("score")
-    try:
-        overall_n = max(0, min(100, int(overall))) if overall is not None else None
-    except (TypeError, ValueError):
-        overall_n = None
+    coerced_overall = try_coerce_int(overall)
+    overall_n = None if coerced_overall is None else max(0, min(100, coerced_overall))
     return {
         "score": overall_n,
         "dimension_scores": scores,

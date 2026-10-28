@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from realmock.platform.capabilities.ai.agent.tools.spec import ToolSpec
+from realmock.platform.core.coerce import coerce_int
 
 RESUME_SECTION_ORDER: tuple[str, ...] = (
     "education",
@@ -238,20 +239,9 @@ def resume_tool_specs(snapshot: ResumeSnapshot) -> list[ToolSpec]:
         elif section == "links":
             body = _link_bundle(parsed, snapshot.raw_text)
         else:
-            # Same tolerance as limit below: a model-supplied non-numeric
-            # offset must degrade to page start, not fail the whole tool call.
-            try:
-                offset = int(args.get("offset") or 0)
-            except (TypeError, ValueError, OverflowError):
-                # OverflowError: a non-finite (Infinity) argument is not
-                # convertible and is not a ValueError; it degrades to the page
-                # start like any other unusable offset.
-                offset = 0
+            offset = coerce_int(args.get("offset") or 0, 0)
             offset = max(0, offset)
-            try:
-                limit = int(args.get("limit") or RESUME_RAW_PAGE_CHARS)
-            except (TypeError, ValueError, OverflowError):
-                limit = RESUME_RAW_PAGE_CHARS
+            limit = coerce_int(args.get("limit") or RESUME_RAW_PAGE_CHARS, RESUME_RAW_PAGE_CHARS)
             limit = max(200, min(limit, RESUME_RAW_PAGE_HARD_CHARS))
             text = snapshot.raw_text or ""
             chunk = text[offset : offset + limit]

@@ -4097,3 +4097,35 @@ yarl==1.25.1 \
     --hash=sha256:f61964f235a43738bfac50da46fc4254943a7eea3051aeb0b6fc7c992c29fadc \
     --hash=sha256:fe01645169a2112aa1d4ebc3e4c5f029c5c8f97adfc32e5d37c993b39a994d75
     # via aiohttp
+
+# --- manifest snapshot ---
+# The pins above were compiled from exactly these manifest requirement
+# strings (project.dependencies plus the dev extra, in manifest order).
+# The lock does not record which extras a requirement asks for, so this
+# block is the record of it; refresh it whenever the manifest changes.
+#   fastapi>=0.115.0,<1
+#   starlette>=0.40.0,<2
+#   uvicorn[standard]>=0.32.0,<1
+#   sqlalchemy>=2.0.36,<3
+#   pydantic>=2.10.0,<3
+#   pydantic-settings>=2.6.0,<3
+#   httpx>=0.28.0,<1
+#   python-multipart>=0.0.17,<1
+#   pypdf>=5.1.0,<7
+#   pymupdf>=1.24.3,<2
+#   python-docx>=1.1.2,<2
+#   websockets>=12.0,<18
+#   alembic>=1.14.0,<2
+#   edge-tts>=6.1.0,<8
+#   faster-whisper>=1.0.0,<2
+#   chromadb>=1.5.0,<2
+#   ddgs>=9.0.0,<10
+#   cryptography>=50.0.0,<51
+#   pytest>=8.3.0,<10
+#   pytest-asyncio>=0.24.0,<2
+#   ruff==0.16.10
+#   mypy==2.4.0
+#   pytest-cov==7.1.0
+#   pip-audit==2.10.1
+#   httpx2>=2,<3
+# --- end manifest snapshot ---
