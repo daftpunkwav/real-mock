@@ -283,8 +283,10 @@ async def run_agent_loop(
     when ``allow_pause`` is set; without it the pause text lands as a plain
     observation and the loop continues, keeping the history protocol-complete.
     :class:`ApiBusinessError` raised by ``execute`` propagates to the caller
-    (business failures must not be disguised as model observations); any other
-    tool exception becomes a ``"Tool execution failed: ..."`` observation.
+    (business failures must not be disguised as model observations); when one
+    call of a parallel batch raises it, the sibling results land first so the
+    error does not cost the batch its finished observations. Any other tool
+    exception becomes a ``"Tool execution failed: ..."`` observation.
     """
     if not tools or max_rounds <= 0:
         return LoopResult(messages=list(messages), final_content=None, tool_used=False)
@@ -581,13 +583,25 @@ async def run_agent_loop(
                     )
                 return f"Tool execution failed: {redact_secrets_in_text(str(tool_exc))}", "ok"
 
-        outcomes = await asyncio.gather(*(_run_one(tc) for tc in limited))
+        outcomes = await asyncio.gather(*(_run_one(tc) for tc in limited), return_exceptions=True)
         tool_calls_so_far += len(limited)
         halted = False
         paused = False
+        # A business error must propagate to the caller, but not before the
+        # sibling calls of the same round land their results: an early gather
+        # exit would leave the batch's finished observations lost and the
+        # working history with calls that can never be paired.
+        business_error: ApiBusinessError | None = None
         # Position suffix keeps fallback ids collision-free even when the model
         # emitted several id-less calls of the same name in one round.
-        for position, (tc, (result, status)) in enumerate(zip(limited, outcomes)):
+        for position, (tc, outcome) in enumerate(zip(limited, outcomes)):
+            if isinstance(outcome, ApiBusinessError):
+                if business_error is None:
+                    business_error = outcome
+                continue
+            if isinstance(outcome, BaseException):  # pragma: no cover - defensive
+                raise outcome
+            result, status = outcome
             fn = tc.get("function") or {}
             name = str(fn.get("name") or "")
             tc_id = str(tc.get("id") or f"call_{round_i}_{name}_{position}")
@@ -597,6 +611,8 @@ async def run_agent_loop(
             )
             halted = halted or status == "halt"
             paused = paused or status == "pause"
+        if business_error is not None:
+            raise business_error
         # Position suffix keeps synthetic ids collision-free even when the
         # model emitted several id-less calls of the same name this round.
         for position, tc in enumerate(dropped):

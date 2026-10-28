@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -10,6 +11,7 @@ import pytest
 from realmock.platform.capabilities.ai.agent import WorkingMemory, run_agent_loop
 from realmock.platform.capabilities.ai.agent.loop import AgentHalt, AgentPause
 from realmock.platform.capabilities.ai.context.assembly import prepare_llm_context
+from realmock.platform.core.errors import ApiBusinessError, get_spec
 
 
 class _FakeLLM:
@@ -481,6 +483,54 @@ async def test_parallel_tools_keep_pairing() -> None:
     assert "fast-result" in tool_msgs[1]["content"]
     # Return the model's post-tool response body directly as the final answer
     assert result.final_content == "done"
+
+
+@pytest.mark.asyncio
+async def test_business_error_propagates_after_siblings_land() -> None:
+    """One business error in a parallel batch must not cost the siblings their results.
+
+    A plain ``gather`` propagates the first exception immediately, so the
+    finished sibling observations were dropped and the working history kept
+    tool calls that could never be paired. The error still propagates — after
+    the whole batch landed.
+    """
+    llm = _FakeLLM(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"id": "c1", "function": {"name": "business", "arguments": "{}"}},
+                    {"id": "c2", "function": {"name": "slow", "arguments": "{}"}},
+                ],
+            },
+        ]
+    )
+
+    async def execute(name: str, args: dict) -> str:
+        if name == "business":
+            raise ApiBusinessError(get_spec("A0001"), message="boom")
+        await asyncio.sleep(0.05)
+        return "slow-result"
+
+    working: dict[str, Any] = {}
+    with pytest.raises(ApiBusinessError):
+        await run_agent_loop(
+            llm,
+            [{"role": "user", "content": "hi"}],
+            tools=[
+                {"type": "function", "function": {"name": "business"}},
+                {"type": "function", "function": {"name": "slow"}},
+            ],
+            execute=execute,
+            max_rounds=2,
+            working_out=working,
+        )
+    # The slow sibling's result landed before the error propagated: the
+    # declared call carries its paired observation in the working copy.
+    tool_msgs = [m for m in working["working"] if m.get("role") == "tool"]
+    assert [m["tool_call_id"] for m in tool_msgs] == ["c2"]
+    assert "slow-result" in tool_msgs[0]["content"]
 
 
 @pytest.mark.asyncio
