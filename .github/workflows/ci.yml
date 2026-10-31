@@ -179,10 +179,17 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # --ignore-scripts: the lock flags two install scripts — fsevents
+        # (darwin-only, never installed on Linux) and unrs-resolver's
+        # napi-postinstall hook (redundant here because npm ci installs the
+        # prebuilt @unrs/resolver-binding-linux package from the lock).
+        # Suppressing them keeps third-party lifecycle hooks out of CI.
+        run: npm ci --ignore-scripts
 
       - name: TypeScript typecheck
-        run: npx tsc --noEmit
+        # npm run resolves tsc from the locked node_modules; a bare npx call
+        # would be flagged as an unlocked package-manager execution.
+        run: npm run typecheck
 
       - name: ESLint
         run: npm run lint
@@ -242,7 +249,7 @@ jobs:
         run: |
           set -euo pipefail
           version=1.7.12
-          curl -sSfL --retry 3 -o /tmp/actionlint.tar.gz \
+          curl --proto '=https' -sSfL --retry 3 -o /tmp/actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
           tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint
           actionlint -color .github/workflows/*.yml
@@ -252,7 +259,7 @@ jobs:
         run: |
           set -euo pipefail
           version=1.30.1
-          curl -sSfL --retry 3 -o /tmp/zizmor.tar.gz \
+          curl --proto '=https' -sSfL --retry 3 -o /tmp/zizmor.tar.gz \
             "https://github.com/woodruffw/zizmor/releases/download/v${version}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin
           zizmor --persona=pedantic --min-severity=medium .github/workflows/
@@ -286,7 +293,7 @@ jobs:
         run: |
           set -euo pipefail
           version=0.24.2
-          curl -sSfL --retry 3 -o /tmp/lychee.tar.gz \
+          curl --proto '=https' -sSfL --retry 3 -o /tmp/lychee.tar.gz \
             "https://github.com/lycheeverse/lychee/releases/download/lychee-v${version}/lychee-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/lychee.tar.gz -C /tmp
           install "$(find /tmp -maxdepth 2 -name lychee -type f | head -1)" /usr/local/bin/lychee
