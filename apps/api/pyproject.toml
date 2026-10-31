@@ -49,7 +49,7 @@ dependencies = [
     # Floor 1.24.3: the canonical `pymupdf` module only exists from 1.24.3 on
     # (1.24.0-1.24.2 ship `fitz` only), and `fitz` is the deprecated alias
     # upstream announces it will remove - the code imports `pymupdf`.
-    "pymupdf>=1.24.3,<2",
+    "pymupdf>=1.24.3,<3",
     "python-docx>=1.1.2,<2",
     # Cap raised from <16 to <18. The old cap was set before websockets 17
     # existed; the only apparent blocker (langgraph-sdk pinning websockets<16)
@@ -75,7 +75,7 @@ dev = [
     # The gate toolchain, pinned exactly: a local run must exercise the same
     # formatter, type checker, coverage runner and auditor the pipeline gates
     # with, not whatever the developer's environment happens to carry.
-    "ruff==0.16.10",
+    "ruff==0.17.2",
     "mypy==2.4.0",
     "pytest-cov==7.1.0",
     "pip-audit==2.10.1",
