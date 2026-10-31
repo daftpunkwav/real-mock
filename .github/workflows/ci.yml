@@ -179,9 +179,11 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        # --ignore-scripts: no dependency in the lock declares install scripts
-        # (fsevents is macOS-only, unrs-resolver ships prebuilt binaries);
-        # this keeps CI from executing third-party lifecycle hooks.
+        # --ignore-scripts: the lock flags two install scripts — fsevents
+        # (darwin-only, never installed on Linux) and unrs-resolver's
+        # napi-postinstall hook (redundant here because npm ci installs the
+        # prebuilt @unrs/resolver-binding-linux package from the lock).
+        # Suppressing them keeps third-party lifecycle hooks out of CI.
         run: npm ci --ignore-scripts
 
       - name: TypeScript typecheck

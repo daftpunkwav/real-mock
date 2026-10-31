@@ -129,8 +129,9 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        # --ignore-scripts: no dependency in the lock declares install scripts;
-        # see the matching comment in ci.yml (web-quality job).
+        # --ignore-scripts: suppresses the two install scripts the lock flags
+        # (fsevents, unrs-resolver's napi-postinstall hook), both redundant on
+        # Linux; see the matching comment in ci.yml (web-quality job).
         run: npm ci --ignore-scripts
 
       - name: Dependency audit (fail on unlisted high+)
