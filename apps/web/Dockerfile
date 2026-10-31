@@ -3,7 +3,11 @@
 FROM node:24-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: the lock flags two install scripts — fsevents (darwin-only,
+# not installed on Linux) and unrs-resolver's napi-postinstall hook (redundant
+# because the prebuilt @unrs/resolver-binding-linux package ships in the lock).
+# Suppressing them keeps third-party lifecycle hooks out of the image build.
+RUN npm ci --ignore-scripts
 
 FROM node:24-slim AS builder
 WORKDIR /app
