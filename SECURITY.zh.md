@@ -28,7 +28,7 @@ RealMock 是本地优先的单用户应用。`scripts/dev.sh` 将后端绑定到
   `LOCAL_API_DEPENDENCIES`(经 `require_local_peer` 的 loopback 校验、浏览器
   跨站拒绝、非安全方法的同源校验)挂载在全部七个业务路由
   (profile / resume / settings / interview / prep / records / growth)上;
-  `TEST_MODE` 不会绕过 loopback 校验——它只跳过启动引导工作。同一模块还提供挂载层跨站防护(`Sec-Fetch-Site` 与
+  `TEST_MODE` 不绕过 loopback 校验——它只跳过启动引导工作。同一模块还提供挂载层跨站防护(`Sec-Fetch-Site` 与
   Origin/Referer 校验,错误码 `A0403`),覆盖全部业务路由,含 WS 握手。
 - **SSRF 防护** — `apps/api/src/realmock/platform/core/security/url.py` 与
   `url_pin.py`:任何出站请求前做 URL 校验(私网 / CGNAT / 组播网段、端口

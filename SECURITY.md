@@ -32,7 +32,7 @@ In rough priority order (paths relative to the repository root):
   `LOCAL_API_DEPENDENCIES` (loopback check via `require_local_peer`, browser
   cross-site rejection, and same-origin enforcement on unsafe methods) is
   mounted on all seven domain routers (profile / resume / settings / interview /
-  prep / records / growth); `TEST_MODE` never bypasses the loopback check — it
+  prep / records / growth); `TEST_MODE` does not bypass the loopback check — it
   only skips startup work. The same module provides the
   mount-level cross-site guard (`Sec-Fetch-Site` and Origin/Referer checks,
   error `A0403`) applied to every service router, including WS handshakes.
