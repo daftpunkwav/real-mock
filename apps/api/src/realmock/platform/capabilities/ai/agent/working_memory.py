@@ -59,7 +59,10 @@ class WorkingMemory:
 
     @classmethod
     def from_state(cls, state: dict[str, Any] | None) -> WorkingMemory:
-        raw = state or {}
+        # Persisted agent state can be any JSON value after a corrupt write
+        # (a list, string, number); a non-mapping carries no memory, so it
+        # loads as empty instead of raising AttributeError on ``.get``.
+        raw = state if isinstance(state, dict) else {}
         asked = [str(x) for x in (raw.get("asked_questions") or []) if x]
         weak = [str(x) for x in (raw.get("weak_points") or []) if x]
         findings: list[str] = []
@@ -161,6 +164,10 @@ class WorkingMemory:
     @classmethod
     def load_from_messages(cls, messages: list[dict[str, Any]]) -> WorkingMemory:
         for m in reversed(messages):
+            # A corrupted persisted history can contain non-object rows; they
+            # carry no memory block, so they are skipped rather than raising.
+            if not isinstance(m, dict):
+                continue
             if m.get("role") != "system":
                 continue
             content = m.get("content")

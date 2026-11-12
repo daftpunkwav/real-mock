@@ -243,8 +243,10 @@ async def stream_text_retry(
 # ReadTimeout is deliberately absent (same policy as base._retry_request): a
 # read timeout on a minutes-scale request means the provider is still
 # generating, and retrying would multiply the wait — the caller decides.
+# ConnectTimeout is a connect-phase failure, so it retries like ConnectError.
 _RETRYABLE_CONNECTION_ERRORS = (
     httpx.ConnectError,
+    httpx.ConnectTimeout,
     httpx.WriteError,
     httpx.RemoteProtocolError,
 )

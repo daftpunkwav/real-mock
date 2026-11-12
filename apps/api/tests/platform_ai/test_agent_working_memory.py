@@ -100,6 +100,21 @@ def test_dump_and_load_block() -> None:
     assert WorkingMemory.load_from_messages([]).notes == []
 
 
+def test_load_tolerates_corrupt_persisted_rows() -> None:
+    # A corrupted persisted history may contain non-object rows; the loader
+    # skips them instead of raising AttributeError out of the platform layer.
+    assert WorkingMemory.load_from_messages(["oops", 42, None, {"role": "user"}]).notes == []
+    # A memory block whose JSON payload is valid but not an object is "no
+    # memory", not a crash (from_state only accepts a state mapping).
+    assert WorkingMemory.from_state([1, 2, 3]).notes == []  # type: ignore[arg-type]
+    assert (
+        WorkingMemory.load_from_messages(
+            [{"role": "system", "content": "[Working memory]\n[1, 2]"}]
+        ).notes
+        == []
+    )
+
+
 def test_absorb_omitted_digest_survives_the_note_clip() -> None:
     """The digest note gets its own budget: several exchanges must survive,
     not just the first one and a half (regular notes clip at 160 chars)."""

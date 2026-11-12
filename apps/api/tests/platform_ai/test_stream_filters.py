@@ -70,6 +70,22 @@ def test_leading_pipe_held_then_released() -> None:
     assert out == "abc|def"
 
 
+def test_separator_adjacent_to_token_stripped_across_chunks() -> None:
+    # The delimiters around a leaked token often arrive in neighbouring SSE
+    # chunks (the "|" is a separate token from "<|minimax|>"); the streamed
+    # output must still match the one-shot sanitizer instead of leaking "|".
+    assert _feed_all(["a|", "<|X|>", "|b"]) == "ab"
+
+
+@pytest.mark.parametrize("text", ["a|<|X|>|b", "]x<]Y[>]z", "|<|p|>|q"])
+def test_stream_matches_one_shot_at_every_split(text: str) -> None:
+    expected = sanitize_special_tokens(text)
+    for cut in range(len(text) + 1):
+        assert _feed_all([text[:cut], text[cut:]]) == expected
+    # Character-by-character delivery is the worst-case chunking.
+    assert _feed_all(list(text)) == expected
+
+
 def test_stream_sanitizer_reasoning_wrap() -> None:
     s = StreamSanitizer()
     r = s.feed_reasoning("Reasoning") + s.feed_content("Final<|minimax|>") + s.flush()

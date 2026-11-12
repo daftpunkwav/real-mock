@@ -15,6 +15,12 @@ _MAX_SPECIAL_BODY = 48
 # The maximum buffer length that can be held when <| / <] is not closed. If it exceeds the length, it will be released to avoid the text being held for a long time.
 _MAX_PENDING = _MAX_SPECIAL_BODY + 8
 
+# Single-character separators the batch regex strips on either side of a
+# leaked token; the streaming filter uses the same set so both paths agree.
+# A set (not a string) is required: the empty-string slice must not count as
+# a separator.
+_SEPARATOR_CHARS = frozenset("|[]")
+
 # Non-streaming one-time stripping: leading separation + token body + trailing separation (two closed forms)
 # Form 1 |<|X|>|: leading |, <|, body, optional |, >, trailing |
 # Form 2 ]<]X[>[: leading], <], body, optional [, >, trailing [
@@ -33,6 +39,11 @@ class SpecialTokenFilter:
 
     def __init__(self) -> None:
         self._buf = ""
+        # Set right after a token is stripped: the optional separator that
+        # follows it may arrive in a later chunk. Keeping the flag lets the
+        # next chunk drop that separator, so the streamed text matches the
+        # one-shot regex (which strips the delimiters adjacent to the token).
+        self._after_token = False
 
     def feed(self, chunk: str) -> str:
         if not chunk:
@@ -50,6 +61,14 @@ class SpecialTokenFilter:
     def _drain(self, final: bool) -> str:
         out: list[str] = []
         while True:
+            if self._after_token:
+                if self._buf[:1] in _SEPARATOR_CHARS:
+                    self._buf = self._buf[1:]
+                    self._after_token = False
+                elif not self._buf and not final:
+                    break  # The optional separator may still arrive next chunk
+                else:
+                    self._after_token = False
             i = -1
             start = ""
             for open_tag in self._OPEN_FORMS:
@@ -68,13 +87,21 @@ class SpecialTokenFilter:
                         if self._buf.endswith(open_tag[:k]):
                             keep = max(keep, k)
                 emit_len = len(self._buf) - keep
+                # A trailing separator may be the prefix of a token whose
+                # "<|" / "<]" arrives in the next chunk; hold it so the
+                # cross-chunk stream matches the one-shot sanitizer instead of
+                # leaking a stray delimiter into the visible text.
+                if emit_len > 0 and self._buf[emit_len - 1] in _SEPARATOR_CHARS:
+                    emit_len -= 1
                 if emit_len > 0:
                     self._emit(out, self._buf[:emit_len])
                     self._buf = self._buf[emit_len:]
                 break
-            # The "|" / "]" immediately before the token may be the delimiting prefix of the leaked token, which is temporarily suspended;
-            # Discard it only when the peeling is confirmed, otherwise it will be released as it is.
-            lead = 1 if i > 0 and self._buf[i - 1] in "|]" else 0
+            # A separator immediately before the token may be the delimiting
+            # prefix of the leaked token, which is temporarily suspended;
+            # discard it only when the peeling is confirmed, otherwise it will
+            # be released as it is.
+            lead = 1 if i > 0 and self._buf[i - 1] in _SEPARATOR_CHARS else 0
             if i - lead > 0:
                 self._emit(out, self._buf[: i - lead])
             self._buf = self._buf[i - lead :]
@@ -103,7 +130,8 @@ class SpecialTokenFilter:
                     continue
             # Strip token (with leading delimiter with hold)
             self._buf = self._buf[end:]
-            # The "|" / "[" immediately after the token are swallowed together (separator)
-            if self._buf[:1] in ("|", "["):
-                self._buf = self._buf[1:]
+            # The separator immediately after the token is swallowed together
+            # with it; the flag makes the loop top consume it whether it is
+            # already in this buffer or arrives in a later chunk.
+            self._after_token = True
         return "".join(out)
