@@ -187,3 +187,28 @@ class TestChannelModelCatalog:
         _wipe(api_db)
         with pytest.raises(ApiBusinessError, match="Unknown channel kind"):
             va.channel_model_catalog(api_db, 1, "voice")
+
+    def test_undecryptable_stored_key_is_actionable(self, api_db) -> None:
+        """Legacy enc:v1 / changed-master-key ciphertext must not escape as a 500.
+
+        The remote catalog fetch needs the clear key; when it cannot be
+        decrypted the user gets the re-save instruction instead of a crash.
+        """
+        _wipe(api_db)
+        from realmock.platform.models import LlmProvider, LlmProviderChannel
+
+        p = LlmProvider(name="legacy-key")
+        api_db.add(p)
+        api_db.flush()
+        api_db.add(
+            LlmProviderChannel(
+                provider_id=p.id,
+                kind="chat",
+                api_base="https://api.example.com/v1",
+                protocol="openai_chat",
+                api_key="enc:v1:old-format",
+            )
+        )
+        api_db.commit()
+        with pytest.raises(ApiBusinessError, match="re-save"):
+            va.channel_model_catalog(api_db, p.id, "chat")

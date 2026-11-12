@@ -150,7 +150,18 @@ def _fetch_remote_models(channel: LlmProviderChannel) -> list[str]:
     """Pull the model id list from an OpenAI-compatible ``GET {api_base}/models`` endpoint."""
     api_key = channel.api_key or ""
     if api_key.startswith("enc:"):
-        api_key = decrypt_secret(api_key) or ""
+        try:
+            api_key = decrypt_secret(api_key) or ""
+        except Exception as e:
+            # Legacy enc:v1 / changed-master-key ciphertext: a re-save of the
+            # key on the Settings page is the fix, not a 500.
+            raise ApiBusinessError(
+                get_spec("A0001"),
+                message=(
+                    "The stored API Key cannot be decrypted; re-save it on the "
+                    "Settings page and retry"
+                ),
+            ) from e
     url = channel.api_base.rstrip("/") + "/models"
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     settings = get_settings()

@@ -15,8 +15,11 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from realmock.platform.capabilities.integrations.github.token_store import GITHUB_CREDENTIAL_KEY
-from realmock.platform.core.secrets import decrypt_secret, encrypt_secret
+from realmock.platform.capabilities.integrations.github.token_store import (
+    GITHUB_CREDENTIAL_KEY,
+    read_stored_token,
+)
+from realmock.platform.core.secrets import encrypt_secret
 from realmock.platform.models.config_models import IntegrationCredential
 
 #: Accepted PAT families (fine-grained github_pat_ preferred; classic tolerated).
@@ -47,9 +50,13 @@ def _mask(token: str) -> str:
 
 
 def get_github_status(db: Session) -> dict[str, Any]:
-    """Configured flag plus tail mask (never the secret)."""
-    row = _get_row(db)
-    token = decrypt_secret(row.secret_enc) if row and row.secret_enc else ""
+    """Configured flag plus tail mask (never the secret).
+
+    An undecryptable stored token (legacy ``enc:v1`` ciphertext or a changed
+    master key) reads as unconfigured: the credential store logs the failure
+    and the page stays usable so the user can re-save the token.
+    """
+    token = read_stored_token(db=db)
     return {"configured": bool(token), "tail": _mask(token or "")}
 
 
@@ -95,8 +102,9 @@ async def test_github_token(db: Session, candidate: str | None = None) -> dict[s
         text = (candidate or "").strip()
         token = text or None
     else:
-        row = _get_row(db)
-        stored = decrypt_secret(row.secret_enc) if row and row.secret_enc else ""
+        # Reads through the credential store so an undecryptable stored token
+        # degrades to the env/no-token fallback instead of 500ing the probe.
+        stored = read_stored_token(db=db)
         token = stored or None
     client = GitHubClient(token=token)
     data = await client.get_rate_limit()
@@ -112,7 +120,10 @@ async def test_github_token(db: Session, candidate: str | None = None) -> dict[s
         "ok": True,
         "limit": core.get("limit"),
         "remaining": core.get("remaining"),
-        "reset_in": max(0, int(core.get("reset", 0)) - time.time()) if core.get("reset") else None,
+        # Whole seconds: the published response schema types this as int.
+        "reset_in": max(0, int(core.get("reset", 0)) - int(time.time()))
+        if core.get("reset")
+        else None,
         "authenticated": bool(client.token),
     }
 
