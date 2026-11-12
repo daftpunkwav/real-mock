@@ -44,7 +44,7 @@ dependencies = [
     "pydantic-settings>=2.6.0,<3",
     "httpx>=0.28.0,<1",
     "python-multipart>=0.0.17,<1",
-    "pypdf>=5.1.0,<7",
+    "pypdf>=5.1.0,<8",
     # Image-PDF fallback: render pages to images for vision transcription (lazy-import path).
     # Floor 1.24.3: the canonical `pymupdf` module only exists from 1.24.3 on
     # (1.24.0-1.24.2 ship `fitz` only), and `fitz` is the deprecated alias
@@ -75,7 +75,7 @@ dev = [
     # The gate toolchain, pinned exactly: a local run must exercise the same
     # formatter, type checker, coverage runner and auditor the pipeline gates
     # with, not whatever the developer's environment happens to carry.
-    "ruff==0.17.3",
+    "ruff==0.17.4",
     "mypy==2.4.1",
     "pytest-cov==7.1.0",
     "pip-audit==2.10.1",
