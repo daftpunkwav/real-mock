@@ -32,6 +32,7 @@ pytest 位于 `apps/api/pyproject.toml` 的 `dev` extra（`[project.optional-dep
 | `sessions/` | 会话级集成：auth、限流、SSRF 钉扎、WS 互斥、流式 |
 | `voice/` | 语音能力（voice 配置、resolve、TTS） |
 | `architecture/` | 架构守卫测试 |
+| `ci_gate/` | `scripts/ci/` 下的仓库级 CI 门禁脚本（文档中英配对、大小写冲突、editorconfig、依赖政策、锁同步） |
 | `smoke/` | platform 与各域服务的聚合启动冒烟 |
 | `tests/test_prompt_hygiene.py`（tests 根目录文件） | prompt 文本必须位于 prompt 模块（`prompts.py` / `*_prompts.py`），不得内联在业务文件中（AST 守卫） |
 
@@ -82,7 +83,7 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 | `npx tsc --noEmit` | TypeScript 类型门 |
 | `npm run lint` | ESLint |
 
-测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 95 个 `*.test.ts(x)` 文件。
+测试放在被测代码旁的 `__tests__/` 目录中；当前规模为 `src/` 下 96 个 `*.test.ts(x)` 文件。
 
 ## CI 门禁
 
@@ -90,7 +91,7 @@ Realtime 测试 patch 所属模块的模块级符号（如 `turn.stt_finish.tran
 
 | Job | 检查 |
 | --- | --- |
-| `backend` | `ruff==0.16.10`（静态检查与格式检查）；`mypy==2.4.0` 检查 `src`（阻塞）；OpenAPI 契约同步（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90` |
+| `backend` | `ruff==0.17.4`（静态检查与格式检查）；`mypy==2.4.1` 检查 `src`（阻塞）；OpenAPI 契约同步（`export_openapi.py` 运行后 `openapi.json` 必须无变化）；pytest 全量回归 + 整包覆盖率门 `--cov=realmock --cov-fail-under=90` |
 | `frontend` | `npm ci`；`npx tsc --noEmit`；`npm run lint`；`npm test`（覆盖率阈值由 `vitest.config.mts` 设定）；`npm run build`；`npm run format:check`；i18n 使用审计（幽灵键与死键） |
 
 同一工作流还会在对应区域有改动时运行 `docker` 与 `workflow-lint`，并在每次运行时执行 `repo-hygiene`（editorconfig、大小写冲突、文档中英配对、文档内部链接）。完整 job 表见 [deployment.zh.md](deployment.zh.md)。

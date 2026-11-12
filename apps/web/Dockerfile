@@ -1,5 +1,7 @@
 # Frontend web image (build context = apps/web)
-# NEXT_PUBLIC_* injects backend URLs at build time; when unset, next.config.js defaults (127.0.0.1:8081) apply.
+# NEXT_PUBLIC_* inject backend URLs at build time; this file supplies single-host
+# defaults through the ARGs below. Outside the image (local dev), unset vars fall
+# back to next.config.js defaults (127.0.0.1:8081).
 FROM node:24-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./

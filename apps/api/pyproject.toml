@@ -34,9 +34,9 @@ dependencies = [
     # direct import should not rely on that transitive guarantee).
     "starlette>=0.40.0,<2",
     "uvicorn[standard]>=0.32.0,<1",
-    # Cap raised from <2.0.52 to <3 after 2.1.2 verified green: mypy 2.4.0
+    # Cap raised from <2.0.52 to <3 after 2.1.2 verified green: mypy 2.4.1
     # accepts the legacy Query.order_by stubs that 2.0.52 tightened, and the
-    # full pytest suite (96.32% coverage) passes. The ~127 legacy
+    # full pytest suite passes. The 135 legacy
     # Session.query() call sites are still 2.0-style-but-deprecated API, so the
     # next major is not something to opt into without a second verification.
     "sqlalchemy>=2.0.36,<3",
@@ -54,7 +54,7 @@ dependencies = [
     # Cap raised from <16 to <18. The old cap was set before websockets 17
     # existed; the only apparent blocker (langgraph-sdk pinning websockets<16)
     # came from an orphaned langchain install in a shared site-packages, not
-    # from this dependency set - a clean resolve of these 19 direct deps
+    # from this dependency set - a clean resolve of these 18 direct deps
     # pulls 101 packages and no langchain/langgraph. Verified on 17.1.
     "websockets>=12.0,<18",
     "alembic>=1.14.0,<2",

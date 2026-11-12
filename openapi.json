@@ -3100,7 +3100,7 @@
           "interview"
         ],
         "summary": "Get Process",
-        "description": "One process with its round lineage.",
+        "description": "One process with its round lineage; unknown ids are A2001 (404).",
         "operationId": "get_process_api_v1_interview_processes__process_id__get",
         "parameters": [
           {
@@ -7471,7 +7471,7 @@
           "interview"
         ],
         "summary": "Get Process",
-        "description": "One process with its round lineage.",
+        "description": "One process with its round lineage; unknown ids are A2001 (404).",
         "operationId": "get_process_api_interview_processes__process_id__get",
         "parameters": [
           {

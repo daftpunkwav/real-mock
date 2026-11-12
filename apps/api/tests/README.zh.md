@@ -23,6 +23,7 @@
 | `sessions/` | 会话级集成:auth、限流、SSRF pin、WS 互斥、HTTP/WS 面试流程、流式 |
 | `voice/` | 语音能力(voice config、resolve、TTS、STT provider) |
 | `architecture/` | 架构守卫测试:import 边界(platform 与 domains、DB 边界、interview 分层)、装配(bootstrap ORM 注册、app factory)、已发布的 REST 契约(路径约定、响应结构与媒体类型、OpenAPI 同步)、跨层契约(ledger 文档、profile 读模型、WS 错误码)、暴露面守卫(仅本地、SSRF、跨站) |
+| `ci_gate/` | `scripts/ci/` 下的仓库级 CI 门禁脚本(文档中英配对、大小写冲突、editorconfig、依赖政策、锁同步) |
 | `smoke/` | 跨平台与域服务的聚合启动冒烟 |
 
 ## 根级守卫

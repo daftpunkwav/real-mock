@@ -32,6 +32,7 @@ pytest lives in the `dev` extra of `apps/api/pyproject.toml` (`[project.optional
 | `sessions/` | Session-level integration: auth, rate limit, SSRF pin, WS mutex, streaming |
 | `voice/` | Voice capabilities (voice config, resolve, TTS) |
 | `architecture/` | Architecture guard tests |
+| `ci_gate/` | Repo-level CI gate scripts under `scripts/ci/` (documentation pairs, case collisions, editorconfig, dependency policy, lock sync) |
 | `smoke/` | Aggregate boot smoke across platform and domain services |
 | `tests/test_prompt_hygiene.py` (root-level file) | Prompt text lives in prompt modules (`prompts.py` / `*_prompts.py`), not inline in business files (AST guard) |
 
@@ -82,7 +83,7 @@ Realtime tests patch module-level symbols in the owning module (e.g. `turn.stt_f
 | `npx tsc --noEmit` | TypeScript type gate |
 | `npm run lint` | ESLint |
 
-Tests live in `__tests__/` directories next to the code they cover; the current scale is 95 `*.test.ts(x)` files across `src/`.
+Tests live in `__tests__/` directories next to the code they cover; the current scale is 96 `*.test.ts(x)` files across `src/`.
 
 ## CI gates
 
@@ -90,7 +91,7 @@ Tests live in `__tests__/` directories next to the code they cover; the current 
 
 | Job | Checks |
 | --- | --- |
-| `backend` | `ruff==0.16.10` (static check and format check); `mypy==2.4.0` over `src` (blocking); OpenAPI contract sync (`export_openapi.py` must leave `openapi.json` unchanged); pytest full regression with whole-package coverage gate `--cov=realmock --cov-fail-under=90` |
+| `backend` | `ruff==0.17.4` (static check and format check); `mypy==2.4.1` over `src` (blocking); OpenAPI contract sync (`export_openapi.py` must leave `openapi.json` unchanged); pytest full regression with whole-package coverage gate `--cov=realmock --cov-fail-under=90` |
 | `frontend` | `npm ci`; `npx tsc --noEmit`; `npm run lint`; `npm test` (coverage thresholds from `vitest.config.mts`); `npm run build`; `npm run format:check`; i18n usage audit (ghost and dead keys) |
 
 The same workflow also runs `docker` and `workflow-lint` when their area changed, and `repo-hygiene` on every run (editorconfig, case collisions, documentation bilingual pairs, internal links). See [deployment.md](deployment.md) for the full job table.

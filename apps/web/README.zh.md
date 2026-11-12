@@ -4,14 +4,14 @@ Next.js + React 前端。dev server 运行在 8080 端口,必须保持 dev 模�
 
 ## 命令
 
-| 命令                         | 用途                                                     |
-| ---------------------------- | -------------------------------------------------------- |
-| `npm run dev`                | 在 8080 端口启动 dev server                              |
-| `npm run build`              | 生产构建(CI 使用;本地开发用 `npm run dev`)               |
-| `npm run test`               | 运行一次 vitest                                          |
-| `npm run test:watch`         | watch 模式运行 vitest                                    |
-| `npm run lint`               | ESLint                                                   |
-| `npm run generate:api-types` | 从后端 OpenAPI 契约再生成 `src/types/generated/api.d.ts` |
+| 命令                         | 用途                                                       |
+| ---------------------------- | ---------------------------------------------------------- |
+| `npm run dev`                | 在 8080 端口启动 dev server                                |
+| `npm run build`              | 生产构建(CI 使用;本地开发用 `npm run dev`)                 |
+| `npm run test`               | 运行一次 vitest，并启用 `vitest.config.mts` 中的覆盖率门槛 |
+| `npm run test:watch`         | watch 模式运行 vitest                                      |
+| `npm run lint`               | ESLint                                                     |
+| `npm run generate:api-types` | 从后端 OpenAPI 契约再生成 `src/types/generated/api.d.ts`   |
 
 `generate:api-types` 先运行 `../../scripts/export_openapi.py`,再对根目录 `openapi.json` 运行 `openapi-typescript`。不要手工编辑 `src/types/generated/`。
 

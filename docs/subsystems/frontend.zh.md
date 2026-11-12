@@ -10,7 +10,7 @@
 | --- | --- |
 | `page.tsx` | 首页 |
 | `profile/` | 候选人资料编辑器 |
-| `resume/` | 简历列表 / 上传 / 深度评审；`resume/preview/` 为服务端渲染的预览页 |
+| `resume/` | 简历列表 / 上传 / 深度评审；`resume/preview/` 为客户端渲染的原件预览页（PDF 页面由后端渲染为图片提供） |
 | `settings/` | 设置 |
 | `prep/` | Prep 教练对话 |
 | `interview/` | 面试配置页(选项、模型绑定、多轮开关;`useInterviewSetup`) |

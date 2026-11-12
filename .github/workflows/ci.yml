@@ -81,7 +81,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   backend:
-    name: Backend (ruff / mypy / pytest / audit)
+    name: Backend (ruff / mypy / pytest)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -159,7 +159,7 @@ jobs:
       # Audits + denylist live in security.yml (scheduled; CVEs need no code change).
 
   frontend:
-    name: Frontend (tsc / lint / test / build / audit)
+    name: Frontend (tsc / lint / test / build)
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest

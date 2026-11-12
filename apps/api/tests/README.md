@@ -23,6 +23,7 @@ Backend test suite. Layout mirrors the source tree: one directory per domain, pl
 | `sessions/` | Session-level integration: auth, rate limit, SSRF pin, WS mutex, HTTP/WS interview flows, streaming |
 | `voice/` | Voice capabilities (voice config, resolve, TTS, STT providers) |
 | `architecture/` | Architecture guard tests: import seams (platform vs. domains, DB boundary, interview layering), composition (bootstrap ORM registration, app factory), the published REST contract (path conventions, response shapes and media types, OpenAPI sync), cross-layer contracts (ledger document, profile read model, WS error codes), exposure guards (local-only, SSRF, cross-site) |
+| `ci_gate/` | Repo-level CI gate scripts under `scripts/ci/` (documentation pairs, case collisions, editorconfig, dependency policy, lock sync) |
 | `smoke/` | Aggregate boot smoke across platform and domain services |
 
 ## Root-level guards

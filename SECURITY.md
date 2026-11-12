@@ -32,8 +32,8 @@ In rough priority order (paths relative to the repository root):
   `LOCAL_API_DEPENDENCIES` (loopback check via `require_local_peer`, browser
   cross-site rejection, and same-origin enforcement on unsafe methods) is
   mounted on all seven domain routers (profile / resume / settings / interview /
-  prep / records / growth); in `ENV=prod` the `TEST_MODE`
-  escape hatch is ignored for non-loopback peers. The same module provides the
+  prep / records / growth); `TEST_MODE` never bypasses the loopback check — it
+  only skips startup work. The same module provides the
   mount-level cross-site guard (`Sec-Fetch-Site` and Origin/Referer checks,
   error `A0403`) applied to every service router, including WS handshakes.
 - **SSRF guard** — `apps/api/src/realmock/platform/core/security/url.py` and
