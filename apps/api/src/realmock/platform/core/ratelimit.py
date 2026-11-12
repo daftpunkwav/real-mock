@@ -247,10 +247,20 @@ def _check_rate_limit_db_once(
         except (json.JSONDecodeError, TypeError):
             stamps = []
         stamps = [float(t) for t in stamps if isinstance(t, (int, float))]
-        # Non-finite timestamps (corrupt/hand-edited row; JSON "1e400" parses
-        # to inf) would never fall out of the sliding window and permanently
-        # brick the key with 429s, so drop them like expired ones.
-        stamps = [t for t in stamps if math.isfinite(t) and t > now - window_seconds]
+        # Drop the stamps that can never leave the window on their own, so a
+        # corrupt row cannot brick the key with permanent 429s:
+        # - non-finite values (corrupt/hand-edited row; JSON "1e400" parses to inf);
+        # - stamps more than one window in the future. Timestamps are wall-clock,
+        #   so a backwards clock step (NTP correction, VM snapshot restore)
+        #   leaves previously written stamps "in the future"; they would be
+        #   counted until the clock catches up. Treating them like expired ones
+        #   is the fail-open direction: the window under-counts instead of
+        #   locking the key out. A skew within one window stays counted.
+        stamps = [
+            t
+            for t in stamps
+            if math.isfinite(t) and now - window_seconds < t <= now + window_seconds
+        ]
         if len(stamps) >= limit:
             retry_after = max(1, int(window_seconds - (now - stamps[0])))
             raise ApiBusinessError(

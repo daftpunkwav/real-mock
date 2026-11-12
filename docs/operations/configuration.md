@@ -29,7 +29,7 @@ Backend configuration lives in `apps/api/src/realmock/platform/config.py` (`Sett
 | `SILENCE_NUDGE_SECONDS` | `silence_nudge_seconds` | Interview silence nudge interval | `10` (range 1-600) |
 | `GITHUB_TOKEN` | `github_token` | Optional GitHub PAT (raises API quota) | `""` (empty) |
 | `INTERVIEW_TOOLS_ENABLED` | `interview_tools_enabled` | Interview agent function-calling tool loop | `True` |
-| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | Tool-loop round cap (policy cap 8 in `agents/agent_policies.py: INTERVIEWER_LOOP`; deployment can raise it deliberately) | `3` (range 0-8) |
+| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | Tool-loop round cap (policy cap 8 in `realmock/domains/interview/agents/agent_policies.py: INTERVIEWER_LOOP`; deployment can raise it deliberately) | `3` (range 0-8) |
 | `ALLOW_LOCAL_LLM` | `allow_local_llm` | Allow local / private-network `base_url` | `False` |
 | `WS_LEASE_BACKEND` | `ws_lease_backend` | WS lease store: `memory` (single worker) / `database` (multi-worker) | `memory` |
 | `RATELIMIT_BACKEND` | `ratelimit_backend` | Rate-limit store: `memory` / `database` | `memory` |
@@ -43,6 +43,8 @@ Backend configuration lives in `apps/api/src/realmock/platform/config.py` (`Sett
 | `SECRET_KEY` | `platform/core/secrets.py` | Master key for field encryption (base64 or plaintext, >= 16 bytes) |
 | `TEST_MODE` | `asgi.py`, `bootstrap/db_bootstrap.py`, `platform/app_factory.py` | `1` switches to test bootstrap (temp DB via conftest, no seed, no legacy split) |
 | `DATABASE_URL` | `config.py` (model validator) | Legacy override, synced to `sessions_database_url` |
+
+`SECRET_KEY` and `TEST_MODE` are read from the **process** environment directly: pydantic-settings loads only the declared `Settings` fields from `platform/.env`, so these two must be exported in the environment (`--env-file` for uvicorn counts). `DATABASE_URL` is a `Settings` field, so the legacy alias also works from the env file.
 
 ## Validation at startup
 
@@ -81,4 +83,4 @@ API keys are encrypted at rest with AES-256-GCM (`platform/core/secrets.py`):
 | Legacy ciphertext | `enc:v1` raises `LegacySecretFormatError`; the key must be re-saved on the Settings page |
 | Readback | Secrets are never returned in clear; list payloads expose a tail mask only |
 
-Runtime resolution order for LLM calls (`platform/capabilities/ai/llm/client/from_db.py`): the model-profile task bindings in the database, then the `stage_configs` fallback; environment variables are the last-resort fallback. On startup, `platform/services/seed.py: seed_llm_settings()` writes the `reason` stage from `LLM_*` env values into `stage_configs` (key encrypted) only when the database has no stage configuration and the environment provides a key.
+Runtime resolution order for LLM calls (`platform/capabilities/ai/llm/client/from_db.py`): the model-profile task bindings in the database, then the `stage_configs` fallback; environment variables are the last-resort fallback. On startup, `platform/services/seed.py: seed_llm_settings()` writes the `reason` stage from `LLM_*` env values into `stage_configs` (key encrypted) when the environment provides a key and that stage has no stored API key; any base URL / model already stored on the stage is overwritten in that case.

@@ -1,6 +1,6 @@
 # Security
 
-Mechanisms that exist in the code, per mechanism. All paths below are verified sources under `apps/api/src/realmock/platform/core/`. The mechanisms assume the deployment boundary the project states for itself: a local-first, single-user app that does not run on the public internet — no multi-user login, no multi-instance mechanisms exist in the code (`session_auth/__init__.py`), so each mechanism below applies within that single-process, loopback-oriented boundary.
+Mechanisms that exist in the code, per mechanism. All paths below are verified sources under `apps/api/src/realmock/platform/core/`. The mechanisms assume the deployment boundary the project states for itself: a local-first, single-user app that does not run on the public internet — no multi-user login and no cross-instance session auth (`session_auth/__init__.py`). The WS lease and rate-limit stores offer a `database` backend for multi-worker runs, but no mechanism here is a substitute for authentication; each one below applies within the default single-process, loopback-oriented boundary.
 
 ## Loopback-only access (`local_only.py`)
 
@@ -39,7 +39,7 @@ SSRF filtering with DNS pinning, used by the agent `fetch` tool and the LLM clie
 
 - AES-256-GCM authenticated encryption (`cryptography.hazmat.primitives.ciphers.aead.AESGCM`); random 16-byte salt and 12-byte nonce per ciphertext; the 32-byte AES key is derived per ciphertext from the master key with PBKDF2-HMAC-SHA256 (200,000 iterations).
 - Ciphertext format `enc:v2:<b64-salt16>:<b64-nonce12>:<b64-tag16>:<b64-cipher>`.
-- Master key source: the `SECRET_KEY` environment variable (base64 or plaintext, ≥16 bytes checked by `validate_master_key_env()`; the `asgi.py` startup gate `_check_secret_key_policy` enforces it when `env=prod`) or an auto-generated key file `data/.secret.key` (mode 0600).
+- Master key source: the `SECRET_KEY` process environment variable (base64 or plaintext, ≥16 bytes checked by `validate_master_key_env()`; the `asgi.py` startup gate `_check_secret_key_policy` enforces it when `env=prod`) or an auto-generated key file `data/.secret.key` (mode 0600). The key loader reads the process environment only — `SECRET_KEY` in `platform/.env` is not picked up (pydantic-settings loads only `Settings` fields from that file), so export it in the environment (or use uvicorn's `--env-file`).
 - Old `enc:v1` ciphertexts raise `LegacySecretFormatError` — no silent migration; users re-save keys on the settings page. Unencrypted plaintext values pass through.
 - Usage: provider channel API keys are encrypted on write (`apply_channel_key` in `domains/settings/services/model_registry.py`) and decrypted by `UnifiedLLMClient` (`decrypt_secret`).
 

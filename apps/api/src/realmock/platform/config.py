@@ -134,11 +134,18 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_cross_fields(self) -> "Settings":
         """Cross-field configuration validation."""
-        # legacy DATABASE_URL: if explicitly set to a path different from the default sessions path, sync it to the sessions database
-        import os
-
-        legacy = os.environ.get("DATABASE_URL")
-        if legacy and legacy != self.sessions_database_url:
+        # Legacy DATABASE_URL: when explicitly set (process environment or the
+        # platform/.env file) to a non-default path, it maps onto the sessions
+        # database. Read the field instead of ``os.environ``: pydantic-settings
+        # parses .env itself and never exports it into ``os.environ``, so the
+        # env-only read silently ignored a DATABASE_URL configured in .env
+        # while ``database_url`` (read by the interview RAG store) pointed at it.
+        legacy = self.database_url if "database_url" in self.model_fields_set else ""
+        # Compare against the field default, not the resolved sessions URL: an
+        # explicitly configured SESSIONS_DATABASE_URL must not be reset to the
+        # default path by a DATABASE_URL that only restates that default.
+        default_sessions_url = type(self).model_fields["sessions_database_url"].default
+        if legacy and legacy != default_sessions_url:
             object.__setattr__(self, "sessions_database_url", legacy)
             object.__setattr__(self, "database_url", legacy)
         if self.is_prod and self.allow_local_llm:
