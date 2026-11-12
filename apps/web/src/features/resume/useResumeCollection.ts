@@ -5,7 +5,8 @@
  * Responsibilities:
  * - Load the list with AbortSignal (cancel stale loads on retry/unmount)
  * - Poll while any row is still parsing (parse_status="pending") so the UI
- *   converges without a manual refresh; stops when visible or after a budget
+ *   converges without a manual refresh; stops once every row settles or after
+ *   a hard time budget
  * - Discard poll snapshots superseded by a manual load (generation guard)
  * - Pick a stable preview id (keep current → active → first)
  * - Expose the selected row and its narrowed analysis
@@ -31,7 +32,8 @@ export type ResumeLoadOptions = {
 
 /** Poll cadence while at least one row is parsing. */
 const PARSE_POLL_INTERVAL_MS = 4_000;
-/** Hard stop for polling (~20 min); a manual refresh re-arms it. */
+/** Hard stop for polling (~20 min). The window re-arms only after a settle
+ * (nothing pending) or a new pending row, never on a silent reload. */
 const PARSE_POLL_MAX_MS = 20 * 60_000;
 
 export function useResumeCollection(onParseSettled?: (rows: ResumeItem[]) => void) {

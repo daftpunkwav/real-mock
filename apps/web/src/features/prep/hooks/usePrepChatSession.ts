@@ -266,9 +266,14 @@ export const usePrepChatSession = ({
   /** Reload the current session's history in place (post-compact refresh). */
   const reloadMessages = useCallback(
     async (id: number) => {
+      // The reload may land after the user switched away (session list stays
+      // clickable while a compaction card is finishing): the same generation
+      // guard the explicit switches use keeps a stale history from being
+      // painted under the newly selected session.
+      const seq = switchSeqRef.current;
       try {
         const list = await loadHistory(id);
-        if (!aliveRef.current) return;
+        if (!aliveRef.current || seq !== switchSeqRef.current) return;
         setMessages(mapHistoryMessages(list, nextMsgId));
         seedBackendCount(id, Array.isArray(list) ? list.length : 0);
         resetContext();

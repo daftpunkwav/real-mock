@@ -120,6 +120,7 @@ export function GithubIntegrationCard() {
           className="field-input !h-9 text-[13px]"
           autoComplete="off"
           spellCheck={false}
+          aria-label={t("integrations.github.placeholder")}
           placeholder={t("integrations.github.placeholder")}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
