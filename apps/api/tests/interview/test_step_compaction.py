@@ -387,6 +387,24 @@ def test_record_step_boundary_pinned_end_excludes_new_step_entry():
     }
 
 
+def test_record_step_boundary_uses_explicit_closed_phase_id():
+    """The boundary names the step being CLOSED, not session.current_phase.
+
+    The turn flow records the boundary after ``save_state`` has already moved
+    ``session.current_phase`` to the next step; the caller therefore passes the
+    closed step's id explicitly (the summarizer's focus hint keys off it).
+    """
+    msgs = [
+        {"role": "system", "content": "head"},
+        {"role": "user", "content": "q"},
+    ]
+    agent = _FakeAgent(msgs)
+    agent.session.current_phase = "next_step"
+    boundary = record_step_boundary(agent, end=2, phase_id="closed_step")
+    assert boundary is not None
+    assert boundary["phase_id"] == "closed_step"
+
+
 # ---- retry-chain termination and failure requeue (resilience contract) ----
 
 

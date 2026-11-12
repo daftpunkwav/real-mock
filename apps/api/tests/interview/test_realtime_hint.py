@@ -114,6 +114,30 @@ async def test_on_request_hint_empty_llm_and_empty_question():
 
 
 @pytest.mark.asyncio
+async def test_on_request_hint_non_string_question_still_terminal():
+    """A non-string ``question`` frame must not raise out of the hint path.
+
+    Inbound WS frames are untrusted: every other dispatcher entry coerces to
+    ``str``; a JSON number/array here used to raise ``AttributeError`` before
+    any terminal event, leaving the room UI loading forever.
+    """
+    h = _make_handler()
+    try:
+        h.ctx.llm = None
+        h.ctx.agent = MagicMock()
+        h.ctx.agent.plan = SimpleNamespace(source="agent", language="zh")
+        for bad in (123, ["a"], {"q": 1}):
+            h.ctx.ws.send_json.reset_mock()
+            await h._on_request_hint({"question": bad})
+            assert h.ctx.ws.send_json.await_args[0][0]["type"] == "reference_hint"
+        h.ctx.ws.send_json.reset_mock()
+        await h._hint_rate_limited({"question": 123})
+        assert h.ctx.ws.send_json.await_args[0][0]["type"] == "reference_hint_error"
+    finally:
+        await h._cancel_bg_tasks()
+
+
+@pytest.mark.asyncio
 async def test_on_request_hint_outline_success_timeout_error():
     h = _make_handler()
     try:

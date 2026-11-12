@@ -274,7 +274,9 @@ async def stream_turn(
         # compactor turns its verbatim dialogue into a structured brief.
         boundary = None
         if phase_changed:
-            boundary = runner.agent.mark_step_boundary(end=boundary_end)
+            # phase_id names the step that just closed; save_state above has
+            # already moved session.current_phase on to the new step.
+            boundary = runner.agent.mark_step_boundary(end=boundary_end, phase_id=turn_phase)
         try:
             runner.spawn_bg_task(_bounded_shadow())
             if boundary is not None:

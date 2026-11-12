@@ -122,7 +122,9 @@ class ReferenceHintMixin:
         """In-memory + LLM only; the full mode opens one short-lived DB session for tools."""
         lang = self._hint_language()
         empty_fb, timeout_fb, error_fb = _FALLBACK[lang]
-        question = strip_markers(strip_think_blocks((data.get("question") or "").strip()))
+        # Inbound frames are untrusted: a non-string question must not raise
+        # before the terminal event (same coercion as the other dispatcher entries).
+        question = strip_markers(strip_think_blocks(str(data.get("question") or "").strip()))
         question = self._extract_hint_question(question)
         if not question or not self.ctx.llm:
             await self.send("reference_hint", question=question or "", content=empty_fb)
@@ -172,7 +174,7 @@ class ReferenceHintMixin:
     def _hint_rate_limited(self, data: dict[str, Any]) -> Any:
         """Terminal error event for hint rate-limiting (never leave the UI loading)."""
         lang = self._hint_language()
-        question = strip_markers(strip_think_blocks((data.get("question") or "").strip()))
+        question = strip_markers(strip_think_blocks(str(data.get("question") or "").strip()))
         return self.send(
             "reference_hint_error",
             question=self._extract_hint_question(question),
