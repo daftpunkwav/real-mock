@@ -98,36 +98,38 @@ class SpecialTokenFilter:
                     self._buf = self._buf[emit_len:]
                 break
             # A separator immediately before the token may be the delimiting
-            # prefix of the leaked token, which is temporarily suspended;
-            # discard it only when the peeling is confirmed, otherwise it will
-            # be released as it is.
+            # prefix of the leaked token, so it is pulled into the candidate
+            # slice and only dropped together with a token that validates.
             lead = 1 if i > 0 and self._buf[i - 1] in _SEPARATOR_CHARS else 0
             if i - lead > 0:
                 self._emit(out, self._buf[: i - lead])
             self._buf = self._buf[i - lead :]
 
+            # ``lead`` keeps the separator in front of the opener, so the body
+            # offset is measured from the opener instead of a fixed index 2; a
+            # fixed offset would count the opener's second character as body
+            # and reject a maximum-length token preceded by a separator.
+            body_start = lead + len(start)
             close_tag = self._OPEN_FORMS[start]
-            j = self._buf.find(close_tag, 2)
+            j = self._buf.find(close_tag, body_start)
             if j < 0:
                 if final or len(self._buf) > _MAX_PENDING:
                     self._emit(out, self._buf)
                     self._buf = ""
                 break  # Wait for more data to spell out the complete token
 
-            body = self._buf[2:j]
+            body = self._buf[body_start:j]
             end = j + len(close_tag)
+            if start == "<|" and body.endswith("|"):
+                # <|body|> form: the closing "|" belongs to the delimiter, so
+                # it must not count toward the body cap (a 48-char body followed
+                # by the delimiter is still a template token).
+                body = body[:-1]
             if body[:1].isspace() or len(body) > _MAX_SPECIAL_BODY or "<" in body or ">" in body:
                 # The first character is blank/overlong/nested angle brackets: it is not a template token and is allowed as per the text.
                 self._emit(out, self._buf[:end])
                 self._buf = self._buf[end:]
                 continue
-            if start == "<|" and body.endswith("|"):
-                # <|body|> Form: closed "|" classified into token
-                body = body[:-1]
-                if len(body) > _MAX_SPECIAL_BODY or "<" in body:
-                    self._emit(out, self._buf[:end])
-                    self._buf = self._buf[end:]
-                    continue
             # Strip token (with leading delimiter with hold)
             self._buf = self._buf[end:]
             # The separator immediately after the token is swallowed together
