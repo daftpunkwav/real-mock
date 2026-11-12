@@ -177,6 +177,14 @@ export const usePrepChatSession = ({
    * restore/switch can never clobber a newer session choice.
    */
   const switchSeqRef = useRef(0);
+  /**
+   * Session whose history is currently rendered. Kept in a ref because an
+   * async callback cannot read the latest ``prepSessionId`` state: a compaction
+   * can finish after the user switched away, and the reload it triggers would
+   * otherwise compare against the generation captured at reload time (already
+   * past the switch) and paint the old session's history under the new one.
+   */
+  const currentSessionIdRef = useRef<number | null>(null);
   /** Guard async restores after unmount. */
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -233,6 +241,7 @@ export const usePrepChatSession = ({
         const restored = mapHistoryMessages(list, nextMsgId);
         if (restored.length === 0) throw new Error("empty session");
         setPrepSessionId(saved);
+        currentSessionIdRef.current = saved;
         setMessages(restored);
         seedBackendCount(saved, Array.isArray(list) ? list.length : 0);
         resetContext();
@@ -267,13 +276,19 @@ export const usePrepChatSession = ({
   const reloadMessages = useCallback(
     async (id: number) => {
       // The reload may land after the user switched away (session list stays
-      // clickable while a compaction card is finishing): the same generation
-      // guard the explicit switches use keeps a stale history from being
-      // painted under the newly selected session.
+      // clickable while a compaction card is finishing): the generation guard
+      // drops a switch that started after the reload; the current-session ref
+      // drops a switch that already completed before the reload was invoked.
       const seq = switchSeqRef.current;
       try {
         const list = await loadHistory(id);
-        if (!aliveRef.current || seq !== switchSeqRef.current) return;
+        if (
+          !aliveRef.current ||
+          seq !== switchSeqRef.current ||
+          currentSessionIdRef.current !== id
+        ) {
+          return;
+        }
         setMessages(mapHistoryMessages(list, nextMsgId));
         seedBackendCount(id, Array.isArray(list) ? list.length : 0);
         resetContext();
@@ -303,6 +318,7 @@ export const usePrepChatSession = ({
           return;
         }
         setPrepSessionId(id);
+        currentSessionIdRef.current = id;
         setMessages(restored);
         seedBackendCount(id, Array.isArray(list) ? list.length : 0);
         setAskDialog(null);
@@ -358,6 +374,7 @@ export const usePrepChatSession = ({
       // legitimate folded turns, so any archive under this id is stale.
       clearArchive(id);
       setPrepSessionId(id);
+      currentSessionIdRef.current = id;
       window.localStorage.setItem(RESTORE_KEY, String(id));
       setTokenUsage(0);
       setUsage(null);
