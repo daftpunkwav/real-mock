@@ -5,10 +5,23 @@ unmodified `buildWorkerSource()` runs against a fake `self`, and snippets go
 through the real sucrase transpile first — the same pipeline as the UI.
  */
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { buildWorkerSource } from "../javascriptRunner";
 import { transpileTypeScript } from "../typescriptRunner";
+
+/**
+ * Warm the on-demand transpiler before the tests.
+ *
+ * sucrase is a lazy dynamic import inside transpileTypeScript, so the first
+ * snippet in a fresh worker also pays its module load. The suite runs every
+ * test file in its own worker, and under that parallel load the load can exceed
+ * a test's default timeout; paying it here keeps the tests' budgets about the
+ * interop behaviour.
+ */
+beforeAll(async () => {
+  await import("sucrase");
+}, 60_000);
 
 interface WorkerReply {
   ok: boolean;
