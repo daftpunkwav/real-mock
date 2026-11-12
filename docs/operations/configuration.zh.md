@@ -46,6 +46,8 @@
 
 `SECRET_KEY` 与 `TEST_MODE` 直接读取**进程**环境：pydantic-settings 只从 `platform/.env` 加载声明过的 `Settings` 字段，因此这两个变量必须在进程环境中导出（uvicorn 的 `--env-file` 也算）。`DATABASE_URL` 是 `Settings` 字段，legacy 别名同样可从 env 文件生效。
 
+`SESSIONS_DATABASE_URL` 同时决定本地知识库位置：Chroma 向量持久化在该 SQLite 数据库旁的 `chroma/` 目录（内存库 URL 回退到 `platform/data/chroma`）。把 sessions 库换到新目录会连带移动知识库；旧目录不会被迁移，且只有配置了 embedding key 时启动才会从目录数据重建集合，因此如需避免重新 embedding，请手动复制 `chroma/`。
+
 ## 启动时校验
 
 | 规则 | 强制位置 |

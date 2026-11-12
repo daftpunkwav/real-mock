@@ -30,7 +30,7 @@ backend job 以 job 级 env 设置 `TEST_MODE`、`ENV=dev`、`LLM_API_KEY`、`LL
 | 安装 | `pip install --retries 5 --timeout 120 --index-url "$PIP_INDEX_URL" -e ./apps/api`（`ARG PIP_INDEX_URL` 可为弱网环境提供镜像源；retries/timeout 防止 opencv 等大 wheel 下载中断）——可编辑（editable）运行时安装，不带 `dev` extra；包从复制进镜像的源码树导入，因此容器实际使用的数据路径与下表一致 |
 | 运行用户 | `appuser`（uid 10001）。agent 沙箱最强方案需要 root；以非特权用户运行时，运行时若支持 userns 则回退到 user namespace，否则降级并在运行说明中显式列出未强制的控制项，绝不静默丢弃。已安装代码保持 root 所有。 |
 | 端口 / 入口 | 8081；`uvicorn realmock.asgi:app --host 0.0.0.0 --port 8081` |
-| 运行时数据 | DB / Chroma / 上传文件位于容器内 `/app/apps/api/src/realmock/platform/data`——运行时需在该路径挂载卷。`data` / `uploads` 目录对 uid 10001 可写；覆盖其上的宿主机卷必须在宿主机 chown 到 10001（构建期 chown 无法改变挂载点）。 |
+| 运行时数据 | DB / Chroma 位于容器内 `/app/apps/api/src/realmock/platform/data`；上传文件默认位于 `/app/apps/api/src/realmock/platform/uploads`（可用 `upload_dir` 覆盖）。运行时需为两个路径分别挂载卷。`data` / `uploads` 目录对 uid 10001 可写；覆盖其上的宿主机卷必须在宿主机 chown 到 10001（构建期 chown 无法改变挂载点）。 |
 
 除上表 Node.js 一行外，该 Dockerfile 有意不再安装其他 apt 包：agent 沙箱会调用 `setpriv` / `runuser` / `unshare`（trixie essential 的 util-linux 包自带）与 `nobody` 用户（来自 base-passwd）。完整沙箱强制还需镜像自身无法授予的运行时特权（如 `docker run --cap-add SYS_ADMIN` 加可写的 `/sys/fs/cgroup`）；缺省时片段仍可运行，且每个未强制的控制项都会以明确的隔离说明回报。
 

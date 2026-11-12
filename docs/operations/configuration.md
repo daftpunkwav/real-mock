@@ -46,6 +46,8 @@ Backend configuration lives in `apps/api/src/realmock/platform/config.py` (`Sett
 
 `SECRET_KEY` and `TEST_MODE` are read from the **process** environment directly: pydantic-settings loads only the declared `Settings` fields from `platform/.env`, so these two must be exported in the environment (`--env-file` for uvicorn counts). `DATABASE_URL` is a `Settings` field, so the legacy alias also works from the env file.
 
+`SESSIONS_DATABASE_URL` also locates the local knowledge base: Chroma vectors are persisted in a `chroma/` directory beside that SQLite database (an in-memory URL falls back to `platform/data/chroma`). Changing the sessions database to a different directory moves the knowledge base with it; the old directory is not migrated, and the catalog collection is rebuilt at startup only when an embedding key is configured, so copy `chroma/` across to avoid re-embedding.
+
 ## Validation at startup
 
 | Rule | Enforced in |
