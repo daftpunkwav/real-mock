@@ -155,6 +155,18 @@ class PrepAgent:
             self._history_corrupt_raw = self.session.messages
             self.messages = []
             return
+        if not all(isinstance(message, dict) for message in loaded):
+            # Rows are indexed as dicts by working-memory loading and the
+            # context builders; one non-object row would otherwise raise out of
+            # this constructor on every turn. Degrade like the other unreadable
+            # payloads: reset, keeping the raw history for the backup.
+            logger.warning(
+                "Prep history has non-object rows, resetting to empty sid=%s",
+                getattr(self.session, "id", ""),
+            )
+            self._history_corrupt_raw = self.session.messages
+            self.messages = []
+            return
         self.messages = loaded
 
     def _backup_corrupt_history(self, db: Session) -> None:

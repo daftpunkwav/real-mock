@@ -16,7 +16,7 @@ The prep agent's tool surface: declaration, registry assembly, and five tool fam
 | `basic/` | `code_exec` (sandboxed snippet verification), `company_info` (target-company interview style), `quiz` (practice question), `take_note` (persist turn conclusions to working memory), `web_search`, `web_fetch` (read one page's full text) | Core per-turn capabilities; `web_fetch` loads on demand |
 | `candidate/` | `profile`, `resume` + `profile_resume_binding.py` | Candidate-data inspection with live ORM binding per call, never cached across calls |
 | `memory/` | `write` (durable, idempotent), `list_summaries`, `list_tags`, `get_detail` | Long-term memory access; the index queries are declared every turn, only the full-text detail read loads on demand |
-| `repo/` | `github.py` | Six tools behind one factory over platform GitHub specs plus a repo-talk tool; loaded on demand |
+| `repo/` | `github.py` | Six tools built by one factory over the platform GitHub specs; loaded on demand, preloaded when the turn text carries a repo signal |
 | `system/` | `availability` (turn-start name-gated static subset policy), `compact` (agent-invoked compaction; declared but intentionally not loaded), `search_tools` (on-demand discovery over the secondary catalog, loads schemas mid-turn lazily) | Meta-tools governing the toolset itself |
 
 Tests: `apps/api/tests/prep/`.

@@ -680,6 +680,21 @@ def test_load_messages_corrupt_json_recovers_empty() -> None:
     assert agent.messages == []
 
 
+def test_load_messages_non_object_row_recovers_empty() -> None:
+    """A JSON list holding a non-object row is unreadable history, not a crash.
+
+    Every turn path builds ``PrepAgent``, and working-memory loading indexes
+    rows as dicts: one bad row used to raise AttributeError out of the
+    constructor (a 500 on chat/compact with no way to recover). Non-object
+    rows degrade like the other corrupt payloads: raw history is kept for the
+    backup and the turn starts from an empty history.
+    """
+    raw = '[{"role": "user", "content": "hi"}, 42]'
+    agent = _agent(messages=raw)
+    assert agent.messages == []
+    assert agent._history_corrupt_raw == raw, "the raw payload stays available for the backup"
+
+
 def test_corrupt_history_backed_up_before_overwrite(db) -> None:
     """The unreadable payload is archived before a save overwrites it."""
     from realmock.platform.core.constants import SessionStatus

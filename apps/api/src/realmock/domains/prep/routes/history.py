@@ -241,6 +241,15 @@ async def _run_compact(
         agent.messages
     ):
         raise_error("A3003")
+    if not any(
+        isinstance(m, dict) and m.get("role") in ("user", "assistant") for m in agent.messages
+    ):
+        # Nothing to fold. Forcing the working context here would persist its
+        # per-turn system suffixes (memory/language/usage hints) as the whole
+        # history: the first-turn seed only builds on an EMPTY history, so the
+        # session would never get the coach prompt and the resume/profile
+        # context. No summarizer call, no history rewrite.
+        return PrepCompactResponse(message_count=len(agent.messages), reason="nothing_to_fold")
     options = CompactionOptions.resolve(
         intensity=params.intensity,
         directive=params.directive,

@@ -221,7 +221,16 @@ def _abandon_resumed_turn(
     the dialog could never resume. Repairs the list the caller is about to
     persist — ``agent.messages``, or the loop's working copy on a cancel
     path (located by pointer content, since a rebuilt list shifts indexes).
+
+    Only a turn that actually resumed a dialog may roll one back: a plain
+    turn can still carry OLD answered-dialog pointers in restored history,
+    and undoing one would delete that answered exchange plus every turn after
+    it (including the just-typed question) and re-open the closed dialog.
     """
+    # The turn state records the resume at prepare time and only a resume turn
+    # ever reaches this helper with it set; both fields are None on plain turns.
+    if agent._turn_state.resumed_dialog_index is None and not agent._turn_state.resume_task_text:
+        return messages
     index = agent._turn_state.resumed_dialog_index
     if index is not None:
         pointer = messages[index + 1] if index + 1 < len(messages) else None
@@ -241,9 +250,12 @@ def _abandon_resumed_turn(
             ):
                 index = position - 1
                 break
+    # The resume bookkeeping is consumed by the rollback attempt (a repeated
+    # call in one turn must not scan again and hit an older dialog's pointer).
+    agent._turn_state.resumed_dialog_index = None
+    agent._turn_state.resume_task_text = None
     if index is None or index < 0:
         return messages
-    agent._turn_state.resumed_dialog_index = None
     undo_dialog_answer(messages, index)
     # The just-typed answer is the first user row AFTER the pointer: prepare
     # appends it to the tail before inserting the pointer, and the rows in
