@@ -11,9 +11,9 @@ this file stays at orchestration level:
   ask_user is in :mod:`ask_user`, streaming helpers in :mod:`streaming`,
   and tool execution in :mod:`tool_exec`.
 
-Underscore helpers kept here (``_tool_definitions``, ``_build_context``,
-``_compact_current_round``, …) are thin delegates preserving the historical
-call surface pinned by routes and tests; the logic lives in the modules above.
+Thin delegates kept here (``_tool_definitions``, ``_build_context``,
+``_compact_current_round``, …) preserve the historical call surface pinned by
+routes and tests; the logic lives in the modules above.
 """
 
 from __future__ import annotations
@@ -209,6 +209,21 @@ class PrepAgent:
         # Conversation list sorted by most recently active
         self.session.updated_at = utcnow()
         commit_session(db)
+
+    def take_resume_rollback(self) -> tuple[int | None, bool]:
+        """Consume the dialog resume recorded for this turn.
+
+        Returns the resumed dialog index (``None`` when the caller must locate
+        the pointer by content) and whether this turn resumed a dialog at all.
+        The bookkeeping is consumed here so a repeated rollback attempt cannot
+        scan again and hit an older, already-answered dialog.
+        """
+        state = self._turn_state
+        index = state.resumed_dialog_index
+        resumed = index is not None or bool(state.resume_task_text)
+        state.resumed_dialog_index = None
+        state.resume_task_text = None
+        return index, resumed
 
     async def _ensure_system(self, db: Session, ui_locale: str | None = None) -> None:
         # The agent is rebuilt per request: refresh the visible-copy locale every
@@ -499,6 +514,9 @@ class PrepAgent:
 
         error_scope = {"domain": "prep", "session": str(getattr(self.session, "id", "") or "")}
         loop = None
+        # ApiBusinessError is not caught: business failures propagate to the
+        # routes for catalog HTTP errors and must never degrade into an empty
+        # silent turn.
         try:
             loop = await asyncio.wait_for(
                 run_agent_loop(
@@ -524,10 +542,6 @@ class PrepAgent:
                 ),
                 timeout=_TURN_TIMEOUT_SECONDS,
             )
-        except ApiBusinessError:
-            # Business failures propagate to routes for catalog HTTP errors;
-            # they must never degrade into an empty silent turn.
-            raise
         except asyncio.TimeoutError:
             logger.warning(
                 "Prep tool rounds exceeded %.0fs turn budget; falling back to closing answer",
@@ -550,6 +564,10 @@ class PrepAgent:
                 return landed, None, search_groups, tool_steps, ""
             return _trim_unpaired_tail(landed or working), None, search_groups, tool_steps, ""
         except Exception as e:
+            if isinstance(e, ApiBusinessError):
+                # Business failures propagate to the routes for catalog HTTP
+                # errors; they must never degrade into a silent fallback turn.
+                raise
             logger.warning("Prep tool round failed: %s", e)
             landed = working_out.get("working") if isinstance(working_out, dict) else None
             if asked_user is not None and asked_user.get("on") and landed is not None:
