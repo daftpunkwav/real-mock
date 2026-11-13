@@ -1229,7 +1229,7 @@ export interface paths {
         };
         /**
          * Get Process
-         * @description One process with its round lineage.
+         * @description One process with its round lineage; unknown ids are A2001 (404).
          */
         get: operations["get_process_api_v1_interview_processes__process_id__get"];
         put?: never;
@@ -2922,7 +2922,7 @@ export interface paths {
         };
         /**
          * Get Process
-         * @description One process with its round lineage.
+         * @description One process with its round lineage; unknown ids are A2001 (404).
          */
         get: operations["get_process_api_interview_processes__process_id__get"];
         put?: never;

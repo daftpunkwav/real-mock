@@ -6,11 +6,19 @@ emotional realism is implemented through rate/pitch, with fallback to plain text
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import re
 
 logger = logging.getLogger(__name__)
+
+# Wall-clock ceiling for one Edge synthesis attempt. The edge-tts websocket has
+# no timeout of its own and the call is awaited from the session's serial TTS
+# queue, so a stalled connection would block every later sentence forever with
+# no error path; bounding each attempt lets the plain-prosody retry and the
+# configured fallback handler take over instead.
+EDGE_TIMEOUT_SECONDS = 30.0
 
 # Default Chinese sounds
 VOICE_PRESETS = {
@@ -89,11 +97,15 @@ def plain_text_for_tts(text: str) -> str:
 
 
 async def _stream_communicate(communicate) -> bytes:
-    audio_bytes = b""
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            audio_bytes += chunk["data"]
-    return audio_bytes
+    async def _collect_audio() -> bytes:
+        audio_bytes = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_bytes += chunk["data"]
+        return audio_bytes
+
+    async with asyncio.timeout(EDGE_TIMEOUT_SECONDS):
+        return await _collect_audio()
 
 
 async def synthesize_to_base64(

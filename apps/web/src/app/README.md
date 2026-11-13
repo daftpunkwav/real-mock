@@ -9,6 +9,7 @@ Next.js App Router: one route segment per page.
 | `resume/`         | Resume list / upload / review; `resume/preview/` is the standalone original-file preview page (client-rendered) |
 | `settings/`       | Settings                                                                                                        |
 | `prep/`           | Prep coach chat                                                                                                 |
+| `interview/`      | Interview setup page (options, model bindings, multi-round toggle)                                              |
 | `interview/[id]/` | Interview room                                                                                                  |
 | `report/[id]/`    | Report view                                                                                                     |
 | `history/`        | Interview history                                                                                               |

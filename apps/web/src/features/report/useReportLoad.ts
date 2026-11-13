@@ -95,13 +95,17 @@ export function useReportLoad(sessionId: number) {
   const seqRef = useRef(0);
 
   const applyPayload = async (data: GetReportResponse, id: number, seq: number) => {
-    const nextLedger = await ensureLedger(id, data);
+    // Publish the report before the ledger fallback fetch: the stream's done
+    // event carries no ledger, so waiting for that second request would leave
+    // the page rendering its "report unavailable" branch for a few frames.
     if (seq !== seqRef.current || id !== sessionIdRef.current) return;
     setReport(data.report);
-    setLedger(nextLedger);
     setStatus(data.status);
     setDuration(data.duration_minutes ?? undefined);
     setMessagesCount(data.messages_count ?? undefined);
+    const nextLedger = await ensureLedger(id, data);
+    if (seq !== seqRef.current || id !== sessionIdRef.current) return;
+    setLedger(nextLedger);
   };
 
   // Bumped by retryGenerate to restart the full load (GET → SSE → poll).

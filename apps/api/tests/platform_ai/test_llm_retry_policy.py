@@ -78,3 +78,9 @@ def test_is_retryable_exception_excludes_read_timeout() -> None:
     # multiply an already-minutes-scale wait.
     assert not is_retryable_exception(httpx.ReadTimeout("still generating"))
     assert not is_retryable_exception(ValueError("unrelated"))
+
+
+def test_connect_timeout_is_retried_like_connect_error() -> None:
+    # The request never reached the provider: retrying is what the shared
+    # ladder is for (ReadTimeout is the only excluded timeout phase).
+    assert is_retryable_exception(httpx.ConnectTimeout("connect timed out"))

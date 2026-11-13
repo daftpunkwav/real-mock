@@ -166,3 +166,52 @@ class TestErrorEnvelope:
         assert r.status_code == 200
         # The successful options path does not need an envelope, but trace_id must be present in the response headers.
         assert "X-Trace-Id" in r.headers
+
+
+class TestUnhandledExceptionTraceId:
+    """The 500 envelope must carry the id the client is told to report.
+
+    Starlette answers unhandled exceptions in ServerErrorMiddleware, outside
+    the trace middleware and after its ContextVar was reset; the request-state
+    copy is what keeps ``error.trace_id`` and ``X-Trace-Id`` populated.
+    """
+
+    @staticmethod
+    def _app():
+        from fastapi import APIRouter
+
+        from realmock.platform.app_factory import create_service_app
+
+        router = APIRouter()
+
+        @router.get("/boom")
+        def boom() -> None:
+            raise RuntimeError("boom for trace-id regression")
+
+        return create_service_app(
+            service_routers=router,
+            title="trace-id regression",
+            description="",
+            service_name="trace-id-regression",
+        )
+
+    def test_unhandled_exception_envelope_keeps_trace_id(self) -> None:
+        with TestClient(self._app(), raise_server_exceptions=False) as client:
+            response = client.get("/api/v1/boom")
+
+        assert response.status_code == 500
+        body = response.json()
+        assert body["error"]["code"] == "B0001"
+        trace_id = body["error"]["trace_id"]
+        assert trace_id, (
+            "the B0001 hint asks the user to report the trace_id, so it must not be empty"
+        )
+        assert response.headers["X-Trace-Id"] == trace_id
+
+    def test_unhandled_exception_honors_a_valid_request_id(self) -> None:
+        request_id = "client-trace-0123456789"
+        with TestClient(self._app(), raise_server_exceptions=False) as client:
+            response = client.get("/api/v1/boom", headers={"X-Request-Id": request_id})
+
+        assert response.json()["error"]["trace_id"] == request_id
+        assert response.headers["X-Trace-Id"] == request_id

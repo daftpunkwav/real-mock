@@ -9,6 +9,7 @@ Conventions: no real network/model downloads (all clients mocked).
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import sys
 import types
@@ -141,6 +142,23 @@ async def test_stream_communicate_filters_audio_only():
     )
     out = await edge_mod._stream_communicate(comm)
     assert out == b"abcd"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_stalled_websocket_is_bounded(monkeypatch):
+    # The serial TTS queue awaits synthesis without a caller-level timeout, so
+    # a stalled edge-tts websocket must fail each bounded attempt instead of
+    # blocking every later sentence forever.
+    monkeypatch.setattr(edge_mod, "EDGE_TIMEOUT_SECONDS", 0.05)
+
+    class _StalledComm:
+        async def stream(self):
+            await asyncio.sleep(5)
+            yield {"type": "audio", "data": b"never"}
+
+    _install_fake_edge_tts(monkeypatch, lambda *a, **k: _StalledComm())
+    with pytest.raises(RuntimeError, match="Edge TTS"):
+        await asyncio.wait_for(edge_mod.synthesize_to_base64("hello"), timeout=2)
 
 
 @pytest.mark.asyncio

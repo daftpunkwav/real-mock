@@ -86,10 +86,18 @@ def is_retryable_status(status_code: int) -> bool:
 
 def is_retryable_exception(exc: BaseException) -> bool:
     """Connection-level failures are transient; ReadTimeout never is (the
-    provider is still generating — retrying would multiply the wait)."""
+    provider is still generating — retrying would multiply the wait).
+
+    ``ConnectTimeout`` is a connect-phase failure (the request never reached
+    the provider), so it retries like ``ConnectError`` — only the read phase's
+    timeout is excluded.
+    """
     if isinstance(exc, httpx.ReadTimeout):
         return False
-    return isinstance(exc, (httpx.ConnectError, httpx.WriteError, httpx.RemoteProtocolError))
+    return isinstance(
+        exc,
+        (httpx.ConnectError, httpx.ConnectTimeout, httpx.WriteError, httpx.RemoteProtocolError),
+    )
 
 
 __all__ = [

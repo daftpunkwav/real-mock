@@ -115,6 +115,48 @@ describe("versionCompare", () => {
     expect(overlayRadarSeries(versions, 2, ["a", "b", "c", "d"]).length).toBe(1);
   });
 
+  it("overlays only earlier versions when previewing an older row", () => {
+    const dimsV2 = {
+      a: { score: 99, comment: "" },
+      b: { score: 99, comment: "" },
+      c: { score: 99, comment: "" },
+      d: { score: 99, comment: "" },
+    };
+    const v1 = row({
+      id: 1,
+      family_id: 1,
+      version_n: 1,
+      score: 70,
+      analysis: { score: 70, dimension_scores: dims },
+    });
+    const v2 = row({
+      id: 2,
+      family_id: 1,
+      version_n: 2,
+      score: 82,
+      analysis: { score: 82, dimension_scores: dimsV2 },
+    });
+    const v3 = row({
+      id: 3,
+      family_id: 1,
+      version_n: 3,
+      score: 75,
+      analysis: { score: 75, dimension_scores: dims },
+    });
+    const keys = ["a", "b", "c", "d"];
+    const versions = familyScoredVersions([v1, v2, v3], 1);
+
+    // The earliest version has nothing earlier to overlay.
+    expect(overlayRadarSeries(versions, 1, keys)).toEqual([]);
+    // Previewing v2 overlays v1 only — never the later v3.
+    expect(overlayRadarSeries(versions, 2, keys)).toEqual([[60, 70, 80, 50]]);
+    // The latest version keeps the two earlier overlays in ascending order.
+    expect(overlayRadarSeries(versions, 3, keys)).toEqual([
+      [60, 70, 80, 50],
+      [99, 99, 99, 99],
+    ]);
+  });
+
   it("keeps dims-less scored rows in the score series for the compare view", () => {
     // v1 is an older run: scored overall but without dimension detail.
     const v1 = row({ id: 1, family_id: 1, version_n: 1, score: 68, analysis: { score: 68 } });

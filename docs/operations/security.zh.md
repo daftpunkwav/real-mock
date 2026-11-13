@@ -1,6 +1,6 @@
 # 安全
 
-逐机制描述代码中实际存在的安全机制。以下路径均位于 `apps/api/src/realmock/platform/core/`,已逐一核验。这些机制的适用边界即项目自我声明的部署边界:本地优先、单用户、不上公网 — 代码中不存在多用户登录与多实例机制(`session_auth/__init__.py`),因此下述每个机制都在这一单进程、面向环回的边界内生效。
+逐机制描述代码中实际存在的安全机制。以下路径均位于 `apps/api/src/realmock/platform/core/`,已逐一核验。这些机制的适用边界即项目自我声明的部署边界:本地优先、单用户、不上公网 — 没有多用户登录,也没有跨实例的会话认证(`session_auth/__init__.py`)。WS 租约与限流存储提供 `database` 后端以支持多 worker 运行,但此处没有任何机制可以替代身份认证;下述每个机制都在默认的单进程、面向环回的边界内生效。
 
 ## 仅环回访问(`local_only.py`)
 
@@ -39,7 +39,7 @@
 
 - AES-256-GCM 认证加密(`cryptography.hazmat.primitives.ciphers.aead.AESGCM`);每段密文使用随机 16 字节盐与 12 字节 nonce;32 字节 AES 密钥由主密钥经 PBKDF2-HMAC-SHA256(200,000 次迭代)按密文派生。
 - 密文格式 `enc:v2:<b64-salt16>:<b64-nonce12>:<b64-tag16>:<b64-cipher>`。
-- 主密钥来源:`SECRET_KEY` 环境变量(base64 或明文,≥16 字节由 `validate_master_key_env()` 校验;`asgi.py` 启动门禁 `_check_secret_key_policy` 在 `env=prod` 时强制),或自动生成的密钥文件 `data/.secret.key`(权限 0600)。
+- 主密钥来源:`SECRET_KEY` 进程环境变量(base64 或明文,≥16 字节由 `validate_master_key_env()` 校验;`asgi.py` 启动门禁 `_check_secret_key_policy` 在 `env=prod` 时强制),或自动生成的密钥文件 `data/.secret.key`(权限 0600)。密钥加载器只读进程环境 — `platform/.env` 中的 `SECRET_KEY` 不会被读取(pydantic-settings 只从该文件加载 `Settings` 字段),请把 `SECRET_KEY` 导出到进程环境(或使用 uvicorn 的 `--env-file`)。
 - 旧 `enc:v1` 密文抛出 `LegacySecretFormatError` — 不做静默迁移;用户在设置页重新保存密钥。未加密的明文值原样通过。
 - 用途:供应方通道 API key 写入时加密(`domains/settings/services/model_registry.py` 的 `apply_channel_key`),`UnifiedLLMClient` 读取时解密(`decrypt_secret`)。
 

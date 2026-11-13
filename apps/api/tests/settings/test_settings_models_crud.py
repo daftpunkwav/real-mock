@@ -187,6 +187,20 @@ class TestProviderCrud:
         with pytest.raises(ApiBusinessError):
             models_routes.create_provider(body, api_db)
 
+    def test_create_duplicate_channel_kind_rejected(self, api_db) -> None:
+        """Two channels of one kind violate the DB unique constraint; reject as 422 input."""
+        _wipe(api_db)
+        body = reg.ProviderCreate(
+            name="dupk",
+            channels=[
+                reg.ChannelWrite(kind="chat", api_base="http://x/v1"),
+                reg.ChannelWrite(kind="chat", api_base="http://y/v1"),
+            ],
+        )
+        with pytest.raises(ApiBusinessError, match="Duplicate channel kind") as exc:
+            models_routes.create_provider(body, api_db)
+        assert exc.value.error_code == "A0001"
+
     def test_create_happy_encrypts_key(self, api_db) -> None:
         _wipe(api_db)
         body = reg.ProviderCreate(
@@ -371,6 +385,16 @@ class TestModelCrud:
         assert out["kind"] == "tts"
         assert out["capabilities"]["vision"] is True
         assert b.id != a.id
+
+    def test_update_blank_model_name_rejected(self, api_db) -> None:
+        """A whitespace-only model name is rejected like create does, not stored empty."""
+        _wipe(api_db)
+        p = _provider(api_db, name="mp6")
+        m = _profile(api_db, p.id, model="keep-me")
+        with pytest.raises(ApiBusinessError, match="empty"):
+            models_routes.update_model(m.id, reg.ModelProfileUpdate(model="   "), api_db)
+        api_db.refresh(m)
+        assert m.model == "keep-me"
 
     def test_delete_bound_blocked_and_happy(self, api_db) -> None:
         _wipe(api_db)

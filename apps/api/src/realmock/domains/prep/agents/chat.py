@@ -221,42 +221,60 @@ def _abandon_resumed_turn(
     the dialog could never resume. Repairs the list the caller is about to
     persist — ``agent.messages``, or the loop's working copy on a cancel
     path (located by pointer content, since a rebuilt list shifts indexes).
+
+    Only a turn that actually resumed a dialog may roll one back: a plain
+    turn can still carry OLD answered-dialog pointers in restored history,
+    and undoing one would delete that answered exchange plus every turn after
+    it (including the just-typed question) and re-open the closed dialog.
     """
-    index = agent._turn_state.resumed_dialog_index
+    index, resumed = agent.take_resume_rollback()
+    if not resumed:
+        return messages
     if index is not None:
         pointer = messages[index + 1] if index + 1 < len(messages) else None
         if not (isinstance(pointer, dict) and pointer.get("content") == DIALOG_ANSWER_OBSERVATION):
             index = None
     if index is None:
-        # The caller's list was rebuilt (turn-start compaction) and the row
-        # shifted: locate this turn's pointer by content instead. Scanning
-        # from the end picks the NEWEST pointer — earlier, already-answered
-        # dialogs carry the same observation text and must not win.
-        for position in range(len(messages) - 1, -1, -1):
-            message = messages[position]
-            if (
-                isinstance(message, dict)
-                and message.get("role") == "tool"
-                and message.get("content") == DIALOG_ANSWER_OBSERVATION
-            ):
-                index = position - 1
-                break
+        index = _latest_dialog_pointer_index(messages)
     if index is None or index < 0:
         return messages
-    agent._turn_state.resumed_dialog_index = None
     undo_dialog_answer(messages, index)
-    # The just-typed answer is the first user row AFTER the pointer: prepare
-    # appends it to the tail before inserting the pointer, and the rows in
-    # between belong to the paused turn (waiting line, working memory). On a
-    # cancel path the loop may have appended further rows behind the answer —
-    # everything from the answer on goes, so persistence lands the exact
-    # paused snapshot and a retry cannot see half-generated rounds.
+    _truncate_from_resumed_answer(messages, index)
+    return messages
+
+
+def _latest_dialog_pointer_index(messages: list[dict[str, Any]]) -> int | None:
+    """Assistant-row index before the newest answer-observation pointer.
+
+    The caller's list may have been rebuilt by turn-start compaction, where
+    indexes shift, so the row is located by content. Scanning from the end
+    picks the NEWEST pointer: earlier, already-answered dialogs carry the same
+    observation text and must not win.
+    """
+    for position in range(len(messages) - 1, -1, -1):
+        message = messages[position]
+        if (
+            isinstance(message, dict)
+            and message.get("role") == "tool"
+            and message.get("content") == DIALOG_ANSWER_OBSERVATION
+        ):
+            return position - 1
+    return None
+
+
+def _truncate_from_resumed_answer(messages: list[dict[str, Any]], index: int) -> None:
+    """Drop the resumed answer and everything the interrupted turn appended.
+
+    The just-typed answer is the first user row after the pointer; rows in
+    between belong to the paused turn (waiting line, working memory). A cancel
+    path may have appended further rows behind the answer, so everything from
+    the answer on goes and persistence lands the exact paused snapshot.
+    """
     for scan in range(index + 1, len(messages)):
         row = messages[scan]
         if isinstance(row, dict) and row.get("role") == "user":
             del messages[scan:]
             break
-    return messages
 
 
 def _persist_failure_state(

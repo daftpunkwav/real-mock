@@ -29,7 +29,7 @@
 | `SILENCE_NUDGE_SECONDS` | `silence_nudge_seconds` | 面试静默提醒间隔 | `10`（范围 1-600） |
 | `GITHUB_TOKEN` | `github_token` | 可选 GitHub PAT（提高 API 配额） | `""`（空） |
 | `INTERVIEW_TOOLS_ENABLED` | `interview_tools_enabled` | 面试 agent 是否启用 function calling 工具循环 | `True` |
-| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | 工具循环轮数上限（策略上限 8，见 `agents/agent_policies.py: INTERVIEWER_LOOP`；部署可有意调高） | `3`（范围 0-8） |
+| `INTERVIEW_MAX_TOOL_ROUNDS` | `interview_max_tool_rounds` | 工具循环轮数上限（策略上限 8，见 `realmock/domains/interview/agents/agent_policies.py: INTERVIEWER_LOOP`；部署可有意调高） | `3`（范围 0-8） |
 | `ALLOW_LOCAL_LLM` | `allow_local_llm` | 是否允许本地 / 内网 `base_url` | `False` |
 | `WS_LEASE_BACKEND` | `ws_lease_backend` | WS 租约存储：`memory`（单 worker）/ `database`（多 worker） | `memory` |
 | `RATELIMIT_BACKEND` | `ratelimit_backend` | 限流存储：`memory` / `database` | `memory` |
@@ -43,6 +43,10 @@
 | `SECRET_KEY` | `platform/core/secrets.py` | 字段加密主密钥（base64 或明文，>= 16 字节） |
 | `TEST_MODE` | `asgi.py`、`bootstrap/db_bootstrap.py`、`platform/app_factory.py` | `1` 切换为测试引导（conftest 临时库、不种子、不拆 legacy 单库） |
 | `DATABASE_URL` | `config.py`（model validator） | legacy 覆盖，同步到 `sessions_database_url` |
+
+`SECRET_KEY` 与 `TEST_MODE` 直接读取**进程**环境：pydantic-settings 只从 `platform/.env` 加载声明过的 `Settings` 字段，因此这两个变量必须在进程环境中导出（uvicorn 的 `--env-file` 也算）。`DATABASE_URL` 是 `Settings` 字段，legacy 别名同样可从 env 文件生效。
+
+`SESSIONS_DATABASE_URL` 同时决定本地知识库位置：Chroma 向量持久化在该 SQLite 数据库旁的 `chroma/` 目录（内存库 URL 回退到 `platform/data/chroma`）。把 sessions 库换到新目录会连带移动知识库；旧目录不会被迁移，且只有配置了 embedding key 时启动才会从目录数据重建集合，因此如需避免重新 embedding，请手动复制 `chroma/`。
 
 ## 启动时校验
 
@@ -81,4 +85,4 @@ API Key 使用 AES-256-GCM 加密落库（`platform/core/secrets.py`）：
 | 旧格式密文 | `enc:v1` 抛出 `LegacySecretFormatError`；需在设置页重新保存 Key |
 | 回读 | 密钥不以明文返回；列表接口仅暴露尾部掩码 |
 
-LLM 调用的运行时解析顺序（`platform/capabilities/ai/llm/client/from_db.py`）：数据库中的 model-profile 任务绑定，其次 `stage_configs` 回退；环境变量为最后兜底。启动时，`platform/services/seed.py: seed_llm_settings()` 仅在数据库无阶段配置且环境变量提供了 Key 时，把 `LLM_*` 环境值写入 `stage_configs` 的 `reason` 阶段（Key 加密落库）。
+LLM 调用的运行时解析顺序（`platform/capabilities/ai/llm/client/from_db.py`）：数据库中的 model-profile 任务绑定，其次 `stage_configs` 回退；环境变量为最后兜底。启动时，`platform/services/seed.py: seed_llm_settings()` 在环境变量提供了 Key 且 `reason` 阶段尚无已存 API Key 时，把 `LLM_*` 环境值写入 `stage_configs` 的 `reason` 阶段（Key 加密落库）；此时该阶段已存的 Base URL / 模型会被覆盖。

@@ -19,7 +19,18 @@ const CHART = `flowchart TB
     C -->|"OPEN"| D["直接降级，不重试"]
 `;
 
-beforeAll(() => {
+/**
+ * Budget for the engine's cold start, outside every test's own timeout.
+ *
+ * The first call pays mermaid's lazy ESM load: ~19 MB of engine chunks across
+ * ~280 modules. That takes seconds on an idle machine and tens of seconds while
+ * the whole suite runs in parallel (one isolated worker per test file), so the
+ * load is hoisted into beforeAll: the tests below then only budget their own
+ * render passes instead of failing on the engine's startup under load.
+ */
+const COLD_ENGINE_LOAD_TIMEOUT_MS = 120_000;
+
+beforeAll(async () => {
   const prototype = window.SVGElement.prototype as unknown as Record<string, unknown>;
   prototype.getBBox = function getBBox(this: SVGElement) {
     const text = this.textContent ?? "";
@@ -28,7 +39,10 @@ beforeAll(() => {
   prototype.getComputedTextLength = function getComputedTextLength(this: SVGElement) {
     return (this.textContent ?? "").length * 8;
   };
-});
+  // Identical specifier as renderDiagramSvg's lazy import, so this is the same
+  // module the render passes below reuse.
+  await import("mermaid");
+}, COLD_ENGINE_LOAD_TIMEOUT_MS);
 
 describe("renderDiagramSvg", () => {
   it("keeps node and edge labels in the rendered output", async () => {

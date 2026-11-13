@@ -8,14 +8,17 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from realmock.domains.interview.capabilities.rag._kb_data import _data_dir
 from realmock.domains.interview.capabilities.rag.company_rag import (
     CompanyKnowledgeRAG,
     _build_documents,
     format_context,
 )
+from realmock.platform import config as platform_config
 from tests.fakes import FakeLLMClient
 
 
@@ -42,6 +45,60 @@ def rag(tmp_path: Path, monkeypatch) -> CompanyKnowledgeRAG:
         name=unique_name, metadata={"hnsw:space": "cosine"}
     )
     return rag
+
+
+# ---- _data_dir: Chroma persists next to the SESSIONS database ------------------
+
+
+def _settings_view(*, sessions_url: str, legacy_url: str) -> SimpleNamespace:
+    """Minimal settings view carrying the two database URL fields."""
+    return SimpleNamespace(sessions_database_url=sessions_url, database_url=legacy_url)
+
+
+def test_data_dir_follows_sessions_database_url(tmp_path, monkeypatch):
+    """Chroma follows ``SESSIONS_DATABASE_URL``, not the legacy ``database_url`` alias.
+
+    Regression: a deployment that only configures SESSIONS_DATABASE_URL leaves
+    the legacy alias at its default, so deriving the directory from the alias
+    kept Chroma in the default platform/data while the sessions DB lived
+    elsewhere.
+    """
+    sessions_db = tmp_path / "custom-data" / "sessions.db"
+    legacy_default = tmp_path / "platform-data" / "sessions.db"
+    monkeypatch.setattr(
+        platform_config,
+        "get_settings",
+        lambda: _settings_view(
+            sessions_url=f"sqlite:///{sessions_db.as_posix()}",
+            legacy_url=f"sqlite:///{legacy_default.as_posix()}",
+        ),
+    )
+    chroma_dir = _data_dir()
+    assert chroma_dir == tmp_path / "custom-data" / "chroma"
+    assert chroma_dir.is_dir()
+
+
+def test_data_dir_default_shared_db_path(tmp_path, monkeypatch):
+    """No split configured (both URLs converge): the directory sits next to the DB."""
+    sessions_db = tmp_path / "data" / "sessions.db"
+    url = f"sqlite:///{sessions_db.as_posix()}"
+    monkeypatch.setattr(
+        platform_config,
+        "get_settings",
+        lambda: _settings_view(sessions_url=url, legacy_url=url),
+    )
+    assert _data_dir() == tmp_path / "data" / "chroma"
+
+
+def test_data_dir_memory_db_falls_back_to_platform_data(tmp_path, monkeypatch):
+    """A memory sessions DB has no parent directory: fall back under PLATFORM_ROOT."""
+    monkeypatch.setattr(
+        platform_config,
+        "get_settings",
+        lambda: _settings_view(sessions_url="sqlite:///:memory:", legacy_url="sqlite:///:memory:"),
+    )
+    monkeypatch.setattr(platform_config, "PLATFORM_ROOT", tmp_path)
+    assert _data_dir() == tmp_path / "data" / "chroma"
 
 
 def test_build_documents_covers_all_companies() -> None:

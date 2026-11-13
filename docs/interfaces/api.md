@@ -104,7 +104,7 @@ Content-reading routes (message / stream / messages / fork / context) require th
 | Methods | Path | Group |
 | --- | --- | --- |
 | GET | `/records/sessions` | session history |
-| GET | `/records/sessions/{session_id}/ledger` | frozen session ledger |
+| GET | `/records/sessions/{session_id}/ledger` | session ledger (frozen once the interview finished; live prefix before) |
 | GET | `/reports/{session_id}` | debrief report (`A2004` while pending / generating, `A2005` when failed) |
 | POST | `/reports/{session_id}/retry` | re-run report generation (idempotent) |
 | GET | `/reports/{session_id}/stream` | pseudo-streamed report (generates once if pending) |

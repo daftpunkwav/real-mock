@@ -26,7 +26,18 @@ logger = logging.getLogger(__name__)
 # ── Envelope Builders ──────────────────────────────────────
 
 
-def _trace_id() -> str:
+def _trace_id(request: Request | None = None) -> str:
+    """Trace id of the request being answered.
+
+    The ContextVar is the normal source. Unhandled exceptions are answered by
+    Starlette's ServerErrorMiddleware, which runs after the trace middleware
+    reset the variable, so the middleware also stashes the id on the request
+    state (shared through the ASGI scope) and that copy is preferred.
+    """
+    if request is not None:
+        state_trace_id = getattr(request.state, "trace_id", "")
+        if state_trace_id:
+            return str(state_trace_id)
     return get_trace_id() or ""
 
 
@@ -38,8 +49,10 @@ def _envelope(
     hint: str = "",
     retryable: bool = False,
     extra_headers: dict[str, str] | None = None,
+    request: Request | None = None,
 ) -> JSONResponse:
     """Construct a unified envelope; automatically write trace_id and extra_headers."""
+    tid = _trace_id(request)
     resp = JSONResponse(
         status_code=status,
         content={
@@ -49,11 +62,10 @@ def _envelope(
                 "message": message,
                 "hint": hint,
                 "retryable": retryable,
-                "trace_id": _trace_id(),
+                "trace_id": tid,
             },
         },
     )
-    tid = get_trace_id()
     if tid:
         resp.headers[TRACE_ID_HEADER] = tid
     for k, v in (extra_headers or {}).items():
@@ -66,6 +78,7 @@ def _envelope_spec(
     *,
     message: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    request: Request | None = None,
 ) -> JSONResponse:
     """Build the envelope using all ErrorSpec fields; when message is omitted, use the spec's default message."""
     return _envelope(
@@ -75,6 +88,7 @@ def _envelope_spec(
         hint=spec.hint,
         retryable=spec.retryable,
         extra_headers=extra_headers,
+        request=request,
     )
 
 
@@ -155,7 +169,13 @@ async def on_unsafe_url(request: Request, exc: UnsafeURLError) -> JSONResponse:
 
 async def on_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception path=%s: %s", request.url.path, exc)
-    return _envelope_spec(CATALOG["B0001"], message="Internal server error, please try again later")
+    # This handler runs outside the trace middleware, so the request state copy
+    # is the only place the id the client is told to report still exists.
+    return _envelope_spec(
+        CATALOG["B0001"],
+        message="Internal server error, please try again later",
+        request=request,
+    )
 
 
 __all__ = [

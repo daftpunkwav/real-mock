@@ -309,12 +309,20 @@ def create_provider(db: Session, body: ProviderCreate) -> dict[str, Any]:
         raise ApiBusinessError(get_spec("A0001"), message="Provider name cannot be empty")
     if db.query(LlmProvider).filter(LlmProvider.name == name).first():
         raise ApiBusinessError(get_spec("A0001"), message=f"Provider '{name}' already exists")
+    seen_kinds: set[str] = set()
     for channel in body.channels:
         safe_base(channel.api_base, label="Base URL")
         if channel.kind not in CHANNEL_KINDS:
             raise ApiBusinessError(
                 get_spec("A0001"), message=f"Unknown channel kind: {channel.kind}"
             )
+        # One channel per kind per provider (DB unique constraint); reject the
+        # duplicate as invalid input instead of letting the insert raise 500.
+        if channel.kind in seen_kinds:
+            raise ApiBusinessError(
+                get_spec("A0001"), message=f"Duplicate channel kind: {channel.kind}"
+            )
+        seen_kinds.add(channel.kind)
     safe_base(body.website_url, label="Website URL")
     row = LlmProvider(
         name=name,
@@ -434,6 +442,8 @@ def update_model(db: Session, model_id: int, body: ModelProfileUpdate) -> dict[s
     row = get_profile(db, model_id)
     if body.model is not None:
         model = body.model.strip()
+        if not model:
+            raise ApiBusinessError(get_spec("A0001"), message="Model name cannot be empty")
         dup = (
             db.query(ModelProfile)
             .filter(

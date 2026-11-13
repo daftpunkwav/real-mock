@@ -287,6 +287,14 @@ def test_process_routes_create_list_and_next_round(db):
     assert f"iv_{nxt.json()['id']}" in client.cookies
 
 
+def test_get_unknown_process_returns_404(db):
+    """Unknown process ids are a client error (A2001), not a 500."""
+    client = _client()
+    resp = client.get("/api/v1/interview/processes/99999999")
+    assert resp.status_code == 404, resp.text
+    assert resp.json()["error"]["code"] == "A2001"
+
+
 def test_process_round_response_carries_lineage(db):
     client = _client()
     body = client.post(

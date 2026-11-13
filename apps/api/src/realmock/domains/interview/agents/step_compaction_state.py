@@ -29,7 +29,7 @@ def steps_state(agent: "InterviewSessionState") -> dict[str, Any]:
 
 
 def record_step_boundary(
-    agent: "InterviewSessionState", *, end: int | None = None
+    agent: "InterviewSessionState", *, end: int | None = None, phase_id: str | None = None
 ) -> dict[str, Any] | None:
     """Close the current step segment; returns the boundary descriptor.
 
@@ -38,7 +38,10 @@ def record_step_boundary(
     exclude messages appended after the close (a phase advance appends the
     NEXT step's entry message, which belongs to the new segment, not this
     one). ``None`` as ``end`` means "everything appended so far".
-    The return ``None`` means there was nothing to close (empty segment).
+    ``phase_id`` names the step being closed: the turn flow passes it because
+    ``save_state`` has already moved ``session.current_phase`` to the next
+    step by the time the boundary is recorded. The return ``None`` means
+    there was nothing to close (empty segment).
     """
     steps = steps_state(agent)
     # Clamp a stale start (e.g. state written before an external history
@@ -52,7 +55,9 @@ def record_step_boundary(
         "start": start,
         "end": end,
         "step_no": int(steps.get("step_no", 1)),
-        "phase_id": str(getattr(agent.session, "current_phase", "") or ""),
+        "phase_id": str(
+            phase_id if phase_id is not None else getattr(agent.session, "current_phase", "") or ""
+        ),
     }
     if end <= start:
         return None

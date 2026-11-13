@@ -409,6 +409,7 @@ export function MemoriesSettingsPanel() {
             className="field-input min-w-40 flex-1"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label={t("memories.searchPlaceholder")}
             placeholder={t("memories.searchPlaceholder")}
           />
           <Select

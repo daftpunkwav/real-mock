@@ -10,7 +10,7 @@ One route segment per page.
 | --- | --- |
 | `page.tsx` | Home |
 | `profile/` | Candidate profile editor |
-| `resume/` | Resume list / upload / review; `resume/preview/` serves the server-rendered preview page |
+| `resume/` | Resume list / upload / review; `resume/preview/` is a client-rendered page showing the original file (PDF pages are served as images by the backend) |
 | `settings/` | Settings |
 | `prep/` | Prep coach chat |
 | `interview/` | Interview setup page (options, model bindings, multi-round toggle; `useInterviewSetup`) |

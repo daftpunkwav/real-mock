@@ -19,11 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 def _data_dir() -> Path:
-    """Chroma persistence directory (the same directory as DB, unified in shared/data)."""
+    """Chroma persistence directory (next to the sessions DB, unified in shared/data).
+
+    The sessions database is the canonical source: ``database_url`` is only a
+    legacy alias that syncs onto ``sessions_database_url`` when explicitly
+    configured, so deriving the directory from it would ignore a deployment
+    that configures ``SESSIONS_DATABASE_URL`` alone.
+    """
     from realmock.platform.config import PLATFORM_ROOT, get_settings
 
     settings = get_settings()
-    db_path = settings.database_url.replace("sqlite:///", "")
+    db_path = settings.sessions_database_url.replace("sqlite:///", "")
     if db_path and not db_path.startswith(":"):
         chroma_dir = Path(db_path).parent / "chroma"
     else:

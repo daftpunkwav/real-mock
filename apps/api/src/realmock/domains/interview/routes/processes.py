@@ -82,8 +82,11 @@ def get_process(
     process_id: int,
     db: Session = Depends(get_sessions_db),
 ):
-    """One process with its round lineage."""
-    return get_process_detail(db, process_id)
+    """One process with its round lineage; unknown ids are A2001 (404)."""
+    try:
+        return get_process_detail(db, process_id)
+    except ProcessRoundError as e:
+        raise_error(e.code)
 
 
 def create_round(

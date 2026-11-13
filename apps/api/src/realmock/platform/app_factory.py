@@ -137,6 +137,10 @@ def install_trace_middleware(app: FastAPI) -> None:
         raw = request.headers.get("x-request-id") or request.headers.get("X-Request-Id")
         token = set_trace_id(_sanitize_request_id(raw))
         response_trace_id = get_trace_id()
+        # The unhandled-exception handler runs OUTSIDE this middleware (Starlette
+        # ServerErrorMiddleware), after the ContextVar was reset, so the request
+        # state carries the id it must embed in the 500 envelope.
+        request.state.trace_id = response_trace_id
         try:
             response = await call_next(request)
         except Exception:

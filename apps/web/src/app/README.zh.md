@@ -9,6 +9,7 @@ Next.js App Router:每个页面一个路由段。
 | `resume/`         | 简历列表 / 上传 / 评价;`resume/preview/` 为独立原件预览页(客户端渲染) |
 | `settings/`       | 设置                                                                  |
 | `prep/`           | Prep 教练会话                                                         |
+| `interview/`      | 面试配置页(选项、模型绑定、多轮开关)                                  |
 | `interview/[id]/` | 面试房                                                                |
 | `report/[id]/`    | 报告查看                                                              |
 | `history/`        | 面试历史                                                              |

@@ -135,16 +135,18 @@ export function dimensionDeltas(
   return out;
 }
 
-/** Earlier scored versions as radar polygons. Empty when ``currentId`` is not scored. */
+/** Earlier scored versions as radar polygons. Empty when ``currentId`` is not
+ * scored (or has no earlier scored version): later versions never overlay a
+ * row the user is previewing. */
 export function overlayRadarSeries(
   versions: ScoredVersion[],
   currentId: number,
   keys: string[],
   maxOverlays = 2,
 ): number[][] {
-  if (!versions.some((row) => row.id === currentId)) return [];
+  const index = versions.findIndex((row) => row.id === currentId);
+  if (index < 0) return [];
   return versions
-    .filter((row) => row.id !== currentId)
-    .slice(-maxOverlays)
+    .slice(Math.max(0, index - maxOverlays), index)
     .map((row) => keys.map((key) => Number(row.dimensions[key] ?? 0)));
 }

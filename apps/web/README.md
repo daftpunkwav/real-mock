@@ -8,7 +8,7 @@ Next.js + React frontend. The dev server runs on port 8080 and must stay in dev 
 | ---------------------------- | --------------------------------------------------------------------------- |
 | `npm run dev`                | Start the dev server on port 8080                                           |
 | `npm run build`              | Production build (used by CI; local development runs `npm run dev`)         |
-| `npm run test`               | Run vitest once                                                             |
+| `npm run test`               | Run vitest once, with the coverage thresholds from `vitest.config.mts`      |
 | `npm run test:watch`         | Run vitest in watch mode                                                    |
 | `npm run lint`               | ESLint                                                                      |
 | `npm run generate:api-types` | Regenerate `src/types/generated/api.d.ts` from the backend OpenAPI contract |

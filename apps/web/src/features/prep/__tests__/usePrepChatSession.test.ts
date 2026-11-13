@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePrepChatSession } from "../hooks/usePrepChatSession";
 import { prepCoachHttp as api } from "@/lib/api/clients";
 import { ApiError } from "@/lib/api/base";
+import type { PrepHistoryMessage } from "@/lib/api/contract";
 
 vi.mock("@/lib/api/clients", () => ({
   prepCoachHttp: {
@@ -199,6 +200,81 @@ describe("usePrepChatSession.switchSession", () => {
       vi.unstubAllGlobals();
     }
   }, 15000);
+});
+
+describe("usePrepChatSession.reloadMessages", () => {
+  it("drops a reload that lands after the user switched sessions", async () => {
+    // A post-compact reload of session 3 is still in flight when the user
+    // switches to session 4: its late response must not repaint the old
+    // history under the newly selected session.
+    let resolveReload!: (v: PrepHistoryMessage[]) => void;
+    const slowReload = new Promise<PrepHistoryMessage[]>((resolve) => {
+      resolveReload = resolve;
+    });
+    mockedPrepMessages
+      .mockResolvedValueOnce([{ role: "user", content: "three" }] as never)
+      .mockImplementationOnce(() => slowReload)
+      .mockResolvedValueOnce([{ role: "user", content: "four" }] as never);
+    const options = makeOptions();
+    const { result } = renderSessionHook(options);
+
+    await act(async () => {
+      await result.current.switchSession(3);
+    });
+
+    let reload!: Promise<void>;
+    act(() => {
+      reload = result.current.reloadMessages(3);
+    });
+
+    await act(async () => {
+      await result.current.switchSession(4);
+    });
+    expect(result.current.prepSessionId).toBe(4);
+    vi.mocked(options.setMessages).mockClear();
+
+    await act(async () => {
+      resolveReload([{ role: "user", content: "stale three" }] as PrepHistoryMessage[]);
+      await reload;
+    });
+
+    expect(options.setMessages).not.toHaveBeenCalled();
+    expect(result.current.prepSessionId).toBe(4);
+  });
+
+  it("discards a reload requested for a session that is no longer viewed", async () => {
+    // Compaction finishes AFTER the user switched away, so the reload is
+    // invoked with the old id once the switch already bumped the generation:
+    // the generation guard alone would accept it. The viewed-session guard
+    // must drop it, or the old history is painted under the new session.
+    let resolveReload!: (v: PrepHistoryMessage[]) => void;
+    const slowReload = new Promise<PrepHistoryMessage[]>((resolve) => {
+      resolveReload = resolve;
+    });
+    mockedPrepMessages
+      .mockResolvedValueOnce([{ role: "user", content: "four" }] as never)
+      .mockImplementationOnce(() => slowReload);
+    const options = makeOptions();
+    const { result } = renderSessionHook(options);
+
+    await act(async () => {
+      await result.current.switchSession(4);
+    });
+
+    let reload!: Promise<void>;
+    act(() => {
+      reload = result.current.reloadMessages(3);
+    });
+
+    vi.mocked(options.setMessages).mockClear();
+    await act(async () => {
+      resolveReload([{ role: "user", content: "stale three" }] as PrepHistoryMessage[]);
+      await reload;
+    });
+
+    expect(options.setMessages).not.toHaveBeenCalled();
+    expect(result.current.prepSessionId).toBe(4);
+  });
 });
 
 describe("usePrepChatSession.restore", () => {

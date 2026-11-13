@@ -83,6 +83,7 @@ export function ChannelCard({
         <input
           className="field-input !h-9"
           value={apiBase}
+          aria-label={t("providerCard.baseUrl.label")}
           placeholder={effectiveFullUrl ? "https://…/v1/endpoint" : "https://…"}
           onChange={(e) => setApiBase(e.target.value)}
         />
@@ -117,6 +118,7 @@ export function ChannelCard({
             className="field-input !h-9 flex-1"
             type={showKey ? "text" : "password"}
             value={apiKey}
+            aria-label={t("providerCard.apiKey.label")}
             placeholder={channel?.has_api_key ? "••••••••" : "sk-…"}
             onChange={(e) => setApiKey(e.target.value)}
           />

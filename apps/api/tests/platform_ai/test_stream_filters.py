@@ -70,6 +70,49 @@ def test_leading_pipe_held_then_released() -> None:
     assert out == "abc|def"
 
 
+def test_separator_adjacent_to_token_stripped_across_chunks() -> None:
+    # The delimiters around a leaked token often arrive in neighbouring SSE
+    # chunks (the "|" is a separate token from "<|minimax|>"); the streamed
+    # output must still match the one-shot sanitizer instead of leaking "|".
+    assert _feed_all(["a|", "<|X|>", "|b"]) == "ab"
+
+
+@pytest.mark.parametrize("text", ["a|<|X|>|b", "]x<]Y[>]z", "|<|p|>|q"])
+def test_stream_matches_one_shot_at_every_split(text: str) -> None:
+    expected = sanitize_special_tokens(text)
+    for cut in range(len(text) + 1):
+        assert _feed_all([text[:cut], text[cut:]]) == expected
+    # Character-by-character delivery is the worst-case chunking.
+    assert _feed_all(list(text)) == expected
+
+
+@pytest.mark.parametrize(("opener", "closer", "separator"), [("<|", "|>", "|"), ("<]", "[>", "]")])
+@pytest.mark.parametrize("body_len", [47, 48])
+def test_separator_before_token_does_not_extend_the_measured_body(
+    opener: str, closer: str, separator: str, body_len: int
+) -> None:
+    """The leading separator must not count as part of the token body.
+
+    The separator is pulled into the candidate slice before validation, so a
+    fixed body offset measured the opener's second character as body text; a
+    maximum-length token preceded by a separator was therefore emitted literally
+    while the one-shot sanitizer stripped it.
+    """
+    text = f"{separator}{opener}{'x' * body_len}{closer}"
+    expected = sanitize_special_tokens(text)
+    assert expected == ""
+    assert _feed_all([text]) == expected
+    assert _feed_all(list(text)) == expected
+
+
+@pytest.mark.parametrize(("opener", "closer"), [("<|", "|>"), ("<]", "[>")])
+def test_max_length_body_token_stripped(opener: str, closer: str) -> None:
+    # The ``<|body|>`` form's closing ``|`` belongs to the delimiter and must
+    # not count toward the 48-character cap; both forms match one-shot here.
+    text = f"{opener}{'y' * 48}{closer}"
+    assert _feed_all([text]) == sanitize_special_tokens(text) == ""
+
+
 def test_stream_sanitizer_reasoning_wrap() -> None:
     s = StreamSanitizer()
     r = s.feed_reasoning("Reasoning") + s.feed_content("Final<|minimax|>") + s.flush()

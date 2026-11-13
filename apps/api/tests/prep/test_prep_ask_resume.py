@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from realmock.domains.prep.agents.agent import PrepAgent
-from realmock.domains.prep.agents.chat import _persist_failure_state
+from realmock.domains.prep.agents.chat import _abandon_resumed_turn, _persist_failure_state
 from realmock.domains.prep.agents.tools.repo.github import GITHUB_TOOL_NAMES
 from realmock.platform.core.errors import CATALOG, ApiBusinessError
 
@@ -404,6 +404,34 @@ def test_failed_prepare_keeps_the_dialog_resumable() -> None:
         m.get("role") == "tool" and "[ask_user]" in str(m.get("content"))
         for m in llm3.seen_inputs[0]
     ), "the retry after the failed prepare resumes the dialog"
+
+
+def test_plain_turn_rollback_leaves_old_answered_dialog_alone() -> None:
+    """A plain (non-resume) turn owns no paused snapshot, so its failure path
+    must not touch history: undoing an OLD answered dialog from a restored
+    session would delete the answered exchange and every later turn (including
+    the just-typed question) and re-open the already-answered dialog."""
+    from realmock.domains.prep.agents.ask_user import DIALOG_ANSWER_OBSERVATION
+
+    history = [
+        {"role": "system", "content": "coach"},
+        {"role": "user", "content": "task text"},
+        _ask_call("Which?", ["Backend", "Algorithm"]),
+        {"role": "tool", "tool_call_id": "c1", "content": DIALOG_ANSWER_OBSERVATION},
+        {"role": "user", "content": "Backend"},
+        {"role": "assistant", "content": "answer to the dialog"},
+        {"role": "user", "content": "new question this turn"},
+    ]
+    session = _FakeSession()
+    session.messages = json.dumps(history)
+    agent = PrepAgent(session, _CapturingLLM([{"role": "assistant", "content": "unused"}]))  # type: ignore[arg-type]
+
+    _abandon_resumed_turn(agent, agent.messages)
+
+    assert agent.messages == history, "a plain turn's rollback must leave history untouched"
+    assert not [m for m in agent.messages if m.get("ask_pending")], (
+        "the answered dialog must not be re-opened"
+    )
 
 
 def test_failed_resume_turn_rolls_back_to_paused_snapshot() -> None:

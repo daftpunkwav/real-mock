@@ -232,6 +232,24 @@ class TestDbRatelimitBranches:
         saved = json.loads(row.timestamps_json)
         assert saved and all(math.isfinite(t) for t in saved)
 
+    def test_future_timestamps_after_clock_rollback_never_brick_key(self, monkeypatch) -> None:
+        """A backwards clock step (VM snapshot restore / NTP correction) leaves
+        older wall-clock stamps in the future; they must not exhaust the window
+        until the clock catches up again."""
+        now = time.time()
+        far_future = now + 3 * 3600
+        row = SimpleNamespace(
+            bucket_key="k:x",
+            timestamps_json=json.dumps([far_future, far_future + 1, now]),
+        )
+        db = _FakeDB(row=row)
+        monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)
+        # limit=2: without the future filter the two far-future stamps reach the
+        # limit and the request is rejected for hours.
+        rl._check_rate_limit_db(bucket_key=("k", "x"), limit=2, window_seconds=60)
+        saved = json.loads(row.timestamps_json)
+        assert saved and all(t <= time.time() + 60 for t in saved)
+
     def test_commit_failure_reraises(self, monkeypatch) -> None:
         db = _FakeDB(row=None, fail_commit=True)
         monkeypatch.setattr(rl, "SessionsSessionLocal", lambda: db)

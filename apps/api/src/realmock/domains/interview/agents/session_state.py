@@ -234,14 +234,18 @@ class InterviewSessionState(SessionPromptMixin):
             "when the step's focus is covered."
         )
 
-    def mark_step_boundary(self, *, end: int | None = None) -> dict[str, Any] | None:
+    def mark_step_boundary(
+        self, *, end: int | None = None, phase_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Close the current step segment; the compactor summarizes it later.
 
         ``end`` pins the segment end (see :func:`record_step_boundary`): the
         caller snapshots the message count BEFORE the phase advance so the
-        next step's entry message stays in the live context.
+        next step's entry message stays in the live context. ``phase_id``
+        names the closed step (the turn flow captures it before ``save_state``
+        moves ``session.current_phase`` on to the next step).
         """
-        return record_step_boundary(self, end=end)
+        return record_step_boundary(self, end=end, phase_id=phase_id)
 
     def mark_step_boundary_reset(self) -> None:
         """Opening: history was rebuilt — the first step starts here."""

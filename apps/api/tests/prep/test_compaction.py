@@ -165,6 +165,28 @@ def test_compact_conflicts_on_stale_expected_count(db, monkeypatch) -> None:
     assert fake.chat_calls == [], "conflict must short-circuit before any LLM call"
 
 
+def test_compact_empty_session_is_a_noop(db, monkeypatch) -> None:
+    """An empty session has nothing to fold: the run must not rewrite its empty
+    history into turn-context hint blocks. The first turn's seed only builds on
+    an empty history, so a persisted hint-only history would silently drop the
+    coach prompt and the resume/profile context for the whole session."""
+    fake = _SummaryLLM()
+    monkeypatch.setattr(LLMClient, "from_db", classmethod(lambda cls, *a, **k: fake))
+    session = _session_with_messages(db, [])
+    with TestClient(app) as client:
+        resp = _compact(client, session.id)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["reason"] == "nothing_to_fold"
+    assert body["message_count"] == 0
+    assert body["summarized"] is False
+    assert fake.chat_calls == [], "nothing to fold means no summarizer call"
+    db.expire_all()
+    assert json.loads(db.get(PrepSession, session.id).messages) == [], (
+        "the empty history must stay empty so the first turn still seeds the coach prompt"
+    )
+
+
 def test_compact_rejects_invalid_params(db) -> None:
     session = _session_with_messages(db, _big_turns())
     with TestClient(app) as client:

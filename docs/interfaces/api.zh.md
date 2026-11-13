@@ -104,7 +104,7 @@ SSE 错误事件遵循固定的透出规则（`platform/capabilities/ai/llm/prov
 | 方法 | 路径 | 端点组 |
 | --- | --- | --- |
 | GET | `/records/sessions` | 面试历史 |
-| GET | `/records/sessions/{session_id}/ledger` | 冻结的会话台账 |
+| GET | `/records/sessions/{session_id}/ledger` | 会话台账(面试结束后冻结;结束前为实时前缀) |
 | GET | `/reports/{session_id}` | 复盘报告（pending / generating 返回 `A2004`，failed 返回 `A2005`） |
 | POST | `/reports/{session_id}/retry` | 重新排队报告生成（幂等） |
 | GET | `/reports/{session_id}/stream` | 伪流式报告（pending 时生成一次） |

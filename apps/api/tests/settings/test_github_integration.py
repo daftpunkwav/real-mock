@@ -178,3 +178,62 @@ async def test_github_probe_failure_is_structured(monkeypatch, api_db) -> None:
     out = await gh_settings.test_github_token(api_db, candidate="ghp_wrong")
     assert out["ok"] is False
     assert out["status"] == 401
+
+
+@pytest.mark.asyncio
+async def test_github_probe_quota_reset_is_whole_seconds(monkeypatch, api_db) -> None:
+    """``reset_in`` must be an integer: the route's int-typed response rejects fractions."""
+    payload = {"resources": {"core": {"limit": 5000, "remaining": 4990, "reset": 9999999999}}}
+    _patch_http(monkeypatch, [_FakeResp(status=200, payload=payload)])
+    out = await gh_settings.test_github_token(api_db, candidate="github_pat_probe1")
+    assert isinstance(out["reset_in"], int)
+
+
+def test_github_probe_route_serializes_quota(monkeypatch) -> None:
+    """The HTTP Test button must answer 200 with the quota, not a 500.
+
+    The service returns ``reset_in`` for a live ``/rate_limit`` response; the
+    route validates it against the published ``GithubTestResponse`` contract.
+    """
+    from fastapi.testclient import TestClient
+
+    from realmock.asgi import app
+    from realmock.platform.core.ratelimit import reset_rate_limit
+
+    payload = {"resources": {"core": {"limit": 5000, "remaining": 4990, "reset": 9999999999}}}
+    _patch_http(monkeypatch, [_FakeResp(status=200, payload=payload)])
+    reset_rate_limit()
+    try:
+        with TestClient(app) as client:
+            res = client.post(
+                "/api/v1/settings/integrations/github/test",
+                json={"token": "github_pat_probe1"},
+            )
+    finally:
+        reset_rate_limit()
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["ok"] is True
+    assert body["remaining"] == 4990
+    assert isinstance(body["reset_in"], int)
+
+
+def test_status_survives_undecryptable_stored_token(api_db) -> None:
+    """A legacy/corrupt ciphertext reads as unconfigured instead of 500ing the page.
+
+    ``decrypt_secret`` raises for ``enc:v1`` ciphertext (the documented
+    re-save migration path) and for a changed master key; the status read must
+    degrade like the platform credential store does, not crash the endpoint.
+    """
+    from realmock.platform.capabilities.integrations.github.token_store import (
+        GITHUB_CREDENTIAL_KEY,
+    )
+    from realmock.platform.models import IntegrationCredential
+
+    api_db.query(IntegrationCredential).filter(
+        IntegrationCredential.key == GITHUB_CREDENTIAL_KEY
+    ).delete()
+    api_db.add(IntegrationCredential(key=GITHUB_CREDENTIAL_KEY, secret_enc="enc:v1:legacy"))
+    api_db.commit()
+
+    assert get_github_status(api_db) == {"configured": False, "tail": ""}
