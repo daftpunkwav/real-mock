@@ -75,7 +75,7 @@ dev = [
     # The gate toolchain, pinned exactly: a local run must exercise the same
     # formatter, type checker, coverage runner and auditor the pipeline gates
     # with, not whatever the developer's environment happens to carry.
-    "ruff==0.17.4",
+    "ruff==0.17.5",
     "mypy==2.4.1",
     "pytest-cov==7.1.0",
     "pip-audit==2.10.1",
